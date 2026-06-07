@@ -1,5 +1,5 @@
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isAllowedZatcaFixturePath, ZATCA_SDK_FIXTURE_REGISTRY } from "./zatca-official-fixtures";
 import {
@@ -117,9 +117,9 @@ describe("ZATCA SDK paths", () => {
     });
 
     expect(config.enabled).toBe(true);
-    expect(config.sdkJarPath).toBe("C:\\sdk\\zatca.jar");
-    expect(config.configDir).toBe("C:\\sdk\\Configuration");
-    expect(config.workDir).toBe("C:\\temp\\zatca");
+    expect(config.sdkJarPath).toBe(resolve("C:\\sdk\\zatca.jar"));
+    expect(config.configDir).toBe(resolve("C:\\sdk\\Configuration"));
+    expect(config.workDir).toBe(resolve("C:\\temp\\zatca"));
     expect(config.javaBin).toBe("C:\\Java 11\\bin\\java.exe");
     expect(config.timeoutMs).toBe(45000);
   });

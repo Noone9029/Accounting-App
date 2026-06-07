@@ -13,9 +13,11 @@ This is an original implementation inspired by common accounting workflows. It d
 - DEV-08 local AP evidence is closed for its local-only scope, but AP is not production-complete and remains unproven for production/beta/customer data, real provider email delivery, broad AP E2E/smoke/full-test coverage, and real ZATCA behavior.
 - DEV-09 local banking/reconciliation evidence is closed for its local-only scope, but banking is not production-complete and remains unproven for live bank feeds, automatic matching, certified bank-specific parser coverage, raw statement archive operations, production/beta/customer data, broad E2E/smoke/full-test coverage, and accountant sign-off.
 - DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting is not production-complete and remains unproven for accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, production/beta/customer data, broad E2E/smoke/full-test coverage, and load/concurrency.
+- DEV-11 is closed as local-only inventory valuation and COGS evidence, but inventory accounting is not production-complete. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - ADR-001 for final production hosting is drafted/proposed only; implementation has not started, no provider is provisioned, and no production deploy was performed.
 - ADR-013 for API hosting is drafted/proposed only; it recommends AWS ECS Fargate for the paid SaaS v1 API with separate API and worker services, but ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, and no env vars, database, Redis, storage, ZATCA, email, accounting logic, or customer data changed.
-- Real ZATCA production compliance is not enabled. CSID execution, signing, clearance/reporting, PDF/A-3, real network submission, and production compliance certification remain blocked.
+- Real ZATCA production compliance is not enabled. Local generated standard invoice and credit-note fixtures passed no-network SDK validation under Java 11.0.26, the approved local dummy-material run passed sign/QR/signed-validation for sanitized fixtures, key custody/CSID lifecycle design is documented, sandbox CSID preflight reports `PREFLIGHT_BLOCKED`, sandbox OTP/CSID approval-plan recognition reports `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`, sandbox request execution guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, CSID response custody guard reports `CUSTODY_METADATA_SIMULATION_BLOCKED`, sandbox adapter execution approval reports `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`, sandbox adapter boundary check reports `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`, and sandbox adapter no-network contract tests report `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS` through `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`. SDK CI readiness is currently `CI_BLOCKED_MISSING_SDK_REFERENCE`. OTP/CSID requests, sandbox adapter execution, mock/disabled adapter execution, request body creation, real response body processing, token/secret/certificate persistence, production signing, production Phase 2 QR, clearance/reporting, PDF-A3, real network submission, and production compliance certification remain blocked.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backups, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - The practical current stage is controlled beta with selected testers, dummy/sanitized data, and clear non-production limitations.
 
@@ -1594,6 +1596,8 @@ Only the `standard` renderer is implemented today. `compact` and `detailed` are 
 
 Generated PDF downloads are archived automatically in the database through `GeneratedDocument`, including report PDFs and bank reconciliation report PDFs. Archive list/detail endpoints exclude the base64 payload; `/generated-documents/:id/download` streams the archived PDF. Local base64 storage is intentionally temporary and should move to S3-compatible storage before production scale.
 
+DEV-12 closed local-only generated-document storage retention evidence for marker `DEV12-DOC-20260530T000000`: a synthetic DB-backed generated document was created, metadata list/detail/filter checks excluded body fields, one approved local download matched stored size/hash without body output, storage readiness/migration dry-run checks stayed count-only, and retention/legal-hold cleanup gaps were documented. The closure is recorded in `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+
 ## Uploaded Attachments
 
 LedgerByte has reusable uploaded attachment groundwork for supporting documents on accounting and operational records. Generated PDFs remain in `GeneratedDocument`; uploaded files are stored separately as `Attachment` records and are managed from the source record detail pages.
@@ -1628,6 +1632,7 @@ Known limitations:
 - Generated documents still use database/base64 storage.
 - No OCR, receipt scanning, file parsing, or virus scanning exists yet.
 - No drag/drop polish, retention/lifecycle policy, email attachment sending, or ZATCA attachment submission exists yet.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
 ## Email Delivery, Invitations, And Password Reset
 
@@ -1850,7 +1855,7 @@ Permission matrix categories:
 - ZATCA credit note XML/signing/submission is not implemented yet.
 - ZATCA debit note XML/signing/submission is not implemented yet.
 - Inventory returns from credit notes are not implemented yet.
-- Recurring invoices are not implemented yet.
+- Recurring invoice templates support controlled manual draft-invoice generation; automatic recurring schedulers, email delivery, payment links, and background workers are not implemented yet.
 - Bank reconciliation has local manual CSV/JSON/text plus limited OFX/CAMT/MT940 import preview/manual matching, approval, close-lock, report export groundwork, and a design-only raw-file archive policy, but no live feed, raw statement-file archive implementation, certified bank-specific parser coverage, or auto-match yet.
 - Inventory warehouse, stock ledger, adjustment approval, warehouse transfer, manual purchase receipt, manual sales stock issue, valuation settings, manual COGS posting, manual compatible receipt asset posting, inventory clearing settings, purchase bill clearing-mode finalization, bill/receipt matching visibility, clearing reconciliation/variance reports, and operational reports exist, but no automatic COGS posting, no automatic purchase receipt asset posting, no direct-mode receipt posting, no automatic variance journals, automatic purchase/sales posting, landed cost, serial/batch tracking, or accounting-grade inventory financial reports are implemented yet.
 - BullMQ workers, generated-document S3 storage, and DB-to-S3 migration executors are not wired yet.
@@ -2554,3 +2559,42 @@ Recommended next step:
 - RPO/RTO and legal/accounting retention durations remain business-review items. LedgerByte does not infer legal retention periods in code or docs.
 - Latest backup/restore readiness verification: `corepack pnpm db:generate`, `corepack pnpm db:migrate`, targeted API system tests, targeted web storage tests, `corepack pnpm typecheck`, `corepack pnpm build`, `corepack pnpm smoke:accounting`, `git diff --check`, and `git diff --cached --check`.
 - Recommended next prompt: execute a non-production Supabase/Postgres restore drill and object-storage backup verification with sanitized evidence, without exposing secrets or customer content.
+
+## ZATCA local generated XML fixture validation
+
+- `corepack pnpm zatca:generate-local-xml-fixtures` generates sanitized local XML fixtures for a standard invoice and a standard credit note from demo data only.
+- `corepack pnpm zatca:sdk-validate-local -- --fixture ledgerbyte-generated-standard-invoice --fixture ledgerbyte-generated-credit-note --no-network --json` validates those fixtures through the repo-local official SDK wrapper with metadata-only evidence.
+- Java 11-14 is required for the SDK. Default Java 17 remains a safe blocker; use `ZATCA_SDK_JAVA_BIN` for a compatible local Java binary without changing global Java.
+- This is local preparation only. It does not sign XML, request OTP/CSID, call ZATCA, clear/report invoices, generate PDF/A-3, send email, deploy, or prove production compliance.
+
+## ZATCA local signed XML validation plan
+
+- `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports metadata-only blockers before any future dummy-material signing experiment.
+- The guard does not execute SDK signing, QR, hash, or validation commands and does not write signed XML.
+- Evidence policy remains metadata-only: no XML bodies, signed XML bodies, QR payload bodies, private keys, certificate bodies, OTPs, CSID material, tokens, headers, request/response bodies, or customer/vendor payloads.
+- Recommended next prompt: `ZATCA approved local dummy signing execution`.
+
+## ZATCA local dummy signing dry-run guard
+
+- `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` reports a metadata-only command plan for future dummy signing experiments.
+- Planned command shapes are `fatoora -sign`, `fatoora -qr`, and `fatoora -validate` with temp placeholders only in plan mode.
+- The guard reads no certificate/private-key bodies manually, prints no XML/QR bodies, and keeps production compliance false.
+
+## ZATCA approved local dummy signing execution plan
+
+- `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` defines the exact future approval phrase, temp-only fixture scope, planned command sequence, cleanup policy, and metadata-only evidence shape.
+- The approved execution path has now run once locally with explicit Java `11.0.26` and SDK `238-R3.4.8`.
+- `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` passed SDK sign, QR, and signed XML validation stages with metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- This remains local dummy-material evidence only. It does not enable production signing, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
+- `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` now record what the local pass proves and the remaining Phase 2 QR/signing gaps.
+- Key custody and CSID lifecycle design is now documented in `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- Sandbox CSID preflight is now available at `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`; `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md` reports `PREFLIGHT_BLOCKED`.
+- Sandbox OTP/CSID approval planning is documented in `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and performs no OTP/CSID/network/adapter execution.
+- Sandbox CSID request execution guard is documented in `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, with observed results in `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`. Exact guard phrase recognition returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No OTP/CSID/network/adapter/request-body/response-body/secret/signing/clearance/reporting/PDF-A3 behavior occurred.
+- CSID response custody planning is documented in `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`, and `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`; observed guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+- Added sandbox adapter mock-to-real boundary docs: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, and `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+- Boundary check status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+- Added sandbox adapter no-network contract docs: `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`.
+- Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock/disabled adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+- Recommended next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

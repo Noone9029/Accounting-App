@@ -4,6 +4,7 @@ import {
   cashExpensePdfPath,
   creditNotePdfPath,
   customerRefundPdfPath,
+  deliveryNotePdfPath,
   generatedDocumentDownloadPath,
   invoicePdfPath,
   pdfApiUrl,
@@ -11,6 +12,7 @@ import {
   purchaseOrderPdfPath,
   purchaseDebitNotePdfPath,
   receiptPdfPath,
+  salesQuotePdfPath,
   statementPdfPath,
   supplierStatementPdfPath,
   supplierPaymentReceiptPdfPath,
@@ -20,6 +22,8 @@ import {
 describe("PDF download helpers", () => {
   it("builds invoice and receipt PDF paths", () => {
     expect(invoicePdfPath("invoice-1")).toBe("/sales-invoices/invoice-1/pdf");
+    expect(salesQuotePdfPath("quote 1")).toBe("/sales-quotes/quote%201/pdf");
+    expect(deliveryNotePdfPath("delivery note 1")).toBe("/delivery-notes/delivery%20note%201/pdf");
     expect(creditNotePdfPath("credit note 1")).toBe("/credit-notes/credit%20note%201/pdf");
     expect(receiptPdfPath("payment-1")).toBe("/customer-payments/payment-1/receipt.pdf");
     expect(customerRefundPdfPath("refund 1")).toBe("/customer-refunds/refund%201/pdf");

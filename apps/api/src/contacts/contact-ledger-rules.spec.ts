@@ -1,7 +1,8 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CreditNoteStatus, CustomerPaymentStatus, CustomerRefundStatus, DocumentType, SalesInvoiceStatus } from "@prisma/client";
+import { CreditNoteStatus, CustomerPaymentStatus, CustomerRefundStatus, DocumentType, PurchaseReturnStatus, SalesInvoiceStatus } from "@prisma/client";
 import {
   buildCustomerLedgerRows,
+  buildSupplierLedgerRows,
   calculateStatementOpeningBalance,
   ContactLedgerService,
   filterStatementRows,
@@ -260,6 +261,48 @@ describe("customer ledger rules", () => {
       debit: "0.0000",
       credit: "0.0000",
     });
+  });
+
+  it("includes purchase returns as zero-effect supplier ledger rows", () => {
+    const rows = buildSupplierLedgerRows({
+      bills: [],
+      payments: [],
+      purchaseReturns: [
+        {
+          id: "return-1",
+          purchaseReturnNumber: "PRN-000001",
+          returnDate: "2026-05-18T00:00:00.000Z",
+          status: PurchaseReturnStatus.SUBMITTED,
+          reason: "Damaged goods",
+          reference: "SUP-REF-1",
+          sourcePurchaseBillId: "bill-1",
+          sourcePurchaseOrderId: null,
+          sourcePurchaseReceiptId: null,
+          sourceMatchingReviewId: "review-1",
+          relatedPurchaseDebitNoteId: null,
+          relatedSupplierRefundId: null,
+          createdAt: "2026-05-18T00:00:00.000Z",
+          updatedAt: "2026-05-18T00:00:00.000Z",
+          lines: [{ id: "line-1" }],
+        },
+      ],
+    });
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        type: "PURCHASE_RETURN",
+        number: "PRN-000001",
+        debit: "0.0000",
+        credit: "0.0000",
+        balance: "0.0000",
+        sourceType: "PurchaseReturn",
+        metadata: expect.objectContaining({
+          nonPosting: true,
+          sourceMatchingReviewId: "review-1",
+          lineCount: 1,
+        }),
+      }),
+    ]);
   });
 
   it("includes customer refund and void refund rows without double counting other source rows", () => {

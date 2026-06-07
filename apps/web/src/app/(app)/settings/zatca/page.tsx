@@ -18,6 +18,7 @@ import {
   zatcaEgsComplianceCsidRequestPlanPath,
   zatcaEgsComplianceCsidCustodyPlanPath,
   zatcaEgsComplianceCsidCustodyRecordsPath,
+  zatcaCredentialLifecyclePath,
   zatcaCsrConfigReviewApprovePath,
   zatcaCsrConfigReviewRevokePath,
   zatcaEgsCsrConfigPreviewPath,
@@ -53,6 +54,7 @@ import type {
   ZatcaComplianceCsidCustodyPlanResponse,
   ZatcaComplianceCsidCustodyRecordResponse,
   ZatcaComplianceChecklistResponse,
+  ZatcaCredentialLifecycleFoundationResponse,
   ZatcaCsrConfigReview,
   ZatcaEgsCsrConfigPreviewResponse,
   ZatcaEgsUnit,
@@ -128,6 +130,7 @@ export default function ZatcaSettingsPage() {
   const [csrConfigReviewsByUnit, setCsrConfigReviewsByUnit] = useState<Record<string, ZatcaCsrConfigReview[]>>({});
   const [complianceCsidPlanByUnit, setComplianceCsidPlanByUnit] = useState<Record<string, ZatcaComplianceCsidRequestPlanResponse>>({});
   const [complianceCsidCustodyPlanByUnit, setComplianceCsidCustodyPlanByUnit] = useState<Record<string, ZatcaComplianceCsidCustodyPlanResponse>>({});
+  const [credentialLifecycle, setCredentialLifecycle] = useState<ZatcaCredentialLifecycleFoundationResponse | null>(null);
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -160,6 +163,7 @@ export default function ZatcaSettingsPage() {
         const loadedPolicyApprovals = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null);
         const loadedStorageControlEvidence = await apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null);
         const loadedEvidenceCompleteness = await apiRequest<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>(zatcaSignedArtifactStorageEvidenceCompletenessPath()).catch(() => null);
+        const loadedCredentialLifecycle = await apiRequest<ZatcaCredentialLifecycleFoundationResponse>(zatcaCredentialLifecyclePath()).catch(() => null);
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -172,6 +176,7 @@ export default function ZatcaSettingsPage() {
           setPolicyApprovals(loadedPolicyApprovals?.policyApprovals ?? []);
           setStorageControlEvidence(loadedStorageControlEvidence?.controlEvidence ?? []);
           setEvidenceCompleteness(loadedEvidenceCompleteness);
+          setCredentialLifecycle(loadedCredentialLifecycle);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -666,6 +671,7 @@ export default function ZatcaSettingsPage() {
   const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
   const latestPolicyApproval = policyApprovals[0] ?? immutablePolicyPlan?.latestApproval ?? null;
   const latestStorageControlEvidence = storageControlEvidence[0] ?? null;
+  const activeCredentialLifecycle = credentialLifecycle?.activeCredentialLifecycle ?? null;
 
   return (
     <section>
@@ -681,6 +687,7 @@ export default function ZatcaSettingsPage() {
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!canManageZatca ? <StatusMessage type="info">Your role can view ZATCA readiness but cannot manage profile, EGS, CSR, or CSID actions.</StatusMessage> : null}
         <StatusMessage type="info">Local ZATCA generation only. These settings do not submit invoices to ZATCA and are not production credentials.</StatusMessage>
+        <StatusMessage type="info">ZATCA production compliance is not enabled. This workspace tracks preparation gates only.</StatusMessage>
         {shouldShowZatcaRealNetworkWarning(adapterConfig) ? (
           <StatusMessage type="info">Real ZATCA calls are disabled unless explicitly enabled through environment variables.</StatusMessage>
         ) : null}
@@ -792,6 +799,60 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Sandbox CSID plan" ready={readiness.complianceCsidOnboarding.status !== "BLOCKED"} detail="OTP required, execution disabled, no network by default" />
                 <ReadinessSummary label="CSID custody" ready={readiness.complianceCsidCustody.status !== "BLOCKED"} detail="Token, secret, certificate custody not implemented" />
               </div>
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold text-ink">Preparation gates</h3>
+                <p className="mt-1 text-xs text-steel">Read-only production-readiness documentation and execution gates. These cards do not enable CSID requests, signing, clearance, reporting, PDF/A-3, or production ZATCA compliance.</p>
+                <p className="mt-1 text-xs text-amber-700">SDK validation is local/no-network only. It does not request CSID, sign invoices with production keys, clear invoices, report invoices, or enable production compliance.</p>
+                <p className="mt-1 text-xs text-amber-700">Generated XML fixture validation is local preparation only. Fixture statuses do not expose XML bodies and do not prove ZATCA compliance.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                  <ReadinessSummary label="Environment separation" ready={readiness.environmentPolicyDocumented} detail="Draft policy documented; real network remains gated" />
+                  <ReadinessSummary label="Key custody decision" ready={readiness.keyCustodyDecisionDocumented} detail="Draft decision exists; production custody is pending" />
+                  <ReadinessSummary label="Invoice eligibility matrix" ready={readiness.invoiceEligibilityDocumented} detail="Invoice, credit note, draft, quote, delivery, return, and receipt rules documented" />
+                  <ReadinessSummary label="Audit evidence standard" ready={readiness.auditEvidenceStandardDocumented} detail="Allowed metadata and forbidden secrets documented" />
+                  <ReadinessSummary label="Sandbox onboarding" ready={readiness.sandboxOnboardingRunbookDocumented} detail="Blocked until OTP access and approval gates exist" />
+                  <ReadinessSummary label="SDK validation" ready={readiness.sdkValidationReadinessDocumented} detail="Local no-network validation readiness documented" />
+                  <ReadinessSummary label="SDK validation pipeline" ready={readiness.sdkValidationPipelineDocumented} detail="Repeatable local command wrapper documented" />
+                  <ReadinessSummary label="SDK command" ready={readiness.sdkValidationCommandAvailable} detail="zatca:sdk-validate-local available locally" />
+                  <ReadinessSummary label="Fixture registry" ready={readiness.officialFixtureRegistryDocumented} detail="Official and LedgerByte fixture IDs documented" />
+                  <ReadinessSummary label="Evidence format" ready={readiness.sdkValidationEvidenceFormatDocumented} detail="Metadata-only evidence schema documented" />
+                  <ReadinessSummary label="No-network mode" ready={readiness.sdkValidationNoNetworkOnly} detail="No CSID, signing, clearance, reporting, or PDF/A-3" />
+                  <ReadinessSummary label="Latest SDK evidence" ready={readiness.latestSdkValidationEvidenceStatus === "PASSED"} detail={readiness.latestSdkValidationEvidenceStatus} />
+                  <ReadinessSummary label="Generated standard XML fixture" ready={readiness.generatedStandardInvoiceFixtureStatus === "READY_TO_VALIDATE"} detail={readiness.generatedStandardInvoiceFixtureStatus} />
+                  <ReadinessSummary label="Generated credit-note XML fixture" ready={readiness.generatedCreditNoteFixtureStatus === "READY_TO_VALIDATE"} detail={readiness.generatedCreditNoteFixtureStatus} />
+                  <ReadinessSummary label="Generated fixture evidence" ready={readiness.lastGeneratedFixtureEvidenceStatus === "PASSED"} detail={readiness.lastGeneratedFixtureEvidenceStatus} />
+                  <ReadinessSummary label="Generated fixture Java" ready={!readiness.generatedFixtureJavaBlocker} detail={readiness.generatedFixtureJavaBlocker ?? "Java runtime not blocking local preparation"} />
+                  <ReadinessSummary label="Signing" ready={readiness.signingEnabled} detail="Not implemented" />
+                  <ReadinessSummary label="Clearance/reporting" ready={readiness.clearanceReportingEnabled} detail="Not implemented" />
+                  <ReadinessSummary label="PDF/A-3" ready={readiness.pdfA3Enabled} detail="Not implemented" />
+                  <ReadinessSummary label="Production compliance claim" ready={readiness.productionComplianceEnabled} detail="Blocked" />
+                  <ReadinessSummary label="Real network calls" ready={readiness.realNetworkCallsEnabled} detail="Disabled for this preparation sprint" />
+                </div>
+              </div>
+              {credentialLifecycle ? (
+                <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-ink">Key custody and CSID lifecycle metadata</h3>
+                      <p className="mt-1 text-xs text-steel">Metadata-only foundation. No OTP, private key, certificate body, CSR body, CSID token, request body, response body, signed XML, QR payload, network call, signing, clearance/reporting, PDF/A-3, or production compliance is enabled.</p>
+                    </div>
+                    <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rosewood">Production compliance: false</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                    <ReadinessSummary label="Lifecycle" ready={activeCredentialLifecycle?.lifecycleStatus !== "NOT_CONFIGURED"} detail={zatcaStatusLabel(activeCredentialLifecycle?.lifecycleStatus)} />
+                    <ReadinessSummary label="Environment" ready={Boolean(activeCredentialLifecycle?.environment)} detail={activeCredentialLifecycle?.environment ?? "No active EGS"} />
+                    <ReadinessSummary label="Custody provider" ready={activeCredentialLifecycle?.custodyProviderType !== "NONE"} detail={zatcaStatusLabel(activeCredentialLifecycle?.custodyProviderType)} />
+                    <ReadinessSummary label="Reference alias" ready={Boolean(activeCredentialLifecycle?.custodyReferenceAlias)} detail={activeCredentialLifecycle?.custodyReferenceAlias ?? "Not configured"} />
+                    <ReadinessSummary label="Certificate fingerprint" ready={Boolean(activeCredentialLifecycle?.certificateFingerprint)} detail={truncateHash(activeCredentialLifecycle?.certificateFingerprint, 10)} />
+                    <ReadinessSummary label="Certificate expiry" ready={Boolean(activeCredentialLifecycle?.certificateExpiresAt)} detail={activeCredentialLifecycle?.certificateExpiresAt ?? "Not configured"} />
+                    <ReadinessSummary label="Compliance CSID" ready={activeCredentialLifecycle?.complianceCsidStatus === "COMPLIANCE_CSID_ACTIVE"} detail={zatcaStatusLabel(activeCredentialLifecycle?.complianceCsidStatus)} />
+                    <ReadinessSummary label="Production CSID" ready={false} detail={zatcaStatusLabel(activeCredentialLifecycle?.productionCsidStatus)} />
+                    <ReadinessSummary label="Schema model" ready={credentialLifecycle.modelAvailable} detail={credentialLifecycle.modelAvailable ? "Available for metadata only" : "Migration/generate pending"} />
+                  </div>
+                  <p className="mt-3 text-xs text-amber-700">
+                    Blocked capabilities: {credentialLifecycle.blockedCapabilities.join(", ")}.
+                  </p>
+                </div>
+              ) : null}
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
                 <ReadinessCheckCard title="EGS/hash mode" section={readiness.egs} />

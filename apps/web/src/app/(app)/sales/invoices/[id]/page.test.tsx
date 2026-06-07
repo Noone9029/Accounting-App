@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { InvoiceWorkflowGuidance } from "./page";
-import type { SalesInvoice } from "@/lib/types";
+import SalesInvoiceDetailPage, { InvoiceWorkflowGuidance } from "./page";
+import type { CollectionCase, DeliveryNote, SalesInvoice } from "@/lib/types";
+
+const apiRequestMock = jest.fn();
+let mockAllowedPermissions = new Set<string>();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -17,7 +20,39 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "invoice-1" }),
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: (permission: string) => mockAllowedPermissions.has(permission),
+  }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => apiRequestMock(...args),
+}));
+
+jest.mock("@/lib/pdf-download", () => {
+  const actual = jest.requireActual("@/lib/pdf-download");
+  return {
+    ...actual,
+    downloadPdf: jest.fn(),
+  };
+});
+
 describe("invoice workflow guidance", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+    mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
+  });
+
   it("explains draft invoice state and shows the finalize action", () => {
     render(
       <InvoiceWorkflowGuidance
@@ -64,6 +99,76 @@ describe("invoice workflow guidance", () => {
   });
 });
 
+describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+    mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
+  });
+
+  it("shows linked delivery notes from the invoice without mutating the invoice", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") {
+        return Promise.resolve(invoiceFixture({ status: "FINALIZED", finalizedAt: "2026-06-04T10:00:00.000Z", journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED", totalDebit: "115.0000", totalCredit: "115.0000" } }));
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([deliveryNoteFixture()]);
+      }
+      if (path === "/collections/invoice/invoice-1") {
+        return Promise.resolve([collectionCaseFixture()]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceDetailPage />);
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "DN-000042" })).toHaveAttribute("href", "/sales/delivery-notes/dn-1"));
+    expect(screen.getByText("Related delivery notes")).toBeInTheDocument();
+    expect(screen.getByText(/fulfillment documents/i)).toBeInTheDocument();
+    expect(screen.getByText(/do not post journals, create accounts receivable, file VAT, send email, call ZATCA, or move inventory/i)).toBeInTheDocument();
+    expect(await screen.findByText("Related collection cases")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "COL-000042" })).toHaveAttribute("href", "/sales/collections/case-1");
+    expect(screen.getByText(/do not post journals, allocate payments, send email or reminders, create payment links, file VAT, call ZATCA, or change invoice balances/i)).toBeInTheDocument();
+    expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/finalize|void/), expect.anything());
+  });
+
+  it("keeps ZATCA invoice actions framed as local readiness rather than production clearance or reporting", async () => {
+    mockAllowedPermissions = new Set([
+      "salesInvoices.view",
+      "salesInvoices.create",
+      "salesInvoices.update",
+      "generatedDocuments.view",
+      "generatedDocuments.download",
+      "zatca.view",
+      "zatca.generateXml",
+      "zatca.runChecks",
+      "zatca.manage",
+    ]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") {
+        return Promise.resolve(invoiceFixture({ status: "FINALIZED", finalizedAt: "2026-06-04T10:00:00.000Z" }));
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([]);
+      }
+      if (path === "/collections/invoice/invoice-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceDetailPage />);
+
+    expect(await screen.findByText("Local ZATCA readiness groundwork")).toBeInTheDocument();
+    expect(screen.getByText(/No production ZATCA submission, clearance, reporting, or compliance claim/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check clearance blocker" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check reporting blocker" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Request clearance" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Request reporting" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/production ZATCA clearance has been requested/i)).not.toBeInTheDocument();
+  });
+});
+
 function invoiceFixture(overrides: Partial<SalesInvoice> = {}): SalesInvoice {
   return {
     id: "invoice-1",
@@ -75,6 +180,7 @@ function invoiceFixture(overrides: Partial<SalesInvoice> = {}): SalesInvoice {
     dueDate: null,
     currency: "SAR",
     status: "DRAFT",
+    taxMode: "TAX_EXCLUSIVE",
     subtotal: "100.0000",
     discountTotal: "0.0000",
     taxableTotal: "100.0000",
@@ -94,6 +200,68 @@ function invoiceFixture(overrides: Partial<SalesInvoice> = {}): SalesInvoice {
     creditNoteAllocations: [],
     creditNotes: [],
     lines: [],
+    ...overrides,
+  };
+}
+
+function deliveryNoteFixture(overrides: Partial<DeliveryNote> = {}): DeliveryNote {
+  return {
+    id: "dn-1",
+    organizationId: "org-1",
+    deliveryNoteNumber: "DN-000042",
+    customerId: "customer-1",
+    branchId: null,
+    status: "DELIVERED",
+    issueDate: "2026-06-04T00:00:00.000Z",
+    deliveryDate: "2026-06-05T00:00:00.000Z",
+    reference: "INV-001",
+    relatedSalesInvoiceId: "invoice-1",
+    relatedSalesQuoteId: null,
+    relatedSalesStockIssueId: null,
+    deliveryAddress: "Warehouse Dock 1",
+    notes: null,
+    instructions: null,
+    issuedAt: "2026-06-04T10:00:00.000Z",
+    deliveredAt: "2026-06-05T10:00:00.000Z",
+    cancelledAt: null,
+    voidedAt: null,
+    customer: { id: "customer-1", name: "Beta Customer", displayName: "Beta Customer", type: "CUSTOMER", taxNumber: null },
+    branch: null,
+    relatedSalesInvoice: { id: "invoice-1", invoiceNumber: "INV-001", status: "FINALIZED" },
+    relatedSalesQuote: null,
+    relatedSalesStockIssue: null,
+    lines: [],
+    ...overrides,
+  };
+}
+
+function collectionCaseFixture(overrides: Partial<CollectionCase> = {}): CollectionCase {
+  return {
+    id: "case-1",
+    organizationId: "org-1",
+    caseNumber: "COL-000042",
+    customerId: "customer-1",
+    salesInvoiceId: "invoice-1",
+    status: "PROMISED_TO_PAY",
+    priority: "HIGH",
+    followUpDate: "2026-06-08T00:00:00.000Z",
+    promisedPaymentDate: "2026-06-10T00:00:00.000Z",
+    promisedAmount: "60.0000",
+    assignedToUserId: null,
+    lastActivityAt: "2026-06-04T00:00:00.000Z",
+    nextActionAt: "2026-06-08T00:00:00.000Z",
+    summary: "Customer promised payment",
+    notes: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    createdAt: "2026-06-04T00:00:00.000Z",
+    updatedAt: "2026-06-04T00:00:00.000Z",
+    customer: { id: "customer-1", name: "Beta Customer", displayName: "Beta Customer", type: "CUSTOMER" },
+    salesInvoice: { id: "invoice-1", invoiceNumber: "INV-001", customerId: "customer-1", dueDate: "2026-06-01T00:00:00.000Z", currency: "SAR", status: "FINALIZED", total: "115.0000", balanceDue: "115.0000" },
+    assignedTo: null,
+    createdBy: null,
+    updatedBy: null,
+    activities: [{ id: "activity-1", organizationId: "org-1", collectionCaseId: "case-1", customerId: "customer-1", salesInvoiceId: "invoice-1", activityType: "PROMISE_TO_PAY", activityDate: "2026-06-04T00:00:00.000Z", note: "Promised payment", nextFollowUpDate: "2026-06-08T00:00:00.000Z", promisedPaymentDate: "2026-06-10T00:00:00.000Z", promisedAmount: "60.0000", createdById: "user-1", createdAt: "2026-06-04T00:00:00.000Z" }],
     ...overrides,
   };
 }

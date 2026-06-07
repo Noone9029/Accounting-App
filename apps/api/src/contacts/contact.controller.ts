@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
-import { PERMISSIONS } from "@ledgerbyte/shared";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { PERMISSIONS, hasPermission } from "@ledgerbyte/shared";
 import type { Response } from "express";
-import { AuthenticatedUser } from "../auth/auth.types";
+import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
@@ -12,6 +12,18 @@ import { ContactLedgerService } from "./contact-ledger.service";
 import { ContactService } from "./contact.service";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
+import { SupplierApDashboardService, type SupplierApDashboardPermissionContext } from "./supplier-ap-dashboard.service";
+
+const SUPPLIER_AP_DASHBOARD_READ_PERMISSIONS = [
+  PERMISSIONS.contacts.view,
+  PERMISSIONS.purchaseBills.view,
+  PERMISSIONS.purchaseOrders.view,
+  PERMISSIONS.purchaseReceiving.view,
+  PERMISSIONS.inventory.view,
+  PERMISSIONS.supplierPayments.view,
+  PERMISSIONS.purchaseDebitNotes.view,
+  PERMISSIONS.supplierRefunds.view,
+];
 
 @Controller("contacts")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -19,6 +31,7 @@ export class ContactController {
   constructor(
     private readonly contactService: ContactService,
     private readonly contactLedgerService: ContactLedgerService,
+    private readonly supplierApDashboardService: SupplierApDashboardService,
   ) {}
 
   @Get()
@@ -43,6 +56,18 @@ export class ContactController {
   @RequirePermissions(PERMISSIONS.contacts.view)
   suppliers(@CurrentOrganizationId() organizationId: string) {
     return this.contactService.listSuppliers(organizationId);
+  }
+
+  @Get("suppliers/ap-dashboard")
+  @RequirePermissions(...SUPPLIER_AP_DASHBOARD_READ_PERMISSIONS)
+  supplierApDashboard(@CurrentOrganizationId() organizationId: string, @Req() request: AuthenticatedRequest) {
+    return this.supplierApDashboardService.dashboard(organizationId, this.supplierApDashboardPermissions(request));
+  }
+
+  @Get("suppliers/:id/ap-summary")
+  @RequirePermissions(...SUPPLIER_AP_DASHBOARD_READ_PERMISSIONS)
+  supplierApSummary(@CurrentOrganizationId() organizationId: string, @Param("id") id: string, @Req() request: AuthenticatedRequest) {
+    return this.supplierApDashboardService.supplierSummary(organizationId, id, this.supplierApDashboardPermissions(request));
   }
 
   @Get("suppliers/:id")
@@ -178,5 +203,24 @@ export class ContactController {
     @Body() dto: UpdateContactDto,
   ) {
     return this.contactService.update(organizationId, user.id, id, dto);
+  }
+
+  private supplierApDashboardPermissions(request: AuthenticatedRequest): SupplierApDashboardPermissionContext {
+    const permissions = request.membership?.role.permissions;
+    const canViewPurchaseBills = hasPermission(permissions, PERMISSIONS.purchaseBills.view);
+    const canViewPurchaseOrders = hasPermission(permissions, PERMISSIONS.purchaseOrders.view);
+    const canViewPurchaseReceiving = hasPermission(permissions, PERMISSIONS.purchaseReceiving.view);
+
+    return {
+      canViewSuppliers: hasPermission(permissions, PERMISSIONS.contacts.view),
+      canViewPurchaseBills,
+      canViewPurchaseOrders,
+      canViewPurchaseReceiving,
+      canViewPurchaseMatching: canViewPurchaseBills || canViewPurchaseOrders || canViewPurchaseReceiving,
+      canViewInventoryValuation: hasPermission(permissions, PERMISSIONS.inventory.view),
+      canViewSupplierPayments: hasPermission(permissions, PERMISSIONS.supplierPayments.view),
+      canViewPurchaseDebitNotes: hasPermission(permissions, PERMISSIONS.purchaseDebitNotes.view),
+      canViewSupplierRefunds: hasPermission(permissions, PERMISSIONS.supplierRefunds.view),
+    };
   }
 }

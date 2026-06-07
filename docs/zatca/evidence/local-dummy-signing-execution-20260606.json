@@ -1,0 +1,131 @@
+{
+  "runId": "zatca-dummy-signing-20260606112354-48dd4645",
+  "timestamp": "2026-06-06T11:23:54.448Z",
+  "environment": "LOCAL_DUMMY_SIGNING_NO_NETWORK",
+  "noNetworkOnly": true,
+  "networkCallsMade": false,
+  "productionComplianceEnabled": false,
+  "productionCompliance": false,
+  "approvalPhraseMatched": true,
+  "sdkVersion": "238-R3.4.8",
+  "javaVersion": "11.0.26",
+  "fixtureCount": 2,
+  "passedCount": 2,
+  "failedCount": 0,
+  "blockedCount": 0,
+  "fixtures": [
+    {
+      "fixtureId": "ledgerbyte-generated-standard-invoice",
+      "fixtureType": "ledgerbyte-generated",
+      "invoiceKind": "standard-invoice",
+      "sourcePath": "packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml",
+      "status": "PASSED_LOCAL_DUMMY_SIGNING",
+      "signStageStatus": "PASSED",
+      "qrStageStatus": "PASSED",
+      "validationStageStatus": "PASSED",
+      "sdkExitCodes": {
+        "sign": 0,
+        "qr": 0,
+        "validate": 0
+      },
+      "safeWarningCodes": [],
+      "safeErrorCodes": [],
+      "blockers": [],
+      "tempWorkspaceCreated": true,
+      "tempCleanupStatus": "SUCCESS",
+      "tempPathsPrinted": false,
+      "xmlBodyPersistedInEvidence": false,
+      "signedXmlBodyPersistedInEvidence": false,
+      "qrPayloadBodyPersistedInEvidence": false,
+      "privateKeyBodyRead": false,
+      "certificateBodyRead": false,
+      "signedXmlGenerated": true,
+      "tempSignedXmlCreated": true,
+      "qrPayloadGenerated": true,
+      "rawStdoutPersisted": false,
+      "rawStderrPersisted": false,
+      "sdkCommandExecuted": {
+        "sign": true,
+        "qr": true,
+        "validate": true
+      },
+      "commands": {
+        "sign": "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+        "qr": "fatoora -qr -invoice <temp-signed.xml>",
+        "validate": "fatoora -validate -invoice <temp-signed.xml>"
+      }
+    },
+    {
+      "fixtureId": "ledgerbyte-generated-credit-note",
+      "fixtureType": "ledgerbyte-generated",
+      "invoiceKind": "credit-note",
+      "sourcePath": "packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml",
+      "status": "PASSED_LOCAL_DUMMY_SIGNING",
+      "signStageStatus": "PASSED",
+      "qrStageStatus": "PASSED",
+      "validationStageStatus": "PASSED",
+      "sdkExitCodes": {
+        "sign": 0,
+        "qr": 0,
+        "validate": 0
+      },
+      "safeWarningCodes": [],
+      "safeErrorCodes": [],
+      "blockers": [],
+      "tempWorkspaceCreated": true,
+      "tempCleanupStatus": "SUCCESS",
+      "tempPathsPrinted": false,
+      "xmlBodyPersistedInEvidence": false,
+      "signedXmlBodyPersistedInEvidence": false,
+      "qrPayloadBodyPersistedInEvidence": false,
+      "privateKeyBodyRead": false,
+      "certificateBodyRead": false,
+      "signedXmlGenerated": true,
+      "tempSignedXmlCreated": true,
+      "qrPayloadGenerated": true,
+      "rawStdoutPersisted": false,
+      "rawStderrPersisted": false,
+      "sdkCommandExecuted": {
+        "sign": true,
+        "qr": true,
+        "validate": true
+      },
+      "commands": {
+        "sign": "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+        "qr": "fatoora -qr -invoice <temp-signed.xml>",
+        "validate": "fatoora -validate -invoice <temp-signed.xml>"
+      }
+    }
+  ],
+  "sdkSignCommandExecuted": true,
+  "sdkQrCommandExecuted": true,
+  "sdkSignedValidationExecuted": true,
+  "signedXmlGenerated": true,
+  "signedXmlPersisted": false,
+  "qrPayloadGenerated": true,
+  "qrPayloadPersisted": false,
+  "tempWorkspaceCreated": true,
+  "tempSignedXmlCreated": true,
+  "tempCleanupStatus": "SUCCESS",
+  "redaction": {
+    "xmlBodyPrinted": false,
+    "signedXmlBodyPrinted": false,
+    "qrPayloadPrinted": false,
+    "privateKeyPrinted": false,
+    "certificateBodyPrinted": false,
+    "tokenPrinted": false,
+    "headerPrinted": false,
+    "requestResponseBodyPrinted": false,
+    "customerVendorPayloadPrinted": false,
+    "attachmentBodyPrinted": false
+  },
+  "blockers": [],
+  "safeWarningCodes": [],
+  "safeErrorCodes": [],
+  "officialSdkCommands": {
+    "sign": "fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>",
+    "qr": "fatoora -qr -invoice <temp-signed.xml>",
+    "validate": "fatoora -validate -invoice <temp-signed.xml>"
+  },
+  "status": "PASSED_LOCAL_DUMMY_SIGNING"
+}

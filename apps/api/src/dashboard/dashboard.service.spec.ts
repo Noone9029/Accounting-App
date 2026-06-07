@@ -1,4 +1,13 @@
-import { AccountType, Prisma, StockMovementType } from "@prisma/client";
+import {
+  AccountType,
+  CollectionCaseStatus,
+  DeliveryNoteStatus,
+  Prisma,
+  RecurringInvoiceTemplateStatus,
+  SalesInvoiceStatus,
+  SalesQuoteStatus,
+  StockMovementType,
+} from "@prisma/client";
 import { DashboardService } from "./dashboard.service";
 
 describe("DashboardService", () => {
@@ -43,21 +52,139 @@ describe("DashboardService", () => {
         journalEntry: { entryDate: new Date("2026-05-04T00:00:00.000Z") },
       },
     ];
+    const salesInvoices = [
+      {
+        id: "invoice-1",
+        invoiceNumber: "INV-000001",
+        issueDate: new Date("2026-05-02T00:00:00.000Z"),
+        dueDate: new Date("2026-05-03T00:00:00.000Z"),
+        total: new Prisma.Decimal("100.0000"),
+        balanceDue: new Prisma.Decimal("75.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+      },
+    ];
+    const recurringDraftInvoices = [
+      {
+        id: "invoice-rec-1",
+        invoiceNumber: "INV-DRAFT-REC",
+        issueDate: new Date("2026-05-14T00:00:00.000Z"),
+        dueDate: new Date("2026-05-28T00:00:00.000Z"),
+        total: new Prisma.Decimal("44.0000"),
+        balanceDue: new Prisma.Decimal("44.0000"),
+        status: SalesInvoiceStatus.DRAFT,
+        customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+        recurringInvoiceTemplate: { id: "rec-1", templateNumber: "REC-000001", name: "Monthly support" },
+      },
+    ];
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: organizationId, baseCurrency: "SAR" }) },
       account: { count: jest.fn().mockResolvedValue(8) },
       taxRate: { count: jest.fn().mockResolvedValue(1) },
       contact: { count: jest.fn().mockResolvedValue(1) },
       salesInvoice: {
+        findMany: jest.fn().mockImplementation((query?: { where?: { status?: unknown; recurringInvoiceTemplateId?: unknown } }) => {
+          if (query?.where?.recurringInvoiceTemplateId) {
+            return Promise.resolve(recurringDraftInvoices);
+          }
+          return Promise.resolve(salesInvoices);
+        }),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      salesQuote: {
         findMany: jest.fn().mockResolvedValue([
           {
-            issueDate: new Date("2026-05-02T00:00:00.000Z"),
-            dueDate: new Date("2026-05-03T00:00:00.000Z"),
-            total: new Prisma.Decimal("100.0000"),
-            balanceDue: new Prisma.Decimal("75.0000"),
+            id: "quote-1",
+            quoteNumber: "SQ-000001",
+            status: SalesQuoteStatus.SENT,
+            issueDate: new Date("2026-05-01T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-17T00:00:00.000Z"),
+            total: new Prisma.Decimal("120.0000"),
+            customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-2",
+            quoteNumber: "SQ-000002",
+            status: SalesQuoteStatus.ACCEPTED,
+            issueDate: new Date("2026-05-04T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-20T00:00:00.000Z"),
+            total: new Prisma.Decimal("210.0000"),
+            customer: { id: "customer-2", name: "Beta LLC", displayName: null },
+            convertedSalesInvoiceId: null,
           },
         ]),
-        count: jest.fn().mockResolvedValue(1),
+      },
+      recurringInvoiceTemplate: {
+        count: jest.fn().mockResolvedValue(2),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "rec-1",
+            templateNumber: "REC-000001",
+            name: "Monthly support",
+            status: RecurringInvoiceTemplateStatus.ACTIVE,
+            nextRunDate: new Date("2026-05-14T00:00:00.000Z"),
+            total: new Prisma.Decimal("44.0000"),
+            customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+          },
+          {
+            id: "rec-2",
+            templateNumber: "REC-000002",
+            name: "Weekly advisory",
+            status: RecurringInvoiceTemplateStatus.ACTIVE,
+            nextRunDate: new Date("2026-05-18T00:00:00.000Z"),
+            total: new Prisma.Decimal("35.0000"),
+            customer: { id: "customer-2", name: "Beta LLC", displayName: null },
+          },
+        ]),
+      },
+      deliveryNote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "dn-1",
+            deliveryNoteNumber: "DN-000001",
+            status: DeliveryNoteStatus.DRAFT,
+            issueDate: new Date("2026-05-12T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-16T00:00:00.000Z"),
+            customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+          },
+          {
+            id: "dn-2",
+            deliveryNoteNumber: "DN-000002",
+            status: DeliveryNoteStatus.ISSUED,
+            issueDate: new Date("2026-05-10T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-13T00:00:00.000Z"),
+            customer: { id: "customer-2", name: "Beta LLC", displayName: null },
+          },
+        ]),
+      },
+      collectionCase: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "case-1",
+            caseNumber: "COL-000001",
+            status: CollectionCaseStatus.PROMISED_TO_PAY,
+            priority: "HIGH",
+            followUpDate: new Date("2026-05-15T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: new Date("2026-05-22T00:00:00.000Z"),
+            promisedAmount: new Prisma.Decimal("60.0000"),
+            customer: { id: "customer-1", name: "Acme Trading", displayName: "Acme" },
+            salesInvoice: { id: "invoice-1", invoiceNumber: "INV-000001", balanceDue: new Prisma.Decimal("75.0000"), dueDate: new Date("2026-05-03T00:00:00.000Z") },
+          },
+          {
+            id: "case-2",
+            caseNumber: "COL-000002",
+            status: CollectionCaseStatus.DISPUTED,
+            priority: "URGENT",
+            followUpDate: new Date("2026-05-10T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: { id: "customer-2", name: "Beta LLC", displayName: null },
+            salesInvoice: { id: "invoice-2", invoiceNumber: "INV-000002", balanceDue: new Prisma.Decimal("85.0000"), dueDate: new Date("2026-05-01T00:00:00.000Z") },
+          },
+        ]),
       },
       customerPayment: { findMany: jest.fn().mockResolvedValue([{ amountReceived: new Prisma.Decimal("25.0000") }]), count: jest.fn().mockResolvedValue(1) },
       journalEntry: { count: jest.fn().mockResolvedValue(2) },
@@ -187,6 +314,58 @@ describe("DashboardService", () => {
         { bucket: "1-30", amount: "2.0000" },
       ]),
     );
+    expect(summary.salesAttention).toEqual(
+      expect.objectContaining({
+        readOnly: true,
+        noMutation: true,
+        overdueInvoices: expect.objectContaining({
+          count: 1,
+          total: "75.0000",
+          topItems: [
+            expect.objectContaining({
+              id: "invoice-1",
+              number: "INV-000001",
+              customerName: "Acme",
+              amount: "75.0000",
+              href: "/sales/invoices/invoice-1",
+            }),
+          ],
+        }),
+        collections: expect.objectContaining({
+          openCount: 2,
+          dueTodayCount: 1,
+          overdueFollowUpCount: 1,
+          promisedToPayTotal: "60.0000",
+          disputedCount: 1,
+        }),
+        quotes: expect.objectContaining({
+          awaitingAcceptanceCount: 1,
+          expiringSoonCount: 1,
+          acceptedNotConvertedCount: 1,
+        }),
+        recurringInvoices: expect.objectContaining({
+          activeCount: 2,
+          dueSoonCount: 1,
+          overdueForGenerationCount: 1,
+          recentlyGeneratedDraftInvoiceCount: 1,
+        }),
+        deliveryNotes: expect.objectContaining({
+          draftCount: 1,
+          issuedNotDeliveredCount: 1,
+          overdueDeliveryCount: 1,
+        }),
+      }),
+    );
+    expect(summary.salesAttention.customers.topOutstanding).toEqual([
+      expect.objectContaining({
+        id: "customer-1",
+        customerName: "Acme",
+        outstandingBalance: "75.0000",
+        overdueAmount: "75.0000",
+        openCollectionCaseCount: 1,
+        href: "/customers/customer-1",
+      }),
+    ]);
     expect(summary.attentionItems.map((item) => item.type)).toEqual(
       expect.arrayContaining([
         "OVERDUE_INVOICES",
@@ -199,7 +378,432 @@ describe("DashboardService", () => {
       ]),
     );
     expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    expect(prisma.salesQuote.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    expect(prisma.recurringInvoiceTemplate.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    expect(prisma.deliveryNote.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    expect(prisma.collectionCase.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
     expect(prisma.purchaseBill.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId }) }));
+    jest.useRealTimers();
+  });
+
+  it("omits detailed Sales/AR attention rows when Sales/AR view permission is unavailable", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+    const { service, prisma } = makeService();
+
+    const summary = await service.summary(organizationId, { canViewSalesAttention: false });
+
+    expect(summary.salesAttention).toEqual(expect.objectContaining({ readOnly: true, noMutation: true }));
+    expect(summary.salesAttention.overdueInvoices.topItems).toEqual([]);
+    expect(summary.salesAttention.collections.openCount).toBe(0);
+    expect(summary.salesAttention.quotes.awaitingAcceptanceCount).toBe(0);
+    expect(summary.salesAttention.recurringInvoices.dueSoonCount).toBe(0);
+    expect(summary.salesAttention.deliveryNotes.draftCount).toBe(0);
+    expect(summary.salesAttention.customers.topOutstanding).toEqual([]);
+    expect(prisma.salesQuote.findMany).not.toHaveBeenCalled();
+    expect(prisma.collectionCase.findMany).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it("applies documented Sales/AR attention thresholds, ordering, and top limits", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-05-15T12:00:00.000Z"));
+    const customer = (id: string, name: string) => ({ id, name, displayName: name });
+    const salesAttentionInvoices = [
+      {
+        id: "invoice-old-low",
+        invoiceNumber: "INV-OLD-LOW",
+        issueDate: new Date("2026-05-01T00:00:00.000Z"),
+        dueDate: new Date("2026-05-01T00:00:00.000Z"),
+        total: new Prisma.Decimal("10.0000"),
+        balanceDue: new Prisma.Decimal("10.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-old-low", "Old Low LLC"),
+      },
+      {
+        id: "invoice-old-high",
+        invoiceNumber: "INV-OLD-HIGH",
+        issueDate: new Date("2026-05-01T00:00:00.000Z"),
+        dueDate: new Date("2026-05-01T00:00:00.000Z"),
+        total: new Prisma.Decimal("99.0000"),
+        balanceDue: new Prisma.Decimal("99.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-old-high", "Old High LLC"),
+      },
+      {
+        id: "invoice-mid",
+        invoiceNumber: "INV-MID",
+        issueDate: new Date("2026-05-02T00:00:00.000Z"),
+        dueDate: new Date("2026-05-02T00:00:00.000Z"),
+        total: new Prisma.Decimal("30.0000"),
+        balanceDue: new Prisma.Decimal("30.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-mid", "Mid LLC"),
+      },
+      {
+        id: "invoice-no-due",
+        invoiceNumber: "INV-NO-DUE",
+        issueDate: new Date("2026-05-03T00:00:00.000Z"),
+        dueDate: null,
+        total: new Prisma.Decimal("25.0000"),
+        balanceDue: new Prisma.Decimal("25.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-no-due", "No Due LLC"),
+      },
+      {
+        id: "invoice-late-one",
+        invoiceNumber: "INV-LATE-ONE",
+        issueDate: new Date("2026-05-04T00:00:00.000Z"),
+        dueDate: new Date("2026-05-04T00:00:00.000Z"),
+        total: new Prisma.Decimal("40.0000"),
+        balanceDue: new Prisma.Decimal("40.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-late-one", "Late One LLC"),
+      },
+      {
+        id: "invoice-late-two",
+        invoiceNumber: "INV-LATE-TWO",
+        issueDate: new Date("2026-05-05T00:00:00.000Z"),
+        dueDate: new Date("2026-05-05T00:00:00.000Z"),
+        total: new Prisma.Decimal("50.0000"),
+        balanceDue: new Prisma.Decimal("50.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-late-two", "Late Two LLC"),
+      },
+      {
+        id: "invoice-current",
+        invoiceNumber: "INV-CURRENT",
+        issueDate: new Date("2026-05-14T00:00:00.000Z"),
+        dueDate: new Date("2026-05-20T00:00:00.000Z"),
+        total: new Prisma.Decimal("500.0000"),
+        balanceDue: new Prisma.Decimal("500.0000"),
+        status: SalesInvoiceStatus.FINALIZED,
+        customer: customer("customer-current", "Current Balance LLC"),
+      },
+    ];
+    const recurringDraftInvoices = [
+      {
+        id: "invoice-rec-1",
+        invoiceNumber: "INV-DRAFT-REC",
+        issueDate: new Date("2026-05-14T00:00:00.000Z"),
+        dueDate: new Date("2026-05-28T00:00:00.000Z"),
+        total: new Prisma.Decimal("44.0000"),
+        balanceDue: new Prisma.Decimal("44.0000"),
+        status: SalesInvoiceStatus.DRAFT,
+        customer: customer("customer-rec", "Recurring Customer LLC"),
+        recurringInvoiceTemplate: { id: "rec-1", templateNumber: "REC-000001", name: "Monthly support" },
+      },
+    ];
+    const salesInvoiceFindMany = jest.fn().mockImplementation((query?: { select?: { invoiceNumber?: boolean }; where?: { recurringInvoiceTemplateId?: unknown } }) => {
+      if (query?.where?.recurringInvoiceTemplateId) {
+        return Promise.resolve(recurringDraftInvoices);
+      }
+      if (query?.select?.invoiceNumber) {
+        return Promise.resolve(salesAttentionInvoices);
+      }
+      return Promise.resolve(salesAttentionInvoices);
+    });
+    const { service, prisma } = makeService({
+      salesInvoice: {
+        findMany: salesInvoiceFindMany,
+        count: jest.fn().mockResolvedValue(7),
+      },
+      collectionCase: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "case-due-today",
+            caseNumber: "COL-DUE-TODAY",
+            status: CollectionCaseStatus.PROMISED_TO_PAY,
+            priority: "NORMAL",
+            followUpDate: new Date("2026-05-15T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: new Date("2026-05-20T00:00:00.000Z"),
+            promisedAmount: new Prisma.Decimal("60.0000"),
+            customer: customer("customer-case-today", "Due Today LLC"),
+            salesInvoice: { id: "invoice-case-today", invoiceNumber: "INV-CASE-TODAY", balanceDue: new Prisma.Decimal("60.0000"), dueDate: new Date("2026-05-01T00:00:00.000Z") },
+          },
+          {
+            id: "case-overdue-high",
+            caseNumber: "COL-OVERDUE-HIGH",
+            status: CollectionCaseStatus.IN_PROGRESS,
+            priority: "HIGH",
+            followUpDate: new Date("2026-05-11T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: customer("customer-case-high", "High Follow Up LLC"),
+            salesInvoice: null,
+          },
+          {
+            id: "case-overdue-urgent",
+            caseNumber: "COL-OVERDUE-URGENT",
+            status: CollectionCaseStatus.DISPUTED,
+            priority: "URGENT",
+            followUpDate: new Date("2026-05-12T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: customer("customer-case-urgent", "Urgent Follow Up LLC"),
+            salesInvoice: null,
+          },
+          {
+            id: "case-overdue-normal",
+            caseNumber: "COL-OVERDUE-NORMAL",
+            status: CollectionCaseStatus.OPEN,
+            priority: "NORMAL",
+            followUpDate: new Date("2026-05-10T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: customer("customer-case-normal", "Normal Follow Up LLC"),
+            salesInvoice: null,
+          },
+          {
+            id: "case-future-urgent",
+            caseNumber: "COL-FUTURE-URGENT",
+            status: CollectionCaseStatus.ON_HOLD,
+            priority: "URGENT",
+            followUpDate: new Date("2026-05-16T00:00:00.000Z"),
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: customer("customer-case-future", "Future Follow Up LLC"),
+            salesInvoice: null,
+          },
+          {
+            id: "case-no-follow-up",
+            caseNumber: "COL-NO-FOLLOW-UP",
+            status: CollectionCaseStatus.OPEN,
+            priority: "URGENT",
+            followUpDate: null,
+            nextActionAt: null,
+            promisedPaymentDate: null,
+            promisedAmount: null,
+            customer: customer("customer-case-none", "No Follow Up LLC"),
+            salesInvoice: null,
+          },
+        ]),
+      },
+      salesQuote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "quote-expired",
+            quoteNumber: "SQ-EXPIRED",
+            status: SalesQuoteStatus.SENT,
+            issueDate: new Date("2026-05-01T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-10T00:00:00.000Z"),
+            total: new Prisma.Decimal("80.0000"),
+            customer: customer("customer-quote-expired", "Expired Quote LLC"),
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-soon",
+            quoteNumber: "SQ-SOON",
+            status: SalesQuoteStatus.SENT,
+            issueDate: new Date("2026-05-05T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-20T00:00:00.000Z"),
+            total: new Prisma.Decimal("120.0000"),
+            customer: customer("customer-quote-soon", "Expiring Quote LLC"),
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-far",
+            quoteNumber: "SQ-FAR",
+            status: SalesQuoteStatus.SENT,
+            issueDate: new Date("2026-05-06T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-30T00:00:00.000Z"),
+            total: new Prisma.Decimal("125.0000"),
+            customer: customer("customer-quote-far", "Future Quote LLC"),
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-no-expiry",
+            quoteNumber: "SQ-NO-EXPIRY",
+            status: SalesQuoteStatus.SENT,
+            issueDate: new Date("2026-05-07T00:00:00.000Z"),
+            expiryDate: null,
+            total: new Prisma.Decimal("130.0000"),
+            customer: customer("customer-quote-open", "Open Quote LLC"),
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-accepted",
+            quoteNumber: "SQ-ACCEPTED",
+            status: SalesQuoteStatus.ACCEPTED,
+            issueDate: new Date("2026-05-08T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-25T00:00:00.000Z"),
+            total: new Prisma.Decimal("220.0000"),
+            customer: customer("customer-quote-accepted", "Accepted Quote LLC"),
+            convertedSalesInvoiceId: null,
+          },
+          {
+            id: "quote-converted",
+            quoteNumber: "SQ-CONVERTED",
+            status: SalesQuoteStatus.ACCEPTED,
+            issueDate: new Date("2026-05-09T00:00:00.000Z"),
+            expiryDate: new Date("2026-05-25T00:00:00.000Z"),
+            total: new Prisma.Decimal("320.0000"),
+            customer: customer("customer-quote-converted", "Converted Quote LLC"),
+            convertedSalesInvoiceId: "invoice-converted",
+          },
+        ]),
+      },
+      recurringInvoiceTemplate: {
+        count: jest.fn().mockResolvedValue(4),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "rec-overdue",
+            templateNumber: "REC-OVERDUE",
+            name: "Overdue monthly template",
+            status: RecurringInvoiceTemplateStatus.ACTIVE,
+            nextRunDate: new Date("2026-05-14T00:00:00.000Z"),
+            total: new Prisma.Decimal("44.0000"),
+            customer: customer("customer-rec-overdue", "Overdue Recurring LLC"),
+          },
+          {
+            id: "rec-due",
+            templateNumber: "REC-DUE",
+            name: "Due soon template",
+            status: RecurringInvoiceTemplateStatus.ACTIVE,
+            nextRunDate: new Date("2026-05-21T00:00:00.000Z"),
+            total: new Prisma.Decimal("55.0000"),
+            customer: customer("customer-rec-due", "Due Recurring LLC"),
+          },
+        ]),
+      },
+      deliveryNote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "dn-overdue-draft",
+            deliveryNoteNumber: "DN-OVERDUE-DRAFT",
+            status: DeliveryNoteStatus.DRAFT,
+            issueDate: new Date("2026-05-10T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-12T00:00:00.000Z"),
+            customer: customer("customer-dn-overdue-draft", "Overdue Draft Delivery LLC"),
+          },
+          {
+            id: "dn-overdue-issued",
+            deliveryNoteNumber: "DN-OVERDUE-ISSUED",
+            status: DeliveryNoteStatus.ISSUED,
+            issueDate: new Date("2026-05-11T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-13T00:00:00.000Z"),
+            customer: customer("customer-dn-overdue-issued", "Overdue Issued Delivery LLC"),
+          },
+          {
+            id: "dn-issued",
+            deliveryNoteNumber: "DN-ISSUED",
+            status: DeliveryNoteStatus.ISSUED,
+            issueDate: new Date("2026-05-12T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-20T00:00:00.000Z"),
+            customer: customer("customer-dn-issued", "Issued Delivery LLC"),
+          },
+          {
+            id: "dn-draft",
+            deliveryNoteNumber: "DN-DRAFT",
+            status: DeliveryNoteStatus.DRAFT,
+            issueDate: new Date("2026-05-13T00:00:00.000Z"),
+            deliveryDate: new Date("2026-05-22T00:00:00.000Z"),
+            customer: customer("customer-dn-draft", "Draft Delivery LLC"),
+          },
+        ]),
+      },
+    });
+
+    const summary = await service.summary(organizationId);
+
+    expect(summary.salesAttention.overdueInvoices.count).toBe(6);
+    expect(summary.salesAttention.overdueInvoices.topItems.map((item) => item.number)).toEqual([
+      "INV-OLD-HIGH",
+      "INV-OLD-LOW",
+      "INV-MID",
+      "INV-NO-DUE",
+      "INV-LATE-ONE",
+    ]);
+    expect(summary.salesAttention.overdueInvoices.topItems).toHaveLength(5);
+    expect(summary.salesAttention.collections).toEqual(
+      expect.objectContaining({
+        openCount: 6,
+        dueTodayCount: 1,
+        overdueFollowUpCount: 3,
+        promisedToPayTotal: "60.0000",
+        disputedCount: 1,
+      }),
+    );
+    expect(summary.salesAttention.collections.topItems.map((item) => item.number)).toEqual([
+      "COL-OVERDUE-URGENT",
+      "COL-OVERDUE-HIGH",
+      "COL-OVERDUE-NORMAL",
+      "COL-DUE-TODAY",
+      "COL-FUTURE-URGENT",
+    ]);
+    expect(summary.salesAttention.quotes).toEqual(
+      expect.objectContaining({
+        awaitingAcceptanceCount: 3,
+        expiringSoonCount: 1,
+        acceptedNotConvertedCount: 1,
+      }),
+    );
+    expect(summary.salesAttention.quotes.topItems.map((item) => item.number)).toEqual([
+      "SQ-SOON",
+      "SQ-ACCEPTED",
+      "SQ-FAR",
+      "SQ-NO-EXPIRY",
+    ]);
+    expect(summary.salesAttention.recurringInvoices).toEqual(
+      expect.objectContaining({
+        activeCount: 4,
+        dueSoonCount: 1,
+        overdueForGenerationCount: 1,
+        recentlyGeneratedDraftInvoiceCount: 1,
+      }),
+    );
+    expect(summary.salesAttention.recurringInvoices.topItems.map((item) => item.number)).toEqual(["REC-OVERDUE", "REC-DUE"]);
+    expect(summary.salesAttention.deliveryNotes).toEqual(
+      expect.objectContaining({
+        draftCount: 2,
+        issuedNotDeliveredCount: 2,
+        overdueDeliveryCount: 2,
+      }),
+    );
+    expect(summary.salesAttention.deliveryNotes.topItems.map((item) => item.number)).toEqual([
+      "DN-OVERDUE-DRAFT",
+      "DN-OVERDUE-ISSUED",
+      "DN-ISSUED",
+      "DN-DRAFT",
+    ]);
+    expect(summary.salesAttention.customers.topOutstanding).toHaveLength(5);
+    expect(summary.salesAttention.customers.topOutstanding[0]).toEqual(
+      expect.objectContaining({
+        id: "customer-current",
+        outstandingBalance: "500.0000",
+      }),
+    );
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId,
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gt: 0 },
+        }),
+      }),
+    );
+    expect(prisma.recurringInvoiceTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId,
+          status: RecurringInvoiceTemplateStatus.ACTIVE,
+          nextRunDate: { lte: new Date("2026-05-22T23:59:59.999Z") },
+        }),
+      }),
+    );
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId,
+          status: SalesInvoiceStatus.DRAFT,
+          recurringInvoiceTemplateId: { not: null },
+        }),
+        take: 5,
+      }),
+    );
     jest.useRealTimers();
   });
 
@@ -236,6 +840,10 @@ describe("DashboardService", () => {
   it("handles empty data without crashing", async () => {
     const { service } = makeService({
       salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      salesQuote: { findMany: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]) },
+      deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
+      collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
       customerPayment: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       journalEntry: { count: jest.fn().mockResolvedValue(0) },
       purchaseBill: { findMany: jest.fn().mockResolvedValue([]) },
@@ -446,6 +1054,10 @@ describe("DashboardService", () => {
       taxRate: { count: jest.fn().mockResolvedValue(0) },
       contact: { count: jest.fn().mockResolvedValue(0) },
       salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      salesQuote: { findMany: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]) },
+      deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
+      collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
       customerPayment: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       journalEntry: { count: jest.fn().mockResolvedValue(0) },
       bankAccountProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
@@ -476,6 +1088,10 @@ type MockPrisma = {
   taxRate: { count: jest.Mock };
   contact: { count: jest.Mock };
   salesInvoice: { findMany: jest.Mock; count: jest.Mock };
+  salesQuote: { findMany: jest.Mock };
+  recurringInvoiceTemplate: { count: jest.Mock; findMany: jest.Mock };
+  deliveryNote: { findMany: jest.Mock };
+  collectionCase: { findMany: jest.Mock };
   customerPayment: { findMany: jest.Mock; count: jest.Mock };
   journalEntry: { count: jest.Mock };
   purchaseBill: { findMany: jest.Mock };

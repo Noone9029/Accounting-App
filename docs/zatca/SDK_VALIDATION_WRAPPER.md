@@ -212,6 +212,57 @@ The repo path is `E:\Accounting App`, which contains a space. Earlier SDK launch
 6. Decide whether production uses SDK `-generateHash` directly or a verified in-process C14N11 fallback.
 7. Keep signing, real API calls, production CSID, clearance/reporting, and PDF/A-3 out of scope until canonical hash-chain and signed XML validation are stable locally.
 
+## 2026-06-06 Generated XML Fixture Validation Update
+
+The local CLI wrapper now validates two deterministic LedgerByte-generated sanitized XML fixtures:
+
+- `ledgerbyte-generated-standard-invoice` from `packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml`
+- `ledgerbyte-generated-credit-note` from `packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml`
+
+The generator command is:
+
+```bash
+corepack pnpm zatca:generate-local-xml-fixtures
+```
+
+The generator uses sanitized local demo JSON inputs and prints metadata only: fixture ID, relative path, size, hash, no-network flag, and redaction flags. It does not print XML bodies, QR payload bodies, secrets, headers, customer/vendor payloads, or request/response bodies.
+
+The wrapper accepts `ZATCA_SDK_JAVA_BIN` for a Java 11-14 binary and does not change global Java. Because the repo path contains a space, the wrapper stages the official SDK launcher and JAR into an isolated temporary no-space workspace and writes a temporary config pointing back to the repo-local official SDK `Data`, `Rules`, `Certificates`, `PIH`, `Input`, and `usage.txt` files. The temp workspace is cleaned after execution. This is local/no-network validation only and does not sign, request CSIDs, clear/report invoices, generate PDF/A-3, or claim production compliance.
+
+## 2026-06-06 SDK CI Readiness Guard
+
+The CI guard command is:
+
+```bash
+corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
+```
+
+The guard is inspection-only. It checks Java version metadata, local SDK reference presence, Git tracking/ignore status for the SDK reference, generated fixture path presence, package scripts, CI environment flags, launcher metadata, no-network flags, and redaction booleans. It does not invoke `fatoora`, run SDK validation, write XML, write evidence, call ZATCA, sign, request OTP/CSID, clear/report, create PDF/A-3, deploy, migrate, seed, reset, delete, or send email.
+
+## 2026-06-06 Local Signed XML Plan Guard
+
+The local signed XML plan command is:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+This guard is planning-only. It inspects SDK/reference availability, Java metadata, generated fixture path presence, package scripts, and documented SDK command shapes. It never invokes `fatoora -sign`, `-qr`, `-generateHash`, or `-validate`, never writes signed XML, never reads certificate/private-key body content, and never prints XML or QR payload bodies.
+
+The output remains blocked by default with signing execution disabled, production compliance false, no-network true, and future evidence policy set to metadata-only.
+
+## 2026-06-06 Local Dummy Signing Dry-Run Guard
+
+The dummy signing guard command is:
+
+```bash
+corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json
+```
+
+It reports a planned local command sequence only: `fatoora -sign -invoice <temp-unsigned.xml> -signedInvoice <temp-signed.xml>`, `fatoora -qr -invoice <temp-signed.xml>`, and `fatoora -validate -invoice <temp-signed.xml>`. The script never invokes those commands in this sprint, never reads certificate/private-key body content, never prints XML or QR payload bodies, and never creates signed XML. `--strict` exits nonzero while the guard status is blocked.
+
+Current result is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the SDK reference exists locally but is ignored and not reproducible from a fresh CI checkout. Default Java 17 is also unsupported. PR CI remains non-ZATCA until SDK reference/acquisition, Java 11-14, and artifact retention policy are approved.
+
 ## Compliance Warning
 
 SDK readiness and dry-run command planning are engineering tools only. Passing local SDK validation in the future would still not be legal certification or production ZATCA compliance without official sandbox onboarding, valid CSIDs, signing, API validation, PDF/A-3/archive decisions, and legal/operational review.
@@ -459,3 +510,36 @@ Remaining limitations and next step:
 - Added signed artifact promotion readiness blockers for dummy/test material, missing real certificate/CSID, missing production key custody, missing persistence workflow, missing clearance/reporting, and missing PDF/A-3.
 - Updated invoice/settings UI readiness to show that local signed XML validation success is not persisted signed invoice state and cannot be promoted from SDK dummy material.
 - No signed XML, QR payload, private key, certificate body, CSID token, OTP, generated CSR body, production credential, ZATCA network call, CSID request, clearance/reporting, PDF/A-3, or production compliance claim is introduced.
+
+## ZATCA approved dummy signing execution plan update (2026-06-06)
+
+- `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` documents the future approval-gated local dummy signing runbook.
+- `scripts/zatca-local-dummy-signing-dry-run.cjs` now recognizes the exact approval phrase as planning metadata and reports `PLAN_ONLY_APPROVAL_RECOGNIZED` without enabling SDK signing.
+- If `--execute-approved-plan` is supplied, the guard returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`; no SDK sign, QR, signed validation, network, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior runs.
+
+## ZATCA approved dummy signing execution result (2026-06-06)
+
+- `scripts/zatca-local-dummy-signing-dry-run.cjs` now executes the approved local dummy-material path only when `--execute-approved-plan`, exact `--approval-phrase`, `--no-network`, explicit Java 11-14 through `ZATCA_SDK_JAVA_BIN`, local SDK reference, and approved fixture IDs are all present.
+- The approved run used SDK `238-R3.4.8` and Java `11.0.26`.
+- `ledgerbyte-generated-standard-invoice`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- `ledgerbyte-generated-credit-note`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; temp unsigned/signed XML and SDK runtime/config copies were cleaned up.
+- This does not enable production signing, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, signed XML persistence, QR payload persistence, or production compliance.
+
+## ZATCA dummy signing result review and QR gap update (2026-06-06)
+
+- Evidence review doc: `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`.
+- Phase 2 QR gap doc: `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
+- Review task behavior: no `fatoora -sign`, `-qr`, `-validate`, or `-generateHash`; no network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check.
+- Wrapper interpretation remains local-only. The dummy run proves local SDK fixture processing, not production QR/signing compliance.
+
+## ZATCA key custody and CSID lifecycle design update (2026-06-06)
+
+- Design doc: `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+- Checklist: `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
+- Decision matrix: `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- This update is docs-only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
+- Recommended custody direction: KMS/HSM/external signing or equivalent custody for production private keys; secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Recommended next prompt: `ZATCA sandbox CSID request execution guard`.

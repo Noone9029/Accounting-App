@@ -8,7 +8,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
-import type { Account, Branch, Contact, Item, SalesInvoice, TaxRate } from "@/lib/types";
+import type { Account, AccountType, Branch, Contact, Item, SalesInvoice, SalesInvoiceTaxMode, TaxRate } from "@/lib/types";
 
 interface InvoiceLineState {
   id: string;
@@ -24,6 +24,13 @@ interface InvoiceLineState {
 interface SalesInvoiceFormProps {
   initialInvoice?: SalesInvoice;
   initialCustomerId?: string;
+}
+
+interface InvoiceNumberPreview {
+  invoiceNumber: string;
+  editable: boolean;
+  overrideAllowed: boolean;
+  helperText: string;
 }
 
 function makeLine(): InvoiceLineState {
@@ -67,6 +74,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   const [branchId, setBranchId] = useState(initialInvoice?.branchId ?? "");
   const [issueDate, setIssueDate] = useState(dateInputValue(initialInvoice?.issueDate));
   const [dueDate, setDueDate] = useState(optionalDateInputValue(initialInvoice?.dueDate));
+  const [taxMode, setTaxMode] = useState<SalesInvoiceTaxMode>(initialInvoice?.taxMode ?? "TAX_EXCLUSIVE");
   const [notes, setNotes] = useState(initialInvoice?.notes ?? "");
   const [terms, setTerms] = useState(initialInvoice?.terms ?? "");
   const [lines, setLines] = useState<InvoiceLineState[]>(
@@ -85,6 +93,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
+  const [invoiceNumberPreview, setInvoiceNumberPreview] = useState<InvoiceNumberPreview | null>(null);
 
   const postingRevenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const activeSalesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
@@ -96,10 +105,11 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discountRate: line.discountRate,
-          taxRate: activeSalesTaxRates.find((taxRate) => taxRate.id === line.taxRateId)?.rate ?? "0.0000",
+          taxRate: taxMode === "NO_TAX" ? "0.0000" : (activeSalesTaxRates.find((taxRate) => taxRate.id === line.taxRateId)?.rate ?? "0.0000"),
         })),
+        taxMode,
       ),
-    [activeSalesTaxRates, lines],
+    [activeSalesTaxRates, lines, taxMode],
   );
 
   useEffect(() => {
@@ -130,8 +140,9 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       apiRequest<Account[]>("/accounts"),
       apiRequest<TaxRate[]>("/tax-rates"),
       apiRequest<Branch[]>("/branches"),
+      initialInvoice ? Promise.resolve(null) : apiRequest<InvoiceNumberPreview>("/sales-invoices/next-number"),
     ])
-      .then(([contactResult, itemResult, accountResult, taxRateResult, branchResult]) => {
+      .then(([contactResult, itemResult, accountResult, taxRateResult, branchResult, invoiceNumberResult]) => {
         if (cancelled) {
           return;
         }
@@ -141,6 +152,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         setAccounts(accountResult);
         setTaxRates(taxRateResult);
         setBranches(branchResult);
+        setInvoiceNumberPreview(invoiceNumberResult);
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
@@ -156,7 +168,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [initialInvoice, organizationId]);
 
   function updateLine(lineId: string, patch: Partial<InvoiceLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -174,8 +186,15 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       description: item.description ?? item.name,
       accountId: item.revenueAccountId,
       unitPrice: item.sellingPrice,
-      taxRateId: item.salesTaxRateId ?? "",
+      taxRateId: taxMode === "NO_TAX" ? "" : (item.salesTaxRateId ?? ""),
     });
+  }
+
+  function updateTaxMode(nextTaxMode: SalesInvoiceTaxMode) {
+    setTaxMode(nextTaxMode);
+    if (nextTaxMode === "NO_TAX") {
+      setLines((current) => current.map((line) => ({ ...line, taxRateId: "" })));
+    }
   }
 
   function removeLine(lineId: string) {
@@ -200,6 +219,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         issueDate: `${issueDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
         currency: "SAR",
+        taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
         lines: lines.map((line, index) => ({
@@ -209,7 +229,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           discountRate: line.discountRate || "0.0000",
-          taxRateId: line.taxRateId || null,
+          taxRateId: taxMode === "NO_TAX" ? null : line.taxRateId || null,
           sortOrder: index,
         })),
       };
@@ -251,6 +271,29 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">Invoice number</span>
+            <input
+              value={initialInvoice?.invoiceNumber ?? invoiceNumberPreview?.invoiceNumber ?? "From sequence"}
+              readOnly
+              aria-label="Invoice number"
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
+            />
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {initialInvoice ? "Draft invoice number assigned from the sequence." : (invoiceNumberPreview?.helperText ?? "Assigned from the invoice sequence when saved.")}
+            </span>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">Tax mode</span>
+            <select value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="TAX_EXCLUSIVE">Tax exclusive</option>
+              <option value="TAX_INCLUSIVE">Tax inclusive</option>
+              <option value="NO_TAX">No tax</option>
+            </select>
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {taxMode === "TAX_INCLUSIVE" ? "Entered line prices include VAT; LedgerByte extracts the tax portion." : taxMode === "NO_TAX" ? "Line tax rates are ignored and invoice tax is zero." : "Line prices exclude VAT; tax is added to the total."}
+            </span>
           </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">Issue date</span>
@@ -304,7 +347,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             .
           </StatusMessage>
         ) : null}
-        {!loading && organizationId && activeSalesTaxRates.length === 0 ? (
+        {!loading && organizationId && taxMode !== "NO_TAX" && activeSalesTaxRates.length === 0 ? (
           <StatusMessage type="info">
             No active sales tax rate is available. You can save non-taxed draft lines, or review{" "}
             <Link href="/tax-rates" className="font-semibold text-palm hover:underline">
@@ -316,7 +359,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       </div>
 
       <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <div className="grid min-w-[1120px] grid-cols-[1fr_1.2fr_1fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
+        <div className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
           <div>Item</div>
           <div>Description</div>
           <div>Revenue account</div>
@@ -330,7 +373,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         {lines.map((line, index) => {
           const previewLine = preview.lines[index];
           return (
-            <div key={line.id} className="grid min-w-[1120px] grid-cols-[1fr_1.2fr_1fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
+            <div key={line.id} className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
               <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
                 <option value="">No item</option>
                 {activeItems.map((item) => (
@@ -340,24 +383,19 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
                 ))}
               </select>
               <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <select value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">Select account</option>
-                {postingRevenueAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
-                  </option>
-                ))}
-              </select>
+              <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
               <input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
               <input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
               <input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <select value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">No tax</option>
-                {activeSalesTaxRates.map((taxRate) => (
-                  <option key={taxRate.id} value={taxRate.id}>
-                    {taxRate.name}
-                  </option>
-                ))}
+              <select value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"} className="rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">{taxMode === "NO_TAX" ? "No tax mode" : "No tax"}</option>
+                {taxMode === "NO_TAX"
+                  ? null
+                  : activeSalesTaxRates.map((taxRate) => (
+                      <option key={taxRate.id} value={taxRate.id}>
+                        {taxRate.name}
+                      </option>
+                    ))}
               </select>
               <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</div>
               <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
@@ -366,7 +404,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             </div>
           );
         })}
-        <div className="flex min-w-[1120px] items-center justify-between px-4 py-3 text-sm">
+        <div className="flex min-w-[1240px] items-center justify-between px-4 py-3 text-sm">
           <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
             Add line
           </button>
@@ -395,6 +433,74 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       </div>
     </form>
   );
+}
+
+function AccountPicker({
+  accounts,
+  value,
+  onChange,
+  lineNumber,
+}: {
+  accounts: Account[];
+  value: string;
+  onChange: (accountId: string) => void;
+  lineNumber: number;
+}) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredAccounts = accounts.filter((account) => {
+    if (!normalizedQuery) {
+      return true;
+    }
+    return `${account.code} ${account.name} ${account.type}`.toLowerCase().includes(normalizedQuery);
+  });
+  const grouped = groupAccountsByType(filteredAccounts);
+
+  return (
+    <div className="space-y-1">
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        aria-label={`Search posting account for line ${lineNumber}`}
+        placeholder="Search accounts"
+        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-palm"
+      />
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        aria-label={`Posting account for line ${lineNumber}`}
+        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+      >
+        <option value="">Select account</option>
+        {Object.entries(grouped).map(([type, group]) => (
+          <optgroup key={type} label={formatAccountType(type as AccountType)}>
+            {group.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.code} {account.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function groupAccountsByType(accounts: Account[]): Partial<Record<AccountType, Account[]>> {
+  return accounts.reduce<Partial<Record<AccountType, Account[]>>>((groups, account) => {
+    const current = groups[account.type] ?? [];
+    groups[account.type] = [...current, account];
+    return groups;
+  }, {});
+}
+
+function formatAccountType(type: AccountType): string {
+  return type
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
 }
 
 function getValidationError(customerId: string, lines: InvoiceLineState[], previewValid: boolean): string {

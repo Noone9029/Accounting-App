@@ -63,6 +63,7 @@ corepack pnpm test:user-testing-cleanup-plan
 
 ```powershell
 git diff --check
+corepack pnpm db:generate
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build

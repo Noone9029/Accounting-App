@@ -14,6 +14,18 @@ This is a working engineering checklist. Official ZATCA/FATOORA documentation mu
 
 Open blockers: real OTP, valid sandbox credentials, official endpoint URLs, official payload samples, official error semantics.
 
+## 2026-06-06 Preparation Gates
+
+- Environment separation is documented in `ZATCA_ENVIRONMENT_SEPARATION_POLICY.md`.
+- Current document eligibility is documented in `ZATCA_INVOICE_ELIGIBILITY_MATRIX.md`.
+- Sandbox onboarding is documented in `SANDBOX_CSID_ONBOARDING_RUNBOOK.md`, but OTP and CSID execution remain blocked.
+- Audit evidence rules are documented in `ZATCA_AUDIT_EVIDENCE_STANDARD.md`.
+- Local/no-network SDK validation is repeatable through `corepack pnpm zatca:sdk-validate-local -- --all --no-network --json`.
+- Fixture IDs are documented in `ZATCA_SDK_FIXTURE_REGISTRY.md`.
+- Metadata-only evidence fields are documented in `ZATCA_SDK_VALIDATION_EVIDENCE_FORMAT.md`.
+- The readiness endpoint/UI may expose preparation booleans, but those booleans are read-only and do not enable network calls.
+- `productionComplianceEnabled`, `realNetworkCallsEnabled`, `signingEnabled`, `clearanceReportingEnabled`, and `pdfA3Enabled` must remain false until separate approved implementation sprints.
+
 ## Reference-backed source files
 
 - `reference/zatca-docs/compliance_csid.pdf`

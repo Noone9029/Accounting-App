@@ -103,6 +103,30 @@ interface PurchaseOrderSearchRow {
   supplier: PartySummary | null;
 }
 
+interface DeliveryNoteSearchRow {
+  id: string;
+  deliveryNoteNumber: string;
+  issueDate: Date | string;
+  deliveryDate: Date | string | null;
+  status: unknown;
+  customer: PartySummary | null;
+}
+
+interface CollectionCaseSearchRow {
+  id: string;
+  caseNumber: string;
+  status: unknown;
+  priority: unknown;
+  nextActionAt: Date | string | null;
+  followUpDate: Date | string | null;
+  customer: PartySummary | null;
+  salesInvoice: {
+    id: string;
+    invoiceNumber: string;
+    balanceDue: unknown;
+  } | null;
+}
+
 const RESULT_LIMIT_PER_SOURCE = 5;
 const MAX_RESULTS = 25;
 
@@ -127,6 +151,8 @@ export class SearchService {
         this.supplierPaymentResults(organizationId, normalizedQuery, permissions, amountNeedle),
         this.creditNoteResults(organizationId, normalizedQuery, permissions, amountNeedle),
         this.purchaseOrderResults(organizationId, normalizedQuery, permissions, amountNeedle),
+        this.deliveryNoteResults(organizationId, normalizedQuery, permissions),
+        this.collectionCaseResults(organizationId, normalizedQuery, permissions, amountNeedle),
         this.journalEntryResults(organizationId, normalizedQuery, permissions, amountNeedle),
       ])
     ).flat();
@@ -447,6 +473,100 @@ export class SearchService {
         href: `/purchases/purchase-orders/${row.id}`,
       }),
     );
+  }
+
+  private async deliveryNoteResults(organizationId: string, query: string, permissions: unknown) {
+    if (!can(permissions, PERMISSIONS.salesInvoices.view)) {
+      return [];
+    }
+    const rows = (await this.prisma.deliveryNote.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { deliveryNoteNumber: contains(query) },
+          { reference: contains(query) },
+          { deliveryAddress: contains(query) },
+          { customer: { is: partySearch(query) } },
+        ],
+      },
+      select: {
+        id: true,
+        deliveryNoteNumber: true,
+        issueDate: true,
+        deliveryDate: true,
+        status: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+      orderBy: { issueDate: "desc" },
+      take: RESULT_LIMIT_PER_SOURCE,
+    })) as unknown as DeliveryNoteSearchRow[];
+    return rows.map((row) => ({
+      id: `delivery-note-${row.id}`,
+      category: "Transactions" as const,
+      label: row.deliveryNoteNumber,
+      href: `/sales/delivery-notes/${row.id}`,
+      resultType: "Delivery note",
+      detail: row.customer ? row.customer.displayName ?? row.customer.name : "No customer",
+      amount: "0.0000",
+      date: toIsoString(row.issueDate),
+      status: String(row.status),
+      keywords: compact([row.deliveryNoteNumber, "delivery note", "fulfillment", row.customer?.displayName ?? row.customer?.name]),
+    }));
+  }
+
+  private async collectionCaseResults(organizationId: string, query: string, permissions: unknown, amountNeedle: string | null) {
+    if (!can(permissions, PERMISSIONS.salesInvoices.view)) {
+      return [];
+    }
+    const rows = (await this.prisma.collectionCase.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { caseNumber: contains(query) },
+          { summary: contains(query) },
+          { customer: { is: partySearch(query) } },
+          { salesInvoice: { is: { invoiceNumber: contains(query) } } },
+          ...(amountNeedle ? [{ promisedAmount: amountNeedle }, { salesInvoice: { is: { balanceDue: amountNeedle } } }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        caseNumber: true,
+        status: true,
+        priority: true,
+        nextActionAt: true,
+        followUpDate: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+        salesInvoice: { select: { id: true, invoiceNumber: true, balanceDue: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: RESULT_LIMIT_PER_SOURCE,
+    })) as unknown as CollectionCaseSearchRow[];
+    return rows.map((row) => {
+      const customerName = row.customer ? row.customer.displayName ?? row.customer.name : "No customer";
+      return {
+        id: `collection-case-${row.id}`,
+        category: "Transactions" as const,
+        label: row.caseNumber,
+        href: `/sales/collections/${row.id}`,
+        resultType: "Collection case",
+        detail: row.salesInvoice ? `${customerName} / ${row.salesInvoice.invoiceNumber}` : customerName,
+        amount: row.salesInvoice ? moneyString(row.salesInvoice.balanceDue) : "0.0000",
+        date: row.nextActionAt ? toIsoString(row.nextActionAt) : row.followUpDate ? toIsoString(row.followUpDate) : null,
+        status: String(row.status),
+        keywords: compact([
+          row.caseNumber,
+          "collection case",
+          "collections",
+          "follow-up",
+          "promise to pay",
+          String(row.status),
+          String(row.priority),
+          customerName,
+          row.salesInvoice?.invoiceNumber,
+        ]),
+      };
+    });
   }
 
   private async journalEntryResults(organizationId: string, query: string, permissions: unknown, amountNeedle: string | null) {

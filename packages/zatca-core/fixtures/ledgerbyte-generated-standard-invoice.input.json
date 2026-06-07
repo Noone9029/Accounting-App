@@ -1,0 +1,49 @@
+{
+  "invoiceUuid": "22222222-2222-4222-8222-222222222222",
+  "invoiceNumber": "LB-GEN-STD-0001",
+  "invoiceType": "STANDARD_TAX_INVOICE",
+  "issueDate": "2026-06-06T09:00:00.000Z",
+  "supplyDate": "2026-06-06",
+  "currency": "SAR",
+  "seller": {
+    "name": "LedgerByte Local Demo Seller",
+    "vatNumber": "399999999900003",
+    "companyIdType": "CRN",
+    "companyIdNumber": "1010010000",
+    "buildingNumber": "2322",
+    "streetName": "Prince Sultan",
+    "district": "Al-Murabba",
+    "city": "Riyadh",
+    "postalCode": "23333",
+    "countryCode": "SA"
+  },
+  "buyer": {
+    "name": "LedgerByte Local Demo Buyer",
+    "vatNumber": "399999999800003",
+    "buildingNumber": "1111",
+    "streetName": "Salah Al-Din",
+    "district": "Al-Murooj",
+    "city": "Riyadh",
+    "postalCode": "12222",
+    "countryCode": "SA"
+  },
+  "subtotal": "100.0000",
+  "discountTotal": "0.0000",
+  "taxableTotal": "100.0000",
+  "taxTotal": "15.0000",
+  "total": "115.0000",
+  "previousInvoiceHash": "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==",
+  "icv": 1001,
+  "lines": [
+    {
+      "id": "line-1",
+      "description": "Local demo service",
+      "quantity": "1.0000",
+      "unitPrice": "100.0000",
+      "taxableAmount": "100.0000",
+      "taxAmount": "15.0000",
+      "lineTotal": "115.0000",
+      "taxRateName": "VAT 15%"
+    }
+  ]
+}

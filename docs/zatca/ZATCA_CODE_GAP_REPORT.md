@@ -2,6 +2,63 @@
 
 This is a working engineering checklist. Official ZATCA/FATOORA documentation must be verified before production. Do not treat current mock implementation as legal compliance.
 
+## Current Key Custody And CSID Lifecycle Design Update
+
+The custody/CSID design has been consolidated in `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, with implementation tracking in `CSID_LIFECYCLE_CHECKLIST.md` and custody option comparison in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+Key findings: current `ZatcaEgsUnit` still has legacy PEM-capable fields that are not production-acceptable; metadata-only CSID custody records and a disabled custody-provider boundary exist; real sandbox CSID HTTP execution remains blocked; production CSID and production signing remain blocked. Recommended production direction is KMS/HSM/external signing or equivalent custody, with application tables storing metadata only.
+
+## Current Sandbox CSID Preflight Guard Update
+
+The sandbox CSID preflight guard is implemented at:
+
+```bash
+corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json
+```
+
+Current status: `PREFLIGHT_BLOCKED`. See `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+
+The guard verifies local reference presence, CSR property keys, ZATCA code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and CSID custody blockers. It does not request OTP/CSID, call ZATCA, run adapter HTTP, expose request/response/credential bodies, enable signing, or claim production compliance.
+
+The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`. The guard recognizes the exact approval phrase only with `--approval-plan` and returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/sandbox-adapter execution or body exposure is enabled.
+
+## Current CSID Response Custody Guard Update
+
+The CSID response custody implementation plan and guard are documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`.
+
+Current status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+
+The guard detects the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`). It does not request OTP/CSID, call ZATCA, run adapter HTTP, process real response bodies, attempt DB writes, persist token/secret/certificate bodies, print env values, expose bodies, enable signing, or claim production compliance.
+
+## Current Sandbox Adapter Execution Approval Update
+
+The sandbox adapter execution approval plan and guard are documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+
+Current status: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+The guard detects the sandbox adapter, disabled adapter, mock-only adapter, custody prerequisites, env presence booleans, and request/response body risks. It does not execute adapters, request OTP/CSID, call ZATCA, create request bodies, process response bodies, attempt DB writes, expose env values, expose bodies, enable signing, or claim production compliance. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## Current SDK CI Readiness Update
+
+The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.
+
+Current status: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
+
+- The official SDK files are locally present under ignored `reference/`, but they are not available from a fresh CI checkout.
+- Default Java 17 remains unsupported; CI and local validation require Java 11-14.
+- Generated LedgerByte fixture paths are present locally and prior evidence passed under Java 11.0.26.
+- PR CI remains non-ZATCA until SDK reference/acquisition and artifact retention policies are approved.
+
+## Current Local Signed XML Planning Update
+
+The local signed XML validation plan is implemented at `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md` with a metadata-only guard:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+The guard keeps `signingExecutionEnabled=false`, `localDummySigningAllowed=false`, `productionCompliance=false`, and `localSignedXmlEvidenceBodyPolicy=metadata-only`. It reads command documentation and path metadata only, never runs SDK `-sign`, `-qr`, `-generateHash`, or signed XML validation, and never prints XML, QR, private-key, certificate, token, header, request/response, or customer/vendor bodies.
+
 ## Current SDK Hash Persistence Update
 
 The local hash-chain gap is reduced but not closed for production:
@@ -27,6 +84,7 @@ Scope: compare current LedgerByte ZATCA groundwork with the local official refer
 | Invoice type code `name` flags | Standard and simplified invoice fixtures now use official sample values `0100000` and `0200000`; `BR-KSA-06` no longer appears for those fixtures. | SDK samples show `cbc:InvoiceTypeCode` with numeric code plus a multi-position `name` flag. | `packages/zatca-core/src/index.ts`, docs. | Extend the mapper for credit/debit/scenario flags only from official samples/rules. |
 | Tax category and subtotals | Current single-standard-VAT tax total shape now matches official invoice samples closely enough for local XSD/EN/KSA rule pass in the standard fixture. | Data dictionary and Schematron require VAT breakdowns, categories, percentages, taxable amounts, and scenario-specific rules. | `packages/zatca-core/src/index.ts`, tax mapping helpers. | Build category/rate grouping for zero-rated, exempt, out-of-scope, allowances, and charges from official samples. |
 | Line item tax structure | Local invoice lines now emit item description/name, classified tax category, price, line extension amount, and tax total shape backed by official samples. | SDK samples use `cac:ClassifiedTaxCategory`, price, item, line extension amount, and tax total patterns. | `packages/zatca-core/src/index.ts`. | Add broader line fixtures for discounts, charges, multiple VAT categories, and credit/debit documents. |
+| Generated standard invoice and credit note fixtures | Two sanitized deterministic LedgerByte fixtures now generate locally and pass the official SDK wrapper under Java 11.0.26 with no network calls. Evidence is metadata-only. | Official samples and rules require standard invoice UBL ordering, PIH/ICV ADRs, buyer/seller address structures, credit-note billing reference, payment means, reason note, tax totals, and line totals. | `packages/zatca-core/src/index.ts`, fixture inputs/snapshots, `scripts/generate-zatca-local-xml-fixtures.cjs`, `scripts/zatca-sdk-validate-local*.cjs`. | Keep generated fixture validation in local/no-network regression; broaden only from official samples and never treat this as production compliance. |
 | Seller/buyer identifiers | Local fixtures now include seller `CRN` and a valid standard buyer VAT pattern; related SDK warnings/rules are resolved for the fixtures. | Schematron and data dictionary include VAT, identification scheme IDs, postal/address rules, and buyer requirements that vary by invoice type. | `apps/api/src/zatca`, `packages/zatca-core`. | Add validation only after exact field mapping is documented for all invoice types. |
 | CSR/key algorithm/profile | Current CSR generation is local Node groundwork. | SDK CSR config template defines required fields; SDK readme references EC secp256k1 private key handling for signing. API docs require CSR for CSID. | `packages/zatca-core/src/index.ts`, `apps/api/src/zatca/zatca.service.ts`. | Compare local CSR output to SDK CSR output before real onboarding. |
 | API payload mapping | Adapter request/response types are flexible scaffolding. | API PDFs show endpoint-specific auth, payloads with `invoiceHash`, `uuid`, base64 `invoice`, and endpoint response statuses. | `apps/api/src/zatca/adapters/*`, DTOs/tests. | Implement sandbox-only mapper after signed XML and compliance CSID exist. |
@@ -105,6 +163,12 @@ Updated gap:
 - No production CSID, clearance, reporting, signing, or PDF/A-3 implementation was added.
 - No SDK dummy certificate/private-key material was copied into application code.
 - Local SDK validation remains disabled unless `ZATCA_SDK_EXECUTION_ENABLED=true` is explicitly configured.
+
+## 2026-06-06 Generated Fixture Validation Update
+
+Generated local fixtures now cover a sanitized standard invoice and a sanitized standard credit note. The credit note includes `cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID` pointing to `LB-GEN-STD-0001`, plus official sample-backed payment means and reason-note structure.
+
+The generated fixture validation evidence at `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json` records both fixtures as `PASSED` under Java 11.0.26 and SDK `238-R3.4.8` in `LOCAL_SDK_NO_NETWORK` mode. The same wrapper still blocks safely under default Java 17. This reduces the local XML-shape gap for standard invoice and credit note fixtures only. Production signing, key custody, sandbox OTP/CSID, Phase 2 QR, clearance/reporting, PDF/A-3, retry/error queue, secure signed artifact storage, official reviews, and repeatable SDK CI remain blockers.
 
 ## Fresh EGS PIH Chain Follow-Up
 
@@ -677,3 +741,64 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## ZATCA local dummy signing dry-run guard - 2026-06-06
+
+Added `scripts/zatca-local-dummy-signing-dry-run.cjs` and `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a metadata-only guard. It checks Java compatibility, local SDK/reference availability, generated fixture paths, SDK dummy certificate/private-key path presence, approval-marker presence, and documented SDK sign/QR/validate/hash command shapes.
+
+Current gap status remains blocked: the guard does not execute signing, QR generation, signed XML validation, CSID/OTP, network calls, clearance/reporting, PDF/A-3, signed XML/QR persistence, or production compliance. Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.
+
+## ZATCA approved local dummy signing execution plan - 2026-06-06
+
+Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` and approval-phrase metadata support in the dummy signing guard. The gap status remains blocked for real execution: the exact phrase can be recognized for planning, but `--execute-approved-plan` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT` and all signing/QR/signed-validation/network/production-compliance flags remain false.
+
+## ZATCA approved local dummy signing execution - 2026-06-06
+
+The approved local dummy-material SDK run completed against the two sanitized generated fixtures with Java `11.0.26`. SDK sign, QR, and signed XML validation stages passed for both fixtures, and metadata-only evidence was written to `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+Closed local gap: LedgerByte has now proven temp-only local SDK dummy processing for generated standard invoice and credit-note fixture XML.
+
+Still open: this is not production signing, not Phase 2 QR production proof, not CSID onboarding, not clearance/reporting, not PDF/A-3, not signed artifact storage readiness, not CI readiness, and not ZATCA compliance.
+
+## ZATCA dummy signing result review and Phase 2 QR gap analysis - 2026-06-06
+
+Added:
+
+- `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`
+- `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`
+
+The local dummy signing pass is now classified as local SDK evidence only. It closes the question of whether the repo-local SDK can process the two sanitized generated fixtures under Java 11, but it does not close production gaps for QR tags `6-9`, key custody, compliance/production CSID lifecycle, clearance/reporting, rendered/PDF QR output, PDF/A-3, signed artifact storage, repeatable CI, or production compliance.
+
+No SDK sign, QR, validate, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in the review task.
+
+## ZATCA sandbox CSID request execution guard - 2026-06-07
+
+Added:
+
+- `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`
+- `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`
+
+Extended:
+
+- `scripts/zatca-sandbox-csid-preflight.cjs`
+- `scripts/zatca-sandbox-csid-preflight.test.cjs`
+
+The new guard recognizes the exact sandbox compliance CSID request execution guard phrase and returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The launch flag remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Still open: key custody, CSID response custody, actual OTP capture approval, real sandbox adapter execution, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR production proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+## 2026-06-07 Sandbox Adapter Mock-to-Real Boundary Check
+
+Boundary artifacts are now documented in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`; the static guard is `scripts/zatca-sandbox-adapter-boundary-check.cjs`.
+
+Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. The guard detects the sandbox, disabled, and mock adapter boundaries by static inspection only. No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+No-network adapter contract tests are now documented in `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`; the standalone guard is `scripts/zatca-sandbox-adapter-no-network-contract.cjs`.
+
+Observed contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`. The guard installs a local no-network trap and confirms mock, disabled, and sandbox contract surfaces by static inspection only. No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+Still open: sandbox CSID dry-run request body schema planning, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

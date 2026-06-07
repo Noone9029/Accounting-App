@@ -84,6 +84,7 @@ const GATES = {
     description: "Local mirror of the proposed non-destructive CI gate.",
     commands: [
       command("git", ["diff", "--check"]),
+      command("corepack", ["pnpm", "db:generate"]),
       command("corepack", ["pnpm", "typecheck"]),
       command("corepack", ["pnpm", "test"]),
       command("corepack", ["pnpm", "build"]),

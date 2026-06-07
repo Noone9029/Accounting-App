@@ -6,6 +6,14 @@ Last updated: 2026-05-16
 
 This plan is architecture and local readiness scaffolding only. LedgerByte does not request compliance CSIDs, request production CSIDs, use production credentials, sign invoices, submit invoices to ZATCA, run clearance/reporting, generate PDF/A-3, or claim production compliance.
 
+## 2026-06-06 Reconciliation Update
+
+This document remains the CSR/onboarding groundwork history. The current consolidated design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; status tracking is in `CSID_LIFECYCLE_CHECKLIST.md`; custody options are compared in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+The design task did not request OTPs, request CSIDs, call ZATCA, expose private-key/certificate bodies, generate production credentials, or enable production signing.
+
+`SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now record the completed no-network preflight. The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; the next step is `ZATCA sandbox CSID request execution guard`.
+
 ## Official sources inspected
 
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`: documented `fatoora -csr -csrConfig <filename> -privateKey <filename> -generatedCsr <filename> -pem`, `-sign`, `-qr`, non-production flags, and dummy certificate/private-key restrictions.

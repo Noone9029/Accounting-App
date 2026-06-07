@@ -37,6 +37,163 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### ZATCA sandbox CSID preflight guard added
+
+Added a metadata-only, no-network preflight guard for future sandbox compliance CSID readiness.
+
+Risk reduced:
+
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`.
+- Added `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Added `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`.
+- Added `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- The guard verifies local references, CSR keys, code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and custody blockers.
+
+Remaining risks:
+
+- Current status is `PREFLIGHT_BLOCKED`.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate/CSID/token/header/request/response body was exposed, and production signing remains disabled.
+- Key custody, CSID response custody, sandbox adapter execution, OTP approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA sandbox OTP and compliance CSID approval plan added
+
+Added the planning-only approval phrase, runbook, result doc, and guard recognition for a future sandbox OTP/compliance CSID execution guard.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended `scripts/zatca-sandbox-csid-preflight.cjs` and `scripts/zatca-sandbox-csid-preflight.test.cjs` with planning-only approval recognition.
+- Observed status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing remains disabled.
+- Key custody, CSID response custody, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA CSID response custody implementation plan added
+
+Added a metadata-only response custody implementation plan and guard before any future real sandbox compliance CSID response may be processed.
+
+Risk reduced:
+
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`.
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`.
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`.
+- Added `scripts/zatca-csid-response-custody-guard.cjs`.
+- Added `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Added root package scripts `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Observed status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
+- Custody provider implementation/approval, legacy raw PEM-capable fields, sandbox adapter execution approval, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA sandbox adapter execution approval plan added
+
+Added a metadata-only adapter execution approval plan and guard before any future sandbox adapter can be allowed to run.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+- Added `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+- Added `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Observed status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Mock-to-real adapter boundary tests, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA sandbox adapter mock-to-real boundary test plan added
+
+Added a static-only boundary plan and guard before any future sandbox adapter execution can move from mock/disabled paths toward real adapter tests.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`.
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+- Added `scripts/zatca-sandbox-adapter-boundary-check.cjs`.
+- Added `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-boundary-check` and `test:zatca-sandbox-adapter-boundary-check`.
+- Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- No-network adapter contract tests, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA key custody and CSID lifecycle design added
+
+Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.
+
+Risk reduced:
+
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`.
+- Added `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`.
+- Added `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- Reconciled existing legacy EGS PEM-capable fields, metadata-only CSID custody records, disabled custody provider, mock-only CSID flow, and blocked real sandbox/production adapters.
+- Recommended KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no private-key/certificate body was exposed, no production credentials were generated, and production signing remains disabled.
+- Sandbox CSID preflight, sandbox OTP/CSID, compliance CSID lifecycle, production CSID lifecycle, production key custody, Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
+### ZATCA local signed XML validation plan added
+
+Added a planning-only guard for the next signed XML validation step without enabling signing.
+
+Risk reduced:
+
+- Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Added `scripts/zatca-local-signed-xml-plan.cjs` and `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json`.
+- Added targeted tests for no-network enforcement, Java 17 blocking, Java 11-14 metadata-only support, missing SDK/fixture blockers, strict-mode exit behavior, no SDK sign/QR/hash execution, and no XML/QR/key/certificate body output.
+
+Remaining risks:
+
+- The guard is blocked by default and does not execute signing.
+- Default Java 17 remains unsupported; future SDK execution requires Java 11-14.
+- Key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, official reviews, and production compliance remain blocked.
+
+### ZATCA SDK CI readiness guard added
+
+Added a safe no-network SDK CI readiness guard without enabling SDK validation in GitHub Actions.
+
+Risk reduced:
+
+- Added `scripts/zatca-sdk-ci-readiness.cjs` and `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`.
+- Added targeted tests for no-network enforcement, Java 17 blocking, Java 11-14 support metadata, missing SDK/fixture blockers, strict-mode exit behavior, launcher metadata, and metadata-only redaction.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md` documenting runner options, current blocker status, and a documentation-only workflow sketch.
+
+Remaining risks:
+
+- Current status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the official SDK is local/ignored under `reference/` and not available from a fresh checkout.
+- Default Java 17 remains unsupported; CI execution requires Java 11-14.
+- PR CI remains non-ZATCA. No real ZATCA network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, email, deploy, migration, seed/reset/delete, production/beta/customer data mutation, or production compliance was enabled.
+
+### DEV-11 inventory valuation and COGS evidence closed
+
+Closed the DEV-11 inventory valuation and COGS evidence chain as local-only documentation/readiness evidence without changing product behavior.
+
+Risk reduced:
+
+- Added `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md` with the full Part 1-15 evidence map, marker scope, accounting summaries, production gap register, and future E2E readiness checklist.
+- Consolidated evidence for the marker fixture, manual sales stock issue COGS post/reverse path, compatible purchase receipt asset post/reverse path, clearing variance proposal lifecycle, and inventory/report financial summaries.
+- Updated readiness, roadmap, audit, implementation, README, and handoff docs to state that DEV-11 is closed as local-only inventory valuation and COGS evidence.
+
+Remaining risks:
+
+- DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Inventory accounting is not production-complete. FIFO/cost layers, landed cost, automatic posting, returns, serial/batch/bin/location, historical direct-mode migration, multi-currency inventory, accountant review, hosted proof, and load/concurrency remain open.
+- No app code, runtime data, report query, output generation, migration, seed/reset/delete, deploy, env var, ZATCA, email, backup, restore, production/beta target, customer data, E2E, smoke, full test, or full build changed in the closure.
+
 ### API hosting decision ADR drafted
 
 Captured the proposed production API hosting direction without changing product behavior or production infrastructure.
@@ -3209,3 +3366,64 @@ Recommended next step:
 - Readiness docs now state that reports local evidence is useful for the DEV-10 scope but not production-complete.
 - Remaining reporting production gaps include accountant-reviewed report definitions/layouts, official VAT filing scope, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document object-storage retention, restricted-role matrix coverage, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and load/concurrency.
 - No app code, runtime mutation in the closure step, new report query, new CSV/PDF/archive/download generation, deploy, production/beta/customer data, real email, real ZATCA, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
+
+# DEV-12 generated documents storage retention closure - 2026-05-30
+
+- DEV-12 consolidated local-only generated documents storage retention evidence in `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+- The local evidence covers marker `DEV12-DOC-20260530T000000`, one synthetic DB-backed generated document, safe metadata list/detail/filter checks, one approved local download metadata/hash check, storage readiness and migration dry-run counts, and retention/legal-hold cleanup policy preflight.
+- Final marker evidence recorded one generated document, one generated-document audit-log row, storage provider `database`, storage key `null`, size `129`, matching SHA-256 metadata, attachment count `0`, backup/restore evidence count `0`, and no migration/upload/delete/purge/restore execution.
+- DEV-12 is closed as local-only generated documents storage retention evidence.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Remaining generated-document production gaps include object storage, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict handling, malware scanning, restore proof, backup proof, purge executor, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, load/concurrency for large PDFs, and accountant/legal review.
+- No app code, runtime mutation in the closure step, new download, PDF/base64/body output, deploy, production/beta/customer data, external object storage, migration, seed/reset/delete, backup/restore, full smoke, full E2E, or environment/provider setting changed.
+
+# ZATCA local generated XML fixture validation - 2026-06-06
+
+- No product bug requiring production mutation was found in the generated-fixture sprint.
+- Added sanitized deterministic generated XML fixtures for a standard invoice and a standard credit note and validated both through the local official SDK wrapper with Java 11.0.26.
+- Default Java 17 remains a safe unsupported-runtime blocker and must not be treated as valid SDK readiness.
+- Evidence is metadata-only and does not include XML bodies, QR payload bodies, private keys, CSID material, OTPs, tokens, headers, request/response bodies, customer/vendor payloads, or unsafe SDK stdout/stderr.
+- Remaining ZATCA blockers are unchanged: key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, retry/error queue, production signed artifact storage, official reviews, and repeatable SDK CI.
+
+# ZATCA local dummy signing dry-run guard - 2026-06-06
+
+- No signing bug was fixed and no signing execution was attempted.
+- Added `scripts/zatca-local-dummy-signing-dry-run.cjs` to report readiness and planned SDK command shapes while keeping signing, QR, and signed XML validation execution disabled.
+- The guard checks dummy certificate/private-key path presence only and does not read or expose their bodies.
+- Remaining blockers are unchanged: explicit future local dummy signing approval, Java 11-14 for SDK execution, SDK reference/CI policy, key custody, sandbox OTP/CSID, Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, official review, and production compliance.
+
+# ZATCA approved local dummy signing execution plan - 2026-06-06
+
+- No runtime bug was fixed and no SDK signing, QR generation, or signed XML validation was attempted.
+- Added an approval-phrase runbook and planning-only guard behavior so a future sprint can test approval recognition before any local dummy-material execution is implemented.
+- The execution path remains blocked; no private-key/certificate bodies, XML bodies, signed XML bodies, QR payload bodies, CSID/OTP material, tokens, headers, or request/response bodies were exposed.
+
+# ZATCA approved local dummy signing execution - 2026-06-06
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- One approved local dummy-material SDK run passed for `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note` under Java `11.0.26`.
+- Metadata-only evidence is at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; no XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTP/CSID material, tokens, headers, or request/response bodies were persisted.
+- Remaining blockers are unchanged: key custody, sandbox OTP/CSID, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, official review, repeatable SDK CI, and production compliance.
+
+# ZATCA dummy signing result review and QR gap analysis - 2026-06-06
+
+- No production bug was fixed and no SDK signing/QR/validation/hash command was executed in this review.
+- Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
+- Evidence review confirmed both approved fixtures passed in the prior run with metadata-only evidence, no network calls, cleanup success, and production compliance false.
+- Remaining blockers are unchanged: key custody, sandbox OTP/CSID, compliance/production CSID lifecycle, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, official review, repeatable SDK CI, and production compliance.
+
+# ZATCA sandbox CSID request execution guard - 2026-06-07
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- Added a no-network execution guard for future sandbox compliance CSID request execution.
+- Status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining blockers: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+# ZATCA sandbox adapter no-network contract tests - 2026-06-07
+
+- No production bug was fixed and no production ZATCA behavior was enabled.
+- Added no-network adapter contract tests and a standalone metadata-only guard for the mock, disabled, and sandbox adapter boundaries.
+- Status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
+- No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB connection/write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.

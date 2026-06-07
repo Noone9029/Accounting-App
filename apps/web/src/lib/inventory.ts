@@ -7,17 +7,30 @@ import type {
   InventoryBalance,
   InventoryClearingReportStatus,
   InventoryClearingVarianceRow,
+  InventoryBatchStatus,
+  InventoryBinLocationStatus,
+  InventoryBinLocationType,
+  InventoryFifoPreviewWarningType,
+  InventorySerialNumberStatus,
+  LandedCostAllocationMethod,
+  LandedCostCategory,
+  LandedCostSourceType,
   InventoryLowStockStatus,
   InventoryMovementSummaryRow,
   InventoryPurchasePostingMode,
   InventorySettings,
   InventorySourceProgressStatus,
   InventoryStockValuationRow,
+  InventoryValuationVarianceSeverity,
+  InventoryValuationVarianceSourceType,
+  InventoryValuationVarianceStatus,
+  InventoryValuationVarianceType,
   InventoryValuationMethod,
   InventoryVarianceProposalAccountingPreview,
   InventoryVarianceProposalStatus,
   InventoryVarianceReason,
   ItemStatus,
+  ItemTrackingMode,
   ItemType,
   PurchaseBillInventoryPostingMode,
   PurchaseReceiptAccountingPreview,
@@ -40,6 +53,8 @@ export function warehouseStatusBadgeClass(status: WarehouseStatus): string {
 }
 
 export function stockMovementTypeLabel(type: StockMovementType): string {
+  if (type === "PURCHASE_RETURN_OUT") return "Purchase return out";
+  if (type === "SALES_RETURN_IN") return "Sales return in";
   return type.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -85,6 +100,54 @@ export function itemStatusLabel(status: ItemStatus): string {
 
 export function itemStatusBadgeClass(status: ItemStatus): string {
   return status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
+}
+
+export function itemTrackingModeLabel(mode: ItemTrackingMode | null | undefined): string {
+  switch (mode ?? "NONE") {
+    case "NONE":
+      return "None";
+    case "SERIAL":
+      return "Serial";
+    case "BATCH":
+      return "Batch";
+    case "SERIAL_AND_BATCH":
+      return "Serial and batch";
+  }
+}
+
+export function inventoryTrackingSafeHelperText(): string {
+  return "Tracking settings add operational traceability. They do not change historical inventory valuation, FIFO preview, COGS, journals, VAT, or financial statements.";
+}
+
+export function inventoryTraceabilityUrl(itemId: string): string {
+  return `/inventory/traceability/items/${itemId}`;
+}
+
+export function inventoryBinLocationTypeLabel(type: InventoryBinLocationType): string {
+  return titleCaseInventoryValue(type);
+}
+
+export function inventoryBinLocationStatusLabel(status: InventoryBinLocationStatus): string {
+  return status === "ACTIVE" ? "Active" : "Inactive";
+}
+
+export function inventoryBatchStatusLabel(status: InventoryBatchStatus): string {
+  return titleCaseInventoryValue(status);
+}
+
+export function inventorySerialNumberStatusLabel(status: InventorySerialNumberStatus): string {
+  return titleCaseInventoryValue(status);
+}
+
+export function inventoryTraceabilityStatusBadgeClass(status: string): string {
+  if (status === "ACTIVE" || status === "AVAILABLE") return "bg-emerald-50 text-emerald-700";
+  if (status === "INACTIVE" || status === "CLOSED" || status === "ISSUED") return "bg-slate-100 text-slate-700";
+  if (status === "EXPIRED" || status === "LOST" || status === "SCRAPPED") return "bg-rose-50 text-rose-700";
+  return "bg-amber-50 text-amber-700";
+}
+
+function titleCaseInventoryValue(value: string): string {
+  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export function inventoryAccountingWarnings(): string[] {
@@ -303,6 +366,175 @@ export function inventoryClearingReportUrl(filters: { purchaseBillId?: string | 
   if (filters.status) query.set("status", filters.status);
   const suffix = query.toString();
   return `/inventory/reports/clearing-reconciliation${suffix ? `?${suffix}` : ""}`;
+}
+
+export function inventoryValuationVarianceTypeLabel(type: InventoryValuationVarianceType): string {
+  switch (type) {
+    case "PRICE_VARIANCE":
+      return "Price variance";
+    case "QUANTITY_VARIANCE":
+      return "Quantity variance";
+    case "RECEIPT_WITHOUT_BILL":
+      return "Receipt without bill";
+    case "BILL_WITHOUT_RECEIPT":
+      return "Bill without receipt";
+    case "OVER_RECEIVED_VALUE":
+      return "Over received value";
+    case "OVER_BILLED_VALUE":
+      return "Over billed value";
+    case "RETURN_PENDING_CREDIT":
+      return "Return pending credit";
+    case "REVIEW_REQUIRED":
+      return "Review required";
+  }
+}
+
+export function inventoryValuationVarianceSeverityLabel(severity: InventoryValuationVarianceSeverity): string {
+  if (severity === "CRITICAL") return "Critical";
+  if (severity === "HIGH") return "High";
+  if (severity === "MEDIUM") return "Medium";
+  return "Low";
+}
+
+export function inventoryValuationVarianceSeverityBadgeClass(severity: InventoryValuationVarianceSeverity): string {
+  if (severity === "CRITICAL") return "bg-rose-50 text-rose-700";
+  if (severity === "HIGH") return "bg-amber-50 text-amber-700";
+  if (severity === "MEDIUM") return "bg-slate-100 text-slate-700";
+  return "bg-emerald-50 text-emerald-700";
+}
+
+export function inventoryValuationVarianceStatusLabel(status: InventoryValuationVarianceStatus): string {
+  if (status === "PREVIEW_ONLY") return "Preview only";
+  if (status === "NEEDS_ACCOUNTANT_REVIEW") return "Needs accountant review";
+  if (status === "NEEDS_MATCHING_REVIEW") return "Needs matching review";
+  if (status === "NEEDS_RETURN_REVIEW") return "Needs return review";
+  return "Ready for policy decision";
+}
+
+export function inventoryValuationVarianceSourceTypeLabel(sourceType: InventoryValuationVarianceSourceType): string {
+  if (sourceType === "purchaseOrder") return "Purchase order";
+  if (sourceType === "purchaseBill") return "Purchase bill";
+  if (sourceType === "purchaseReceipt") return "Purchase receipt";
+  if (sourceType === "purchaseReturn") return "Purchase return";
+  return "Matching review";
+}
+
+export function inventoryValuationVarianceAmountDisplay(value: string | number | null | undefined): string {
+  return formatInventoryQuantity(value);
+}
+
+export function inventoryValuationVariancePreviewUrl(filters: {
+  purchaseReceiptId?: string | null;
+  purchaseBillId?: string | null;
+  matchingReviewId?: string | null;
+  sourceType?: InventoryValuationVarianceSourceType | null;
+  search?: string | null;
+}): string {
+  const query = new URLSearchParams();
+  if (filters.purchaseReceiptId) query.set("purchaseReceiptId", filters.purchaseReceiptId);
+  if (filters.purchaseBillId) query.set("purchaseBillId", filters.purchaseBillId);
+  if (filters.matchingReviewId) query.set("matchingReviewId", filters.matchingReviewId);
+  if (filters.sourceType) query.set("sourceType", filters.sourceType);
+  if (filters.search) query.set("search", filters.search);
+  const suffix = query.toString();
+  return `/inventory/valuation-variances${suffix ? `?${suffix}` : ""}`;
+}
+
+export function landedCostCategoryLabel(category: LandedCostCategory): string {
+  switch (category) {
+    case "FREIGHT":
+      return "Freight";
+    case "CUSTOMS_DUTY":
+      return "Customs duty";
+    case "INSURANCE":
+      return "Insurance";
+    case "HANDLING":
+      return "Handling";
+    case "BROKERAGE":
+      return "Brokerage";
+    case "STORAGE":
+      return "Storage";
+    case "OTHER":
+      return "Other";
+  }
+}
+
+export function landedCostAllocationMethodLabel(method: LandedCostAllocationMethod): string {
+  switch (method) {
+    case "BY_VALUE":
+      return "By value";
+    case "BY_QUANTITY":
+      return "By quantity";
+    case "EQUAL":
+      return "Equal";
+    case "MANUAL":
+      return "Manual";
+  }
+}
+
+export function landedCostSourceTypeLabel(sourceType: LandedCostSourceType): string {
+  switch (sourceType) {
+    case "PURCHASE_RECEIPT":
+      return "Purchase receipt";
+    case "PURCHASE_BILL":
+      return "Purchase bill";
+    case "PURCHASE_ORDER":
+      return "Purchase order";
+  }
+}
+
+export function landedCostPreviewUrl(filters: { sourceType?: LandedCostSourceType | null; sourceId?: string | null }): string {
+  const query = new URLSearchParams();
+  if (filters.sourceType) query.set("sourceType", filters.sourceType);
+  if (filters.sourceId) query.set("sourceId", filters.sourceId);
+  const suffix = query.toString();
+  return `/inventory/landed-cost${suffix ? `?${suffix}` : ""}`;
+}
+
+export function inventoryFifoPreviewSafeHelperText(): string {
+  return "FIFO preview reconstructs possible cost layers from existing inventory movements. It is read-only and does not change inventory valuation, moving average, COGS, journals, VAT, ZATCA, AP, AR, financial statements, source documents, or stock movements.";
+}
+
+export function inventoryFifoPreviewUrl(filters: { itemId?: string | null; warehouseId?: string | null; asOfDate?: string | null }): string {
+  const query = new URLSearchParams();
+  if (filters.itemId) query.set("itemId", filters.itemId);
+  if (filters.warehouseId) query.set("warehouseId", filters.warehouseId);
+  if (filters.asOfDate) query.set("asOfDate", filters.asOfDate);
+  const suffix = query.toString();
+  return `/inventory/fifo-preview${suffix ? `?${suffix}` : ""}`;
+}
+
+export function inventoryFifoPreviewWarningLabel(type: InventoryFifoPreviewWarningType): string {
+  switch (type) {
+    case "MISSING_UNIT_COST":
+      return "Missing unit cost";
+    case "NEGATIVE_LAYER_QUANTITY":
+      return "Negative layer quantity";
+    case "INSUFFICIENT_LAYER_QUANTITY":
+      return "Insufficient layer quantity";
+    case "UNSUPPORTED_TRANSFER_SHAPE":
+      return "Unsupported transfer shape";
+    case "UNTRACEABLE_PURCHASE_RETURN_COST":
+      return "Untraceable purchase return cost";
+    case "UNTRACEABLE_SALES_RETURN_COST":
+      return "Untraceable sales return cost";
+    case "MIXED_WAREHOUSE_SCOPE":
+      return "Mixed warehouse scope";
+    case "NO_MOVEMENTS":
+      return "No movements";
+    case "PREVIEW_ONLY_NOT_ACCOUNTING_METHOD":
+      return "Preview only";
+  }
+}
+
+export function inventoryFifoPreviewWarningBadgeClass(type: InventoryFifoPreviewWarningType): string {
+  if (type === "INSUFFICIENT_LAYER_QUANTITY" || type === "NEGATIVE_LAYER_QUANTITY") {
+    return "bg-rose-50 text-rose-700";
+  }
+  if (type === "PREVIEW_ONLY_NOT_ACCOUNTING_METHOD" || type === "NO_MOVEMENTS") {
+    return "bg-slate-100 text-slate-700";
+  }
+  return "bg-amber-50 text-amber-700";
 }
 
 export function inventoryVarianceProposalStatusLabel(status: InventoryVarianceProposalStatus): string {
@@ -572,4 +804,5 @@ const stockMovementInTypes = new Set<StockMovementType>([
   "ADJUSTMENT_IN",
   "TRANSFER_IN",
   "PURCHASE_RECEIPT_PLACEHOLDER",
+  "SALES_RETURN_IN",
 ]);

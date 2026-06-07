@@ -4,6 +4,28 @@
 
 This plan covers metadata-only custody planning for future ZATCA compliance CSID responses. It does not request a real CSID, call ZATCA, persist token bodies, persist secret bodies, persist certificate bodies, request production CSIDs, implement clearance/reporting, implement PDF/A-3, persist signed XML bodies, persist QR payload bodies, or claim production compliance.
 
+## 2026-06-06 Reconciliation Update
+
+This plan remains the compliance CSID response-custody detail. The consolidated lifecycle design is now `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; status tracking is in `CSID_LIFECYCLE_CHECKLIST.md`; custody options are compared in `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+The current recommendation is metadata-only app tables plus approved custody for sensitive material. Production private keys should use KMS/HSM/external signing or equivalent custody.
+
+## 2026-06-06 Sandbox CSID Preflight Guard Update
+
+The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, and the base local result is in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; approval phrase recognition does not approve response body storage, CSID request execution, sandbox adapter execution, or secret exposure.
+
+Current result: `PREFLIGHT_BLOCKED`. The guard found the custody provider surface but confirms CSID response custody remains disabled/unapproved. No OTP, CSID, token, secret, certificate, auth header, request body, response body, private key, signed XML, or QR payload body was requested, stored, printed, or exposed.
+
+## 2026-06-07 CSID Response Custody Implementation Guard Update
+
+The custody implementation path is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, the guard is documented in `CSID_RESPONSE_CUSTODY_GUARD.md`, and the metadata-only result is recorded in `CSID_RESPONSE_CUSTODY_RESULTS.md`.
+
+Current custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. The guard found the disabled custody provider and metadata-only custody model, detected legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`), and confirmed no OTP, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred.
+
+Adapter execution approval planning is now documented in `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`. Current adapter approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; the execute-adapter command shape remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
 ## Official files inspected
 
 - reference/zatca-docs/compliance_csid.pdf
@@ -224,3 +246,19 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## 2026-06-07 Execution Guard Dependency
+
+`SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` now record the no-network execution boundary. The guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, and `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+Custody remains the next blocker: `csidResponseCustodyApproved=false`, provider implementation ready `false`, token/secret/certificate storage ready `false`, body storage allowed `false`, response body processed `false`, and response persisted `false`.
+
+No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-ups: `ZATCA CSID response custody implementation plan`, `ZATCA sandbox adapter execution approval plan`, and `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+Contract artifacts: `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`. Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.

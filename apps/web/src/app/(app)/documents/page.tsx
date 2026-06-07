@@ -17,6 +17,7 @@ import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@
 const documentTypes: Array<"" | DocumentType> = [
   "",
   "SALES_INVOICE",
+  "DELIVERY_NOTE",
   "CREDIT_NOTE",
   "CUSTOMER_PAYMENT_RECEIPT",
   "CUSTOMER_REFUND",

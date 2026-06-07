@@ -1,14 +1,30 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { ItemStatus, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
+import { InventoryBinLocationStatus, ItemStatus, ItemTrackingMode, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { validateBatchRequired, validateBinRequired, validateExpiryRequired, validateSerialsRequired } from "../inventory/inventory-tracking-validation";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateStockMovementDto } from "./dto/create-stock-movement.dto";
 import { StockMovementQueryDto } from "./dto/stock-movement-query.dto";
 import { STOCK_MOVEMENT_MVP_CREATE_TYPES, stockMovementDirection } from "./stock-movement-rules";
 
 const stockMovementInclude = {
-  item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+  item: {
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      type: true,
+      status: true,
+      inventoryTracking: true,
+      trackingMode: true,
+      expiryTrackingEnabled: true,
+      binTrackingEnabled: true,
+    },
+  },
   warehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
+  batch: { select: { id: true, batchNumber: true, lotNumber: true, expiryDate: true, status: true } },
+  serialNumber: { select: { id: true, serialNumber: true, status: true, batchId: true } },
+  binLocation: { select: { id: true, code: true, name: true, type: true, status: true, warehouseId: true } },
   createdBy: { select: { id: true, name: true, email: true } },
 };
 
@@ -52,7 +68,7 @@ export class StockMovementService {
 
     const item = await this.prisma.item.findFirst({
       where: { id: dto.itemId, organizationId },
-      select: { id: true, inventoryTracking: true, status: true },
+      select: { id: true, inventoryTracking: true, status: true, trackingMode: true, expiryTrackingEnabled: true, binTrackingEnabled: true },
     });
     if (!item) {
       throw new BadRequestException("Item must belong to this organization.");
@@ -78,6 +94,7 @@ export class StockMovementService {
     const quantity = this.positiveDecimal(dto.quantity, "Quantity");
     const unitCost = dto.unitCost === undefined ? null : this.nonNegativeDecimal(dto.unitCost, "Unit cost");
     const movementDate = this.requiredDate(dto.movementDate, "Movement date");
+    const trackingReferences = await this.validateTrackingReferences(organizationId, item, warehouse.id, dto, quantity);
 
     if (dto.type === StockMovementType.OPENING_BALANCE) {
       const openingBalanceCount = await this.prisma.stockMovement.count({
@@ -100,6 +117,9 @@ export class StockMovementService {
         organizationId,
         itemId: item.id,
         warehouseId: warehouse.id,
+        batchId: trackingReferences.batchId,
+        serialNumberId: trackingReferences.serialNumberId,
+        binLocationId: trackingReferences.binLocationId,
         movementDate,
         type: dto.type,
         quantity: quantity.toFixed(4),
@@ -182,5 +202,69 @@ export class StockMovementService {
   private cleanOptional(value?: string | null): string | null {
     const cleaned = value?.trim();
     return cleaned ? cleaned : null;
+  }
+
+  private async validateTrackingReferences(
+    organizationId: string,
+    item: {
+      id: string;
+      trackingMode: ItemTrackingMode;
+      expiryTrackingEnabled: boolean;
+      binTrackingEnabled: boolean;
+    },
+    warehouseId: string,
+    dto: CreateStockMovementDto,
+    quantity: Prisma.Decimal,
+  ): Promise<{ batchId: string | null; serialNumberId: string | null; binLocationId: string | null }> {
+    const batchRequired = validateBatchRequired(item, dto.batchId);
+    const serialRequired = validateSerialsRequired(item, dto.serialNumberId ? [dto.serialNumberId] : [], quantity);
+    const binRequired = validateBinRequired(item, dto.binLocationId);
+    const blocker = batchRequired ?? serialRequired ?? binRequired;
+    if (blocker) throw new BadRequestException(blocker);
+
+    if (dto.batchId && item.trackingMode !== ItemTrackingMode.BATCH && item.trackingMode !== ItemTrackingMode.SERIAL_AND_BATCH) {
+      throw new BadRequestException("Batch reference is only allowed for batch-tracked items.");
+    }
+    if (dto.serialNumberId && item.trackingMode !== ItemTrackingMode.SERIAL && item.trackingMode !== ItemTrackingMode.SERIAL_AND_BATCH) {
+      throw new BadRequestException("Serial reference is only allowed for serial-tracked items.");
+    }
+    if (dto.binLocationId && !item.binTrackingEnabled) {
+      throw new BadRequestException("Bin/location reference is only allowed for bin-tracked items.");
+    }
+
+    const batch = dto.batchId
+      ? await this.prisma.inventoryBatch.findFirst({
+          where: { id: dto.batchId, organizationId, itemId: item.id },
+          select: { id: true, itemId: true, expiryDate: true, status: true },
+        })
+      : null;
+    if (dto.batchId && !batch) throw new BadRequestException("Batch must belong to this item and organization.");
+    const expiryRequired = validateExpiryRequired(item, batch);
+    if (expiryRequired) throw new BadRequestException(expiryRequired);
+
+    const serialNumber = dto.serialNumberId
+      ? await this.prisma.inventorySerialNumber.findFirst({
+          where: { id: dto.serialNumberId, organizationId, itemId: item.id },
+          select: { id: true, batchId: true },
+        })
+      : null;
+    if (dto.serialNumberId && !serialNumber) throw new BadRequestException("Serial number must belong to this item and organization.");
+    if (serialNumber?.batchId && batch?.id && serialNumber.batchId !== batch.id) {
+      throw new BadRequestException("Serial number batch must match the movement batch.");
+    }
+
+    const binLocation = dto.binLocationId
+      ? await this.prisma.inventoryBinLocation.findFirst({
+          where: { id: dto.binLocationId, organizationId, warehouseId, status: InventoryBinLocationStatus.ACTIVE },
+          select: { id: true },
+        })
+      : null;
+    if (dto.binLocationId && !binLocation) throw new BadRequestException("Bin/location must be active and belong to this movement warehouse.");
+
+    return {
+      batchId: batch?.id ?? null,
+      serialNumberId: serialNumber?.id ?? null,
+      binLocationId: binLocation?.id ?? null,
+    };
   }
 }

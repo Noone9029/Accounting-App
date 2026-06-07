@@ -9,21 +9,67 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 | Category | Score | Current evidence | Biggest gaps | Next priority |
 | --- | ---: | --- | --- | --- |
 | Core accounting | 78 | Chart of accounts, manual journals, fiscal-period guard, posting/reversal, balanced reports, smoke coverage. | Year-end close, retained earnings, approval workflow, concurrency/load testing, accountant sign-off. | Add fiscal year close and accountant-reviewed report definitions. |
-| Sales/AR | 82 | Invoices, payments, unapplied payments, credit notes, refunds, customer ledgers/statements, PDFs, attachments, smoke coverage. | Recurring invoices, quotes/proformas, delivery notes, payment gateway, collection workflow. | Add recurring invoices or quote/proforma workflow after UX QA. |
-| Purchases/AP | 80 | Purchase orders, bills, clearing mode, supplier payments, debit notes, refunds, cash expenses, AP ledgers/statements, PDFs, supplier statement PDF export/archive tracking, guided AP drill-down panels, and closed DEV-08 local AP evidence for state machines, output/archive/download, permissions, generated-document mock email, fiscal blockers, and cleanup/retention posture. | Not production-complete: linked PO-to-bill receipt reconciliation, valuation variance booking, landed cost, purchase returns, serial/batch/bin/location, real provider remittance/email delivery, broad E2E/smoke/full-test coverage, production/beta/customer-data behavior, and accountant-reviewed AP statement layout. | Convert DEV-08Z AP production gaps into purchase matching, inventory valuation, email-provider, and QA tickets before claiming production readiness. |
+| Sales/AR | 94 | Invoices, non-posting sales quotes/proformas with draft-invoice conversion, safe sales quote PDF/archive, manual recurring invoice templates with draft-invoice generation, non-posting delivery notes with safe PDF/archive and reverse source visibility on invoice/quote detail pages, controlled non-payment-gateway collections with case/activity tracking and invoice/customer visibility, dedicated operational sales inventory returns with explicit stock-in posting, payments, unapplied payments, credit notes, refunds, customer ledgers/statements, PDFs for existing posted documents, attachments, smoke coverage, targeted quote/recurring/delivery-note/collections/sales-return tests, and focused quote, recurring, and delivery-note browser workflow coverage. | Automatic recurring scheduler, sales inventory return source visibility panels, scheduled collection reminders, payment gateway/payment links, real customer email sending, online quote acceptance, broader deployed E2E with safe seeded data, hosted/customer-data proof, and accountant sign-off. | Run focused sales inventory return and collections browser workflow coverage plus accountant wording review before designing reminders/email/payment automation. |
+| Purchases/AP | 84 | Purchase orders, bills, clearing mode, supplier payments, debit notes, refunds, cash expenses, AP ledgers/statements, PDFs, supplier statement PDF export/archive tracking, guided AP drill-down panels, read-only purchase matching visibility, matching exception center, matching review workflow, non-posting purchase returns, read-only valuation variance previews, read-only landed cost preview links for purchase receipt/bill sources, Supplier/AP Dashboard workspace, supplier AP summary panels, supplier activity grouping, and closed DEV-08 local AP evidence for state machines, output/archive/download, permissions, generated-document mock email, fiscal blockers, and cleanup/retention posture. | Not production-complete: no variance posting, landed cost posting/valuation update, FIFO/cost layers, automatic AP adjustment, automatic inventory adjustment, automatic debit note/refund creation, supplier email/remittance delivery, broad E2E/smoke/full-test coverage, hosted/customer-data behavior, or accountant sign-off on AP dashboard thresholds and AP statement layout. | Run focused Purchases/AP browser workflow QA and accountant review of AP attention wording before designing supplier email, payment automation, variance posting, landed cost posting, or FIFO work. |
 | Banking/reconciliation | 69 | Bank profiles, transfers, opening balances, manual CSV/JSON/text plus limited OFX/CAMT/MT940 statement upload or paste preview, matching, categorization, reconciliation approval/close/void, reports, design-only raw-file archive policy, visible banking/reconciliation drill-down guidance, and closed DEV-09 local evidence for synthetic fixtures, parser/preview checks, match/categorize/ignore, and reconciliation close/void. | No live feeds, auto-match, certified bank-specific parser coverage, transfer fees, FX handling, production raw-file archive workflow, broad E2E/smoke/full-test coverage, hosted/beta/customer-data behavior, or accountant sign-off. | Convert DEV-09 gaps into sanitized target-bank parser, raw-archive policy, approval-queue, transfer-fee/FX, and QA tickets before claiming production readiness. |
 | Reports | 76 | GL, Trial Balance, P&L, Balance Sheet, VAT Summary, VAT Return, AR/AP aging, CSV/PDF exports, generated archive, and closed DEV-10 local evidence for marker fixtures, core report JSON, aging/VAT Return JSON, output/archive/download metadata, no-body handling, and selected permission gates. | Official VAT filing, scheduled/email delivery, report packs, accountant layout review, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost report coverage, generated-document object-storage retention, broad E2E/smoke/full-test coverage, hosted/beta/customer-data behavior, and load/concurrency proof. | Convert DEV-10 gaps into accountant-review, official VAT, report-pack, generated-document storage, restricted-role matrix, and E2E/load tickets before claiming production readiness. |
-| Inventory | 72 | Warehouses, movements, adjustments, transfers, receipts, issues, valuation reports, manual COGS, receipt asset posting, clearing reports, variance proposals, and visible inventory drill-down guidance. | No landed cost, FIFO, serial/batch, automatic postings, returns workflow, historical direct-mode migration. | Review variance proposal outputs and design landed-cost/direct-mode policy. |
-| Documents/attachments | 70 | Generated PDFs, archive, document action guidance, clearer template/settings copy, archive status labels, supplier statement PDF export/archive tracking, attachment upload/list/download/soft-delete, linked panels, storage readiness/migration dry run, feature-flagged S3-compatible storage for new uploaded attachments, backup evidence planning, and local restore-count evidence for database-backed records. | DB/base64 remains default, no migration executor, no generated-document S3 path, no virus scanning, no OCR, no retention policy, no real object-storage restore proof. | Validate S3 mode with a non-production bucket, implement migration executor, and capture object-storage restore evidence. |
+| Inventory | 79 | Warehouses, movements, adjustments, transfers, receipts, issues, explicit purchase-return operational stock-out for safe receipt-linked tracked lines, explicit sales inventory return stock-in for validated tracked lines, read-only landed cost preview for eligible purchase receipt/bill lines, read-only FIFO cost-layer preview from existing movements, serial/batch/bin/location setup groundwork with read-only item traceability visibility, valuation reports, manual COGS, receipt asset posting, clearing reports, variance proposals, visible inventory drill-down guidance, and closed DEV-11 local evidence for marker fixture math, manual COGS, receipt asset posting, variance proposal posting, and inventory/report financial summaries. | No active FIFO valuation, no persistent cost-layer ledger/backfill, landed cost posting/valuation update, full tracked movement capture for serial/batch/bin items, automatic postings, negative-stock production policy, sales/purchase return movement reversal, FIFO COGS reversal policy, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant certification, hosted/beta/customer-data proof, broad E2E/smoke/full-test, or load/concurrency proof. | Design tracked movement capture, active FIFO policy/backfill, return movement reversal, landed cost posting, accountant-review, generated-document retention, E2E, hosted-proof, and load/concurrency tickets before claiming production readiness. |
+| Documents/attachments | 71 | Generated PDFs, archive, document action guidance, clearer template/settings copy, archive status labels, supplier statement PDF export/archive tracking, attachment upload/list/download/soft-delete, linked panels, storage readiness/migration dry run, feature-flagged S3-compatible storage for new uploaded attachments, backup evidence planning, local restore-count evidence for database-backed records, and closed DEV-12 local generated-document metadata/download/storage dry-run/retention-gap evidence. | DB/base64 remains default, no migration executor, no generated-document S3 path, no signed URLs, no lifecycle policy, no legal hold, no virus scanning, no OCR, no retention/legal compliance proof, no backup/restore proof, no real object-storage restore proof. | Validate S3 mode with a non-production bucket, implement generated-document object storage and migration executor, then capture retention/legal-hold, scanning, backup, and object-storage restore evidence. |
 | Roles/permissions/security | 72 | Shared permission strings, backend guards, frontend gating, team/role UI, invite onboarding, rate limits, and user-testing Supabase `anon`/`authenticated` Data API grants revoked. | No MFA, advanced sessions, dual control, full RLS policies, least-privilege runtime DB role, production identity controls. | Create a least-privilege Prisma runtime DB role and validate it in user-testing. |
 | Audit/compliance visibility | 78 | Standard events, metadata redaction, audit UI, filters, CSV export, retention settings, dry-run preview, smoke checks. | No immutable store, scheduled export, purge executor, alerting, anomaly detection, tamper evidence. | Add scheduled export/immutable storage design and sensitive-action alerts. |
-| ZATCA | 39 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, disabled-by-default local SDK validation endpoints, official fixture registry/results doc, official sample validation pass under Java 11, local standard fixture SDK global pass, simplified fixture XSD/EN/PIH pass, API-generated standard XML local SDK validation, no-mutation SDK/app hash comparison, dry-run hash-chain reset plan, explicit fresh-EGS SDK hash mode, SDK-hash metadata snapshot, invoice-specific PIH validation config, and blocked real network behavior. | Signing, Phase 2 QR, production CSID, clearance, reporting, PDF/A-3, KMS/key custody, error/retry queue, and repeatable Java/SDK CI execution remain missing. Existing local hash chains are not migrated. | Keep local validation stable, then design signing/certificate/key-custody work before sandbox CSID. |
+| ZATCA | 41 | Profile, EGS, CSR groundwork, mock CSID, local XML/QR/hash, SDK readiness docs, disabled-by-default local SDK validation endpoints, repeatable local/no-network SDK validation wrapper, metadata-only evidence format, SDK fixture registry, generated standard invoice and credit-note fixture SDK pass under Java 11.0.26, SDK CI readiness guard with metadata-only blocked status, local signed XML validation plan guard with signing execution disabled, official fixture registry/results doc, official sample validation pass under Java 11, local standard fixture SDK global pass, simplified fixture XSD/EN/PIH pass, API-generated standard XML local SDK validation, no-mutation SDK/app hash comparison, dry-run hash-chain reset plan, explicit fresh-EGS SDK hash mode, SDK-hash metadata snapshot, invoice-specific PIH validation config, blocked real network behavior, key custody/CSID lifecycle design, sandbox CSID preflight guard status `PREFLIGHT_BLOCKED`, sandbox OTP/CSID approval-plan status `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`, sandbox request execution guard status `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, CSID response custody guard status `CUSTODY_METADATA_SIMULATION_BLOCKED`, sandbox adapter execution approval status `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED` with `--execute-adapter` still blocked, and sandbox adapter boundary status `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. | Signing execution, Phase 2 QR, production CSID, clearance, reporting, PDF/A-3, implemented KMS/key custody, approved CSID response custody provider, no-network adapter contract tests, OTP capture approval, CSID request execution approval, error/retry queue, approved SDK reference/acquisition policy for CI, Java 11-14 CI runtime, metadata-only artifact retention approval, and repeatable Java/SDK CI execution remain missing. Existing local hash chains are not migrated. | Build sandbox adapter no-network contract tests without requesting OTPs, requesting CSIDs, calling ZATCA, executing the adapter, creating request bodies, processing response bodies, writing DB records, or exposing bodies. |
 | Email/communications | 62 | Mock email outbox default, invites, password reset, redacted readiness API/UI, disabled-by-default diagnostics/retry processor/retry worker, metadata-only SPF/DKIM/DMARC evidence capture, opt-in SMTP adapter, test-send, durable retry metadata, metadata-only provider events, disabled-by-default signed webhook plan/test verifier, suppression metadata, delivery monitoring evidence, DB-backed rate limits. | No production scheduler, provider-specific production webhook adapter, live DNS/provider validation, executed relay validation, external monitoring/alert delivery, polished templates, invoice/statement sending, or MFA/session invalidation. | Add provider-specific webhook adapters and external monitoring integration after non-production relay evidence. |
-| Storage/scalability | 55 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally, backup/restore evidence readiness, and local database-backed restore-count evidence. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, hosted PITR proof, or real-bucket validation evidence. | Test S3 mode against a non-production bucket and execute an object-storage restore drill. |
-| Browser QA/E2E | 68 | 11 Playwright specs for critical routes, deployed E2E workflow/docs, focused mocked visual regression coverage for polished beta workflows, API smoke remains deep accounting check. | No scheduled browser CI, browser tests are smoke-level, visual suite is focused rather than exhaustive, no data reset strategy. | Schedule non-production deployed E2E and keep visual baselines current for reviewed UI changes. |
+| Storage/scalability | 56 | Storage config/readiness, feature-flagged S3-compatible attachment upload/download, migration plan counts, database default works locally, backup/restore evidence readiness, local database-backed restore-count evidence, and DEV-12 count-only generated-document storage readiness/migration dry-run evidence. | No DB-to-S3 migration executor, signed URLs, object lifecycle, generated-document S3 path, scanning, hosted PITR proof, backup proof, restore proof, or real-bucket validation evidence. | Test S3 mode against a non-production bucket, add generated-document storage alignment, and execute backup/object-storage restore drills. |
+| Browser QA/E2E | 72 | Focused Playwright specs for critical routes including the focused quote create/edit/lifecycle/PDF/archive/convert path, recurring invoice list/create/edit/lifecycle/schedule-preview/generate/customer-activity path, delivery-note list/create/edit/lifecycle/PDF/archive/source/customer-activity path, and collections list/new/detail/edit/lifecycle/activity/customer/invoice/global-search path; deployed E2E workflow/docs; focused mocked visual regression coverage for polished beta workflows; API smoke remains deep accounting check. | No scheduled browser CI, browser tests are smoke-level/focused by area, visual suite is focused rather than exhaustive, no data reset strategy. | Schedule non-production deployed E2E and keep visual baselines current for reviewed UI changes. |
 | Deployment readiness | 56 | Vercel/Supabase docs, API health/root/readiness, deployed E2E runbook/workflow, CI DB checklist, Supabase security review, user-testing Data API grant mitigation, backup/restore readiness endpoints, and one local non-production Postgres restore drill. | No production IaC, hosted Supabase backup/PITR proof, real object-storage restore proof, monitoring, broad RLS/private-network decision, least-privilege runtime DB role, environment promotion policy. | Implement least-privilege runtime DB role validation, then verify hosted Supabase PITR/object storage and add monitoring/incident runbooks. |
 | UX/product polish | 74 | Broad route coverage, dashboard KPI cards, lightweight charts/drill-downs, settings pages, panels, helper tests, permission-aware nav, guided first-workflow setup, invoice/payment success guidance, AR/AP ledger/report drill-down polish, banking/reconciliation drill-down polish, inventory drill-down polish, document/PDF/template UX polish, and focused visual regression coverage. | List filters, bulk actions, customizable dashboards, broader empty/error states, and accountant-reviewed report/document wording. | Keep visual baselines current and complete accountant wording review on high-traffic workflows. |
 | Production operations | 34 | Readiness docs, manual smoke/E2E workflows, disabled email worker planning, backup/restore evidence planning, and local non-production restore-drill evidence. | No incident response, observability, real background jobs, data retention executors, support tools, billing, SLAs, hosted PITR proof, or real object-storage restore proof. | Define operations baseline: monitoring, alerts, hosted restore drills, runbooks, and support evidence. |
+
+## 2026-06-06 ZATCA Key Custody And CSID Lifecycle Design Update
+
+- ZATCA remains scored at `41`; this design reduces planning ambiguity but does not add production compliance capability.
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- Recommended custody model is KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only.
+- No OTP/CSID/network/signing behavior was performed or enabled. Production signing, production CSID, production Phase 2 QR, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI remain blockers.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+
+## 2026-06-06 ZATCA Sandbox CSID Preflight Guard Update
+
+- ZATCA remains scored at `41`; the preflight improves readiness visibility but does not add compliance capability.
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`, `scripts/zatca-sandbox-csid-preflight.test.cjs`, `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`, and `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- Current preflight status is `PREFLIGHT_BLOCKED`; references and code surfaces are present, but key custody, CSID response custody, sandbox adapter execution, OTP approval, CSID request approval, and production signing remain blocked.
+- No OTP/CSID/network/signing behavior was performed or enabled, and no private-key/certificate/CSID/token/header/request/response body was exposed.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+
+## 2026-06-06 ZATCA Sandbox OTP And Compliance CSID Approval Plan Update
+
+- ZATCA remains scored at `41`; the approval plan improves governance/readiness but does not add compliance capability.
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended `scripts/zatca-sandbox-csid-preflight.cjs` with planning-only approval recognition.
+- Observed status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; OTP request, CSID request, network calls, sandbox adapter execution, signing, clearance/reporting, PDF-A3, and production compliance remain disabled.
+- Next ZATCA priority: `ZATCA sandbox CSID request execution guard`.
+
+## 2026-06-07 ZATCA CSID Response Custody Guard Update
+
+- ZATCA remains scored at `41`; the custody plan and guard improve readiness evidence but do not add compliance capability.
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`, `scripts/zatca-csid-response-custody-guard.cjs`, and `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Observed status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; no OTP request, CSID request, network call, sandbox adapter execution, real response body processing, DB write, token/secret/certificate persistence, env value output, signing, clearance/reporting, PDF-A3, or production compliance occurred.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+
+## 2026-06-07 ZATCA Sandbox Adapter Approval Guard Update
+
+- ZATCA remains scored at `41`; the adapter approval plan improves governance/readiness but does not add compliance capability.
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`, `scripts/zatca-sandbox-adapter-execution-approval.cjs`, and `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Observed status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP request, CSID request, network call, sandbox adapter execution, request body creation, response body processing, DB write, env value output, signing, clearance/reporting, PDF-A3, or production compliance occurred.
+- Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## 2026-06-07 ZATCA Sandbox Adapter Boundary Check Update
+
+- ZATCA remains scored at `41`; the boundary check improves static safety evidence but does not add compliance capability.
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, `scripts/zatca-sandbox-adapter-boundary-check.cjs`, and `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
+- Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP request, CSID request, network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, signing, clearance/reporting, PDF-A3, or production compliance occurred.
+- Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
 
 ## Overall Readiness Interpretation
 
@@ -35,12 +81,125 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Paid production SaaS v1 requires the production foundation roadmap, gap matrix, and launch gates under `docs/production/`.
 - LedgerByte is not production-launched, and real ZATCA production compliance is not enabled.
 
+## 2026-06-03 Sales Quote / Proforma Workflow Update
+
+- Sales/AR moves from `82` to `85` because the base quote/proforma workflow now exists as non-posting product behavior with customer selection, account-coded lines, tax modes, lifecycle actions, and accepted-quote conversion into a draft invoice.
+- This score change does not change production readiness. Quote/proforma PDF/archive, recurring invoices, delivery notes, customer email sending, online acceptance/payment, broad browser E2E, hosted/customer-data proof, and accountant sign-off remain open.
+
+## 2026-06-04 Quote PDF / Archive Update
+
+- Sales/AR moves from `85` to `87` because the quote/proforma workflow now includes safe Sales Quote PDF output and generated-document archive support.
+- This score change does not change production readiness. Recurring invoices, delivery notes, customer email sending, online acceptance/payment, broad browser E2E, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Focused Quote Workflow Browser Update
+
+- Browser QA/E2E moves from `68` to `69` because the quote workflow now has focused mocked Playwright coverage for list, create, detail, edit, lifecycle, quote PDF download, generated-document archive metadata/download, conversion to draft invoice, restricted permissions, and customer non-posting quote activity.
+- Sales/AR remains `87`: this improves workflow confidence but does not add new accounting capability.
+- This score change does not change production readiness. Recurring invoices, delivery notes, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Recurring Invoices Update
+
+- Sales/AR moves from `87` to `89` because the base recurring invoice template workflow now exists with account-coded lines, tax modes, schedule preview, lifecycle controls, customer non-posting visibility, and manual generation into draft invoices.
+- This score change does not change production readiness. Delivery notes, automatic scheduler, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Focused Recurring Invoice Browser Update
+
+- Browser QA/E2E moves from `69` to `70` because recurring invoices now have focused mocked Playwright coverage for list, create, detail, edit, schedule preview, lifecycle actions, restricted permissions, duplicate generation blocking, manual draft-invoice generation, generated invoice link, customer non-posting activity, and global create/search behavior.
+- Sales/AR remains `89`: this improves workflow confidence and frontend schedule visibility, but it does not add new accounting capability.
+- This score change does not change production readiness. Delivery notes, automatic scheduler, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Delivery Notes Update
+
+- Sales/AR moves from `89` to `91` because the base non-posting delivery-note workflow now exists with `DN-` numbering, source invoice/accepted quote links, lifecycle actions, safe Delivery Note PDF/archive, customer non-posting fulfillment visibility, and targeted API/frontend tests.
+- This score change does not change production readiness. Automatic scheduler, delivery-note browser workflow coverage, stock-issue source UI, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Focused Delivery Note Browser Workflow Update
+
+- Browser QA/E2E moves from `70` to `71` because delivery notes now have focused mocked Playwright coverage for list, create, detail, edit, issue, mark delivered, PDF/archive metadata and download, customer non-posting activity, source invoice/accepted quote copy paths, restricted permissions, global create, and global search.
+- Sales/AR remains `91`: this improves workflow confidence and fixes two UI gaps, but it does not add new accounting capability.
+- This score change does not change production readiness. Automatic scheduler, stock-issue source UI, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Delivery Note Source Visibility And Wording Update
+
+- Sales/AR remains `91`: source invoice/quote reverse panels and reference-only stock issue wording improve traceability and accountant-safe UI wording, but do not add new accounting capability.
+- Browser QA/E2E remains `71`: the existing delivery-note browser spec was extended to cover reverse source panels, but the suite is still focused rather than broad scheduled browser CI.
+- This score change does not change production readiness. Automatic scheduler, stock-issue source UI, customer email sending, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Collections Workflow Update
+
+- Sales/AR moves from `91` to `93` because the base controlled collections workflow now exists with case numbering, customer/outstanding-invoice links, status/priority tracking, activities, promise-to-pay details, disputes, holds, close/cancel actions, workspace summary, invoice/customer visibility, global create/search exposure, and audit logging.
+- Browser QA/E2E remains `71`: this sprint added targeted frontend coverage, but not broad or scheduled browser coverage.
+- This score change does not change production readiness. Automatic scheduler, stock-issue source UI, scheduled collection reminders, real customer email sending, payment links/payment gateway, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
+## 2026-06-04 Focused Collections Browser Workflow Update
+
+- Browser QA/E2E moves from `71` to `72` because Collections now has focused mocked Playwright coverage for workspace summary, new case, detail, edit, lifecycle actions, activity timeline, restricted permissions, invoice/customer panels, global create, and global search.
+- Sales/AR remains `93`: this improves workflow confidence and fixes UI gaps, but it does not add new accounting capability.
+- This score change does not change production readiness. Automatic scheduler, stock-issue source UI, scheduled collection reminders, real customer email sending, payment links/payment gateway, online acceptance/payment, deployed E2E with safe seeded data, hosted/customer-data proof, production storage hardening, and accountant sign-off remain open.
+
 ## 2026-05-30 DEV-08Z AP Local Evidence Readiness Update
 
 - DEV-08 through DEV-08M are closed as local AP evidence; the map is captured in `docs/development/DEV_08Z_AP_LOCAL_EVIDENCE_MAP.md`.
 - The AP production-gap register is captured in `docs/development/DEV_08Z_AP_PRODUCTION_GAP_REGISTER.md`.
 - Purchases/AP remains scored conservatively at `80`: the local evidence is strong for the DEV-08 scope, but production, beta, customer-data, real provider email, real ZATCA, broad E2E/smoke/full-test, and advanced purchase/inventory accounting gaps remain open.
 - Do not treat DEV-08 local evidence as production readiness, beta readiness, customer-data proof, accountant certification, or ZATCA compliance.
+
+## 2026-06-05 Supplier/AP Dashboard Improvements Update
+
+- Purchases/AP moves from `80` to `84` because recent AP product work is now unified in a supplier-focused dashboard and supplier detail summary: open payables, due bills, open purchase orders, matching exceptions, matching reviews, non-posting purchase returns, valuation variance previews, and grouped supplier activity are visible from accountant-oriented surfaces.
+- This score change does not change production readiness. The dashboard is read-only and does not post journals, adjust AP balances, change bill balances, move inventory, book variances, create debit notes/refunds, send email, call ZATCA, affect VAT reports, implement landed cost, implement FIFO, or prove hosted/customer-data behavior.
+- Remaining AP gaps include accountant/product sign-off on attention thresholds, focused AP browser workflow QA, broad E2E/smoke/full-test coverage, hosted/customer-data proof, supplier email/remittance delivery, payment automation, variance posting policy, landed cost, FIFO/cost layers, and production hardening.
+
+## 2026-06-05 Inventory Returns Integration Update
+
+- Inventory moves from `74` to `75` because safe receipt-linked purchase returns now have explicit operational stock-out movement preview/posting with duplicate prevention, permission gating, linked movement IDs, audit logging, and purchase-return detail visibility.
+- This score change does not change production readiness. The movement is operational only and does not post journals, adjust AP/AR balances, create debit notes/refunds, affect VAT, book variances, update landed cost, create FIFO layers, send email, call ZATCA, or prove hosted/customer-data behavior.
+- Remaining inventory gaps include sales return stock-in source modeling, purchase return movement reversal, accountant review before automated accounting, FIFO/cost layers, landed cost, negative-stock production policy, broad E2E/smoke/full-test coverage, hosted/customer-data proof, and load/concurrency.
+
+## 2026-06-06 Sales Inventory Returns Update
+
+- Sales/AR moves from `93` to `94` because customer-side sales inventory returns now exist as a dedicated operational document with `SRN-` numbering, source links, lifecycle actions, customer activity visibility, and targeted frontend tests.
+- Inventory moves from `75` to `76` because safe validated sales returns can now explicitly post `SALES_RETURN_IN` stock-in movements with preview, duplicate prevention, permission gating, linked movement IDs, and audit logging.
+- This score change does not change production readiness. Sales inventory returns are operational only and do not post journals, reverse revenue/COGS, adjust AR, create credit notes/refunds, affect VAT, send email, create payment links, call ZATCA, update landed cost/FIFO, or prove hosted/customer-data behavior.
+- Remaining gaps include return movement reversal, source visibility panels, focused browser workflow QA, accountant-approved COGS reversal policy, FIFO/cost layers, landed cost, broad E2E/smoke/full-test coverage, hosted/customer-data proof, and load/concurrency.
+
+## 2026-06-06 Landed Cost Preview Update
+
+- Inventory moves from `76` to `77` because users can now preview landed cost allocation for eligible purchase receipt and purchase bill inventory lines using freight, customs/duty, insurance, handling, brokerage, storage, and other cost categories.
+- Purchases/AP remains `84` because the new AP-facing links improve review visibility but do not change AP posting capability, bill balances, supplier payments, debit notes/refunds, or supplier statement behavior.
+- This score change does not change production readiness. Landed cost preview is read-only and does not persist landed cost documents, post journals, update inventory valuation, update moving average, create FIFO/cost layers, adjust AP/bill balances, affect VAT/financial reports, send email, call ZATCA, or prove hosted/customer-data behavior.
+- Remaining gaps include accountant-approved landed cost posting policy, saved document lifecycle, inventory valuation update design, FIFO/cost-layer treatment, reversal/void behavior, multi-currency handling, weight/volume allocation, focused browser QA, broad E2E/smoke/full-test coverage, hosted/customer-data proof, and load/concurrency.
+
+## 2026-06-06 FIFO Cost-Layer Groundwork Update
+
+- Inventory moves from `77` to `78` because users can now preview FIFO cost layers by reconstructing item/warehouse/as-of layers from existing movements and consuming oldest layers first.
+- This score change does not change production readiness. FIFO preview is read-only and does not switch valuation method, persist active cost layers, update moving average, update stock valuation, create journals, create or reverse COGS, affect AP/AR, affect VAT, call ZATCA, update financial statements, mutate inventory movements, or mutate purchase/sales documents.
+- Remaining gaps include active FIFO policy, persistent cost-layer ledger/backfill, accountant review, landed-cost-to-layer capitalization, FIFO COGS posting/reversal design, return movement reversal, focused browser QA, broad E2E/smoke/full-test coverage, hosted/customer-data proof, and load/concurrency.
+
+## 2026-06-06 Serial Batch Bin Location Groundwork Update
+
+- Inventory moves from `78` to `79` because item tracking settings, bin/location setup, batch/lot setup, serial-number setup, and read-only item traceability visibility now exist without forcing existing items into tracking.
+- This score change does not change production readiness. Traceability setup is operational metadata only and does not change stock quantities unexpectedly, mutate historical movements, run backfill, update inventory valuation, activate FIFO, persist active cost layers, create journals, create or reverse COGS, affect AP/AR, affect VAT, call ZATCA, update financial statements, post landed cost, or prove hosted/customer-data behavior.
+- Remaining gaps include full tracked movement capture for purchase receipts, sales stock issues, adjustments, transfers, purchase returns, and sales inventory returns; serial status automation; batch expiry/quarantine workflows; bin-to-bin and in-transit transfer workflow; historical migration/reconciliation tooling; accountant review; focused browser QA; broad E2E/smoke/full-test coverage; hosted/customer-data proof; and load/concurrency.
+
+## 2026-06-06 ZATCA Preparation and Key Custody Update
+
+- ZATCA moves from `39` to `40` because environment separation, key custody decision drafting, invoice eligibility, audit evidence, sandbox onboarding, and official SDK validation readiness are now documented and visible through read-only preparation gates.
+- This score change does not change production readiness. Production compliance remains disabled; real network calls, OTP submission, compliance/production CSID requests, real private key generation/storage, signing, clearance/reporting, PDF/A-3, and production compliance claims remain blocked.
+- Remaining gaps include final key custody decision, KMS/HSM or equivalent implementation, sandbox OTP access, sandbox CSID onboarding, signed XML, Phase 2 QR, clearance, reporting, PDF/A-3, error/retry queue, official accountant/tax/ZATCA specialist review, repeatable SDK CI, and production operations gates.
+
+## 2026-06-06 Official ZATCA SDK Validation Pipeline Update
+
+- ZATCA moves from `40` to `41` because official SDK validation is now repeatable or safely blocked through a local/no-network wrapper, fixture registry, and metadata-only evidence format.
+- This score change does not change production readiness. Production compliance remains disabled; real network calls, OTP submission, compliance/production CSID requests, real private key generation/storage, signing, clearance/reporting, PDF/A-3, and production compliance claims remain blocked.
+- Current local execution finds SDK `238-R3.4.8` but blocks on default Java `17.0.16`; a Java 11-14 runtime or Docker/pinned runner is still required for actual fixture execution.
+- Remaining gaps include generated credit-note fixture coverage, generated invoice fixture execution, repeatable CI/Docker SDK validation, final key custody decision, sandbox OTP access, sandbox CSID onboarding, signed XML, Phase 2 QR, clearance, reporting, PDF/A-3, error/retry queue, official accountant/tax/ZATCA specialist review, and production operations gates.
+
+## 2026-06-06 ZATCA Local Signed XML Plan Update
+
+- ZATCA remains `41`: the local signed XML guard improves planning discipline but does not execute signing or add compliance capability.
+- `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` reports blocked metadata only with signing execution false, dummy signing disallowed, production compliance false, and evidence body policy metadata-only.
+- No score change is applied because signed XML, Phase 2 QR, CSID, clearance/reporting, PDF/A-3, key custody, and production compliance remain blocked.
 
 ## 2026-05-30 DEV-09 Banking/Reconciliation Local Evidence Readiness Update
 
@@ -55,6 +214,20 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - The local evidence covers marker-scoped report fixtures, core financial report JSON checks, aging and VAT Return JSON checks, Trial Balance CSV/PDF/archive/download metadata, no-body output handling, and selected permission gates.
 - Reports move from `74` to `76`: the local evidence is stronger for the DEV-10 scope, but official VAT filing, accountant-reviewed definitions/layouts, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, inventory valuation/FIFO/landed-cost reporting, generated-document storage/retention, broad E2E/smoke/full-test, hosted/beta/customer-data behavior, and load/concurrency proof remain open.
 - Do not treat DEV-10 local evidence as production readiness, beta readiness, customer-data proof, accountant certification, official VAT filing readiness, or report-pack readiness.
+
+## 2026-05-30 DEV-11 Inventory Valuation And COGS Local Evidence Readiness Update
+
+- DEV-11 is closed as local-only inventory valuation and COGS evidence; the closure is captured in `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md`.
+- The local evidence covers the marker fixture, manual sales stock issue COGS post/reverse, compatible purchase receipt asset post/reverse, clearing variance proposal lifecycle, inventory valuation reports, clearing reports, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and no-body/no-secret checks.
+- Inventory moves from `72` to `74`: the local evidence is stronger for the DEV-11 scope, but FIFO/cost layers, landed cost, automatic posting, negative-stock production policy, serial/batch/bin/location, purchase returns, sales returns inventory impact, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant review, generated-document retention, hosted/beta/customer-data proof, broad E2E/smoke/full-test, and load/concurrency proof remain open.
+- DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+## 2026-05-30 DEV-12 Generated Documents Storage Retention Local Evidence Readiness Update
+
+- DEV-12 is closed as local-only generated documents storage retention evidence; the closure is captured in `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+- The local evidence covers marker-scoped fixture creation, safe metadata list/detail/filter checks, one approved local download metadata/hash check, storage readiness and migration dry-run counts, and retention/legal-hold cleanup policy gaps.
+- Documents/attachments moves from `70` to `71` and storage/scalability moves from `55` to `56`: the local evidence is stronger for generated-document archive visibility, but generated-document object storage, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, malware scanning, backup proof, restore proof, broad E2E/smoke/full-test, hosted/beta/customer-data proof, and load/concurrency remain open.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
 ## 2026-05-22 Production Foundation Roadmap Update
 
@@ -900,7 +1073,7 @@ Recommended next step:
 - Reliability and deployment readiness: 76%.
 - Documents and storage: 62%.
 - Admin/supportability: 70%.
-- ZATCA local readiness: 36%; production compliance remains false and blocked.
+- ZATCA local readiness: 39%; generated standard invoice and credit note XML fixtures now pass local/no-network SDK validation under Java 11.0.26, while production compliance remains false and blocked.
 - Overall controlled beta readiness: 75%.
 
 ## 2026-05-22 Accountant review packet
@@ -930,3 +1103,40 @@ Recommended next step:
 - Invited a dummy `.example.test` tester with `Viewer`, verified the member appeared in Team Members, confirmed mock outbox status `SENT_MOCK`, changed role to `Sales` and back to `Viewer`, then suspended/reactivated/suspended the membership.
 - Final dry-run state: dummy tester remained `SUSPENDED`, final role was `Viewer`, and `Owner`/`Admin` was not assigned.
 - No real external email, real customer data, production invoice, live bank feed, real ZATCA action, auth architecture change, permission logic change, migration, seed/reset/delete, full smoke, or full E2E action was used.
+
+## 2026-06-06 ZATCA local dummy signing guard
+
+- ZATCA readiness remains non-production and blocked for signing.
+- Added a local metadata-only guard for future dummy signing experiments. It plans sign/QR/validate command shapes but keeps SDK execution disabled, reads no certificate/private-key bodies, creates no signed XML, and keeps `productionCompliance=false`.
+- No score increase is taken from this guard; it improves safety around a future local experiment rather than closing production ZATCA blockers.
+
+## 2026-06-06 ZATCA approved dummy signing execution plan
+
+- Added the future execution runbook and exact approval phrase for local dummy-material signing against sanitized fixtures only.
+- No score increase is taken: approval recognition is planning metadata only, and SDK signing, QR generation, signed validation, CSID/OTP, network calls, PDF/A-3, signed XML persistence, and production compliance remain disabled.
+
+## 2026-06-06 ZATCA approved local dummy signing execution
+
+- One approved local dummy-material SDK run passed for the generated standard invoice and credit-note fixtures under Java `11.0.26`.
+- This improves local ZATCA preparation evidence but does not increase production readiness: CSID/OTP, real credentials, production signing, Phase 2 QR production proof, clearance/reporting, PDF/A-3, signed artifact storage, repeatable SDK CI, and production compliance remain blocked.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+
+## 2026-06-06 ZATCA dummy signing result review
+
+- Reviewed the metadata-only local dummy signing evidence and added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`.
+- Added `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` to record production QR/signing gaps after local QR generation passed.
+- No score increase is taken from the review. ZATCA local readiness stays preparation-only; production readiness remains blocked on key custody, CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF/A-3, signed artifact storage, repeatable SDK CI, and official review.
+
+## 2026-06-07 ZATCA sandbox CSID request execution guard
+
+- Added `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Extended the no-network preflight guard with execution-guard approval recognition.
+- No score increase is taken: status is `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`, and `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, adapter execution, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.
+
+## 2026-06-07 ZATCA sandbox adapter no-network contract tests
+
+- Added `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`.
+- Added the standalone contract guard and tests at `scripts/zatca-sandbox-adapter-no-network-contract.cjs` and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- No score increase is taken: status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`, and real sandbox readiness remains blocked.
+- No OTP, CSID request, network call, sandbox adapter execution, mock/disabled adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.

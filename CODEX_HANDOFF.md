@@ -2,10 +2,161 @@
 
 ## Latest Commit Inspected
 
-- `23c09f97 Close DEV-08 AP local evidence`
+- `84486e5a Document ZATCA key custody CSID lifecycle preflight`
 
 ## Current Development Objective
 
+- ZATCA key custody and CSID lifecycle foundation lane completed as metadata-only implementation.
+- Foundation evidence doc: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_FOUNDATION.md`.
+- Implementation added additive metadata-only schema/migration artifacts, guarded API/service/DTO endpoints, read-only settings UI lifecycle metadata, targeted API/UI tests, and safe audit event mapping.
+- No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF/A-3, provider/env change, deploy, migration execution, or production compliance claim was performed.
+- Exact next prompt title: `LedgerByte verify ZATCA key custody and CSID lifecycle foundation evidence`.
+
+## Prior Development Objective
+
+- ZATCA sandbox adapter no-network contract tests completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `a084fff0 Plan ZATCA adapter boundary tests` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter no-network contract docs/scripts did not exist and were created.
+- No-network contract test plan created: `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`.
+- No-network contract result doc created: `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`.
+- No-network contract script added: `scripts/zatca-sandbox-adapter-no-network-contract.cjs`.
+- No-network contract test added: `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- Package scripts added: `zatca:sandbox-adapter-no-network-contract` and `test:zatca-sandbox-adapter-no-network-contract`.
+- Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
+- Network interception result: local no-network trap installed in the contract guard; accidental calls through the trap throw `NO_NETWORK_CONTRACT_INTERCEPTED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Mock adapter executed: no.
+- Disabled adapter executed: no.
+- Request body created: no.
+- Response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Adapter contract findings: sandbox adapter source found but not executed; disabled adapter fail-closed contract detected; mock adapter source found and labeled mock-only; sandbox risk paths detected by keyword counts only.
+- Custody dependency finding: CSID response custody provider source found but disabled; metadata-only custody model found; legacy raw PEM-capable fields remain blockers.
+- Code/readiness metadata changed: standalone static guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider implementation/approval, legacy raw PEM-capable fields, request body creation approval, response body processing approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA sandbox CSID dry-run request body schema plan`.
+
+## Prior ZATCA Sandbox Adapter Boundary Trail
+
+- ZATCA sandbox adapter mock-to-real boundary test plan completed: yes.
+- Boundary test plan created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`.
+- Boundary runbook created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`.
+- Boundary result doc created: `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+- Boundary check script added: `scripts/zatca-sandbox-adapter-boundary-check.cjs`.
+- Boundary check test added: `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
+- Package scripts added: `zatca:sandbox-adapter-boundary-check` and `test:zatca-sandbox-adapter-boundary-check`.
+- Boundary check status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Mock adapter executed: no.
+- Request body created: no.
+- Response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Adapter boundary findings: sandbox adapter source found but not executed; disabled adapter fail-closed path detected; mock adapter source found and labeled mock-only; sandbox risk paths detected by keyword counts only.
+- Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+## Prior ZATCA Sandbox Adapter Approval Trail
+
+- ZATCA sandbox adapter execution approval plan completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `1e7aa3bc Plan ZATCA CSID response custody` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter approval docs/scripts did not exist and were created.
+- Adapter approval plan created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`.
+- Adapter approval runbook created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`.
+- Adapter approval result doc created: `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`.
+- Adapter approval guard script added: `scripts/zatca-sandbox-adapter-execution-approval.cjs`.
+- Adapter approval guard test added: `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Package scripts added: `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Adapter approval phrase: `I approve ZATCA sandbox adapter execution planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no request/response body exposure, no secret exposure, and metadata-only evidence.`
+- Base adapter approval status without phrase: `ADAPTER_EXECUTION_APPROVAL_BLOCKED_PHRASE_REQUIRED`.
+- Adapter approval status with exact phrase and `--adapter-execution-approval`: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`.
+- Execute-adapter status with exact phrase and `--execute-adapter`: `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Request body created: no.
+- Response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Adapter model finding: sandbox adapter source found but not executed; disabled adapter source found; mock adapter source found and labeled mock-only.
+- Custody dependency finding: CSID response custody provider source found but disabled; metadata-only custody model found; legacy raw PEM-capable fields remain blockers.
+- Code/readiness metadata changed: standalone guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: CSID response custody provider implementation/approval, legacy raw PEM-capable fields, request body creation approval, response body processing approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## Prior ZATCA CSID Custody Trail
+
+- ZATCA CSID response custody implementation plan completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `1c854585 Guard ZATCA sandbox CSID execution` was inspected; required baseline ZATCA docs/scripts existed; CSID response custody guard docs/scripts did not exist and were created.
+- Custody implementation plan created: `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`.
+- Custody guard doc created: `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`.
+- Custody result doc created: `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`.
+- Custody guard script added: `scripts/zatca-csid-response-custody-guard.cjs`.
+- Custody guard test added: `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Package scripts added: `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Custody guard approval phrase: `I approve ZATCA CSID response custody metadata-only planning. No real OTP, no real CSID, no real ZATCA network, no real response body, no secret storage, no body exposure, and metadata-only evidence.`
+- Base custody status without phrase: `CUSTODY_GUARD_BLOCKED_APPROVAL_REQUIRED`.
+- Custody guard status with exact phrase and `--simulate-metadata-only-response`: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Real response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Token/secret/certificate body persisted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Provider/custody model finding: custody provider source found and metadata-only custody model found; provider remains disabled/unapproved.
+- Legacy PEM field finding: `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` remain raw PEM-capable blockers.
+- Code/readiness metadata changed: standalone guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, OTP capture approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+- Exact next prompt title: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## Prior ZATCA/Dummy Signing Trail
+
+- ZATCA approved local dummy signing execution plan completed: yes.
+- SDK signing was executed: no.
+- SDK QR was executed: no.
+- Signed XML validation was executed: no.
+- Approval gate was added: yes.
+- Exact approval phrase: `I approve ZATCA local dummy signing execution against sanitized local fixtures only. No production, no beta, no customer data, no ZATCA network, no CSID, no OTP, no clearance, no reporting, no PDF-A3, and metadata-only evidence.`
+- Docs added: `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md`.
+- Guard behavior updated: `--approval-phrase <text>` recognizes the exact phrase as `PLAN_ONLY_APPROVAL_RECOGNIZED`; `--execute-approved-plan` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`; all execution flags remain false.
+- Current blockers: future execution implementation, Java 11-14 runtime for SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, real signing credentials, Phase 2 QR proof, clearance/reporting, PDF/A-3, secure signed artifact storage, official/legal/accounting reviews, and production operations gates.
+- Exact next prompt title: `ZATCA approved local dummy signing execution`.
+- ZATCA local dummy signing dry-run guard completed: yes.
+- SDK signing was executed: no.
+- SDK QR was executed: no.
+- Signed XML validation was executed: no.
+- Private keys/certificates were exposed: no.
+- Scripts added: `scripts/zatca-local-dummy-signing-dry-run.cjs`, `scripts/zatca-local-dummy-signing-dry-run.test.cjs`.
+- Docs added: `docs/zatca/LOCAL_DUMMY_SIGNING_DRY_RUN_GUARD.md`.
+- Current dummy signing guard status: blocked; `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` is metadata-only and keeps signing execution disabled, dummy signing disallowed, QR execution disabled, signed validation disabled, no-network true, production compliance false, and evidence body policy metadata-only.
+- Current blockers: explicit future local dummy signing execution approval, Java 11-14 runtime for any SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
+- Exact next prompt title: `ZATCA approved local dummy signing execution`.
+- Local signed XML validation plan completed: yes.
+- Signing executed: no.
+- CSID/OTP/network used: no.
+- Private keys/certificates were exposed: no.
+- Scripts added: `scripts/zatca-local-signed-xml-plan.cjs`, `scripts/zatca-local-signed-xml-plan.test.cjs`.
+- Docs added: `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Current local signed XML status: blocked/planning-only; `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` is metadata-only and keeps signing execution disabled, dummy signing disallowed, no-network true, production compliance false, and evidence body policy metadata-only.
+- Current blockers: explicit future local dummy signing approval, Java 11-14 runtime for any SDK execution, SDK reference/acquisition policy for CI, key custody, sandbox OTP/CSID, signing, Phase 2 QR, clearance/reporting, PDF/A-3, secure signed artifact storage, official reviews, and production operations gates.
+- Real network/signing/CSID/clearance/PDF-A3 status remains disabled.
+- Latest sprint completed: ZATCA local generated XML fixture validation.
+- Latest commit inspected before the sprint: `704aa1d5 feat: add Sales AR and purchase matching workflows`.
+- Generated fixtures added: `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- Evidence added: `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`, metadata-only, no XML bodies or secrets.
+- Java/SDK status: default Java 17 is unsupported and safely blocks; Java 11.0.26 via `ZATCA_SDK_JAVA_BIN` passed local/no-network SDK validation for both generated fixtures.
 - Production hosting research is paused.
 - AWS remains the known future production direction from proposed ADR-001/ADR-013.
 - Vercel remains beta/user-testing/staging only, not final production hosting.
@@ -4961,3 +5112,619 @@
 ## Next Thread Prompt
 
 `DEV-11 Part 1: inventory valuation and COGS production-gap and E2E readiness preflight`
+
+## DEV-11 Part 1 - Inventory Valuation And COGS Preflight Completed
+
+- DEV-11 Part 1 preflight is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_COGS_PREFLIGHT.md](docs/development/DEV_11_INVENTORY_VALUATION_COGS_PREFLIGHT.md).
+- Latest commit inspected: `5804dbd2 Close DEV-10 reports financial statements evidence`.
+- Scope: documentation and read-only code inspection only; no login, fixture creation, runtime mutation, posting, reversal, output generation, report query, E2E, smoke, full tests, full build, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Current model confirmed: operational stock movement records drive quantity and operational moving-average valuation reports, while financial statements consume posted/reversed `JournalEntry` and `JournalLine` rows only.
+- Manual posting boundaries confirmed: sales stock issue COGS post/reverse, purchase receipt inventory asset post/reverse, and clearing variance proposal post/reverse are explicit, permission-gated, fiscal-period-guarded journal actions; previews/reports do not post journals.
+- Highest-risk inventory/COGS gaps found: no DEV-11 marker fixture yet, no FIFO/cost layers, no landed cost, no automatic COGS/receipt/variance posting, no returns workflow, no serial/batch/bin/location, no multi-currency inventory policy, no direct-mode historical migration policy, no broad E2E/smoke/full-test/load/concurrency proof, and no hosted/beta/customer-data proof.
+- Proposed local marker: `DEV11-INV-20260530T000000`; future fixture names must start with `DEV11-INV-` and remain local-only synthetic data.
+- Exact next prompt title: `DEV-11 Part 2: approved local inventory valuation fixture creation`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 2: approved local inventory valuation fixture creation`
+
+## DEV-11 Part 2 - Approved Local Inventory Valuation Fixture Creation Completed
+
+- DEV-11 Part 2 fixture evidence is recorded in [docs/development/DEV_11_INVENTORY_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_11_INVENTORY_FIXTURE_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `655dbbac Preflight DEV-11 inventory valuation COGS`.
+- Exact Part 2 approval phrase was received and validated before mutation.
+- Local target proof: root and API `DATABASE_URL` resolved to `postgresql` on `localhost:5432/accounting`, classified local-only; Docker Postgres and Redis were healthy local containers.
+- Marker used: `DEV11-INV-20260530T000000`.
+- Mutation performed: yes, local-only.
+- Fixture created: marker organization/user/role, 9 marker accounts, open May 2026 fiscal period, inventory settings, one item, one warehouse, 3 stock movements, one finalized clearing-mode purchase bill with one posted clearing journal, one linked posted purchase receipt, one finalized sales invoice, one posted sales stock issue, and one draft adjustment reference.
+- Key safe fixture IDs: org `837b9c13`, user `e08ad608`, item `27398986`, warehouse `0b519fab`, purchase bill `6d84a149`, purchase receipt `a413ac33`, sales stock issue `c3d25519`, bill journal `6befd661`.
+- Expected math: opening `20.0000` units/value `200.0000`; receipt `10.0000` units/value `100.0000`; sales issue `5.0000`; expected COGS `50.0000`; expected receipt asset posting `100.0000`; expected operational on hand `25.0000` and value `250.0000`.
+- Expected clearing setup: purchase bill clearing debit `90.0000`; expected open clearing difference before receipt asset posting `90.0000`; expected net clearing difference after receipt asset posting `-10.0000`.
+- No COGS posting, receipt asset posting, variance proposal posting, report query, output generation, login/browser flow, production/beta/customer-data access, ZATCA, email, backup, restore, migration, seed/reset/delete, deploy, or environment change was performed.
+- Temporary runner `apps/api/scripts/dev11-part2-fixture.temp.ts` was removed before commit.
+- Exact next prompt title: `DEV-11 Part 3: inventory fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 3: inventory fixture evidence verification`
+
+## DEV-11 Part 3 - Inventory Fixture Evidence Verification Completed
+
+- DEV-11 Part 3 verification is recorded in [docs/development/DEV_11_INVENTORY_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_INVENTORY_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `0b04e1aa Create DEV-11 inventory valuation fixture`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Marker verified: `DEV11-INV-20260530T000000`.
+- Runtime mutation performed: no.
+- Fixture readiness result: passed; COGS readiness, purchase receipt asset readiness, variance candidate readiness, open fiscal-period readiness, account mappings, and expected quantity/value math all verified with no blockers.
+- Verified counts: organizations `1`, users `1`, contacts `2`, accounts `9`, inventory settings `1`, items `1`, warehouses `1`, stock movements `3`, purchase bills `1`, purchase receipts `1`, sales invoices `1`, sales stock issues `1`, inventory adjustments `1`, variance proposals `0`, journal entries `1`, journal lines `2`, generated documents `0`, audit logs `0`.
+- Verified math: quantity on hand `25.0000`, moving-average unit cost `10.0000`, operational inventory value `250.0000`, expected COGS `50.0000`, receipt asset amount `100.0000`, bill clearing debit `90.0000`.
+- Discrepancies/blockers: none found.
+- No COGS posting, receipt asset posting, variance proposal mutation, report query, output generation, login/browser flow, production/beta/customer-data access, ZATCA, email, backup, restore, migration, seed/reset/delete, deploy, or environment change was performed.
+- Temporary verifier `apps/api/scripts/dev11-part3-verify.temp.ts` was removed before commit.
+- Exact next prompt title: `DEV-11 Part 4: sales stock issue COGS preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 4: sales stock issue COGS preflight`
+
+## DEV-11 Part 4 - Sales Stock Issue COGS Preflight Completed
+
+- DEV-11 Part 4 preflight is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_PREFLIGHT.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_PREFLIGHT.md).
+- Latest commit inspected: `f5328bfa Verify DEV-11 inventory fixture evidence`.
+- Scope: read-only planning and code inspection only; no runtime mutation, COGS posting, COGS reversal, stock issue void, fixture creation, login/browser flow, report query, output generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Marker dependency confirmed: `DEV11-INV-20260530T000000` sales stock issue `DEV11-INV-SSI-0001`, safe ID `c3d25519`, remains `POSTED` and COGS-unposted from the Part 3 evidence.
+- Runtime mutation/posting/reversal occurred: no.
+- Expected COGS amount: `50.0000`, from `5.0000` issued units at moving-average unit cost `10.0000`.
+- Expected COGS posting journal impact: `+1` posted journal entry and `+2` journal lines, Dr COGS account `DEV11-5000` `50.0000` / Cr Inventory Asset account `DEV11-1200` `50.0000`; stock movements, inventory quantities, operational inventory values, generated documents, CSV/PDF/archive/download outputs remain unchanged.
+- Expected financial statement impact after post: P&L COGS increases `50.0000`, Inventory Asset decreases `50.0000`, Trial Balance remains balanced, and Balance Sheet remains balanced through current-period net income.
+- Expected reversal impact if Part 5 includes reversal: one posted reversal journal and two reversal lines, source COGS journal marked `REVERSED`, marker issue reversal fields populated, and net COGS/Inventory Asset impact returns to baseline.
+- Exact next prompt title: `DEV-11 Part 5: approved local sales stock issue COGS posting checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 5: approved local sales stock issue COGS posting checks`
+
+## DEV-11 Part 5 - Approved Local Sales Stock Issue COGS Checks Completed
+
+- DEV-11 Part 5 evidence is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_CHECK_EVIDENCE.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `10b3503d Preflight DEV-11 sales stock issue COGS`.
+- Exact Part 5 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker issue: `DEV11-INV-SSI-0001`, safe ID `c3d25519`.
+- COGS preview result: `POSTABLE`, `canPost=true`, blockers `0`, total debit/credit `50.0000`.
+- COGS post result: one posted COGS journal created, safe ID `8459b09e`, Dr COGS `DEV11-5000` `50.0000` / Cr Inventory Asset `DEV11-1200` `50.0000`.
+- Duplicate COGS post was blocked with no count delta.
+- Active-COGS void was blocked with no count or issue-state delta.
+- COGS reversal result: source COGS journal `8459b09e` marked `REVERSED`, reversal journal `8b8c57c5` created and linked, final preview status `REVERSED`.
+- Journal deltas from pre-check to final: journal entries `+2`, journal lines `+4`, audit logs `+2`, stock movements `0`, generated documents `0`.
+- Final financial impact from COGS post plus reversal: COGS net `0.0000`, Inventory Asset net `0.0000`, source plus reversal trial-balance totals debit `100.0000` and credit `100.0000`.
+- Blockers/discrepancies: none found.
+- Temporary runner `apps/api/scripts/dev11-part5-cogs-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 6: sales stock issue COGS evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 6: sales stock issue COGS evidence verification`
+
+## DEV-11 Part 6 - Sales Stock Issue COGS Evidence Verification Completed
+
+- DEV-11 Part 6 verification is recorded in [docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_SALES_STOCK_ISSUE_COGS_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `7c4384e7 Check DEV-11 sales stock issue COGS`.
+- Mutation performed: no; Part 6 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no discrepancies or blockers.
+- COGS state verified: marker stock issue `DEV11-INV-SSI-0001` remains `POSTED`, has linked COGS source journal `8459b09e`, linked reversal journal `8b8c57c5`, populated posted/reversed fields, and was not voided.
+- Journal verification result: source COGS journal is `REVERSED` with Dr COGS `DEV11-5000` `50.0000` / Cr Inventory Asset `DEV11-1200` `50.0000`; reversal journal is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net COGS `0.0000`, net Inventory Asset `0.0000`, trial-balance totals debit `100.0000` and credit `100.0000`.
+- Baselines verified: journal entries `3`, journal lines `6`, stock movements `3`, generated documents `0`, audit logs `2`.
+- Audit actions verified using action-name-only reads: `COGS_POSTED` `1`, `COGS_REVERSED` `1`.
+- Temporary verifier `apps/api/scripts/dev11-part6-cogs-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 7: purchase receipt inventory asset preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 7: purchase receipt inventory asset preflight`
+
+## DEV-11 Part 7 - Purchase Receipt Inventory Asset Preflight Completed
+
+- DEV-11 Part 7 preflight is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_PREFLIGHT.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_PREFLIGHT.md).
+- Latest commit inspected: `f815bd1a Verify DEV-11 sales stock issue COGS evidence`.
+- Scope: read-only planning and code inspection only; no runtime mutation, receipt asset posting, receipt asset reversal, purchase receipt void, fixture creation, report output, CSV/PDF/download/archive generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Marker dependency confirmed: purchase receipt `DEV11-INV-PRC-0001`, safe ID `a413ac33`, remains `POSTED` and inventory-asset-unposted; linked purchase bill `DEV11-INV-BILL-0001`, safe ID `6d84a149`, is `FINALIZED` and `INVENTORY_CLEARING`.
+- Runtime mutation/posting/reversal occurred: no.
+- Expected receipt asset amount: `100.0000`, from `10.0000` received units at unit cost `10.0000`.
+- Expected receipt asset posting journal impact: `+1` posted journal entry and `+2` journal lines, Dr Inventory Asset account `DEV11-1200` `100.0000` / Cr Inventory Clearing account `240` `100.0000`; stock movements, operational inventory quantities, generated documents, CSV/PDF/archive/download outputs remain unchanged.
+- Expected clearing impact after post: marker bill clearing debit `90.0000`, receipt asset clearing credit `100.0000`, net clearing difference `-10.0000`; reversal returns the receipt asset pair to zero.
+- Expected financial impact after post: Inventory Asset increases `100.0000`, Inventory Clearing decreases `100.0000`, Trial Balance remains balanced, and Balance Sheet remains balanced.
+- Direct-mode, standalone, and PO-only receipt asset posting blockers were mapped as planning-only; Part 8 should not create broad blocker fixtures unless strictly necessary and marker-scoped.
+- Exact next prompt title: `DEV-11 Part 8: approved local purchase receipt inventory asset posting checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 8: approved local purchase receipt inventory asset posting checks`
+
+## DEV-11 Part 8 - Approved Local Purchase Receipt Inventory Asset Checks Completed
+
+- DEV-11 Part 8 evidence is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_CHECK_EVIDENCE.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `10086249 Preflight DEV-11 purchase receipt inventory asset`.
+- Exact Part 8 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker receipt: `DEV11-INV-PRC-0001`, safe ID `a413ac33`, linked purchase bill safe ID `6d84a149`.
+- Receipt preview result: `POSTABLE`, `canPost=true`, blockers `0`, receipt value `100.0000`, matched bill value `90.0000`, total debit/credit `100.0000`.
+- Asset post result: one posted asset journal created, safe ID `f85f869e`, Dr Inventory Asset `DEV11-1200` `100.0000` / Cr Inventory Clearing `240` `100.0000`.
+- Duplicate receipt asset post was blocked with no count delta.
+- Direct-mode/standalone/PO-only blocker mutation checks were skipped because no existing marker fixture represented those states; no new broad blocker fixtures were created.
+- Active receipt asset void was blocked with no count or receipt-state delta.
+- Receipt asset reversal result: source asset journal `f85f869e` marked `REVERSED`, reversal journal `e3c196d7` created and linked, final preview status `REVERSED`.
+- Journal deltas from pre-check to final: journal entries `+2`, journal lines `+4`, audit logs `+2`, stock movements `0`, generated documents `0`.
+- Clearing effect: before post `90.0000`, after post `-10.0000`, final after reversal `90.0000`.
+- Final financial impact from asset post plus reversal: Inventory Asset net `0.0000`, Inventory Clearing net `0.0000`, source plus reversal trial-balance totals debit `200.0000` and credit `200.0000`.
+- Blockers/discrepancies: none found.
+- Temporary runner `apps/api/scripts/dev11-part8-receipt-asset-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 9: purchase receipt inventory asset evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 9: purchase receipt inventory asset evidence verification`
+
+## DEV-11 Part 9 - Purchase Receipt Inventory Asset Evidence Verification Completed
+
+- DEV-11 Part 9 verification is recorded in [docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_PURCHASE_RECEIPT_INVENTORY_ASSET_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `faa87d58 Check DEV-11 purchase receipt inventory asset`.
+- Mutation performed: no; Part 9 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no discrepancies or blockers.
+- Receipt asset state verified: marker purchase receipt `DEV11-INV-PRC-0001` remains `POSTED`, has linked asset source journal `f85f869e`, linked reversal journal `e3c196d7`, populated posted/reversed fields, and was not voided.
+- Journal verification result: source asset journal is `REVERSED` with Dr Inventory Asset `DEV11-1200` `100.0000` / Cr Inventory Clearing `240` `100.0000`; reversal journal is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net Inventory Asset `0.0000`, net Inventory Clearing `0.0000`, trial-balance totals debit `200.0000` and credit `200.0000`.
+- Baselines verified: journal entries `5`, journal lines `10`, stock movements `3`, generated documents `0`, audit logs `4`.
+- Audit actions verified using action-name-only reads: `PURCHASE_RECEIPT_ASSET_POSTED` `1`, `PURCHASE_RECEIPT_ASSET_REVERSED` `1`.
+- Temporary verifier `apps/api/scripts/dev11-part9-receipt-asset-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 10: clearing variance proposal preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 10: clearing variance proposal preflight`
+
+## DEV-11 Part 10 - Clearing Variance Proposal Preflight Completed
+
+- DEV-11 Part 10 preflight is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_PREFLIGHT.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_PREFLIGHT.md).
+- Latest commit inspected: `a0c1e0e0 Verify DEV-11 purchase receipt inventory asset evidence`.
+- Scope: read-only planning and code inspection only; no runtime mutation, proposal creation, proposal submission, proposal approval, variance journal posting, variance journal reversal, proposal voiding, fixture creation, report output, CSV/PDF/download/archive generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, ZATCA, email, backup, restore, production/beta target, customer data, body output, or secret output was used.
+- Runtime mutation/posting/reversal occurred: no.
+- Marker dependency confirmed from existing evidence: purchase bill `DEV11-INV-BILL-0001` has Inventory Clearing debit `90.0000`; receipt `DEV11-INV-PRC-0001` asset posting was posted and reversed, leaving active receipt clearing credit `0.0000`.
+- Expected Part 11 proposal amount: `90.0000`.
+- Expected Part 11 proposal mapping: Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`.
+- Expected Part 11 post impact before reversal: one posted journal entry and two journal lines, Inventory Adjustment Loss increases `90.0000`, Inventory Clearing is credited `90.0000`, and stock movements/generated documents stay unchanged.
+- Expected Part 11 final impact if reversed: one posted reversal journal and two reversal lines, source variance journal marked `REVERSED`, source plus reversal pair nets to `0.0000`.
+- Main blockers to re-check in Part 11: local-only DB target, existing duplicate marker proposal, current fiscal period openness for posting and reversal, and any extra reversed-receipt warning row in the clearing variance report.
+- Exact next prompt title: `DEV-11 Part 11: approved local clearing variance proposal posting checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 11: approved local clearing variance proposal posting checks`
+
+## DEV-11 Part 11 - Approved Local Clearing Variance Proposal Checks Completed
+
+- DEV-11 Part 11 evidence is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_CHECK_EVIDENCE.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_CHECK_EVIDENCE.md).
+- Latest commit inspected before mutation: `7e00d22d Preflight DEV-11 clearing variance proposal`.
+- Exact Part 11 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: yes, local-only and marker-scoped.
+- Marker proposal safe ID: `141aa064`; source variance journal safe ID `267366ad`; reversal journal safe ID `1270a557`.
+- Clearing read result: status `BILL_WITHOUT_RECEIPT_POSTING`, bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net clearing difference `90.0000`, and first matching variance amount `90.0000`.
+- Proposal lifecycle result: `DRAFT -> PENDING_APPROVAL -> APPROVED -> POSTED -> REVERSED`.
+- Post journal result: Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`.
+- Reversal journal result: Dr Inventory Clearing `240` `90.0000` / Cr Inventory Adjustment Loss `DEV11-5100` `90.0000`; source variance journal marked `REVERSED`.
+- Journal deltas from pre-Part-11 baseline to final: journal entries `+2`, journal lines `+4`, variance proposals `+1`, proposal events `+5`, audit logs `+5`, stock movements `0`, generated documents `0`.
+- Final financial impact from variance post plus reversal: Inventory Adjustment Loss net `0.0000`, Inventory Clearing net `0.0000`, source plus reversal trial-balance totals debit `180.0000` and credit `180.0000`.
+- Duplicate post was blocked; reversed-proposal void was blocked. The temporary runner first stopped on an order-sensitive reversal-line assertion after the approved lifecycle had completed, then resumed from the existing marker proposal and verified final state without creating a duplicate.
+- Temporary runner `apps/api/scripts/dev11-part11-variance-proposal-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 12: clearing variance proposal evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 12: clearing variance proposal evidence verification`
+
+## DEV-11 Part 12 - Clearing Variance Proposal Evidence Verification Completed
+
+- DEV-11 Part 12 verification is recorded in [docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_CLEARING_VARIANCE_PROPOSAL_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `58d7b722 Check DEV-11 clearing variance proposal`.
+- Mutation performed: no; Part 12 was read-only verification only.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only.
+- Verification result: passed with no application discrepancies or blockers.
+- Proposal lifecycle verified: marker variance proposal `141aa064` is `REVERSED`, amount `90.0000`, Dr account `DEV11-5100`, Cr account `240`, and events `CREATE`, `SUBMIT`, `APPROVE`, `POST`, `REVERSE` exist in order.
+- Journal verification result: source variance journal `267366ad` is `REVERSED` with Dr Inventory Adjustment Loss `DEV11-5100` `90.0000` / Cr Inventory Clearing `240` `90.0000`; reversal journal `1270a557` is `POSTED` with opposite lines and points back to the source.
+- Financial verification result: source plus reversal net Inventory Adjustment Loss `0.0000`, net Inventory Clearing `0.0000`, trial-balance totals debit `180.0000` and credit `180.0000`.
+- Baselines verified: journal entries `7`, journal lines `14`, stock movements `3`, generated documents `0`, variance proposals `1`, variance proposal events `5`, audit logs `9`.
+- Audit actions verified using action-name-only reads: `INVENTORY_VARIANCE_PROPOSAL_CREATED`, `INVENTORY_VARIANCE_PROPOSAL_SUBMITTED`, `INVENTORY_VARIANCE_PROPOSAL_APPROVED`, `INVENTORY_VARIANCE_PROPOSAL_POSTED`, and `INVENTORY_VARIANCE_PROPOSAL_REVERSED`, each count `1`.
+- Temporary verifier `apps/api/scripts/dev11-part12-variance-proposal-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 13: inventory valuation reports and financial statement impact preflight`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 13: inventory valuation reports and financial statement impact preflight`
+
+## DEV-11 Part 13 - Inventory Valuation Reports And Financial Impact Preflight Completed
+
+- DEV-11 Part 13 preflight is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORTS_FINANCIAL_IMPACT_PREFLIGHT.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORTS_FINANCIAL_IMPACT_PREFLIGHT.md).
+- Latest commit inspected: `f9cfd315 Verify DEV-11 clearing variance proposal evidence`.
+- Scope: read-only planning and code inspection only; no runtime report query, output generation, mutation, posting, reversal, fixture creation, CSV/PDF/download/archive generation, E2E, smoke, migration, seed/reset/delete, deploy, environment change, production/beta target, customer data, body output, or secret output was used.
+- Runtime report queries/output/mutation occurred: no.
+- Expected operational inventory report impact: stock valuation should show quantity `25.0000`, moving-average unit cost `10.0000`, estimated value `250.0000`, and movement summary should show inbound `30.0000`, outbound `5.0000`, closing `25.0000`, movement count `3`.
+- Expected clearing report impact: clearing reconciliation should show bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net clearing difference `90.0000`, status `BILL_WITHOUT_RECEIPT_POSTING`; clearing variance should show first matching variance amount `90.0000` and an extra reversed-receipt warning row.
+- Expected financial statement impact: COGS, Inventory Asset receipt/COGS pairs, and variance loss pairs net to `0.0000`; Inventory Clearing retains debit `90.0000` from the active purchase bill clearing journal and AP retains credit `90.0000`; Trial Balance and Balance Sheet should remain balanced.
+- Part 14 must run JSON/read-only report checks only and must avoid CSV/PDF/download/archive/generated-document output.
+- Main blocker/risk: low-stock expected count was not recorded in prior DEV-11 evidence and should be verified as a summarized count only.
+- Exact next prompt title: `DEV-11 Part 14: approved local inventory valuation report checks`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 14: approved local inventory valuation report checks`
+
+## DEV-11 Part 14 - Inventory Valuation Report Checks Completed
+
+- DEV-11 Part 14 inventory valuation report checks are recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORT_CHECK_EVIDENCE.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORT_CHECK_EVIDENCE.md).
+- Latest commit inspected before report reads: `45f7d361 Preflight DEV-11 inventory valuation reports`.
+- Exact Part 14 approval phrase was received and validated before report reads.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Report queries performed: yes, local-only JSON/in-process service reads.
+- Output generation performed: no CSV, no PDF, no generated-document download/archive, and no report row/body output.
+- Count stability result: stock movements stayed `3`, journal entries/lines stayed `7`/`14`, generated documents stayed `0`, audit logs stayed `9`, and variance proposal events stayed `5`.
+- Inventory report result: stock valuation quantity `25.0000`, moving-average unit cost `10.0000`, estimated value `250.0000`, grand total `250.0000`; movement summary inbound `30.0000`, outbound `5.0000`, closing `25.0000`, movement count `3`; low-stock count `0`.
+- Clearing report result: reconciliation status `BILL_WITHOUT_RECEIPT_POSTING`, bill clearing debit `90.0000`, active receipt clearing credit `0.0000`, net difference `90.0000`; clearing variance row count `2`, first matching amount `90.0000`, total variance amount `190.0000` because the reversed receipt warning amount remains visible.
+- Financial statement result: GL shows AP `210` credit `90.0000` and Inventory Clearing `240` debit balance `90.0000`; COGS `DEV11-5000`, Inventory Asset `DEV11-1200`, and Adjustment Loss `DEV11-5100` net to `0.0000`; Trial Balance period debit/credit `570.0000`/`570.0000` and closing debit/credit `90.0000`/`90.0000`, balanced; P&L net profit `0.0000`; Balance Sheet balanced with total assets `0.0000`, total liabilities/equity `0.0000`, Inventory Clearing `-90.0000`, AP `90.0000`.
+- Dashboard summary checked only as safe high-level totals: ledger basis `POSTED_AND_REVERSED_JOURNALS`, receivables `125.0000` across `1`, payables `90.0000` across `1`, revenue/VAT/cash all `0.0000`.
+- Blockers/discrepancies: none found. Expected clarifications are that low stock is zero because the item is above reorder point, clearing variance includes the reversed receipt warning row, and operational valuation `250.0000` differs from Inventory Asset GL `0.0000` by design.
+- Temporary checker `apps/api/scripts/dev11-part14-inventory-report-check.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 15: inventory valuation report evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 15: inventory valuation report evidence verification`
+
+## DEV-11 Part 15 - Inventory Valuation Report Evidence Verification Completed
+
+- DEV-11 Part 15 inventory valuation report evidence verification is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md](docs/development/DEV_11_INVENTORY_VALUATION_REPORT_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `7f962880 Check DEV-11 inventory valuation reports`.
+- Mutation performed: no.
+- Output generation performed: no CSV, no PDF, no generated-document download/archive, and no body output.
+- Report service queries performed during Part 15: no; verification used direct local marker counts, operational movement math, and posted/reversed journal account aggregates.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Verification result: passed. Part 14 inventory totals were confirmed as inbound `30.0000`, outbound `5.0000`, closing `25.0000`, moving-average cost `10.0000`, operational value `250.0000`, and low-stock expectation `0`.
+- Financial verification result: direct journal totals debit/credit `570.0000`/`570.0000`; COGS `DEV11-5000`, Inventory Asset `DEV11-1200`, Adjustment Loss `DEV11-5100`, and Adjustment Gain `DEV11-4100` net `0.0000`; Inventory Clearing `240` net debit-minus-credit `90.0000`; AP `210` net debit-minus-credit `-90.0000`.
+- Baseline verification: stock movements `3`, journal entries `7`, journal lines `14`, variance proposals `1`, variance proposal events `5`, generated documents `0`, audit logs `9`.
+- No-body/no-secret scan found no URL-like DB strings, bearer/auth headers, private-key markers, env assignments, obvious password/token assignments, or long base64-like blobs in the Part 14 evidence and handoff.
+- Blockers/discrepancies: none found. Remaining production gaps are accountant certification, production/beta/customer-data proof, FIFO/cost layers, landed cost, automatic posting policies, returns/serial/batch, multi-currency, and broad E2E/smoke/full-test/load/concurrency proof.
+- Temporary verifier `apps/api/scripts/dev11-part15-report-evidence-verify.temp.ts` was removed after the check.
+- Exact next prompt title: `DEV-11 Part 16: inventory valuation and COGS closure`.
+
+## Next Thread Prompt
+
+`DEV-11 Part 16: inventory valuation and COGS closure`
+
+## DEV-11 Part 16 - Inventory Valuation And COGS Closure Completed
+
+- DEV-11 Part 16 closure is recorded in [docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md](docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md).
+- Latest commit inspected: `445db0ed Verify DEV-11 inventory valuation report evidence`.
+- Marker: `DEV11-INV-20260530T000000`.
+- DEV-11 is closed as local-only inventory valuation and COGS evidence.
+- Evidence summary: Part 1-15 covered local preflight, fixture creation, fixture verification, manual sales stock issue COGS post/reverse and verification, compatible purchase receipt inventory asset post/reverse and verification, clearing variance proposal create/submit/approve/post/reverse and verification, inventory valuation report checks, financial statement impact checks, direct evidence verification, and no-body/no-secret checks.
+- What DEV-11 proves: local marker fixture math, manual COGS posting/reversal, manual receipt asset posting/reversal, variance proposal lifecycle/posting/reversal, inventory valuation report summaries, clearing reports, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and generated-document count stability for the marker scope.
+- Production gaps: FIFO/cost layers, landed cost, automatic posting, negative-stock production policy, serial/batch/bin/location, purchase returns, sales returns inventory impact, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant review, broad E2E/smoke/full-test, hosted/beta/customer-data proof, load/concurrency, and object-storage/generated-document retention if outputs intersect inventory.
+- DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Closure actions only updated docs; no runtime mutation, new report query, CSV/PDF/download/archive output, E2E, smoke, full test, full build, migration, seed/reset/delete, deploy, env change, production/beta/customer-data access, ZATCA, email, backup, restore, or app-code change was performed.
+- Exact next prompt title: `DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 1: generated documents storage retention production-gap and E2E readiness preflight`
+
+## DEV-12 Part 1 - Generated Documents Storage Retention Preflight Completed
+
+- DEV-12 Part 1 generated documents storage retention preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_PREFLIGHT.md).
+- Latest commit inspected: `0b3c1e4b Close DEV-11 inventory valuation COGS evidence`.
+- Scope: documentation and read-only code inspection only; no login, fixture creation, runtime mutation, output generation, archive/download, storage migration, retention mutation, report query, E2E, smoke, full test, full build, migration, seed/reset/delete, deploy, env change, production/beta/customer data, ZATCA, email, backup, restore, body output, or secret output was performed.
+- Current generated documents are database/base64 backed through `GeneratedDocumentService.archivePdf`, with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, and status `GENERATED`.
+- Highest-risk gaps: generated-document object storage is not implemented, database/base64 migration is dry-run/count-only, signed URLs/lifecycle/legal hold/purge/malware scanning/restore proof are missing, repeated generation remains append-only without supersede/latest policy, and generated-document retention/legal compliance is not proven.
+- Storage readiness can report generated-document storage status and migration-plan counts, but generated-document S3 writes are explicitly not enabled and migration execution is not implemented.
+- ZATCA invoice PDF archive remains metadata-only at the PDF/A-3 boundary and must not be treated as signed XML, QR payload, or production compliance proof.
+- Exact next prompt title: `DEV-12 Part 2: approved local generated-document fixture creation`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 2: approved local generated-document fixture creation`
+
+## DEV-12 Part 2 - Local Generated-Document Fixture Creation Completed
+
+- DEV-12 Part 2 local generated-document fixture creation is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_MUTATION_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_MUTATION_EVIDENCE.md).
+- Latest commit inspected before mutation: `fa367c8c Preflight DEV-12 generated document storage`.
+- Exact Part 2 approval phrase was received and validated before mutation.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Marker used: `DEV12-DOC-20260530T000000`.
+- Mutation performed: yes, local-only and marker-scoped.
+- Fixture created: one marker organization, one fake local marker user, one marker role/membership for local continuity, and one generated document.
+- Generated-document metadata: safe ID prefix `663e5c68`, type `REPORT_TRIAL_BALANCE`, source type `AccountingReport`, source id `DEV12-DOC-20260530T000000-REPORT-TRIAL-BALANCE`, document number `DEV12-DOC-TB-0001`, filename `DEV12-DOC-trial-balance.pdf`, MIME `application/pdf`, storage provider `database`, status `GENERATED`, size `129` bytes, content hash prefix `29bb1b32935c488b`.
+- Marker counts after mutation: organizations `1`, users `1`, generated documents `1`, generated-document audit logs `1`, attachments touched `0`, backup evidence touched `0`, storage migration records `0`.
+- No `contentBase64`, PDF bytes, DB URLs, tokens, secrets, customer/vendor payloads, external object storage, ZATCA, email, backup, restore, storage migration, retention purge/delete, or download was used.
+- Temporary helper `apps/api/scripts/dev12-part2-fixture.temp.ts` was removed after the fixture run.
+- Exact next prompt title: `DEV-12 Part 3: generated-document fixture evidence verification`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 3: generated-document fixture evidence verification`
+
+## DEV-12 Part 3 - Generated-Document Fixture Evidence Verification Completed
+
+- DEV-12 Part 3 fixture evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_FIXTURE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `87644b30 Create DEV-12 generated document fixture`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation/download/output occurred: no.
+- Fixture readiness result: passed with no discrepancies or blockers.
+- Marker verified: organizations `1`, users `1`, generated documents `1`, generated-document audit logs `1`, `contentBase64` presence count `1`, external storage rows `0`, marker pollution rows `0`.
+- Generated-document metadata verified: safe ID prefix `663e5c68`, type `REPORT_TRIAL_BALANCE`, source type `AccountingReport`, document number `DEV12-DOC-TB-0001`, filename `DEV12-DOC-trial-balance.pdf`, storage provider `database`, storage key `null`, status `GENERATED`, hash prefix `29bb1b32935c488b`, size `129`.
+- `contentBase64` value and PDF bytes were not selected or printed; no generated-document download was performed.
+- Temporary verifier `apps/api/scripts/dev12-part3-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 4: generated-document metadata list detail preflight`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 4: generated-document metadata list detail preflight`
+
+## DEV-12 Part 4 - Generated-Document Metadata List Detail Preflight Completed
+
+- DEV-12 Part 4 metadata list/detail preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_PREFLIGHT.md).
+- Latest commit inspected: `d89ff0ea Verify DEV-12 generated document fixture`.
+- Scope: documentation and read-only code inspection/planning only; no runtime mutation, metadata query, download, body output, archive generation, fixture creation, storage migration, retention mutation, E2E, smoke, migration, seed/reset/delete, deploy, env change, production/beta/customer data, ZATCA, email, backup, or restore occurred.
+- Expected metadata/list/detail behavior: `GET /generated-documents` and `GET /generated-documents/:id` require `generatedDocuments.view`, use a metadata select that excludes `contentBase64`, support `documentType`, `sourceType`, `sourceId`, and `status` filters, and should expose only safe metadata for the DEV-12 fixture.
+- Download remains a separate `generatedDocuments.download` body-output gate and is deferred to Part 7/8.
+- Exact next prompt title: `DEV-12 Part 5: approved local generated-document metadata list detail checks`.
+
+## Next Thread Prompt
+
+`DEV-12 Part 5: approved local generated-document metadata list detail checks`
+
+## DEV-12 Part 5 - Generated-Document Metadata Checks Completed
+
+- DEV-12 Part 5 metadata checks are recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_CHECK_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_CHECK_EVIDENCE.md).
+- Latest commit inspected: `d23d2dea Preflight DEV-12 generated document metadata`.
+- Exact Part 5 approval phrase was received and validated before metadata checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Metadata queries performed: yes, local-only service list/detail/filter reads.
+- Download/output performed: no.
+- Expected vs actual metadata behavior: matched. List/detail returned only safe metadata keys and excluded `contentBase64`, body, buffer, PDF bytes, and generic content fields.
+- Filter results: document type, source type, source id, and status filters each resolved the marker generated document.
+- Permission metadata verified: list/detail require `generatedDocuments.view`; download requires `generatedDocuments.download`.
+- Count stability: marker generated documents remained `1`; generated-document audit logs remained `1`.
+- Blockers/discrepancies: none found.
+- Temporary checker `apps/api/scripts/dev12-part5-metadata-check.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 6: generated-document metadata list detail evidence verification`.
+
+## DEV-12 Part 6 - Generated-Document Metadata Evidence Verification Completed
+
+- DEV-12 Part 6 generated-document metadata evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_METADATA_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `3f1e328a Check DEV-12 generated document metadata`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Output/download performed: no.
+- Verification result: Part 5 metadata evidence remained marker-scoped, count-stable, body-free, and secret-free. The marker generated-document count remained `1`, the generated-document audit-log count remained `1`, metadata still excluded `contentBase64` and body fields, and hash/size/status/storage provider fields matched the fixture.
+- Blockers/discrepancies: none found. Two initial `tsx` launcher attempts failed before verification because of environment/path resolution; the final direct local `tsx.cmd` invocation completed successfully without mutation or download.
+- Temporary verifier `apps/api/scripts/dev12-part6-metadata-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 7: generated-document download gate preflight`.
+
+## DEV-12 Part 7 - Generated-Document Download Gate Preflight Completed
+
+- DEV-12 Part 7 generated-document download gate preflight is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_PREFLIGHT.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_PREFLIGHT.md).
+- Latest commit inspected: `670fdb9d Verify DEV-12 generated document metadata evidence`.
+- Runtime mutation/download/output performed: no.
+- Expected Part 8 download metadata/hash behavior: local marker download should return `application/pdf`, filename `DEV12-DOC-trial-balance.pdf`, byte length `129`, and a downloaded-buffer SHA-256 matching stored `contentHash` prefix `29bb1b32935c488b`.
+- Expected Part 8 count behavior: archive delta `0`; generated-document audit-log delta `0` unless the code is changed to log downloads before Part 8.
+- Permission gate expectation: `GET /generated-documents/:id/download` requires `generatedDocuments.download`; `generatedDocuments.view` alone is insufficient.
+- Blockers/discrepancies: none found in preflight. Generated-document storage remains database/base64-backed and not object-storage-ready.
+- Exact next prompt title: `DEV-12 Part 8: approved local generated-document download gate checks`.
+
+## DEV-12 Part 8 - Generated-Document Download Gate Checks Completed
+
+- DEV-12 Part 8 generated-document download gate checks are recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_CHECK_EVIDENCE.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_CHECK_EVIDENCE.md).
+- Latest commit inspected: `6b822ff0 Preflight DEV-12 generated document download gate`.
+- Exact Part 8 approval phrase was received and validated before the local marker download check.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no, except the approved local download read.
+- Download performed: yes, local-only metadata/hash only for the marker synthetic generated document.
+- Output body printed: no.
+- Download result: filename `DEV12-DOC-trial-balance.pdf`, MIME type `application/pdf`, size `129`, downloaded SHA-256 `29bb1b32935c488bc28a21d53133b1384f9b0cd5e40d31956794e728de213f5f`, matching stored metadata.
+- Count stability: marker generated documents remained `1`; generated-document audit logs remained `1`; archive delta `0`; audit delta `0`.
+- Missing id behavior returned `NotFoundException` without body output. Permission checks allowed `generatedDocuments.download` and `admin.fullAccess`, and rejected view-only/source-view-only permissions.
+- Blockers/discrepancies: none found. Generated-document bodies remain database/base64-backed and not object-storage-ready.
+- Temporary checker `apps/api/scripts/dev12-part8-download-check.temp.ts` was removed after the approved local check.
+- Exact next prompt title: `DEV-12 Part 9: generated-document download gate evidence verification`.
+
+## DEV-12 Part 9 - Generated-Document Download Gate Evidence Verification Completed
+
+- DEV-12 Part 9 generated-document download gate evidence verification is recorded in [docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_GENERATED_DOCUMENT_DOWNLOAD_GATE_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `aac198d3 Check DEV-12 generated document download gate`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: no.
+- Output body printed: no.
+- New download performed: no.
+- Verification result: Part 8 hash/size/count evidence still matches current marker metadata. Marker generated documents remained `1`, generated-document audit logs remained `1`, marker pollution count was `0`, and the evidence scan found no long base64-like values or secret/auth/connection patterns.
+- Blockers/discrepancies: none found. Generated-document object storage, retention/legal hold, purge/cleanup, restore proof, malware scanning, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary verifier `apps/api/scripts/dev12-part9-download-evidence-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 10: storage readiness and migration dry-run preflight`.
+
+## DEV-12 Part 10 - Storage Readiness And Migration Dry-Run Preflight Completed
+
+- DEV-12 Part 10 storage readiness and migration dry-run preflight is recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_PREFLIGHT.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_PREFLIGHT.md).
+- Latest commit inspected: `9e562375 Verify DEV-12 generated document download gate`.
+- Runtime mutation/storage migration/upload/delete/download performed: no.
+- Expected storage readiness behavior: local providers should default to `database`; attachment and generated-document readiness should be ready with local/dev database warnings; S3 config output should be boolean/redacted only.
+- Expected migration dry-run behavior: count-only marker organization plan with `dryRunOnly: true`, expected generated-document count `1`, generated-document total bytes `129`, database storage count `1`, S3 storage count `0`, and no object copy/delete/rewrite.
+- Expected backup relation: backup readiness/restore plan are read-only metadata planning only; backup evidence mutations remain out of scope.
+- Blockers/discrepancies: none found in preflight. Generated-document object storage, migration execution, retention/legal hold, restore proof, malware scanning, and production readiness remain unproven.
+- Exact next prompt title: `DEV-12 Part 11: approved local storage readiness and migration dry-run checks`.
+
+## DEV-12 Part 11 - Storage Readiness And Migration Dry-Run Checks Completed
+
+- DEV-12 Part 11 storage readiness and migration dry-run checks are recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_CHECK_EVIDENCE.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_CHECK_EVIDENCE.md).
+- Latest commit inspected: `0e8b4828 Preflight DEV-12 storage readiness dry run`.
+- Exact Part 11 approval phrase was received and validated before local readiness/dry-run checks.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Runtime mutation performed: no.
+- Migration executed: no.
+- Upload/delete performed: no.
+- Readiness result: attachment provider `database`, generated-document provider `database`, both ready with local/dev database storage warnings; S3 config output was boolean/redacted only.
+- Migration dry-run result: `dryRunOnly: true`, generated-document count `1`, generated-document total bytes `129`, attachment count `0`, database storage count `1`, S3 storage count `0`, target provider `database`, no object copy/delete/rewrite.
+- Backup readiness relation result: read-only, no mutation, no backup/restore executed, `productionReady=false`, all required evidence types missing for the marker organization.
+- Count stability: marker generated documents `1 -> 1`, generated-document audit logs `1 -> 1`, marker organization attachments `0 -> 0`, backup/restore evidence `0 -> 0`.
+- Blockers/discrepancies: none found. Generated-document object storage, migration executor, backup/restore proof, malware scanning, retention/legal hold, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary checker `apps/api/scripts/dev12-part11-storage-check.temp.ts` was removed after the approved local check.
+- Exact next prompt title: `DEV-12 Part 12: storage readiness and migration dry-run evidence verification`.
+
+## DEV-12 Part 12 - Storage Readiness And Migration Dry-Run Evidence Verification Completed
+
+- DEV-12 Part 12 storage readiness and migration dry-run evidence verification is recorded in [docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md](docs/development/DEV_12_STORAGE_READINESS_MIGRATION_DRY_RUN_EVIDENCE_VERIFICATION.md).
+- Latest commit inspected: `4f40accd Check DEV-12 storage readiness dry run`.
+- Local target proof: `postgresql` on `localhost:5432/accounting`, classified local-only; no hosted/provider target was used.
+- Mutation performed: no.
+- Migration/upload/delete performed: no.
+- Verification result: marker generated document remains `database` backed with `storageKey = null`; Part 11 dry-run evidence still matches current counts, with marker generated documents `1`, generated-document audit logs `1`, marker attachments `0`, backup/restore evidence rows `0`, S3-backed generated documents `0`, `dryRunOnly: true`, and no migration execution.
+- Redaction result: no long base64-like values, secret/auth/connection patterns, signed URLs, object keys, object bodies, or `contentBase64` values were found in Part 11 evidence.
+- Blockers/discrepancies: none found. Generated-document object storage, migration executor, backup/restore proof, malware scanning, retention/legal hold, hosted/beta/customer-data behavior, and production readiness remain unproven.
+- Temporary verifier `apps/api/scripts/dev12-part12-storage-evidence-verify.temp.ts` was removed after the read-only check.
+- Exact next prompt title: `DEV-12 Part 13: retention legal hold cleanup policy preflight`.
+
+## DEV-12 Part 13 - Retention Legal Hold Cleanup Policy Preflight Completed
+
+- DEV-12 Part 13 retention legal hold cleanup policy preflight is recorded in [docs/development/DEV_12_RETENTION_LEGAL_HOLD_CLEANUP_POLICY_PREFLIGHT.md](docs/development/DEV_12_RETENTION_LEGAL_HOLD_CLEANUP_POLICY_PREFLIGHT.md).
+- Latest commit inspected: `854f551b Verify DEV-12 storage readiness dry run evidence`.
+- Runtime mutation/retention mutation/delete/purge/download/output performed: no.
+- Highest-risk retention/legal-hold gaps: no generated-document retention duration, no legal-hold field/workflow/enforcement, no generated-document soft-delete/purge/cleanup/restore executor, no approved accounting/tax retention duration, unresolved customer-data deletion conflict, no backup-retention alignment proof, no generated-document object lifecycle, and no destructive-cleanup approval model.
+- Recommended policy posture: preserve generated documents by default until a future dry-run-first, marker/tenant-scoped, approval-gated cleanup executor exists and legal/accounting retention rules are approved.
+- Exact next prompt title: `DEV-12 Part 14: generated documents storage retention closure`.
+
+## DEV-12 Part 14 - Generated Documents Storage Retention Closure Completed
+
+- DEV-12 Part 14 closure completed.
+- Closure doc: [docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md](docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md).
+- Latest commit inspected: `151c3f37 Preflight DEV-12 retention cleanup policy`.
+- Marker: `DEV12-DOC-20260530T000000`.
+- Evidence summary: DEV-12 created and verified one synthetic DB-backed generated document; confirmed metadata list/detail/filter output excludes bodies; confirmed one approved local download metadata/hash check without body output; confirmed storage readiness and migration dry-run checks are count-only; and documented retention/legal-hold cleanup policy gaps.
+- Fixture summary: generated document count `1`, generated-document audit-log count `1`, attachments `0`, backup/restore evidence rows `0`, storage provider `database`, storage key `null`, size `129`, SHA-256 `29bb1b32935c488bc28a21d53133b1384f9b0cd5e40d31956794e728de213f5f`.
+- Production gaps: object storage for generated documents, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict, malware scanning, restore proof, backup proof, generated-document purge executor, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test, load/concurrency for large PDFs, and accountant/legal review.
+- DEV-12 is closed as local-only generated documents storage retention evidence.
+- DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- Exact next prompt title: `DEV-13 Part 1: role permission matrix production-gap and E2E readiness preflight`.
+
+## Next Thread Prompt
+
+`ZATCA next sprint: local signed XML validation plan or repeatable SDK CI runner design`
+
+## Next Thread Prompt
+
+`ZATCA local signed XML validation plan`
+
+## ZATCA SDK CI Readiness Guard Completed
+
+- Latest commit inspected: `6db215e5 Validate generated ZATCA XML fixtures locally`.
+- Added `scripts/zatca-sdk-ci-readiness.cjs` and `scripts/zatca-sdk-ci-readiness.test.cjs`.
+- Added root scripts: `zatca:sdk-ci-readiness` and `test:zatca-sdk-ci-readiness`.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md`.
+- Current guard status: `CI_BLOCKED_MISSING_SDK_REFERENCE`.
+- CI posture: blocked, not ready. The official SDK exists locally under ignored `reference/`, but it is not available from a fresh checkout; default Java 17 remains unsupported. Local-only validation remains possible with an explicit Java 11-14 `ZATCA_SDK_JAVA_BIN`.
+- PR CI remains non-ZATCA; SDK validation is not enabled in GitHub Actions.
+- Real ZATCA network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.
+
+## ZATCA Approved Local Dummy Signing Execution Completed
+
+- Latest commit inspected before execution: `158578d3 Plan approved ZATCA dummy signing execution`.
+- Approval phrase matched exactly.
+- SDK signing executed: yes, local dummy-material only.
+- SDK QR executed: yes, local dummy-material only.
+- Signed XML validation executed: yes, local dummy-material only.
+- Real ZATCA network used: no.
+- CSID/OTP used: no.
+- Production/beta/customer data used: no.
+- Private keys/certificates exposed: no; dummy material was used by SDK config only and certificate/private-key body content was not printed, copied into app storage, committed, or persisted as evidence.
+- Fixture statuses:
+  - `ledgerbyte-generated-standard-invoice`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+  - `ledgerbyte-generated-credit-note`: sign `PASSED`, QR `PASSED`, signed validation `PASSED`.
+- Evidence file path: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Cleanup status: `SUCCESS`; temp unsigned XML, signed XML, SDK runtime/config copies, and temp workspace were cleaned up.
+- Redaction result: metadata-only evidence; no XML body, signed XML body, QR payload body, private-key body, certificate body, OTP, CSID material, token, auth header, request/response body, customer/vendor payload, attachment body, or unsafe raw SDK stdout/stderr was persisted.
+- Current blockers: key custody decision, sandbox OTP/CSID, real signing credentials/certificate lifecycle, Phase 2 QR production proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting reviews, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+
+## Next Thread Prompt
+
+`ZATCA dummy signing result review and Phase 2 QR gap analysis`
+
+## ZATCA Dummy Signing Result Review And Phase 2 QR Gap Analysis Completed
+
+- Latest commit inspected: `3ef5a7c6 Execute ZATCA dummy signing locally`.
+- Evidence reviewed: `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Result review doc: `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md`.
+- Phase 2 QR gap analysis doc: `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
+- Evidence validation: approval matched, environment `LOCAL_DUMMY_SIGNING_NO_NETWORK`, fixture count `2`, passed `2`, failed `0`, blocked `0`, both approved fixtures sign/QR/signed-validation `PASSED`, exit codes `0`, temp cleanup `SUCCESS`, no network, production compliance false, redaction flags safe.
+- SDK signing executed in this review task: no.
+- SDK QR executed in this review task: no.
+- SDK signed XML validation executed in this review task: no.
+- SDK hash command executed in this review task: no.
+- ZATCA network, CSID, or OTP used in this review task: no.
+- Private-key/certificate bodies exposed: no.
+- Current blockers: sandbox OTP/CSID approval planning, compliance and production CSID lifecycle execution, production key custody implementation, real signing credentials/certificate lifecycle, production Phase 2 QR proof, clearance/reporting, PDF/A-3, retry/error queue, production signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
+
+## Next Thread Prompt
+
+`ZATCA sandbox CSID request execution guard`
+
+## ZATCA Sandbox CSID Request Execution Guard Completed
+
+- Latest commit inspected before this sprint: `6e486f3c Plan ZATCA sandbox CSID approval`.
+- Repository reconciliation result: required baseline ZATCA guard/docs/reference readiness files were present; no prior sandbox CSID request execution guard docs/scripts existed, so the existing preflight guard was extended instead of duplicating scripts.
+- Guard script: `scripts/zatca-sandbox-csid-preflight.cjs`.
+- Guard tests: `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Guard doc: `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`.
+- Result doc: `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Approval phrase: `I approve ZATCA sandbox compliance CSID request execution guard only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, no adapter execution, and metadata-only evidence.`
+- Execution guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Execute flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Secrets/bodies exposed: no.
+- Request body created: no.
+- Response body processed or persisted: no.
+- Production signing enabled: no.
+- Production compliance enabled: no.
+- Current blockers: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+- Exact next prompt title: `ZATCA CSID response custody implementation plan`.
+
+## Next Thread Prompt
+
+`ZATCA CSID response custody implementation plan`
+
+## ZATCA Sandbox OTP And Compliance CSID Approval Plan Completed
+
+- Latest commit inspected before the approval-plan sprint: `68f94334 Guard ZATCA sandbox CSID preflight`.
+- 2026-06-07 continuation inspected latest pushed branch state: `90dec971 Plan ZATCA sandbox CSID approval`.
+- Approval plan doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
+- Approval runbook doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
+- Approval result doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Guard extension: `--approval-phrase <text>` plus `--approval-plan`.
+- Approval phrase: `I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.`
+- Approval phrase matched: yes.
+- Approval recognition status: `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- OTP/CSID/network call made: no.
+- Sandbox adapter executed: no.
+- Secret/body exposure: no.
+- Production signing enabled: no.
+- Current blockers: key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
+
+## Next Thread Prompt
+
+`ZATCA sandbox CSID request execution guard`

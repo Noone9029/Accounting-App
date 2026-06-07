@@ -21,6 +21,330 @@ Current production posture:
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
 - DEV-09 is closed as local-only banking/reconciliation evidence. That evidence does not prove banking production readiness, beta readiness, customer-data behavior, live bank feeds, automatic matching, certified parser coverage, raw statement archive operations, accountant sign-off, or broad banking E2E/smoke/full-test coverage.
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
+- DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+- DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-06 ZATCA Sandbox CSID Preflight Guard update:
+
+- Added `scripts/zatca-sandbox-csid-preflight.cjs`, `scripts/zatca-sandbox-csid-preflight.test.cjs`, `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`, and `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
+- Added root package scripts `zatca:sandbox-csid-preflight` and `test:zatca-sandbox-csid-preflight`.
+- Current preflight status is `PREFLIGHT_BLOCKED`. The guard verifies local reference presence, CSR keys, code surfaces, package scripts, env presence booleans, sandbox adapter blocking, mock-only adapter status, and custody blockers.
+- It did not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, expose private-key/certificate/CSID/token/header/request/response bodies, generate signed XML/QR payloads, enable production signing, deploy, migrate, seed, reset, delete, or send email.
+- Current blockers are key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing. Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`; recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+
+2026-06-06 ZATCA Sandbox OTP And Compliance CSID Approval Plan update:
+
+- Added `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
+- Extended `scripts/zatca-sandbox-csid-preflight.cjs` and its tests with planning-only `--approval-phrase` plus `--approval-plan` recognition.
+- Observed approval status is `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- The approval phrase was recognized for planning only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing/compliance remained disabled.
+- Current blockers are key custody, CSID response custody, sandbox adapter execution guard, actual OTP capture approval, compliance CSID request execution approval, and production signing. Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+
+2026-06-07 ZATCA CSID Response Custody Implementation Plan update:
+
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`, `scripts/zatca-csid-response-custody-guard.cjs`, and `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Added root package scripts `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Observed custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED` with the exact metadata-only custody approval phrase and simulation flag.
+- The guard found the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`).
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Completed follow-up: `ZATCA sandbox adapter execution approval plan`.
+
+2026-06-07 ZATCA Sandbox Adapter Execution Approval Plan update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md`, `scripts/zatca-sandbox-adapter-execution-approval.cjs`, and `scripts/zatca-sandbox-adapter-execution-approval.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-execution-approval` and `test:zatca-sandbox-adapter-execution-approval`.
+- Observed approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED` with the exact planning phrase and `--adapter-execution-approval`.
+- Observed execute-adapter status is `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- The guard found the sandbox adapter, disabled adapter, mock-only adapter, custody prerequisites, and request/response body handling risks.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+2026-06-07 ZATCA Sandbox Adapter Mock-to-Real Boundary Test Plan update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, `scripts/zatca-sandbox-adapter-boundary-check.cjs`, and `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-boundary-check` and `test:zatca-sandbox-adapter-boundary-check`.
+- Observed boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS` using `--plan --no-network --json --static-only`.
+- The guard found the sandbox adapter, disabled fail-closed adapter, mock-only adapter, env gate source references, request/response risk markers, and custody dependency by static inspection only.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, repeatable SDK CI, and future no-network adapter contract tests. Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+2026-06-07 ZATCA Sandbox Adapter No-Network Contract Tests update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md`, `docs/zatca/SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`, `scripts/zatca-sandbox-adapter-no-network-contract.cjs`, and `scripts/zatca-sandbox-adapter-no-network-contract.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-no-network-contract` and `test:zatca-sandbox-adapter-no-network-contract`.
+- Observed contract status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS` using `--plan --no-network --json --contract`.
+- The guard installs a local no-network trap and detects sandbox, disabled, and mock adapter contract surfaces by static inspection only.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock or disabled adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox CSID dry-run request body schema plan`.
+
+2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
+
+- Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.
+- This is docs-only design/readiness metadata. It did not request OTPs, request compliance CSIDs, request production CSIDs, call ZATCA, generate production credentials, execute signing, persist signed XML, persist QR payloads, run clearance/reporting, implement PDF/A-3, deploy, migrate, seed, reset, delete, send email, or change production/beta data.
+- Current key finding: existing legacy EGS PEM-capable fields are not production-acceptable custody; metadata-only CSID custody records and a disabled custody-provider boundary exist; real sandbox CSID HTTP and production CSID remain blocked.
+- Recommended custody model: KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after approval.
+- Remaining blockers include sandbox OTP/CSID preflight, compliance CSID lifecycle, production CSID lifecycle, production key custody, production signing, Phase 2 QR proof, clearance/reporting, PDF/A-3, error/retry queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+
+2026-06-06 ZATCA Preparation and Key Custody Sprint update:
+
+- Closure doc: `docs/development/ZATCA_PREPARATION_KEY_CUSTODY_SPRINT_CLOSURE.md`.
+- Created ZATCA preparation documents for environment separation, key custody decision drafting, invoice eligibility, audit evidence, sandbox onboarding, and official SDK validation readiness.
+- Extended the existing read-only ZATCA readiness metadata and settings UI with preparation gates that state production compliance, real network calls, signing, clearance/reporting, and PDF/A-3 remain disabled.
+- This is preparation and safe local readiness only. It does not request OTP, request compliance or production CSID, generate or store real private keys, sign invoices, clear/report invoices, create PDF/A-3, call real ZATCA networks, mutate invoice/accounting data, or claim production compliance.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+2026-06-06 Official ZATCA SDK Validation Pipeline Sprint update:
+
+- Closure doc: `docs/development/ZATCA_OFFICIAL_SDK_VALIDATION_PIPELINE_SPRINT_CLOSURE.md`.
+- Added `corepack pnpm zatca:sdk-validate-local` as a local/no-network metadata-only official SDK validation wrapper for official standard/simplified invoice samples and LedgerByte local XML fixture IDs.
+- Added the fixture registry, evidence format, and evidence directory policy under `docs/zatca/`, with a sanitized sample evidence JSON.
+- Extended the existing read-only ZATCA readiness metadata and settings UI with SDK pipeline, command, fixture registry, evidence format, no-network mode, and latest evidence status fields.
+- The wrapper currently finds the local SDK but safely blocks validation under default Java `17.0.16`; it requires Java 11-14 or `ZATCA_SDK_JAVA_BIN` pointing to a compatible runtime.
+- This sprint does not request OTP, request compliance or production CSID, generate or store real private keys, sign invoices, clear/report invoices, create PDF/A-3, call real ZATCA networks, mutate invoice/accounting data, or claim production compliance.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+2026-06-06 ZATCA Local Generated XML Fixture Validation Sprint update:
+
+- Closure doc: `docs/development/ZATCA_LOCAL_GENERATED_XML_FIXTURE_VALIDATION_SPRINT_CLOSURE.md`.
+- Added deterministic sanitized local XML fixture generation for `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- Validated both generated fixtures through the local official SDK wrapper under Java 11.0.26 with no-network metadata-only evidence at `docs/zatca/evidence/generated-xml-fixture-validation-20260606.json`.
+- Default Java 17 remains safely blocked as unsupported for the official SDK range; `ZATCA_SDK_JAVA_BIN` can point to Java 11-14 without changing global Java or committing machine-specific defaults.
+- Extended read-only ZATCA readiness metadata and settings UI with generated fixture statuses, latest generated fixture evidence status, runtime blocker visibility, `noNetworkOnly=true`, and `productionCompliance=false`.
+- This sprint does not request OTP, request compliance or production CSID, generate or store real private keys, sign invoices, clear/report invoices, create PDF/A-3, call real ZATCA networks, mutate production/beta data, send email, deploy, or claim production compliance.
+
+2026-06-06 ZATCA SDK CI Readiness Guard update:
+
+- Added `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json` and `corepack pnpm test:zatca-sdk-ci-readiness`.
+- Added `docs/zatca/ZATCA_SDK_CI_RUNNER_PLAN.md`.
+- Current guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE`: the official SDK exists locally under ignored `reference/`, but it is not reproducible from a fresh checkout; default Java 17 is also unsupported.
+- PR CI remains non-ZATCA. SDK validation is not enabled in GitHub Actions, and XML bodies must not be uploaded as artifacts.
+- Real network calls, signing, CSID/OTP, clearance/reporting, PDF/A-3, production credentials, email, deploys, migrations, seed/reset/delete, production/beta/customer data mutation, and production compliance remain disabled.
+
+2026-06-06 ZATCA Local Signed XML Validation Plan update:
+
+- Added `docs/zatca/LOCAL_SIGNED_XML_VALIDATION_PLAN.md`.
+- Added `corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json` and `corepack pnpm test:zatca-local-signed-xml-plan`.
+- The guard is metadata-only and blocked by default. It inspects SDK/reference, Java, generated fixture, and documented command readiness without running SDK `-sign`, `-qr`, `-generateHash`, or signed XML validation.
+
+2026-06-06 ZATCA Approved Local Dummy Signing Execution update:
+
+- Added `docs/zatca/LOCAL_DUMMY_SIGNING_EXECUTION_RESULTS.md`.
+- Added metadata-only evidence at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- The approved local dummy-material run used explicit Java `11.0.26` and SDK `238-R3.4.8`; generated standard invoice and credit-note fixtures passed SDK sign, QR, and signed XML validation stages.
+- Temp unsigned/signed XML and SDK runtime/config copies were cleaned up. Evidence excludes XML bodies, signed XML bodies, QR payload bodies, private-key bodies, certificate bodies, OTPs, CSID material, tokens, headers, request/response bodies, and customer/vendor payloads.
+- This remains local-only SDK evidence. It does not enable production signing, CSID/OTP, real ZATCA network calls, clearance/reporting, PDF/A-3, signed artifact persistence, or production compliance.
+- No signing was executed, no CSID/OTP/network was used, no private-key/certificate body was exposed, and production compliance remains false.
+
+2026-05-30 DEV-11 implementation-status update:
+
+- Closure doc: `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md`.
+- The local evidence covers marker fixture math, manual sales stock issue COGS post/reverse, compatible purchase receipt asset post/reverse, clearing variance proposal lifecycle, inventory valuation reports, clearing reports, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and no-body/no-secret checks.
+- Inventory accounting is not production-complete. FIFO/cost layers, landed-cost posting/valuation update, automatic posting, negative-stock production policy, serial/batch/bin/location, purchase return inventory/accounting impact, sales returns inventory impact, historical direct-mode migration, multi-currency inventory, transfer-fee/landed allocation, accountant review, generated-document retention, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, and load/concurrency proof remain open.
+
+2026-05-30 DEV-12 implementation-status update:
+
+- Closure doc: `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md`.
+- The local evidence covers marker `DEV12-DOC-20260530T000000`, one synthetic DB-backed generated document, safe metadata list/detail/filter checks, one approved local download metadata/hash check, storage readiness and migration dry-run counts, and retention/legal-hold cleanup policy preflight.
+- Generated-document storage is not production-complete. Object storage for generated documents, database/base64 migration, signed URLs, lifecycle policy, legal hold, tax/accounting retention approval, customer-data deletion/retention conflict handling, malware scanning, backup proof, restore proof, purge execution, versioning/supersede policy, PDF/A-3/ZATCA artifact boundaries, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, load/concurrency for large PDFs, and accountant/legal review remain open.
+
+2026-06-03 Accountant Workflow Sprint update:
+
+- Closure doc: `docs/development/ACCOUNTANT_WORKFLOW_SPRINT_CLOSURE.md`.
+- Accountant-feedback changes were implemented for navigation consolidation, customer/supplier ledger visibility, visible invoice number sequence preview, invoice-line revenue-account coding, tax exclusive/inclusive/no-tax invoice calculation modes, a dedicated operational Tax workspace, a VAT Return frontend route, and Chart of Accounts next-code suggestion.
+- This is controlled beta/user-testing product development only. It does not implement recurring invoices, quotes/proformas, live bank feeds, payment gateway capture, real email sending, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, or hosted/customer-data proof.
+
+2026-06-03 Sales Quote / Proforma Workflow Sprint update:
+
+- Closure doc: `docs/development/SALES_QUOTES_PROFORMAS_SPRINT_CLOSURE.md`.
+- Added non-posting tenant-scoped sales quotes/proformas with quote numbering, customer selection, revenue-account coded lines, tax exclusive/inclusive/no-tax totals, lifecycle actions, customer transaction-history visibility, and conversion into a draft sales invoice.
+- Quotes/proformas do not post journals, update AR or VAT balances, affect reports/aging/dashboard financial totals, update inventory, send email, or call ZATCA behavior.
+- This is controlled beta/user-testing product development only. It does not implement recurring invoices, delivery notes, quote PDFs/archive, online acceptance, payment gateway capture, real email sending, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, or hosted/customer-data proof.
+
+2026-06-04 Quote PDF / Archive Sprint update:
+
+- Closure doc: `docs/development/QUOTE_PDF_ARCHIVE_SPRINT_CLOSURE.md`.
+- Added safe Sales Quote PDF output and generated-document archive support for non-posting sales quotes/proformas.
+- Quote PDFs are titled `Sales Quote`, include non-posting wording, and do not imply tax invoice status, AR posting, VAT filing, ZATCA clearance/reporting, PDF/A-3, email delivery, payment, or production compliance.
+- This is controlled beta/user-testing product development only. It does not implement online acceptance, customer email sending, delivery notes, recurring invoices, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, or hosted/customer-data proof.
+
+2026-06-04 Focused Quote Workflow Browser Sprint update:
+
+- Closure doc: `docs/development/QUOTE_BROWSER_WORKFLOW_SPRINT_CLOSURE.md`.
+- Added focused mocked Playwright browser coverage for sales quote list, create, detail, edit, lifecycle actions, tax modes, account-coded lines, PDF download, generated-document archive metadata/download, conversion to draft invoice, and customer non-posting quote activity.
+- The sprint found no quote product-code defects; changes were limited to browser coverage and documentation.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement online acceptance, customer email sending, delivery notes, recurring invoices, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Recurring Invoices Sprint update:
+
+- Closure doc: `docs/development/RECURRING_INVOICES_SPRINT_CLOSURE.md`.
+- Added non-posting recurring invoice templates with `REC-` numbering, account-coded lines, tax exclusive/inclusive/no-tax totals, weekly/monthly/quarterly/yearly schedule preview, lifecycle actions, customer non-posting activity visibility, duplicate-run prevention, and manual generation into draft sales invoices.
+- Recurring templates do not post journals, affect AR/revenue/VAT/inventory, create generated documents, send email, collect payment, run a scheduler, or call ZATCA behavior.
+- This is controlled beta/user-testing product development only. It does not implement delivery notes, automatic scheduling, customer email sending, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Focused Recurring Invoice Browser Workflow Sprint update:
+
+- Closure doc: `docs/development/RECURRING_INVOICE_BROWSER_WORKFLOW_SPRINT_CLOSURE.md`.
+- Added focused mocked Playwright browser coverage for recurring invoice list, create, detail, edit, schedule preview, tax modes, account-coded lines, lifecycle actions, restricted-role behavior, duplicate generation blocking, manual draft-invoice generation, generated invoice link, global create/search behavior, and customer non-posting activity.
+- The sprint found two frontend confidence gaps and fixed them: the form now shows a visible schedule-preview panel, and the detail page now shows `Last run` after generation. No backend accounting, posting, tenant, permission, VAT, AR, email, payment, or ZATCA defects were found.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement delivery notes, automatic scheduling, customer email sending, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Delivery Notes Sprint update:
+
+- Closure doc: `docs/development/DELIVERY_NOTES_SPRINT_CLOSURE.md`.
+- Added non-posting delivery notes with `DN-` numbering, draft/edit, issue, mark delivered, cancel, void, customer/source invoice/accepted quote links, optional backend sales-stock-issue reference support, safe Delivery Note PDF/archive output, customer non-posting fulfillment activity, navigation, global create/search exposure, and targeted API/frontend tests.
+- Delivery notes do not post journals, affect AR/revenue/VAT/customer balances/reports, send email, collect payment, call ZATCA, create PDF/A-3, or move inventory by themselves.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement automatic inventory movement, logistics/carrier integration, customer email sending, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Focused Delivery Note Browser Workflow Sprint update:
+
+- Closure doc: `docs/development/DELIVERY_NOTE_BROWSER_WORKFLOW_SPRINT_CLOSURE.md`.
+- Added focused mocked Playwright browser coverage for delivery-note list, create, detail, edit, issue, mark delivered, PDF/archive metadata/download, customer non-posting activity, source invoice/accepted quote copy paths, restricted permissions, global create, and global search.
+- The sprint found two delivery-note UI confidence gaps and fixed them: voided source invoices are no longer shown as source options, and the generated-document archive filter now includes Delivery Note rows.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement automatic inventory movement, logistics/carrier integration, customer email sending, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Delivery Note Source Visibility and Wording Sprint update:
+
+- Closure doc: `docs/development/DELIVERY_NOTE_SOURCE_VISIBILITY_WORDING_SPRINT_CLOSURE.md`.
+- Added related delivery-note panels on sales invoice and sales quote detail pages using the existing tenant-scoped delivery-note list data, plus clearer source invoice, source quote, and reference-only stock issue cards on delivery-note detail.
+- Tightened Delivery Note wording across the touched source surfaces so the workflow stays explicitly non-posting and does not imply AR creation, VAT filing, ZATCA, payment, email, or automatic stock movement.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement automatic inventory movement, stock issue picker UI, logistics/carrier integration, customer email sending, payment gateway capture, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Collections Workflow Sprint update:
+
+- Closure doc: `docs/development/COLLECTIONS_WORKFLOW_SPRINT_CLOSURE.md`.
+- Added controlled non-payment-gateway Sales/AR collections workflow with `COL-` numbering, tenant-scoped collection cases and activities, promise-to-pay/dispute/hold/close lifecycle actions, summary workspace, invoice detail visibility, customer detail visibility, global create/search exposure, and audit logging.
+- Collection cases do not post journals, allocate payments, create customer payments, create credit notes/refunds, alter invoice totals, alter invoice balances, change customer statement balances, send email, create payment links, file VAT, call ZATCA, or move inventory.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement real email sending, automated reminders, background schedulers, payment gateways, legal debt collection tooling, customer portals, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Focused Collections Browser Workflow Sprint update:
+
+- Closure doc: `docs/development/COLLECTIONS_BROWSER_WORKFLOW_SPRINT_CLOSURE.md`.
+- Added focused mocked Playwright browser coverage for collections workspace, new case, detail, edit, lifecycle actions, activity timeline, promise/dispute/hold/start/close states, invoice related collection cases, customer collections panel, restricted permissions, global create, and global search.
+- The sprint found and fixed collections UI confidence gaps: the workspace now exposes full summary data, the form shows selected invoice due date and aging bucket context, on-hold cases can be started again through the UI, payment received note wording is explicitly note-only, and related panels use readable activity labels instead of raw enum values.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement real email sending, automated reminders, background schedulers, payment gateways, legal debt collection tooling, customer portals, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, or hosted/customer-data proof.
+
+2026-06-04 Focused Dashboard / Accountant Threshold Review Sprint update:
+
+- Closure doc: `docs/development/DASHBOARD_ATTENTION_THRESHOLD_REVIEW_SPRINT_CLOSURE.md`.
+- Added `docs/development/DASHBOARD_SALES_AR_ATTENTION_THRESHOLD_POLICY.md` to define Sales/AR dashboard attention windows, inclusion/exclusion rules, ordering, top limits, empty states, permissions, and read-only safety boundaries.
+- Hardened dashboard Sales/AR attention logic with named policy constants, separate quote/recurring date windows, deterministic top-row ordering, active sent-quote handling, and exact conservative empty states.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+- This is controlled beta/user-testing product development only. It does not implement real email sending, automated reminders, background schedulers, payment gateways, legal debt collection tooling, customer portals, production billing, production hosting, object-storage migration, real ZATCA CSID/signing/clearance/reporting, official VAT filing submission, deployed E2E, hosted/customer-data proof, or dashboard mutation actions.
+
+2026-06-05 Local Sales/AR Fixture Idempotency Execute Route Metadata update:
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_FIXTURE_IDEMPOTENCY_EXECUTE_ROUTE_METADATA_CLOSURE.md`.
+- The local-only marker fixture `SALES-AR-WALKTHROUGH-20260604` now completes through customer, items, invoices, payment, credit note/allocation, refund, quotes, quote conversion, recurring template, generated draft invoice, delivery notes, collection cases, and collection activities.
+- Metadata-only local route checks returned HTTP `200` for the Sales/AR dashboard, customer, invoice, quote, recurring invoice, delivery note, collections, reports, and tax routes that were checked. `/documents` was not run because generated-document count was `0`.
+- No accountant review, accountant approval, PDF metadata check, hosted/customer-data proof, real email, payment gateway, VAT filing, ZATCA, seed/reset/delete, cleanup/delete, broad E2E, or OS power command was run.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Purchase Matching Exception Center update:
+
+- Closure doc: `docs/development/PURCHASE_MATCHING_EXCEPTION_CENTER_SPRINT_CLOSURE.md`.
+- Added a read-only purchase matching exception center at `GET /purchase-matching/exceptions` and `/purchases/matching`.
+- Exceptions are grouped by supplier and severity across purchase orders, purchase bills, and purchase receipts, with filters for supplier, severity, exception type, source type, and search.
+- This sprint did not post journals, book variances, change AP balances, change inventory quantities, mutate source purchase documents, create purchase returns, send email, call ZATCA, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Purchase Matching Review Workflow update:
+
+- Closure doc: `docs/development/PURCHASE_MATCHING_REVIEW_WORKFLOW_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/PURCHASE_MATCHING_REVIEW_POLICY.md`.
+- Added schema-backed purchase matching review tracking with status, reason code, assignment, review dates, and safe notes for PO/bill/receipt matching exceptions.
+- Added review lifecycle endpoints under `purchase-matching`, review metadata and filters in `GET /purchase-matching/exceptions`, review-only actions on `/purchases/matching`, and review status visibility on source matching panels.
+- Added audit logging for review lifecycle transitions without logging full note bodies or document bodies.
+- This sprint did not post journals, book variances, change AP balances, change inventory quantities, mutate source purchase documents, create purchase returns, send email, call ZATCA, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Purchase Returns Workflow update:
+
+- Closure doc: `docs/development/PURCHASE_RETURNS_WORKFLOW_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/PURCHASE_RETURNS_POLICY.md`.
+- Added schema-backed operational purchase returns with `PRN-` numbering, draft/submit/approve/complete/cancel/void lifecycle, source links to suppliers, purchase bills, purchase orders, purchase receipts, and `NEEDS_RETURN_REVIEW` matching reviews.
+- Added `GET/POST/PATCH /purchase-returns` endpoints and lifecycle endpoints, frontend routes under `/purchases/returns`, matching exception center links, matching panel return metadata, supplier activity visibility, and neutral supplier ledger rows.
+- Purchase returns remain non-posting: they do not post journals, change AP balances, change purchase bill balances, create debit notes/refunds automatically, move inventory, book variances, affect VAT/financial reports, send email, call ZATCA, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Inventory Valuation Variance Preview update:
+
+- Closure doc: `docs/development/INVENTORY_VALUATION_VARIANCE_PREVIEW_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/INVENTORY_VALUATION_VARIANCE_PREVIEW_POLICY.md`.
+- Added read-only valuation variance preview endpoints under `/inventory/valuation-variances`, including summary and source-specific purchase receipt, purchase bill, and matching review views.
+- Added `/inventory/valuation-variances` with supplier grouping, filters, summary cards, source document links, preview variance amount/type/severity/action, and source panels/links from purchase receipts, bills, returns, and matching review surfaces.
+- This sprint did not post journals, reverse journals, book variances, change AP balances, change purchase bill balances, change inventory quantities, change moving average, create FIFO layers, create purchase returns, create debit notes/refunds, change landed cost, send email, call ZATCA, affect VAT/financial reports, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Supplier/AP Dashboard Improvements update:
+
+- Closure doc: `docs/development/SUPPLIER_AP_DASHBOARD_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/SUPPLIER_AP_DASHBOARD_ATTENTION_POLICY.md`.
+- Added read-only Supplier/AP dashboard endpoints at `GET /contacts/suppliers/ap-dashboard` and `GET /contacts/suppliers/:id/ap-summary`.
+- Added `/purchases/ap-dashboard` with AP summary cards, top supplier panels, due bill, matching exception, purchase return, valuation variance preview, and recent supplier activity lists.
+- Enhanced supplier detail with a Supplier AP Summary panel and financial posting versus operational/non-posting activity grouping.
+- Purchase returns remain operational/non-posting, valuation variance previews remain read-only, and matching reviews classify exceptions only.
+- This sprint did not post journals, reverse journals, book variances, change AP balances, change bill balances, create supplier payments, create debit notes/refunds, create/approve/complete purchase returns automatically, change inventory quantities/valuation, change landed cost/FIFO, send email, call ZATCA, affect VAT/financial reports, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-05 Inventory Returns Integration update:
+
+- Closure doc: `docs/development/INVENTORY_RETURNS_INTEGRATION_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/INVENTORY_RETURNS_INTEGRATION_POLICY.md`.
+- Added explicit operational purchase return stock-out movement preview and post endpoints at `GET /purchase-returns/:id/inventory-return-preview` and `POST /purchase-returns/:id/post-inventory-return`.
+- Added `PURCHASE_RETURN_OUT` movement support, reserved `SALES_RETURN_IN`, purchase-return movement status visibility, linked movement IDs, Supplier/AP dashboard movement counts, and valuation variance preview context for posted purchase-return stock-out.
+- Sales return stock-in is deferred because existing credit notes do not safely identify returned-stock warehouse/source stock issue or delivery line.
+- This sprint did not post journals, reverse journals, change AP/AR balances, change bill/invoice balances, create debit notes/refunds, post variances, change landed cost/FIFO, affect VAT/financial reports, send email, call ZATCA, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-06 Sales Inventory Returns update:
+
+- Closure doc: `docs/development/SALES_INVENTORY_RETURNS_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/SALES_INVENTORY_RETURNS_POLICY.md`.
+- Added dedicated operational sales inventory returns with `SRN-` numbering, source links to customer, sales invoice, credit note, delivered delivery note, and posted sales stock issue, lifecycle actions, read-only stock-in preview, and explicit `SALES_RETURN_IN` post action.
+- Sales inventory returns appear in customer activity as zero-value operational stock rows and do not affect customer statement balances or AR.
+- Credit notes and refunds remain separate Sales/AR documents; stock-in posting does not create credit notes, refunds, journals, AR/VAT changes, ZATCA behavior, email, payment links, COGS reversal, landed cost, FIFO/cost layers, hosted/customer-data workflows, seed/reset/delete, or OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-06 Landed Cost Preview update:
+
+- Closure doc: `docs/development/LANDED_COST_PREVIEW_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/LANDED_COST_PREVIEW_POLICY.md`.
+- Added read-only landed cost preview endpoints under `/inventory/landed-cost`, with purchase receipt and purchase bill source support, purchase order source blocker, cost categories, allocation methods, rounding reconciliation, return quantity context, and no-mutation response flags.
+- Added `/inventory/landed-cost` with source selection, cost-line entry, allocation method controls, manual allocation entry, preview result table, blockers/warnings, and safe limitations wording.
+- Added read-only source links from purchase receipt detail, purchase bill detail, Inventory Valuation Variance Preview, and Supplier/AP Dashboard.
+- This sprint did not persist landed cost previews, create landed cost documents, post journals, change inventory item cost, update moving average, create FIFO/cost layers, change AP or bill balances, create supplier payments, create debit notes/refunds, affect VAT/financial reports, mutate purchase documents, send email, call ZATCA, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-06 FIFO Cost-Layer Groundwork update:
+
+- Closure doc: `docs/development/FIFO_COST_LAYER_GROUNDWORK_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/FIFO_COST_LAYER_PREVIEW_POLICY.md`.
+- Added read-only FIFO preview endpoints under `/inventory/fifo-preview` for all inventory, item, warehouse, and item+warehouse scopes.
+- Added a computed FIFO preview service that reconstructs in-memory layers from stock movements ordered by movement date, created time, and ID.
+- Added oldest-layer consumption preview, missing-cost warnings, insufficient-layer blockers, return-cost traceability warnings, transfer-shape warnings, and no-mutation response flags.
+- Added `/inventory/fifo-preview` with item, warehouse, and as-of filters, summary metrics, layer table, consumption table, warnings/blockers, source links, and safe limitations wording.
+- Added read-only FIFO source links from inventory balances, stock valuation, stock movement ledger, warehouse detail, landed cost preview, and valuation variance preview.
+- This sprint did not persist active FIFO layers, switch valuation method, update moving average, update stock valuation, create stock movements, post COGS, reverse COGS, post journals, affect AP/AR/VAT/ZATCA/financial statements, mutate source documents, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
+
+2026-06-06 Serial Batch Bin Location Groundwork update:
+
+- Closure doc: `docs/development/SERIAL_BATCH_BIN_LOCATION_GROUNDWORK_SPRINT_CLOSURE.md`.
+- Policy doc: `docs/development/SERIAL_BATCH_BIN_LOCATION_POLICY.md`.
+- Added additive item tracking settings for `NONE`, `SERIAL`, `BATCH`, and `SERIAL_AND_BATCH`, plus expiry and bin tracking flags. Existing items default to `NONE`.
+- Added tenant-scoped bin/location, batch/lot, and serial-number setup records, including optional in-transit location type groundwork.
+- Added read-only traceability and setup endpoints under `/inventory/traceability`, `/inventory/bin-locations`, `/inventory/batches`, and `/inventory/serial-numbers`.
+- Added Inventory routes for bin locations, batches/lots, serial numbers, and item traceability, plus safe links from item, warehouse, stock valuation, stock movement, and valuation variance surfaces.
+- Added conservative movement validation helpers and blockers for advanced-tracked items in legacy flows that do not yet capture serial, batch, expiry, or bin metadata. Non-tracked item flows remain compatible.
+- This sprint did not change stock quantities unexpectedly, force tracking on existing items, mutate historical movements, run backfill, update valuation, activate FIFO, create active cost layers, post COGS, post journals, affect AP/AR/VAT/ZATCA/financial statements, change landed cost behavior, run hosted/customer-data workflows, run seed/reset/delete, or run OS power commands.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked typecheck blocker and was not modified.
 
 Status values:
 
@@ -41,36 +365,40 @@ Status values:
 | Auth | COMPLETE_FOR_MVP | `apps/api/src/auth`, `apps/web/src/app/(auth)` | Register, login, JWT, `GET /auth/me`, invite preview/accept, password reset request/confirm using hashed tokens and active email provider routing, DB-backed token request rate limits, and expired-token cleanup. | Mock email remains default; no MFA, refresh-token rotation, or advanced session management. | Add MFA, abuse monitoring, and stronger session policy after provider/domain review. |
 | Tenant/org model | COMPLETE_FOR_MVP | `organizations`, `OrganizationMember`, `OrganizationContextGuard` | `x-organization-id` scoping and membership checks. | Cross-org test coverage should continue expanding as modules grow. | Add central tenant-scoping checklist for new modules. |
 | Roles/permissions | COMPLETE_FOR_MVP | `Role`, `OrganizationMember.roleId`, `packages/shared/src/permissions.ts`, `PermissionGuard`, role/member APIs, web permission helpers | Default roles are seeded/protected, `/auth/me` exposes role permissions, API routes enforce `@RequirePermissions`, role/member management APIs exist, UI navigation/actions are permission-aware, and invites create email/token onboarding records through the active provider. | SMTP is opt-in; no approval workflow or dual-control policy. | Add approval rules for high-risk actions. |
-| Dashboard overview | COMPLETE_FOR_MVP | `apps/api/src/dashboard`, `apps/web/src/app/(app)/dashboard`, `dashboard.view` | `GET /dashboard/summary` provides tenant-scoped read-only sales, purchase, banking, inventory, report-health, compliance/admin, attention-item metrics, last-six-month trends, aging buckets, cash trend points, and low-stock items; `/dashboard` renders KPI cards, lightweight charts, permission-aware drill-downs, review panels, and permission-gated quick actions. | No customizable layout, advanced charting, saved widgets, or accountant-reviewed KPI definitions yet. | Add reviewed KPI definitions and user-customizable widgets after accountant/product review. |
+| Dashboard overview | COMPLETE_FOR_MVP | `apps/api/src/dashboard`, `apps/web/src/app/(app)/dashboard`, `dashboard.view`, `docs/development/DASHBOARD_SALES_AR_ATTENTION_THRESHOLD_POLICY.md` | `GET /dashboard/summary` provides tenant-scoped read-only sales, purchase, Sales/AR attention, banking, inventory, report-health, compliance/admin, attention-item metrics, last-six-month trends, aging buckets, cash trend points, low-stock items, documented Sales/AR attention thresholds, deterministic top-row ordering, and safe empty states; `/dashboard` renders KPI cards, lightweight charts, permission-aware Sales/AR attention panels, drill-downs, review panels, and permission-gated quick actions. | No customizable layout, advanced charting, saved widgets, or accountant-signed KPI/attention thresholds yet. | Review the documented dashboard Sales/AR attention threshold policy with accountant/product owners, then add user-customizable widgets. |
 | Email outbox and provider routing | GROUNDWORK_ONLY | `EmailOutbox`, `EmailSenderDomainEvidence`, `EmailProviderEvent`, `EmailSuppression`, `EmailDeliveryMonitoringEvidence`, `AuthToken`, `AuthTokenRateLimitEvent`, `apps/api/src/email`, `/settings/email-outbox` | Mock remains default; invite/password reset/test-send records are stored in outbox; `GET /email/readiness` reports provider/SMTP production readiness, sender-domain SPF/DKIM/DMARC evidence status, relay diagnostics, retry counts/processor/worker flags, webhook verification booleans, suppression counts, monitoring evidence status, and bounce/provider-event/alerting/monitoring blockers without secrets; `POST /email/diagnostics`, default `POST /email/retry-process`, and default `POST /email/retry-worker/run` return no-send/no-mutation skipped plans; SMTP adapter can be enabled by env and records `SENT_PROVIDER`; invite/reset delivery is DB-rate-limited; provider events, suppressions, and monitoring evidence capture metadata-only bounce/complaint/retry evidence. | No production scheduler, provider-specific production webhook adapter, live DNS/provider validation, real relay execution evidence, external monitoring integration, or paid/provider-specific API adapter. | Add provider-specific webhook adapters and external monitoring integration before real customer email use. |
 | Audit logs | COMPLETE_FOR_MVP | `apps/api/src/audit-log`, `AuditLog`, `AuditLogRetentionSettings`, `/settings/audit-logs`, `docs/AUDIT_LOG_COVERAGE_REVIEW.md` | High-risk mutating actions are standardized through shared audit event constants, metadata is recursively redacted before persistence/response, list/detail APIs support filters, admins can review logs in the Settings UI, permitted users can export filtered sanitized CSV, and admins can configure retention settings with dry-run preview. | Low-risk reads are intentionally not logged; CSV export is manual only; retention preview does not delete logs; no immutable external audit store, scheduled export, automatic purge job, alerting, anomaly detection, or tamper-evident chain. | Add scheduled export/archival, immutable audit storage, alerting, and a reviewed purge executor before production compliance claims. |
-| Number sequences | COMPLETE_FOR_MVP | `apps/api/src/number-sequences`, `NumberSequence`, `/settings/number-sequences` | Invoice, payment, purchase order, bill, refund, credit note, journal, inventory document, and variance proposal numbering; admins/accountants can review configured prefixes, next numbers, padding, examples, and safely update future numbering with duplicate-prevention checks and audit logging. | No reset workflow, per-branch numbering, document-template numbering rules, historical renumbering, or preview of possible future collisions beyond lowering prevention. | Add reviewed reset/skip workflow, branch/device numbering options, and deeper collision analysis before production rollout. |
+| Number sequences | COMPLETE_FOR_MVP | `apps/api/src/number-sequences`, `NumberSequence`, `/settings/number-sequences` | Invoice, sales quote, delivery note, recurring invoice template, payment, purchase order, bill, refund, credit note, journal, inventory document, and variance proposal numbering; admins/accountants can review configured prefixes, next numbers, padding, examples, and safely update future numbering with duplicate-prevention checks and audit logging. | No reset workflow, per-branch numbering, document-template numbering rules, historical renumbering, or preview of possible future collisions beyond lowering prevention. | Add reviewed reset/skip workflow, branch/device numbering options, and deeper collision analysis before production rollout. |
 | Document settings | COMPLETE_FOR_MVP | `document-settings`, settings page | Organization PDF titles/colors/visibility flags. | Template designer not present. | Add template preview and advanced layouts. |
-| Generated document archive | PARTIAL | `generated-documents`, `GeneratedDocument`, storage readiness | Generated operational and report PDFs are archived, downloadable, and included in storage readiness/migration dry-run counts. | Stores base64 in DB; no object storage lifecycle or migration executor. | Move to S3-compatible storage after migration executor and rollback plan. |
+| Generated document archive | PARTIAL | `generated-documents`, `GeneratedDocument`, storage readiness, `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md` | Generated operational and report PDFs are archived, downloadable, including sales quote and delivery note PDFs, included in storage readiness/migration dry-run counts, and closed DEV-12 local evidence for marker metadata list/detail/filter, one approved download metadata/hash check, and count-only storage dry-run behavior. | Stores base64 in DB; no generated-document object storage path, database/base64 migration executor, signed URL policy, object lifecycle, legal hold, retention/legal compliance proof, malware scanning, backup proof, restore proof, broad E2E/smoke/full-test, hosted behavior, or load/concurrency. | Move to S3-compatible storage after migration executor, rollback plan, retention/legal-hold approval, restore proof, scanning plan, and load/concurrency checks. |
 | Uploaded attachments | PARTIAL | `attachments`, `Attachment`, `AttachmentPanel`, `storage`, key detail pages, `/settings/storage` | JSON/base64 file upload remains the default; tenant-scoped linked-entity validation, metadata listing without base64 content, download, notes update, soft delete, permissions, smoke checks, reusable panels on sales/purchase/banking/inventory detail pages, storage readiness API, a feature-flagged S3-compatible upload/download adapter for new attachments, and dry-run migration counts. | Database/base64 storage remains the default; no DB-to-S3 migration executor, virus scanning, OCR, retention/lifecycle policy, drag/drop polish, email sending, or ZATCA attachment submission. | Test against a real non-production bucket, then add migration executor, scanning policy, and OCR/import workflows after storage review. |
 
 ## Accounting
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Chart of accounts | COMPLETE_FOR_MVP | `chart-of-accounts`, `Account` | CRUD, system account protections, posting flags. | Descendant cycle prevention and production COA review remain. | Add accountant-reviewed COA templates. |
+| Chart of accounts | COMPLETE_FOR_MVP | `chart-of-accounts`, `Account` | CRUD, system account protections, posting flags, next-code preview by seeded account-type range, auto-generated code on create, duplicate prevention, and manual override audit logging. | Descendant cycle prevention, richer account templates, and production COA review remain. | Add accountant-reviewed COA templates and approval rules for high-risk COA changes. |
 | Bank account profiles and transfers | COMPLETE_FOR_MVP | `bank-accounts`, `bank-transfers`, `BankAccountProfile`, `BankTransfer`, web `/bank-accounts`, `/bank-transfers` | Cash/bank/wallet/card profile metadata linked to posting asset accounts, default Cash/Bank profiles, ledger balances, posted transaction visibility, archive/reactivate, payment/expense dropdown labels, posted bank transfers, transfer void reversal, and guarded one-time opening-balance posting. | No live feeds, transfer fees, or multi-currency FX transfer handling. | Add transfer fee/FX handling after bank workflow review. |
 | Bank statement import and reconciliation | PARTIAL | `bank-statements`, `bank-reconciliations`, `BankStatementImport`, `BankStatementTransaction`, `BankReconciliation`, `BankReconciliationItem`, `BankReconciliationReviewEvent`, web statement/reconciliation routes, `docs/development/DEV_09_BANKING_RECONCILIATION_CLOSURE.md` | Manual CSV/JSON/text plus limited OFX/CAMT/MT940 upload or paste preview, sanitized parser fixtures, compatibility matrix, sample collection guide, parser validation checklist, debit/credit and signed amount parsing, partial import option, duplicate/closed-period warnings, statement transaction records, candidate lookup against posted bank journal lines, manual match, categorize-to-journal, ignore, reconciliation summary, draft reconciliation creation, submit/approve/reopen review workflow, approved-only close, item snapshots, closed-period statement/import locks, administrative void/unlock, reconciliation report data/CSV/PDF archive, design-only raw-file archive policy, attachment panels on statement transaction/reconciliation detail pages, and closed DEV-09 local evidence for synthetic fixtures, parser/preview checks, match/categorize/ignore, and close/void. | No live feeds, auto-match, raw statement-file archive implementation, strict dual-control queue, email delivery, transfer fees, FX transfer handling, certified bank-specific OFX/CAMT/MT940 coverage, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, or accountant sign-off. | Convert DEV-09 gaps into sanitized target-bank parser, raw-archive policy, approval-queue, transfer-fee/FX, and QA tickets before widening readiness claims. |
-| Tax rates | COMPLETE_FOR_MVP | `tax-rates`, `TaxRate` | Sales/purchase/both scope, validation, seed VAT rates. | VAT return reporting not implemented. | Add VAT report model and validations. |
+| Tax rates and tax workspace | COMPLETE_FOR_MVP | `tax-rates`, `TaxRate`, `/tax`, `/reports/vat-summary`, `/reports/vat-return` | Sales/purchase/both scope, validation, seed VAT rates, operational Tax workspace with period selection, VAT Summary, and draft VAT Return source-document view. | Not official VAT filing readiness; no tax authority submission, filing approval workflow, or certified VAT definitions. | Add accountant-reviewed tax definitions and official filing readiness only after legal/tax specialist review. |
 | Manual journals | COMPLETE_FOR_MVP | `accounting`, `JournalEntry`, `JournalLine`, `fiscal-periods` | Create/edit draft, post, reverse, balance validation, fiscal posting guard. | Reversal date is current date only. | Add user-selected reversal date if needed. |
 | Journal posting | COMPLETE_FOR_MVP | `accounting-core`, business services, `reports` | Balanced entries from AR/AP workflows and accountant reports. | Production report definitions still need accountant review. | Add accountant review and export/PDF outputs. |
 | Journal reversal | COMPLETE_FOR_MVP | `AccountingService.reverse`, workflow voids, `FiscalPeriodGuardService` | Reversal entries, idempotent workflow reuse, and fiscal guard on reversal date. | Manual and workflow reversal race behavior should be load-tested. | Add concurrency/load tests. |
 | Fiscal periods | PARTIAL | `FiscalPeriod`, `apps/api/src/fiscal-periods`, `/fiscal-periods` | API/UI for create/update/close/reopen/lock and posting-date locks across journal-producing workflows. | No unlock/admin approval, fiscal year wizard, or retained earnings close. | Add year-end close and approval workflow. |
-| Reports | COMPLETE_FOR_MVP | `reports`, `/reports/*`, `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md` | General Ledger, Trial Balance, P&L, Balance Sheet, VAT Summary, VAT Return, AR/AP aging, CSV exports, simple PDF exports, generated-document archive records for PDFs, and closed DEV-10 local evidence for marker fixtures, report JSON, aging/VAT Return JSON, output/archive/download metadata, no-body handling, and selected permission gates. | VAT Summary/Return evidence is not official filing; no scheduled/email delivery, report packs, accountant-certified layout/definitions, advanced branch/multi-period/consolidation proof, generated-document object-storage retention proof, hosted/beta/customer-data proof, load/concurrency proof, or broad E2E/smoke/full-test coverage. | Convert DEV-10 gaps into accountant-review, official VAT, scheduled/email delivery, report-pack, generated-document storage, restricted-role matrix, E2E, and load/concurrency tickets. |
+| Reports | COMPLETE_FOR_MVP | `reports`, `/reports/*`, `docs/development/DEV_10_REPORTS_FINANCIAL_STATEMENTS_CLOSURE.md` | General Ledger, Trial Balance, P&L, Balance Sheet, VAT Summary, VAT Return frontend route, AR/AP aging, grouped Reports landing page/sidebar menu, CSV exports, simple PDF exports, generated-document archive records for PDFs, and closed DEV-10 local evidence for marker fixtures, report JSON, aging/VAT Return JSON, output/archive/download metadata, no-body handling, and selected permission gates. | VAT Summary/Return evidence is not official filing; no scheduled/email delivery, report packs, accountant-certified layout/definitions, advanced branch/multi-period/consolidation proof, generated-document object-storage retention proof, hosted/beta/customer-data proof, load/concurrency proof, or broad E2E/smoke/full-test coverage. | Convert DEV-10 gaps into accountant-review, official VAT, scheduled/email delivery, report-pack, generated-document storage, restricted-role matrix, E2E, and load/concurrency tickets. |
 
 ## Sales
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Contacts/customers | COMPLETE_FOR_MVP | `contacts`, `Contact` | Customer/supplier/BOTH contacts and detail page. | No import/export or duplicate detection. | Add CSV import and merge workflow. |
+| Contacts/customers | COMPLETE_FOR_MVP | `contacts`, `Contact`, `/customers` | Customer/supplier/BOTH contacts, dedicated customer list/detail view, outstanding receivable balance, overdue balance, invoice/credit/payment/refund activity counts, non-posting quote/recurring/delivery-note activity, full transaction table, and related workflow/report links. | No import/export, duplicate detection, or browser E2E across every customer row type. | Add CSV import/merge workflow and browser QA for ledger row types. |
 | Items/products | PARTIAL | `items`, `Item`, `StockMovement` | Items with revenue/expense accounts, tax defaults, inventory-tracking flag, reorder points, and quantity-on-hand display for tracked items. | Purchase receiving and sales stock issue are manual operational workflows only; no automatic stock posting or stock accounting yet. | Add item detail stock history later. |
-| Sales invoices | COMPLETE_FOR_MVP | `sales-invoices`, invoice form/pages | Draft, edit, finalize, void, PDF, ZATCA local metadata. | Recurring invoices and official tax compliance not present. | Add recurring invoices and reports. |
-| Invoice finalization | COMPLETE_FOR_MVP | `sales-invoice.service.ts`, `sales-invoice-accounting.ts`, `FiscalPeriodGuardService` | AR/revenue/VAT posting, idempotency, fiscal posting guard. | No recurring invoice engine. | Add recurring invoices. |
+| Sales invoices | COMPLETE_FOR_MVP | `sales-invoices`, invoice form/pages | Draft, edit, finalize, void, PDF, ZATCA local metadata, visible read-only invoice-number sequence preview on create, searchable grouped revenue-account picker on lines, item default revenue-account prefill, backend revenue-account validation, and tax exclusive/inclusive/no-tax calculation modes. | Official tax compliance and production ZATCA are not present. Recurring generation creates draft invoices only and does not finalize/post automatically. | Add accountant-reviewed invoice browser QA and keep scheduler design separate from draft generation. |
+| Sales quotes/proformas | COMPLETE_FOR_MVP | `sales-quotes`, quote form/pages, customer transaction history, `renderSalesQuotePdf`, `tests/visual/quote-workflow.visual.spec.ts` | Non-posting quote/proforma create, edit while draft, mark sent, accept, reject, expire, cancel, visible read-only quote-number preview, customer selection, revenue-account coded lines, tax exclusive/inclusive/no-tax totals, safe Sales Quote PDF/archive output, conversion of accepted quotes into draft sales invoices, and focused mocked browser coverage for list/create/detail/edit/lifecycle/PDF/archive/convert/customer-activity paths. | No real customer email sending, online acceptance, hosted/customer-data proof, deployed E2E with seeded data, or accountant sign-off. | Add accountant review of quote/invoice wording and source-document browser QA. |
+| Recurring invoices | COMPLETE_FOR_MVP | `recurring-invoices`, `RecurringInvoiceTemplate`, `RecurringInvoiceTemplateLine`, `RecurringInvoiceRun`, web `/sales/recurring-invoices`, `tests/visual/recurring-invoice-workflow.visual.spec.ts` | Non-posting recurring invoice templates, `REC-` numbering, draft/edit, activate/pause/resume/end/cancel, browser-visible schedule preview, weekly/monthly/quarterly/yearly frequencies, account-coded lines, tax exclusive/inclusive/no-tax totals, customer non-posting activity visibility, duplicate-run prevention, manual generation of draft sales invoices linked back to the template, focused browser coverage for list/new/detail/edit/generate/customer activity, and permission-aware global create/search behavior. | No automatic scheduler, background worker, customer email, payment links, recurring PDF, deployed E2E with safe seeded data, hosted/customer-data proof, or accountant sign-off. | Add accountant-reviewed wording before any scheduler design. |
+| Delivery notes | COMPLETE_FOR_MVP | `delivery-notes`, `DeliveryNote`, `DeliveryNoteLine`, web `/sales/delivery-notes`, `renderDeliveryNotePdf`, customer transaction history, `tests/visual/delivery-note-workflow.visual.spec.ts` | Non-posting delivery-note create/edit while draft, issue, mark delivered, cancel, void, visible read-only `DN-` number preview, customer links, source invoice and accepted quote line copy, reverse delivery-note panels on source invoice/quote detail pages, optional backend sales-stock-issue reference, reference-only stock issue wording, safe Delivery Note PDF/archive output, customer non-posting fulfillment activity, permission-aware navigation/global create/search behavior, and focused browser coverage for list/new/detail/edit/lifecycle/PDF/archive/source/customer-activity paths. | No automatic inventory movement, stock-issue picker UI, carrier/logistics workflow, customer email sending, deployed E2E with safe seeded data, hosted/customer-data proof, or accountant sign-off. | Add stock-issue source UI only after inventory policy review, keeping it reference-only unless an explicit accounting/inventory policy changes. |
+| Collections | COMPLETE_FOR_MVP | `collections`, `CollectionCase`, `CollectionActivity`, web `/sales/collections`, customer and invoice detail panels, `tests/visual/collections-workflow.visual.spec.ts` | Controlled non-payment-gateway collection cases with `COL-` numbering, customer and outstanding-invoice links, duplicate open invoice case prevention, status/priority tracking, promise-to-pay details, dispute/hold/start/close/cancel lifecycle actions, activity timeline, workspace summary with top customers and aging buckets, customer and invoice visibility, dashboard attention visibility, permission-aware navigation/global create/search, audit logging, and focused browser coverage for list/new/detail/edit/lifecycle/timeline/customer/invoice/global-search paths. | No real email sending, scheduled reminders, customer portal, payment links, payment gateway capture, legal debt collection tooling, deployed E2E with safe seeded data, hosted/customer-data proof, or accountant sign-off. | Run accountant review for collection wording before designing reminder/email/payment automation. |
+| Invoice finalization | COMPLETE_FOR_MVP | `sales-invoice.service.ts`, `sales-invoice-accounting.ts`, `FiscalPeriodGuardService` | AR/revenue/VAT posting, idempotency, fiscal posting guard. | Generated recurring invoices remain drafts until finalized manually; no automatic scheduler/finalizer. | Add recurring browser QA and keep scheduler design separate. |
 | Customer payments | COMPLETE_FOR_MVP | `customer-payments` | Posted payments, allocations, voids, receipts. | Gateway integration not present. | Add bank/gateway integration later. |
 | Payment allocation | COMPLETE_FOR_MVP | `CustomerPaymentAllocation` | Invoice balance updates and over-allocation guards. | Allocation editing is void/recreate only. | Add UX for corrections if needed. |
 | Unapplied payment application | COMPLETE_FOR_MVP | `CustomerPaymentUnappliedAllocation` | Apply/reverse overpayments to later invoices. | No automatic matching suggestions. | Add matching suggestions. |
@@ -86,17 +414,18 @@ Status values:
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Suppliers | COMPLETE_FOR_MVP | `Contact.type=SUPPLIER/BOTH` | Supplier contacts, AP ledger on contact detail. | Supplier onboarding fields are basic. | Add supplier tax/bank details. |
-| Purchase orders | COMPLETE_FOR_MVP | `purchase-orders`, `PurchaseOrder`, `renderPurchaseOrderPdf`, web `/purchases/purchase-orders` | Draft/edit/delete, approve, mark sent, close, void, PDF/archive, conversion into draft purchase bills, operational receiving status/action links, and local DEV-08C lifecycle evidence. | No production-grade partial billing, approval workflow, supplier email sending, automatic stock receipt, or linked PO-to-bill receipt reconciliation. | Convert DEV-08Z purchase matching gaps into a bounded design/evidence ticket. |
-| Purchase bills | COMPLETE_FOR_MVP | `purchase-bills` | Draft/edit/finalize/void, AP posting, PDF/archive, source purchase order link, and local DEV-08/DEV-08F bill lifecycle evidence. | No multi-PO matching, production-grade partial matching, valuation variance booking, landed cost, or purchase returns integration. | Add matching/receiving and valuation-variance design after AP gap register review. |
-| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Direct mode posts Dr expense/asset, Dr VAT receivable, Cr AP; explicit inventory-clearing mode posts tracked lines to Inventory Clearing with fiscal posting guard and local closed-period blocker evidence. | Receipt asset posting is separate/manual and only for compatible clearing-mode bills; production variance, landed-cost, and return accounting remain unproven. | Add landed-cost, returns, and variance posting policy later. |
+| Suppliers | COMPLETE_FOR_MVP | `Contact.type=SUPPLIER/BOTH`, `/suppliers`, supplier contact APIs | Dedicated Suppliers module under Purchases, supplier list/detail view, open/overdue payable balance, bills, purchase orders, supplier credits, payments, refunds, expenses, operational purchase returns, full AP transaction table, and report/workflow links. | Supplier onboarding fields are basic; no supplier bank detail model or import/merge workflow. | Add supplier tax/bank details and browser QA for AP row types. |
+| Purchase orders | COMPLETE_FOR_MVP | `purchase-orders`, `purchase-matching`, `PurchaseOrder`, `renderPurchaseOrderPdf`, web `/purchases/purchase-orders`, `/purchases/matching` | Draft/edit/delete, approve, mark sent, close, void, PDF/archive, conversion into draft purchase bills, operational receiving status/action links, read-only PO/bill/receipt matching visibility, supplier-grouped matching exception center, review workflow tracking, and local DEV-08C lifecycle evidence. | No production-grade partial billing, approval workflow, supplier email sending, automatic stock receipt, or accountant-approved tolerance policy. Review tracking exists but does not approve variances, returns, or production matching behavior. | Add accountant-reviewed tolerance policy and variance/return handoff design before widening readiness claims. |
+| Purchase bills | COMPLETE_FOR_MVP | `purchase-bills`, `purchase-matching`, `purchase-returns` | Draft/edit/finalize/void, AP posting, PDF/archive, source purchase order link, read-only PO/bill/receipt matching visibility, supplier-grouped matching exception center, review workflow tracking, operational non-posting purchase return links, read-only landed cost preview for eligible bill lines, and local DEV-08/DEV-08F bill lifecycle evidence. | No multi-PO matching, production-grade partial matching policy, valuation variance booking, landed cost posting/valuation update, automatic debit note/refund creation from returns, or return accounting. Review tracking exists but does not mutate bills or accounting. | Add accountant-reviewed matching tolerance policy and valuation-variance/return-accounting design after AP policy review. |
+| Purchase returns | PARTIAL | `purchase-returns`, `PurchaseReturn`, `PurchaseReturnLine`, web `/purchases/returns`, `docs/development/PURCHASE_RETURNS_POLICY.md`, `docs/development/INVENTORY_RETURNS_INTEGRATION_POLICY.md` | Operational supplier returns with `PRN-` numbering, draft/submit/approve/complete/cancel/void lifecycle, supplier/source bill/order/receipt/matching-review links, source-line quantity validation, audit logging, matching exception center return links, neutral supplier activity/ledger visibility, and explicit receipt-linked operational stock-out posting for safe tracked lines. | No automatic debit notes, supplier refunds, journal entries, AP balance changes, VAT/report impact, PDF/archive, landed cost, FIFO/cost-layer reversal, sales return stock-in, or broad browser E2E. | Add purchase return PDF/archive or source-options/browser QA next; design dedicated sales returned-goods stock-in separately. |
+| Bill finalization | COMPLETE_FOR_MVP | `purchase-bill-accounting.ts`, `FiscalPeriodGuardService` | Direct mode posts Dr expense/asset, Dr VAT receivable, Cr AP; explicit inventory-clearing mode posts tracked lines to Inventory Clearing with fiscal posting guard and local closed-period blocker evidence. | Receipt asset posting is separate/manual and only for compatible clearing-mode bills; production variance, landed-cost posting/valuation update, and return accounting remain unproven. | Add landed-cost posting, returns, and variance posting policy later. |
 | Supplier payments | COMPLETE_FOR_MVP | `supplier-payments` | Posted payments, allocations, void restore, receipts, bank account profile dropdown labels. | No bank reconciliation. | Add reconciliation matching. |
-| Supplier ledger | COMPLETE_FOR_MVP | `supplierLedger`, contact page | AP balance and bill/payment/void rows. | UI should use supplier-specific balance wording. | Add AP-specific display helper. |
+| Supplier ledger | COMPLETE_FOR_MVP | `supplierLedger`, contact page, `/suppliers` | AP balance and bill/payment/void rows plus supplier detail activity summary, purchase order activity, supplier credits/refunds, expenses, neutral operational purchase return rows, and supplier-specific payable wording. | Needs browser QA across every AP row type and stronger statement drill-down affordances. | Add AP row-type browser QA and supplier statement drill-down polish. |
 | Supplier statement | COMPLETE_FOR_MVP | `/contacts/:id/supplier-statement`, `/contacts/:id/supplier-statement.pdf`, `GeneratedDocument.documentType=SUPPLIER_STATEMENT` | Date-filtered AP statement JSON and PDF export using existing supplier statement rows; PDF downloads create generated-document archive rows and use supplier-specific payable labels. | Local AP generated-document email outbox evidence is mock/no-send only; no real remittance email/send workflow, provider retry/webhook/domain proof, or final accountant wording review. PostgreSQL enum rollback would require a reviewed enum rebuild rather than a simple value drop. | Add real provider AP remittance/email workflow only after provider/domain/retry/webhook readiness is approved. |
 | Purchase order PDFs | COMPLETE_FOR_MVP | `renderPurchaseOrderPdf` | Operational purchase order PDF and archive. | No supplier email/send workflow. | Add email/send workflow later. |
 | Purchase bill PDFs | COMPLETE_FOR_MVP | `renderPurchaseBillPdf` | Operational PDF and archive. | Vendor attachment capture is basic database-backed groundwork only; no OCR/scanning or object storage. | Add OCR and production storage later. |
 | Supplier payment PDFs | COMPLETE_FOR_MVP | `renderSupplierPaymentReceiptPdf` | Receipt PDF and archive. | No remittance email/send flow. | Add email/send workflow. |
-| Debit notes | COMPLETE_FOR_MVP | `purchase-debit-notes`, `PurchaseDebitNote` | Draft/finalize/void, bill allocation/reversal, PDFs, and AP reduction posting. | No automatic matching or inventory return linkage. | Add matching suggestions later. |
+| Debit notes | COMPLETE_FOR_MVP | `purchase-debit-notes`, `PurchaseDebitNote` | Draft/finalize/void, bill allocation/reversal, PDFs, and AP reduction posting. | No automatic matching, automatic purchase return credit creation, or inventory return linkage. | Add matching suggestions or explicit return-to-debit-note handoff later. |
 | Cash expenses | COMPLETE_FOR_MVP | `cash-expenses`, `CashExpense` | Posted cash expenses, void reversal, PDF/archive, optional supplier/contact link, bank account profile dropdown labels, and supporting-file attachment panel. | No OCR, receipt scanning, or import workflow. | Add OCR/import after storage hardening. |
 
 ## Inventory
@@ -105,15 +434,15 @@ Status values:
 | --- | --- | --- | --- | --- | --- |
 | Items | PARTIAL | `items`, `Item.inventoryTracking`, `Item.reorderPoint`, web `/items` | Product/service records, inventory tracking flag, reorder point/quantity fields, and total quantity-on-hand display for tracked items. | No automatic stock movements from documents. | Add item detail stock history later. |
 | Warehouses | COMPLETE_FOR_MVP | `Warehouse`, `apps/api/src/warehouses`, web `/inventory/warehouses` | Tenant-scoped warehouse CRUD, `MAIN` default warehouse, archive/reactivate, active warehouse validation, warehouse detail balances/movements, and warehouse transfer/adjustment history. | No bin/location hierarchy or warehouse accounting. | Add bin design after transfer QA. |
-| Stock movements | GROUNDWORK_ONLY | `StockMovement`, `apps/api/src/stock-movements`, web `/inventory/stock-movements` | Direct opening balance creation, generated adjustment/transfer/receipt/issue movement rows, positive-quantity ledger, duplicate opening balance rejection, negative stock prevention, and accounting design inputs. | No landed cost, automatic COGS, inventory asset posting, serial/batch tracking, or automatic invoice/bill stock posting. | Add purchase clearing and valuation-accounting workflows after manual COGS QA. |
-| COGS | PARTIAL | `apps/api/src/sales-stock-issues`, `InventorySettings`, web sales stock issue detail, `docs/inventory/*` | Sales stock issue detail/API can preview Dr COGS / Cr Inventory Asset, manually post one reviewed COGS journal, reverse it once, block stock issue void while active, and let P&L reflect posted journals naturally. | Manual only; no invoice auto-posting, FIFO, landed cost, returns workflow, or automatic inventory clearing actions. | Harden accountant review workflow and add variance/return policy later. |
-| Inventory clearing and bill/receipt matching | PARTIAL | `InventorySettings.inventoryClearingAccountId`, `InventoryPurchasePostingMode`, `PurchaseBill.inventoryPostingMode`, purchase bill preview/finalization, purchase receipt asset posting, clearing reconciliation/variance reports, variance proposals, integrity audit, web receipt/bill/PO/report/proposal panels, `docs/inventory/*` | Inventory clearing account mapping, purchase receipt posting mode, enhanced receipt accounting preview, purchase bill receipt matching status, purchase order receipt/bill matching visibility, purchase bill direct/clearing accounting preview, explicit clearing-mode bill finalization, explicit compatible receipt asset post/reverse journals, receipt void protection, purchase receipt posting readiness compatibility counts, read-only reconciliation/variance reporting with CSV export, accountant-reviewed variance proposal draft/submit/approve/post/reverse/void workflow, and a 2026-05-15 integrity audit finding no code-level double-counting defect in the current manual paths. | No automatic purchase receipt GL posting, no direct-mode receipt posting, no landed cost, no automatic variance posting, and no migration for historical direct-mode bills. | Review posted variance proposal behavior with accountants, then decide landed-cost and historical direct-mode migration/exclusion policy. |
+| Stock movements | GROUNDWORK_ONLY | `StockMovement`, `apps/api/src/stock-movements`, web `/inventory/stock-movements` | Direct opening balance creation, generated adjustment/transfer/receipt/issue/purchase-return/sales-return movement rows, positive-quantity ledger, duplicate opening balance rejection, negative stock prevention, accounting design inputs, and read-only FIFO preview source links. | No landed-cost stock movement or valuation update, automatic COGS, automatic inventory asset posting, serial/batch tracking, return movement reversal, or automatic invoice/bill stock posting. | Keep landed cost, FIFO, reversal, and accounting automation separate until policy/accountant review is complete. |
+| COGS | PARTIAL | `apps/api/src/sales-stock-issues`, `InventorySettings`, web sales stock issue detail, `docs/inventory/*`, `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md` | Sales stock issue detail/API can preview Dr COGS / Cr Inventory Asset, manually post one reviewed COGS journal, reverse it once, block stock issue void while active, let P&L reflect posted journals naturally, and has closed DEV-11 local evidence for marker manual COGS post/reverse, duplicate-post blocker, active-COGS void blocker, and net-zero source/reversal financial effect. | Manual only; no invoice auto-posting, FIFO/cost layers, landed-cost posting/valuation update, inventory-affecting returns workflow, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, load/concurrency proof, or automatic inventory clearing actions. | Convert DEV-11 COGS gaps into accountant-review, FIFO/landed-cost posting, inventory return effects, automatic-posting, E2E, and load/concurrency tickets before widening readiness claims. |
+| Inventory clearing and bill/receipt matching | PARTIAL | `InventorySettings.inventoryClearingAccountId`, `InventoryPurchasePostingMode`, `PurchaseBill.inventoryPostingMode`, `purchase-matching`, purchase bill preview/finalization, purchase receipt asset posting, clearing reconciliation/variance reports, variance proposals, integrity audit, web receipt/bill/PO/report/proposal panels, `docs/inventory/*`, `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md` | Inventory clearing account mapping, purchase receipt posting mode, enhanced receipt accounting preview, purchase bill receipt matching status, read-only purchase order/bill/receipt matching visibility on source details, supplier-grouped matching exception center, review workflow tracking, purchase bill direct/clearing accounting preview, explicit clearing-mode bill finalization, explicit compatible receipt asset post/reverse journals, receipt void protection, purchase receipt posting readiness compatibility counts, read-only reconciliation/variance reporting with CSV export, read-only landed cost preview for eligible receipt/bill lines, accountant-reviewed variance proposal draft/submit/approve/post/reverse/void workflow, a 2026-05-15 integrity audit finding no code-level double-counting defect in the current manual paths, and closed DEV-11 local evidence for compatible receipt asset post/reverse plus variance proposal lifecycle. | No automatic purchase receipt GL posting, no direct-mode receipt posting, no accountant-approved tolerance policy, no landed cost posting/valuation update, no automatic variance posting, no historical direct-mode migration, no generated-document retention proof, no hosted/beta/customer-data proof, no broad E2E/smoke/full-test coverage, and no load/concurrency proof. Review tracking exists but does not post variances, create returns, or mutate source documents. | Convert clearing/matching gaps into tolerance policy, landed-cost posting, historical migration/exclusion, automatic-posting, accountant-review, generated-document retention, hosted-proof, E2E, and load/concurrency tickets. |
 | Inventory adjustments | COMPLETE_FOR_MVP | `InventoryAdjustment`, `apps/api/src/inventory-adjustments`, web `/inventory/adjustments` | Draft/create/edit/delete, approve, void, reason/cost fields, approval and void movement links, negative-stock guard, permissions, attachment panel, tests, and no-journal behavior. | No reason-code catalog, dual-control queue, or GL impact. | Add approval inbox and valuation policy later. |
 | Warehouse transfers | COMPLETE_FOR_MVP | `WarehouseTransfer`, `apps/api/src/warehouse-transfers`, web `/inventory/transfers` | Immediate posted transfer, paired out/in stock movements, insufficient-stock guard, void reversal movements, permissions, tests, and no-journal behavior. | No in-transit status, shipping documents, bin/location support, or GL impact. | Add in-transit/bin support after operational QA. |
-| Purchase receiving | PARTIAL | `PurchaseReceipt`, `PurchaseReceiptLine`, `apps/api/src/purchase-receipts`, web `/inventory/purchase-receipts` | PO, purchase bill, and standalone receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements; source remaining quantity/status helpers; void reversal with negative-stock guard; enhanced accounting panel/API with bill matching values; compatible clearing-mode receipts can manually post/reverse Dr Inventory Asset / Cr Inventory Clearing journals; active asset posting blocks receipt void; permissions, tests, smoke coverage, clearing report detail panels, and variance proposal linkage from clearing differences. | No automatic receipt posting, no direct-mode receipt posting, no landed cost, supplier delivery documents, serial/batch tracking, automatic variance posting, or automatic bill/PO receipt. | Add landed-cost design and historical migration/exclusion reporting. |
+| Purchase receiving | PARTIAL | `PurchaseReceipt`, `PurchaseReceiptLine`, `apps/api/src/purchase-receipts`, web `/inventory/purchase-receipts` | PO, purchase bill, and standalone receipts create `PURCHASE_RECEIPT_PLACEHOLDER` stock movements; source remaining quantity/status helpers; void reversal with negative-stock guard; enhanced accounting panel/API with bill matching values; compatible clearing-mode receipts can manually post/reverse Dr Inventory Asset / Cr Inventory Clearing journals; active asset posting blocks receipt void; permissions, tests, smoke coverage, clearing report detail panels, landed cost preview links, and variance proposal linkage from clearing differences. | No automatic receipt posting, no direct-mode receipt posting, no landed cost posting/valuation update, supplier delivery documents, serial/batch tracking, automatic variance posting, or automatic bill/PO receipt. | Add landed-cost posting policy and historical migration/exclusion reporting. |
 | Sales stock issue | PARTIAL | `SalesStockIssue`, `SalesStockIssueLine`, `apps/api/src/sales-stock-issues`, web `/inventory/sales-stock-issues` | Finalized-invoice stock issue creates `SALES_ISSUE_PLACEHOLDER` movements; invoice remaining quantity/status helper; availability guard; void reversal; COGS preview; manual COGS post/reverse actions; permissions, tests, and smoke coverage. | No delivery document, returns workflow, serial/batch tracking, automatic invoice stock issue, or automatic COGS posting. | Add delivery/returns design after inventory accounting scope is stable. |
-| Inventory settings | GROUNDWORK_ONLY | `InventorySettings`, `apps/api/src/inventory`, web `/inventory/settings` | Per-organization valuation method, negative-stock flag, value-tracking flag, inventory accounting enable flag, account mappings including inventory clearing, purchase receipt posting mode, validation, purchase receipt posting readiness panel with bill-mode compatibility counts, and manual COGS/receipt asset no-auto-post warnings. | FIFO is placeholder only; enable flag permits manual COGS and compatible receipt asset posting but does not auto-post accounting. | Use readiness as an audit gate before automatic receipt posting, reconciliation, and migration tasks. |
-| Inventory reports | PARTIAL | `apps/api/src/inventory`, web `/inventory/reports/*` | Stock valuation estimate, movement summary, low-stock report, inventory clearing reconciliation, inventory clearing variance, CSV export, draft proposal links from variance rows, tests, smoke coverage, and integrity audit evidence. | Valuation reports remain operational estimates; clearing variance reports are review-only and do not post corrections automatically. | Add landed-cost and FIFO design before broader inventory accounting. |
+| Inventory settings | GROUNDWORK_ONLY | `InventorySettings`, `apps/api/src/inventory`, web `/inventory/settings` | Per-organization valuation method, negative-stock flag, value-tracking flag, inventory accounting enable flag, account mappings including inventory clearing, purchase receipt posting mode, validation, purchase receipt posting readiness panel with bill-mode compatibility counts, and manual COGS/receipt asset no-auto-post warnings. | FIFO remains inactive; read-only FIFO preview exists but does not change the active valuation method. Enable flag permits manual COGS and compatible receipt asset posting but does not auto-post accounting. | Use readiness as an audit gate before automatic receipt posting, reconciliation, active FIFO migration, and valuation tasks. |
+| Inventory reports | PARTIAL | `apps/api/src/inventory`, web `/inventory/reports/*`, `docs/development/DEV_11_INVENTORY_VALUATION_COGS_CLOSURE.md` | Stock valuation estimate, movement summary, low-stock report, inventory clearing reconciliation, inventory clearing variance, read-only FIFO cost-layer preview, CSV export, draft proposal links from variance rows, tests, smoke coverage, integrity audit evidence, and closed DEV-11 local evidence for stock valuation, movement, low-stock, clearing, GL, Trial Balance, P&L, Balance Sheet, dashboard totals, and direct journal aggregate checks. | Valuation reports remain operational estimates; clearing variance and FIFO previews are review-only and do not post corrections or change active valuation automatically; no active FIFO/cost-layer ledger, landed cost posting, accountant certification, generated-document retention proof, hosted/beta/customer-data proof, broad E2E/smoke/full-test coverage, or load/concurrency proof. | Add active FIFO policy/backfill design, landed-cost posting, accountant review, generated-document retention proof, hosted-proof, E2E, and load/concurrency before broader inventory accounting claims. |
 
 ## ZATCA
 
@@ -140,11 +469,11 @@ Status values:
 
 | Module | Status | Files | What works | Gaps | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Frontend UI | PARTIAL | `apps/web/src/app`, `components`, `tests/e2e` | MVP screens for implemented modules, a useful business dashboard, plus Playwright browser smoke coverage for auth, navigation, sales, purchases, banking, reports, inventory, attachments, permissions, email, ZATCA, storage, and validated local demo workflow data. | Browser suite is smoke-level only; deployed E2E CI is manual-only; no visual regression testing yet. | Expand Playwright coverage, add UX pass, and decide when deployed E2E should run on a schedule. |
+| Frontend UI | PARTIAL | `apps/web/src/app`, `components`, `tests/e2e`, `tests/visual` | MVP screens for implemented modules, a useful business dashboard, plus Playwright browser smoke/visual coverage for auth, navigation, sales, sales quotes, purchases, banking, reports, inventory, attachments, permissions, email, ZATCA, storage, and validated local demo workflow data. | Browser suite is still focused/smoke-level by area; deployed E2E CI is manual-only; no exhaustive visual regression or safe data-reset strategy. | Expand Playwright coverage, add UX pass, and decide when deployed E2E should run on a schedule. |
 | API coverage | PARTIAL | `apps/api/src` | Broad CRUD/workflow endpoints. | No OpenAPI docs or versioning. | Add API documentation generation. |
 | Smoke tests | COMPLETE_FOR_MVP | `apps/api/scripts/smoke-accounting.ts`, `apps/api/scripts/seed-demo-workflows.ts`, `tests/e2e`, `playwright.config.ts`, `.github/workflows/deployed-e2e.yml` | API smoke covers deep accounting workflows; Playwright browser smoke covers critical user-facing routes/forms/readiness panels and now local validated demo workflow records seeded through API endpoints; deployed E2E has a manual GitHub Actions workflow. | Requires local API/web for local runs; browser suite does not assert every accounting branch; no automated DB reset before deployed E2E. | Add safe CI wiring for typecheck/test/build/API smoke and decide deployed E2E schedule after DB reset policy. |
 | Production deployment | GROUNDWORK_ONLY | `infra`, `docs/DEPLOYMENT_VERCEL_SUPABASE.md`, `docs/deployment/*`, `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, `.github/workflows/deployed-e2e.yml` | Local compose, Vercel/Supabase deployment checklist, API root/health/readiness docs, CI DB readiness checklist, Supabase security review, deployed E2E runbook/workflow, metadata-only backup/restore readiness planning, and one local non-production Postgres restore drill with sanitized evidence. | Production IaC, hosted Supabase backup/PITR proof, real object-storage restore proof, monitoring, RLS/private-network decision, deployment approval gates, and operations runbooks are not complete. | Verify hosted Supabase PITR/object-storage backup in non-production, then create production readiness plan covering monitoring, secrets, storage, email, and security controls. |
-| Cloud storage | PARTIAL | `apps/api/src/storage`, `apps/api/src/attachments`, `/settings/storage`, `docs/storage/*`, `apps/api/src/system` | Provider env config, database default readiness, redacted S3 config checks, feature-flagged S3-compatible upload/download storage for new uploaded attachments, dry-run migration counts for attachments/generated documents, backup/object-storage evidence readiness on the storage settings page, and local database-backed restore-count evidence. | Database remains default; generated documents are still DB-backed; no migration executor, signed URL policy, object lifecycle/deletion policy, virus scanning, real-bucket production validation, or object-storage restore drill exists. | Test S3 mode with a non-production bucket, then add generated-document storage alignment, a resumable migration executor, and object-storage restore evidence. |
+| Cloud storage | PARTIAL | `apps/api/src/storage`, `apps/api/src/attachments`, `/settings/storage`, `docs/storage/*`, `apps/api/src/system`, `docs/development/DEV_12_GENERATED_DOCUMENTS_STORAGE_RETENTION_CLOSURE.md` | Provider env config, database default readiness, redacted S3 config checks, feature-flagged S3-compatible upload/download storage for new uploaded attachments, dry-run migration counts for attachments/generated documents, backup/object-storage evidence readiness on the storage settings page, local database-backed restore-count evidence, and DEV-12 generated-document count-only dry-run evidence. | Database remains default; generated documents are still DB-backed; no migration executor, signed URL policy, object lifecycle/deletion policy, legal hold, virus scanning, backup proof, real-bucket production validation, hosted proof, or object-storage restore drill exists. | Test S3 mode with a non-production bucket, then add generated-document storage alignment, a resumable migration executor, retention/legal-hold controls, signed URL/object lifecycle policy, scanning, and object-storage restore evidence. |
 | Email sending | GROUNDWORK_ONLY | `apps/api/src/email`, `EmailOutbox`, `EmailSenderDomainEvidence`, `EmailProviderEvent`, `EmailSuppression`, `EmailDeliveryMonitoringEvidence`, `AuthTokenRateLimitEvent`, `/settings/email-outbox`, `docs/email/*` | Mock/local organization invite and password reset email records are stored and inspectable by default; readiness endpoint and UI show production SMTP readiness, metadata-only SPF/DKIM/DMARC evidence, relay diagnostics status, retry processor/worker counts, provider event status, signed-webhook plan, suppression count, monitoring evidence status, and no-customer-email safeguards without secrets; disabled-by-default diagnostics, retry processing, and worker runs return skipped/no-send/no-mutation status; webhook verification is disabled by default; `POST /email/test-send` still exercises the active provider unless a matched active suppression blocks it; DB-backed invite/reset rate limits and manual expired-token cleanup exist; SMTP can send only when explicitly configured. | No invoice/statement send, production scheduler, provider-specific production webhook adapter, live DNS/provider validation, real relay execution evidence, external monitoring integration, or alert delivery. | Add provider-specific webhook adapters and external monitoring integration after non-production relay evidence. |
 | WhatsApp sending | NOT_STARTED | N/A | None. | No WhatsApp provider. | Select provider if needed. |
 | Subscription billing | NOT_STARTED | N/A | None. | No SaaS billing. | Choose Stripe or other provider. |
@@ -868,3 +1197,119 @@ Recommended next step:
 - The wizard maps checklist items to existing setup routes and shows status, evidence, blockers, warnings, safe explanations, and action links.
 - Dashboard onboarding now links to `/setup` and shows progress percentage, next incomplete step, and concise blocker summary.
 - No backend mutation, schema change, contact VAT/ID validation change, dashboard concurrency change, ZATCA execution change, CSID request, real ZATCA network call, clearance/reporting, PDF-A3, signed XML/QR body persistence, production credential use, or production compliance claim was added.
+
+## 2026-06-04 - Sales/AR accountant wording review preparation
+
+- Tightened accountant-facing wording across Sales/AR surfaces for collections, invoice ZATCA readiness, quotes, AR Aging, VAT Summary, VAT Return, and the Tax workspace.
+- Added focused frontend wording coverage for collection activity labels, invoice ZATCA readiness action labels, generated-document labels, AR Aging report guidance, and quote form wording.
+- Added Sales/AR accountant review handoff docs:
+  - `docs/accountant-review/SALES_AR_ACCOUNTANT_REVIEW_CHECKLIST.md`
+  - `docs/accountant-review/SALES_AR_SAMPLE_REVIEW_INDEX.md`
+  - `docs/development/SALES_AR_ACCOUNTANT_WORDING_REVIEW_SPRINT_CLOSURE.md`
+- This is review preparation only. It does not change accounting calculations, posting, payment allocation, VAT math, email behavior, payment links, inventory movement, ZATCA behavior, hosted infrastructure, or production readiness.
+
+## 2026-06-04 - Sales/AR accountant findings intake
+
+- Searched the accountant review packet, Sales/AR checklist, sample review index, findings template, development closures, GitHub issue templates, and `BUG_AUDIT.md` for completed Sales/AR accountant findings.
+- No completed accountant findings were found; the repo contains review-preparation materials and explicit pending-review notes only.
+- Added:
+  - `docs/accountant-review/SALES_AR_ACCOUNTANT_REVIEW_FINDINGS_TRIAGE.md`
+  - `docs/accountant-review/SALES_INVOICE_DOCUMENT_TITLE_POLICY.md`
+  - `docs/development/SALES_AR_ACCOUNTANT_REVIEW_FINDINGS_SPRINT_CLOSURE.md`
+- No app code, backend code, PDF output, accounting calculation, posting behavior, payment allocation, VAT math, ZATCA behavior, email behavior, payment-link behavior, inventory movement, or production infrastructure behavior changed.
+
+## 2026-06-04 - Dashboard Sales/AR attention links
+
+- Closure doc: `docs/development/DASHBOARD_SALES_AR_ATTENTION_LINKS_SPRINT_CLOSURE.md`.
+- Added a permission-aware `salesAttention` section to `GET /dashboard/summary` for overdue invoices, collection follow-ups, promise-to-pay/disputed collections, quotes awaiting action, recurring templates due for manual generation, generated recurring draft invoices, delivery notes awaiting fulfillment action, and top customers by outstanding AR.
+- `/dashboard` now renders read-only Sales/AR attention panels that link to sales invoices, collection cases, sales quotes, recurring invoice templates, generated draft invoices, delivery notes, and customer detail pages when the user has the relevant view permissions.
+- Dashboard attention items remain read-only workflow signals. They do not post journals, mutate invoice balances, allocate payments, send emails/reminders, create payment links, generate recurring invoices automatically, file VAT, call ZATCA, or move inventory.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 - Sales/AR sample data and accountant walkthrough pack
+
+- Closure doc: `docs/development/SALES_AR_SAMPLE_DATA_WALKTHROUGH_PACK_SPRINT_CLOSURE.md`.
+- Added a docs-only guided Sales/AR accountant walkthrough pack covering customer, quote, quote PDF, quote-to-draft-invoice conversion, finalized invoice, customer payment, credit note/refund review, recurring template, generated draft invoice, delivery note, collection case, customer ledger/activity, AR Aging, VAT Summary/Return, and dashboard attention items.
+- Added synthetic sample-data planning, expected-results checkpoints, route review checklist, empty findings log, and sample-output naming guidance:
+  - `docs/accountant-review/SALES_AR_WALKTHROUGH_PACK.md`
+  - `docs/accountant-review/SALES_AR_SYNTHETIC_SAMPLE_DATA_PLAN.md`
+  - `docs/accountant-review/SALES_AR_EXPECTED_RESULTS_CHECKLIST.md`
+  - `docs/accountant-review/SALES_AR_WALKTHROUGH_FINDINGS_LOG.md`
+  - `docs/accountant-review/SALES_AR_ROUTE_REVIEW_CHECKLIST.md`
+  - `docs/accountant-review/SALES_AR_SAMPLE_OUTPUT_NAMING_GUIDE.md`
+- This is reviewer-readiness documentation only. It does not create sample data, run seeds, run reset/delete, generate PDFs, run smoke/E2E, use hosted/customer data, send email, create payment links, file VAT, call ZATCA, change accounting calculations, change posting behavior, change dashboard behavior, or change app/API/backend behavior.
+- Accountant approval remains pending. Findings must be recorded as concrete reviewer observations before implementation.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 - Controlled local Sales/AR accountant walkthrough execution preflight
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_ACCOUNTANT_WALKTHROUGH_EXECUTION_SPRINT_CLOSURE.md`.
+- Added local execution preflight, marker data plan, evidence status, route status, and expected-results status docs for the Sales/AR accountant walkthrough:
+  - `docs/development/SALES_AR_LOCAL_WALKTHROUGH_EXECUTION_PREFLIGHT.md`
+  - `docs/development/SALES_AR_LOCAL_WALKTHROUGH_DATA_PLAN.md`
+  - `docs/development/SALES_AR_LOCAL_WALKTHROUGH_EVIDENCE.md`
+  - `docs/development/SALES_AR_LOCAL_WALKTHROUGH_ROUTE_STATUS.md`
+  - `docs/development/SALES_AR_LOCAL_WALKTHROUGH_EXPECTED_RESULTS_STATUS.md`
+- Planned marker: `SALES-AR-WALKTHROUGH-20260604`.
+- Local execution was blocked before data creation because local database/API/web services were not running, Docker was unavailable, safe local login was not verified, and no explicit write-capable execute approval existed.
+- No sample data, seed/reset/delete, PDF generation, browser walkthrough, smoke/E2E, hosted/customer-data workflow, real email, payment link, VAT filing, ZATCA call, app code, API code, backend code, accounting calculation, posting behavior, dashboard behavior, or production infrastructure behavior changed.
+- No accountant findings were recorded or approved.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-04 - Local services bring-up and Sales/AR walkthrough dry-run preflight
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_SERVICES_BRINGUP_DRY_RUN_SPRINT_CLOSURE.md`.
+- Added local services bring-up preflight and dry-run fixture planning docs:
+  - `docs/development/SALES_AR_LOCAL_SERVICES_BRINGUP_PREFLIGHT.md`
+  - `docs/development/SALES_AR_WALKTHROUGH_FIXTURE_DRY_RUN_PLAN.md`
+- Local target configuration was verified as local at the inspected env-key level, with database, direct, Redis, and web API target keys classified as `localhost`.
+- Runtime bring-up remained blocked because the Docker Desktop Linux engine is unavailable and local Postgres, Redis, API, and web listeners are not running.
+- API health/readiness and web root checks were unreachable.
+- Safe local login was not verified.
+- Fixture dry-run plan was documented, but no fixture script was added and no dry-run was executed.
+- No sample data, seed/reset/delete, migrations, fixture execute, login, PDF generation, browser walkthrough, smoke/E2E, hosted/customer-data workflow, real email, payment link, VAT filing, ZATCA call, app code, API code, backend code, accounting calculation, posting behavior, dashboard behavior, or production infrastructure behavior changed.
+- No accountant findings were recorded or approved.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-05 - Local Sales/AR fixture payment-account hardening
+
+- Closure doc: `docs/development/SALES_AR_LOCAL_FIXTURE_PAYMENT_ACCOUNT_HARDENING_CLOSURE.md`.
+- Hardened the local-only Sales/AR walkthrough fixture so customer payment and refund payloads use the linked active posting `ASSET` chart-of-account id instead of the bank account profile id.
+- Local safety gates passed: Docker, local Postgres, local Redis, API/web ports, health/readiness, `/login`, local seed/demo login, `/auth/me`, and local-only env target classification.
+- Status-only Sales/AR endpoint checks returned HTTP `200`.
+- Fixture dry-run passed with marker `SALES-AR-WALKTHROUGH-20260604`.
+- One guarded local execute retry was attempted after dry-run passed. It passed the prior customer payment account blocker, created marker-scoped local synthetic payment and credit-note records, then stopped safely at credit-note application because the fixture sent an unsupported `note` field.
+- Current marker-scoped local synthetic counts: one customer, two items, three sales invoices, one customer payment, one credit note, and zero refunds, quotes, recurring templates, delivery notes, collections, and generated documents.
+- No retry loop, cleanup/delete, seed/reset/delete, PDF generation, browser walkthrough, smoke/E2E, hosted/customer-data workflow, real email, payment link, payment gateway, VAT filing, ZATCA call, app product behavior change, API validation change, accounting calculation change, posting behavior change, dashboard behavior change, or production infrastructure behavior changed.
+- No accountant findings were recorded or approved.
+- `apps/web/src/app/marketing.test.tsx` remains an unrelated untracked web typecheck blocker and was not modified.
+
+## 2026-06-06 - ZATCA local dummy signing dry-run guard
+
+- Added `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a metadata-only, disabled-by-default guard for future local dummy signing experiments.
+- The guard checks Java compatibility, local official SDK/reference paths, generated fixture paths, SDK dummy certificate/private-key paths, approval-marker presence, and documented sign/QR/validate/hash command shapes.
+- It does not execute SDK signing, QR generation, signed XML validation, network calls, CSID/OTP, clearance/reporting, PDF/A-3, migrations, deploys, email, or production compliance behavior.
+- Default Java 17 remains unsupported; Java 11-14 is readiness metadata only until a future approved execution sprint.
+
+## 2026-06-06 - ZATCA approved local dummy signing execution plan
+
+- Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` with the exact future approval phrase, fixture scope, temp-only command plan, metadata-only evidence shape, cleanup policy, and failure behavior.
+- Updated the dummy signing guard so exact approval text is recognized as planning metadata; `--execute-approved-plan` remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_IN_THIS_SPRINT`.
+- SDK signing, SDK QR, signed XML validation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, private-key/certificate body exposure, signed XML persistence, and production compliance remain disabled.
+
+## 2026-06-06 - ZATCA dummy signing result review and QR gap analysis
+
+- Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` and `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md`.
+- Reviewed `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`: both sanitized generated fixtures remain sign/QR/signed-validation `PASSED`, exit codes `0`, no network, production compliance false, cleanup `SUCCESS`, and metadata-only redaction intact.
+- No SDK signing, QR, validation, hash, network, CSID/OTP, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, email, or production check was run in this review.
+- Completed follow-up: key custody and CSID lifecycle design is documented before any production Phase 2 QR/signing work.
+- Next ZATCA gap: sandbox CSID preflight guard, still with no OTP/CSID/network execution by default.
+
+## 2026-06-07 - ZATCA sandbox CSID request execution guard
+
+- Extended `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json` with `--execution-guard` and `--execute-csid-request`.
+- Added `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `docs/zatca/SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+- Observed guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
+- Observed execute flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
+- Remaining next step: `ZATCA CSID response custody implementation plan`.

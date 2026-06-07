@@ -1,4 +1,4 @@
-import { ItemStatus, ItemType, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
+import { ItemStatus, ItemTrackingMode, ItemType, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
 import { StockMovementService } from "./stock-movement.service";
 
 describe("StockMovementService", () => {
@@ -10,6 +10,9 @@ describe("StockMovementService", () => {
     type: ItemType.PRODUCT,
     status: ItemStatus.ACTIVE,
     inventoryTracking: true,
+    trackingMode: ItemTrackingMode.NONE,
+    expiryTrackingEnabled: false,
+    binTrackingEnabled: false,
   };
   const warehouse = { id: "warehouse-1", organizationId: "org-1", code: "MAIN", name: "Main", status: WarehouseStatus.ACTIVE };
   const movement = {
@@ -34,6 +37,9 @@ describe("StockMovementService", () => {
         create: jest.fn().mockResolvedValue(movement),
         count: jest.fn().mockResolvedValue(0),
       },
+      inventoryBatch: { findFirst: jest.fn() },
+      inventorySerialNumber: { findFirst: jest.fn() },
+      inventoryBinLocation: { findFirst: jest.fn() },
       ...overrides,
     };
     const audit = { log: jest.fn() };
@@ -74,6 +80,22 @@ describe("StockMovementService", () => {
         quantity: "1.0000",
       }),
     ).rejects.toThrow("Stock movements can only be created for inventory-tracked items.");
+    expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks incomplete direct serial-tracked opening balances", async () => {
+    const { service, prisma } = makeService();
+    prisma.item.findFirst.mockResolvedValue({ ...item, trackingMode: ItemTrackingMode.SERIAL });
+
+    await expect(
+      service.create("org-1", "user-1", {
+        itemId: item.id,
+        warehouseId: warehouse.id,
+        movementDate: "2026-05-13",
+        type: StockMovementType.OPENING_BALANCE,
+        quantity: "1.0000",
+      }),
+    ).rejects.toThrow("Serial-tracked movements require one serial number per unit.");
     expect(prisma.stockMovement.create).not.toHaveBeenCalled();
   });
 
@@ -132,9 +154,11 @@ describe("StockMovementService", () => {
       { type: StockMovementType.ADJUSTMENT_OUT, quantity: new Prisma.Decimal("3.0000") },
       { type: StockMovementType.TRANSFER_OUT, quantity: new Prisma.Decimal("1.0000") },
       { type: StockMovementType.TRANSFER_IN, quantity: new Prisma.Decimal("4.0000") },
+      { type: StockMovementType.PURCHASE_RETURN_OUT, quantity: new Prisma.Decimal("2.0000") },
+      { type: StockMovementType.SALES_RETURN_IN, quantity: new Prisma.Decimal("5.0000") },
     ]);
 
     const quantityOnHand = await service.quantityOnHand("org-1", item.id, warehouse.id);
-    expect(quantityOnHand.toFixed(4)).toBe("12.0000");
+    expect(quantityOnHand.toFixed(4)).toBe("15.0000");
   });
 });

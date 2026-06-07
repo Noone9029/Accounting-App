@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
+import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -19,8 +21,8 @@ import {
   inventoryClearingStatusLabel,
   inventoryProgressStatusBadgeClass,
   inventoryProgressStatusLabel,
-  receiptMatchingStatusBadgeClass,
-  receiptMatchingStatusLabel,
+  inventoryValuationVariancePreviewUrl,
+  landedCostPreviewUrl,
 } from "@/lib/inventory";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
@@ -29,9 +31,10 @@ import { purchaseDebitNoteStatusLabel } from "@/lib/purchase-debit-notes";
 import { purchaseBillAccountingPreviewLineDisplay, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
 import type {
   InventoryClearingReconciliationReport,
+  InventoryValuationVariancePreviewResponse,
   PurchaseBill,
   PurchaseBillAccountingPreview,
-  PurchaseBillReceiptMatchingStatus,
+  PurchaseMatchingSummary,
   PurchaseReceivingStatus,
 } from "@/lib/types";
 
@@ -42,9 +45,10 @@ export default function PurchaseBillDetailPage() {
   const { can } = usePermissions();
   const [bill, setBill] = useState<PurchaseBill | null>(null);
   const [receivingStatus, setReceivingStatus] = useState<PurchaseReceivingStatus | null>(null);
-  const [matchingStatus, setMatchingStatus] = useState<PurchaseBillReceiptMatchingStatus | null>(null);
+  const [matchingSummary, setMatchingSummary] = useState<PurchaseMatchingSummary | null>(null);
   const [accountingPreview, setAccountingPreview] = useState<PurchaseBillAccountingPreview | null>(null);
   const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
+  const [valuationVariancePreview, setValuationVariancePreview] = useState<InventoryValuationVariancePreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -57,6 +61,8 @@ export default function PurchaseBillDetailPage() {
   const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canViewValuationVariances = can(PERMISSIONS.inventory.view);
+  const canViewLandedCostPreview = canViewValuationVariances && can(PERMISSIONS.purchaseBills.view);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -70,17 +76,21 @@ export default function PurchaseBillDetailPage() {
     Promise.all([
       apiRequest<PurchaseBill>(`/purchase-bills/${params.id}`),
       apiRequest<PurchaseReceivingStatus>(`/purchase-bills/${params.id}/receiving-status`).catch(() => null),
-      apiRequest<PurchaseBillReceiptMatchingStatus>(`/purchase-bills/${params.id}/receipt-matching-status`).catch(() => null),
+      apiRequest<PurchaseMatchingSummary>(`/purchase-matching/purchase-bills/${params.id}`).catch(() => null),
       apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${params.id}/accounting-preview`).catch(() => null),
       apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseBillId=${encodeURIComponent(params.id)}`).catch(() => null),
+      canViewValuationVariances
+        ? apiRequest<InventoryValuationVariancePreviewResponse>(`/inventory/valuation-variances/purchase-bills/${params.id}`).catch(() => null)
+        : Promise.resolve(null),
     ])
-      .then(([result, statusResult, matchingResult, accountingPreviewResult, clearingReportResult]) => {
+      .then(([result, statusResult, matchingResult, accountingPreviewResult, clearingReportResult, valuationVarianceResult]) => {
         if (!cancelled) {
           setBill(result);
           setReceivingStatus(statusResult);
-          setMatchingStatus(matchingResult);
+          setMatchingSummary(matchingResult);
           setAccountingPreview(accountingPreviewResult);
           setClearingReport(clearingReportResult);
+          setValuationVariancePreview(valuationVarianceResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -97,7 +107,7 @@ export default function PurchaseBillDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [canViewValuationVariances, organizationId, params.id]);
 
   async function runAction(action: "finalize" | "void") {
     if (!bill) {
@@ -198,6 +208,11 @@ export default function PurchaseBillDetailPage() {
               Receive stock
             </Link>
           ) : null}
+          {bill && canViewLandedCostPreview ? (
+            <Link href={landedCostPreviewUrl({ sourceType: "PURCHASE_BILL", sourceId: bill.id })} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+              Preview landed cost
+            </Link>
+          ) : null}
           {bill && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download purchase bill PDF
@@ -269,7 +284,13 @@ export default function PurchaseBillDetailPage() {
           </div>
 
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
-          {matchingStatus ? <ReceiptMatchingPanel status={matchingStatus} /> : null}
+          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
+          {canViewValuationVariances ? (
+            <ValuationVariancePreviewPanel
+              preview={valuationVariancePreview}
+              href={inventoryValuationVariancePreviewUrl({ purchaseBillId: bill.id, sourceType: "purchaseBill" })}
+            />
+          ) : null}
           {accountingPreview ? <AccountingPreviewPanel preview={accountingPreview} currency={bill.currency} /> : null}
           <ClearingReconciliationPanel bill={bill} report={clearingReport} />
 
@@ -683,84 +704,6 @@ function APActionLink({ href, children }: { href: string; children: ReactNode })
   );
 }
 
-function ReceiptMatchingPanel({ status }: { status: PurchaseBillReceiptMatchingStatus }) {
-  const linkedReceipts = status.lines.flatMap((line) => line.receipts);
-  const hasUnpostedClearingReceipts =
-    status.bill.status === "FINALIZED" &&
-    status.bill.inventoryPostingMode === "INVENTORY_CLEARING" &&
-    linkedReceipts.some((receipt) => !receipt.inventoryAssetJournalEntryId);
-
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Receipt matching</h2>
-          <p className="mt-1 text-sm text-steel">Operational bill/receipt matching visibility; journal impact appears in clearing reconciliation after explicit posting.</p>
-        </div>
-        <span className={`rounded-md px-2 py-1 text-xs font-medium ${receiptMatchingStatusBadgeClass(status.status)}`}>
-          {receiptMatchingStatusLabel(status.status)}
-        </span>
-      </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Summary label="Receipt count" value={String(status.receiptCount)} />
-        <Summary label="Receipt value" value={formatInventoryQuantity(status.receiptValue)} />
-        <Summary label="Bill total" value={formatInventoryQuantity(status.billTotal)} />
-      </div>
-      {status.warnings.length > 0 ? (
-        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
-          <ul className="space-y-1">
-            {status.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {hasUnpostedClearingReceipts ? (
-        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
-          Clearing-mode bill has linked receipts without inventory asset posting.
-        </div>
-      ) : null}
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-            <tr>
-              <th className="px-3 py-2">Line</th>
-              <th className="px-3 py-2 text-right">Billed</th>
-              <th className="px-3 py-2 text-right">Received</th>
-              <th className="px-3 py-2 text-right">Remaining</th>
-              <th className="px-3 py-2 text-right">Receipt value</th>
-              <th className="px-3 py-2">Receipts</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {status.lines.map((line) => (
-              <tr key={line.lineId}>
-                <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.description}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity ?? line.sourceQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedValue)}</td>
-                <td className="px-3 py-2 text-steel">
-                  {line.receipts.length > 0
-                    ? line.receipts.map((receipt) => (
-                        <span key={receipt.id} className="mr-3 inline-flex flex-col">
-                          <Link href={`/inventory/purchase-receipts/${receipt.id}`} className="text-palm hover:underline">
-                            {receipt.receiptNumber}
-                          </Link>
-                          <span className="text-xs text-steel">{receiptAssetStatusLabel(receipt)}</span>
-                        </span>
-                      ))
-                    : "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; report: InventoryClearingReconciliationReport | null }) {
   if (bill.inventoryPostingMode !== "INVENTORY_CLEARING") {
     return (
@@ -817,12 +760,6 @@ function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; rep
       )}
     </div>
   );
-}
-
-function receiptAssetStatusLabel(receipt: { inventoryAssetJournalEntryId?: string | null; inventoryAssetReversalJournalEntryId?: string | null }) {
-  if (receipt.inventoryAssetReversalJournalEntryId) return "Asset reversed";
-  if (receipt.inventoryAssetJournalEntryId) return "Asset posted";
-  return "Asset not posted";
 }
 
 function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAccountingPreview; currency: string }) {

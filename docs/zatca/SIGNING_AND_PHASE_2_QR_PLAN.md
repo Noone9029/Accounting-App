@@ -1,10 +1,37 @@
 # ZATCA Signing and Phase 2 QR Plan
 
-Last updated: 2026-05-16
+Last updated: 2026-06-06
 
 ## Scope and boundary
 
 This plan is local-only signing groundwork and Phase 2 QR readiness planning for LedgerByte. It does not implement real XML signing, CSID requests, production credentials, clearance/reporting, PDF/A-3, or real ZATCA network calls. It must not be used as a production compliance claim.
+
+## 2026-06-06 Key Custody And CSID Lifecycle Design
+
+The production custody and CSID lifecycle decision path is now consolidated in:
+
+- `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`
+- `CSID_LIFECYCLE_CHECKLIST.md`
+- `KEY_CUSTODY_DECISION_MATRIX.md`
+
+Signing remains disabled. SDK dummy material may support local temp-only experiments, but it must never become tenant credential material. Production signing cannot be enabled until KMS/HSM/external signing or equivalent custody, compliance CSID, production CSID, certificate renewal/revocation handling, signed artifact storage, clearance/reporting, PDF-A3, and official reviews are approved.
+
+## 2026-06-06 Local Signed XML Validation Plan
+
+The stricter pre-execution plan is now tracked in `LOCAL_SIGNED_XML_VALIDATION_PLAN.md` and guarded by:
+
+```bash
+corepack pnpm zatca:local-signed-xml-plan -- --plan --no-network --json
+```
+
+This sprint does not execute signing. SDK dummy certificate/private-key files may only be used in a future isolated temp experiment after explicit approval, and dummy material must never be stored as tenant credentials. No signed XML body, QR payload body, certificate body, or private-key body may be committed, logged, uploaded, or persisted as evidence.
+
+## 2026-06-06 Local Dummy Signing Dry-Run Guard
+
+- Added `corepack pnpm zatca:local-dummy-signing-dry-run -- --plan --no-network --json` as a disabled-by-default command-plan guard.
+- The guard plans the official SDK `fatoora -sign`, `-qr`, and `-validate` sequence with temp placeholders only; it does not execute the SDK.
+- It detects Java 11-14 readiness as metadata only, reports Java 17 as unsupported, checks generated fixture paths, and checks SDK dummy certificate/private-key file paths without reading their bodies.
+- Signing, QR generation, signed XML validation, signed XML persistence, CSID/OTP, ZATCA network calls, clearance/reporting, PDF/A-3, and production compliance remain blocked.
 
 ## Official sources inspected
 
@@ -461,3 +488,27 @@ Implementation notes:
 
 Recommended next step:
 - Design a separate real sandbox HTTP adapter plan with explicit OTP custody, redacted token/certificate storage, idempotency, audit logging, and a manual enablement review before any real sandbox request is attempted.
+
+## 2026-06-06 - Approved local dummy signing execution plan
+
+- Added `docs/zatca/APPROVED_LOCAL_DUMMY_SIGNING_EXECUTION_PLAN.md` as the future runbook for one local dummy-material signing experiment against sanitized fixtures only.
+- The guard now accepts an exact `--approval-phrase` for planning-only recognition and `--execute-approved-plan` for a deliberate blocked response. It still does not execute SDK signing, QR generation, signed XML validation, ZATCA network calls, CSID/OTP, clearance/reporting, PDF/A-3, or production compliance behavior.
+- The next ZATCA prompt is `ZATCA approved local dummy signing execution`.
+
+## 2026-06-06 - Approved local dummy signing execution result
+
+- The approved local dummy-material SDK execution ran once against `ledgerbyte-generated-standard-invoice` and `ledgerbyte-generated-credit-note`.
+- SDK sign, QR, and signed XML validation stages passed for both sanitized fixtures under explicit Java `11.0.26`.
+- Evidence is metadata-only at `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`; temp XML and signed XML were cleaned up.
+- This remains local-only SDK evidence. Production signing, Phase 2 QR production proof, CSID/OTP, clearance/reporting, PDF/A-3, signed artifact body storage, and production compliance remain blocked.
+- The next ZATCA prompt is `ZATCA dummy signing result review and Phase 2 QR gap analysis`.
+
+## 2026-06-06 - Dummy signing result review and Phase 2 QR gap analysis
+
+- Added `docs/zatca/DUMMY_SIGNING_RESULT_REVIEW.md` to validate the metadata-only evidence from `docs/zatca/evidence/local-dummy-signing-execution-20260606.json`.
+- Added `docs/zatca/PHASE_2_QR_GAP_ANALYSIS.md` to separate local dummy QR generation from production Phase 2 QR behavior, ZATCA-accepted QR behavior, XML embedding, rendered/PDF QR output, and PDF/A-3 packaging.
+- Findings: the local SDK dummy run proves only temp-only SDK sign, QR, and signed validation processing for sanitized generated fixtures under Java 11.0.26. It does not prove production signing, QR tags 6-9 production correctness, certificate/CSID lifecycle, clearance/reporting, PDF/A-3, signed artifact storage, or ZATCA compliance.
+- No SDK signing, QR, validation, hash, CSID/OTP, ZATCA network, clearance/reporting, PDF/A-3, migration, seed/reset/delete, deployment, or email command was executed in the review task.
+- Completed follow-up: `ZATCA sandbox CSID preflight guard`.
+- Completed follow-up: `ZATCA sandbox OTP and compliance CSID approval plan`.
+- Next prompt: `ZATCA sandbox CSID request execution guard`.

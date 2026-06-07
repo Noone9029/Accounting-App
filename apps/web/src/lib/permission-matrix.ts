@@ -122,6 +122,9 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.salesInvoices.void, "Void invoices", "Void finalized invoices."),
       permission(PERMISSIONS.customerPayments.view, "View customer payments", "See customer payments and receipts."),
       permission(PERMISSIONS.customerPayments.create, "Create customer payments", "Post and apply customer payments."),
+      permission(PERMISSIONS.customerPayments.applyUnapplied, "Apply unapplied payments", "Apply unapplied customer payment credit to open invoices."),
+      permission(PERMISSIONS.customerPayments.reverseUnappliedAllocation, "Reverse unapplied allocations", "Reverse unapplied customer payment allocations."),
+      permission(PERMISSIONS.customerPayments.receiptPdfGenerate, "Generate payment receipts", "Generate customer payment receipt PDFs."),
       permission(PERMISSIONS.customerPayments.void, "Void customer payments", "Void payments and reverse unapplied allocations."),
       permission(PERMISSIONS.creditNotes.view, "View credit notes", "See customer credit notes."),
       permission(PERMISSIONS.creditNotes.create, "Create credit notes", "Create draft credit notes and applications."),
@@ -196,6 +199,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.zatca.manage, "Manage ZATCA", "Update profile, EGS, CSR, and mock CSID setup."),
       permission(PERMISSIONS.zatca.generateXml, "Generate XML", "Generate local-only ZATCA XML metadata."),
       permission(PERMISSIONS.zatca.runChecks, "Run checks", "Run local/dry-run ZATCA checks."),
+      permission(PERMISSIONS.zatca.signingDryRun, "Run signing dry-runs", "Run local dummy-material signing validation dry-runs only."),
+      permission(PERMISSIONS.zatca.submit, "Access blocked submission stubs", "Authorize guarded clearance/reporting stubs that remain blocked from real ZATCA networking."),
     ],
   },
   {

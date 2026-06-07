@@ -42,11 +42,17 @@ export interface PartyContact {
 
 export type PartyTransactionSourceType =
   | "SalesInvoice"
+  | "SalesQuote"
+  | "RecurringInvoiceTemplate"
+  | "DeliveryNote"
+  | "SalesInventoryReturn"
   | "CreditNote"
   | "CustomerPayment"
   | "CustomerRefund"
   | "PurchaseBill"
+  | "PurchaseOrder"
   | "PurchaseDebitNote"
+  | "PurchaseReturn"
   | "SupplierPayment"
   | "SupplierRefund"
   | "CashExpense";
@@ -224,7 +230,7 @@ export class ContactService {
       return emptySummaryMaps();
     }
 
-    const [openRows, overdueRows, invoiceDates, creditNoteDates, paymentDates, refundDates] = await Promise.all([
+    const [openRows, overdueRows, invoiceDates, quoteDates, recurringDates, deliveryNoteDates, salesInventoryReturnDates, creditNoteDates, paymentDates, refundDates] = await Promise.all([
       this.prisma.salesInvoice.groupBy({
         by: ["customerId"],
         where: {
@@ -251,6 +257,26 @@ export class ContactService {
         where: { organizationId, customerId: { in: contactIds } },
         _max: { issueDate: true },
       }),
+      this.prisma.salesQuote.groupBy({
+        by: ["customerId"],
+        where: { organizationId, customerId: { in: contactIds } },
+        _max: { issueDate: true },
+      }),
+      this.prisma.recurringInvoiceTemplate.groupBy({
+        by: ["customerId"],
+        where: { organizationId, customerId: { in: contactIds } },
+        _max: { nextRunDate: true },
+      }),
+      this.prisma.deliveryNote.groupBy({
+        by: ["customerId"],
+        where: { organizationId, customerId: { in: contactIds } },
+        _max: { issueDate: true },
+      }),
+      this.prisma.salesInventoryReturn.groupBy({
+        by: ["customerId"],
+        where: { organizationId, customerId: { in: contactIds } },
+        _max: { returnDate: true },
+      }),
       this.prisma.creditNote.groupBy({
         by: ["customerId"],
         where: { organizationId, customerId: { in: contactIds } },
@@ -273,6 +299,10 @@ export class ContactService {
       overdue: moneyMap(overdueRows, "customerId"),
       lastTransactionDate: latestDateMap([
         { rows: invoiceDates, idField: "customerId", dateField: "issueDate" },
+        { rows: quoteDates, idField: "customerId", dateField: "issueDate" },
+        { rows: recurringDates, idField: "customerId", dateField: "nextRunDate" },
+        { rows: deliveryNoteDates, idField: "customerId", dateField: "issueDate" },
+        { rows: salesInventoryReturnDates, idField: "customerId", dateField: "returnDate" },
         { rows: creditNoteDates, idField: "customerId", dateField: "issueDate" },
         { rows: paymentDates, idField: "customerId", dateField: "paymentDate" },
         { rows: refundDates, idField: "customerId", dateField: "refundDate" },
@@ -285,7 +315,7 @@ export class ContactService {
       return emptySummaryMaps();
     }
 
-    const [openRows, overdueRows, billDates, debitNoteDates, paymentDates, refundDates, expenseDates] = await Promise.all([
+    const [openRows, overdueRows, billDates, purchaseOrderDates, debitNoteDates, purchaseReturnDates, paymentDates, refundDates, expenseDates] = await Promise.all([
       this.prisma.purchaseBill.groupBy({
         by: ["supplierId"],
         where: {
@@ -312,10 +342,20 @@ export class ContactService {
         where: { organizationId, supplierId: { in: contactIds } },
         _max: { billDate: true },
       }),
+      this.prisma.purchaseOrder.groupBy({
+        by: ["supplierId"],
+        where: { organizationId, supplierId: { in: contactIds } },
+        _max: { orderDate: true },
+      }),
       this.prisma.purchaseDebitNote.groupBy({
         by: ["supplierId"],
         where: { organizationId, supplierId: { in: contactIds } },
         _max: { issueDate: true },
+      }),
+      this.prisma.purchaseReturn.groupBy({
+        by: ["supplierId"],
+        where: { organizationId, supplierId: { in: contactIds } },
+        _max: { returnDate: true },
       }),
       this.prisma.supplierPayment.groupBy({
         by: ["supplierId"],
@@ -339,7 +379,9 @@ export class ContactService {
       overdue: moneyMap(overdueRows, "supplierId"),
       lastTransactionDate: latestDateMap([
         { rows: billDates, idField: "supplierId", dateField: "billDate" },
+        { rows: purchaseOrderDates, idField: "supplierId", dateField: "orderDate" },
         { rows: debitNoteDates, idField: "supplierId", dateField: "issueDate" },
+        { rows: purchaseReturnDates, idField: "supplierId", dateField: "returnDate" },
         { rows: paymentDates, idField: "supplierId", dateField: "paymentDate" },
         { rows: refundDates, idField: "supplierId", dateField: "refundDate" },
         { rows: expenseDates, idField: "contactId", dateField: "expenseDate" },
@@ -348,7 +390,7 @@ export class ContactService {
   }
 
   private async customerTransactions(organizationId: string, contactId: string): Promise<PartyTransaction[]> {
-    const [invoices, creditNotes, payments, refunds] = await Promise.all([
+    const [invoices, quotes, recurringTemplates, deliveryNotes, salesInventoryReturns, creditNotes, payments, refunds] = await Promise.all([
       this.prisma.salesInvoice.findMany({
         where: { organizationId, customerId: contactId },
         select: {
@@ -362,6 +404,54 @@ export class ContactService {
           taxTotal: true,
           total: true,
           balanceDue: true,
+        },
+      }),
+      this.prisma.salesQuote.findMany({
+        where: { organizationId, customerId: contactId },
+        select: {
+          id: true,
+          quoteNumber: true,
+          issueDate: true,
+          expiryDate: true,
+          currency: true,
+          status: true,
+          subtotal: true,
+          taxTotal: true,
+          total: true,
+        },
+      }),
+      this.prisma.recurringInvoiceTemplate.findMany({
+        where: { organizationId, customerId: contactId },
+        select: {
+          id: true,
+          templateNumber: true,
+          name: true,
+          nextRunDate: true,
+          endDate: true,
+          currency: true,
+          status: true,
+          subtotal: true,
+          taxTotal: true,
+          total: true,
+        },
+      }),
+      this.prisma.deliveryNote.findMany({
+        where: { organizationId, customerId: contactId },
+        select: {
+          id: true,
+          deliveryNoteNumber: true,
+          issueDate: true,
+          deliveryDate: true,
+          status: true,
+        },
+      }),
+      this.prisma.salesInventoryReturn.findMany({
+        where: { organizationId, customerId: contactId },
+        select: {
+          id: true,
+          salesReturnNumber: true,
+          returnDate: true,
+          status: true,
         },
       }),
       this.prisma.creditNote.findMany({
@@ -419,6 +509,66 @@ export class ContactService {
         balanceDue: moneyString(invoice.balanceDue),
         status: invoice.status,
       })),
+      ...quotes.map((quote) => ({
+        id: `SalesQuote:${quote.id}`,
+        sourceType: "SalesQuote" as const,
+        sourceId: quote.id,
+        date: toIsoString(quote.issueDate),
+        dueDate: nullableIsoString(quote.expiryDate),
+        type: "Sales quote (non-posting)",
+        transactionNumber: quote.quoteNumber,
+        currency: quote.currency,
+        subtotal: moneyString(quote.subtotal),
+        taxAmount: moneyString(quote.taxTotal),
+        total: moneyString(quote.total),
+        balanceDue: "0.0000",
+        status: quote.status,
+      })),
+      ...recurringTemplates.map((template) => ({
+        id: `RecurringInvoiceTemplate:${template.id}`,
+        sourceType: "RecurringInvoiceTemplate" as const,
+        sourceId: template.id,
+        date: toIsoString(template.nextRunDate),
+        dueDate: nullableIsoString(template.endDate),
+        type: "Recurring invoice template (non-posting)",
+        transactionNumber: template.templateNumber,
+        currency: template.currency,
+        subtotal: moneyString(template.subtotal),
+        taxAmount: moneyString(template.taxTotal),
+        total: moneyString(template.total),
+        balanceDue: "0.0000",
+        status: template.status,
+      })),
+      ...deliveryNotes.map((deliveryNote) => ({
+        id: `DeliveryNote:${deliveryNote.id}`,
+        sourceType: "DeliveryNote" as const,
+        sourceId: deliveryNote.id,
+        date: toIsoString(deliveryNote.issueDate),
+        dueDate: nullableIsoString(deliveryNote.deliveryDate),
+        type: "Delivery note (non-posting fulfillment)",
+        transactionNumber: deliveryNote.deliveryNoteNumber,
+        currency: "SAR",
+        subtotal: "0.0000",
+        taxAmount: "0.0000",
+        total: "0.0000",
+        balanceDue: "0.0000",
+        status: deliveryNote.status,
+      })),
+      ...salesInventoryReturns.map((salesReturn) => ({
+        id: `SalesInventoryReturn:${salesReturn.id}`,
+        sourceType: "SalesInventoryReturn" as const,
+        sourceId: salesReturn.id,
+        date: toIsoString(salesReturn.returnDate),
+        dueDate: null,
+        type: "Sales inventory return (operational stock)",
+        transactionNumber: salesReturn.salesReturnNumber,
+        currency: "SAR",
+        subtotal: "0.0000",
+        taxAmount: "0.0000",
+        total: "0.0000",
+        balanceDue: "0.0000",
+        status: salesReturn.status,
+      })),
       ...creditNotes.map((creditNote) => ({
         id: `CreditNote:${creditNote.id}`,
         sourceType: "CreditNote" as const,
@@ -468,7 +618,7 @@ export class ContactService {
   }
 
   private async supplierTransactions(organizationId: string, contactId: string): Promise<PartyTransaction[]> {
-    const [bills, debitNotes, payments, refunds, expenses] = await Promise.all([
+    const [bills, purchaseOrders, debitNotes, purchaseReturns, payments, refunds, expenses] = await Promise.all([
       this.prisma.purchaseBill.findMany({
         where: { organizationId, supplierId: contactId },
         select: {
@@ -484,6 +634,20 @@ export class ContactService {
           balanceDue: true,
         },
       }),
+      this.prisma.purchaseOrder.findMany({
+        where: { organizationId, supplierId: contactId },
+        select: {
+          id: true,
+          purchaseOrderNumber: true,
+          orderDate: true,
+          expectedDeliveryDate: true,
+          currency: true,
+          status: true,
+          subtotal: true,
+          taxTotal: true,
+          total: true,
+        },
+      }),
       this.prisma.purchaseDebitNote.findMany({
         where: { organizationId, supplierId: contactId },
         select: {
@@ -496,6 +660,16 @@ export class ContactService {
           taxTotal: true,
           total: true,
           unappliedAmount: true,
+        },
+      }),
+      this.prisma.purchaseReturn.findMany({
+        where: { organizationId, supplierId: contactId },
+        select: {
+          id: true,
+          purchaseReturnNumber: true,
+          returnDate: true,
+          status: true,
+          reason: true,
         },
       }),
       this.prisma.supplierPayment.findMany({
@@ -552,6 +726,21 @@ export class ContactService {
         balanceDue: moneyString(bill.balanceDue),
         status: bill.status,
       })),
+      ...purchaseOrders.map((purchaseOrder) => ({
+        id: `PurchaseOrder:${purchaseOrder.id}`,
+        sourceType: "PurchaseOrder" as const,
+        sourceId: purchaseOrder.id,
+        date: toIsoString(purchaseOrder.orderDate),
+        dueDate: nullableIsoString(purchaseOrder.expectedDeliveryDate),
+        type: "Purchase order",
+        transactionNumber: purchaseOrder.purchaseOrderNumber,
+        currency: purchaseOrder.currency,
+        subtotal: moneyString(purchaseOrder.subtotal),
+        taxAmount: moneyString(purchaseOrder.taxTotal),
+        total: moneyString(purchaseOrder.total),
+        balanceDue: "0.0000",
+        status: purchaseOrder.status,
+      })),
       ...debitNotes.map((debitNote) => ({
         id: `PurchaseDebitNote:${debitNote.id}`,
         sourceType: "PurchaseDebitNote" as const,
@@ -566,6 +755,21 @@ export class ContactService {
         total: moneyString(debitNote.total),
         balanceDue: moneyString(debitNote.unappliedAmount),
         status: debitNote.status,
+      })),
+      ...purchaseReturns.map((purchaseReturn) => ({
+        id: `PurchaseReturn:${purchaseReturn.id}`,
+        sourceType: "PurchaseReturn" as const,
+        sourceId: purchaseReturn.id,
+        date: toIsoString(purchaseReturn.returnDate),
+        dueDate: null,
+        type: "Purchase return",
+        transactionNumber: purchaseReturn.purchaseReturnNumber,
+        currency: "SAR",
+        subtotal: "0.0000",
+        taxAmount: "0.0000",
+        total: "0.0000",
+        balanceDue: "0.0000",
+        status: purchaseReturn.status,
       })),
       ...payments.map((payment) => ({
         id: `SupplierPayment:${payment.id}`,

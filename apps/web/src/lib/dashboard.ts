@@ -32,9 +32,14 @@ export const DASHBOARD_QUICK_ACTIONS: readonly DashboardQuickAction[] = [
 export type DashboardDrilldownKey =
   | "unpaidInvoices"
   | "overdueInvoices"
+  | "salesQuotes"
+  | "recurringInvoices"
+  | "deliveryNotes"
+  | "collections"
   | "unpaidBills"
   | "overdueBills"
   | "customerPayments"
+  | "customers"
   | "supplierPayments"
   | "bankBalance"
   | "bankReconciliations"
@@ -59,9 +64,14 @@ export interface DashboardDrilldownLink {
 export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardDrilldownLink> = {
   unpaidInvoices: { label: "View invoices", href: "/sales/invoices", permissions: [PERMISSIONS.salesInvoices.view] },
   overdueInvoices: { label: "View aged receivables", href: "/reports/aged-receivables", permissions: [PERMISSIONS.reports.view] },
+  salesQuotes: { label: "View quotes", href: "/sales/quotes", permissions: [PERMISSIONS.salesInvoices.view] },
+  recurringInvoices: { label: "View recurring templates", href: "/sales/recurring-invoices", permissions: [PERMISSIONS.salesInvoices.view] },
+  deliveryNotes: { label: "View delivery notes", href: "/sales/delivery-notes", permissions: [PERMISSIONS.salesInvoices.view] },
+  collections: { label: "View collections", href: "/sales/collections", permissions: [PERMISSIONS.salesInvoices.view] },
   unpaidBills: { label: "View bills", href: "/purchases/bills", permissions: [PERMISSIONS.purchaseBills.view] },
   overdueBills: { label: "View aged payables", href: "/reports/aged-payables", permissions: [PERMISSIONS.reports.view] },
   customerPayments: { label: "View customer payments", href: "/sales/customer-payments", permissions: [PERMISSIONS.customerPayments.view] },
+  customers: { label: "View customers", href: "/customers", permissions: [PERMISSIONS.contacts.view] },
   supplierPayments: { label: "View supplier payments", href: "/purchases/supplier-payments", permissions: [PERMISSIONS.supplierPayments.view] },
   bankBalance: { label: "View bank accounts", href: "/bank-accounts", permissions: [PERMISSIONS.bankAccounts.view] },
   bankReconciliations: { label: "View bank accounts", href: "/bank-accounts", permissions: [PERMISSIONS.bankAccounts.view] },
@@ -401,6 +411,10 @@ export function visibleDashboardQuickActions(subject: PermissionSubject): Dashbo
 export function dashboardDrilldownLink(key: DashboardDrilldownKey, subject: PermissionSubject): DashboardDrilldownLink | null {
   const link = DASHBOARD_DRILLDOWN_LINKS[key];
   return link.permissions.some((permission) => hasPermission(subject, permission)) ? link : null;
+}
+
+export function canViewSalesAttention(subject: PermissionSubject): boolean {
+  return hasPermission(subject, PERMISSIONS.salesInvoices.view);
 }
 
 export function chartMaxAmount(values: Array<string | number>): number {

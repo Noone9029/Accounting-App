@@ -2,6 +2,18 @@
 
 This document defines the safe planning boundary for future sandbox compliance CSID onboarding. It is not an implementation of a real CSID request, not a production onboarding flow, and not a production compliance claim.
 
+## 2026-06-06 Reconciliation Update
+
+The current umbrella design is `KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`; the lifecycle checklist is `CSID_LIFECYCLE_CHECKLIST.md`; the custody matrix is `KEY_CUSTODY_DECISION_MATRIX.md`.
+
+This onboarding plan remains the sandbox-specific planning source. No OTP/CSID/network execution is enabled.
+
+The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with the base result `PREFLIGHT_BLOCKED` in `SANDBOX_CSID_PREFLIGHT_RESULTS.md`. The sandbox OTP/CSID approval plan is now documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`; exact phrase recognition returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` and still performs no OTP/CSID/network/sandbox-adapter execution. The adapter approval plan is also complete; the current next sandbox step is `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+2026-06-07 update: the execution guard follow-up and response custody planning are now documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`, `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. Current response custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; no real response body, DB write, token/secret/certificate persistence, OTP, CSID request, network call, adapter execution, env value output, or body exposure occurred.
+
+2026-06-07 adapter approval update: `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RUNBOOK.md`, and `SANDBOX_ADAPTER_EXECUTION_APPROVAL_RESULTS.md` document `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. Next sandbox step: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
 ## Official sources inspected
 
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
@@ -239,3 +251,19 @@ Safety guarantees:
 
 Recommended next step:
 - Add a non-executing provider-reference audit and rotation plan before any real sandbox custody provider implementation.
+
+## 2026-06-07 Sandbox CSID Request Execution Guard
+
+The no-network execution guard is documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, with observed results in `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`.
+
+Status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but still refuses `--execute-csid-request` as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+
+No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior is enabled. Completed follow-ups: `ZATCA sandbox adapter execution approval plan` and `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Completed follow-up: `ZATCA sandbox adapter no-network contract tests`.
+
+Contract artifacts: `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_TESTS.md` and `SANDBOX_ADAPTER_NO_NETWORK_CONTRACT_RESULTS.md`. Contract status: `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`; sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Next step: `ZATCA sandbox CSID dry-run request body schema plan`.

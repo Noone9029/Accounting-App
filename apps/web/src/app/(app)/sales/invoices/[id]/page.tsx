@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
@@ -44,6 +46,8 @@ import {
 } from "@/lib/zatca";
 import type {
   SalesInvoice,
+  CollectionCase,
+  DeliveryNote,
   SalesInvoiceStockIssueStatus,
   ZatcaInvoiceHashCompareResponse,
   ZatcaInvoiceLocalSigningDryRunResponse,
@@ -67,6 +71,10 @@ export default function SalesInvoiceDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
+  const [relatedDeliveryNotes, setRelatedDeliveryNotes] = useState<DeliveryNote[]>([]);
+  const [relatedDeliveryNotesLoading, setRelatedDeliveryNotesLoading] = useState(false);
+  const [collectionCases, setCollectionCases] = useState<CollectionCase[]>([]);
+  const [collectionCasesLoading, setCollectionCasesLoading] = useState(false);
   const [stockIssueStatus, setStockIssueStatus] = useState<SalesInvoiceStockIssueStatus | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
@@ -130,6 +138,68 @@ export default function SalesInvoiceDetailPage() {
       cancelled = true;
     };
   }, [organizationId, params.id]);
+
+  useEffect(() => {
+    if (!organizationId || !invoice?.id || !invoice.customerId) {
+      setRelatedDeliveryNotes([]);
+      setRelatedDeliveryNotesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRelatedDeliveryNotesLoading(true);
+    apiRequest<DeliveryNote[]>(`/delivery-notes?customerId=${encodeURIComponent(invoice.customerId)}`)
+      .then((result) => {
+        if (!cancelled) {
+          setRelatedDeliveryNotes(result.filter((deliveryNote) => deliveryNote.relatedSalesInvoiceId === invoice.id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRelatedDeliveryNotes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRelatedDeliveryNotesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [invoice?.customerId, invoice?.id, organizationId]);
+
+  useEffect(() => {
+    if (!organizationId || !invoice?.id) {
+      setCollectionCases([]);
+      setCollectionCasesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCollectionCasesLoading(true);
+    apiRequest<CollectionCase[]>(`/collections/invoice/${invoice.id}`)
+      .then((result) => {
+        if (!cancelled) {
+          setCollectionCases(result);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCollectionCases([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setCollectionCasesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [invoice?.id, organizationId]);
 
   async function runAction(action: "finalize" | "void") {
     if (!invoice) {
@@ -442,10 +512,10 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(pathByAction[action], { method: "POST" });
       setZatca(result);
-      setSuccess(action === "compliance-check" ? "Local/mock compliance check recorded." : "ZATCA submission response recorded.");
+      setSuccess(zatcaActionSuccessMessage(action));
     } catch (submissionError) {
       await refreshZatca(invoice.id).catch(() => undefined);
-      setError(submissionError instanceof Error ? submissionError.message : "Unable to run ZATCA action.");
+      setError(submissionError instanceof Error ? submissionError.message : "Unable to run local ZATCA readiness action.");
     } finally {
       setActionLoading(false);
     }
@@ -455,6 +525,7 @@ export default function SalesInvoiceDetailPage() {
   const canUpdateInvoice = can(PERMISSIONS.salesInvoices.update);
   const canFinalizeInvoice = can(PERMISSIONS.salesInvoices.finalize);
   const canVoidInvoice = can(PERMISSIONS.salesInvoices.void);
+  const canCreateCollectionCase = can(PERMISSIONS.salesInvoices.create);
   const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
   const canCreateStockIssue = can(PERMISSIONS.salesStockIssue.create);
@@ -543,6 +614,15 @@ export default function SalesInvoiceDetailPage() {
           />
 
           <AttachmentPanel linkedEntityType="SALES_INVOICE" linkedEntityId={invoice.id} />
+
+          <RelatedDeliveryNotesPanel sourceKind="invoice" deliveryNotes={relatedDeliveryNotes} loading={relatedDeliveryNotesLoading} />
+
+          <RelatedCollectionCasesPanel
+            invoice={invoice}
+            collectionCases={collectionCases}
+            loading={collectionCasesLoading}
+            canCreateCollectionCase={canCreateCollectionCase}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -834,8 +914,8 @@ export default function SalesInvoiceDetailPage() {
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-ink">ZATCA compliance groundwork</h2>
-                <p className="mt-1 text-sm text-steel">Local ZATCA generation only. Not submitted to ZATCA yet.</p>
+                <h2 className="text-base font-semibold text-ink">Local ZATCA readiness groundwork</h2>
+                <p className="mt-1 text-sm text-steel">Local XML/QR metadata generation only. No production ZATCA submission, clearance, reporting, or compliance claim.</p>
               </div>
               <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(zatca?.zatcaStatus)}</span>
             </div>
@@ -847,10 +927,10 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Previous hash" value={truncateHash(zatca?.previousInvoiceHash)} />
               <Summary label="EGS unit" value={zatca?.egsUnit?.name ?? "-"} />
               <Summary label="Generated" value={zatca?.generatedAt ? new Date(zatca.generatedAt).toLocaleString() : "-"} />
-              <Summary label="Latest submission" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.submissionType) : "-"} />
-              <Summary label="Submission status" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.status) : "-"} />
+              <Summary label="Latest ZATCA action" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.submissionType) : "-"} />
+              <Summary label="Action status" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.status) : "-"} />
               <Summary label="Last error" value={zatca?.lastErrorMessage ?? "-"} />
-              <Summary label="Submission error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
+              <Summary label="Action error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
             </div>
 
             {zatcaReadiness ? (
@@ -1017,12 +1097,12 @@ export default function SalesInvoiceDetailPage() {
               ) : null}
               {canManageZatca ? (
                 <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  Request clearance
+                  Check clearance blocker
                 </button>
               ) : null}
               {canManageZatca ? (
                 <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  Request reporting
+                  Check reporting blocker
                 </button>
               ) : null}
               {canRunZatcaChecks ? (
@@ -1386,6 +1466,89 @@ function invoiceNextActionDescription(invoice: SalesInvoice, paymentState: Retur
   return canCreateCustomerPayment
     ? "Record payment next, then review the customer ledger and reports to confirm the sale is reflected."
     : "Payment is still due, but your role cannot record customer payments.";
+}
+
+function zatcaActionSuccessMessage(action: "compliance-check" | "clearance" | "reporting"): string {
+  switch (action) {
+    case "compliance-check":
+      return "Local/mock compliance check recorded. No ZATCA network submission was made.";
+    case "clearance":
+      return "Clearance readiness response recorded. No production clearance was requested.";
+    case "reporting":
+      return "Reporting readiness response recorded. No production reporting was requested.";
+  }
+}
+
+function RelatedCollectionCasesPanel({
+  invoice,
+  collectionCases,
+  loading,
+  canCreateCollectionCase,
+}: {
+  invoice: SalesInvoice;
+  collectionCases: CollectionCase[];
+  loading: boolean;
+  canCreateCollectionCase: boolean;
+}) {
+  const hasOpenCase = collectionCases.some((collectionCase) => !["PAID", "CLOSED", "CANCELLED"].includes(collectionCase.status));
+  const canCreateFromInvoice = invoice.status === "FINALIZED" && Number(invoice.balanceDue) > 0 && canCreateCollectionCase && !hasOpenCase;
+  const createHref = `/sales/collections/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`;
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Related collection cases</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{collectionsSafeWording}</p>
+        </div>
+        {canCreateFromInvoice ? (
+          <Link href={createHref} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Create collection case
+          </Link>
+        ) : null}
+      </div>
+      {loading ? <div className="mt-3"><StatusMessage type="loading">Loading collection cases...</StatusMessage></div> : null}
+      {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">No collection case is linked to this invoice.</p> : null}
+      {collectionCases.length > 0 ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-3 py-2">Case</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Priority</th>
+                <th className="px-3 py-2">Next follow-up</th>
+                <th className="px-3 py-2">Promise</th>
+                <th className="px-3 py-2">Latest activity</th>
+                <th className="px-3 py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {collectionCases.map((collectionCase) => (
+                <tr key={collectionCase.id}>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    <Link href={`/sales/collections/${collectionCase.id}`} className="text-palm hover:text-teal-800">{collectionCase.caseNumber}</Link>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{collectionStatusLabel(collectionCase.status)}</span>
+                  </td>
+                  <td className="px-3 py-2 text-steel">{collectionCase.priority}</td>
+                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</td>
+                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.promisedPaymentDate, "-")} {collectionCase.promisedAmount ? `/ ${formatMoneyAmount(collectionCase.promisedAmount, invoice.currency)}` : ""}</td>
+                  <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? collectionActivityTypeLabel(collectionCase.activities[0].activityType) : "-"}</td>
+                  <td className="px-3 py-2">
+                    <Link href={`/sales/collections/${collectionCase.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      Open
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

@@ -1,4 +1,4 @@
-import type { ZatcaInvoiceInput } from "./index.js";
+type ZatcaInvoiceInput = import("./index.js").ZatcaInvoiceInput;
 
 export interface ZatcaLocalXmlValidationResult {
   localOnly: true;
@@ -29,6 +29,15 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
   checkNonNegative(input.taxableTotal, "Invoice taxable total", errors);
   checkNonNegative(input.taxTotal, "Invoice tax total", errors);
   checkNonNegative(input.total, "Invoice total", errors);
+
+  if (isCreditOrDebitNote(input.invoiceType)) {
+    requireText(input.billingReferenceInvoiceNumber, "Original invoice reference is required for credit and debit notes.", errors);
+    requireText(input.noteReason, "Credit and debit note reason is required.", errors);
+    const paymentMeansCode = String(input.paymentMeansCode ?? "10").trim();
+    if (!["1", "10", "30", "42", "48"].includes(paymentMeansCode)) {
+      errors.push("Payment means code must be one of the official local fixture codes: 1, 10, 30, 42, or 48.");
+    }
+  }
 
   input.lines?.forEach((line, index) => {
     const label = `Invoice line ${index + 1}`;
@@ -81,6 +90,10 @@ function addBuyerAddressReadinessWarnings(input: ZatcaInvoiceInput, warnings: st
   if (buildingNumber && !/^[0-9]{4}$/.test(buildingNumber)) {
     warnings.push("Saudi buyer BuildingNumber should be 4 digits for clean ZATCA buyer address validation.");
   }
+}
+
+function isCreditOrDebitNote(invoiceType: ZatcaInvoiceInput["invoiceType"]): boolean {
+  return invoiceType === "CREDIT_NOTE" || invoiceType === "DEBIT_NOTE";
 }
 
 function requireText(value: string | null | undefined, message: string, errors: string[]): void {

@@ -82,7 +82,7 @@ export default function InventoryMovementSummaryReportPage() {
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Operational movement reporting only. This does not create inventory journals, COGS, purchase receipts, or sales issues.
+        Operational movement reporting only. This does not create inventory journals, COGS, purchase receipts, purchase returns, or sales issues.
       </div>
       <InventoryMovementReportGuidance />
 
@@ -221,7 +221,7 @@ export function InventoryMovementReportGuidance() {
             </div>
             <div>
               <p className="font-semibold text-ink">Inbound and outbound</p>
-              <p className="mt-1">Inbound includes receipts, increases, and transfer-ins. Outbound includes issues, decreases, and transfer-outs.</p>
+              <p className="mt-1">Inbound includes receipts, sales returns, increases, and transfer-ins. Outbound includes issues, purchase returns, decreases, and transfer-outs.</p>
             </div>
             <div>
               <p className="font-semibold text-ink">Breakdown</p>

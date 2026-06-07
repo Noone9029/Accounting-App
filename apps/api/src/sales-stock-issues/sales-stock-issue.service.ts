@@ -20,6 +20,7 @@ import {
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
+import { assertCurrentFlowSupportsTracking } from "../inventory/inventory-tracking-validation";
 import { buildSalesStockIssueCogsJournal, SalesStockIssueCogsLineInput } from "./sales-stock-issue-accounting";
 import { CreateSalesStockIssueDto, SalesStockIssueLineDto } from "./dto/create-sales-stock-issue.dto";
 import { ReverseSalesStockIssueCogsDto } from "./dto/reverse-sales-stock-issue-cogs.dto";
@@ -37,7 +38,19 @@ const salesStockIssueInclude = {
   lines: {
     orderBy: { createdAt: "asc" as const },
     include: {
-      item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+      item: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          type: true,
+          status: true,
+          inventoryTracking: true,
+          trackingMode: true,
+          expiryTrackingEnabled: true,
+          binTrackingEnabled: true,
+        },
+      },
       salesInvoiceLine: { select: { id: true, description: true, quantity: true, unitPrice: true } },
       stockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
       voidStockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
@@ -425,7 +438,21 @@ export class SalesStockIssueService {
       include: {
         lines: {
           orderBy: { sortOrder: "asc" },
-          include: { item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } } },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                type: true,
+                status: true,
+                inventoryTracking: true,
+                trackingMode: true,
+                expiryTrackingEnabled: true,
+                binTrackingEnabled: true,
+              },
+            },
+          },
         },
       },
     });
@@ -590,7 +617,13 @@ export class SalesStockIssueService {
       id: string;
       itemId: string | null;
       quantity: Prisma.Decimal;
-      item: { inventoryTracking: boolean; status: ItemStatus } | null;
+      item: {
+        inventoryTracking: boolean;
+        status: ItemStatus;
+        trackingMode?: import("@prisma/client").ItemTrackingMode | null;
+        expiryTrackingEnabled?: boolean | null;
+        binTrackingEnabled?: boolean | null;
+      } | null;
     }>,
     lineDtos: SalesStockIssueLineDto[],
     tx: Prisma.TransactionClient,
@@ -611,6 +644,7 @@ export class SalesStockIssueService {
       if (sourceLine.item.status !== ItemStatus.ACTIVE) {
         throw new BadRequestException("Sales stock issues can only issue active items.");
       }
+      assertCurrentFlowSupportsTracking(sourceLine.item, "Sales stock issues");
       const remaining = remainingByLine.get(sourceLine.id) ?? new Prisma.Decimal(sourceLine.quantity);
       const requested = (requestedBySourceLine.get(sourceLine.id) ?? new Prisma.Decimal(0)).plus(quantity);
       if (requested.gt(remaining)) {

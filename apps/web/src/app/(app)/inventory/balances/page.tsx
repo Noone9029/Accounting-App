@@ -6,7 +6,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatInventoryQuantity, inventoryBalanceDisplay, inventoryOperationalWarning, warehouseStatusLabel } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryBalanceDisplay, inventoryFifoPreviewUrl, inventoryOperationalWarning, warehouseStatusLabel } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { InventoryBalance } from "@/lib/types";
 
@@ -68,6 +68,9 @@ export default function InventoryBalancesPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
           <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Stock valuation
+          </Link>
+          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            FIFO preview
           </Link>
           <Link href="/inventory/reports/movement-summary" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Movement summary
@@ -141,6 +144,7 @@ export default function InventoryBalancesPage() {
                 <th className="px-4 py-3 text-right">Quantity on hand</th>
                 <th className="px-4 py-3 text-right">Average unit cost</th>
                 <th className="px-4 py-3 text-right">Inventory value</th>
+                <th className="px-4 py-3">FIFO</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -157,6 +161,11 @@ export default function InventoryBalancesPage() {
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.quantity}</td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.averageUnitCost}</td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.inventoryValue}</td>
+                    <td className="px-4 py-3 text-xs">
+                      <Link href={inventoryFifoPreviewUrl({ itemId: balance.item.id, warehouseId: balance.warehouse.id })} className="font-medium text-palm hover:underline">
+                        FIFO preview
+                      </Link>
+                    </td>
                   </tr>
                 );
               })}
@@ -202,6 +211,9 @@ export function InventoryBalanceGuidance({ canCreateAdjustment, canCreateTransfe
           ) : null}
           <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Stock movements
+          </Link>
+          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            FIFO preview
           </Link>
           <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Dashboard

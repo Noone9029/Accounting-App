@@ -11,7 +11,11 @@ import {
   JournalEntryStatus,
   Prisma,
   PurchaseBillStatus,
+  CollectionCaseStatus,
+  DeliveryNoteStatus,
+  RecurringInvoiceTemplateStatus,
   SalesInvoiceStatus,
+  SalesQuoteStatus,
   StockMovementType,
   SupplierPaymentStatus,
   ZatcaRegistrationStatus,
@@ -31,9 +35,37 @@ const AGING_BUCKET_LABELS = {
   "61_90": "61-90",
   "90_PLUS": "90+",
 } as const;
+const OPEN_COLLECTION_CASE_STATUSES: CollectionCaseStatus[] = [
+  CollectionCaseStatus.OPEN,
+  CollectionCaseStatus.IN_PROGRESS,
+  CollectionCaseStatus.PROMISED_TO_PAY,
+  CollectionCaseStatus.ON_HOLD,
+  CollectionCaseStatus.DISPUTED,
+];
+const DASHBOARD_SALES_ATTENTION_TOP_LIMIT = 5;
+const DASHBOARD_QUOTE_EXPIRING_SOON_DAYS = 7;
+const DASHBOARD_RECURRING_DUE_SOON_DAYS = 7;
+const DASHBOARD_DELIVERY_OVERDUE_WINDOW_DAYS = 0;
+const DASHBOARD_COLLECTION_DUE_TODAY_WINDOW_DAYS = 0;
+const COLLECTION_PRIORITY_RANK: Record<string, number> = {
+  URGENT: 0,
+  HIGH: 1,
+  NORMAL: 2,
+  LOW: 3,
+};
 
 type AttentionSeverity = "info" | "warning" | "critical";
-type DashboardSectionName = "sales" | "purchases" | "banking" | "inventory" | "reports" | "trends" | "aging" | "compliance" | "storage";
+type DashboardSectionName =
+  | "sales"
+  | "salesAttention"
+  | "purchases"
+  | "banking"
+  | "inventory"
+  | "reports"
+  | "trends"
+  | "aging"
+  | "compliance"
+  | "storage";
 type DashboardSectionStatus =
   | { status: "READY" }
   | {
@@ -69,6 +101,84 @@ interface DashboardReportLine {
   journalEntry: { entryDate: Date };
 }
 
+interface SalesAttentionTopItem {
+  id: string;
+  number: string;
+  customerName: string;
+  status: string;
+  href: string;
+  amount?: string | null;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  expiryDate?: string | null;
+  nextRunDate?: string | null;
+  followUpDate?: string | null;
+  deliveryDate?: string | null;
+  promisedPaymentDate?: string | null;
+  promisedAmount?: string | null;
+  templateNumber?: string | null;
+  templateName?: string | null;
+  sourceHref?: string | null;
+}
+
+interface SalesAttentionCustomerItem {
+  id: string;
+  customerName: string;
+  outstandingBalance: string;
+  overdueAmount: string;
+  openCollectionCaseCount: number;
+  href: string;
+}
+
+interface SalesAttentionSummary {
+  readOnly: true;
+  noMutation: true;
+  helperText: string;
+  overdueInvoices: { count: number; total: string; topItems: SalesAttentionTopItem[] };
+  collections: {
+    openCount: number;
+    dueTodayCount: number;
+    overdueFollowUpCount: number;
+    promisedToPayTotal: string;
+    disputedCount: number;
+    topItems: SalesAttentionTopItem[];
+  };
+  quotes: {
+    awaitingAcceptanceCount: number;
+    expiringSoonCount: number;
+    acceptedNotConvertedCount: number;
+    topItems: SalesAttentionTopItem[];
+  };
+  recurringInvoices: {
+    activeCount: number;
+    dueSoonCount: number;
+    overdueForGenerationCount: number;
+    recentlyGeneratedDraftInvoiceCount: number;
+    topItems: SalesAttentionTopItem[];
+    recentDraftInvoices: SalesAttentionTopItem[];
+  };
+  deliveryNotes: {
+    draftCount: number;
+    issuedNotDeliveredCount: number;
+    overdueDeliveryCount: number;
+    topItems: SalesAttentionTopItem[];
+  };
+  customers: { topOutstanding: SalesAttentionCustomerItem[] };
+}
+
+interface CollectionAttentionRow {
+  id: string;
+  caseNumber: string;
+  status: CollectionCaseStatus;
+  priority: string;
+  followUpDate: Date | null;
+  nextActionAt: Date | null;
+  promisedPaymentDate: Date | null;
+  promisedAmount: Prisma.Decimal.Value | null;
+  customer: { id: string; name: string; displayName: string | null };
+  salesInvoice: { id: string; invoiceNumber: string; balanceDue: Prisma.Decimal.Value; dueDate: Date | null } | null;
+}
+
 type OnboardingChecklistItemStatus = "COMPLETE" | "INCOMPLETE" | "WARNING";
 type OnboardingChecklistStatus = "BLOCKED" | "IN_PROGRESS" | "READY_FOR_SELLABLE_V1_REVIEW";
 
@@ -94,14 +204,18 @@ export class DashboardService {
     private readonly storageService: StorageService,
   ) {}
 
-  async summary(organizationId: string) {
+  async summary(organizationId: string, options: { canViewSalesAttention?: boolean } = {}) {
     const now = new Date();
     const todayStart = startOfUtcDay(now);
+    const todayEnd = endOfUtcDay(now);
+    const quoteExpiringSoonEnd = endOfUtcDay(addUtcDays(now, DASHBOARD_QUOTE_EXPIRING_SOON_DAYS));
+    const recurringDueSoonEnd = endOfUtcDay(addUtcDays(now, DASHBOARD_RECURRING_DUE_SOON_DAYS));
     const monthStart = startOfUtcMonth(now);
     const monthStartLabel = dateOnly(monthStart);
     const asOf = endOfUtcDay(now);
     const asOfLabel = dateOnly(now);
     const trendMonths = lastSixUtcMonths(now);
+    const canViewSalesAttention = options.canViewSalesAttention ?? true;
     const organization = await this.prisma.organization.findFirst({
       where: { id: organizationId },
       select: { id: true, baseCurrency: true },
@@ -129,6 +243,16 @@ export class DashboardService {
     };
 
     const sales = await runSection("sales", () => this.salesSummary(organizationId, monthStart, todayStart), () => this.emptySalesSummary());
+    const salesAttention = canViewSalesAttention
+      ? await runSection(
+          "salesAttention",
+          () => this.salesAttentionSummary(organizationId, todayStart, todayEnd, quoteExpiringSoonEnd, recurringDueSoonEnd),
+          () => this.emptySalesAttentionSummary(),
+        )
+      : this.emptySalesAttentionSummary();
+    if (!canViewSalesAttention) {
+      sectionStatus.salesAttention = { status: "READY" };
+    }
     const purchases = await runSection("purchases", () => this.purchaseSummary(organizationId, monthStart, todayStart), () => this.emptyPurchaseSummary());
     const banking = await runSection("banking", () => this.bankingSummary(organizationId), () => this.emptyBankingSummary());
     const inventory = await runSection("inventory", () => this.inventorySummary(organizationId), () => this.emptyInventorySummary());
@@ -142,6 +266,7 @@ export class DashboardService {
       asOf: now.toISOString(),
       currency,
       sales,
+      salesAttention,
       purchases,
       banking,
       inventory,
@@ -160,6 +285,7 @@ export class DashboardService {
         banking,
         inventory,
         compliance,
+        salesAttention,
         storageDatabaseActive:
           storageReadiness.attachmentStorage.activeProvider === "database" ||
           storageReadiness.generatedDocumentStorage.activeProvider === "database",
@@ -437,6 +563,300 @@ export class DashboardService {
       salesThisMonth: this.decimalString(sum(invoices.filter((invoice) => invoice.issueDate >= monthStart).map((invoice) => invoice.total))),
       customerPaymentThisMonth: this.decimalString(sum(payments.map((payment) => payment.amountReceived))),
     };
+  }
+
+  private async salesAttentionSummary(
+    organizationId: string,
+    todayStart: Date,
+    todayEnd: Date,
+    quoteExpiringSoonEnd: Date,
+    recurringDueSoonEnd: Date,
+  ): Promise<SalesAttentionSummary> {
+    const outstandingInvoices = await this.prisma.salesInvoice.findMany({
+      where: { organizationId, status: SalesInvoiceStatus.FINALIZED, balanceDue: { gt: 0 } },
+      orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
+      select: {
+        id: true,
+        invoiceNumber: true,
+        issueDate: true,
+        dueDate: true,
+        balanceDue: true,
+        status: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+    });
+    const openCollectionCases = (await this.prisma.collectionCase.findMany({
+      where: { organizationId, status: { in: OPEN_COLLECTION_CASE_STATUSES } },
+      orderBy: [{ nextActionAt: "asc" }, { followUpDate: "asc" }, { updatedAt: "desc" }],
+      select: {
+        id: true,
+        caseNumber: true,
+        status: true,
+        priority: true,
+        followUpDate: true,
+        nextActionAt: true,
+        promisedPaymentDate: true,
+        promisedAmount: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+        salesInvoice: { select: { id: true, invoiceNumber: true, balanceDue: true, dueDate: true } },
+      },
+    })) as CollectionAttentionRow[];
+    const salesQuotes = await this.prisma.salesQuote.findMany({
+      where: { organizationId, status: { in: [SalesQuoteStatus.SENT, SalesQuoteStatus.ACCEPTED] } },
+      orderBy: [{ expiryDate: "asc" }, { issueDate: "desc" }],
+      select: {
+        id: true,
+        quoteNumber: true,
+        status: true,
+        issueDate: true,
+        expiryDate: true,
+        total: true,
+        convertedSalesInvoiceId: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+    });
+    const activeRecurringTemplateCount = await this.prisma.recurringInvoiceTemplate.count({
+      where: { organizationId, status: RecurringInvoiceTemplateStatus.ACTIVE },
+    });
+    const recurringTemplatesDue = await this.prisma.recurringInvoiceTemplate.findMany({
+      where: {
+        organizationId,
+        status: RecurringInvoiceTemplateStatus.ACTIVE,
+        nextRunDate: { lte: recurringDueSoonEnd },
+      },
+      orderBy: [{ nextRunDate: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        templateNumber: true,
+        name: true,
+        status: true,
+        nextRunDate: true,
+        total: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+    });
+    const recentlyGeneratedDraftInvoices = await this.prisma.salesInvoice.findMany({
+      where: {
+        organizationId,
+        status: SalesInvoiceStatus.DRAFT,
+        recurringInvoiceTemplateId: { not: null },
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take: DASHBOARD_SALES_ATTENTION_TOP_LIMIT,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        issueDate: true,
+        dueDate: true,
+        total: true,
+        status: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+        recurringInvoiceTemplate: { select: { id: true, templateNumber: true, name: true } },
+      },
+    });
+    const deliveryNotes = await this.prisma.deliveryNote.findMany({
+      where: { organizationId, status: { in: [DeliveryNoteStatus.DRAFT, DeliveryNoteStatus.ISSUED] } },
+      orderBy: [{ deliveryDate: "asc" }, { issueDate: "desc" }],
+      select: {
+        id: true,
+        deliveryNoteNumber: true,
+        status: true,
+        issueDate: true,
+        deliveryDate: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+    });
+
+    const collectionDueTodayStart = addUtcDays(todayStart, -DASHBOARD_COLLECTION_DUE_TODAY_WINDOW_DAYS);
+    const collectionDueTodayEnd = endOfUtcDay(addUtcDays(todayEnd, DASHBOARD_COLLECTION_DUE_TODAY_WINDOW_DAYS));
+    const deliveryOverdueCutoff = addUtcDays(todayStart, -DASHBOARD_DELIVERY_OVERDUE_WINDOW_DAYS);
+    const overdueInvoices = outstandingInvoices
+      .filter((invoice) => dueDateFor(invoice) < todayStart)
+      .sort(
+        (a, b) =>
+          compareNullableDates(dueDateFor(a), dueDateFor(b)) ||
+          this.decimal(b.balanceDue).cmp(a.balanceDue) ||
+          a.invoiceNumber.localeCompare(b.invoiceNumber),
+      );
+    const dueTodayCollectionCases = openCollectionCases.filter((collectionCase) =>
+      isWithinDay(collectionCase.nextActionAt ?? collectionCase.followUpDate, collectionDueTodayStart, collectionDueTodayEnd),
+    );
+    const overdueCollectionCases = openCollectionCases.filter((collectionCase) => {
+      const nextDate = collectionCase.nextActionAt ?? collectionCase.followUpDate;
+      return Boolean(nextDate && nextDate < collectionDueTodayStart);
+    });
+    const collectionTopCases = [...openCollectionCases].sort((a, b) =>
+      compareCollectionAttentionCases(a, b, collectionDueTodayStart, collectionDueTodayEnd),
+    );
+    const promisedToPayTotal = openCollectionCases
+      .filter((collectionCase) => collectionCase.status === CollectionCaseStatus.PROMISED_TO_PAY)
+      .reduce((total, collectionCase) => total.plus(this.decimal(collectionCase.promisedAmount ?? 0)), new Prisma.Decimal(0));
+    const sentQuotes = salesQuotes.filter((quote) => quote.status === SalesQuoteStatus.SENT);
+    const activeSentQuotes = sentQuotes.filter((quote) => !quote.expiryDate || quote.expiryDate >= todayStart);
+    const expiringSoonQuotes = activeSentQuotes.filter(
+      (quote) => quote.expiryDate && quote.expiryDate >= todayStart && quote.expiryDate <= quoteExpiringSoonEnd,
+    );
+    const acceptedNotConvertedQuotes = salesQuotes.filter(
+      (quote) => quote.status === SalesQuoteStatus.ACCEPTED && !quote.convertedSalesInvoiceId,
+    );
+    const recurringTemplatesDueSoon = recurringTemplatesDue.filter((template) => template.nextRunDate >= todayStart);
+    const recurringTemplatesOverdue = recurringTemplatesDue.filter((template) => template.nextRunDate < todayStart);
+    const draftDeliveryNotes = deliveryNotes.filter((deliveryNote) => deliveryNote.status === DeliveryNoteStatus.DRAFT);
+    const issuedDeliveryNotes = deliveryNotes.filter((deliveryNote) => deliveryNote.status === DeliveryNoteStatus.ISSUED);
+    const overdueDeliveryNotes = deliveryNotes.filter(
+      (deliveryNote) =>
+        deliveryNote.deliveryDate && deliveryNote.deliveryDate < deliveryOverdueCutoff && deliveryNote.status !== DeliveryNoteStatus.DELIVERED,
+    );
+
+    const openCollectionCasesByCustomer = countBy(openCollectionCases.map((collectionCase) => collectionCase.customer.id));
+    const topOutstandingCustomers = this.topOutstandingCustomers(outstandingInvoices, overdueInvoices, openCollectionCasesByCustomer);
+
+    return {
+      readOnly: true,
+      noMutation: true,
+      helperText:
+        "Dashboard attention items are read-only workflow signals. They do not send emails, collect payments, post journals, file VAT, call ZATCA, or move inventory.",
+      overdueInvoices: {
+        count: overdueInvoices.length,
+        total: this.decimalString(sum(overdueInvoices.map((invoice) => invoice.balanceDue))),
+        topItems: overdueInvoices.slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT).map((invoice) => ({
+          id: invoice.id,
+          number: invoice.invoiceNumber,
+          customerName: displayName(invoice.customer),
+          amount: this.decimalString(invoice.balanceDue),
+          issueDate: invoice.issueDate.toISOString(),
+          dueDate: nullableIsoString(invoice.dueDate ?? invoice.issueDate),
+          status: invoice.status,
+          href: `/sales/invoices/${invoice.id}`,
+        })),
+      },
+      collections: {
+        openCount: openCollectionCases.length,
+        dueTodayCount: dueTodayCollectionCases.length,
+        overdueFollowUpCount: overdueCollectionCases.length,
+        promisedToPayTotal: this.decimalString(promisedToPayTotal),
+        disputedCount: openCollectionCases.filter((collectionCase) => collectionCase.status === CollectionCaseStatus.DISPUTED).length,
+        topItems: collectionTopCases.slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT).map((collectionCase) => ({
+          id: collectionCase.id,
+          number: collectionCase.caseNumber,
+          customerName: displayName(collectionCase.customer),
+          amount: collectionCase.salesInvoice ? this.decimalString(collectionCase.salesInvoice.balanceDue) : null,
+          status: collectionCase.status,
+          followUpDate: nullableIsoString(collectionCase.nextActionAt ?? collectionCase.followUpDate),
+          dueDate: nullableIsoString(collectionCase.salesInvoice?.dueDate ?? null),
+          promisedPaymentDate: nullableIsoString(collectionCase.promisedPaymentDate),
+          promisedAmount: collectionCase.promisedAmount ? this.decimalString(collectionCase.promisedAmount) : null,
+          href: `/sales/collections/${collectionCase.id}`,
+          sourceHref: collectionCase.salesInvoice ? `/sales/invoices/${collectionCase.salesInvoice.id}` : null,
+        })),
+      },
+      quotes: {
+        awaitingAcceptanceCount: activeSentQuotes.length,
+        expiringSoonCount: expiringSoonQuotes.length,
+        acceptedNotConvertedCount: acceptedNotConvertedQuotes.length,
+        topItems: [...expiringSoonQuotes, ...acceptedNotConvertedQuotes, ...activeSentQuotes]
+          .filter(uniqueById())
+          .slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT)
+          .map((quote) => ({
+            id: quote.id,
+            number: quote.quoteNumber,
+            customerName: displayName(quote.customer),
+            amount: this.decimalString(quote.total),
+            status: quote.status,
+            issueDate: quote.issueDate.toISOString(),
+            expiryDate: nullableIsoString(quote.expiryDate),
+            href: `/sales/quotes/${quote.id}`,
+          })),
+      },
+      recurringInvoices: {
+        activeCount: activeRecurringTemplateCount,
+        dueSoonCount: recurringTemplatesDueSoon.length,
+        overdueForGenerationCount: recurringTemplatesOverdue.length,
+        recentlyGeneratedDraftInvoiceCount: recentlyGeneratedDraftInvoices.length,
+        topItems: [...recurringTemplatesOverdue, ...recurringTemplatesDueSoon].slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT).map((template) => ({
+          id: template.id,
+          number: template.templateNumber,
+          customerName: displayName(template.customer),
+          amount: this.decimalString(template.total),
+          status: template.status,
+          nextRunDate: template.nextRunDate.toISOString(),
+          templateName: template.name,
+          href: `/sales/recurring-invoices/${template.id}`,
+        })),
+        recentDraftInvoices: recentlyGeneratedDraftInvoices.map((invoice) => ({
+          id: invoice.id,
+          number: invoice.invoiceNumber,
+          customerName: displayName(invoice.customer),
+          amount: this.decimalString(invoice.total),
+          status: invoice.status,
+          issueDate: invoice.issueDate.toISOString(),
+          dueDate: nullableIsoString(invoice.dueDate),
+          templateNumber: invoice.recurringInvoiceTemplate?.templateNumber ?? null,
+          templateName: invoice.recurringInvoiceTemplate?.name ?? null,
+          href: `/sales/invoices/${invoice.id}`,
+          sourceHref: invoice.recurringInvoiceTemplate ? `/sales/recurring-invoices/${invoice.recurringInvoiceTemplate.id}` : null,
+        })),
+      },
+      deliveryNotes: {
+        draftCount: draftDeliveryNotes.length,
+        issuedNotDeliveredCount: issuedDeliveryNotes.length,
+        overdueDeliveryCount: overdueDeliveryNotes.length,
+        topItems: [...overdueDeliveryNotes, ...issuedDeliveryNotes, ...draftDeliveryNotes]
+          .filter(uniqueById())
+          .slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT)
+          .map((deliveryNote) => ({
+            id: deliveryNote.id,
+            number: deliveryNote.deliveryNoteNumber,
+            customerName: displayName(deliveryNote.customer),
+            status: deliveryNote.status,
+            issueDate: deliveryNote.issueDate.toISOString(),
+            deliveryDate: nullableIsoString(deliveryNote.deliveryDate),
+            href: `/sales/delivery-notes/${deliveryNote.id}`,
+          })),
+      },
+      customers: {
+        topOutstanding: topOutstandingCustomers,
+      },
+    };
+  }
+
+  private topOutstandingCustomers(
+    outstandingInvoices: Array<{
+      customer: { id: string; name: string; displayName: string | null };
+      balanceDue: Prisma.Decimal.Value;
+    }>,
+    overdueInvoices: Array<{
+      customer: { id: string; name: string; displayName: string | null };
+      balanceDue: Prisma.Decimal.Value;
+    }>,
+    openCollectionCasesByCustomer: Map<string, number>,
+  ): SalesAttentionCustomerItem[] {
+    const customers = new Map<string, SalesAttentionCustomerItem>();
+
+    for (const invoice of outstandingInvoices) {
+      const id = invoice.customer.id;
+      const existing = customers.get(id) ?? {
+        id,
+        customerName: displayName(invoice.customer),
+        outstandingBalance: "0.0000",
+        overdueAmount: "0.0000",
+        openCollectionCaseCount: openCollectionCasesByCustomer.get(id) ?? 0,
+        href: `/customers/${id}`,
+      };
+      existing.outstandingBalance = this.decimalString(this.decimal(existing.outstandingBalance).plus(invoice.balanceDue));
+      customers.set(id, existing);
+    }
+
+    for (const invoice of overdueInvoices) {
+      const existing = customers.get(invoice.customer.id);
+      if (existing) {
+        existing.overdueAmount = this.decimalString(this.decimal(existing.overdueAmount).plus(invoice.balanceDue));
+      }
+    }
+
+    return [...customers.values()]
+      .sort((a, b) => this.decimal(b.outstandingBalance).cmp(a.outstandingBalance))
+      .slice(0, DASHBOARD_SALES_ATTENTION_TOP_LIMIT);
   }
 
   private async purchaseSummary(organizationId: string, monthStart: Date, todayStart: Date) {
@@ -847,6 +1267,7 @@ export class DashboardService {
 
   private attentionItems(input: {
     sales: Awaited<ReturnType<DashboardService["salesSummary"]>>;
+    salesAttention: Awaited<ReturnType<DashboardService["salesAttentionSummary"]>>;
     purchases: Awaited<ReturnType<DashboardService["purchaseSummary"]>>;
     banking: Awaited<ReturnType<DashboardService["bankingSummary"]>>;
     inventory: Awaited<ReturnType<DashboardService["inventorySummary"]>>;
@@ -871,6 +1292,42 @@ export class DashboardService {
         title: "Overdue invoices need follow-up",
         description: `${input.sales.overdueInvoiceCount} invoices are overdue with ${input.sales.overdueInvoiceBalance} still outstanding.`,
         href: "/reports/aged-receivables",
+      });
+    }
+    if (input.salesAttention.collections.overdueFollowUpCount > 0 || input.salesAttention.collections.dueTodayCount > 0) {
+      items.push({
+        type: "COLLECTION_FOLLOWUPS",
+        severity: input.salesAttention.collections.overdueFollowUpCount > 0 ? "warning" : "info",
+        title: "Collection follow-ups need review",
+        description: `${input.salesAttention.collections.dueTodayCount} due today and ${input.salesAttention.collections.overdueFollowUpCount} overdue follow-ups are tracked without sending reminders.`,
+        href: "/sales/collections",
+      });
+    }
+    if (input.salesAttention.quotes.awaitingAcceptanceCount > 0 || input.salesAttention.quotes.expiringSoonCount > 0) {
+      items.push({
+        type: "QUOTES_AWAITING_ACTION",
+        severity: "info",
+        title: "Quotes awaiting action",
+        description: `${input.salesAttention.quotes.awaitingAcceptanceCount} sent quotes await acceptance and ${input.salesAttention.quotes.expiringSoonCount} expire soon.`,
+        href: "/sales/quotes",
+      });
+    }
+    if (input.salesAttention.recurringInvoices.overdueForGenerationCount > 0 || input.salesAttention.recurringInvoices.dueSoonCount > 0) {
+      items.push({
+        type: "RECURRING_TEMPLATES_DUE",
+        severity: input.salesAttention.recurringInvoices.overdueForGenerationCount > 0 ? "warning" : "info",
+        title: "Recurring templates due for manual generation",
+        description: `${input.salesAttention.recurringInvoices.dueSoonCount} due soon and ${input.salesAttention.recurringInvoices.overdueForGenerationCount} overdue templates require manual generation.`,
+        href: "/sales/recurring-invoices",
+      });
+    }
+    if (input.salesAttention.deliveryNotes.draftCount > 0 || input.salesAttention.deliveryNotes.issuedNotDeliveredCount > 0) {
+      items.push({
+        type: "DELIVERY_NOTES_AWAITING_ACTION",
+        severity: input.salesAttention.deliveryNotes.overdueDeliveryCount > 0 ? "warning" : "info",
+        title: "Delivery notes awaiting fulfillment action",
+        description: `${input.salesAttention.deliveryNotes.draftCount} drafts and ${input.salesAttention.deliveryNotes.issuedNotDeliveredCount} issued delivery notes remain non-posting fulfillment records.`,
+        href: "/sales/delivery-notes",
       });
     }
     if (input.purchases.overdueBillCount > 0) {
@@ -1009,6 +1466,47 @@ export class DashboardService {
       overdueInvoiceBalance: "0.0000",
       salesThisMonth: "0.0000",
       customerPaymentThisMonth: "0.0000",
+    };
+  }
+
+  private emptySalesAttentionSummary(): SalesAttentionSummary {
+    return {
+      readOnly: true,
+      noMutation: true,
+      helperText:
+        "Dashboard attention items are read-only workflow signals. They do not send emails, collect payments, post journals, file VAT, call ZATCA, or move inventory.",
+      overdueInvoices: { count: 0, total: "0.0000", topItems: [] as SalesAttentionTopItem[] },
+      collections: {
+        openCount: 0,
+        dueTodayCount: 0,
+        overdueFollowUpCount: 0,
+        promisedToPayTotal: "0.0000",
+        disputedCount: 0,
+        topItems: [] as SalesAttentionTopItem[],
+      },
+      quotes: {
+        awaitingAcceptanceCount: 0,
+        expiringSoonCount: 0,
+        acceptedNotConvertedCount: 0,
+        topItems: [] as SalesAttentionTopItem[],
+      },
+      recurringInvoices: {
+        activeCount: 0,
+        dueSoonCount: 0,
+        overdueForGenerationCount: 0,
+        recentlyGeneratedDraftInvoiceCount: 0,
+        topItems: [] as SalesAttentionTopItem[],
+        recentDraftInvoices: [] as SalesAttentionTopItem[],
+      },
+      deliveryNotes: {
+        draftCount: 0,
+        issuedNotDeliveredCount: 0,
+        overdueDeliveryCount: 0,
+        topItems: [] as SalesAttentionTopItem[],
+      },
+      customers: {
+        topOutstanding: [] as SalesAttentionCustomerItem[],
+      },
     };
   }
 
@@ -1151,6 +1649,55 @@ function lastSixUtcMonths(now: Date): DashboardMonth[] {
   });
 }
 
+function dueDateFor(record: { dueDate: Date | null; issueDate: Date }): Date {
+  return record.dueDate ?? record.issueDate;
+}
+
+function isWithinDay(date: Date | null | undefined, todayStart: Date, todayEnd: Date): boolean {
+  return Boolean(date && date >= todayStart && date <= todayEnd);
+}
+
+function compareCollectionAttentionCases(a: CollectionAttentionRow, b: CollectionAttentionRow, todayStart: Date, todayEnd: Date): number {
+  return (
+    collectionFollowUpRank(a, todayStart, todayEnd) - collectionFollowUpRank(b, todayStart, todayEnd) ||
+    collectionPriorityRank(a.priority) - collectionPriorityRank(b.priority) ||
+    compareNullableDates(collectionFollowUpDate(a), collectionFollowUpDate(b)) ||
+    a.caseNumber.localeCompare(b.caseNumber)
+  );
+}
+
+function collectionFollowUpRank(collectionCase: CollectionAttentionRow, todayStart: Date, todayEnd: Date): number {
+  const followUpDate = collectionFollowUpDate(collectionCase);
+  if (followUpDate && followUpDate < todayStart) {
+    return 0;
+  }
+  if (isWithinDay(followUpDate, todayStart, todayEnd)) {
+    return 1;
+  }
+  return 2;
+}
+
+function collectionFollowUpDate(collectionCase: CollectionAttentionRow): Date | null {
+  return collectionCase.nextActionAt ?? collectionCase.followUpDate;
+}
+
+function collectionPriorityRank(priority: string): number {
+  return COLLECTION_PRIORITY_RANK[priority] ?? 99;
+}
+
+function compareNullableDates(a: Date | null | undefined, b: Date | null | undefined): number {
+  if (a && b) {
+    return a.getTime() - b.getTime();
+  }
+  if (a) {
+    return -1;
+  }
+  if (b) {
+    return 1;
+  }
+  return 0;
+}
+
 function startOfUtcDay(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
@@ -1167,6 +1714,10 @@ function addUtcMonths(date: Date, delta: number): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1));
 }
 
+function addUtcDays(date: Date, delta: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + delta));
+}
+
 function endOfUtcMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 }
@@ -1177,6 +1728,26 @@ function monthKey(date: Date): string {
 
 function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function nullableIsoString(date: Date | null | undefined): string | null {
+  return date ? date.toISOString() : null;
+}
+
+function displayName(contact: { name: string; displayName: string | null }): string {
+  return contact.displayName ?? contact.name;
+}
+
+function countBy(values: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function uniqueById<T extends { id: string }>(): (value: T, index: number, values: T[]) => boolean {
+  return (value, index, values) => values.findIndex((candidate) => candidate.id === value.id) === index;
 }
 
 function hasFifteenDigitVat(value: string | null | undefined): boolean {

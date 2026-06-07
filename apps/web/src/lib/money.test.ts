@@ -44,6 +44,22 @@ describe("money utilities", () => {
     });
   });
 
+  it("previews tax-inclusive and no-tax invoice totals", () => {
+    expect(calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "115.0000", taxRate: "15.0000" }], "TAX_INCLUSIVE")).toMatchObject({
+      subtotal: "115.0000",
+      taxableTotal: "100.0000",
+      taxTotal: "15.0000",
+      total: "115.0000",
+      valid: true,
+    });
+    expect(calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "100.0000", taxRate: "15.0000" }], "NO_TAX")).toMatchObject({
+      taxableTotal: "100.0000",
+      taxTotal: "0.0000",
+      total: "100.0000",
+      valid: true,
+    });
+  });
+
   it("allows zero-price draft invoice preview lines", () => {
     expect(calculateInvoicePreview([{ quantity: "1.0000", unitPrice: "0.0000" }])).toMatchObject({
       subtotal: "0.0000",

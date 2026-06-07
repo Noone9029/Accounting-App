@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { SalesInvoiceTaxMode } from "@prisma/client";
 import { SalesInvoiceLineDto } from "./sales-invoice-line.dto";
 
 export class CreateSalesInvoiceDto {
@@ -29,6 +30,10 @@ export class CreateSalesInvoiceDto {
   @IsOptional()
   @IsString()
   terms?: string;
+
+  @IsOptional()
+  @IsEnum(SalesInvoiceTaxMode)
+  taxMode?: SalesInvoiceTaxMode;
 
   @IsArray()
   @ArrayMinSize(1)

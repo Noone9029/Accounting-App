@@ -10,11 +10,28 @@ const PREFIX_PATTERN = /^[A-Z0-9/-]+$/;
 const MAX_PREFIX_LENGTH = 12;
 const MIN_PADDING = 3;
 const MAX_PADDING = 10;
+const DEFAULT_SEQUENCE_SETTINGS: Partial<Record<NumberSequenceScope, { prefix: string; nextNumber: number; padding: number }>> = {
+  [NumberSequenceScope.SALES_QUOTE]: { prefix: "QUO-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.RECURRING_INVOICE_TEMPLATE]: { prefix: "REC-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.DELIVERY_NOTE]: { prefix: "DN-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.COLLECTION_CASE]: { prefix: "COL-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.PURCHASE_RETURN]: { prefix: "PRN-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.SALES_INVENTORY_RETURN]: { prefix: "SRN-", nextNumber: 1, padding: 6 },
+};
 
 export interface NumberSequenceUpdateInput {
   prefix?: string;
   nextNumber?: number;
   padding?: number;
+}
+
+export interface NumberSequencePreview {
+  scope: NumberSequenceScope;
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  exampleNextNumber: string;
+  reserved: false;
 }
 
 @Injectable()
@@ -25,14 +42,15 @@ export class NumberSequenceService {
   ) {}
 
   async next(organizationId: string, scope: NumberSequenceScope, executor: PrismaExecutor = this.prisma): Promise<string> {
+    const defaults = defaultSequenceSettings(scope);
     const sequence = await executor.numberSequence.upsert({
       where: { organizationId_scope: { organizationId, scope } },
       create: {
         organizationId,
         scope,
-        prefix: `${scope}-`,
-        nextNumber: 2,
-        padding: 6,
+        prefix: defaults.prefix,
+        nextNumber: defaults.nextNumber + 1,
+        padding: defaults.padding,
       },
       update: {
         nextNumber: { increment: 1 },
@@ -41,6 +59,25 @@ export class NumberSequenceService {
 
     const issuedNumber = sequence.nextNumber - 1;
     return formatSequenceExample(sequence.prefix, issuedNumber, sequence.padding);
+  }
+
+  async preview(organizationId: string, scope: NumberSequenceScope, executor: PrismaExecutor = this.prisma): Promise<NumberSequencePreview> {
+    const sequence = await executor.numberSequence.findUnique({
+      where: { organizationId_scope: { organizationId, scope } },
+    });
+    const defaults = defaultSequenceSettings(scope);
+    const prefix = sequence?.prefix ?? defaults.prefix;
+    const nextNumber = sequence?.nextNumber ?? defaults.nextNumber;
+    const padding = sequence?.padding ?? defaults.padding;
+
+    return {
+      scope,
+      prefix,
+      nextNumber,
+      padding,
+      exampleNextNumber: formatSequenceExample(prefix, nextNumber, padding),
+      reserved: false,
+    };
   }
 
   async list(organizationId: string) {
@@ -176,4 +213,8 @@ export class NumberSequenceService {
 
 export function formatSequenceExample(prefix: string, nextNumber: number, padding: number): string {
   return `${prefix}${String(nextNumber).padStart(padding, "0")}`;
+}
+
+function defaultSequenceSettings(scope: NumberSequenceScope): { prefix: string; nextNumber: number; padding: number } {
+  return DEFAULT_SEQUENCE_SETTINGS[scope] ?? { prefix: `${scope}-`, nextNumber: 1, padding: 6 };
 }

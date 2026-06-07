@@ -64,6 +64,12 @@ import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
 import { VerifyZatcaStorageControlEvidenceDto } from "./dto/verify-zatca-storage-control-evidence.dto";
+import {
+  zatcaCredentialCustodyProviderTypes,
+  zatcaCredentialLifecycleStatuses,
+  type UpdateZatcaCredentialLifecycleDto,
+} from "./dto/update-zatca-credential-lifecycle.dto";
+import { ZatcaCredentialLifecycleActionDto } from "./dto/zatca-credential-lifecycle-action.dto";
 import { buildZatcaInvoiceInputFromFinalizedInvoice } from "./zatca-invoice-xml.builder";
 import { sanitizeZatcaSdkOutput, ZatcaSdkService } from "../zatca-sdk/zatca-sdk.service";
 import {
@@ -273,6 +279,39 @@ const safeComplianceCsidCustodyRecordSelect = {
   egsUnit: { select: { id: true, name: true, environment: true } },
 } satisfies Prisma.ZatcaComplianceCsidCustodyRecordSelect;
 
+const safeZatcaCredentialLifecycleSelect = {
+  id: true,
+  organizationId: true,
+  egsUnitId: true,
+  environment: true,
+  lifecycleStatus: true,
+  custodyProviderType: true,
+  custodyReferenceAlias: true,
+  certificateFingerprint: true,
+  certificateSerialNumber: true,
+  certificateIssuer: true,
+  certificateSubject: true,
+  certificateNotBefore: true,
+  certificateExpiresAt: true,
+  certificateRequestId: true,
+  complianceCsidStatus: true,
+  productionCsidStatus: true,
+  lastReadinessCheckAt: true,
+  disabledAt: true,
+  revokedAt: true,
+  statusReason: true,
+  errorCode: true,
+  productionCompliance: true,
+  metadataOnly: true,
+  createdById: true,
+  updatedById: true,
+  disabledById: true,
+  revokedById: true,
+  createdAt: true,
+  updatedAt: true,
+  egsUnit: { select: { id: true, name: true, environment: true, isActive: true } },
+};
+
 type SafeEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof safeEgsUnitSelect }>;
 type InternalEgsUnitRecord = Prisma.ZatcaEgsUnitGetPayload<{ select: typeof internalEgsUnitSelect }>;
 type SafeCsrConfigReviewRecord = Prisma.ZatcaCsrConfigReviewGetPayload<{ select: typeof safeCsrConfigReviewSelect }>;
@@ -280,6 +319,40 @@ type SafeSignedArtifactDraftRecord = Prisma.ZatcaSignedArtifactDraftGetPayload<{
 type SafeSignedArtifactStoragePolicyApprovalRecord = Prisma.ZatcaSignedArtifactStoragePolicyApprovalGetPayload<{ select: typeof safeSignedArtifactStoragePolicyApprovalSelect }>;
 type SafeSignedArtifactStorageControlEvidenceRecord = Prisma.ZatcaSignedArtifactStorageControlEvidenceGetPayload<{ select: typeof safeSignedArtifactStorageControlEvidenceSelect }>;
 type SafeComplianceCsidCustodyRecord = Prisma.ZatcaComplianceCsidCustodyRecordGetPayload<{ select: typeof safeComplianceCsidCustodyRecordSelect }>;
+type ZatcaCredentialLifecycleStatus = (typeof zatcaCredentialLifecycleStatuses)[number];
+type ZatcaCredentialCustodyProviderType = (typeof zatcaCredentialCustodyProviderTypes)[number];
+interface SafeZatcaCredentialLifecycleRecord {
+  id: string;
+  organizationId: string;
+  egsUnitId: string;
+  environment: string;
+  lifecycleStatus: ZatcaCredentialLifecycleStatus;
+  custodyProviderType: ZatcaCredentialCustodyProviderType;
+  custodyReferenceAlias: string | null;
+  certificateFingerprint: string | null;
+  certificateSerialNumber: string | null;
+  certificateIssuer: string | null;
+  certificateSubject: string | null;
+  certificateNotBefore: Date | string | null;
+  certificateExpiresAt: Date | string | null;
+  certificateRequestId: string | null;
+  complianceCsidStatus: ZatcaCredentialLifecycleStatus;
+  productionCsidStatus: ZatcaCredentialLifecycleStatus;
+  lastReadinessCheckAt: Date | string | null;
+  disabledAt: Date | string | null;
+  revokedAt: Date | string | null;
+  statusReason: string | null;
+  errorCode: string | null;
+  productionCompliance: boolean;
+  metadataOnly: boolean;
+  createdById: string | null;
+  updatedById: string | null;
+  disabledById: string | null;
+  revokedById: string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  egsUnit?: { id: string; name: string; environment: string; isActive?: boolean } | null;
+}
 type ZatcaKeyCustodyMode = "MISSING" | "RAW_DATABASE_PEM";
 type ZatcaCsrPlanFieldStatus = "AVAILABLE" | "MISSING" | "NEEDS_REVIEW";
 const officialCsrConfigKeyOrder = [
@@ -504,7 +577,9 @@ export class ZatcaService {
     const sellerProfile = this.buildSellerProfileReadiness(profile);
     const egs = this.buildEgsReadinessSection(activeEgs);
     const xml = this.buildSettingsXmlReadinessSection(localXmlCount);
-    const sdk = this.buildSdkReadinessSection(this.zatcaSdkService?.getReadiness() ?? null);
+    const sdkReadiness = this.zatcaSdkService?.getReadiness() ?? null;
+    const sdk = this.buildSdkReadinessSection(sdkReadiness);
+    const generatedFixtureValidation = this.buildGeneratedFixtureValidationMetadata(sdkReadiness);
     const signing = this.buildSigningReadinessSection(activeEgs);
     const keyCustody = this.buildKeyCustodyReadinessSection(activeEgs);
     const csr = this.buildCsrReadinessSection(profile, activeEgs);
@@ -543,6 +618,29 @@ export class ZatcaService {
       status,
       localOnly: true,
       productionCompliance: false,
+      environmentPolicyDocumented: true,
+      keyCustodyDecisionDocumented: true,
+      invoiceEligibilityDocumented: true,
+      auditEvidenceStandardDocumented: true,
+      sandboxOnboardingRunbookDocumented: true,
+      sdkValidationReadinessDocumented: true,
+      sdkValidationPipelineDocumented: true,
+      sdkValidationCommandAvailable: true,
+      sdkValidationEvidenceFormatDocumented: true,
+      officialFixtureRegistryDocumented: true,
+      latestSdkValidationEvidenceStatus: "NOT_RUN",
+      sdkValidationNoNetworkOnly: true,
+      generatedStandardInvoiceFixtureStatus: generatedFixtureValidation.generatedStandardInvoiceFixtureStatus,
+      generatedCreditNoteFixtureStatus: generatedFixtureValidation.generatedCreditNoteFixtureStatus,
+      lastGeneratedFixtureEvidenceStatus: generatedFixtureValidation.lastGeneratedFixtureEvidenceStatus,
+      generatedFixtureJavaBlocker: generatedFixtureValidation.generatedFixtureJavaBlocker,
+      generatedFixtureNoNetworkOnly: true,
+      generatedFixtureProductionCompliance: false,
+      productionComplianceEnabled: false,
+      realNetworkCallsEnabled: false,
+      signingEnabled: false,
+      clearanceReportingEnabled: false,
+      pdfA3Enabled: false,
       sellerProfile,
       egs,
       xml,
@@ -1101,6 +1199,137 @@ export class ZatcaService {
         "Implement a separate disabled-by-default sandbox adapter phase; production CSID onboarding remains out of scope.",
       ],
     };
+  }
+
+  async getZatcaCredentialLifecycleFoundation(organizationId: string) {
+    const [activeEgs, lifecycles] = await Promise.all([
+      this.prisma.zatcaEgsUnit.findFirst({
+        where: { organizationId, isActive: true },
+        orderBy: { updatedAt: "desc" },
+        select: internalEgsUnitSelect,
+      }),
+      this.getZatcaCredentialLifecycleModel()?.findMany({
+        where: { organizationId },
+        orderBy: [{ updatedAt: "desc" }],
+        select: safeZatcaCredentialLifecycleSelect,
+      }) ?? Promise.resolve([]),
+    ]);
+    const safeLifecycles = lifecycles.map((record) => this.toSafeZatcaCredentialLifecycle(record));
+    const activeLifecycle = activeEgs
+      ? safeLifecycles.find((record) => record.egsUnitId === activeEgs.id && record.environment === activeEgs.environment) ??
+        this.buildDefaultZatcaCredentialLifecycle(activeEgs)
+      : null;
+
+    return {
+      ...this.zatcaCredentialLifecycleSafetyEnvelope({ readOnly: true }),
+      modelAvailable: Boolean(this.getZatcaCredentialLifecycleModel()),
+      schemaMigrationRequired: !this.getZatcaCredentialLifecycleModel(),
+      activeEgsUnit: activeEgs
+        ? {
+            id: activeEgs.id,
+            name: activeEgs.name,
+            environment: activeEgs.environment,
+            status: activeEgs.status,
+            isActive: activeEgs.isActive,
+            hasCsr: Boolean(activeEgs.csrPem),
+            hasComplianceCsid: Boolean(activeEgs.complianceCsidPem),
+            hasProductionCsid: Boolean(activeEgs.productionCsidPem),
+            hasPrivateKey: hasText(activeEgs.privateKeyPem),
+            keyCustodyMode: this.getKeyCustodyMode(activeEgs),
+          }
+        : null,
+      activeCredentialLifecycle: activeLifecycle,
+      credentialLifecycles: safeLifecycles,
+      lifecycleStates: [...zatcaCredentialLifecycleStatuses],
+      custodyProviderTypes: [...zatcaCredentialCustodyProviderTypes],
+      blockedCapabilities: [
+        "real OTP capture",
+        "real CSID onboarding",
+        "real ZATCA network calls",
+        "private key body storage",
+        "signing",
+        "clearance/reporting",
+        "PDF/A-3",
+        "production compliance claims",
+      ],
+      recommendedNextSteps: [
+        "Keep lifecycle records metadata-only until a real custody provider is approved.",
+        "Use external KMS/HSM or an equivalent signing boundary before production private-key custody.",
+        "Do not request real CSIDs until OTP handling, custody provider approval, audit evidence, and rollback procedures are approved.",
+      ],
+    };
+  }
+
+  async getEgsUnitCredentialLifecycleMetadata(organizationId: string, egsUnitId: string) {
+    const egsUnit = await this.requireEgsUnitForCredentialLifecycle(organizationId, egsUnitId);
+    const model = this.getZatcaCredentialLifecycleModel();
+    const lifecycle = model
+      ? await model.findFirst({
+          where: { organizationId, egsUnitId, environment: egsUnit.environment },
+          select: safeZatcaCredentialLifecycleSelect,
+        })
+      : null;
+
+    return this.wrapZatcaCredentialLifecycleResponse(
+      lifecycle ? this.toSafeZatcaCredentialLifecycle(lifecycle) : this.buildDefaultZatcaCredentialLifecycle(egsUnit),
+      { readOnly: true },
+    );
+  }
+
+  async upsertEgsUnitCredentialLifecycleMetadata(
+    organizationId: string,
+    actorUserId: string,
+    egsUnitId: string,
+    dto: UpdateZatcaCredentialLifecycleDto,
+  ) {
+    this.assertSafeZatcaCredentialLifecycleMetadata(dto);
+    const egsUnit = await this.requireEgsUnitForCredentialLifecycle(organizationId, egsUnitId);
+    const normalized = this.normalizeZatcaCredentialLifecycleMetadata(dto, egsUnit);
+    const model = this.requireZatcaCredentialLifecycleModel();
+    const saved = await model.upsert({
+      where: {
+        organizationId_egsUnitId_environment: {
+          organizationId,
+          egsUnitId,
+          environment: egsUnit.environment,
+        },
+      },
+      create: {
+        organizationId,
+        egsUnitId,
+        environment: egsUnit.environment,
+        ...normalized,
+        productionCompliance: false,
+        metadataOnly: true,
+        createdById: actorUserId,
+        updatedById: actorUserId,
+      },
+      update: {
+        ...normalized,
+        productionCompliance: false,
+        metadataOnly: true,
+        updatedById: actorUserId,
+      },
+      select: safeZatcaCredentialLifecycleSelect,
+    });
+    const lifecycle = this.toSafeZatcaCredentialLifecycle(saved);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "UPSERT_METADATA",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_CREDENTIAL_LIFECYCLE,
+      entityId: lifecycle.id,
+      after: lifecycle,
+    });
+    return this.wrapZatcaCredentialLifecycleResponse(lifecycle, { readOnly: false });
+  }
+
+  async disableCredentialLifecycleMetadata(organizationId: string, actorUserId: string, lifecycleId: string, dto: ZatcaCredentialLifecycleActionDto = {}) {
+    return this.updateCredentialLifecycleAction(organizationId, actorUserId, lifecycleId, "DISABLED", dto);
+  }
+
+  async revokeCredentialLifecycleMetadata(organizationId: string, actorUserId: string, lifecycleId: string, dto: ZatcaCredentialLifecycleActionDto = {}) {
+    return this.updateCredentialLifecycleAction(organizationId, actorUserId, lifecycleId, "REVOKED", dto);
   }
 
   async listComplianceCsidCustodyRecords(organizationId: string, egsUnitId: string) {
@@ -5719,6 +5948,57 @@ export class ZatcaService {
     return createZatcaReadinessSection("XML", checks);
   }
 
+  private buildGeneratedFixtureValidationMetadata(
+    sdkReadiness: {
+      javaFound?: boolean;
+      javaVersion?: string | null;
+      javaVersionSupported?: boolean;
+      canRunLocalValidation?: boolean;
+      requiredJavaRange?: string;
+      blockingReasons?: string[];
+    } | null,
+  ) {
+    const standardFixtureExists = this.generatedFixtureExists("ledgerbyte-generated-standard-invoice.expected.xml");
+    const creditNoteFixtureExists = this.generatedFixtureExists("ledgerbyte-generated-credit-note.expected.xml");
+    const generatedFixtureJavaBlocker =
+      sdkReadiness?.javaFound && sdkReadiness.javaVersionSupported === false
+        ? `Detected Java ${sdkReadiness.javaVersion ?? "unknown"} is outside the SDK-supported range ${sdkReadiness.requiredJavaRange ?? ">=11 <15"}.`
+        : null;
+    const statusFor = (exists: boolean) => {
+      if (!exists) return "FIXTURE_NOT_FOUND";
+      if (!sdkReadiness) return "BLOCKED_SDK_READINESS_UNAVAILABLE";
+      if (generatedFixtureJavaBlocker) return "BLOCKED_UNSUPPORTED_JAVA";
+      if (!sdkReadiness.canRunLocalValidation) return "BLOCKED_SDK_NOT_READY";
+      return "READY_TO_VALIDATE";
+    };
+
+    return {
+      generatedStandardInvoiceFixtureStatus: statusFor(standardFixtureExists),
+      generatedCreditNoteFixtureStatus: statusFor(creditNoteFixtureExists),
+      lastGeneratedFixtureEvidenceStatus: standardFixtureExists && creditNoteFixtureExists ? (generatedFixtureJavaBlocker ? "BLOCKED_UNSUPPORTED_JAVA" : "NOT_RUN") : "FIXTURE_NOT_FOUND",
+      generatedFixtureJavaBlocker,
+    };
+  }
+
+  private generatedFixtureExists(fileName: string): boolean {
+    const relativeParts = ["packages", "zatca-core", "fixtures", fileName];
+    const candidateRoots = [
+      process.cwd(),
+      join(process.cwd(), ".."),
+      join(process.cwd(), "..", ".."),
+      join(__dirname, "..", "..", "..", ".."),
+      join(__dirname, "..", "..", "..", "..", ".."),
+    ];
+
+    return candidateRoots.some((root) => {
+      try {
+        return existsSync(join(root, ...relativeParts));
+      } catch {
+        return false;
+      }
+    });
+  }
+
   private buildKeyCustodyReadinessSection(activeEgs: InternalEgsUnitRecord | null): ZatcaReadinessSection {
     const checks: ZatcaReadinessCheck[] = [];
     if (!activeEgs) {
@@ -6470,6 +6750,338 @@ export class ZatcaService {
     if (unsafeValuePattern.test(value)) {
       throw new BadRequestException("Evidence summary must not include XML bodies, QR payload bodies, PEM/certificate material, tokens, OTPs, CSIDs, access keys, or credentials.");
     }
+  }
+
+  private getZatcaCredentialLifecycleModel() {
+    return (
+      this.prisma as unknown as {
+        zatcaCredentialLifecycle?: {
+          findMany(args: unknown): Promise<SafeZatcaCredentialLifecycleRecord[]>;
+          findFirst(args: unknown): Promise<SafeZatcaCredentialLifecycleRecord | null>;
+          count?(args: unknown): Promise<number>;
+          upsert(args: unknown): Promise<SafeZatcaCredentialLifecycleRecord>;
+          update(args: unknown): Promise<SafeZatcaCredentialLifecycleRecord>;
+        };
+      }
+    ).zatcaCredentialLifecycle ?? null;
+  }
+
+  private requireZatcaCredentialLifecycleModel() {
+    const model = this.getZatcaCredentialLifecycleModel();
+    if (!model) {
+      throw new NotImplementedException("ZATCA credential lifecycle metadata model is not available. Run Prisma generate/migrate before using this endpoint.");
+    }
+    return model;
+  }
+
+  private async requireEgsUnitForCredentialLifecycle(organizationId: string, egsUnitId: string) {
+    const egsUnit = await this.prisma.zatcaEgsUnit.findFirst({ where: { id: egsUnitId, organizationId }, select: internalEgsUnitSelect });
+    if (!egsUnit) {
+      throw new NotFoundException("ZATCA EGS unit not found.");
+    }
+    return egsUnit;
+  }
+
+  private async updateCredentialLifecycleAction(
+    organizationId: string,
+    actorUserId: string,
+    lifecycleId: string,
+    lifecycleStatus: "DISABLED" | "REVOKED",
+    dto: ZatcaCredentialLifecycleActionDto,
+  ) {
+    this.assertSafeZatcaCredentialLifecycleMetadata(dto, new Set(["statusReason"]));
+    const model = this.requireZatcaCredentialLifecycleModel();
+    const existing = await model.findFirst({ where: { id: lifecycleId, organizationId }, select: safeZatcaCredentialLifecycleSelect });
+    if (!existing) {
+      throw new NotFoundException("ZATCA credential lifecycle metadata record not found.");
+    }
+    const now = new Date();
+    const statusReason = this.normalizeCredentialLifecycleText(dto.statusReason, "statusReason", 500) ?? existing.statusReason ?? "Metadata-only lifecycle action; sensitive material remains blocked.";
+    const saved = await model.update({
+      where: { id: lifecycleId },
+      data: {
+        lifecycleStatus,
+        statusReason,
+        productionCompliance: false,
+        metadataOnly: true,
+        updatedById: actorUserId,
+        ...(lifecycleStatus === "DISABLED" ? { disabledAt: now, disabledById: actorUserId } : {}),
+        ...(lifecycleStatus === "REVOKED" ? { revokedAt: now, revokedById: actorUserId } : {}),
+      },
+      select: safeZatcaCredentialLifecycleSelect,
+    });
+    const lifecycle = this.toSafeZatcaCredentialLifecycle(saved);
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: lifecycleStatus === "DISABLED" ? "DISABLE_METADATA" : "REVOKE_METADATA",
+      entityType: AUDIT_ENTITY_TYPES.ZATCA_CREDENTIAL_LIFECYCLE,
+      entityId: lifecycle.id,
+      before: this.toSafeZatcaCredentialLifecycle(existing),
+      after: lifecycle,
+    });
+    return this.wrapZatcaCredentialLifecycleResponse(lifecycle, { readOnly: false });
+  }
+
+  private normalizeZatcaCredentialLifecycleMetadata(dto: UpdateZatcaCredentialLifecycleDto, egsUnit: InternalEgsUnitRecord): Record<string, unknown> {
+    const lifecycleStatus = this.normalizeCredentialLifecycleStatus(dto.lifecycleStatus, "lifecycleStatus", "NOT_CONFIGURED");
+    const custodyProviderType = this.normalizeCredentialCustodyProviderType(dto.custodyProviderType);
+    const complianceCsidStatus = this.normalizeCredentialLifecycleStatus(dto.complianceCsidStatus, "complianceCsidStatus", this.defaultComplianceCsidStatus(lifecycleStatus));
+    const productionCsidStatus = this.normalizeCredentialLifecycleStatus(dto.productionCsidStatus, "productionCsidStatus", this.defaultProductionCsidStatus(lifecycleStatus));
+
+    if (egsUnit.environment === "PRODUCTION" && custodyProviderType === "DUMMY_LOCAL") {
+      throw new BadRequestException("DUMMY_LOCAL custody metadata is not allowed for production EGS units.");
+    }
+    if (productionCsidStatus === "PRODUCTION_CSID_ACTIVE" && custodyProviderType === "DUMMY_LOCAL") {
+      throw new BadRequestException("DUMMY_LOCAL custody metadata cannot be marked as production CSID active.");
+    }
+
+    return {
+      lifecycleStatus,
+      custodyProviderType,
+      custodyReferenceAlias: this.normalizeCredentialLifecycleText(dto.custodyReferenceAlias, "custodyReferenceAlias", 160),
+      certificateFingerprint: this.normalizeCredentialLifecycleText(dto.certificateFingerprint, "certificateFingerprint", 128),
+      certificateSerialNumber: this.normalizeCredentialLifecycleText(dto.certificateSerialNumber, "certificateSerialNumber", 128),
+      certificateIssuer: this.normalizeCredentialLifecycleText(dto.certificateIssuer, "certificateIssuer", 256),
+      certificateSubject: this.normalizeCredentialLifecycleText(dto.certificateSubject, "certificateSubject", 256),
+      certificateNotBefore: this.parseCredentialLifecycleDate(dto.certificateNotBefore, "certificateNotBefore"),
+      certificateExpiresAt: this.parseCredentialLifecycleDate(dto.certificateExpiresAt, "certificateExpiresAt"),
+      certificateRequestId: this.normalizeCredentialLifecycleText(dto.certificateRequestId, "certificateRequestId", 128),
+      complianceCsidStatus,
+      productionCsidStatus,
+      lastReadinessCheckAt: this.parseCredentialLifecycleDate(dto.lastReadinessCheckAt, "lastReadinessCheckAt"),
+      statusReason: this.normalizeCredentialLifecycleText(dto.statusReason, "statusReason", 500),
+      errorCode: this.normalizeCredentialLifecycleText(dto.errorCode, "errorCode", 80),
+      disabledAt: lifecycleStatus === "DISABLED" ? new Date() : null,
+      revokedAt: lifecycleStatus === "REVOKED" ? new Date() : null,
+    };
+  }
+
+  private normalizeCredentialLifecycleStatus(value: unknown, field: string, fallback: ZatcaCredentialLifecycleStatus): ZatcaCredentialLifecycleStatus {
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+    if (typeof value !== "string" || !zatcaCredentialLifecycleStatuses.includes(value as ZatcaCredentialLifecycleStatus)) {
+      throw new BadRequestException(`${field} is not a supported ZATCA credential lifecycle status.`);
+    }
+    return value as ZatcaCredentialLifecycleStatus;
+  }
+
+  private normalizeCredentialCustodyProviderType(value: unknown): ZatcaCredentialCustodyProviderType {
+    if (value === undefined || value === null || value === "") {
+      return "NONE";
+    }
+    if (typeof value !== "string" || !zatcaCredentialCustodyProviderTypes.includes(value as ZatcaCredentialCustodyProviderType)) {
+      throw new BadRequestException("custodyProviderType is not a supported ZATCA custody provider type.");
+    }
+    return value as ZatcaCredentialCustodyProviderType;
+  }
+
+  private defaultComplianceCsidStatus(lifecycleStatus: ZatcaCredentialLifecycleStatus): ZatcaCredentialLifecycleStatus {
+    return lifecycleStatus.startsWith("COMPLIANCE_CSID") ? lifecycleStatus : "NOT_CONFIGURED";
+  }
+
+  private defaultProductionCsidStatus(lifecycleStatus: ZatcaCredentialLifecycleStatus): ZatcaCredentialLifecycleStatus {
+    return lifecycleStatus.startsWith("PRODUCTION_CSID") ? lifecycleStatus : "NOT_CONFIGURED";
+  }
+
+  private normalizeCredentialLifecycleText(value: string | null | undefined, field: string, maxLength: number): string | null {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) {
+      return null;
+    }
+    this.assertZatcaCredentialLifecycleValueSafe(field, trimmed);
+    if (trimmed.length > maxLength) {
+      throw new BadRequestException(`${field} must be ${maxLength} characters or fewer.`);
+    }
+    return trimmed;
+  }
+
+  private parseCredentialLifecycleDate(value: string | null | undefined, field: string): Date | null {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) {
+      return null;
+    }
+    this.assertZatcaCredentialLifecycleValueSafe(field, trimmed);
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${field} must be a valid date-time when provided.`);
+    }
+    return parsed;
+  }
+
+  private assertSafeZatcaCredentialLifecycleMetadata(value: unknown, allowedKeys = new Set([
+    "lifecycleStatus",
+    "custodyProviderType",
+    "custodyReferenceAlias",
+    "certificateFingerprint",
+    "certificateSerialNumber",
+    "certificateIssuer",
+    "certificateSubject",
+    "certificateNotBefore",
+    "certificateExpiresAt",
+    "certificateRequestId",
+    "complianceCsidStatus",
+    "productionCsidStatus",
+    "lastReadinessCheckAt",
+    "errorCode",
+    "statusReason",
+  ]), path = "metadata") {
+    const unsafeKeyPattern = /^(privateKey|rawPrivateKey|privateKeyPem|pem|certificateBody|certificatePem|rawCertificate|rawCertificatePem|csr|csrPem|csrBody|otp|token|secret|password|signedXml|signedXmlBody|qrPayload|qrPayloadBody|requestBody|responseBody|providerPayload|authHeader|cookie)$/i;
+    if (value === null || value === undefined) {
+      return;
+    }
+    if (typeof value === "string") {
+      this.assertZatcaCredentialLifecycleValueSafe(path, value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      throw new BadRequestException("ZATCA credential lifecycle metadata must not include arrays.");
+    }
+    if (typeof value === "object") {
+      for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        if (!allowedKeys.has(key) || unsafeKeyPattern.test(key)) {
+          throw new BadRequestException(`Field ${key} is not allowed in ZATCA credential lifecycle metadata.`);
+        }
+        if (nestedValue && typeof nestedValue === "object") {
+          throw new BadRequestException(`Field ${key} must be a scalar metadata value.`);
+        }
+        if (typeof nestedValue === "string") {
+          this.assertZatcaCredentialLifecycleValueSafe(`${path}.${key}`, nestedValue);
+        }
+      }
+    }
+  }
+
+  private assertZatcaCredentialLifecycleValueSafe(path: string, value: string): void {
+    const unsafeValuePattern = /-----BEGIN [A-Z ]+-----|<\?xml|<Invoice\b|<\w+:Invoice\b|<cbc:EmbeddedDocumentBinaryObject\b|binarySecurityToken\s*=|privateKey\s*=|certificate\s*=|csr\s*=|secret\s*=|token\s*=|\bOTP\s*\d{4,8}\b|Bearer\s+[A-Za-z0-9._-]+|AKIA[0-9A-Z]{16}|signedXml|qrPayload|requestBody|responseBody|arn:aws:|arn:azure:|raw-provider-path/i;
+    if (unsafeValuePattern.test(value)) {
+      throw new BadRequestException(`Sensitive ZATCA credential lifecycle material is not allowed in ${path}.`);
+    }
+  }
+
+  private buildDefaultZatcaCredentialLifecycle(egsUnit: InternalEgsUnitRecord) {
+    return {
+      id: null,
+      organizationId: egsUnit.organizationId,
+      egsUnitId: egsUnit.id,
+      environment: egsUnit.environment,
+      lifecycleStatus: "NOT_CONFIGURED" as ZatcaCredentialLifecycleStatus,
+      custodyProviderType: "NONE" as ZatcaCredentialCustodyProviderType,
+      custodyReferenceAlias: null,
+      certificateFingerprint: null,
+      certificateSerialNumber: null,
+      certificateIssuer: null,
+      certificateSubject: null,
+      certificateNotBefore: null,
+      certificateExpiresAt: null,
+      certificateRequestId: egsUnit.certificateRequestId,
+      complianceCsidStatus: "NOT_CONFIGURED" as ZatcaCredentialLifecycleStatus,
+      productionCsidStatus: "NOT_CONFIGURED" as ZatcaCredentialLifecycleStatus,
+      lastReadinessCheckAt: null,
+      disabledAt: null,
+      revokedAt: null,
+      statusReason: "No metadata-only ZATCA key custody or CSID lifecycle record is configured.",
+      errorCode: null,
+      productionCompliance: false,
+      metadataOnly: true,
+      createdById: null,
+      updatedById: null,
+      disabledById: null,
+      revokedById: null,
+      createdAt: null,
+      updatedAt: null,
+      egsUnit: { id: egsUnit.id, name: egsUnit.name, environment: egsUnit.environment, isActive: egsUnit.isActive },
+      ...this.zatcaCredentialLifecycleRedactionFlags(),
+    };
+  }
+
+  private toSafeZatcaCredentialLifecycle(record: SafeZatcaCredentialLifecycleRecord) {
+    return {
+      id: record.id,
+      organizationId: record.organizationId,
+      egsUnitId: record.egsUnitId,
+      environment: record.environment,
+      lifecycleStatus: record.lifecycleStatus,
+      custodyProviderType: record.custodyProviderType,
+      custodyReferenceAlias: record.custodyReferenceAlias,
+      certificateFingerprint: record.certificateFingerprint,
+      certificateSerialNumber: record.certificateSerialNumber,
+      certificateIssuer: record.certificateIssuer,
+      certificateSubject: record.certificateSubject,
+      certificateNotBefore: record.certificateNotBefore,
+      certificateExpiresAt: record.certificateExpiresAt,
+      certificateRequestId: record.certificateRequestId,
+      complianceCsidStatus: record.complianceCsidStatus,
+      productionCsidStatus: record.productionCsidStatus,
+      lastReadinessCheckAt: record.lastReadinessCheckAt,
+      disabledAt: record.disabledAt,
+      revokedAt: record.revokedAt,
+      statusReason: record.statusReason,
+      errorCode: record.errorCode,
+      productionCompliance: false,
+      metadataOnly: true,
+      createdById: record.createdById,
+      updatedById: record.updatedById,
+      disabledById: record.disabledById,
+      revokedById: record.revokedById,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      egsUnit: record.egsUnit,
+      ...this.zatcaCredentialLifecycleRedactionFlags(),
+    };
+  }
+
+  private wrapZatcaCredentialLifecycleResponse(
+    lifecycle: ReturnType<ZatcaService["toSafeZatcaCredentialLifecycle"]> | ReturnType<ZatcaService["buildDefaultZatcaCredentialLifecycle"]>,
+    options: { readOnly: boolean },
+  ) {
+    return {
+      ...this.zatcaCredentialLifecycleSafetyEnvelope({ readOnly: options.readOnly }),
+      lifecycle,
+    };
+  }
+
+  private zatcaCredentialLifecycleSafetyEnvelope({ readOnly }: { readOnly: boolean }) {
+    return {
+      localOnly: true,
+      metadataOnly: true,
+      readOnly,
+      noEgsMutation: true,
+      noNetwork: true,
+      noCsidRequest: true,
+      noSigning: true,
+      noClearanceReporting: true,
+      noPdfA3: true,
+      noProductionCredentials: true,
+      noPrivateKey: true,
+      noRawCertificate: true,
+      noRawCsr: true,
+      noOtp: true,
+      noTokenBody: true,
+      noSecretBody: true,
+      noSignedArtifactBody: true,
+      noQrBody: true,
+      noProviderPayloadBodies: true,
+      noSubmissionLogs: true,
+      productionCompliance: false,
+    };
+  }
+
+  private zatcaCredentialLifecycleRedactionFlags() {
+    return {
+      secretMaterialPersisted: false,
+      privateKeyReturned: false,
+      certificateBodyReturned: false,
+      csrBodyReturned: false,
+      otpReturned: false,
+      tokenReturned: false,
+      secretReturned: false,
+      signedArtifactBodyReturned: false,
+      qrBodyReturned: false,
+      providerRequestPayloadReturned: false,
+      providerResponsePayloadReturned: false,
+    };
   }
 
   private getComplianceCsidCustodyRecordModel() {

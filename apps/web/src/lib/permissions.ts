@@ -72,6 +72,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.reports.view];
   }
 
+  if (pathname === "/tax" || pathname.startsWith("/tax/")) {
+    return [PERMISSIONS.reports.view];
+  }
+
   if (pathname === "/bank-accounts/new") {
     return [PERMISSIONS.bankAccounts.manage];
   }
@@ -114,6 +118,56 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.salesInvoices.view];
   }
 
+  if (pathname === "/sales/quotes/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/quotes/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/quotes")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/recurring-invoices/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/recurring-invoices/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/recurring-invoices")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/delivery-notes/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/delivery-notes/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/delivery-notes")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/inventory-returns/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/inventory-returns/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/inventory-returns")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname === "/sales/collections/new") {
+    return [PERMISSIONS.salesInvoices.create];
+  }
+  if (pathname.startsWith("/sales/collections/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.salesInvoices.update];
+  }
+  if (pathname.startsWith("/sales/collections")) {
+    return [PERMISSIONS.salesInvoices.view];
+  }
+
   if (pathname.startsWith("/customers")) {
     return [PERMISSIONS.contacts.view];
   }
@@ -144,13 +198,23 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
 
   if (
     pathname === "/sales" ||
-    pathname.startsWith("/sales/quotes") ||
-    pathname.startsWith("/sales/recurring-invoices") ||
     pathname.startsWith("/sales/cash-invoices") ||
-    pathname.startsWith("/sales/delivery-notes") ||
     pathname.startsWith("/sales/api-invoices")
   ) {
     return [PERMISSIONS.salesInvoices.view];
+  }
+
+  if (pathname.startsWith("/purchases/ap-dashboard")) {
+    return [
+      PERMISSIONS.contacts.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseReceiving.view,
+      PERMISSIONS.inventory.view,
+      PERMISSIONS.supplierPayments.view,
+      PERMISSIONS.purchaseDebitNotes.view,
+      PERMISSIONS.supplierRefunds.view,
+    ];
   }
 
   if (pathname === "/purchases/bills/new") {
@@ -171,6 +235,20 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   }
   if (pathname.startsWith("/purchases/purchase-orders")) {
     return [PERMISSIONS.purchaseOrders.view];
+  }
+
+  if (pathname === "/purchases/returns/new") {
+    return [PERMISSIONS.purchaseBills.create, PERMISSIONS.purchaseBills.update, PERMISSIONS.purchaseReceiving.create];
+  }
+  if (pathname.startsWith("/purchases/returns/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.purchaseBills.update, PERMISSIONS.purchaseReceiving.create];
+  }
+  if (pathname.startsWith("/purchases/returns")) {
+    return [PERMISSIONS.purchaseOrders.view, PERMISSIONS.purchaseBills.view, PERMISSIONS.purchaseReceiving.view];
+  }
+
+  if (pathname.startsWith("/purchases/matching")) {
+    return [PERMISSIONS.purchaseOrders.view, PERMISSIONS.purchaseBills.view, PERMISSIONS.purchaseReceiving.view];
   }
 
   if (pathname === "/purchases/supplier-payments/new") {
@@ -254,6 +332,23 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   }
   if (pathname.startsWith("/inventory/purchase-receipts")) {
     return [PERMISSIONS.purchaseReceiving.view];
+  }
+  if (pathname.startsWith("/inventory/landed-cost")) {
+    return [PERMISSIONS.inventory.view];
+  }
+  if (pathname.startsWith("/inventory/fifo-preview")) {
+    return [PERMISSIONS.inventory.view];
+  }
+  if (
+    pathname.startsWith("/inventory/bin-locations") ||
+    pathname.startsWith("/inventory/batches") ||
+    pathname.startsWith("/inventory/serial-numbers") ||
+    pathname.startsWith("/inventory/traceability")
+  ) {
+    return [PERMISSIONS.inventory.view];
+  }
+  if (pathname.startsWith("/inventory/valuation-variances")) {
+    return [PERMISSIONS.inventory.view];
   }
   if (pathname === "/inventory/sales-stock-issues/new") {
     return [PERMISSIONS.salesStockIssue.create];

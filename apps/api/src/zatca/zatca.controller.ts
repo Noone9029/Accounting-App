@@ -22,7 +22,9 @@ import { RevokeComplianceCsidCustodyRecordDto } from "./dto/revoke-compliance-cs
 import { UpdateZatcaCsrFieldsDto } from "./dto/update-zatca-csr-fields.dto";
 import { UpdateZatcaEgsUnitDto } from "./dto/update-zatca-egs-unit.dto";
 import { UpdateZatcaProfileDto } from "./dto/update-zatca-profile.dto";
+import { UpdateZatcaCredentialLifecycleDto } from "./dto/update-zatca-credential-lifecycle.dto";
 import { VerifyZatcaStorageControlEvidenceDto } from "./dto/verify-zatca-storage-control-evidence.dto";
+import { ZatcaCredentialLifecycleActionDto } from "./dto/zatca-credential-lifecycle-action.dto";
 import { ZatcaService } from "./zatca.service";
 
 @Controller()
@@ -218,6 +220,51 @@ export class ZatcaController {
   @RequirePermissions(PERMISSIONS.zatca.view)
   getComplianceCsidCustodyProviderConfigurationPlan() {
     return this.zatcaService.getComplianceCsidCustodyProviderConfigurationPlan();
+  }
+
+  @Get("zatca/key-custody-lifecycle")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getCredentialLifecycleFoundation(@CurrentOrganizationId() organizationId: string) {
+    return this.zatcaService.getZatcaCredentialLifecycleFoundation(organizationId);
+  }
+
+  @Get("zatca/egs-units/:id/key-custody-lifecycle")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsCredentialLifecycle(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitCredentialLifecycleMetadata(organizationId, id);
+  }
+
+  @Patch("zatca/egs-units/:id/key-custody-lifecycle")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  updateEgsCredentialLifecycle(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateZatcaCredentialLifecycleDto,
+  ) {
+    return this.zatcaService.upsertEgsUnitCredentialLifecycleMetadata(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/key-custody-lifecycle/:id/disable")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  disableCredentialLifecycle(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ZatcaCredentialLifecycleActionDto,
+  ) {
+    return this.zatcaService.disableCredentialLifecycleMetadata(organizationId, user.id, id, dto);
+  }
+
+  @Post("zatca/key-custody-lifecycle/:id/revoke")
+  @RequirePermissions(PERMISSIONS.zatca.manage)
+  revokeCredentialLifecycle(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: ZatcaCredentialLifecycleActionDto,
+  ) {
+    return this.zatcaService.revokeCredentialLifecycleMetadata(organizationId, user.id, id, dto);
   }
 
   @Get("zatca/egs-units/:id/compliance-csid-custody-records")

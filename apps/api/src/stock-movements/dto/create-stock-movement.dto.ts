@@ -24,4 +24,16 @@ export class CreateStockMovementDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  batchId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  serialNumberId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  binLocationId?: string;
 }

@@ -34,6 +34,7 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/setup")).toEqual([PERMISSIONS.dashboard.view]);
     expect(getRequiredPermissionsForPathname("/organization/setup")).toEqual([]);
     expect(getRequiredPermissionsForPathname("/reports/trial-balance")).toEqual([PERMISSIONS.reports.view]);
+    expect(getRequiredPermissionsForPathname("/tax")).toEqual([PERMISSIONS.reports.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/profile-1/edit")).toEqual([PERMISSIONS.bankAccounts.manage]);
@@ -51,6 +52,18 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/bank-transfers/new")).toEqual([PERMISSIONS.bankTransfers.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/invoices/inv-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/quotes/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/quotes/quote-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/recurring-invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/recurring-invoices/rec-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/delivery-notes/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/delivery-notes/dn-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/sir-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/collections")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/collections/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/collections/case-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/purchases/purchase-orders/new")).toEqual([PERMISSIONS.purchaseOrders.create]);
     expect(getRequiredPermissionsForPathname("/purchases/purchase-orders/po-1/edit")).toEqual([PERMISSIONS.purchaseOrders.update]);
     expect(getRequiredPermissionsForPathname("/inventory/balances")).toEqual([PERMISSIONS.inventory.view]);
@@ -73,6 +86,17 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/inventory/reports/low-stock")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/reports/clearing-reconciliation")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/reports/clearing-variance")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/fifo-preview")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations/bin-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches/batch-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers/serial-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/traceability/items/item-1")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/variance-proposals")).toEqual([
       PERMISSIONS.inventory.varianceProposalsView,
     ]);
@@ -94,6 +118,7 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/cash-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/return-1")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/api-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/purchases")).toEqual([
       PERMISSIONS.purchaseOrders.view,
@@ -146,8 +171,15 @@ describe("sidebar nav filtering", () => {
       subject([PERMISSIONS.dashboard.view, PERMISSIONS.organization.view, PERMISSIONS.reports.view, PERMISSIONS.salesInvoices.view]),
     );
 
-    expect(nav.map((item) => item.label)).toEqual(["Dashboard", "Reports", "Sales", "Branches"]);
-    expect(nav.find((item) => item.label === "Sales")?.children?.map((item) => item.label)).toEqual(["Invoices"]);
+    expect(nav.map((item) => item.label)).toEqual(["Dashboard", "Sales", "Tax", "Reports", "Settings"]);
+    expect(nav.find((item) => item.label === "Sales")?.children?.map((item) => item.label)).toEqual([
+      "Invoices",
+      "Quotes",
+      "Recurring invoices",
+      "Delivery notes",
+      "Inventory returns",
+      "Collections",
+    ]);
     expect(nav.some((item) => item.label === "Purchases")).toBe(false);
   });
 
@@ -156,51 +188,48 @@ describe("sidebar nav filtering", () => {
 
     expect(nav.map((item) => item.label)).toEqual([
       "Dashboard",
-      "Reports",
-      "Banking",
       "Sales",
       "Purchases",
-      "Customers & suppliers",
-      "Products & Services",
+      "Banking",
+      "Accounting",
       "Inventory",
-      "For accountants",
-      "Branches",
-      "Documents / Archive",
-      "Settings / Admin",
+      "Tax",
+      "Reports",
+      "Settings",
     ]);
   });
 
   it("shows team and role settings when the user can view members and roles", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.users.view, PERMISSIONS.roles.view]));
-    const settings = nav.find((item) => item.label === "Settings / Admin");
+    const settings = nav.find((item) => item.label === "Settings");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Team Members", "Roles & Permissions"]);
   });
 
   it("shows storage settings when the user can view document settings", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.documentSettings.view]));
-    const settings = nav.find((item) => item.label === "Settings / Admin");
+    const settings = nav.find((item) => item.label === "Settings");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage"]);
   });
 
   it("shows email outbox when the user has email outbox permission", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.emailOutbox.view]));
-    const settings = nav.find((item) => item.label === "Settings / Admin");
+    const settings = nav.find((item) => item.label === "Settings");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Email outbox"]);
   });
 
   it("shows audit logs when the user has audit log permission", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.auditLogs.view]));
-    const settings = nav.find((item) => item.label === "Settings / Admin");
+    const settings = nav.find((item) => item.label === "Settings");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Audit logs"]);
   });
 
   it("shows number sequences when the user has number sequence permission", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.numberSequences.view]));
-    const settings = nav.find((item) => item.label === "Settings / Admin");
+    const settings = nav.find((item) => item.label === "Settings");
 
     expect(settings?.children?.map((item) => item.label)).toEqual(["Number sequences"]);
   });

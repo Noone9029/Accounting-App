@@ -819,8 +819,65 @@ describe("ZATCA service rules", () => {
     expect(readiness.egsReady).toBe(true);
     expect(readiness.localXmlReady).toBe(true);
     expect(readiness.mockCsidReady).toBe(true);
+    expect(readiness.environmentPolicyDocumented).toBe(true);
+    expect(readiness.keyCustodyDecisionDocumented).toBe(true);
+    expect(readiness.invoiceEligibilityDocumented).toBe(true);
+    expect(readiness.auditEvidenceStandardDocumented).toBe(true);
+    expect(readiness.sandboxOnboardingRunbookDocumented).toBe(true);
+    expect(readiness.sdkValidationReadinessDocumented).toBe(true);
+    expect(readiness.sdkValidationPipelineDocumented).toBe(true);
+    expect(readiness.sdkValidationCommandAvailable).toBe(true);
+    expect(readiness.sdkValidationEvidenceFormatDocumented).toBe(true);
+    expect(readiness.officialFixtureRegistryDocumented).toBe(true);
+    expect(readiness.latestSdkValidationEvidenceStatus).toBe("NOT_RUN");
+    expect(readiness.sdkValidationNoNetworkOnly).toBe(true);
+    expect(readiness.generatedFixtureNoNetworkOnly).toBe(true);
+    expect(readiness.generatedFixtureProductionCompliance).toBe(false);
+    expect(readiness.generatedStandardInvoiceFixtureStatus).toEqual(expect.any(String));
+    expect(readiness.generatedCreditNoteFixtureStatus).toEqual(expect.any(String));
+    expect(readiness.lastGeneratedFixtureEvidenceStatus).toEqual(expect.any(String));
+    expect(readiness.productionComplianceEnabled).toBe(false);
+    expect(readiness.realNetworkCallsEnabled).toBe(false);
+    expect(readiness.signingEnabled).toBe(false);
+    expect(readiness.clearanceReportingEnabled).toBe(false);
+    expect(readiness.pdfA3Enabled).toBe(false);
     expect(JSON.stringify(readiness)).not.toContain("privateKeyPem");
     expect(JSON.stringify(readiness)).not.toContain("PRIVATE KEY");
+  });
+
+  it("returns generated fixture validation readiness metadata with Java blocker and no XML bodies", async () => {
+    const prisma = makeReadinessPrisma({ localXmlCount: 1 });
+    const service = new ZatcaService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      undefined,
+      undefined,
+      {
+        getReadiness: jest.fn().mockReturnValue({
+          enabled: true,
+          canRunLocalValidation: false,
+          javaFound: true,
+          javaVersion: "17.0.16",
+          javaVersionSupported: false,
+          requiredJavaRange: ">=11 <15",
+          blockingReasons: ["Detected Java 17.0.16 is outside the SDK-supported range >=11 <15."],
+          warnings: [],
+        }),
+      } as never,
+    );
+
+    const readiness = await service.getZatcaReadinessSummary("org-1");
+    const serialized = JSON.stringify(readiness);
+
+    expect(readiness.generatedStandardInvoiceFixtureStatus).toBe("BLOCKED_UNSUPPORTED_JAVA");
+    expect(readiness.generatedCreditNoteFixtureStatus).toBe("BLOCKED_UNSUPPORTED_JAVA");
+    expect(readiness.lastGeneratedFixtureEvidenceStatus).toBe("BLOCKED_UNSUPPORTED_JAVA");
+    expect(readiness.generatedFixtureJavaBlocker).toContain("Java 17.0.16");
+    expect(readiness.generatedFixtureNoNetworkOnly).toBe(true);
+    expect(readiness.generatedFixtureProductionCompliance).toBe(false);
+    expect(serialized).not.toContain("<Invoice");
+    expect(serialized).not.toContain("qrPayloadBody");
+    expect(serialized).not.toContain("BEGIN PRIVATE KEY");
   });
 
   it("returns compliance CSID custody planning without exposing token, secret, certificate, OTP, CSR, or private key material", async () => {
@@ -2067,8 +2124,14 @@ describe("ZATCA service rules", () => {
       executionEnabled: false,
       sdkCommand: "fatoora -sign -invoice <filename> -signedInvoice <filename>",
     });
-    expect(plan.commandPlan.displayCommand).toContain("-sign");
-    expect(plan.commandPlan.displayCommand).toContain("-signedInvoice");
+    expect(plan.sdkCommand).toContain("-sign");
+    expect(plan.sdkCommand).toContain("-signedInvoice");
+    if (plan.commandPlan.command) {
+      expect(plan.commandPlan.displayCommand).toContain("-sign");
+      expect(plan.commandPlan.displayCommand).toContain("-signedInvoice");
+    } else {
+      expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("No local SDK signing command could be planned")]));
+    }
     expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("ZATCA_SDK_SIGNING_EXECUTION_ENABLED=false")]));
     expect(plan.requiredInputs).toEqual(expect.arrayContaining([expect.objectContaining({ id: "certificate" }), expect.objectContaining({ id: "privateKeyCustody" })]));
     expect(JSON.stringify(plan)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
@@ -2703,7 +2766,11 @@ describe("ZATCA service rules", () => {
         prepareFilesRequested: true,
       });
       expect(result.sdkCommand).toContain("-csr");
-      expect(result.commandPlan.displayCommand).toContain("-csr");
+      if (result.commandPlan.command) {
+        expect(result.commandPlan.displayCommand).toContain("-csr");
+      } else {
+        expect(result.commandPlan.warnings.join(" ")).toContain("Neither SDK JAR nor fatoora launcher is available");
+      }
       expect(result.preparedFiles.csrConfigWritten).toBe(false);
       expect(result.preparedFiles.privateKeyWritten).toBe(false);
       expect(result.preparedFiles.generatedCsrWritten).toBe(false);

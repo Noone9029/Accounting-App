@@ -53,6 +53,14 @@ test("repo and CI local gates stay inside non-destructive verification commands"
   }
 });
 
+test("CI local gate generates Prisma client before workspace typecheck", () => {
+  const commands = buildGatePlan("verify:ci:local").commands.map(formatCommand);
+
+  assert.ok(commands.includes("corepack pnpm db:generate"));
+  assert.ok(commands.indexOf("corepack pnpm db:generate") < commands.indexOf("corepack pnpm typecheck"));
+  assertSafePlan(buildGatePlan("verify:ci:local"));
+});
+
 test("unsafe extra args are rejected before command execution", () => {
   assert.throws(() => buildGatePlan("verify:local:web", ["smoke:accounting"]), /forbidden/i);
   assert.throws(() => buildGatePlan("verify:local:api", ["email"]), /forbidden/i);

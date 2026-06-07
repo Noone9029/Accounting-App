@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
+import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -20,6 +22,8 @@ import {
   inventoryClearingStatusBadgeClass,
   inventoryClearingStatusLabel,
   inventoryOperationalWarning,
+  inventoryValuationVariancePreviewUrl,
+  landedCostPreviewUrl,
   linkedPurchaseBillModeWarning,
   purchaseReceiptPostingModeLabel,
   receiptAssetPostingFinancialReportWarning,
@@ -29,7 +33,14 @@ import {
   stockMovementTypeLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { InventoryClearingReconciliationReport, PurchaseReceipt, PurchaseReceiptAccountingPreview, PurchaseReceiptLine } from "@/lib/types";
+import type {
+  InventoryClearingReconciliationReport,
+  InventoryValuationVariancePreviewResponse,
+  PurchaseMatchingSummary,
+  PurchaseReceipt,
+  PurchaseReceiptAccountingPreview,
+  PurchaseReceiptLine,
+} from "@/lib/types";
 
 export default function PurchaseReceiptDetailPage() {
   const params = useParams<{ id: string }>();
@@ -38,6 +49,8 @@ export default function PurchaseReceiptDetailPage() {
   const [receipt, setReceipt] = useState<PurchaseReceipt | null>(null);
   const [preview, setPreview] = useState<PurchaseReceiptAccountingPreview | null>(null);
   const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
+  const [valuationVariancePreview, setValuationVariancePreview] = useState<InventoryValuationVariancePreviewResponse | null>(null);
+  const [matchingSummary, setMatchingSummary] = useState<PurchaseMatchingSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [voiding, setVoiding] = useState(false);
@@ -49,6 +62,8 @@ export default function PurchaseReceiptDetailPage() {
   const canVoid = can(PERMISSIONS.purchaseReceiving.create);
   const canPostAsset = can(PERMISSIONS.inventory.receiptsPostAsset);
   const canReverseAsset = can(PERMISSIONS.inventory.receiptsReverseAsset);
+  const canViewValuationVariances = can(PERMISSIONS.inventory.view);
+  const canViewLandedCostPreview = canViewValuationVariances && can(PERMISSIONS.purchaseReceiving.view);
 
   useEffect(() => {
     if (!organizationId || !params.id) return;
@@ -62,12 +77,18 @@ export default function PurchaseReceiptDetailPage() {
       apiRequest<PurchaseReceipt>(`/purchase-receipts/${params.id}`),
       apiRequest<PurchaseReceiptAccountingPreview>(`/purchase-receipts/${params.id}/accounting-preview`),
       apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseReceiptId=${encodeURIComponent(params.id)}`).catch(() => null),
+      apiRequest<PurchaseMatchingSummary>(`/purchase-matching/purchase-receipts/${params.id}`).catch(() => null),
+      canViewValuationVariances
+        ? apiRequest<InventoryValuationVariancePreviewResponse>(`/inventory/valuation-variances/purchase-receipts/${params.id}`).catch(() => null)
+        : Promise.resolve(null),
     ])
-      .then(([receiptResult, previewResult, clearingReportResult]) => {
+      .then(([receiptResult, previewResult, clearingReportResult, matchingResult, valuationVarianceResult]) => {
         if (!cancelled) {
           setReceipt(receiptResult);
           setPreview(previewResult);
           setClearingReport(clearingReportResult);
+          setMatchingSummary(matchingResult);
+          setValuationVariancePreview(valuationVarianceResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -83,7 +104,7 @@ export default function PurchaseReceiptDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id, reloadToken]);
+  }, [canViewValuationVariances, organizationId, params.id, reloadToken]);
 
   async function voidReceipt() {
     if (!receipt || !window.confirm(`Void purchase receipt ${receipt.receiptNumber}?`)) return;
@@ -152,6 +173,11 @@ export default function PurchaseReceiptDetailPage() {
               {voiding ? "Voiding..." : "Void"}
             </button>
           ) : null}
+          {receipt && canViewLandedCostPreview ? (
+            <Link href={landedCostPreviewUrl({ sourceType: "PURCHASE_RECEIPT", sourceId: receipt.id })} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+              Preview landed cost
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -197,6 +223,14 @@ export default function PurchaseReceiptDetailPage() {
             </div>
             {receipt.notes ? <p className="mt-4 text-sm text-steel">{receipt.notes}</p> : null}
           </div>
+
+          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
+          {canViewValuationVariances ? (
+            <ValuationVariancePreviewPanel
+              preview={valuationVariancePreview}
+              href={inventoryValuationVariancePreviewUrl({ purchaseReceiptId: receipt.id, sourceType: "purchaseReceipt" })}
+            />
+          ) : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[920px] text-left text-sm">

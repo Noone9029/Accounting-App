@@ -26,13 +26,15 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Open Profit & Loss" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Guided setup" })).toHaveAttribute("href", "/setup");
-    expect(screen.getByText("See customer invoice balances after payments and credits.")).toBeInTheDocument();
+    expect(screen.getByText(/Outstanding sales invoice balances after posted payments and credits/i)).toBeInTheDocument();
+    expect(screen.getByText(/Operational VAT summary/i)).toBeInTheDocument();
   });
 
   it("explains aged receivables after payment without changing report math", () => {
     render(<AgingReportGuide kind="receivables" />);
 
     expect(screen.getByText("How to read this report")).toBeInTheDocument();
+    expect(screen.getByText(/AR Aging is based on outstanding sales invoices only/i)).toBeInTheDocument();
     expect(screen.getByText(/balance due after posted payments, credit notes, and refunds/)).toBeInTheDocument();
     expect(screen.getByText(/customer ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new");
