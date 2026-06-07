@@ -23,6 +23,7 @@ export type PartyNewTransactionModule =
   | "salesInvoices"
   | "recurringInvoices"
   | "deliveryNotes"
+  | "salesInventoryReturns"
   | "customerPayments"
   | "estimates"
   | "salesOrders"
@@ -66,6 +67,7 @@ const DEFAULT_AVAILABLE_MODULES: Record<PartyNewTransactionModule, boolean> = {
   salesInvoices: true,
   recurringInvoices: true,
   deliveryNotes: true,
+  salesInventoryReturns: true,
   customerPayments: true,
   estimates: true,
   salesOrders: false,
@@ -237,6 +239,7 @@ function transactionActions(partyType: PartyKind, partyId: string): PartyTransac
       action("invoice", "Invoice", partyType, FileText, "/sales/invoices/new", PERMISSIONS.salesInvoices.create, "salesInvoices", partyId),
       action("recurring-invoice", "Recurring Invoice Template", partyType, CalendarClock, "/sales/recurring-invoices/new", PERMISSIONS.salesInvoices.create, "recurringInvoices", partyId),
       action("delivery-note", "Delivery Note", partyType, PackageCheck, "/sales/delivery-notes/new", PERMISSIONS.salesInvoices.create, "deliveryNotes", partyId),
+      action("sales-inventory-return", "Sales Inventory Return", partyType, PackageCheck, "/sales/inventory-returns/new", PERMISSIONS.salesInvoices.create, "salesInventoryReturns", partyId),
       action("receive-payment", "Receive Payment", partyType, WalletCards, "/sales/customer-payments/new", PERMISSIONS.customerPayments.create, "customerPayments", partyId),
       action("sales-quote", "Sales Quote", partyType, ClipboardList, "/sales/quotes/new", PERMISSIONS.salesInvoices.create, "estimates", partyId),
       disabledAction("sales-order", "Sales Order", partyType, ClipboardList, PERMISSIONS.salesInvoices.create, "salesOrders", "Sales orders are not enabled yet."),

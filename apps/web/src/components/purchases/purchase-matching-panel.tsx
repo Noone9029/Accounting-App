@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatInventoryQuantity } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryValuationVariancePreviewUrl } from "@/lib/inventory";
 import type { PurchaseMatchingDocumentRef, PurchaseMatchingReviewStatus, PurchaseMatchingStatusLabel, PurchaseMatchingSummary } from "@/lib/types";
 
-export function PurchaseMatchingPanel({ summary }: { summary: PurchaseMatchingSummary }) {
+export function PurchaseMatchingPanel({
+  summary,
+  showValuationVariancePreviewLink = false,
+}: {
+  summary: PurchaseMatchingSummary;
+  showValuationVariancePreviewLink?: boolean;
+}) {
+  const showVariancePreview = showValuationVariancePreviewLink && summary.reviewSummary?.reviewStatus === "NEEDS_VARIANCE_REVIEW";
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -53,6 +60,22 @@ export function PurchaseMatchingPanel({ summary }: { summary: PurchaseMatchingSu
             <Link href="/purchases/matching" className="text-xs font-medium text-palm hover:underline">
               View matching exception review
             </Link>
+            {showVariancePreview ? (
+              <Link
+                href={inventoryValuationVariancePreviewUrl({
+                  matchingReviewId: summary.reviewSummary?.reviewId ?? null,
+                  sourceType: "matchingReview",
+                })}
+                className="text-xs font-medium text-palm hover:underline"
+              >
+                Open valuation variance preview
+              </Link>
+            ) : null}
+            {summary.reviewSummary.purchaseReturnHref && summary.reviewSummary.purchaseReturnNumber ? (
+              <Link href={summary.reviewSummary.purchaseReturnHref} className="text-xs font-medium text-palm hover:underline">
+                Return {summary.reviewSummary.purchaseReturnNumber}
+              </Link>
+            ) : null}
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap items-center gap-2">

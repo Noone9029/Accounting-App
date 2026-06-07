@@ -25,7 +25,12 @@ export type JournalStatus = "DRAFT" | "POSTED" | "VOIDED" | "REVERSED";
 export type FiscalPeriodStatus = "OPEN" | "CLOSED" | "LOCKED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
+export type ItemTrackingMode = "NONE" | "SERIAL" | "BATCH" | "SERIAL_AND_BATCH";
 export type WarehouseStatus = "ACTIVE" | "ARCHIVED";
+export type InventoryBinLocationType = "BIN" | "SHELF" | "ZONE" | "STAGING" | "RECEIVING" | "SHIPPING" | "IN_TRANSIT" | "RETURNS" | "QUARANTINE" | "OTHER";
+export type InventoryBinLocationStatus = "ACTIVE" | "INACTIVE";
+export type InventoryBatchStatus = "ACTIVE" | "EXPIRED" | "QUARANTINED" | "CLOSED";
+export type InventorySerialNumberStatus = "AVAILABLE" | "RESERVED" | "ISSUED" | "RETURNED" | "QUARANTINED" | "LOST" | "SCRAPPED";
 export type StockMovementType =
   | "OPENING_BALANCE"
   | "ADJUSTMENT_IN"
@@ -33,7 +38,9 @@ export type StockMovementType =
   | "TRANSFER_IN"
   | "TRANSFER_OUT"
   | "PURCHASE_RECEIPT_PLACEHOLDER"
-  | "SALES_ISSUE_PLACEHOLDER";
+  | "SALES_ISSUE_PLACEHOLDER"
+  | "PURCHASE_RETURN_OUT"
+  | "SALES_RETURN_IN";
 export type InventoryAdjustmentStatus = "DRAFT" | "APPROVED" | "VOIDED";
 export type InventoryAdjustmentType = "INCREASE" | "DECREASE";
 export type WarehouseTransferStatus = "POSTED" | "VOIDED";
@@ -46,6 +53,26 @@ export type InventoryPurchasePostingMode = "DISABLED" | "PREVIEW_ONLY";
 export type PurchaseBillInventoryPostingMode = "DIRECT_EXPENSE_OR_ASSET" | "INVENTORY_CLEARING";
 export type InventoryVarianceProposalStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "POSTED" | "REVERSED" | "VOIDED";
 export type InventoryVarianceProposalSourceType = "CLEARING_VARIANCE" | "MANUAL";
+export type InventoryValuationVarianceType =
+  | "PRICE_VARIANCE"
+  | "QUANTITY_VARIANCE"
+  | "RECEIPT_WITHOUT_BILL"
+  | "BILL_WITHOUT_RECEIPT"
+  | "OVER_RECEIVED_VALUE"
+  | "OVER_BILLED_VALUE"
+  | "RETURN_PENDING_CREDIT"
+  | "REVIEW_REQUIRED";
+export type InventoryValuationVarianceSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+export type InventoryValuationVarianceStatus =
+  | "PREVIEW_ONLY"
+  | "NEEDS_ACCOUNTANT_REVIEW"
+  | "NEEDS_MATCHING_REVIEW"
+  | "NEEDS_RETURN_REVIEW"
+  | "READY_FOR_POLICY_DECISION";
+export type InventoryValuationVarianceSourceType = "purchaseOrder" | "purchaseBill" | "purchaseReceipt" | "purchaseReturn" | "matchingReview";
+export type LandedCostCategory = "FREIGHT" | "CUSTOMS_DUTY" | "INSURANCE" | "HANDLING" | "BROKERAGE" | "STORAGE" | "OTHER";
+export type LandedCostAllocationMethod = "BY_VALUE" | "BY_QUANTITY" | "EQUAL" | "MANUAL";
+export type LandedCostSourceType = "PURCHASE_RECEIPT" | "PURCHASE_BILL" | "PURCHASE_ORDER";
 export type InventoryVarianceReason =
   | "PRICE_DIFFERENCE"
   | "QUANTITY_DIFFERENCE"
@@ -61,6 +88,7 @@ export type RecurringInvoiceTemplateStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "EN
 export type RecurringInvoiceFrequency = "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
 export type RecurringInvoiceDateMode = "RUN_DATE";
 export type DeliveryNoteStatus = "DRAFT" | "ISSUED" | "DELIVERED" | "CANCELLED" | "VOIDED";
+export type SalesInventoryReturnStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "RECEIVED" | "VOIDED" | "CANCELLED";
 export type CollectionCaseStatus = "OPEN" | "IN_PROGRESS" | "PROMISED_TO_PAY" | "PAID" | "ON_HOLD" | "DISPUTED" | "CLOSED" | "CANCELLED";
 export type CollectionPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 export type CollectionActivityType =
@@ -77,6 +105,7 @@ export type CreditNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "SENT" | "PARTIALLY_BILLED" | "BILLED" | "CLOSED" | "VOIDED";
 export type PurchaseBillStatus = "DRAFT" | "FINALIZED" | "VOIDED";
 export type PurchaseDebitNoteStatus = "DRAFT" | "FINALIZED" | "VOIDED";
+export type PurchaseReturnStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "COMPLETED" | "VOIDED" | "CANCELLED";
 export type CashExpenseStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type CustomerPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
 export type SupplierPaymentStatus = "DRAFT" | "POSTED" | "VOIDED";
@@ -122,6 +151,7 @@ export type SupplierLedgerRowType =
   | "VOID_PURCHASE_DEBIT_NOTE"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
+  | "PURCHASE_RETURN"
   | "SUPPLIER_PAYMENT"
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION"
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
@@ -1312,6 +1342,9 @@ export interface Item {
   expenseAccountId: string | null;
   purchaseTaxRateId: string | null;
   inventoryTracking: boolean;
+  trackingMode?: ItemTrackingMode;
+  expiryTrackingEnabled?: boolean;
+  binTrackingEnabled?: boolean;
   reorderPoint: string | null;
   reorderQuantity: string | null;
   revenueAccount?: { id: string; code: string; name: string; type: AccountType };
@@ -1346,12 +1379,22 @@ export interface StockMovement {
   totalCost: string | null;
   referenceType: string | null;
   referenceId: string | null;
+  batchId: string | null;
+  serialNumberId: string | null;
+  binLocationId: string | null;
+  fromBinLocationId: string | null;
+  toBinLocationId: string | null;
   description: string | null;
   createdById: string | null;
   createdAt: string;
   updatedAt: string;
-  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking">;
+  item?: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking" | "trackingMode" | "expiryTrackingEnabled" | "binTrackingEnabled">;
   warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  batch?: Pick<InventoryBatch, "id" | "batchNumber" | "lotNumber" | "expiryDate" | "status"> | null;
+  serialNumber?: Pick<InventorySerialNumber, "id" | "serialNumber" | "status"> | null;
+  binLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type" | "status"> | null;
+  fromBinLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type" | "status"> | null;
+  toBinLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type" | "status"> | null;
   createdBy?: { id: string; name: string; email: string } | null;
 }
 
@@ -1721,6 +1764,10 @@ export interface PurchaseMatchingReviewSummary {
   nextReviewDate: string | null;
   reviewedAt: string | null;
   reviewNoteSummary: string | null;
+  purchaseReturnId: string | null;
+  purchaseReturnNumber: string | null;
+  purchaseReturnStatus: PurchaseReturnStatus | null;
+  purchaseReturnHref: string | null;
 }
 
 export interface PurchaseMatchingReview {
@@ -1742,6 +1789,7 @@ export interface PurchaseMatchingReview {
   note: string | null;
   createdAt: string;
   updatedAt: string;
+  purchaseReturn?: { id: string; purchaseReturnNumber: string; status: PurchaseReturnStatus } | null;
   reviewOnly: true;
   noPostingEffect: true;
 }
@@ -1790,6 +1838,10 @@ export interface PurchaseMatchingExceptionItem {
   nextReviewDate: string | null;
   reviewedAt: string | null;
   reviewNoteSummary: string | null;
+  purchaseReturnId?: string | null;
+  purchaseReturnNumber?: string | null;
+  purchaseReturnStatus?: PurchaseReturnStatus | null;
+  purchaseReturnHref?: string | null;
   latestRelevantDate: string | null;
   warnings: string[];
 }
@@ -2096,6 +2148,222 @@ export interface InventoryMovementSummaryReport {
   };
 }
 
+export type InventoryFifoPreviewWarningType =
+  | "MISSING_UNIT_COST"
+  | "NEGATIVE_LAYER_QUANTITY"
+  | "INSUFFICIENT_LAYER_QUANTITY"
+  | "UNSUPPORTED_TRANSFER_SHAPE"
+  | "UNTRACEABLE_PURCHASE_RETURN_COST"
+  | "UNTRACEABLE_SALES_RETURN_COST"
+  | "MIXED_WAREHOUSE_SCOPE"
+  | "NO_MOVEMENTS"
+  | "PREVIEW_ONLY_NOT_ACCOUNTING_METHOD";
+
+export interface InventoryFifoPreviewWarning {
+  type: InventoryFifoPreviewWarningType;
+  severity: "WARNING" | "BLOCKER";
+  message: string;
+  movementId: string | null;
+  itemId: string | null;
+  warehouseId: string | null;
+}
+
+export interface InventoryFifoPreviewMovementSummary {
+  movementId: string;
+  movementDate: string;
+  type: StockMovementType;
+  quantity: string;
+  unitCost: string | null;
+  totalCost: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  description: string | null;
+}
+
+export interface InventoryFifoPreviewSourceDocument {
+  type: string;
+  id: string;
+  href: string | null;
+}
+
+export interface InventoryFifoPreviewLayer {
+  layerId: string;
+  sourceMovementId: string;
+  layerDate: string;
+  sourceMovement: InventoryFifoPreviewMovementSummary;
+  sourceDocument: InventoryFifoPreviewSourceDocument | null;
+  originalQuantity: string;
+  consumedQuantity: string;
+  remainingQuantity: string;
+  unitCost: string | null;
+  layerValue: string | null;
+  warnings: InventoryFifoPreviewWarning[];
+}
+
+export interface InventoryFifoPreviewConsumedLayer {
+  layerId: string;
+  sourceMovementId: string;
+  consumedQuantity: string;
+  unitCost: string | null;
+  cost: string | null;
+}
+
+export interface InventoryFifoPreviewConsumedMovement {
+  movementId: string;
+  movementDate: string;
+  type: StockMovementType;
+  sourceMovement: InventoryFifoPreviewMovementSummary;
+  sourceDocument: InventoryFifoPreviewSourceDocument | null;
+  consumedQuantity: string;
+  consumedLayers: InventoryFifoPreviewConsumedLayer[];
+  estimatedCost: string | null;
+  warnings: InventoryFifoPreviewWarning[];
+  blockers: InventoryFifoPreviewWarning[];
+}
+
+export interface InventoryFifoPreviewRow {
+  item: InventoryReportItem;
+  warehouse: Pick<Warehouse, "id" | "code" | "name" | "status" | "isDefault">;
+  layers: InventoryFifoPreviewLayer[];
+  consumedMovements: InventoryFifoPreviewConsumedMovement[];
+  warnings: InventoryFifoPreviewWarning[];
+  blockers: InventoryFifoPreviewWarning[];
+  totalOnHandQuantity: string;
+  fifoPreviewValue: string | null;
+  currentOperationalValuationValue: string | null;
+  differenceFromCurrentOperationalValuation: string | null;
+}
+
+export interface InventoryFifoPreviewResponse {
+  readOnly: true;
+  previewOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryEffect: true;
+  noApEffect: true;
+  noArEffect: true;
+  noVatEffect: true;
+  noZatcaEffect: true;
+  noFinancialStatementEffect: true;
+  generatedAt: string;
+  asOfDate: string;
+  activeValuationMethod: {
+    method: InventoryValuationMethod;
+    note: string;
+  };
+  previewValuationMethod: "FIFO_PREVIEW";
+  filters: {
+    itemId: string | null;
+    warehouseId: string | null;
+  };
+  rows: InventoryFifoPreviewRow[];
+  warnings: InventoryFifoPreviewWarning[];
+  blockers: InventoryFifoPreviewWarning[];
+  totals: {
+    totalOnHandQuantity: string;
+    fifoPreviewValue: string | null;
+    currentOperationalValuationValue: string | null;
+    differenceFromCurrentOperationalValuation: string | null;
+    warningCount: number;
+    blockerCount: number;
+  };
+}
+
+export interface InventoryBinLocation {
+  id: string;
+  organizationId: string;
+  warehouseId: string;
+  code: string;
+  name: string;
+  type: InventoryBinLocationType;
+  status: InventoryBinLocationStatus;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name" | "status"> | null;
+}
+
+export interface InventoryBatch {
+  id: string;
+  organizationId: string;
+  itemId: string;
+  batchNumber: string;
+  lotNumber: string | null;
+  manufactureDate: string | null;
+  expiryDate: string | null;
+  status: InventoryBatchStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "inventoryTracking" | "trackingMode" | "expiryTrackingEnabled" | "binTrackingEnabled"> | null;
+}
+
+export interface InventorySerialNumber {
+  id: string;
+  organizationId: string;
+  itemId: string;
+  serialNumber: string;
+  batchId: string | null;
+  status: InventorySerialNumberStatus;
+  currentWarehouseId: string | null;
+  currentBinLocationId: string | null;
+  lastMovementId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<Item, "id" | "name" | "sku" | "inventoryTracking" | "trackingMode" | "expiryTrackingEnabled" | "binTrackingEnabled"> | null;
+  batch?: Pick<InventoryBatch, "id" | "batchNumber" | "lotNumber" | "expiryDate" | "status"> | null;
+  currentWarehouse?: Pick<Warehouse, "id" | "code" | "name" | "status"> | null;
+  currentBinLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type" | "status" | "warehouseId"> | null;
+  lastMovement?: Pick<StockMovement, "id" | "type" | "movementDate" | "quantity" | "warehouseId"> | null;
+}
+
+export interface InventoryTraceabilityMovement {
+  id: string;
+  movementDate: string;
+  type: StockMovementType;
+  quantity: string;
+  warehouseId: string;
+  batchId: string | null;
+  serialNumberId: string | null;
+  binLocationId: string | null;
+  fromBinLocationId: string | null;
+  toBinLocationId: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  warehouse?: Pick<Warehouse, "id" | "code" | "name"> | null;
+  batch?: Pick<InventoryBatch, "id" | "batchNumber" | "lotNumber" | "expiryDate" | "status"> | null;
+  serialNumber?: Pick<InventorySerialNumber, "id" | "serialNumber" | "status"> | null;
+  binLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type"> | null;
+  fromBinLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type"> | null;
+  toBinLocation?: Pick<InventoryBinLocation, "id" | "code" | "name" | "type"> | null;
+}
+
+export interface InventoryTraceabilityResponse {
+  item: Pick<Item, "id" | "name" | "sku" | "type" | "status" | "inventoryTracking" | "trackingMode" | "expiryTrackingEnabled" | "binTrackingEnabled">;
+  trackingMode: ItemTrackingMode;
+  expiryTrackingEnabled: boolean;
+  binTrackingEnabled: boolean;
+  hasStockMovements: boolean;
+  movementCount: number;
+  batches: InventoryBatch[];
+  serialNumbers: InventorySerialNumber[];
+  warehouses: Array<Pick<Warehouse, "id" | "code" | "name" | "status">>;
+  binLocations: InventoryBinLocation[];
+  movements: InventoryTraceabilityMovement[];
+  warnings: string[];
+  readOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryValuationEffect: true;
+  noFifoActivation: true;
+  noCogsEffect: true;
+  noApEffect: true;
+  noArEffect: true;
+  noVatEffect: true;
+  noZatcaEffect: true;
+  noFinancialStatementEffect: true;
+}
+
 export type InventoryLowStockStatus = "BELOW_REORDER_POINT" | "AT_REORDER_POINT";
 
 export interface InventoryLowStockRow {
@@ -2232,6 +2500,188 @@ export interface InventoryClearingVarianceReport {
   rows: InventoryClearingVarianceRow[];
 }
 
+export interface InventoryValuationVarianceSourceLink {
+  type: InventoryValuationVarianceSourceType;
+  id: string;
+  number: string;
+  href: string;
+}
+
+export interface InventoryValuationVarianceDocument {
+  id: string;
+  number: string;
+  status: string;
+  date: string | null;
+  href: string;
+  inventoryPostingMode?: PurchaseBillInventoryPostingMode;
+}
+
+export interface InventoryValuationVariancePreviewItem {
+  id: string;
+  supplier: Pick<Contact, "id" | "name" | "displayName">;
+  item: Pick<Item, "id" | "name" | "sku" | "inventoryTracking"> | null;
+  lineDescription: string;
+  purchaseOrder: InventoryValuationVarianceDocument | null;
+  purchaseBill: InventoryValuationVarianceDocument | null;
+  purchaseReceipt: InventoryValuationVarianceDocument | null;
+  purchaseReturn: {
+    id: string;
+    purchaseReturnNumber: string;
+    status: PurchaseReturnStatus;
+    returnDate: string;
+    href: string;
+  } | null;
+  matchingReview: {
+    id: string;
+    sourceType: string;
+    sourceId: string;
+    exceptionType: string;
+    severity: string;
+    status: PurchaseMatchingReviewStatus;
+    reasonCode: PurchaseMatchingReviewReason | null;
+    href: string;
+  } | null;
+  sourceType: InventoryValuationVarianceSourceType;
+  sourceId: string;
+  sourceNumber: string;
+  sourceHref: string;
+  sourceDocumentLinks: InventoryValuationVarianceSourceLink[];
+  orderedQuantity: string | null;
+  receivedQuantity: string;
+  billedQuantity: string;
+  returnedQuantity: string;
+  receiptUnitCost: string | null;
+  billUnitCost: string | null;
+  expectedValue: string;
+  receivedValue: string;
+  billedValue: string;
+  returnedValue: string;
+  varianceQuantity: string;
+  varianceAmount: string;
+  varianceType: InventoryValuationVarianceType;
+  severity: InventoryValuationVarianceSeverity;
+  status: InventoryValuationVarianceStatus;
+  suggestedReviewAction: string;
+  warnings: string[];
+  returnRelated: boolean;
+  matchingReviewRelated: boolean;
+  latestRelevantDate: string | null;
+}
+
+export interface InventoryValuationVariancePreviewSummary {
+  totalVarianceCount: number;
+  totalAbsoluteVarianceAmount: string;
+  positiveVarianceAmount: string;
+  negativeVarianceAmount: string;
+  criticalCount: number;
+  highCount: number;
+  suppliersAffected: number;
+  itemsAffected: number;
+  returnRelatedVarianceCount: number;
+  matchingReviewRelatedVarianceCount: number;
+}
+
+export interface InventoryValuationVarianceSupplierGroup {
+  supplierId: string;
+  supplierName: string;
+  totalVarianceAmount: string;
+  varianceCount: number;
+  highestSeverity: InventoryValuationVarianceSeverity;
+  itemsAffected: number;
+  sourceDocumentLinks: InventoryValuationVarianceSourceLink[];
+  items: InventoryValuationVariancePreviewItem[];
+}
+
+export interface InventoryValuationVariancePreviewResponse {
+  readOnly: true;
+  previewOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryEffect: true;
+  generatedAt: string;
+  filters: {
+    supplierId?: string;
+    itemId?: string;
+    varianceType?: InventoryValuationVarianceType;
+    severity?: InventoryValuationVarianceSeverity;
+    sourceType?: InventoryValuationVarianceSourceType;
+    from?: string;
+    to?: string;
+    search?: string;
+    purchaseReceiptId?: string;
+    purchaseBillId?: string;
+    matchingReviewId?: string;
+    limit: number;
+  };
+  summary: InventoryValuationVariancePreviewSummary;
+  supplierGroups: InventoryValuationVarianceSupplierGroup[];
+  items: InventoryValuationVariancePreviewItem[];
+  warnings: string[];
+}
+
+export interface LandedCostSourceSummary {
+  sourceType: LandedCostSourceType;
+  sourceId: string;
+  sourceNumber: string;
+  supplier: Pick<Contact, "id" | "name" | "displayName">;
+  date: string;
+  currency: string;
+}
+
+export interface LandedCostBaseLine {
+  sourceLineId: string;
+  itemId: string;
+  itemName: string;
+  itemSku: string | null;
+  quantity: string;
+  returnedQuantity: string;
+  baseUnitCost: string;
+  baseLineValue: string;
+  warnings: string[];
+}
+
+export interface LandedCostPreviewCostLine {
+  category: LandedCostCategory;
+  description: string | null;
+  amount: string;
+  currency: string | null;
+  supplierId: string | null;
+}
+
+export interface LandedCostLineAllocation {
+  sourceLineId: string;
+  allocatedLandedCost: string;
+  landedUnitCostIncrease: string;
+  previewLandedUnitCost: string;
+  previewLandedLineValue: string;
+  allocationPercent: string;
+}
+
+export interface LandedCostPreviewResponse {
+  readOnly: true;
+  previewOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryEffect: true;
+  noApEffect: true;
+  noVatEffect: true;
+  noZatcaEffect: true;
+  noEmailEffect: true;
+  generatedAt: string;
+  source: LandedCostSourceSummary | null;
+  allocationMethod: LandedCostAllocationMethod;
+  baseLines: LandedCostBaseLine[];
+  costLines: LandedCostPreviewCostLine[];
+  allocation: LandedCostLineAllocation[];
+  totals: {
+    baseInventoryValue: string;
+    totalLandedCosts: string;
+    previewLandedInventoryValue: string;
+  };
+  blockers: string[];
+  warnings: string[];
+}
+
 export interface InventoryVarianceProposal {
   id: string;
   organizationId: string;
@@ -2339,12 +2789,14 @@ export type PartyTransactionSourceType =
   | "SalesQuote"
   | "RecurringInvoiceTemplate"
   | "DeliveryNote"
+  | "SalesInventoryReturn"
   | "CreditNote"
   | "CustomerPayment"
   | "CustomerRefund"
   | "PurchaseBill"
   | "PurchaseOrder"
   | "PurchaseDebitNote"
+  | "PurchaseReturn"
   | "SupplierPayment"
   | "SupplierRefund"
   | "CashExpense";
@@ -2363,6 +2815,178 @@ export interface PartyTransaction {
   total: string;
   balanceDue: string;
   status: string;
+}
+
+export interface SupplierApDashboardPermissionSnapshot {
+  canViewSuppliers: boolean;
+  canViewPurchaseBills: boolean;
+  canViewPurchaseOrders: boolean;
+  canViewPurchaseReceiving: boolean;
+  canViewPurchaseMatching: boolean;
+  canViewInventoryValuation: boolean;
+  canViewSupplierPayments: boolean;
+  canViewPurchaseDebitNotes: boolean;
+  canViewSupplierRefunds: boolean;
+}
+
+export interface SupplierApTopSupplier {
+  supplierId: string;
+  supplierName: string;
+  href: string | null;
+  amount?: string;
+  overdueAmount?: string;
+  openBillCount?: number;
+  exceptionCount?: number;
+  highestSeverity?: string;
+  openReturnCount?: number;
+  variancePreviewCount?: number;
+  variancePreviewTotal?: string;
+}
+
+export interface SupplierApBillAttentionItem {
+  id: string;
+  billNumber: string;
+  supplierId: string;
+  supplierName: string;
+  supplierHref: string | null;
+  href: string | null;
+  dueDate: string | null;
+  balanceDue: string;
+  currency: string;
+  dueStatus: "OVERDUE" | "DUE_SOON";
+  attentionCategory: "Bills overdue" | "Bills due soon";
+}
+
+export interface SupplierApMatchingAttentionItem {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierHref: string | null;
+  sourceType: string;
+  sourceId: string;
+  sourceNumber: string;
+  sourceHref: string | null;
+  exceptionType: string;
+  severity: string;
+  reviewStatus: string | null;
+  attentionCategory: "Matching exceptions critical/high" | "Matching reviews open or waiting";
+}
+
+export interface SupplierApReturnAttentionItem {
+  id: string;
+  purchaseReturnNumber: string;
+  supplierId: string;
+  supplierName: string;
+  supplierHref: string | null;
+  href: string | null;
+  status: string;
+  returnDate: string;
+  reason: string | null;
+  inventoryMovementStatus: "NOT_POSTED" | "POSTED";
+  inventoryReturnPostedAt: string | null;
+  attentionCategory: "Purchase returns awaiting approval/completion" | "Purchase returns awaiting inventory movement";
+  nonPosting: true;
+}
+
+export interface SupplierApVarianceAttentionItem {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierHref: string | null;
+  sourceType: string;
+  sourceId: string;
+  sourceNumber: string;
+  sourceHref: string | null;
+  varianceType: string;
+  severity: string;
+  varianceAmount: string;
+  attentionCategory: "Valuation variance previews needing review";
+  nonPosting: true;
+}
+
+export interface SupplierApRecentActivityItem {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  sourceNumber: string;
+  supplierId: string;
+  supplierName: string;
+  supplierHref: string | null;
+  href: string | null;
+  date: string;
+  status: string;
+  amount: string | null;
+  label: string;
+  category: "financialPosting" | "operationalNonPosting";
+  nonPosting: boolean;
+}
+
+export interface SupplierApAttentionPolicy {
+  dueSoonDays: number;
+  topRowLimit: number;
+  ordering: string;
+  categories: string[];
+}
+
+export interface SupplierApDashboardSummary {
+  openPayablesTotal: string;
+  overdueBillsTotal: string;
+  openBillCount: number;
+  overdueBillCount: number;
+  purchaseOrdersOpenCount: number;
+  purchaseReceiptsPendingBillCount: number;
+  purchaseBillsPendingReceiptCount: number;
+  matchingExceptionCount: number;
+  matchingCriticalCount: number;
+  matchingReviewOpenCount: number;
+  returnsOpenCount: number;
+  returnsCompletedCount: number;
+  returnsAwaitingInventoryMovementCount: number;
+  returnsInventoryMovementPostedCount: number;
+  variancePreviewCount: number;
+  variancePreviewTotal: string;
+  suppliersWithOpenPayables: number;
+  suppliersWithExceptions: number;
+  topSuppliersByPayable: SupplierApTopSupplier[];
+  topSuppliersByExceptionSeverity: SupplierApTopSupplier[];
+  suppliersWithOpenReturns: SupplierApTopSupplier[];
+  suppliersWithVariancePreviews: SupplierApTopSupplier[];
+  upcomingDueBills: SupplierApBillAttentionItem[];
+  matchingExceptionsNeedingReview: SupplierApMatchingAttentionItem[];
+  purchaseReturnsAwaitingAction: SupplierApReturnAttentionItem[];
+  variancePreviewsNeedingReview: SupplierApVarianceAttentionItem[];
+  recentSupplierActivity: SupplierApRecentActivityItem[];
+}
+
+export interface SupplierApDashboardResponse {
+  readOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryEffect: true;
+  generatedAt: string;
+  permissions: SupplierApDashboardPermissionSnapshot;
+  attentionPolicy: SupplierApAttentionPolicy;
+  apSummary: SupplierApDashboardSummary;
+  warnings: string[];
+}
+
+export interface SupplierApDetailSummary {
+  readOnly: true;
+  noMutation: true;
+  noPostingEffect: true;
+  noInventoryEffect: true;
+  supplierId: string;
+  outstandingPayableBalance: string;
+  overdueBillsTotal: string;
+  overdueBillCount: number;
+  openPurchaseOrders: number;
+  purchaseReceiptsPendingBill: number;
+  purchaseBillsPendingReceipt: number;
+  openPurchaseReturns: number;
+  openMatchingReviews: number;
+  valuationVariancePreviews: number;
+  recentApActivity: SupplierApRecentActivityItem[];
+  helperText: string;
 }
 
 export interface CustomerPartySummary {
@@ -2786,6 +3410,117 @@ export interface PurchaseDebitNote {
   allocations?: PurchaseDebitNoteAllocation[];
 }
 
+export interface PurchaseReturnLine {
+  id: string;
+  organizationId: string;
+  purchaseReturnId: string;
+  itemId: string | null;
+  description: string;
+  quantity: string;
+  unitCost: string | null;
+  sourcePurchaseBillLineId: string | null;
+  sourcePurchaseReceiptLineId: string | null;
+  sourcePurchaseOrderLineId: string | null;
+  stockMovementId?: string | null;
+  reason: string | null;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+  item?: { id: string; name: string; sku: string | null; status?: ItemStatus; inventoryTracking?: boolean } | null;
+  sourcePurchaseBillLine?: { id: string; billId: string; description: string; quantity: string; unitPrice: string } | null;
+  sourcePurchaseReceiptLine?: { id: string; receiptId: string; quantity: string; unitCost: string | null } | null;
+  sourcePurchaseOrderLine?: { id: string; purchaseOrderId: string; description: string; quantity: string; unitPrice: string } | null;
+  stockMovement?: StockMovementLink | null;
+}
+
+export interface PurchaseReturn {
+  id: string;
+  organizationId: string;
+  supplierId: string;
+  purchaseReturnNumber: string;
+  status: PurchaseReturnStatus;
+  returnDate: string;
+  reason: string | null;
+  reference: string | null;
+  sourcePurchaseBillId: string | null;
+  sourcePurchaseOrderId: string | null;
+  sourcePurchaseReceiptId: string | null;
+  sourceMatchingReviewId: string | null;
+  relatedPurchaseDebitNoteId: string | null;
+  relatedSupplierRefundId: string | null;
+  notes: string | null;
+  createdByUserId: string | null;
+  approvedByUserId: string | null;
+  inventoryReturnPostedByUserId?: string | null;
+  approvedAt: string | null;
+  completedAt: string | null;
+  voidedAt: string | null;
+  inventoryReturnPostedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  noPostingEffect?: true;
+  noInventoryEffect?: true;
+  noAutomaticInventoryEffect?: true;
+  lineCount?: number;
+  inventoryReturnMovementStatus?: "NOT_POSTED" | "POSTED";
+  inventoryReturnMovementIds?: string[];
+  inventoryReturnReversalSupported?: false;
+  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  sourcePurchaseBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate?: string; total?: string; supplierId?: string } | null;
+  sourcePurchaseOrder?: { id: string; purchaseOrderNumber: string; status: PurchaseOrderStatus; orderDate?: string; total?: string; supplierId?: string } | null;
+  sourcePurchaseReceipt?: { id: string; receiptNumber: string; status: PurchaseReceiptStatus; receiptDate?: string; supplierId?: string; purchaseOrderId?: string | null; purchaseBillId?: string | null } | null;
+  sourceMatchingReview?: { id: string; sourceType: string; sourceId: string; exceptionType: string; severity: string; status: PurchaseMatchingReviewStatus; reasonCode: PurchaseMatchingReviewReason | null } | null;
+  relatedPurchaseDebitNote?: { id: string; debitNoteNumber: string; status: PurchaseDebitNoteStatus; total?: string; unappliedAmount?: string } | null;
+  relatedSupplierRefund?: { id: string; refundNumber: string; status: SupplierRefundStatus; amountRefunded?: string } | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  inventoryReturnPostedBy?: { id: string; name: string; email: string } | null;
+  lines?: PurchaseReturnLine[];
+}
+
+export type PurchaseReturnInventoryMovementStatus = "NOT_POSTED" | "POSTED" | "BLOCKED";
+export type PurchaseReturnInventoryMovementLineStatus = "POSTABLE" | "POSTED" | "BLOCKED" | "SKIPPED_NON_TRACKED";
+
+export interface PurchaseReturnInventoryMovementPreviewLine {
+  lineId: string;
+  description: string;
+  item: { id: string; name: string; sku: string | null; inventoryTracking: boolean } | null;
+  warehouse: { id: string; code: string; name: string } | null;
+  returnQuantity: string;
+  currentOnHand: string | null;
+  projectedOnHandAfterReturn: string | null;
+  movementType: "PURCHASE_RETURN_OUT";
+  movementRequired: boolean;
+  status: PurchaseReturnInventoryMovementLineStatus;
+  stockMovementId: string | null;
+  sourcePurchaseReceiptLineId: string | null;
+  sourcePurchaseReceiptNumber: string | null;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+export interface PurchaseReturnInventoryMovementPreview {
+  readOnly: true;
+  previewOnly: true;
+  noPostingEffect: true;
+  noAccountingEffect: true;
+  noApEffect: true;
+  noVatEffect: true;
+  noValuationPosting: true;
+  sourceType: "PurchaseReturn";
+  sourcePurchaseReturn: { id: string; purchaseReturnNumber: string; status: PurchaseReturnStatus };
+  inventoryMovementStatus: PurchaseReturnInventoryMovementStatus;
+  canPost: boolean;
+  alreadyPosted: boolean;
+  reversalSupported: false;
+  postedAt: string | null;
+  movementIds: string[];
+  blockingReasons: string[];
+  warnings: string[];
+  safeHelperText: string;
+  lines: PurchaseReturnInventoryMovementPreviewLine[];
+}
+
 export interface SupplierPaymentAllocation {
   id: string;
   organizationId: string;
@@ -3131,6 +3866,7 @@ export interface SupplierLedgerRow {
     | "PurchaseBill"
     | "PurchaseDebitNote"
     | "PurchaseDebitNoteAllocation"
+    | "PurchaseReturn"
     | "SupplierPayment"
     | "SupplierPaymentUnappliedAllocation"
     | "SupplierRefund"
@@ -3503,6 +4239,133 @@ export interface DeliveryNote {
   relatedSalesStockIssue?: { id: string; issueNumber: string; status: SalesStockIssueStatus; issueDate?: string } | null;
   lines?: DeliveryNoteLine[];
   _count?: { lines: number };
+}
+
+export interface SalesInventoryReturnLine {
+  id: string;
+  organizationId: string;
+  salesInventoryReturnId: string;
+  itemId: string | null;
+  description: string;
+  quantity: string;
+  sourceSalesInvoiceLineId: string | null;
+  sourceCreditNoteLineId: string | null;
+  sourceDeliveryNoteLineId: string | null;
+  sourceSalesStockIssueLineId: string | null;
+  warehouseId: string | null;
+  stockMovementId: string | null;
+  reason: string | null;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+  item?: { id: string; name: string; sku: string | null; status?: ItemStatus; inventoryTracking?: boolean } | null;
+  warehouse?: { id: string; code: string; name: string; status?: WarehouseStatus; isDefault?: boolean } | null;
+  sourceSalesInvoiceLine?: { id: string; invoiceId: string; itemId: string | null; description: string; quantity: string } | null;
+  sourceCreditNoteLine?: { id: string; creditNoteId: string; itemId: string | null; description: string; quantity: string } | null;
+  sourceDeliveryNoteLine?: { id: string; deliveryNoteId: string; itemId: string | null; description: string; quantity: string } | null;
+  sourceSalesStockIssueLine?: {
+    id: string;
+    issueId: string;
+    itemId: string;
+    quantity: string;
+    unitCost: string | null;
+    stockMovementId: string | null;
+    issue?: { id: string; issueNumber?: string; customerId: string; status: SalesStockIssueStatus; warehouseId: string; warehouse?: { id: string; code: string; name: string; status: WarehouseStatus; isDefault?: boolean } | null };
+    stockMovement?: StockMovementLink | null;
+  } | null;
+  stockMovement?: StockMovementLink | null;
+}
+
+export interface SalesInventoryReturn {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  salesReturnNumber: string;
+  status: SalesInventoryReturnStatus;
+  returnDate: string;
+  reason: string | null;
+  reference: string | null;
+  sourceSalesInvoiceId: string | null;
+  sourceCreditNoteId: string | null;
+  sourceDeliveryNoteId: string | null;
+  sourceSalesStockIssueId: string | null;
+  notes: string | null;
+  createdByUserId: string | null;
+  approvedByUserId: string | null;
+  inventoryReturnPostedByUserId: string | null;
+  approvedAt: string | null;
+  receivedAt: string | null;
+  cancelledAt: string | null;
+  voidedAt: string | null;
+  inventoryReturnPostedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  noPostingEffect?: true;
+  noAccountingEffect?: true;
+  noArEffect?: true;
+  noVatEffect?: true;
+  noZatcaEffect?: true;
+  noCreditNoteEffect?: true;
+  noRefundEffect?: true;
+  noAutomaticInventoryEffect?: true;
+  lineCount?: number;
+  inventoryReturnMovementStatus?: SalesInventoryReturnInventoryMovementStatus;
+  inventoryReturnMovementIds?: string[];
+  inventoryReturnReversalSupported?: false;
+  safeHelperText?: string;
+  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  sourceSalesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate?: string; total?: string; customerId?: string } | null;
+  sourceCreditNote?: { id: string; creditNoteNumber: string; status: CreditNoteStatus; issueDate?: string; total?: string; customerId?: string } | null;
+  sourceDeliveryNote?: { id: string; deliveryNoteNumber: string; status: DeliveryNoteStatus; issueDate?: string; deliveryDate?: string | null; customerId?: string } | null;
+  sourceSalesStockIssue?: { id: string; issueNumber: string; status: SalesStockIssueStatus; issueDate?: string; customerId?: string; warehouseId?: string; warehouse?: { id: string; code: string; name: string; status: WarehouseStatus; isDefault?: boolean } | null } | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  approvedBy?: { id: string; name: string; email: string } | null;
+  inventoryReturnPostedBy?: { id: string; name: string; email: string } | null;
+  lines?: SalesInventoryReturnLine[];
+}
+
+export type SalesInventoryReturnInventoryMovementStatus = "NOT_POSTED" | "POSTED" | "BLOCKED";
+export type SalesInventoryReturnInventoryLineStatus = "POSTABLE" | "POSTED" | "BLOCKED" | "SKIPPED_NON_TRACKED";
+
+export interface SalesInventoryReturnInventoryMovementPreviewLine {
+  lineId: string;
+  description: string;
+  item: { id: string; name: string; sku: string | null; inventoryTracking: boolean } | null;
+  warehouse: { id: string; code: string; name: string } | null;
+  returnQuantity: string;
+  currentOnHand: string | null;
+  projectedOnHandAfterReturn: string | null;
+  movementType: "SALES_RETURN_IN";
+  movementRequired: boolean;
+  status: SalesInventoryReturnInventoryLineStatus;
+  stockMovementId: string | null;
+  sourceType: "salesInvoice" | "creditNote" | "deliveryNote" | "salesStockIssue" | "direct";
+  sourceLineId: string | null;
+  sourceDocumentNumber: string | null;
+  blockingReasons: string[];
+  warnings: string[];
+}
+
+export interface SalesInventoryReturnInventoryMovementPreview {
+  readOnly: true;
+  previewOnly: true;
+  noPostingEffect: true;
+  noAccountingEffect: true;
+  noArEffect: true;
+  noVatEffect: true;
+  noZatcaEffect: true;
+  sourceType: "SalesInventoryReturn";
+  sourceSalesInventoryReturn: { id: string; salesReturnNumber: string; status: SalesInventoryReturnStatus };
+  inventoryMovementStatus: SalesInventoryReturnInventoryMovementStatus;
+  canPost: boolean;
+  alreadyPosted: boolean;
+  reversalSupported: false;
+  postedAt: string | null;
+  movementIds: string[];
+  blockingReasons: string[];
+  warnings: string[];
+  safeHelperText: string;
+  lines: SalesInventoryReturnInventoryMovementPreviewLine[];
 }
 
 export interface CollectionActivity {

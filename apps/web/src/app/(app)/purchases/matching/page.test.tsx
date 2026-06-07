@@ -120,6 +120,61 @@ describe("PurchaseMatchingExceptionsPage", () => {
     expect(screen.queryByRole("button", { name: "Start review" })).not.toBeInTheDocument();
   });
 
+  it("shows return review follow-up and linked purchase return metadata", async () => {
+    currentPermissions = new Set([
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.purchaseBills.create,
+      PERMISSIONS.purchaseReceiving.view,
+      PERMISSIONS.contacts.view,
+    ]);
+    apiRequestMock.mockResolvedValue(exceptionResponse({ reviewStatus: "NEEDS_RETURN_REVIEW", purchaseReturn: true }));
+
+    render(<PurchaseMatchingExceptionsPage />);
+
+    expect(await screen.findByText("Return review needed")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return PRN-000001" })).toHaveAttribute("href", "/purchases/returns/return-1");
+    expect(screen.queryByRole("link", { name: "Create purchase return" })).not.toBeInTheDocument();
+  });
+
+  it("offers an explicit create-return link only after a return review exists", async () => {
+    currentPermissions = new Set([
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.purchaseBills.create,
+      PERMISSIONS.purchaseReceiving.view,
+      PERMISSIONS.contacts.view,
+    ]);
+    apiRequestMock.mockResolvedValue(exceptionResponse({ reviewStatus: "NEEDS_RETURN_REVIEW" }));
+
+    render(<PurchaseMatchingExceptionsPage />);
+
+    const link = await screen.findByRole("link", { name: "Create purchase return" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/purchases/returns/new?matchingReviewId=review-1&supplierId=supplier-1&sourceType=purchaseOrder&sourceId=po-1",
+    );
+  });
+
+  it("links variance review rows to valuation variance preview when inventory view is allowed", async () => {
+    currentPermissions = new Set([
+      PERMISSIONS.inventory.view,
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.purchaseReceiving.view,
+      PERMISSIONS.contacts.view,
+    ]);
+    apiRequestMock.mockResolvedValue(exceptionResponse({ reviewStatus: "NEEDS_VARIANCE_REVIEW" }));
+
+    render(<PurchaseMatchingExceptionsPage />);
+
+    expect(await screen.findByRole("link", { name: "Valuation variance preview" })).toHaveAttribute(
+      "href",
+      "/inventory/valuation-variances?matchingReviewId=review-1&sourceType=matchingReview",
+    );
+  });
+
+
   it("sends selected filters to the exception endpoint", async () => {
     apiRequestMock.mockResolvedValue(exceptionResponse());
 
@@ -179,18 +234,22 @@ describe("PurchaseMatchingExceptionsPage", () => {
   });
 });
 
-function exceptionResponse(options: { reviewStatus?: "OPEN" | null } = {}): PurchaseMatchingExceptionsResponse {
+function exceptionResponse(options: { reviewStatus?: "OPEN" | "NEEDS_VARIANCE_REVIEW" | "NEEDS_RETURN_REVIEW" | null; purchaseReturn?: boolean } = {}): PurchaseMatchingExceptionsResponse {
   const reviewFields =
-    options.reviewStatus === "OPEN"
+    options.reviewStatus
       ? {
           reviewId: "review-1",
-          reviewStatus: "OPEN" as const,
+          reviewStatus: options.reviewStatus,
           reasonCode: "OVER_BILLED" as const,
           assignedTo: null,
           nextReviewDate: null,
           reviewedAt: null,
           reviewNoteSummary: null,
-        }
+          purchaseReturnId: options.purchaseReturn ? "return-1" : null,
+          purchaseReturnNumber: options.purchaseReturn ? "PRN-000001" : null,
+          purchaseReturnStatus: options.purchaseReturn ? "SUBMITTED" as const : null,
+          purchaseReturnHref: options.purchaseReturn ? "/purchases/returns/return-1" : null,
+      }
       : {
           reviewId: null,
           reviewStatus: null,
@@ -199,6 +258,10 @@ function exceptionResponse(options: { reviewStatus?: "OPEN" | null } = {}): Purc
           nextReviewDate: null,
           reviewedAt: null,
           reviewNoteSummary: null,
+          purchaseReturnId: null,
+          purchaseReturnNumber: null,
+          purchaseReturnStatus: null,
+          purchaseReturnHref: null,
         };
   return {
     readOnly: true,

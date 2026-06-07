@@ -26,6 +26,7 @@ describe("PurchaseMatchingPanel", () => {
     expect(screen.getAllByText("Bill pending receipt").length).toBeGreaterThan(0);
     expect(screen.getByText("Review workflow")).toBeInTheDocument();
     expect(screen.getByText("Waiting For Supplier")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return PRN-000001" })).toHaveAttribute("href", "/purchases/returns/return-1");
     expect(screen.getByText(/Review status is for follow-up only/i)).toBeInTheDocument();
     expect(screen.getAllByText("Ordered").length).toBeGreaterThan(0);
     expect(screen.getAllByText("10.0000").length).toBeGreaterThan(0);
@@ -34,6 +35,23 @@ describe("PurchaseMatchingPanel", () => {
     expect(screen.getByRole("link", { name: "PO-000001" })).toHaveAttribute("href", "/purchases/purchase-orders/po-1");
     expect(screen.getAllByRole("link", { name: /BILL-000001/ })[0]).toHaveAttribute("href", "/purchases/bills/bill-1");
     expect(screen.getAllByRole("link", { name: /PRC-000001/ })[0]).toHaveAttribute("href", "/inventory/purchase-receipts/receipt-1");
+  });
+
+  it("shows a valuation variance preview link for variance review status when enabled", () => {
+    const summary = matchingSummary();
+    summary.reviewSummary = {
+      ...summary.reviewSummary!,
+      reviewStatus: "NEEDS_VARIANCE_REVIEW",
+      reasonCode: "PRICE_MISMATCH",
+    };
+
+    render(<PurchaseMatchingPanel summary={summary} showValuationVariancePreviewLink />);
+
+    expect(screen.getByRole("link", { name: "Open valuation variance preview" })).toHaveAttribute(
+      "href",
+      "/inventory/valuation-variances?matchingReviewId=review-1&sourceType=matchingReview",
+    );
+    expect(screen.getByText(/Review status is for follow-up only/i)).toBeInTheDocument();
   });
 });
 
@@ -54,6 +72,10 @@ function matchingSummary(): PurchaseMatchingSummary {
       nextReviewDate: null,
       reviewedAt: null,
       reviewNoteSummary: null,
+      purchaseReturnId: "return-1",
+      purchaseReturnNumber: "PRN-000001",
+      purchaseReturnStatus: "SUBMITTED",
+      purchaseReturnHref: "/purchases/returns/return-1",
     },
     purchaseOrder: {
       id: "po-1",

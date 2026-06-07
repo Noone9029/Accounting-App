@@ -58,6 +58,9 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices/rec-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes/dn-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/new")).toEqual([PERMISSIONS.salesInvoices.create]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/sir-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/sales/collections")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/collections/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/collections/case-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
@@ -83,6 +86,17 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/inventory/reports/low-stock")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/reports/clearing-reconciliation")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/reports/clearing-variance")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/fifo-preview")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/bin-locations/bin-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/batches/batch-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers/new")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/serial-numbers/serial-1")).toEqual([PERMISSIONS.inventory.view]);
+    expect(getRequiredPermissionsForPathname("/inventory/traceability/items/item-1")).toEqual([PERMISSIONS.inventory.view]);
     expect(getRequiredPermissionsForPathname("/inventory/variance-proposals")).toEqual([
       PERMISSIONS.inventory.varianceProposalsView,
     ]);
@@ -104,6 +118,7 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/cash-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes")).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(getRequiredPermissionsForPathname("/sales/inventory-returns/return-1")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/api-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/purchases")).toEqual([
       PERMISSIONS.purchaseOrders.view,
@@ -162,6 +177,7 @@ describe("sidebar nav filtering", () => {
       "Quotes",
       "Recurring invoices",
       "Delivery notes",
+      "Inventory returns",
       "Collections",
     ]);
     expect(nav.some((item) => item.label === "Purchases")).toBe(false);

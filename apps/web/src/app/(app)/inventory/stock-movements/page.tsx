@@ -10,7 +10,9 @@ import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   formatInventoryQuantity,
+  inventoryFifoPreviewUrl,
   inventoryOperationalWarning,
+  inventoryTraceabilityUrl,
   stockMovementDirectionLabel,
   stockMovementTypeLabel,
   warehouseStatusLabel,
@@ -26,6 +28,8 @@ const movementTypes: StockMovementType[] = [
   "TRANSFER_OUT",
   "PURCHASE_RECEIPT_PLACEHOLDER",
   "SALES_ISSUE_PLACEHOLDER",
+  "PURCHASE_RETURN_OUT",
+  "SALES_RETURN_IN",
 ];
 
 export default function StockMovementsPage() {
@@ -43,6 +47,7 @@ export default function StockMovementsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const canCreate = can(PERMISSIONS.stockMovements.create);
+  const canViewFifoPreview = can(PERMISSIONS.inventory.view);
   const canCreateAdjustment = can(PERMISSIONS.inventoryAdjustments.create);
   const canCreateTransfer = can(PERMISSIONS.warehouseTransfers.create);
 
@@ -104,17 +109,24 @@ export default function StockMovementsPage() {
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Stock movements</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational stock ledger entries from opening balances, approvals, transfers, and voids.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational stock ledger entries from opening balances, approvals, transfers, returns, and voids.</p>
         </div>
-        {canCreate ? (
-          <Link href="/inventory/stock-movements/new" className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            New movement
-          </Link>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
+          {canViewFifoPreview ? (
+            <Link href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null, warehouseId: filters.warehouseId || null })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              FIFO preview
+            </Link>
+          ) : null}
+          {canCreate ? (
+            <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+              New movement
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
-      <StockMovementLedgerGuidance canCreate={canCreate} />
+      <StockMovementLedgerGuidance canCreate={canCreate} canViewFifoPreview={canViewFifoPreview} />
 
       <form onSubmit={updateFilters} className="mb-5 grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-6">
         <input name="itemId" defaultValue={filters.itemId} placeholder="Item ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -142,7 +154,7 @@ export default function StockMovementsPage() {
           <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
             <h2 className="font-semibold text-ink">No stock movements found.</h2>
             <p className="mt-2 max-w-3xl leading-6 text-steel">
-              Stock movements appear after opening balances, purchase receipts, sales stock issues, approved adjustments, warehouse transfers, or void reversals.
+              Stock movements appear after opening balances, purchase receipts, sales stock issues, explicit purchase returns, approved adjustments, warehouse transfers, or void reversals.
             </p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {canCreate ? (
@@ -167,7 +179,7 @@ export default function StockMovementsPage() {
 
       {movements.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1060px] text-left text-sm">
+          <table className="w-full min-w-[1220px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Date</th>
@@ -177,7 +189,10 @@ export default function StockMovementsPage() {
                 <th className="px-4 py-3">Warehouse</th>
                 <th className="px-4 py-3 text-right">Quantity</th>
                 <th className="px-4 py-3 text-right">Unit cost</th>
+                <th className="px-4 py-3">Tracking refs</th>
                 <th className="px-4 py-3">Description</th>
+                {canViewFifoPreview ? <th className="px-4 py-3">FIFO</th> : null}
+                {canViewFifoPreview ? <th className="px-4 py-3">Traceability</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -192,7 +207,26 @@ export default function StockMovementsPage() {
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(movement.quantity)}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{movement.unitCost ? formatInventoryQuantity(movement.unitCost) : "-"}</td>
+                  <td className="px-4 py-3 text-xs text-steel">
+                    {[movement.batch?.batchNumber, movement.serialNumber?.serialNumber, movement.binLocation?.code ?? movement.fromBinLocation?.code ?? movement.toBinLocation?.code]
+                      .filter(Boolean)
+                      .join(" / ") || "-"}
+                  </td>
                   <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
+                  {canViewFifoPreview ? (
+                    <td className="px-4 py-3 text-xs">
+                      <Link href={inventoryFifoPreviewUrl({ itemId: movement.itemId, warehouseId: movement.warehouseId })} className="font-medium text-palm hover:underline">
+                        FIFO preview
+                      </Link>
+                    </td>
+                  ) : null}
+                  {canViewFifoPreview ? (
+                    <td className="px-4 py-3 text-xs">
+                      <Link href={inventoryTraceabilityUrl(movement.itemId)} className="font-medium text-palm hover:underline">
+                        Traceability
+                      </Link>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -203,7 +237,7 @@ export default function StockMovementsPage() {
   );
 }
 
-export function StockMovementLedgerGuidance({ canCreate }: { canCreate: boolean }) {
+export function StockMovementLedgerGuidance({ canCreate, canViewFifoPreview }: { canCreate: boolean; canViewFifoPreview: boolean }) {
   return (
     <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -216,7 +250,7 @@ export function StockMovementLedgerGuidance({ canCreate }: { canCreate: boolean 
             </div>
             <div>
               <p className="font-semibold text-ink">References</p>
-              <p className="mt-1">Receipts, issues, adjustments, transfers, and voids leave separate movement rows instead of rewriting history.</p>
+              <p className="mt-1">Receipts, issues, returns, adjustments, transfers, and voids leave separate movement rows instead of rewriting history.</p>
             </div>
             <div>
               <p className="font-semibold text-ink">Cost fields</p>
@@ -236,6 +270,11 @@ export function StockMovementLedgerGuidance({ canCreate }: { canCreate: boolean 
           <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Movement report
           </Link>
+          {canViewFifoPreview ? (
+            <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+              FIFO preview
+            </Link>
+          ) : null}
           <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Dashboard
           </Link>

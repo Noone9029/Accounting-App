@@ -6,13 +6,23 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatInventoryQuantity, inventoryOperationalWarning, itemStatusBadgeClass, itemStatusLabel, itemTypeLabel } from "@/lib/inventory";
+import {
+  formatInventoryQuantity,
+  inventoryOperationalWarning,
+  inventoryTraceabilityUrl,
+  inventoryTrackingSafeHelperText,
+  itemStatusBadgeClass,
+  itemStatusLabel,
+  itemTrackingModeLabel,
+  itemTypeLabel,
+} from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Account, InventoryBalance, Item, ItemStatus, ItemType, TaxRate } from "@/lib/types";
+import type { Account, InventoryBalance, Item, ItemStatus, ItemTrackingMode, ItemType, TaxRate } from "@/lib/types";
 
 const itemTypes: ItemType[] = ["SERVICE", "PRODUCT"];
 const itemStatuses: ItemStatus[] = ["ACTIVE", "DISABLED"];
+const itemTrackingModes: ItemTrackingMode[] = ["NONE", "SERIAL", "BATCH", "SERIAL_AND_BATCH"];
 
 export default function ItemsPage() {
   const organizationId = useActiveOrganizationId();
@@ -91,6 +101,9 @@ export default function ItemsPage() {
           revenueAccountId: String(formData.get("revenueAccountId")),
           salesTaxRateId: String(formData.get("salesTaxRateId") || "") || null,
           inventoryTracking: formData.get("inventoryTracking") === "on",
+          trackingMode: String(formData.get("trackingMode") || "NONE") as ItemTrackingMode,
+          expiryTrackingEnabled: formData.get("expiryTrackingEnabled") === "on",
+          binTrackingEnabled: formData.get("binTrackingEnabled") === "on",
           reorderPoint: String(formData.get("reorderPoint") || "") || null,
           reorderQuantity: String(formData.get("reorderQuantity") || "") || null,
         },
@@ -127,6 +140,9 @@ export default function ItemsPage() {
           revenueAccountId: String(formData.get("revenueAccountId")),
           salesTaxRateId: String(formData.get("salesTaxRateId") || "") || null,
           inventoryTracking: formData.get("inventoryTracking") === "on",
+          trackingMode: String(formData.get("trackingMode") || "NONE") as ItemTrackingMode,
+          expiryTrackingEnabled: formData.get("expiryTrackingEnabled") === "on",
+          binTrackingEnabled: formData.get("binTrackingEnabled") === "on",
           reorderPoint: String(formData.get("reorderPoint") || "") || null,
           reorderQuantity: String(formData.get("reorderQuantity") || "") || null,
         },
@@ -233,8 +249,24 @@ export default function ItemsPage() {
             <input name="inventoryTracking" type="checkbox" />
             Track inventory
           </label>
+          <select name="trackingMode" defaultValue="NONE" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            {itemTrackingModes.map((mode) => (
+              <option key={mode} value={mode}>
+                Tracking: {itemTrackingModeLabel(mode)}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input name="expiryTrackingEnabled" type="checkbox" />
+            Expiry tracking
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input name="binTrackingEnabled" type="checkbox" />
+            Bin tracking
+          </label>
           <input name="reorderPoint" placeholder="Reorder point" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           <input name="reorderQuantity" placeholder="Reorder quantity" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          <p className="text-xs leading-5 text-steel md:col-span-3">{inventoryTrackingSafeHelperText()}</p>
           <button type="submit" disabled={!organizationId || revenueAccounts.length === 0} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             Add item
           </button>
@@ -275,8 +307,24 @@ export default function ItemsPage() {
               <input name="inventoryTracking" type="checkbox" defaultChecked={editingItem.inventoryTracking} />
               Track inventory
             </label>
+            <select name="trackingMode" defaultValue={editingItem.trackingMode ?? "NONE"} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              {itemTrackingModes.map((mode) => (
+                <option key={mode} value={mode}>
+                  Tracking: {itemTrackingModeLabel(mode)}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input name="expiryTrackingEnabled" type="checkbox" defaultChecked={editingItem.expiryTrackingEnabled ?? false} />
+              Expiry tracking
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input name="binTrackingEnabled" type="checkbox" defaultChecked={editingItem.binTrackingEnabled ?? false} />
+              Bin tracking
+            </label>
             <input name="reorderPoint" defaultValue={editingItem.reorderPoint ?? ""} placeholder="Reorder point" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             <input name="reorderQuantity" defaultValue={editingItem.reorderQuantity ?? ""} placeholder="Reorder quantity" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <p className="text-xs leading-5 text-steel md:col-span-3">{inventoryTrackingSafeHelperText()}</p>
             <div className="flex gap-2">
               <button type="submit" className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">Save</button>
               <button type="button" onClick={() => setEditingItem(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
@@ -302,7 +350,7 @@ export default function ItemsPage() {
 
       {items.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1240px] text-left text-sm">
+          <table className="w-full min-w-[1360px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -312,6 +360,7 @@ export default function ItemsPage() {
                 <th className="px-4 py-3">Revenue account</th>
                 <th className="px-4 py-3">Tax rate</th>
                 <th className="px-4 py-3">Inventory</th>
+                <th className="px-4 py-3">Tracking</th>
                 <th className="px-4 py-3">Qty on hand</th>
                 <th className="px-4 py-3">Reorder point</th>
                 <th className="px-4 py-3">Reorder qty</th>
@@ -329,6 +378,10 @@ export default function ItemsPage() {
                   <td className="px-4 py-3 text-steel">{item.revenueAccount ? `${item.revenueAccount.code} ${item.revenueAccount.name}` : "-"}</td>
                   <td className="px-4 py-3 text-steel">{item.salesTaxRate?.name ?? "No default tax"}</td>
                   <td className="px-4 py-3 text-steel">{item.inventoryTracking ? "Tracked" : "Not tracked"}</td>
+                  <td className="px-4 py-3 text-steel">
+                    <div>{itemTrackingModeLabel(item.trackingMode)}</div>
+                    <div className="text-xs text-slate-500">{[item.expiryTrackingEnabled ? "Expiry" : null, item.binTrackingEnabled ? "Bin" : null].filter(Boolean).join(", ") || "No extras"}</div>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{item.inventoryTracking && canViewInventory ? totalQuantityForItem(item.id) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderPoint ? formatInventoryQuantity(item.reorderPoint) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderQuantity ? formatInventoryQuantity(item.reorderQuantity) : "-"}</td>
@@ -338,6 +391,7 @@ export default function ItemsPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {canManageItems ? <button type="button" onClick={() => setEditingItem(item)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button> : null}
+                      {canViewInventory ? <Link href={inventoryTraceabilityUrl(item.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Traceability</Link> : null}
                       {item.status === "ACTIVE" && canManageItems ? (
                         <button type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} className="rounded-md border border-amber px-2 py-1 text-xs font-medium text-amber hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400">Disable</button>
                       ) : null}

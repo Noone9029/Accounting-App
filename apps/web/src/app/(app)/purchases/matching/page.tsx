@@ -7,7 +7,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatInventoryQuantity } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryValuationVariancePreviewUrl } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
   PurchaseMatchingContext,
@@ -87,6 +87,8 @@ export default function PurchaseMatchingExceptionsPage() {
 
   const canViewPage = canAny(PERMISSIONS.purchaseOrders.view, PERMISSIONS.purchaseBills.view, PERMISSIONS.purchaseReceiving.view);
   const canManageReviews = canAny(PERMISSIONS.purchaseOrders.update, PERMISSIONS.purchaseBills.update, PERMISSIONS.purchaseReceiving.create);
+  const canCreateReturns = canAny(PERMISSIONS.purchaseBills.create, PERMISSIONS.purchaseBills.update, PERMISSIONS.purchaseReceiving.create);
+  const canViewValuationVariances = can(PERMISSIONS.inventory.view);
 
   const path = useMemo(() => {
     const params = new URLSearchParams();
@@ -306,6 +308,8 @@ export default function PurchaseMatchingExceptionsPage() {
                             item={item}
                             linkPermissions={linkPermissions}
                             canManageReviews={canManageReviews}
+                            canCreateReturns={canCreateReturns}
+                            canViewValuationVariances={canViewValuationVariances}
                             activeAction={activeAction}
                             onReviewAction={handleReviewAction}
                           />
@@ -365,12 +369,16 @@ function ExceptionRow({
   item,
   linkPermissions,
   canManageReviews,
+  canCreateReturns,
+  canViewValuationVariances,
   activeAction,
   onReviewAction,
 }: {
   item: PurchaseMatchingExceptionItem;
   linkPermissions: Record<PurchaseMatchingContext | "supplier", boolean>;
   canManageReviews: boolean;
+  canCreateReturns: boolean;
+  canViewValuationVariances: boolean;
   activeAction: string | null;
   onReviewAction: (item: PurchaseMatchingExceptionItem, action: ReviewAction) => void;
 }) {
@@ -403,6 +411,24 @@ function ExceptionRow({
             </span>
             {item.reasonCode ? <div className="mt-1 text-xs text-steel">{reasonLabel(item.reasonCode)}</div> : null}
             {item.assignedTo ? <div className="mt-1 text-xs text-steel">Assigned to {item.assignedTo.name}</div> : null}
+            {item.reviewStatus === "NEEDS_RETURN_REVIEW" ? <div className="mt-1 text-xs font-medium text-amber-700">Return review needed</div> : null}
+            {item.reviewStatus === "NEEDS_VARIANCE_REVIEW" && item.reviewId && canViewValuationVariances ? (
+              <Link
+                href={inventoryValuationVariancePreviewUrl({ matchingReviewId: item.reviewId, sourceType: "matchingReview" })}
+                className="mt-1 block text-xs font-medium text-palm hover:underline"
+              >
+                Valuation variance preview
+              </Link>
+            ) : null}
+            {item.purchaseReturnHref && item.purchaseReturnNumber ? (
+              <Link href={item.purchaseReturnHref} className="mt-1 block text-xs font-medium text-palm hover:underline">
+                Return {item.purchaseReturnNumber}
+              </Link>
+            ) : canCreateReturns && item.reviewId && item.reviewStatus === "NEEDS_RETURN_REVIEW" ? (
+              <Link href={purchaseReturnCreateHref(item)} className="mt-1 block text-xs font-medium text-palm hover:underline">
+                Create purchase return
+              </Link>
+            ) : null}
           </div>
           {canManageReviews ? (
             <div className="flex max-w-[260px] flex-wrap gap-1">
@@ -457,6 +483,16 @@ function ExceptionRow({
       <td className="px-3 py-3 text-xs text-steel">{formatOptionalDate(item.latestRelevantDate, "-")}</td>
     </tr>
   );
+}
+
+function purchaseReturnCreateHref(item: PurchaseMatchingExceptionItem): string {
+  const params = new URLSearchParams({
+    matchingReviewId: item.reviewId ?? "",
+    supplierId: item.supplierId,
+    sourceType: item.sourceType,
+    sourceId: item.sourceId,
+  });
+  return `/purchases/returns/new?${params.toString()}`;
 }
 
 function ReviewActionButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {

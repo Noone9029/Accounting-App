@@ -34,6 +34,7 @@ describe("inventory workflow guidance", () => {
         warehouse={warehouseFixture()}
         canCreateAdjustment
         canCreateTransfer
+        canViewFifoPreview
         hasBalances={false}
         hasMovements={false}
       />,
@@ -100,7 +101,7 @@ describe("inventory workflow guidance", () => {
           onVoid={jest.fn()}
         />
         <WarehouseTransferWorkflowGuidance transfer={warehouseTransferFixture()} canVoid actionLoading={false} onVoid={jest.fn()} />
-        <StockMovementLedgerGuidance canCreate />
+        <StockMovementLedgerGuidance canCreate canViewFifoPreview />
       </>,
     );
 

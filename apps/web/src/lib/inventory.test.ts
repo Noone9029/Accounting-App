@@ -21,6 +21,17 @@ import {
   inventoryClearingStatusBadgeClass,
   inventoryClearingStatusLabel,
   inventoryClearingVarianceReasonLabel,
+  inventoryFifoPreviewSafeHelperText,
+  inventoryFifoPreviewUrl,
+  inventoryFifoPreviewWarningBadgeClass,
+  inventoryFifoPreviewWarningLabel,
+  inventoryBatchStatusLabel,
+  inventoryBinLocationStatusLabel,
+  inventoryBinLocationTypeLabel,
+  inventorySerialNumberStatusLabel,
+  inventoryTraceabilityStatusBadgeClass,
+  inventoryTraceabilityUrl,
+  inventoryTrackingSafeHelperText,
   inventoryVarianceProposalCreateUrl,
   inventoryVarianceProposalFinancialReportWarning,
   inventoryVarianceProposalReasonFromClearingRow,
@@ -37,6 +48,7 @@ import {
   inventoryValuationWarningText,
   itemStatusBadgeClass,
   itemStatusLabel,
+  itemTrackingModeLabel,
   itemTypeLabel,
   missingInventoryAccountMappingWarnings,
   canVoidPostedStockDocument,
@@ -86,6 +98,20 @@ describe("inventory helpers", () => {
     expect(itemStatusLabel("DISABLED")).toBe("Disabled");
     expect(itemStatusBadgeClass("ACTIVE")).toContain("emerald");
     expect(itemStatusBadgeClass("DISABLED")).toContain("slate");
+    expect(itemTrackingModeLabel("NONE")).toBe("None");
+    expect(itemTrackingModeLabel("SERIAL_AND_BATCH")).toBe("Serial and batch");
+  });
+
+  it("labels traceability setup values and safe text", () => {
+    expect(inventoryTrackingSafeHelperText()).toContain("operational traceability");
+    expect(inventoryTrackingSafeHelperText()).toContain("do not change historical inventory valuation");
+    expect(inventoryTraceabilityUrl("item-1")).toBe("/inventory/traceability/items/item-1");
+    expect(inventoryBinLocationTypeLabel("IN_TRANSIT")).toBe("In Transit");
+    expect(inventoryBinLocationStatusLabel("INACTIVE")).toBe("Inactive");
+    expect(inventoryBatchStatusLabel("QUARANTINED")).toBe("Quarantined");
+    expect(inventorySerialNumberStatusLabel("SCRAPPED")).toBe("Scrapped");
+    expect(inventoryTraceabilityStatusBadgeClass("AVAILABLE")).toContain("emerald");
+    expect(inventoryTraceabilityStatusBadgeClass("EXPIRED")).toContain("rose");
   });
 
   it("identifies stock movement direction", () => {
@@ -96,7 +122,11 @@ describe("inventory helpers", () => {
     expect(stockMovementDirection("TRANSFER_OUT")).toBe("OUT");
     expect(stockMovementDirection("PURCHASE_RECEIPT_PLACEHOLDER")).toBe("IN");
     expect(stockMovementDirection("SALES_ISSUE_PLACEHOLDER")).toBe("OUT");
+    expect(stockMovementDirection("PURCHASE_RETURN_OUT")).toBe("OUT");
+    expect(stockMovementDirection("SALES_RETURN_IN")).toBe("IN");
     expect(stockMovementTypeLabel("ADJUSTMENT_OUT")).toBe("Adjustment Out");
+    expect(stockMovementTypeLabel("PURCHASE_RETURN_OUT")).toBe("Purchase return out");
+    expect(stockMovementTypeLabel("SALES_RETURN_IN")).toBe("Sales return in");
   });
 
   it("formats adjustment and transfer statuses", () => {
@@ -264,6 +294,18 @@ describe("inventory helpers", () => {
     expect(inventoryClearingReportUrl({ purchaseBillId: "bill-1", purchaseReceiptId: "receipt-1", status: "VARIANCE" })).toBe(
       "/inventory/reports/clearing-reconciliation?purchaseBillId=bill-1&purchaseReceiptId=receipt-1&status=VARIANCE",
     );
+  });
+
+  it("builds FIFO preview URLs and labels warnings", () => {
+    expect(inventoryFifoPreviewUrl({ itemId: "item-1", warehouseId: "warehouse-1", asOfDate: "2026-06-06" })).toBe(
+      "/inventory/fifo-preview?itemId=item-1&warehouseId=warehouse-1&asOfDate=2026-06-06",
+    );
+    expect(inventoryFifoPreviewUrl({})).toBe("/inventory/fifo-preview");
+    expect(inventoryFifoPreviewSafeHelperText()).toContain("read-only");
+    expect(inventoryFifoPreviewSafeHelperText()).toContain("does not change inventory valuation");
+    expect(inventoryFifoPreviewWarningLabel("UNTRACEABLE_PURCHASE_RETURN_COST")).toBe("Untraceable purchase return cost");
+    expect(inventoryFifoPreviewWarningBadgeClass("INSUFFICIENT_LAYER_QUANTITY")).toContain("rose");
+    expect(inventoryFifoPreviewWarningBadgeClass("MISSING_UNIT_COST")).toContain("amber");
   });
 
   it("labels inventory variance proposal status, reasons, actions, and source URLs", () => {

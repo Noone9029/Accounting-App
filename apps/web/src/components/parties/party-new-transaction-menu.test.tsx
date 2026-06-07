@@ -39,6 +39,10 @@ describe("PartyNewTransactionMenu", () => {
       "href",
       "/sales/delivery-notes/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
     );
+    expect(screen.getByRole("menuitem", { name: "Sales Inventory Return" })).toHaveAttribute(
+      "href",
+      "/sales/inventory-returns/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
     expect(screen.queryByRole("menuitem", { name: "Bill" })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Sales Order" })).toBeDisabled();
   });

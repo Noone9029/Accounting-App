@@ -15,6 +15,7 @@ import {
   filterPartySummaries,
   getCustomer,
   getSupplier,
+  getSupplierApSummary,
   listCustomers,
   listSuppliers,
   partyStatusBadgeClass,
@@ -26,7 +27,17 @@ import {
   type PartyTransactionStatusFilter,
 } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { CollectionCase, Contact, CustomerPartyDetail, CustomerPartySummary, PartyTransaction, SupplierPartyDetail, SupplierPartySummary } from "@/lib/types";
+import type {
+  CollectionCase,
+  Contact,
+  CustomerPartyDetail,
+  CustomerPartySummary,
+  PartyTransaction,
+  SupplierApDetailSummary,
+  SupplierApRecentActivityItem,
+  SupplierPartyDetail,
+  SupplierPartySummary,
+} from "@/lib/types";
 import { PartyNewTransactionMenu } from "./party-new-transaction-menu";
 
 type PartySummary = CustomerPartySummary | SupplierPartySummary;
@@ -169,8 +180,11 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
 export function PartyDetailPage({ kind }: { kind: PartyKind }) {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
-  const { activeMembership, can } = usePermissions();
+  const { activeMembership, can, canAny } = usePermissions();
   const [detail, setDetail] = useState<PartyDetail | null>(null);
+  const [supplierApSummary, setSupplierApSummary] = useState<SupplierApDetailSummary | null>(null);
+  const [supplierApSummaryLoading, setSupplierApSummaryLoading] = useState(false);
+  const [supplierApSummaryError, setSupplierApSummaryError] = useState("");
   const [activeTab, setActiveTab] = useState<PartyTab>("transactions");
   const [filters, setFilters] = useState<PartyTransactionFilters>(defaultFilters);
   const [loading, setLoading] = useState(false);
@@ -180,6 +194,18 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
   const copy = partyCopy(kind);
   const canViewCollections = can(PERMISSIONS.salesInvoices.view);
   const canCreateCollectionCase = can(PERMISSIONS.salesInvoices.create);
+  const canViewSupplierApSummary =
+    kind === "supplier" &&
+    canAny(
+      PERMISSIONS.contacts.view,
+      PERMISSIONS.purchaseBills.view,
+      PERMISSIONS.purchaseOrders.view,
+      PERMISSIONS.purchaseReceiving.view,
+      PERMISSIONS.inventory.view,
+      PERMISSIONS.supplierPayments.view,
+      PERMISSIONS.purchaseDebitNotes.view,
+      PERMISSIONS.supplierRefunds.view,
+    );
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -243,6 +269,41 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
       cancelled = true;
     };
   }, [canViewCollections, kind, organizationId, params.id]);
+
+  useEffect(() => {
+    if (!canViewSupplierApSummary || !organizationId || !params.id) {
+      setSupplierApSummary(null);
+      setSupplierApSummaryLoading(false);
+      setSupplierApSummaryError("");
+      return;
+    }
+
+    let cancelled = false;
+    setSupplierApSummaryLoading(true);
+    setSupplierApSummaryError("");
+
+    getSupplierApSummary(params.id)
+      .then((result) => {
+        if (!cancelled) {
+          setSupplierApSummary(result);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setSupplierApSummary(null);
+          setSupplierApSummaryError(loadError instanceof Error ? loadError.message : "Unable to load supplier AP summary.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSupplierApSummaryLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewSupplierApSummary, organizationId, params.id]);
 
   const filteredTransactions = useMemo(
     () => filterPartyTransactions(detail?.transactions ?? [], filters),
@@ -325,6 +386,10 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
 
           <PartyActivitySummary detail={detail} kind={kind} />
 
+          {kind === "supplier" && supplierApSummaryLoading ? <StatusMessage type="loading">Loading supplier AP summary...</StatusMessage> : null}
+          {kind === "supplier" && supplierApSummaryError ? <StatusMessage type="error">{supplierApSummaryError}</StatusMessage> : null}
+          {kind === "supplier" && supplierApSummary ? <SupplierApSummaryPanel summary={supplierApSummary} /> : null}
+
           {kind === "customer" && canViewCollections ? (
             <CustomerCollectionsPanel
               customerId={detail.contact.id}
@@ -391,7 +456,11 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
                 </div>
               </div>
 
-              <PartyTransactionsTable transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
+              {kind === "supplier" ? (
+                <SupplierGroupedActivityTables transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
+              ) : (
+                <PartyTransactionsTable transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
+              )}
             </div>
           ) : null}
 
@@ -403,7 +472,15 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
   );
 }
 
-function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: PartyTransaction[]; emptyLabel: string }) {
+function PartyTransactionsTable({
+  transactions,
+  emptyLabel,
+  showPostingEffect = false,
+}: {
+  transactions: PartyTransaction[];
+  emptyLabel: string;
+  showPostingEffect?: boolean;
+}) {
   if (transactions.length === 0) {
     return <StatusMessage type="empty">{emptyLabel}</StatusMessage>;
   }
@@ -421,6 +498,7 @@ function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: Pa
             <th className="px-4 py-3">Total</th>
             <th className="px-4 py-3">Balance due</th>
             <th className="px-4 py-3">Status</th>
+            {showPostingEffect ? <th className="px-4 py-3">Effect</th> : null}
             <th className="px-4 py-3">Action</th>
           </tr>
         </thead>
@@ -439,6 +517,15 @@ function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: Pa
                   {formatStatusLabel(transaction.status)}
                 </span>
               </td>
+              {showPostingEffect ? (
+                <td className="px-4 py-3">
+                  {isOperationalNonPostingTransaction(transaction) ? (
+                    <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Non-posting</span>
+                  ) : (
+                    <span className="text-xs font-medium text-slate-700">Financial posting</span>
+                  )}
+                </td>
+              ) : null}
               <td className="px-4 py-3">
                 <Link href={partyTransactionActionHref(transaction)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                   View
@@ -448,6 +535,123 @@ function PartyTransactionsTable({ transactions, emptyLabel }: { transactions: Pa
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+export function SupplierApSummaryPanel({ summary }: { summary: SupplierApDetailSummary }) {
+  const cards = [
+    { label: "Outstanding payable balance", value: formatMoneyAmount(summary.outstandingPayableBalance, "SAR") },
+    { label: "Overdue bills", value: `${formatMoneyAmount(summary.overdueBillsTotal, "SAR")} / ${summary.overdueBillCount}` },
+    { label: "Open purchase orders", value: String(summary.openPurchaseOrders) },
+    { label: "Purchase receipts pending bill", value: String(summary.purchaseReceiptsPendingBill) },
+    { label: "Purchase bills pending receipt", value: String(summary.purchaseBillsPendingReceipt) },
+    { label: "Open purchase returns", value: String(summary.openPurchaseReturns) },
+    { label: "Open matching reviews", value: String(summary.openMatchingReviews) },
+    { label: "Valuation variance previews", value: String(summary.valuationVariancePreviews) },
+  ];
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Supplier AP Summary</h2>
+          <p className="mt-1 max-w-4xl text-sm leading-6 text-steel">
+            This panel is read-only. Purchase returns are operational/non-posting activity and do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-md border border-slate-200 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-steel">{card.label}</div>
+            <div className="mt-2 font-mono text-sm font-semibold text-ink">{card.value}</div>
+          </div>
+        ))}
+      </div>
+      <SupplierApRecentActivity rows={summary.recentApActivity} />
+    </div>
+  );
+}
+
+function SupplierApRecentActivity({ rows }: { rows: SupplierApRecentActivityItem[] }) {
+  if (rows.length === 0) {
+    return <p className="mt-4 text-sm text-steel">No recent AP activity is available for this supplier.</p>;
+  }
+
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[820px] text-left text-sm">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+          <tr>
+            <th className="px-3 py-2">Date</th>
+            <th className="px-3 py-2">Activity</th>
+            <th className="px-3 py-2">Amount</th>
+            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">Effect</th>
+            <th className="px-3 py-2">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td className="px-3 py-2 text-steel">{formatOptionalDate(row.date, "-")}</td>
+              <td className="px-3 py-2">
+                <div className="font-medium text-ink">{row.label}</div>
+                <div className="font-mono text-xs text-steel">{row.sourceNumber}</div>
+              </td>
+              <td className="px-3 py-2 font-mono text-xs">{row.amount ? formatMoneyAmount(row.amount, "SAR") : "-"}</td>
+              <td className="px-3 py-2 text-steel">{formatStatusLabel(row.status)}</td>
+              <td className="px-3 py-2">
+                {row.nonPosting ? (
+                  <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Non-posting</span>
+                ) : (
+                  <span className="text-xs font-medium text-slate-700">Financial posting</span>
+                )}
+              </td>
+              <td className="px-3 py-2">
+                {row.href ? (
+                  <Link href={row.href} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    Open
+                  </Link>
+                ) : (
+                  <span className="text-xs text-steel">Hidden</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function SupplierGroupedActivityTables({ transactions, emptyLabel }: { transactions: PartyTransaction[]; emptyLabel: string }) {
+  const financialRows = transactions.filter((transaction) => !isOperationalNonPostingTransaction(transaction));
+  const operationalRows = transactions.filter(isOperationalNonPostingTransaction);
+
+  if (transactions.length === 0) {
+    return <StatusMessage type="empty">{emptyLabel}</StatusMessage>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Financial posting activity</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">Purchase bills, supplier payments, purchase debit notes, and supplier refunds appear here when present.</p>
+        <div className="mt-4">
+          <PartyTransactionsTable transactions={financialRows} emptyLabel="No financial posting activity matches the current filters." showPostingEffect />
+        </div>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">Operational/non-posting activity</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">
+          Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.
+        </p>
+        <div className="mt-4">
+          <PartyTransactionsTable transactions={operationalRows} emptyLabel="No operational/non-posting activity matches the current filters." showPostingEffect />
+        </div>
+      </div>
     </div>
   );
 }
@@ -663,6 +867,10 @@ function transactionCounts(transactions: PartyTransaction[]): Map<string, number
     counts.set(transaction.sourceType, (counts.get(transaction.sourceType) ?? 0) + 1);
   }
   return counts;
+}
+
+function isOperationalNonPostingTransaction(transaction: PartyTransaction): boolean {
+  return transaction.sourceType === "PurchaseOrder" || transaction.sourceType === "PurchaseReturn";
 }
 
 function transactionStatusBadgeClass(status: string): string {

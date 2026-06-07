@@ -7,7 +7,9 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   formatInventoryQuantity,
+  inventoryFifoPreviewUrl,
   inventoryReportValueDisplay,
+  inventoryTraceabilityUrl,
   inventoryValuationMethodLabel,
   inventoryValuationWarningText,
 } from "@/lib/inventory";
@@ -57,9 +59,17 @@ export default function InventoryStockValuationReportPage() {
           <h1 className="text-2xl font-semibold text-ink">Stock valuation</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Derived moving-average stock value estimates from operational stock movements.</p>
         </div>
-        <Link href="/inventory/settings" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Settings
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
+          <Link href={inventoryFifoPreviewUrl({})} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            FIFO preview
+          </Link>
+          <Link href="/inventory/bin-locations" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Location setup
+          </Link>
+          <Link href="/inventory/settings" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Settings
+          </Link>
+        </div>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -111,7 +121,7 @@ export default function InventoryStockValuationReportPage() {
 
       {report && report.rows.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1020px] text-left text-sm">
+          <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Item</th>
@@ -121,6 +131,8 @@ export default function InventoryStockValuationReportPage() {
                 <th className="px-4 py-3 text-right">Average unit cost</th>
                 <th className="px-4 py-3 text-right">Estimated value</th>
                 <th className="px-4 py-3">Warnings</th>
+                <th className="px-4 py-3">FIFO</th>
+                <th className="px-4 py-3">Traceability</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -135,6 +147,16 @@ export default function InventoryStockValuationReportPage() {
                   <td className="px-4 py-3 text-right font-mono text-xs">{inventoryReportValueDisplay(row.averageUnitCost)}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{inventoryReportValueDisplay(row.estimatedValue)}</td>
                   <td className="px-4 py-3 text-xs text-steel">{inventoryValuationWarningText(row)}</td>
+                  <td className="px-4 py-3 text-xs">
+                    <Link href={inventoryFifoPreviewUrl({ itemId: row.item.id, warehouseId: row.warehouse.id })} className="font-medium text-palm hover:underline">
+                      FIFO preview
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    <Link href={inventoryTraceabilityUrl(row.item.id)} className="font-medium text-palm hover:underline">
+                      Traceability
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -175,6 +197,9 @@ export function StockValuationReportGuidance() {
           </Link>
           <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Movement report
+          </Link>
+          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            FIFO preview
           </Link>
           <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Dashboard

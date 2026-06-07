@@ -5,6 +5,8 @@ import type {
   CustomerPartySummary,
   PartyTransaction,
   PartyTransactionSourceType,
+  SupplierApDashboardResponse,
+  SupplierApDetailSummary,
   SupplierPartyDetail,
   SupplierPartySummary,
 } from "./types";
@@ -34,6 +36,14 @@ export function suppliersPath(): string {
 
 export function supplierDetailPath(supplierId: string): string {
   return `/contacts/suppliers/${encodeURIComponent(requiredId(supplierId, "supplierId"))}`;
+}
+
+export function supplierApDashboardPath(): string {
+  return "/contacts/suppliers/ap-dashboard";
+}
+
+export function supplierApSummaryPath(supplierId: string): string {
+  return `/contacts/suppliers/${encodeURIComponent(requiredId(supplierId, "supplierId"))}/ap-summary`;
 }
 
 export function partyDetailHref(kind: PartyKind, partyId: string): string {
@@ -81,6 +91,14 @@ export function listSuppliers(): Promise<SupplierPartySummary[]> {
 
 export function getSupplier(supplierId: string): Promise<SupplierPartyDetail> {
   return apiRequest<SupplierPartyDetail>(supplierDetailPath(supplierId));
+}
+
+export function getSupplierApDashboard(): Promise<SupplierApDashboardResponse> {
+  return apiRequest<SupplierApDashboardResponse>(supplierApDashboardPath());
+}
+
+export function getSupplierApSummary(supplierId: string): Promise<SupplierApDetailSummary> {
+  return apiRequest<SupplierApDetailSummary>(supplierApSummaryPath(supplierId));
 }
 
 export function filterPartySummaries(rows: PartySummary[], query: string): PartySummary[] {
@@ -150,6 +168,8 @@ export function partyTransactionActionHref(transaction: PartyTransaction): strin
       return `/sales/recurring-invoices/${transaction.sourceId}`;
     case "DeliveryNote":
       return `/sales/delivery-notes/${transaction.sourceId}`;
+    case "SalesInventoryReturn":
+      return `/sales/inventory-returns/${transaction.sourceId}`;
     case "CreditNote":
       return `/sales/credit-notes/${transaction.sourceId}`;
     case "CustomerPayment":
@@ -162,6 +182,8 @@ export function partyTransactionActionHref(transaction: PartyTransaction): strin
       return `/purchases/purchase-orders/${transaction.sourceId}`;
     case "PurchaseDebitNote":
       return `/purchases/debit-notes/${transaction.sourceId}`;
+    case "PurchaseReturn":
+      return `/purchases/returns/${transaction.sourceId}`;
     case "SupplierPayment":
       return `/purchases/supplier-payments/${transaction.sourceId}`;
     case "SupplierRefund":

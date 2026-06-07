@@ -12,6 +12,7 @@ import {
   formatInventoryQuantity,
   inventoryBalanceDisplay,
   inventoryAdjustmentStatusLabel,
+  inventoryFifoPreviewUrl,
   inventoryOperationalWarning,
   stockMovementTypeLabel,
   warehouseTransferStatusLabel,
@@ -34,6 +35,7 @@ export default function WarehouseDetailPage() {
   const [error, setError] = useState("");
   const canViewAdjustments = can(PERMISSIONS.inventoryAdjustments.view);
   const canViewTransfers = can(PERMISSIONS.warehouseTransfers.view);
+  const canViewFifoPreview = can(PERMISSIONS.inventory.view);
   const canCreateAdjustment = can(PERMISSIONS.inventoryAdjustments.create);
   const canCreateTransfer = can(PERMISSIONS.warehouseTransfers.create);
 
@@ -89,9 +91,16 @@ export default function WarehouseDetailPage() {
           <h1 className="text-2xl font-semibold text-ink">{warehouse ? `${warehouse.code} ${warehouse.name}` : "Warehouse"}</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Warehouse details, stock balances, and recent operational movements.</p>
         </div>
-        <Link href="/inventory/warehouses" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {canViewFifoPreview ? (
+            <Link href={`/inventory/bin-locations?warehouseId=${warehouse?.id ?? params.id}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Bin locations
+            </Link>
+          ) : null}
+          <Link href="/inventory/warehouses" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Back
+          </Link>
+        </div>
       </div>
 
       <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
@@ -108,6 +117,7 @@ export default function WarehouseDetailPage() {
             warehouse={warehouse}
             canCreateAdjustment={canCreateAdjustment}
             canCreateTransfer={canCreateTransfer}
+            canViewFifoPreview={canViewFifoPreview}
             hasBalances={balances.length > 0}
             hasMovements={movements.length > 0}
           />
@@ -269,12 +279,14 @@ export function WarehouseInventoryGuidance({
   warehouse,
   canCreateAdjustment,
   canCreateTransfer,
+  canViewFifoPreview,
   hasBalances,
   hasMovements,
 }: {
   warehouse: Warehouse;
   canCreateAdjustment: boolean;
   canCreateTransfer: boolean;
+  canViewFifoPreview: boolean;
   hasBalances: boolean;
   hasMovements: boolean;
 }) {
@@ -317,6 +329,11 @@ export function WarehouseInventoryGuidance({
           <Link href={`/inventory/stock-movements?warehouseId=${warehouse.id}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Stock movements
           </Link>
+          {canViewFifoPreview ? (
+            <Link href={inventoryFifoPreviewUrl({ warehouseId: warehouse.id })} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+              FIFO preview
+            </Link>
+          ) : null}
           <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
             Movement report
           </Link>

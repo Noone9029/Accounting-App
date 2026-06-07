@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -20,6 +21,8 @@ import {
   inventoryClearingStatusLabel,
   inventoryProgressStatusBadgeClass,
   inventoryProgressStatusLabel,
+  inventoryValuationVariancePreviewUrl,
+  landedCostPreviewUrl,
 } from "@/lib/inventory";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
@@ -28,6 +31,7 @@ import { purchaseDebitNoteStatusLabel } from "@/lib/purchase-debit-notes";
 import { purchaseBillAccountingPreviewLineDisplay, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
 import type {
   InventoryClearingReconciliationReport,
+  InventoryValuationVariancePreviewResponse,
   PurchaseBill,
   PurchaseBillAccountingPreview,
   PurchaseMatchingSummary,
@@ -44,6 +48,7 @@ export default function PurchaseBillDetailPage() {
   const [matchingSummary, setMatchingSummary] = useState<PurchaseMatchingSummary | null>(null);
   const [accountingPreview, setAccountingPreview] = useState<PurchaseBillAccountingPreview | null>(null);
   const [clearingReport, setClearingReport] = useState<InventoryClearingReconciliationReport | null>(null);
+  const [valuationVariancePreview, setValuationVariancePreview] = useState<InventoryValuationVariancePreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,6 +61,8 @@ export default function PurchaseBillDetailPage() {
   const canViewPurchaseOrders = can(PERMISSIONS.purchaseOrders.view);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canViewValuationVariances = can(PERMISSIONS.inventory.view);
+  const canViewLandedCostPreview = canViewValuationVariances && can(PERMISSIONS.purchaseBills.view);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -72,14 +79,18 @@ export default function PurchaseBillDetailPage() {
       apiRequest<PurchaseMatchingSummary>(`/purchase-matching/purchase-bills/${params.id}`).catch(() => null),
       apiRequest<PurchaseBillAccountingPreview>(`/purchase-bills/${params.id}/accounting-preview`).catch(() => null),
       apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseBillId=${encodeURIComponent(params.id)}`).catch(() => null),
+      canViewValuationVariances
+        ? apiRequest<InventoryValuationVariancePreviewResponse>(`/inventory/valuation-variances/purchase-bills/${params.id}`).catch(() => null)
+        : Promise.resolve(null),
     ])
-      .then(([result, statusResult, matchingResult, accountingPreviewResult, clearingReportResult]) => {
+      .then(([result, statusResult, matchingResult, accountingPreviewResult, clearingReportResult, valuationVarianceResult]) => {
         if (!cancelled) {
           setBill(result);
           setReceivingStatus(statusResult);
           setMatchingSummary(matchingResult);
           setAccountingPreview(accountingPreviewResult);
           setClearingReport(clearingReportResult);
+          setValuationVariancePreview(valuationVarianceResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -96,7 +107,7 @@ export default function PurchaseBillDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [canViewValuationVariances, organizationId, params.id]);
 
   async function runAction(action: "finalize" | "void") {
     if (!bill) {
@@ -197,6 +208,11 @@ export default function PurchaseBillDetailPage() {
               Receive stock
             </Link>
           ) : null}
+          {bill && canViewLandedCostPreview ? (
+            <Link href={landedCostPreviewUrl({ sourceType: "PURCHASE_BILL", sourceId: bill.id })} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+              Preview landed cost
+            </Link>
+          ) : null}
           {bill && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               Download purchase bill PDF
@@ -268,7 +284,13 @@ export default function PurchaseBillDetailPage() {
           </div>
 
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
-          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} /> : null}
+          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
+          {canViewValuationVariances ? (
+            <ValuationVariancePreviewPanel
+              preview={valuationVariancePreview}
+              href={inventoryValuationVariancePreviewUrl({ purchaseBillId: bill.id, sourceType: "purchaseBill" })}
+            />
+          ) : null}
           {accountingPreview ? <AccountingPreviewPanel preview={accountingPreview} currency={bill.currency} /> : null}
           <ClearingReconciliationPanel bill={bill} report={clearingReport} />
 
