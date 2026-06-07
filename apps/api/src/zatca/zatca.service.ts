@@ -100,6 +100,7 @@ import {
   type CustodyProviderReadiness,
 } from "./custody/compliance-csid-secret-custody.provider";
 import { readZatcaCustodyProviderBoundaryPlan } from "./custody/zatca-custody-provider-boundary";
+import { buildZatcaSandboxCsidExecutionApprovalGatePlan, ZATCA_SANDBOX_CSID_EXECUTION_APPROVAL_GATE_PHRASE } from "./zatca-sandbox-csid-execution-approval-gate";
 import { buildZatcaSandboxCsidResponseCustodyDryRunPlan } from "./zatca-sandbox-csid-response-custody-dry-run";
 import { buildZatcaSandboxCsidRequestSchemaPlan } from "./zatca-sandbox-csid-request-schema";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
@@ -1373,6 +1374,96 @@ export class ZatcaService {
         bodyStorageAllowed: false,
         providerPayloadAccepted: false,
         providerConfiguration,
+      },
+    };
+  }
+
+  async getEgsUnitSandboxCsidExecutionApprovalPlan(organizationId: string, id: string) {
+    const [egsUnit, latestApprovedReview] = await Promise.all([
+      this.getEgsUnitInternal(organizationId, id),
+      this.getLatestApprovedCsrConfigReviewOrNull(organizationId, id),
+    ]);
+    const model = this.getComplianceCsidCustodyRecordModel();
+    const latestRecord = model?.findFirst
+      ? await model.findFirst({
+          where: { organizationId, egsUnitId: id },
+          orderBy: { createdAt: "desc" },
+          select: safeComplianceCsidCustodyRecordSelect,
+        })
+      : null;
+    const latestCustodyRecord = latestRecord ? this.toSafeComplianceCsidCustodyRecord(latestRecord) : null;
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
+    const providerConfiguration = readComplianceCsidCustodyProviderConfig();
+    const custodyGate = this.getComplianceCsidCustodyGate(egsUnit, this.getComplianceCsidSecretCustodyProviderReadiness(), providerConfiguration);
+    const approvalPlan = buildZatcaSandboxCsidExecutionApprovalGatePlan({
+      environment: egsUnit.environment,
+      organizationId,
+      egsUnitId: id,
+      sandboxAccessConfirmed: false,
+      otpCaptureApproved: false,
+      custodyProviderApproved: false,
+      requestBodyCreationApproved: false,
+      responseBodyProcessingApproved: false,
+      realNetworkEnabled: false,
+      blockers: [
+        ...referenceOnlyBoundary.blockers,
+        ...providerConfiguration.blockers,
+        ...custodyGate.reasons,
+        "sandbox CSID execution requires a later explicit approval lane",
+        "sandbox OTP capture requires a later explicit approval lane",
+        "sandbox request-body creation requires a later explicit approval lane",
+        "sandbox response-body processing requires a later explicit approval lane",
+      ],
+      warnings: [
+        "Sandbox portal URL is documented only as a future access reference; this API does not accept OTP, request CSID, create a request body, process a response body, or call ZATCA.",
+      ],
+    });
+
+    return {
+      ...approvalPlan,
+      requiredApprovalPhrase: ZATCA_SANDBOX_CSID_EXECUTION_APPROVAL_GATE_PHRASE,
+      requiredApprovalPhraseStoragePolicy: "DOCUMENTED_ONLY_NOT_STORED_OR_ECHOED_FROM_INPUT",
+      egsUnit: {
+        id: egsUnit.id,
+        name: egsUnit.name,
+        environment: egsUnit.environment,
+        status: egsUnit.status,
+        isActive: egsUnit.isActive,
+        hasCsr: hasText(egsUnit.csrPem),
+        hasComplianceCsid: hasText(egsUnit.complianceCsidPem),
+        hasProductionCsid: hasText(egsUnit.productionCsidPem),
+        hasPrivateKey: hasText(egsUnit.privateKeyPem),
+        certificateRequestIdPresent: hasText(egsUnit.certificateRequestId),
+      },
+      requestSchemaMetadata: {
+        schemaPlanAvailable: true,
+        latestApprovedReviewId: latestApprovedReview?.id ?? null,
+        latestApprovedReviewStatus: latestApprovedReview?.status ?? "NONE",
+        csrBodyReturned: false,
+        otpAccepted: false,
+        requestBodyCreated: false,
+      },
+      responseCustodyMetadata: {
+        responseCustodyDryRunAvailable: true,
+        latestCustodyRecordId: latestCustodyRecord?.id ?? null,
+        latestCustodyRecordStatus: latestCustodyRecord?.status ?? "NONE",
+        hasBinarySecurityTokenMetadata: latestCustodyRecord?.hasBinarySecurityToken ?? false,
+        hasSecretMetadata: latestCustodyRecord?.hasSecret ?? false,
+        hasCertificateMetadata: latestCustodyRecord?.hasCertificate ?? false,
+        tokenBodyReturned: false,
+        secretBodyReturned: false,
+        certificateBodyReturned: false,
+        responseBodyProcessed: false,
+        secretMaterialPersisted: false,
+      },
+      custodyMetadata: {
+        configuredProvider: providerConfiguration.configuredProvider,
+        providerConfigurationReady: false,
+        referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+        runtimeProvider: referenceOnlyBoundary.runtimeProvider,
+        localReferenceProviderAvailableForTests: referenceOnlyBoundary.localReferenceProviderAvailableForTests,
+        bodyStorageAllowed: false,
+        providerPayloadAccepted: false,
       },
     };
   }
@@ -6372,6 +6463,14 @@ export class ZatcaService {
         "A metadata-only sandbox CSID request schema planner is available without accepting OTP values, CSR bodies, request bodies, or response bodies.",
         "COMPLIANCE_CSID_API",
         "Use the schema planner for dry-run readiness only; real request execution remains separately blocked.",
+      ),
+      this.check(
+        "ZATCA_SANDBOX_CSID_EXECUTION_APPROVAL_GATE_READY",
+        "INFO",
+        "complianceCsid.executionApprovalGate",
+        "A metadata-only sandbox CSID execution approval gate is available to recognize the exact approval phrase without enabling execution.",
+        "COMPLIANCE_CSID_API",
+        "Use the gate for future approval readiness only; OTP capture, CSID requests, request bodies, response bodies, and real network calls remain blocked.",
       ),
       this.check(
         "ZATCA_COMPLIANCE_CSID_RESPONSE_MAPPER_READY",
