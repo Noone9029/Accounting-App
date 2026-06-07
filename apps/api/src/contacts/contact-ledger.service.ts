@@ -11,6 +11,7 @@ import {
   DocumentType,
   PurchaseBillStatus,
   PurchaseDebitNoteStatus,
+  PurchaseReturnStatus,
   SalesInvoiceStatus,
   SupplierPaymentStatus,
   SupplierRefundSourceType,
@@ -85,6 +86,7 @@ export type SupplierLedgerRowType =
   | "VOID_PURCHASE_DEBIT_NOTE"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION"
   | "PURCHASE_DEBIT_NOTE_ALLOCATION_REVERSAL"
+  | "PURCHASE_RETURN"
   | "SUPPLIER_PAYMENT"
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION"
   | "SUPPLIER_PAYMENT_UNAPPLIED_ALLOCATION_REVERSAL"
@@ -107,6 +109,7 @@ export interface SupplierLedgerRow {
     | "PurchaseBill"
     | "PurchaseDebitNote"
     | "PurchaseDebitNoteAllocation"
+    | "PurchaseReturn"
     | "SupplierPayment"
     | "SupplierPaymentUnappliedAllocation"
     | "SupplierRefund"
@@ -401,6 +404,26 @@ export interface LedgerCashExpenseInput {
   } | null;
 }
 
+export interface LedgerPurchaseReturnInput {
+  id: string;
+  purchaseReturnNumber: string;
+  returnDate: Date | string;
+  status: PurchaseReturnStatus | string;
+  reason?: string | null;
+  reference?: string | null;
+  sourcePurchaseBillId?: string | null;
+  sourcePurchaseOrderId?: string | null;
+  sourcePurchaseReceiptId?: string | null;
+  sourceMatchingReviewId?: string | null;
+  relatedPurchaseDebitNoteId?: string | null;
+  relatedSupplierRefundId?: string | null;
+  completedAt?: Date | string | null;
+  voidedAt?: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  lines?: Array<{ id: string }>;
+}
+
 interface PendingSupplierLedgerRow extends Omit<SupplierLedgerRow, "balance"> {
   createdAt: string;
 }
@@ -680,7 +703,7 @@ export class ContactLedgerService {
 
   async supplierLedger(organizationId: string, contactId: string): Promise<SupplierLedgerResponse> {
     const contact = await this.findSupplierContact(organizationId, contactId);
-    const [bills, debitNotes, debitNoteAllocations, payments, refunds, cashExpenses] = await Promise.all([
+    const [bills, debitNotes, debitNoteAllocations, purchaseReturns, payments, refunds, cashExpenses] = await Promise.all([
       this.prisma.purchaseBill.findMany({
         where: {
           organizationId,
@@ -761,6 +784,31 @@ export class ContactLedgerService {
               status: true,
             },
           },
+        },
+      }),
+      this.prisma.purchaseReturn.findMany({
+        where: {
+          organizationId,
+          supplierId: contactId,
+        },
+        select: {
+          id: true,
+          purchaseReturnNumber: true,
+          returnDate: true,
+          status: true,
+          reason: true,
+          reference: true,
+          sourcePurchaseBillId: true,
+          sourcePurchaseOrderId: true,
+          sourcePurchaseReceiptId: true,
+          sourceMatchingReviewId: true,
+          relatedPurchaseDebitNoteId: true,
+          relatedSupplierRefundId: true,
+          completedAt: true,
+          voidedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          lines: { select: { id: true } },
         },
       }),
       this.prisma.supplierPayment.findMany({
@@ -869,7 +917,7 @@ export class ContactLedgerService {
       }),
     ]);
 
-    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, payments, refunds, cashExpenses });
+    const rows = buildSupplierLedgerRows({ bills, debitNotes, debitNoteAllocations, purchaseReturns, payments, refunds, cashExpenses });
     return {
       contact,
       openingBalance: "0.0000",
@@ -1342,6 +1390,7 @@ export function buildSupplierLedgerRows(input: {
   bills: LedgerPurchaseBillInput[];
   debitNotes?: LedgerPurchaseDebitNoteInput[];
   debitNoteAllocations?: LedgerPurchaseDebitNoteAllocationInput[];
+  purchaseReturns?: LedgerPurchaseReturnInput[];
   payments: LedgerSupplierPaymentInput[];
   refunds?: LedgerSupplierRefundInput[];
   cashExpenses?: LedgerCashExpenseInput[];
@@ -1485,6 +1534,36 @@ export function buildSupplierLedgerRows(input: {
         },
       });
     }
+  }
+
+  for (const purchaseReturn of input.purchaseReturns ?? []) {
+    pendingRows.push({
+      id: `${purchaseReturn.id}:purchase-return`,
+      type: "PURCHASE_RETURN",
+      date: toIsoString(purchaseReturn.returnDate),
+      createdAt: toIsoString(purchaseReturn.createdAt),
+      number: purchaseReturn.purchaseReturnNumber,
+      description: purchaseReturn.reason?.trim() || `Purchase return ${purchaseReturn.purchaseReturnNumber}`,
+      debit: "0.0000",
+      credit: "0.0000",
+      sourceType: "PurchaseReturn",
+      sourceId: purchaseReturn.id,
+      status: purchaseReturn.status,
+      metadata: {
+        purchaseReturnId: purchaseReturn.id,
+        reference: purchaseReturn.reference ?? null,
+        sourcePurchaseBillId: purchaseReturn.sourcePurchaseBillId ?? null,
+        sourcePurchaseOrderId: purchaseReturn.sourcePurchaseOrderId ?? null,
+        sourcePurchaseReceiptId: purchaseReturn.sourcePurchaseReceiptId ?? null,
+        sourceMatchingReviewId: purchaseReturn.sourceMatchingReviewId ?? null,
+        relatedPurchaseDebitNoteId: purchaseReturn.relatedPurchaseDebitNoteId ?? null,
+        relatedSupplierRefundId: purchaseReturn.relatedSupplierRefundId ?? null,
+        completedAt: purchaseReturn.completedAt ? toIsoString(purchaseReturn.completedAt) : null,
+        voidedAt: purchaseReturn.voidedAt ? toIsoString(purchaseReturn.voidedAt) : null,
+        lineCount: purchaseReturn.lines?.length ?? 0,
+        nonPosting: true,
+      },
+    });
   }
 
   for (const payment of input.payments) {
@@ -1786,6 +1865,7 @@ function supplierRowPriority(type: SupplierLedgerRowType): number {
   switch (type) {
     case "PURCHASE_BILL":
     case "PURCHASE_DEBIT_NOTE":
+    case "PURCHASE_RETURN":
     case "SUPPLIER_PAYMENT":
     case "SUPPLIER_REFUND":
     case "CASH_EXPENSE":

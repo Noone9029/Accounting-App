@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountType, ItemStatus, TaxRateScope } from "@prisma/client";
+import { AccountType, ItemStatus, ItemTrackingMode, TaxRateScope } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateItemDto } from "./dto/create-item.dto";
 import { UpdateItemDto } from "./dto/update-item.dto";
@@ -37,6 +38,12 @@ export class ItemService {
     this.assertOptionalNonNegativeMoney(dto.purchaseCost, "Purchase cost");
     this.assertOptionalNonNegativeMoney(dto.reorderPoint, "Reorder point");
     this.assertOptionalNonNegativeMoney(dto.reorderQuantity, "Reorder quantity");
+    this.validateTrackingPayload({
+      inventoryTracking: dto.inventoryTracking ?? false,
+      trackingMode: this.trackingMode(dto.trackingMode),
+      expiryTrackingEnabled: dto.expiryTrackingEnabled ?? false,
+      binTrackingEnabled: dto.binTrackingEnabled ?? false,
+    });
     await this.validateReferences(organizationId, dto);
 
     const item = await this.prisma.item.create({
@@ -54,6 +61,9 @@ export class ItemService {
         expenseAccountId: this.cleanOptional(dto.expenseAccountId ?? undefined),
         purchaseTaxRateId: this.cleanOptional(dto.purchaseTaxRateId ?? undefined),
         inventoryTracking: dto.inventoryTracking ?? false,
+        trackingMode: this.trackingMode(dto.trackingMode),
+        expiryTrackingEnabled: dto.expiryTrackingEnabled ?? false,
+        binTrackingEnabled: dto.binTrackingEnabled ?? false,
         reorderPoint: this.cleanOptionalDecimal(dto.reorderPoint),
         reorderQuantity: this.cleanOptionalDecimal(dto.reorderQuantity),
       },
@@ -70,6 +80,19 @@ export class ItemService {
     this.assertOptionalNonNegativeMoney(dto.purchaseCost, "Purchase cost");
     this.assertOptionalNonNegativeMoney(dto.reorderPoint, "Reorder point");
     this.assertOptionalNonNegativeMoney(dto.reorderQuantity, "Reorder quantity");
+    const nextTracking = {
+      inventoryTracking: dto.inventoryTracking ?? existing.inventoryTracking,
+      trackingMode: dto.trackingMode ?? existing.trackingMode,
+      expiryTrackingEnabled: dto.expiryTrackingEnabled ?? existing.expiryTrackingEnabled,
+      binTrackingEnabled: dto.binTrackingEnabled ?? existing.binTrackingEnabled,
+    };
+    this.validateTrackingPayload(nextTracking);
+    if (this.trackingSettingsChanged(existing, nextTracking)) {
+      const movementCount = await this.prisma.stockMovement.count({ where: { organizationId, itemId: id } });
+      if (movementCount > 0) {
+        throw new BadRequestException("Tracking settings cannot be changed for items with existing stock movements until a migration policy exists.");
+      }
+    }
     await this.validateReferences(organizationId, dto);
 
     const item = await this.prisma.item.update({
@@ -87,6 +110,9 @@ export class ItemService {
         expenseAccountId: dto.expenseAccountId === undefined ? undefined : this.cleanOptional(dto.expenseAccountId ?? undefined) ?? null,
         purchaseTaxRateId: dto.purchaseTaxRateId === undefined ? undefined : this.cleanOptional(dto.purchaseTaxRateId ?? undefined) ?? null,
         inventoryTracking: dto.inventoryTracking,
+        trackingMode: dto.trackingMode,
+        expiryTrackingEnabled: dto.expiryTrackingEnabled,
+        binTrackingEnabled: dto.binTrackingEnabled,
         reorderPoint: dto.reorderPoint === undefined ? undefined : this.cleanOptionalDecimal(dto.reorderPoint) ?? null,
         reorderQuantity: dto.reorderQuantity === undefined ? undefined : this.cleanOptionalDecimal(dto.reorderQuantity) ?? null,
       },
@@ -102,6 +128,17 @@ export class ItemService {
       before: existing,
       after: item,
     });
+    if (this.trackingSettingsChanged(existing, item)) {
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "UPDATE_TRACKING_SETTINGS",
+        entityType: AUDIT_ENTITY_TYPES.ITEM,
+        entityId: id,
+        before: this.trackingAudit(existing),
+        after: this.trackingAudit(item),
+      });
+    }
     return item;
   }
 
@@ -192,5 +229,49 @@ export class ItemService {
     }
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private trackingMode(value: ItemTrackingMode | undefined): ItemTrackingMode {
+    return value ?? ItemTrackingMode.NONE;
+  }
+
+  private validateTrackingPayload(settings: {
+    inventoryTracking: boolean;
+    trackingMode: ItemTrackingMode;
+    expiryTrackingEnabled: boolean;
+    binTrackingEnabled: boolean;
+  }): void {
+    if (!settings.inventoryTracking && (settings.trackingMode !== ItemTrackingMode.NONE || settings.expiryTrackingEnabled || settings.binTrackingEnabled)) {
+      throw new BadRequestException("Serial, batch, expiry, or bin tracking requires inventory tracking to be enabled.");
+    }
+    if (
+      settings.expiryTrackingEnabled &&
+      settings.trackingMode !== ItemTrackingMode.BATCH &&
+      settings.trackingMode !== ItemTrackingMode.SERIAL_AND_BATCH
+    ) {
+      throw new BadRequestException("Expiry tracking requires Batch or Serial and batch tracking mode.");
+    }
+  }
+
+  private trackingSettingsChanged(
+    before: { trackingMode: ItemTrackingMode; expiryTrackingEnabled: boolean; binTrackingEnabled: boolean },
+    after: { trackingMode: ItemTrackingMode; expiryTrackingEnabled: boolean; binTrackingEnabled: boolean },
+  ): boolean {
+    return (
+      before.trackingMode !== after.trackingMode ||
+      before.expiryTrackingEnabled !== after.expiryTrackingEnabled ||
+      before.binTrackingEnabled !== after.binTrackingEnabled
+    );
+  }
+
+  private trackingAudit(item: { id: string; trackingMode: ItemTrackingMode; expiryTrackingEnabled: boolean; binTrackingEnabled: boolean }) {
+    return {
+      itemId: item.id,
+      trackingMode: item.trackingMode,
+      expiryTrackingEnabled: item.expiryTrackingEnabled,
+      binTrackingEnabled: item.binTrackingEnabled,
+      noInventoryQuantityEffect: true,
+      noAccountingEffect: true,
+    };
   }
 }

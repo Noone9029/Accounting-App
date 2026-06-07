@@ -4,10 +4,23 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
+import { assertCurrentFlowSupportsTracking } from "../inventory/inventory-tracking-validation";
 import { CreateWarehouseTransferDto } from "./dto/create-warehouse-transfer.dto";
 
 const warehouseTransferInclude = {
-  item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+  item: {
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      type: true,
+      status: true,
+      inventoryTracking: true,
+      trackingMode: true,
+      expiryTrackingEnabled: true,
+      binTrackingEnabled: true,
+    },
+  },
   fromWarehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
   toWarehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
   fromStockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
@@ -218,7 +231,7 @@ export class WarehouseTransferService {
   private async findTrackedActiveItem(organizationId: string, itemId: string, executor: PrismaExecutor) {
     const item = await executor.item.findFirst({
       where: { id: itemId, organizationId },
-      select: { id: true, inventoryTracking: true, status: true },
+      select: { id: true, inventoryTracking: true, status: true, trackingMode: true, expiryTrackingEnabled: true, binTrackingEnabled: true },
     });
     if (!item) {
       throw new BadRequestException("Item must belong to this organization.");
@@ -229,6 +242,7 @@ export class WarehouseTransferService {
     if (item.status !== ItemStatus.ACTIVE) {
       throw new BadRequestException("Warehouse transfers can only be created for active items.");
     }
+    assertCurrentFlowSupportsTracking(item, "Warehouse transfers");
     return item;
   }
 

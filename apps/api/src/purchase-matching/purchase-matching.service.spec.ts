@@ -569,6 +569,7 @@ describe("PurchaseMatchingService", () => {
         status: PurchaseMatchingReviewStatus.WAITING_FOR_SUPPLIER,
         reasonCode: PurchaseMatchingReviewReason.OVER_BILLED,
         assignedToUser: { id: "user-2", name: "Reviewer", email: "reviewer@example.com" },
+        purchaseReturns: [{ id: "return-1", purchaseReturnNumber: "PRN-000001", status: "SUBMITTED" }],
       }),
     ]);
 
@@ -580,6 +581,10 @@ describe("PurchaseMatchingService", () => {
       reviewStatus: PurchaseMatchingReviewStatus.WAITING_FOR_SUPPLIER,
       reasonCode: PurchaseMatchingReviewReason.OVER_BILLED,
       assignedTo: { id: "user-2", name: "Reviewer", email: "reviewer@example.com" },
+      purchaseReturnId: "return-1",
+      purchaseReturnNumber: "PRN-000001",
+      purchaseReturnStatus: "SUBMITTED",
+      purchaseReturnHref: "/purchases/returns/return-1",
     });
     expect(result.groups[0]?.outstandingReviewCount).toBe(1);
   });
@@ -607,6 +612,7 @@ function reviewRecord(overrides: Record<string, unknown> = {}) {
     supplier: reviewSupplier,
     assignedToUser: null,
     reviewedByUser: null,
+    purchaseReturns: [],
     ...overrides,
   };
 }

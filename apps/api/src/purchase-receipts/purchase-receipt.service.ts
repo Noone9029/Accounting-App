@@ -22,6 +22,7 @@ import {
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
+import { assertCurrentFlowSupportsTracking } from "../inventory/inventory-tracking-validation";
 import { CreatePurchaseReceiptDto, PurchaseReceiptLineDto } from "./dto/create-purchase-receipt.dto";
 import { ReversePurchaseReceiptAssetDto } from "./dto/reverse-purchase-receipt-asset.dto";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -39,7 +40,19 @@ const purchaseReceiptInclude = {
   lines: {
     orderBy: { createdAt: "asc" as const },
     include: {
-      item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+      item: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          type: true,
+          status: true,
+          inventoryTracking: true,
+          trackingMode: true,
+          expiryTrackingEnabled: true,
+          binTrackingEnabled: true,
+        },
+      },
       purchaseOrderLine: { select: { id: true, description: true, quantity: true, unitPrice: true } },
       purchaseBillLine: {
         select: {
@@ -657,7 +670,21 @@ export class PurchaseReceiptService {
       include: {
         lines: {
           orderBy: { sortOrder: "asc" },
-          include: { item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } } },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                type: true,
+                status: true,
+                inventoryTracking: true,
+                trackingMode: true,
+                expiryTrackingEnabled: true,
+                binTrackingEnabled: true,
+              },
+            },
+          },
         },
       },
     });
@@ -682,7 +709,21 @@ export class PurchaseReceiptService {
       include: {
         lines: {
           orderBy: { sortOrder: "asc" },
-          include: { item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } } },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                type: true,
+                status: true,
+                inventoryTracking: true,
+                trackingMode: true,
+                expiryTrackingEnabled: true,
+                binTrackingEnabled: true,
+              },
+            },
+          },
         },
       },
     });
@@ -709,7 +750,21 @@ export class PurchaseReceiptService {
         convertedBill: { select: { id: true, billNumber: true, status: true, billDate: true, total: true } },
         lines: {
           orderBy: { sortOrder: "asc" },
-          include: { item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } } },
+          include: {
+            item: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                type: true,
+                status: true,
+                inventoryTracking: true,
+                trackingMode: true,
+                expiryTrackingEnabled: true,
+                binTrackingEnabled: true,
+              },
+            },
+          },
         },
       },
     });
@@ -762,7 +817,19 @@ export class PurchaseReceiptService {
         lines: {
           orderBy: { sortOrder: "asc" },
           include: {
-            item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+            item: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                type: true,
+                status: true,
+                inventoryTracking: true,
+                trackingMode: true,
+                expiryTrackingEnabled: true,
+                binTrackingEnabled: true,
+              },
+            },
             account: { select: { id: true, code: true, name: true, type: true } },
           },
         },
@@ -1029,7 +1096,21 @@ export class PurchaseReceiptService {
   private async prepareLines(
     organizationId: string,
     sourceKind: SourceKind,
-    source: { lines: Array<{ id: string; itemId: string | null; quantity: Prisma.Decimal; unitPrice: Prisma.Decimal; item: { inventoryTracking: boolean; status: ItemStatus } | null }> },
+    source: {
+      lines: Array<{
+        id: string;
+        itemId: string | null;
+        quantity: Prisma.Decimal;
+        unitPrice: Prisma.Decimal;
+        item: {
+          inventoryTracking: boolean;
+          status: ItemStatus;
+          trackingMode?: import("@prisma/client").ItemTrackingMode | null;
+          expiryTrackingEnabled?: boolean | null;
+          binTrackingEnabled?: boolean | null;
+        } | null;
+      }>;
+    },
     lineDtos: PurchaseReceiptLineDto[],
     tx: Prisma.TransactionClient,
   ): Promise<PreparedReceiptLine[]> {
@@ -1077,6 +1158,7 @@ export class PurchaseReceiptService {
       if (sourceLine.item.status !== ItemStatus.ACTIVE) {
         throw new BadRequestException("Purchase receipts can only receive active items.");
       }
+      assertCurrentFlowSupportsTracking(sourceLine.item, "Purchase receipts");
       const remaining = remainingByLine.get(sourceLineId) ?? new Prisma.Decimal(sourceLine.quantity);
       const requested = (requestedBySourceLine.get(sourceLineId) ?? new Prisma.Decimal(0)).plus(quantity);
       if (requested.gt(remaining)) {
@@ -1118,11 +1200,12 @@ export class PurchaseReceiptService {
   private async findTrackedActiveItem(organizationId: string, itemId: string, executor: PrismaExecutor) {
     const item = await executor.item.findFirst({
       where: { id: itemId, organizationId },
-      select: { id: true, inventoryTracking: true, status: true },
+      select: { id: true, inventoryTracking: true, status: true, trackingMode: true, expiryTrackingEnabled: true, binTrackingEnabled: true },
     });
     if (!item) throw new BadRequestException("Item must belong to this organization.");
     if (!item.inventoryTracking) throw new BadRequestException("Purchase receipts can only receive inventory-tracked items.");
     if (item.status !== ItemStatus.ACTIVE) throw new BadRequestException("Purchase receipts can only receive active items.");
+    assertCurrentFlowSupportsTracking(item, "Purchase receipts");
     return item;
   }
 

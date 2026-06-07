@@ -35,10 +35,12 @@ import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-n
 import { PurchaseMatchingModule } from "./purchase-matching/purchase-matching.module";
 import { PurchaseOrderModule } from "./purchase-orders/purchase-order.module";
 import { PurchaseReceiptModule } from "./purchase-receipts/purchase-receipt.module";
+import { PurchaseReturnModule } from "./purchase-returns/purchase-return.module";
 import { RecurringInvoiceModule } from "./recurring-invoices/recurring-invoice.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
+import { SalesInventoryReturnModule } from "./sales-inventory-returns/sales-inventory-return.module";
 import { SalesQuoteModule } from "./sales-quotes/sales-quote.module";
 import { SalesStockIssueModule } from "./sales-stock-issues/sales-stock-issue.module";
 import { SearchModule } from "./search/search.module";
@@ -87,12 +89,14 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     WarehouseTransferModule,
     InventoryModule,
     SalesInvoiceModule,
+    SalesInventoryReturnModule,
     SalesQuoteModule,
     SearchModule,
     PurchaseOrderModule,
     PurchaseBillModule,
     PurchaseMatchingModule,
     PurchaseReceiptModule,
+    PurchaseReturnModule,
     RecurringInvoiceModule,
     PurchaseDebitNoteModule,
     SalesStockIssueModule,

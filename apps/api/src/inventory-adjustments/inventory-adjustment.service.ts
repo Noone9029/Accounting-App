@@ -12,11 +12,24 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { stockMovementDirection } from "../stock-movements/stock-movement-rules";
+import { assertCurrentFlowSupportsTracking } from "../inventory/inventory-tracking-validation";
 import { CreateInventoryAdjustmentDto } from "./dto/create-inventory-adjustment.dto";
 import { UpdateInventoryAdjustmentDto } from "./dto/update-inventory-adjustment.dto";
 
 const inventoryAdjustmentInclude = {
-  item: { select: { id: true, name: true, sku: true, type: true, status: true, inventoryTracking: true } },
+  item: {
+    select: {
+      id: true,
+      name: true,
+      sku: true,
+      type: true,
+      status: true,
+      inventoryTracking: true,
+      trackingMode: true,
+      expiryTrackingEnabled: true,
+      binTrackingEnabled: true,
+    },
+  },
   warehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
   stockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
   voidStockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
@@ -318,7 +331,7 @@ export class InventoryAdjustmentService {
   private async findTrackedActiveItem(organizationId: string, itemId: string, executor: PrismaExecutor) {
     const item = await executor.item.findFirst({
       where: { id: itemId, organizationId },
-      select: { id: true, inventoryTracking: true, status: true },
+      select: { id: true, inventoryTracking: true, status: true, trackingMode: true, expiryTrackingEnabled: true, binTrackingEnabled: true },
     });
     if (!item) {
       throw new BadRequestException("Item must belong to this organization.");
@@ -329,6 +342,7 @@ export class InventoryAdjustmentService {
     if (item.status !== ItemStatus.ACTIVE) {
       throw new BadRequestException("Inventory adjustments can only be created for active items.");
     }
+    assertCurrentFlowSupportsTracking(item, "Inventory adjustments");
     return item;
   }
 

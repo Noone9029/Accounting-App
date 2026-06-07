@@ -173,6 +173,7 @@ describe("ContactService customer and supplier summaries", () => {
       salesQuote: { groupBy: jest.fn().mockResolvedValue([]) },
       recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]) },
       deliveryNote: { groupBy: jest.fn().mockResolvedValue([]) },
+      salesInventoryReturn: { groupBy: jest.fn().mockResolvedValue([]) },
       customerRefund: { groupBy: jest.fn().mockResolvedValue([]) },
     };
     const service = new ContactService(prisma as never, { log: jest.fn() } as never);
@@ -220,6 +221,7 @@ describe("ContactService customer and supplier summaries", () => {
       },
       purchaseOrder: { groupBy: jest.fn().mockResolvedValue([]) },
       purchaseDebitNote: { groupBy: jest.fn().mockResolvedValue([]) },
+      purchaseReturn: { groupBy: jest.fn().mockResolvedValue([]) },
       supplierPayment: { groupBy: jest.fn().mockResolvedValue([]) },
       supplierRefund: {
         groupBy: jest.fn().mockResolvedValue([{ supplierId: "both-1", _max: { refundDate: new Date("2026-05-13T00:00:00.000Z") } }]),
@@ -274,6 +276,7 @@ describe("ContactService customer and supplier summaries", () => {
         ]),
       },
       purchaseDebitNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      purchaseReturn: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       supplierPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       supplierRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       cashExpense: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
@@ -288,6 +291,49 @@ describe("ContactService customer and supplier summaries", () => {
       expect.objectContaining({
         sourceType: "PurchaseOrder",
         transactionNumber: "PO-0001",
+        balanceDue: "0.0000",
+      }),
+    ]);
+  });
+
+  it("includes purchase returns in supplier transaction history without adding payable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(supplier),
+      },
+      purchaseBill: {
+        groupBy: jest.fn(({ _sum }) => Promise.resolve(_sum ? [] : [])),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      purchaseOrder: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      purchaseDebitNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      purchaseReturn: {
+        groupBy: jest.fn().mockResolvedValue([{ supplierId: "supplier-1", _max: { returnDate: new Date("2026-05-18T00:00:00.000Z") } }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "return-1",
+            purchaseReturnNumber: "PRN-000001",
+            returnDate: new Date("2026-05-18T00:00:00.000Z"),
+            status: "DRAFT",
+            reason: "Damaged goods",
+          },
+        ]),
+      },
+      supplierPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      supplierRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      cashExpense: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getSupplier("org-1", "supplier-1", new Date("2026-05-25T00:00:00.000Z"));
+
+    expect(result.openPayableBalance).toBe("0.0000");
+    expect(result.lastTransactionDate).toBe("2026-05-18T00:00:00.000Z");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "PurchaseReturn",
+        transactionNumber: "PRN-000001",
+        total: "0.0000",
         balanceDue: "0.0000",
       }),
     ]);
@@ -320,6 +366,7 @@ describe("ContactService customer and supplier summaries", () => {
       },
       recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       deliveryNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      salesInventoryReturn: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
@@ -367,6 +414,7 @@ describe("ContactService customer and supplier summaries", () => {
         ]),
       },
       deliveryNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      salesInventoryReturn: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
@@ -409,6 +457,7 @@ describe("ContactService customer and supplier summaries", () => {
           },
         ]),
       },
+      salesInventoryReturn: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
       customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
@@ -425,6 +474,50 @@ describe("ContactService customer and supplier summaries", () => {
         transactionNumber: "DN-0001",
         type: "Delivery note (non-posting fulfillment)",
         subtotal: "0.0000",
+        balanceDue: "0.0000",
+      }),
+    ]);
+  });
+
+  it("includes sales inventory returns in customer history without adding receivable balance", async () => {
+    const prisma = {
+      contact: {
+        findFirst: jest.fn().mockResolvedValue(customer),
+      },
+      salesInvoice: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      salesQuote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      recurringInvoiceTemplate: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      deliveryNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      salesInventoryReturn: {
+        groupBy: jest.fn().mockResolvedValue([{ customerId: "customer-1", _max: { returnDate: new Date("2026-06-06T00:00:00.000Z") } }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "sir-1",
+            salesReturnNumber: "SRN-000001",
+            returnDate: new Date("2026-06-06T00:00:00.000Z"),
+            status: "APPROVED",
+          },
+        ]),
+      },
+      creditNote: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerPayment: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+      customerRefund: { groupBy: jest.fn().mockResolvedValue([]), findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ContactService(prisma as never, { log: jest.fn() } as never);
+
+    const result = await service.getCustomer("org-1", "customer-1", new Date("2026-06-25T00:00:00.000Z"));
+
+    expect(result.openReceivableBalance).toBe("0.0000");
+    expect(result.lastTransactionDate).toBe("2026-06-06T00:00:00.000Z");
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        sourceType: "SalesInventoryReturn",
+        transactionNumber: "SRN-000001",
+        type: "Sales inventory return (operational stock)",
+        total: "0.0000",
         balanceDue: "0.0000",
       }),
     ]);

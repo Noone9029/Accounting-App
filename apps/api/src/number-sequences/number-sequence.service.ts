@@ -15,6 +15,8 @@ const DEFAULT_SEQUENCE_SETTINGS: Partial<Record<NumberSequenceScope, { prefix: s
   [NumberSequenceScope.RECURRING_INVOICE_TEMPLATE]: { prefix: "REC-", nextNumber: 1, padding: 6 },
   [NumberSequenceScope.DELIVERY_NOTE]: { prefix: "DN-", nextNumber: 1, padding: 6 },
   [NumberSequenceScope.COLLECTION_CASE]: { prefix: "COL-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.PURCHASE_RETURN]: { prefix: "PRN-", nextNumber: 1, padding: 6 },
+  [NumberSequenceScope.SALES_INVENTORY_RETURN]: { prefix: "SRN-", nextNumber: 1, padding: 6 },
 };
 
 export interface NumberSequenceUpdateInput {

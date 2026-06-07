@@ -62,6 +62,10 @@ export interface PurchaseMatchingReviewSummary {
   nextReviewDate: string | null;
   reviewedAt: string | null;
   reviewNoteSummary: string | null;
+  purchaseReturnId: string | null;
+  purchaseReturnNumber: string | null;
+  purchaseReturnStatus: string | null;
+  purchaseReturnHref: string | null;
 }
 
 export interface PurchaseMatchingExceptionLink {
@@ -108,6 +112,10 @@ export interface PurchaseMatchingExceptionItem {
   nextReviewDate: string | null;
   reviewedAt: string | null;
   reviewNoteSummary: string | null;
+  purchaseReturnId: string | null;
+  purchaseReturnNumber: string | null;
+  purchaseReturnStatus: string | null;
+  purchaseReturnHref: string | null;
   latestRelevantDate: string | null;
   warnings: string[];
 }
@@ -221,6 +229,11 @@ const purchaseMatchingReviewInclude = {
   supplier: { select: { id: true, name: true, displayName: true } },
   assignedToUser: { select: { id: true, name: true, email: true } },
   reviewedByUser: { select: { id: true, name: true, email: true } },
+  purchaseReturns: {
+    orderBy: { createdAt: "desc" as const },
+    take: 1,
+    select: { id: true, purchaseReturnNumber: true, status: true },
+  },
 } satisfies Prisma.PurchaseMatchingReviewInclude;
 
 type PurchaseMatchingReviewWithRelations = Prisma.PurchaseMatchingReviewGetPayload<{
@@ -1021,6 +1034,7 @@ export class PurchaseMatchingService {
       reviewedAt: review.reviewedAt?.toISOString() ?? null,
       nextReviewDate: review.nextReviewDate?.toISOString() ?? null,
       note: review.note,
+      purchaseReturn: this.reviewPurchaseReturnSummary(review),
       createdAt: review.createdAt.toISOString(),
       updatedAt: review.updatedAt.toISOString(),
       reviewOnly: true,
@@ -1029,6 +1043,7 @@ export class PurchaseMatchingService {
   }
 
   private reviewSummary(review: PurchaseMatchingReviewWithRelations): PurchaseMatchingReviewSummary {
+    const purchaseReturn = this.reviewPurchaseReturnSummary(review);
     return {
       reviewId: review.id,
       reviewStatus: review.status,
@@ -1037,6 +1052,10 @@ export class PurchaseMatchingService {
       nextReviewDate: review.nextReviewDate?.toISOString() ?? null,
       reviewedAt: review.reviewedAt?.toISOString() ?? null,
       reviewNoteSummary: this.safeNoteSummary(review.note),
+      purchaseReturnId: purchaseReturn?.id ?? null,
+      purchaseReturnNumber: purchaseReturn?.purchaseReturnNumber ?? null,
+      purchaseReturnStatus: purchaseReturn?.status ?? null,
+      purchaseReturnHref: purchaseReturn ? `/purchases/returns/${purchaseReturn.id}` : null,
     };
   }
 
@@ -1050,7 +1069,15 @@ export class PurchaseMatchingService {
       nextReviewDate: summary.nextReviewDate,
       reviewedAt: summary.reviewedAt,
       reviewNoteSummary: summary.reviewNoteSummary,
+      purchaseReturnId: summary.purchaseReturnId,
+      purchaseReturnNumber: summary.purchaseReturnNumber,
+      purchaseReturnStatus: summary.purchaseReturnStatus,
+      purchaseReturnHref: summary.purchaseReturnHref,
     };
+  }
+
+  private reviewPurchaseReturnSummary(review: PurchaseMatchingReviewWithRelations) {
+    return review.purchaseReturns[0] ?? null;
   }
 
   private reviewAuditSnapshot(review: PurchaseMatchingReviewWithRelations) {
@@ -1268,6 +1295,10 @@ export class PurchaseMatchingService {
           nextReviewDate: null,
           reviewedAt: null,
           reviewNoteSummary: null,
+          purchaseReturnId: null,
+          purchaseReturnNumber: null,
+          purchaseReturnStatus: null,
+          purchaseReturnHref: null,
           latestRelevantDate: this.latestRelevantDate([
             this.documentDate(summary.purchaseOrder),
             this.documentDate(summary.purchaseBill),

@@ -155,9 +155,51 @@ enum ItemStatus {
   DISABLED
 }
 
+enum ItemTrackingMode {
+  NONE
+  SERIAL
+  BATCH
+  SERIAL_AND_BATCH
+}
+
 enum WarehouseStatus {
   ACTIVE
   ARCHIVED
+}
+
+enum InventoryBinLocationType {
+  BIN
+  SHELF
+  ZONE
+  STAGING
+  RECEIVING
+  SHIPPING
+  IN_TRANSIT
+  RETURNS
+  QUARANTINE
+  OTHER
+}
+
+enum InventoryBinLocationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryBatchStatus {
+  ACTIVE
+  EXPIRED
+  QUARANTINED
+  CLOSED
+}
+
+enum InventorySerialNumberStatus {
+  AVAILABLE
+  RESERVED
+  ISSUED
+  RETURNED
+  QUARANTINED
+  LOST
+  SCRAPPED
 }
 
 enum StockMovementType {
@@ -168,6 +210,8 @@ enum StockMovementType {
   TRANSFER_OUT
   PURCHASE_RECEIPT_PLACEHOLDER
   SALES_ISSUE_PLACEHOLDER
+  PURCHASE_RETURN_OUT
+  SALES_RETURN_IN
 }
 
 enum InventoryAdjustmentStatus {
@@ -318,6 +362,15 @@ enum DeliveryNoteStatus {
   VOIDED
 }
 
+enum SalesInventoryReturnStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RECEIVED
+  VOIDED
+  CANCELLED
+}
+
 enum CollectionCaseStatus {
   OPEN
   IN_PROGRESS
@@ -374,6 +427,15 @@ enum PurchaseDebitNoteStatus {
   DRAFT
   FINALIZED
   VOIDED
+}
+
+enum PurchaseReturnStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  COMPLETED
+  VOIDED
+  CANCELLED
 }
 
 enum CustomerPaymentStatus {
@@ -716,6 +778,8 @@ enum NumberSequenceScope {
   PURCHASE_RECEIPT
   SALES_STOCK_ISSUE
   INVENTORY_VARIANCE_PROPOSAL
+  PURCHASE_RETURN
+  SALES_INVENTORY_RETURN
 }
 
 model User {
@@ -734,6 +798,9 @@ model User {
   createdRecurringInvoiceTemplates                  RecurringInvoiceTemplate[]                  @relation("RecurringInvoiceTemplateCreatedBy")
   generatedRecurringInvoiceRuns                     RecurringInvoiceRun[]                       @relation("RecurringInvoiceRunGeneratedBy")
   createdDeliveryNotes                              DeliveryNote[]                              @relation("DeliveryNoteCreatedBy")
+  createdSalesInventoryReturns                      SalesInventoryReturn[]                      @relation("SalesInventoryReturnCreatedBy")
+  approvedSalesInventoryReturns                     SalesInventoryReturn[]                      @relation("SalesInventoryReturnApprovedBy")
+  inventoryReturnPostedSalesInventoryReturns        SalesInventoryReturn[]                      @relation("SalesInventoryReturnInventoryPostedBy")
   assignedCollectionCases                           CollectionCase[]                            @relation("CollectionCaseAssignedTo")
   createdCollectionCases                            CollectionCase[]                            @relation("CollectionCaseCreatedBy")
   updatedCollectionCases                            CollectionCase[]                            @relation("CollectionCaseUpdatedBy")
@@ -742,6 +809,9 @@ model User {
   createdPurchaseOrders                             PurchaseOrder[]                             @relation("PurchaseOrderCreatedBy")
   createdPurchaseBills                              PurchaseBill[]                              @relation("PurchaseBillCreatedBy")
   createdPurchaseDebitNotes                         PurchaseDebitNote[]                         @relation("PurchaseDebitNoteCreatedBy")
+  createdPurchaseReturns                            PurchaseReturn[]                            @relation("PurchaseReturnCreatedBy")
+  approvedPurchaseReturns                           PurchaseReturn[]                            @relation("PurchaseReturnApprovedBy")
+  inventoryReturnPostedPurchaseReturns              PurchaseReturn[]                            @relation("PurchaseReturnInventoryReturnPostedBy")
   createdCashExpenses                               CashExpense[]                               @relation("CashExpenseCreatedBy")
   createdCustomerPayments                           CustomerPayment[]                           @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments                           SupplierPayment[]                           @relation("SupplierPaymentCreatedBy")
@@ -836,12 +906,19 @@ model Organization {
   taxRates                                  TaxRate[]
   items                                     Item[]
   warehouses                                Warehouse[]
+  inventoryBinLocations                     InventoryBinLocation[]
+  inventoryBatches                          InventoryBatch[]
+  inventorySerialNumbers                    InventorySerialNumber[]
   stockMovements                            StockMovement[]
   inventoryAdjustments                      InventoryAdjustment[]
   warehouseTransfers                        WarehouseTransfer[]
   inventorySettings                         InventorySettings?
   purchaseReceipts                          PurchaseReceipt[]
   purchaseReceiptLines                      PurchaseReceiptLine[]
+  purchaseReturns                           PurchaseReturn[]
+  purchaseReturnLines                       PurchaseReturnLine[]
+  salesInventoryReturns                     SalesInventoryReturn[]
+  salesInventoryReturnLines                 SalesInventoryReturnLine[]
   salesStockIssues                          SalesStockIssue[]
   salesStockIssueLines                      SalesStockIssueLine[]
   inventoryVarianceProposals                InventoryVarianceProposal[]
@@ -1658,10 +1735,12 @@ model Contact {
   salesQuotes                SalesQuote[]                @relation("SalesQuoteCustomer")
   recurringInvoiceTemplates  RecurringInvoiceTemplate[]   @relation("RecurringInvoiceTemplateCustomer")
   deliveryNotes              DeliveryNote[]              @relation("DeliveryNoteCustomer")
+  salesInventoryReturns      SalesInventoryReturn[]      @relation("SalesInventoryReturnCustomer")
   creditNotes                CreditNote[]                @relation("CreditNoteCustomer")
   purchaseOrders             PurchaseOrder[]             @relation("PurchaseOrderSupplier")
   purchaseBills              PurchaseBill[]              @relation("PurchaseBillSupplier")
   purchaseDebitNotes         PurchaseDebitNote[]         @relation("PurchaseDebitNoteSupplier")
+  purchaseReturns            PurchaseReturn[]            @relation("PurchaseReturnSupplier")
   cashExpenses               CashExpense[]               @relation("CashExpenseContact")
   customerPayments           CustomerPayment[]           @relation("CustomerPaymentCustomer")
   supplierPayments           SupplierPayment[]           @relation("SupplierPaymentSupplier")
@@ -1990,6 +2069,9 @@ model Item {
   expenseAccountId       String?                 @db.Uuid
   purchaseTaxRateId      String?                 @db.Uuid
   inventoryTracking      Boolean                 @default(false)
+  trackingMode           ItemTrackingMode         @default(NONE)
+  expiryTrackingEnabled  Boolean                  @default(false)
+  binTrackingEnabled     Boolean                  @default(false)
   reorderPoint           Decimal?                @db.Decimal(20, 4)
   reorderQuantity        Decimal?                @db.Decimal(20, 4)
   createdAt              DateTime                @default(now())
@@ -2007,12 +2089,16 @@ model Item {
   purchaseOrderLines     PurchaseOrderLine[]
   purchaseBillLines      PurchaseBillLine[]
   purchaseDebitNoteLines PurchaseDebitNoteLine[]
+  purchaseReturnLines    PurchaseReturnLine[]
   cashExpenseLines       CashExpenseLine[]
   stockMovements         StockMovement[]
+  inventoryBatches       InventoryBatch[]
+  inventorySerialNumbers InventorySerialNumber[]
   inventoryAdjustments   InventoryAdjustment[]
   warehouseTransfers     WarehouseTransfer[]
   purchaseReceiptLines   PurchaseReceiptLine[]
   salesStockIssueLines   SalesStockIssueLine[]
+  salesInventoryReturnLines SalesInventoryReturnLine[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -2036,11 +2122,14 @@ model Warehouse {
   updatedAt                  DateTime              @updatedAt
   organization               Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   stockMovements             StockMovement[]
+  binLocations               InventoryBinLocation[]
+  currentSerialNumbers       InventorySerialNumber[] @relation("InventorySerialCurrentWarehouse")
   inventoryAdjustments       InventoryAdjustment[]
   outgoingWarehouseTransfers WarehouseTransfer[]   @relation("WarehouseTransferFromWarehouse")
   incomingWarehouseTransfers WarehouseTransfer[]   @relation("WarehouseTransferToWarehouse")
   purchaseReceipts           PurchaseReceipt[]
   salesStockIssues           SalesStockIssue[]
+  salesInventoryReturnLines  SalesInventoryReturnLine[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -2052,6 +2141,11 @@ model StockMovement {
   organizationId            String               @db.Uuid
   itemId                    String               @db.Uuid
   warehouseId               String               @db.Uuid
+  batchId                   String?              @db.Uuid
+  serialNumberId            String?              @db.Uuid
+  binLocationId             String?              @db.Uuid
+  fromBinLocationId         String?              @db.Uuid
+  toBinLocationId           String?              @db.Uuid
   movementDate              DateTime
   type                      StockMovementType
   quantity                  Decimal              @db.Decimal(20, 4)
@@ -2066,6 +2160,11 @@ model StockMovement {
   organization              Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   item                      Item                 @relation(fields: [itemId], references: [id])
   warehouse                 Warehouse            @relation(fields: [warehouseId], references: [id])
+  batch                     InventoryBatch?      @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  serialNumber              InventorySerialNumber? @relation("StockMovementSerialNumber", fields: [serialNumberId], references: [id], onDelete: SetNull)
+  binLocation               InventoryBinLocation? @relation("StockMovementBinLocation", fields: [binLocationId], references: [id], onDelete: SetNull)
+  fromBinLocation           InventoryBinLocation? @relation("StockMovementFromBinLocation", fields: [fromBinLocationId], references: [id], onDelete: SetNull)
+  toBinLocation             InventoryBinLocation? @relation("StockMovementToBinLocation", fields: [toBinLocationId], references: [id], onDelete: SetNull)
   createdBy                 User?                @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   inventoryAdjustment       InventoryAdjustment? @relation("InventoryAdjustmentStockMovement")
   voidInventoryAdjustment   InventoryAdjustment? @relation("InventoryAdjustmentVoidStockMovement")
@@ -2077,13 +2176,101 @@ model StockMovement {
   voidPurchaseReceiptLine   PurchaseReceiptLine? @relation("PurchaseReceiptLineVoidStockMovement")
   salesStockIssueLine       SalesStockIssueLine? @relation("SalesStockIssueLineStockMovement")
   voidSalesStockIssueLine   SalesStockIssueLine? @relation("SalesStockIssueLineVoidStockMovement")
+  purchaseReturnLine        PurchaseReturnLine?  @relation("PurchaseReturnLineStockMovement")
+  salesInventoryReturnLine  SalesInventoryReturnLine? @relation("SalesInventoryReturnLineStockMovement")
+  serialNumberLastFor       InventorySerialNumber[] @relation("InventorySerialLastMovement")
 
   @@index([organizationId])
   @@index([itemId])
   @@index([warehouseId])
+  @@index([batchId])
+  @@index([serialNumberId])
+  @@index([binLocationId])
+  @@index([fromBinLocationId])
+  @@index([toBinLocationId])
   @@index([organizationId, itemId, warehouseId])
   @@index([organizationId, movementDate])
   @@index([organizationId, type])
+}
+
+model InventoryBinLocation {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  organizationId        String                     @db.Uuid
+  warehouseId           String                     @db.Uuid
+  code                  String
+  name                  String
+  type                  InventoryBinLocationType   @default(BIN)
+  status                InventoryBinLocationStatus @default(ACTIVE)
+  description           String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  organization          Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse             Warehouse                  @relation(fields: [warehouseId], references: [id])
+  currentSerialNumbers  InventorySerialNumber[]    @relation("InventorySerialCurrentBin")
+  stockMovements        StockMovement[]            @relation("StockMovementBinLocation")
+  fromStockMovements    StockMovement[]            @relation("StockMovementFromBinLocation")
+  toStockMovements      StockMovement[]            @relation("StockMovementToBinLocation")
+
+  @@unique([organizationId, warehouseId, code])
+  @@index([organizationId])
+  @@index([warehouseId])
+  @@index([organizationId, warehouseId])
+  @@index([organizationId, type])
+  @@index([organizationId, status])
+}
+
+model InventoryBatch {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  organizationId        String                 @db.Uuid
+  itemId                String                 @db.Uuid
+  batchNumber           String
+  lotNumber             String?
+  manufactureDate       DateTime?
+  expiryDate            DateTime?
+  status                InventoryBatchStatus   @default(ACTIVE)
+  notes                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                  Item                   @relation(fields: [itemId], references: [id])
+  serialNumbers         InventorySerialNumber[]
+  stockMovements        StockMovement[]
+
+  @@unique([organizationId, itemId, batchNumber])
+  @@index([organizationId])
+  @@index([itemId])
+  @@index([organizationId, status])
+  @@index([organizationId, expiryDate])
+}
+
+model InventorySerialNumber {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  organizationId        String                      @db.Uuid
+  itemId                String                      @db.Uuid
+  serialNumber          String
+  batchId               String?                     @db.Uuid
+  status                InventorySerialNumberStatus @default(AVAILABLE)
+  currentWarehouseId    String?                     @db.Uuid
+  currentBinLocationId  String?                     @db.Uuid
+  lastMovementId        String?                     @db.Uuid
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item                  Item                        @relation(fields: [itemId], references: [id])
+  batch                 InventoryBatch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  currentWarehouse      Warehouse?                  @relation("InventorySerialCurrentWarehouse", fields: [currentWarehouseId], references: [id], onDelete: SetNull)
+  currentBinLocation    InventoryBinLocation?       @relation("InventorySerialCurrentBin", fields: [currentBinLocationId], references: [id], onDelete: SetNull)
+  lastMovement          StockMovement?              @relation("InventorySerialLastMovement", fields: [lastMovementId], references: [id], onDelete: SetNull)
+  stockMovements        StockMovement[]             @relation("StockMovementSerialNumber")
+
+  @@unique([organizationId, itemId, serialNumber])
+  @@index([organizationId])
+  @@index([itemId])
+  @@index([batchId])
+  @@index([currentWarehouseId])
+  @@index([currentBinLocationId])
+  @@index([lastMovementId])
+  @@index([organizationId, status])
 }
 
 model InventoryAdjustment {
@@ -2212,6 +2399,7 @@ model SalesInvoice {
   deliveryNotes               DeliveryNote[]                        @relation("DeliveryNoteSourceInvoice")
   collectionCases             CollectionCase[]                      @relation("CollectionCaseSalesInvoice")
   collectionActivities        CollectionActivity[]                   @relation("CollectionActivitySalesInvoice")
+  salesInventoryReturns       SalesInventoryReturn[]                 @relation("SalesInventoryReturnSourceInvoice")
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])
@@ -2247,6 +2435,7 @@ model SalesInvoiceLine {
   taxRate         TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
   stockIssueLines SalesStockIssueLine[]
   deliveryNoteLines DeliveryNoteLine[]   @relation("DeliveryNoteSourceInvoiceLine")
+  salesInventoryReturnLines SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceInvoiceLine")
 
   @@index([organizationId])
   @@index([invoiceId])
@@ -2469,6 +2658,7 @@ model DeliveryNote {
   relatedSalesQuote        SalesQuote?        @relation("DeliveryNoteSourceQuote", fields: [relatedSalesQuoteId], references: [id], onDelete: SetNull)
   relatedSalesStockIssue   SalesStockIssue?   @relation("DeliveryNoteSourceStockIssue", fields: [relatedSalesStockIssueId], references: [id], onDelete: SetNull)
   lines                    DeliveryNoteLine[]
+  salesInventoryReturns    SalesInventoryReturn[] @relation("SalesInventoryReturnSourceDeliveryNote")
 
   @@unique([organizationId, deliveryNoteNumber])
   @@index([organizationId])
@@ -2502,12 +2692,97 @@ model DeliveryNoteLine {
   sourceSalesInvoiceLine      SalesInvoiceLine?      @relation("DeliveryNoteSourceInvoiceLine", fields: [sourceSalesInvoiceLineId], references: [id], onDelete: SetNull)
   sourceSalesQuoteLine        SalesQuoteLine?        @relation("DeliveryNoteSourceQuoteLine", fields: [sourceSalesQuoteLineId], references: [id], onDelete: SetNull)
   sourceSalesStockIssueLine   SalesStockIssueLine?   @relation("DeliveryNoteSourceStockIssueLine", fields: [sourceSalesStockIssueLineId], references: [id], onDelete: SetNull)
+  salesInventoryReturnLines   SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceDeliveryNoteLine")
 
   @@index([organizationId])
   @@index([deliveryNoteId])
   @@index([itemId])
   @@index([sourceSalesInvoiceLineId])
   @@index([sourceSalesQuoteLineId])
+  @@index([sourceSalesStockIssueLineId])
+}
+
+model SalesInventoryReturn {
+  id                              String                     @id @default(uuid()) @db.Uuid
+  organizationId                  String                     @db.Uuid
+  customerId                      String                     @db.Uuid
+  salesReturnNumber               String
+  status                          SalesInventoryReturnStatus @default(DRAFT)
+  returnDate                      DateTime
+  reason                          String?
+  reference                       String?
+  sourceSalesInvoiceId            String?                    @db.Uuid
+  sourceCreditNoteId              String?                    @db.Uuid
+  sourceDeliveryNoteId            String?                    @db.Uuid
+  sourceSalesStockIssueId         String?                    @db.Uuid
+  notes                           String?
+  createdByUserId                 String?                    @db.Uuid
+  approvedByUserId                String?                    @db.Uuid
+  inventoryReturnPostedByUserId   String?                    @db.Uuid
+  approvedAt                      DateTime?
+  receivedAt                      DateTime?
+  cancelledAt                     DateTime?
+  voidedAt                        DateTime?
+  inventoryReturnPostedAt         DateTime?
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  organization                    Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer                        Contact                    @relation("SalesInventoryReturnCustomer", fields: [customerId], references: [id])
+  sourceSalesInvoice              SalesInvoice?              @relation("SalesInventoryReturnSourceInvoice", fields: [sourceSalesInvoiceId], references: [id], onDelete: SetNull)
+  sourceCreditNote                CreditNote?                @relation("SalesInventoryReturnSourceCreditNote", fields: [sourceCreditNoteId], references: [id], onDelete: SetNull)
+  sourceDeliveryNote              DeliveryNote?              @relation("SalesInventoryReturnSourceDeliveryNote", fields: [sourceDeliveryNoteId], references: [id], onDelete: SetNull)
+  sourceSalesStockIssue           SalesStockIssue?           @relation("SalesInventoryReturnSourceStockIssue", fields: [sourceSalesStockIssueId], references: [id], onDelete: SetNull)
+  createdBy                       User?                      @relation("SalesInventoryReturnCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedBy                      User?                      @relation("SalesInventoryReturnApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  inventoryReturnPostedBy         User?                      @relation("SalesInventoryReturnInventoryPostedBy", fields: [inventoryReturnPostedByUserId], references: [id], onDelete: SetNull)
+  lines                           SalesInventoryReturnLine[]
+
+  @@unique([organizationId, salesReturnNumber])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([returnDate])
+  @@index([sourceSalesInvoiceId])
+  @@index([sourceCreditNoteId])
+  @@index([sourceDeliveryNoteId])
+  @@index([sourceSalesStockIssueId])
+  @@index([inventoryReturnPostedByUserId])
+}
+
+model SalesInventoryReturnLine {
+  id                           String               @id @default(uuid()) @db.Uuid
+  organizationId               String               @db.Uuid
+  salesInventoryReturnId       String               @db.Uuid
+  itemId                       String?              @db.Uuid
+  description                  String
+  quantity                     Decimal              @db.Decimal(20, 4)
+  sourceSalesInvoiceLineId     String?              @db.Uuid
+  sourceCreditNoteLineId       String?              @db.Uuid
+  sourceDeliveryNoteLineId     String?              @db.Uuid
+  sourceSalesStockIssueLineId  String?              @db.Uuid
+  warehouseId                  String?              @db.Uuid
+  stockMovementId              String?              @unique @db.Uuid
+  reason                       String?
+  sortOrder                    Int                  @default(0)
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
+  organization                 Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesInventoryReturn         SalesInventoryReturn @relation(fields: [salesInventoryReturnId], references: [id], onDelete: Cascade)
+  item                         Item?                @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  sourceSalesInvoiceLine       SalesInvoiceLine?    @relation("SalesInventoryReturnSourceInvoiceLine", fields: [sourceSalesInvoiceLineId], references: [id], onDelete: SetNull)
+  sourceCreditNoteLine         CreditNoteLine?      @relation("SalesInventoryReturnSourceCreditNoteLine", fields: [sourceCreditNoteLineId], references: [id], onDelete: SetNull)
+  sourceDeliveryNoteLine       DeliveryNoteLine?    @relation("SalesInventoryReturnSourceDeliveryNoteLine", fields: [sourceDeliveryNoteLineId], references: [id], onDelete: SetNull)
+  sourceSalesStockIssueLine    SalesStockIssueLine? @relation("SalesInventoryReturnSourceStockIssueLine", fields: [sourceSalesStockIssueLineId], references: [id], onDelete: SetNull)
+  warehouse                    Warehouse?           @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  stockMovement                StockMovement?       @relation("SalesInventoryReturnLineStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([salesInventoryReturnId])
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([sourceSalesInvoiceLineId])
+  @@index([sourceCreditNoteLineId])
+  @@index([sourceDeliveryNoteLineId])
   @@index([sourceSalesStockIssueLineId])
 }
 
@@ -2612,6 +2887,7 @@ model CreditNote {
   lines                  CreditNoteLine[]
   allocations            CreditNoteAllocation[]
   refunds                CustomerRefund[]       @relation("CustomerRefundCreditNote")
+  salesInventoryReturns  SalesInventoryReturn[] @relation("SalesInventoryReturnSourceCreditNote")
 
   @@unique([organizationId, creditNoteNumber])
   @@index([organizationId])
@@ -2644,6 +2920,7 @@ model CreditNoteLine {
   item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account         Account      @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  salesInventoryReturnLines SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceCreditNoteLine")
 
   @@index([organizationId])
   @@index([creditNoteId])
@@ -2707,6 +2984,7 @@ model PurchaseOrder {
   lines                PurchaseOrderLine[]
   convertedBills       PurchaseBill[]      @relation("PurchaseBillSourcePurchaseOrder")
   purchaseReceipts     PurchaseReceipt[]
+  purchaseReturns      PurchaseReturn[]
 
   @@unique([organizationId, purchaseOrderNumber])
   @@index([organizationId])
@@ -2741,6 +3019,7 @@ model PurchaseOrderLine {
   account              Account?              @relation(fields: [accountId], references: [id], onDelete: SetNull)
   taxRate              TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
   purchaseReceiptLines PurchaseReceiptLine[]
+  purchaseReturnLines  PurchaseReturnLine[]
 
   @@index([organizationId])
   @@index([purchaseOrderId])
@@ -2789,6 +3068,7 @@ model PurchaseBill {
   convertedPurchaseOrder              PurchaseOrder?                       @relation("PurchaseOrderConvertedBill")
   purchaseReceipts                    PurchaseReceipt[]
   inventoryVarianceProposals          InventoryVarianceProposal[]
+  purchaseReturns                     PurchaseReturn[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId])
@@ -2823,6 +3103,7 @@ model PurchaseBillLine {
   account              Account               @relation(fields: [accountId], references: [id])
   taxRate              TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
   purchaseReceiptLines PurchaseReceiptLine[]
+  purchaseReturnLines  PurchaseReturnLine[]
 
   @@index([organizationId])
   @@index([billId])
@@ -2865,6 +3146,7 @@ model PurchaseReceipt {
   inventoryAssetReversedBy           User?                       @relation("PurchaseReceiptInventoryAssetReversedBy", fields: [inventoryAssetReversedById], references: [id], onDelete: SetNull)
   lines                              PurchaseReceiptLine[]
   inventoryVarianceProposals         InventoryVarianceProposal[]
+  purchaseReturns                    PurchaseReturn[]
 
   @@unique([organizationId, receiptNumber])
   @@index([organizationId])
@@ -2899,6 +3181,7 @@ model PurchaseReceiptLine {
   purchaseBillLine  PurchaseBillLine?  @relation(fields: [purchaseBillLineId], references: [id], onDelete: SetNull)
   stockMovement     StockMovement?     @relation("PurchaseReceiptLineStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
   voidStockMovement StockMovement?     @relation("PurchaseReceiptLineVoidStockMovement", fields: [voidStockMovementId], references: [id], onDelete: SetNull)
+  purchaseReturnLines PurchaseReturnLine[]
 
   @@index([organizationId])
   @@index([receiptId])
@@ -2928,6 +3211,7 @@ model PurchaseMatchingReview {
   supplier           Contact?                     @relation("PurchaseMatchingReviewSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
   assignedToUser     User?                        @relation("PurchaseMatchingReviewAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
   reviewedByUser     User?                        @relation("PurchaseMatchingReviewReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  purchaseReturns    PurchaseReturn[]
 
   @@unique([organizationId, sourceType, sourceId, exceptionType])
   @@index([organizationId, status])
@@ -2971,6 +3255,7 @@ model SalesStockIssue {
   cogsReversedBy           User?                 @relation("SalesStockIssueCogsReversedBy", fields: [cogsReversedById], references: [id], onDelete: SetNull)
   lines                    SalesStockIssueLine[]
   deliveryNotes            DeliveryNote[]        @relation("DeliveryNoteSourceStockIssue")
+  salesInventoryReturns    SalesInventoryReturn[] @relation("SalesInventoryReturnSourceStockIssue")
 
   @@unique([organizationId, issueNumber])
   @@index([organizationId])
@@ -3003,6 +3288,7 @@ model SalesStockIssueLine {
   stockMovement     StockMovement?    @relation("SalesStockIssueLineStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
   voidStockMovement StockMovement?    @relation("SalesStockIssueLineVoidStockMovement", fields: [voidStockMovementId], references: [id], onDelete: SetNull)
   deliveryNoteLines DeliveryNoteLine[] @relation("DeliveryNoteSourceStockIssueLine")
+  salesInventoryReturnLines SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceStockIssueLine")
 
   @@index([organizationId])
   @@index([issueId])
@@ -3134,12 +3420,97 @@ model PurchaseDebitNote {
   lines                  PurchaseDebitNoteLine[]
   allocations            PurchaseDebitNoteAllocation[]
   supplierRefunds        SupplierRefund[]              @relation("SupplierRefundPurchaseDebitNote")
+  relatedPurchaseReturns PurchaseReturn[]               @relation("PurchaseReturnRelatedDebitNote")
 
   @@unique([organizationId, debitNoteNumber])
   @@index([organizationId])
   @@index([supplierId])
   @@index([originalBillId])
   @@index([status])
+}
+
+model PurchaseReturn {
+  id                         String                  @id @default(uuid()) @db.Uuid
+  organizationId             String                  @db.Uuid
+  supplierId                 String                  @db.Uuid
+  purchaseReturnNumber       String
+  status                     PurchaseReturnStatus    @default(DRAFT)
+  returnDate                 DateTime
+  reason                     String?
+  reference                  String?
+  sourcePurchaseBillId       String?                 @db.Uuid
+  sourcePurchaseOrderId      String?                 @db.Uuid
+  sourcePurchaseReceiptId    String?                 @db.Uuid
+  sourceMatchingReviewId     String?                 @db.Uuid
+  relatedPurchaseDebitNoteId String?                 @db.Uuid
+  relatedSupplierRefundId    String?                 @db.Uuid
+  notes                      String?
+  createdByUserId            String?                 @db.Uuid
+  approvedByUserId           String?                 @db.Uuid
+  inventoryReturnPostedByUserId String?               @db.Uuid
+  approvedAt                 DateTime?
+  completedAt                DateTime?
+  voidedAt                   DateTime?
+  inventoryReturnPostedAt    DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+  organization               Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier                   Contact                 @relation("PurchaseReturnSupplier", fields: [supplierId], references: [id])
+  sourcePurchaseBill         PurchaseBill?           @relation(fields: [sourcePurchaseBillId], references: [id], onDelete: SetNull)
+  sourcePurchaseOrder        PurchaseOrder?          @relation(fields: [sourcePurchaseOrderId], references: [id], onDelete: SetNull)
+  sourcePurchaseReceipt      PurchaseReceipt?        @relation(fields: [sourcePurchaseReceiptId], references: [id], onDelete: SetNull)
+  sourceMatchingReview       PurchaseMatchingReview? @relation(fields: [sourceMatchingReviewId], references: [id], onDelete: SetNull)
+  relatedPurchaseDebitNote   PurchaseDebitNote?      @relation("PurchaseReturnRelatedDebitNote", fields: [relatedPurchaseDebitNoteId], references: [id], onDelete: SetNull)
+  relatedSupplierRefund      SupplierRefund?         @relation("PurchaseReturnRelatedSupplierRefund", fields: [relatedSupplierRefundId], references: [id], onDelete: SetNull)
+  createdBy                  User?                   @relation("PurchaseReturnCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedBy                 User?                   @relation("PurchaseReturnApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  inventoryReturnPostedBy    User?                   @relation("PurchaseReturnInventoryReturnPostedBy", fields: [inventoryReturnPostedByUserId], references: [id], onDelete: SetNull)
+  lines                      PurchaseReturnLine[]
+
+  @@unique([organizationId, purchaseReturnNumber])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([sourcePurchaseBillId])
+  @@index([sourcePurchaseOrderId])
+  @@index([sourcePurchaseReceiptId])
+  @@index([sourceMatchingReviewId])
+  @@index([relatedPurchaseDebitNoteId])
+  @@index([relatedSupplierRefundId])
+  @@index([inventoryReturnPostedByUserId])
+  @@index([organizationId, returnDate])
+}
+
+model PurchaseReturnLine {
+  id                          String               @id @default(uuid()) @db.Uuid
+  organizationId              String               @db.Uuid
+  purchaseReturnId            String               @db.Uuid
+  itemId                      String?              @db.Uuid
+  description                 String
+  quantity                    Decimal              @db.Decimal(20, 4)
+  unitCost                    Decimal?             @db.Decimal(20, 4)
+  sourcePurchaseBillLineId    String?              @db.Uuid
+  sourcePurchaseReceiptLineId String?              @db.Uuid
+  sourcePurchaseOrderLineId   String?              @db.Uuid
+  stockMovementId             String?              @unique @db.Uuid
+  reason                      String?
+  sortOrder                   Int                  @default(0)
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  organization                Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseReturn              PurchaseReturn       @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  item                        Item?                @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  sourcePurchaseBillLine      PurchaseBillLine?    @relation(fields: [sourcePurchaseBillLineId], references: [id], onDelete: SetNull)
+  sourcePurchaseReceiptLine   PurchaseReceiptLine? @relation(fields: [sourcePurchaseReceiptLineId], references: [id], onDelete: SetNull)
+  sourcePurchaseOrderLine     PurchaseOrderLine?   @relation(fields: [sourcePurchaseOrderLineId], references: [id], onDelete: SetNull)
+  stockMovement               StockMovement?       @relation("PurchaseReturnLineStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([purchaseReturnId])
+  @@index([itemId])
+  @@index([sourcePurchaseBillLineId])
+  @@index([sourcePurchaseReceiptLineId])
+  @@index([sourcePurchaseOrderLineId])
 }
 
 model PurchaseDebitNoteLine {
@@ -3481,6 +3852,7 @@ model SupplierRefund {
   supplier                   Contact                  @relation("SupplierRefundSupplier", fields: [supplierId], references: [id])
   sourcePayment              SupplierPayment?         @relation("SupplierRefundPayment", fields: [sourcePaymentId], references: [id])
   sourceDebitNote            PurchaseDebitNote?       @relation("SupplierRefundPurchaseDebitNote", fields: [sourceDebitNoteId], references: [id])
+  relatedPurchaseReturns     PurchaseReturn[]         @relation("PurchaseReturnRelatedSupplierRefund")
   account                    Account                  @relation("SupplierRefundAccount", fields: [accountId], references: [id])
   journalEntry               JournalEntry?            @relation("SupplierRefundJournal", fields: [journalEntryId], references: [id])
   voidReversalJournalEntry   JournalEntry?            @relation("SupplierRefundVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])

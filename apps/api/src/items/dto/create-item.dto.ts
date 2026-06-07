@@ -1,4 +1,4 @@
-import { ItemStatus, ItemType } from "@prisma/client";
+import { ItemStatus, ItemTrackingMode, ItemType } from "@prisma/client";
 import { IsBoolean, IsDecimal, IsEnum, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class CreateItemDto {
@@ -45,6 +45,18 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   inventoryTracking?: boolean;
+
+  @IsOptional()
+  @IsEnum(ItemTrackingMode)
+  trackingMode?: ItemTrackingMode;
+
+  @IsOptional()
+  @IsBoolean()
+  expiryTrackingEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  binTrackingEnabled?: boolean;
 
   @IsOptional()
   @IsDecimal({ decimal_digits: "0,4" })
