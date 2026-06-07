@@ -347,4 +347,10 @@ The next guard is now documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, w
 
 Execution guard approval recognition returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. `--execute-csid-request` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior was performed.
 
-Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+
+Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. No OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+Recommended next prompt: `ZATCA sandbox adapter no-network contract tests`.

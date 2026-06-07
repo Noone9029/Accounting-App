@@ -788,3 +788,13 @@ The new guard recognizes the exact sandbox compliance CSID request execution gua
 Still open: key custody, CSID response custody, actual OTP capture approval, real sandbox adapter execution, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR production proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
 
 No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+## 2026-06-07 Sandbox Adapter Mock-to-Real Boundary Check
+
+Boundary artifacts are now documented in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`; the static guard is `scripts/zatca-sandbox-adapter-boundary-check.cjs`.
+
+Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. The guard detects the sandbox, disabled, and mock adapter boundaries by static inspection only. No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production check was run.
+
+Still open: no-network adapter contract tests, custody provider implementation/approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`.

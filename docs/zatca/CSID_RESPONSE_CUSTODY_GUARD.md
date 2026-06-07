@@ -109,4 +109,10 @@ Allowed evidence includes statuses, booleans, file paths inspected, code-surface
 
 Completed follow-up: `ZATCA sandbox adapter execution approval plan`
 
-`ZATCA sandbox adapter mock-to-real boundary test plan`
+Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+
+Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. No OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+`ZATCA sandbox adapter no-network contract tests`

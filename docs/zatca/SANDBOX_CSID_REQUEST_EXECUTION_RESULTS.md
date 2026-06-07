@@ -64,4 +64,10 @@ Adapter approval artifacts: `SANDBOX_ADAPTER_EXECUTION_APPROVAL_PLAN.md`, `SANDB
 
 Adapter approval status: `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`. Execute-adapter status: `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No sandbox adapter execution, request body creation, response body processing, OTP/CSID/network/DB action, env value exposure, or body exposure occurred.
 
-Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`
+Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+
+Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. No sandbox adapter execution, mock adapter execution, request body creation, response body processing, OTP/CSID/network/DB action, env value exposure, or body exposure occurred.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`

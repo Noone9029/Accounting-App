@@ -152,4 +152,10 @@ If custody fails, response handling must fail closed and rollback metadata write
 
 ## Next Stage After Approval
 
-`ZATCA sandbox adapter mock-to-real boundary test plan`
+Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+
+Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`. No OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+`ZATCA sandbox adapter no-network contract tests`

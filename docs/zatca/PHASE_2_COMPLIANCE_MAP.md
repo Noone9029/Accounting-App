@@ -747,5 +747,7 @@ Phase 2 status remains blocked for production. The run did not request CSID/OTP,
 - Status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
 - Execute flag: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - Phase 2 remains blocked: no OTP, CSID request, network call, sandbox adapter execution, request body, response body, signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
-- Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`.
-- Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+- Completed follow-ups: `ZATCA CSID response custody implementation plan`, `ZATCA sandbox adapter execution approval plan`, and `ZATCA sandbox adapter mock-to-real boundary test plan`.
+- Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`.
+- Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurred.
+- Next prompt: `ZATCA sandbox adapter no-network contract tests`.

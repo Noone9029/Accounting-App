@@ -127,4 +127,8 @@ Observed status with the exact execution-guard phrase and `--execution-guard`: `
 
 Observed status with `--execute-csid-request`: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 
-No OTP was requested, no CSID was requested, no network call was made, no sandbox adapter was executed, and no secrets or bodies were exposed. Completed follow-up: `ZATCA sandbox adapter execution approval plan`. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+No OTP was requested, no CSID was requested, no network call was made, no sandbox adapter was executed, and no secrets or bodies were exposed. Completed follow-ups: `ZATCA sandbox adapter execution approval plan` and `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`.

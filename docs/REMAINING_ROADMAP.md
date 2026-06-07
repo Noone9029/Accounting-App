@@ -50,7 +50,15 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Current adapter approval status is `ADAPTER_EXECUTION_APPROVAL_RECOGNIZED_BUT_BLOCKED`; `--execute-adapter` remains `BLOCKED_ADAPTER_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
 - Remaining ZATCA gaps include mock-to-real adapter boundary tests, approved custody provider implementation, OTP capture approval, CSID request approval, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
-- Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+- Completed follow-up: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+## 2026-06-07 ZATCA Sandbox Adapter Mock-to-Real Boundary Test Plan
+
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, and the standalone static guard at `scripts/zatca-sandbox-adapter-boundary-check.cjs`.
+- Current boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock, disabled, and sandbox adapter boundaries are detected by static inspection only.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Remaining ZATCA gaps include no-network adapter contract tests, approved custody provider implementation, OTP capture approval, CSID request approval, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox adapter no-network contract tests`.
 
 ## 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design
 

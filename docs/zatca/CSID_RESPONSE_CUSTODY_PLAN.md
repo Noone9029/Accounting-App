@@ -253,4 +253,8 @@ Recommended next step:
 
 Custody remains the next blocker: `csidResponseCustodyApproved=false`, provider implementation ready `false`, token/secret/certificate storage ready `false`, body storage allowed `false`, response body processed `false`, and response persisted `false`.
 
-No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`. Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-ups: `ZATCA CSID response custody implementation plan`, `ZATCA sandbox adapter execution approval plan`, and `ZATCA sandbox adapter mock-to-real boundary test plan`.
+
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; mock adapter execution, request body creation, response body processing, DB writes, env value output, and body exposure remained false.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`.

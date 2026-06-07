@@ -241,6 +241,8 @@ No SDK command was run during the review. Readiness interpretation is unchanged:
 
 Observed status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but does not run SDK commands, request OTP/CSID, call ZATCA, execute adapters, create request bodies, process response bodies, expose secrets, sign, clear/report, create PDF-A3, or enable production compliance.
 
-Completed follow-ups: `ZATCA CSID response custody implementation plan` and `ZATCA sandbox adapter execution approval plan`.
+Completed follow-ups: `ZATCA CSID response custody implementation plan`, `ZATCA sandbox adapter execution approval plan`, and `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
-Next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
+Boundary artifacts: `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md` and `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Boundary status: `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, adapter execution, request body creation, response body processing, DB write, env value output, or body exposure occurred.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`.

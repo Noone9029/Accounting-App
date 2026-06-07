@@ -59,6 +59,15 @@ Current production posture:
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
 - Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox adapter mock-to-real boundary test plan`.
 
+2026-06-07 ZATCA Sandbox Adapter Mock-to-Real Boundary Test Plan update:
+
+- Added `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RUNBOOK.md`, `docs/zatca/SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`, `scripts/zatca-sandbox-adapter-boundary-check.cjs`, and `scripts/zatca-sandbox-adapter-boundary-check.test.cjs`.
+- Added root package scripts `zatca:sandbox-adapter-boundary-check` and `test:zatca-sandbox-adapter-boundary-check`.
+- Observed boundary status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS` using `--plan --no-network --json --static-only`.
+- The guard found the sandbox adapter, disabled fail-closed adapter, mock-only adapter, env gate source references, request/response risk markers, and custody dependency by static inspection only.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no mock adapter was executed, no request body was created, no response body was processed, no DB connection or write was attempted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are CSID response custody provider approval, legacy raw PEM-capable fields, request/response body approval, env gate approval, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, repeatable SDK CI, and future no-network adapter contract tests. Recommended next prompt: `ZATCA sandbox adapter no-network contract tests`.
+
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 
 - Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.

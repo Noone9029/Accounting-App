@@ -235,3 +235,9 @@ Docs:
 - `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md`
 
 The guard reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED` without requesting OTP, requesting CSID, creating request bodies, processing response bodies, executing adapters, calling ZATCA, exposing secrets, signing, clearing/reporting, creating PDF-A3, or enabling production compliance.
+
+## Sandbox Adapter Boundary Follow-Up
+
+The mock-to-real boundary plan is now documented in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_TEST_PLAN.md`, with results in `SANDBOX_ADAPTER_MOCK_TO_REAL_BOUNDARY_RESULTS.md`. Observed status is `BOUNDARY_STATIC_CHECK_PASSED_WITH_BLOCKERS`; no OTP/CSID/network call, sandbox adapter execution, mock adapter execution, request body creation, response body processing, DB write, env value output, or secret/body exposure occurred.
+
+Next prompt: `ZATCA sandbox adapter no-network contract tests`.
