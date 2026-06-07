@@ -2124,8 +2124,14 @@ describe("ZATCA service rules", () => {
       executionEnabled: false,
       sdkCommand: "fatoora -sign -invoice <filename> -signedInvoice <filename>",
     });
-    expect(plan.commandPlan.displayCommand).toContain("-sign");
-    expect(plan.commandPlan.displayCommand).toContain("-signedInvoice");
+    expect(plan.sdkCommand).toContain("-sign");
+    expect(plan.sdkCommand).toContain("-signedInvoice");
+    if (plan.commandPlan.command) {
+      expect(plan.commandPlan.displayCommand).toContain("-sign");
+      expect(plan.commandPlan.displayCommand).toContain("-signedInvoice");
+    } else {
+      expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("No local SDK signing command could be planned")]));
+    }
     expect(plan.blockers).toEqual(expect.arrayContaining([expect.stringContaining("ZATCA_SDK_SIGNING_EXECUTION_ENABLED=false")]));
     expect(plan.requiredInputs).toEqual(expect.arrayContaining([expect.objectContaining({ id: "certificate" }), expect.objectContaining({ id: "privateKeyCustody" })]));
     expect(JSON.stringify(plan)).not.toContain("SUPER-SECRET-PRIVATE-KEY");
@@ -2760,7 +2766,11 @@ describe("ZATCA service rules", () => {
         prepareFilesRequested: true,
       });
       expect(result.sdkCommand).toContain("-csr");
-      expect(result.commandPlan.displayCommand).toContain("-csr");
+      if (result.commandPlan.command) {
+        expect(result.commandPlan.displayCommand).toContain("-csr");
+      } else {
+        expect(result.commandPlan.warnings.join(" ")).toContain("Neither SDK JAR nor fatoora launcher is available");
+      }
       expect(result.preparedFiles.csrConfigWritten).toBe(false);
       expect(result.preparedFiles.privateKeyWritten).toBe(false);
       expect(result.preparedFiles.generatedCsrWritten).toBe(false);

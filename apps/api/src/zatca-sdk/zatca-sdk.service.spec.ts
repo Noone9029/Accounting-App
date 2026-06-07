@@ -148,11 +148,11 @@ describe("ZATCA SDK service", () => {
     await expect(service.validateReferenceFixtureLocal("org-1", { fixturePath: "../.env" })).rejects.toThrow(BadRequestException);
   });
 
-  it("returns a disabled official fixture validation response by default", async () => {
+  it("returns a disabled registered fixture validation response by default", async () => {
     const service = new ZatcaSdkService({} as never);
 
     const result = await service.validateReferenceFixtureLocal("org-1", {
-      fixturePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+      fixturePath: "packages/zatca-core/fixtures/local-standard-tax-invoice.expected.xml",
     });
 
     expect(result).toMatchObject({

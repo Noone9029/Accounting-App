@@ -33,6 +33,7 @@ The branch introduced or preserved shared permission keys and item tracking defa
 - The role permission matrix did not group `customerPayments.applyUnapplied`, `customerPayments.reverseUnappliedAllocation`, `customerPayments.receiptPdf.generate`, `zatca.signing.dryRun`, or `zatca.submit`.
 - A sales invoice rules test created an item service mock without `inventoryTracking`, `trackingMode`, `expiryTrackingEnabled`, and `binTrackingEnabled`, causing a status-only update to look like an invalid tracking payload at runtime.
 - The pushed GitHub rerun still failed at `corepack pnpm typecheck` because the fresh Ubuntu checkout installed dependencies with Prisma package build scripts ignored; `@prisma/client` had not been generated before typecheck.
+- A later GitHub rerun passed typecheck and then failed in `corepack pnpm test` because several ZATCA SDK/readiness specs assumed local workstation state that is not present on a fresh Linux runner: an executable local SDK command plan, an untracked official reference XML fixture, and raw Windows path strings.
 
 ## Fix Applied
 
@@ -40,6 +41,9 @@ The branch introduced or preserved shared permission keys and item tracking defa
 - Kept ZATCA wording limited to local dummy-material dry-runs and blocked clearance/reporting stubs; this does not enable real ZATCA networking, signing, clearance, reporting, or production compliance.
 - Updated the stale API test mock to include metadata-only item tracking defaults.
 - Added the existing safe `corepack pnpm db:generate` command to `verify:ci:local` before workspace typecheck so fresh CI checkouts generate Prisma client types without running migrations or touching a database.
+- Updated ZATCA readiness tests to assert safe placeholder `sdkCommand` metadata and explicit blocked/no-command warnings when local SDK binaries are unavailable.
+- Switched the SDK service fixture test to a committed local dummy fixture instead of an untracked official reference fixture.
+- Made the SDK path test compare resolved paths so it is stable on Windows and Linux without requiring real SDK files or credentials.
 
 ## Checks Rerun
 
@@ -54,6 +58,8 @@ The branch introduced or preserved shared permission keys and item tracking defa
 - `corepack pnpm verify:ci:local`: passed locally after the permission/test fixture remediation; GitHub then exposed the fresh-checkout Prisma client generation gap above.
 - `node --test scripts/verify-gate.test.cjs`: passed after adding the Prisma client generation step to the CI gate.
 - `corepack pnpm verify:ci:local`: passed after the gate plan changed to run `corepack pnpm db:generate` before `corepack pnpm typecheck`.
+- `corepack pnpm --filter @ledgerbyte/api test -- --runInBand src/zatca/zatca-rules.spec.ts src/zatca-sdk/zatca-sdk.service.spec.ts src/zatca-sdk/zatca-sdk-paths.spec.ts`: passed after the fresh-runner ZATCA test fixes.
+- `corepack pnpm verify:ci:local`: passed after the ZATCA test fixes, including `git diff --check`, `corepack pnpm db:generate`, `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, `node --test scripts/test-credential-env.test.cjs`, and `corepack pnpm test:user-testing-cleanup-plan`.
 
 ## Safety Boundaries Preserved
 
@@ -69,6 +75,9 @@ The branch introduced or preserved shared permission keys and item tracking defa
 - `apps/api/src/sales-invoices/sales-invoice-rules.spec.ts`
 - `scripts/verify-gate.cjs`
 - `scripts/verify-gate.test.cjs`
+- `apps/api/src/zatca/zatca-rules.spec.ts`
+- `apps/api/src/zatca-sdk/zatca-sdk.service.spec.ts`
+- `apps/api/src/zatca-sdk/zatca-sdk-paths.spec.ts`
 - `docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md`
 - `docs/development/ZATCA_CUSTODY_FOUNDATION_CI_REMEDIATION.md`
 
