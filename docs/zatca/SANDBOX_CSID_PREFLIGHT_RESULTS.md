@@ -1,6 +1,14 @@
 # ZATCA Sandbox CSID Preflight Results
 
-Date: 2026-06-06
+Date: 2026-06-07
+
+## Repository Reconciliation
+
+- Latest pushed branch state inspected on 2026-06-07: `90dec971 Plan ZATCA sandbox CSID approval`.
+- Required baseline files were present.
+- Existing sandbox OTP/CSID approval docs and guard handling were found and updated in place, not duplicated.
+- Unrelated dirty inventory, AP, marketing, and graph output files were present in the worktree and remained out of scope.
+- No approval evidence was invented; results below come from local no-network guard output only.
 
 ## Command Run
 

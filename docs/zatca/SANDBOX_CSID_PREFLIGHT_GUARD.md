@@ -1,8 +1,10 @@
 # ZATCA Sandbox CSID Preflight Guard
 
-Date: 2026-06-06
+Date: 2026-06-07
 
 Status: Implemented as a local, no-network, metadata-only guard.
+
+2026-06-07 reconciliation: the latest pushed branch state already included the sandbox OTP/CSID approval plan, runbook, result doc, guard extension, and tests at `90dec971 Plan ZATCA sandbox CSID approval`. The approval artifacts were updated in place; no duplicate approval docs or scripts were created.
 
 ## 1. Purpose And Scope
 

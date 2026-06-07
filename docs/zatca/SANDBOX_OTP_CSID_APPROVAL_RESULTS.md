@@ -1,6 +1,15 @@
 # ZATCA Sandbox OTP And Compliance CSID Approval Results
 
-Date: 2026-06-06
+Date: 2026-06-07
+
+## Repository Reconciliation
+
+- `git log -1 --oneline` returned `90dec971 Plan ZATCA sandbox CSID approval`, superseding the older `68f94334` prompt checkpoint.
+- The current branch was aligned with its upstream before this continuation.
+- Required baseline files were present.
+- The three sandbox OTP/CSID approval docs already existed and were updated in place.
+- Existing approval handling was present in `scripts/zatca-sandbox-csid-preflight.cjs` and `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- Unrelated dirty inventory, AP, marketing, and graph output files were present and were not touched or staged.
 
 ## Command Run
 
@@ -13,6 +22,8 @@ The exact phrase is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`. The resul
 ## Approval Status
 
 `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`
+
+The same status was observed again during the 2026-06-07 no-network planning guard run.
 
 ## Approval Phrase Match
 
@@ -61,6 +72,8 @@ Values were not printed, copied, stored, or used.
 | Real network enabled configured | `false` |
 | Effective real network enabled | `false` |
 | Env values printed | `false` |
+
+No sandbox base URL, OTP-like env var, production credential-like env var, or real-network gate was configured during the 2026-06-07 run.
 
 ## Secret/Body Exposure
 

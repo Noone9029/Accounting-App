@@ -2,11 +2,12 @@
 
 ## Latest Commit Inspected
 
-- `68f94334 Guard ZATCA sandbox CSID preflight`
+- `90dec971 Plan ZATCA sandbox CSID approval`
 
 ## Current Development Objective
 
 - ZATCA sandbox OTP and compliance CSID approval plan completed: yes.
+- 2026-06-07 reconciliation: the latest pushed branch state already contained the approval docs, guard extension, and tests; they were updated in place instead of duplicated.
 - Approval plan doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
 - Approval runbook created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
 - Approval result doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
@@ -21,6 +22,7 @@
 - Production signing enabled: no.
 - Code/readiness metadata changed: script/docs only; no API/UI/schema/migration/runtime readiness fields changed.
 - Env presence handling: booleans only; values are not printed, stored, copied, or used.
+- Optional readiness metadata decision: no shared API/UI/schema readiness fields were added; the guard output already exposes the safe planning booleans and adding runtime metadata fields would risk implying execution support.
 - Key custody recommendation remains KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
 - Current blockers: key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
 - Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
@@ -5588,7 +5590,8 @@
 
 ## ZATCA Sandbox OTP And Compliance CSID Approval Plan Completed
 
-- Latest commit inspected: `68f94334 Guard ZATCA sandbox CSID preflight`.
+- Latest commit inspected before the approval-plan sprint: `68f94334 Guard ZATCA sandbox CSID preflight`.
+- 2026-06-07 continuation inspected latest pushed branch state: `90dec971 Plan ZATCA sandbox CSID approval`.
 - Approval plan doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
 - Approval runbook doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
 - Approval result doc: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.

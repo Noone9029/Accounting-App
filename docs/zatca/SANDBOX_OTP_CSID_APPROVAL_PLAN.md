@@ -1,6 +1,6 @@
 # ZATCA Sandbox OTP And Compliance CSID Approval Plan
 
-Date: 2026-06-06
+Date: 2026-06-07
 
 Status: Approval design only. No OTP, CSID, ZATCA network call, sandbox adapter execution, signing, clearance/reporting, PDF-A3, or production compliance is enabled.
 
@@ -13,6 +13,7 @@ This task prepares the permission slip only. It does not request an OTP, accept 
 ## 2. Current State
 
 - Latest approved guard commit before this plan: `68f94334 Guard ZATCA sandbox CSID preflight`.
+- Reconciliation on 2026-06-07 found the latest pushed branch state at `90dec971 Plan ZATCA sandbox CSID approval`; this approval plan, runbook, result doc, guard extension, and guard tests already existed and were updated in place instead of duplicated.
 - Preflight guard exists at `scripts/zatca-sandbox-csid-preflight.cjs`.
 - Preflight tests exist at `scripts/zatca-sandbox-csid-preflight.test.cjs`.
 - Package scripts exist: `zatca:sandbox-csid-preflight` and `test:zatca-sandbox-csid-preflight`.
@@ -24,6 +25,18 @@ This task prepares the permission slip only. It does not request an OTP, accept 
 - Sandbox adapter exists but compliance CSID execution remains blocked.
 - Mock adapter exists and is mock-only.
 - Production signing and production compliance remain disabled.
+
+## Reconciliation Result
+
+- Required baseline ZATCA docs, scripts, package scripts, and handoff files were present.
+- Existing approval docs were found:
+  - `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`
+  - `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`
+  - `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`
+- Existing approval handling was found in `scripts/zatca-sandbox-csid-preflight.cjs` and `scripts/zatca-sandbox-csid-preflight.test.cjs`.
+- The branch was aligned with its upstream at the time of reconciliation.
+- The worktree also contained unrelated dirty inventory, AP, marketing, and graph output files; they are out of scope for this plan and must not be staged with ZATCA approval changes.
+- No approval evidence was invented; the observed result comes from the no-network planning guard only.
 
 ## 3. Official References Inspected
 
@@ -310,6 +323,10 @@ Even after a future successful sandbox compliance CSID request, these remain blo
 - No request/response body output tests.
 - Strict mode exits nonzero for blocked states.
 
-## 18. Recommended Next Prompt
+## 18. Readiness Metadata Decision
+
+No shared API/UI/schema readiness metadata fields were added in this continuation. The existing guard output already reports the safe planning metadata booleans for `otpRequested`, `complianceCsidRequested`, `sandboxAdapterExecuted`, approval recognition, custody approval, production compliance, and `metadata-only` evidence; adding broader runtime fields would risk implying execution support that does not exist.
+
+## 19. Recommended Next Prompt
 
 `ZATCA sandbox CSID request execution guard`

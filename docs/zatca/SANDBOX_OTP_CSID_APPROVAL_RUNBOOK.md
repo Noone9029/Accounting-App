@@ -1,8 +1,12 @@
 # ZATCA Sandbox OTP And Compliance CSID Approval Runbook
 
-Date: 2026-06-06
+Date: 2026-06-07
 
 Status: Future runbook only. Do not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, expose bodies, or enable signing from this document.
+
+## Reconciliation Note
+
+This runbook already existed in the latest pushed branch state inspected on 2026-06-07 (`90dec971 Plan ZATCA sandbox CSID approval`). It was updated in place. No duplicate approval docs or scripts were created, and unrelated dirty inventory, AP, marketing, and graph output files remain out of scope.
 
 ## Future Flow
 
