@@ -18,6 +18,7 @@ import {
   zatcaEgsComplianceCsidRequestPlanPath,
   zatcaEgsComplianceCsidCustodyPlanPath,
   zatcaEgsComplianceCsidCustodyRecordsPath,
+  zatcaCredentialLifecyclePath,
   zatcaCsrConfigReviewApprovePath,
   zatcaCsrConfigReviewRevokePath,
   zatcaEgsCsrConfigPreviewPath,
@@ -53,6 +54,7 @@ import type {
   ZatcaComplianceCsidCustodyPlanResponse,
   ZatcaComplianceCsidCustodyRecordResponse,
   ZatcaComplianceChecklistResponse,
+  ZatcaCredentialLifecycleFoundationResponse,
   ZatcaCsrConfigReview,
   ZatcaEgsCsrConfigPreviewResponse,
   ZatcaEgsUnit,
@@ -128,6 +130,7 @@ export default function ZatcaSettingsPage() {
   const [csrConfigReviewsByUnit, setCsrConfigReviewsByUnit] = useState<Record<string, ZatcaCsrConfigReview[]>>({});
   const [complianceCsidPlanByUnit, setComplianceCsidPlanByUnit] = useState<Record<string, ZatcaComplianceCsidRequestPlanResponse>>({});
   const [complianceCsidCustodyPlanByUnit, setComplianceCsidCustodyPlanByUnit] = useState<Record<string, ZatcaComplianceCsidCustodyPlanResponse>>({});
+  const [credentialLifecycle, setCredentialLifecycle] = useState<ZatcaCredentialLifecycleFoundationResponse | null>(null);
   const [otpByUnit, setOtpByUnit] = useState<Record<string, string>>({});
   const [hashModeReasonByUnit, setHashModeReasonByUnit] = useState<Record<string, string>>({});
   const [hashModeConfirmByUnit, setHashModeConfirmByUnit] = useState<Record<string, boolean>>({});
@@ -160,6 +163,7 @@ export default function ZatcaSettingsPage() {
         const loadedPolicyApprovals = await apiRequest<ZatcaSignedArtifactStoragePolicyApprovalListResponse>(zatcaSignedArtifactStoragePolicyApprovalsPath()).catch(() => null);
         const loadedStorageControlEvidence = await apiRequest<ZatcaSignedArtifactStorageControlEvidenceListResponse>(zatcaSignedArtifactStorageControlEvidencePath()).catch(() => null);
         const loadedEvidenceCompleteness = await apiRequest<ZatcaSignedArtifactStorageEvidenceCompletenessResponse>(zatcaSignedArtifactStorageEvidenceCompletenessPath()).catch(() => null);
+        const loadedCredentialLifecycle = await apiRequest<ZatcaCredentialLifecycleFoundationResponse>(zatcaCredentialLifecyclePath()).catch(() => null);
         if (!cancelled) {
           setProfile(loadedProfile);
           setAdapterConfig(loadedAdapterConfig);
@@ -172,6 +176,7 @@ export default function ZatcaSettingsPage() {
           setPolicyApprovals(loadedPolicyApprovals?.policyApprovals ?? []);
           setStorageControlEvidence(loadedStorageControlEvidence?.controlEvidence ?? []);
           setEvidenceCompleteness(loadedEvidenceCompleteness);
+          setCredentialLifecycle(loadedCredentialLifecycle);
           setForm(profileToForm(loadedProfile));
         }
 
@@ -666,6 +671,7 @@ export default function ZatcaSettingsPage() {
   const missingProfileFields = profile?.readiness?.missingFields ?? (profile ? getZatcaProfileMissingFields(profile) : []);
   const latestPolicyApproval = policyApprovals[0] ?? immutablePolicyPlan?.latestApproval ?? null;
   const latestStorageControlEvidence = storageControlEvidence[0] ?? null;
+  const activeCredentialLifecycle = credentialLifecycle?.activeCredentialLifecycle ?? null;
 
   return (
     <section>
@@ -822,6 +828,31 @@ export default function ZatcaSettingsPage() {
                   <ReadinessSummary label="Real network calls" ready={readiness.realNetworkCallsEnabled} detail="Disabled for this preparation sprint" />
                 </div>
               </div>
+              {credentialLifecycle ? (
+                <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-ink">Key custody and CSID lifecycle metadata</h3>
+                      <p className="mt-1 text-xs text-steel">Metadata-only foundation. No OTP, private key, certificate body, CSR body, CSID token, request body, response body, signed XML, QR payload, network call, signing, clearance/reporting, PDF/A-3, or production compliance is enabled.</p>
+                    </div>
+                    <span className="rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rosewood">Production compliance: false</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                    <ReadinessSummary label="Lifecycle" ready={activeCredentialLifecycle?.lifecycleStatus !== "NOT_CONFIGURED"} detail={zatcaStatusLabel(activeCredentialLifecycle?.lifecycleStatus)} />
+                    <ReadinessSummary label="Environment" ready={Boolean(activeCredentialLifecycle?.environment)} detail={activeCredentialLifecycle?.environment ?? "No active EGS"} />
+                    <ReadinessSummary label="Custody provider" ready={activeCredentialLifecycle?.custodyProviderType !== "NONE"} detail={zatcaStatusLabel(activeCredentialLifecycle?.custodyProviderType)} />
+                    <ReadinessSummary label="Reference alias" ready={Boolean(activeCredentialLifecycle?.custodyReferenceAlias)} detail={activeCredentialLifecycle?.custodyReferenceAlias ?? "Not configured"} />
+                    <ReadinessSummary label="Certificate fingerprint" ready={Boolean(activeCredentialLifecycle?.certificateFingerprint)} detail={truncateHash(activeCredentialLifecycle?.certificateFingerprint, 10)} />
+                    <ReadinessSummary label="Certificate expiry" ready={Boolean(activeCredentialLifecycle?.certificateExpiresAt)} detail={activeCredentialLifecycle?.certificateExpiresAt ?? "Not configured"} />
+                    <ReadinessSummary label="Compliance CSID" ready={activeCredentialLifecycle?.complianceCsidStatus === "COMPLIANCE_CSID_ACTIVE"} detail={zatcaStatusLabel(activeCredentialLifecycle?.complianceCsidStatus)} />
+                    <ReadinessSummary label="Production CSID" ready={false} detail={zatcaStatusLabel(activeCredentialLifecycle?.productionCsidStatus)} />
+                    <ReadinessSummary label="Schema model" ready={credentialLifecycle.modelAvailable} detail={credentialLifecycle.modelAvailable ? "Available for metadata only" : "Migration/generate pending"} />
+                  </div>
+                  <p className="mt-3 text-xs text-amber-700">
+                    Blocked capabilities: {credentialLifecycle.blockedCapabilities.join(", ")}.
+                  </p>
+                </div>
+              ) : null}
               <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReadinessCheckCard title="Seller invoice XML profile" section={readiness.sellerProfile} />
                 <ReadinessCheckCard title="EGS/hash mode" section={readiness.egs} />

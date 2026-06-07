@@ -33,6 +33,7 @@ describe("ZATCA settings preparation gates", () => {
       if (path === "/zatca/xml-field-mapping") return Promise.resolve(xmlFieldMapping());
       if (path === "/zatca/readiness") return Promise.resolve(readinessSummary());
       if (path === "/zatca-sdk/readiness") return Promise.resolve(sdkReadiness());
+      if (path === "/zatca/key-custody-lifecycle") return Promise.resolve(credentialLifecycle());
       if (path === "/zatca/egs-units") return Promise.resolve([]);
       if (path === "/zatca/submissions") return Promise.resolve([]);
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -69,6 +70,14 @@ describe("ZATCA settings preparation gates", () => {
     expect(screen.getAllByText("PDF/A-3").length).toBeGreaterThan(0);
     expect(screen.getByText("Production compliance claim")).toBeInTheDocument();
     expect(screen.getByText("Real network calls")).toBeInTheDocument();
+    expect(screen.getByText("Key custody and CSID lifecycle metadata")).toBeInTheDocument();
+    expect(screen.getByText("Metadata-only foundation. No OTP, private key, certificate body, CSR body, CSID token, request body, response body, signed XML, QR payload, network call, signing, clearance/reporting, PDF/A-3, or production compliance is enabled.")).toBeInTheDocument();
+    expect(screen.getByText("Lifecycle")).toBeInTheDocument();
+    expect(screen.getAllByText("NOT CONFIGURED").length).toBeGreaterThan(0);
+    expect(screen.getByText("Custody provider")).toBeInTheDocument();
+    expect(screen.getByText("Certificate fingerprint")).toBeInTheDocument();
+    expect(screen.getAllByText("Compliance CSID").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Production CSID").length).toBeGreaterThan(0);
     expect(screen.queryByText(/production ZATCA compliance is enabled/i)).not.toBeInTheDocument();
   });
 });
@@ -204,5 +213,81 @@ function sdkReadiness() {
     warnings: [],
     suggestedFixes: [],
     timeoutMs: 30000,
+  };
+}
+
+function credentialLifecycle() {
+  return {
+    localOnly: true,
+    metadataOnly: true,
+    readOnly: true,
+    noEgsMutation: true,
+    noNetwork: true,
+    noCsidRequest: true,
+    noSigning: true,
+    noClearanceReporting: true,
+    noPdfA3: true,
+    noProductionCredentials: true,
+    noPrivateKey: true,
+    noRawCertificate: true,
+    noRawCsr: true,
+    noOtp: true,
+    noTokenBody: true,
+    noSecretBody: true,
+    noSignedArtifactBody: true,
+    noQrBody: true,
+    noProviderPayloadBodies: true,
+    noSubmissionLogs: true,
+    productionCompliance: false,
+    modelAvailable: true,
+    schemaMigrationRequired: false,
+    activeEgsUnit: null,
+    activeCredentialLifecycle: {
+      id: null,
+      organizationId: "org-1",
+      egsUnitId: "egs-1",
+      environment: "SANDBOX",
+      lifecycleStatus: "NOT_CONFIGURED",
+      custodyProviderType: "NONE",
+      custodyReferenceAlias: null,
+      certificateFingerprint: null,
+      certificateSerialNumber: null,
+      certificateIssuer: null,
+      certificateSubject: null,
+      certificateNotBefore: null,
+      certificateExpiresAt: null,
+      certificateRequestId: null,
+      complianceCsidStatus: "NOT_CONFIGURED",
+      productionCsidStatus: "NOT_CONFIGURED",
+      lastReadinessCheckAt: null,
+      disabledAt: null,
+      revokedAt: null,
+      statusReason: "No metadata-only ZATCA key custody or CSID lifecycle record is configured.",
+      errorCode: null,
+      productionCompliance: false,
+      metadataOnly: true,
+      createdById: null,
+      updatedById: null,
+      disabledById: null,
+      revokedById: null,
+      createdAt: null,
+      updatedAt: null,
+      secretMaterialPersisted: false,
+      privateKeyReturned: false,
+      certificateBodyReturned: false,
+      csrBodyReturned: false,
+      otpReturned: false,
+      tokenReturned: false,
+      secretReturned: false,
+      signedArtifactBodyReturned: false,
+      qrBodyReturned: false,
+      providerRequestPayloadReturned: false,
+      providerResponsePayloadReturned: false,
+    },
+    credentialLifecycles: [],
+    lifecycleStates: ["NOT_CONFIGURED", "CSR_PENDING", "OTP_REQUIRED", "COMPLIANCE_CSID_PENDING", "COMPLIANCE_CSID_ACTIVE", "PRODUCTION_CSID_PENDING", "PRODUCTION_CSID_ACTIVE", "ROTATION_REQUIRED", "REVOKED", "DISABLED", "ERROR"],
+    custodyProviderTypes: ["NONE", "EXTERNAL_KMS", "EXTERNAL_HSM", "MANAGED_SECRET_REFERENCE", "DUMMY_LOCAL"],
+    blockedCapabilities: ["real OTP capture", "real CSID onboarding", "real ZATCA network calls", "private key body storage", "signing", "clearance/reporting", "PDF/A-3", "production compliance claims"],
+    recommendedNextSteps: ["Keep lifecycle records metadata-only until a real custody provider is approved."],
   };
 }

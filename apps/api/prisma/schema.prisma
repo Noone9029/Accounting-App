@@ -748,6 +748,28 @@ enum ZatcaComplianceCsidCertificateStorageMode {
   FUTURE_OBJECT_STORAGE
 }
 
+enum ZatcaCredentialLifecycleStatus {
+  NOT_CONFIGURED
+  CSR_PENDING
+  OTP_REQUIRED
+  COMPLIANCE_CSID_PENDING
+  COMPLIANCE_CSID_ACTIVE
+  PRODUCTION_CSID_PENDING
+  PRODUCTION_CSID_ACTIVE
+  ROTATION_REQUIRED
+  REVOKED
+  DISABLED
+  ERROR
+}
+
+enum ZatcaCredentialCustodyProviderType {
+  NONE
+  EXTERNAL_KMS
+  EXTERNAL_HSM
+  MANAGED_SECRET_REFERENCE
+  DUMMY_LOCAL
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -879,6 +901,10 @@ model User {
   revokedZatcaSignedArtifactStorageControlEvidence  ZatcaSignedArtifactStorageControlEvidence[] @relation("ZatcaSignedArtifactStorageControlEvidenceRevokedBy")
   zatcaComplianceCsidCustodyRecordsCreated          ZatcaComplianceCsidCustodyRecord[]          @relation("ZatcaComplianceCsidCustodyRecordCreatedBy")
   zatcaComplianceCsidCustodyRecordsRevoked          ZatcaComplianceCsidCustodyRecord[]          @relation("ZatcaComplianceCsidCustodyRecordRevokedBy")
+  createdZatcaCredentialLifecycles                  ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleCreatedBy")
+  updatedZatcaCredentialLifecycles                  ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleUpdatedBy")
+  disabledZatcaCredentialLifecycles                 ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleDisabledBy")
+  revokedZatcaCredentialLifecycles                  ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleRevokedBy")
 }
 
 model Organization {
@@ -981,6 +1007,7 @@ model Organization {
   zatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]
   zatcaSignedArtifactStorageControlEvidence ZatcaSignedArtifactStorageControlEvidence[]
   zatcaComplianceCsidCustodyRecords         ZatcaComplianceCsidCustodyRecord[]
+  zatcaCredentialLifecycles                 ZatcaCredentialLifecycle[]
 }
 
 model OrganizationDocumentSettings {
@@ -1159,6 +1186,7 @@ model ZatcaEgsUnit {
   submissionLogs               ZatcaSubmissionLog[]
   csrConfigReviews             ZatcaCsrConfigReview[]
   complianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
+  credentialLifecycles         ZatcaCredentialLifecycle[]
 
   @@unique([organizationId, deviceSerialNumber])
   @@index([organizationId])
@@ -1389,6 +1417,59 @@ model ZatcaComplianceCsidCustodyRecord {
   @@index([status])
   @@index([certificateRequestId])
   @@index([createdById])
+  @@index([revokedById])
+}
+
+model ZatcaCredentialLifecycle {
+  id                      String                              @id @default(uuid()) @db.Uuid
+  organizationId          String                              @db.Uuid
+  egsUnitId               String                              @db.Uuid
+  environment             ZatcaEnvironment
+  lifecycleStatus         ZatcaCredentialLifecycleStatus      @default(NOT_CONFIGURED)
+  custodyProviderType     ZatcaCredentialCustodyProviderType  @default(NONE)
+  custodyReferenceAlias   String?
+  certificateFingerprint  String?
+  certificateSerialNumber String?
+  certificateIssuer       String?
+  certificateSubject      String?
+  certificateNotBefore    DateTime?
+  certificateExpiresAt    DateTime?
+  certificateRequestId    String?
+  complianceCsidStatus    ZatcaCredentialLifecycleStatus      @default(NOT_CONFIGURED)
+  productionCsidStatus    ZatcaCredentialLifecycleStatus      @default(NOT_CONFIGURED)
+  lastReadinessCheckAt    DateTime?
+  disabledAt              DateTime?
+  revokedAt               DateTime?
+  statusReason            String?
+  errorCode               String?
+  productionCompliance    Boolean                             @default(false)
+  metadataOnly            Boolean                             @default(true)
+  createdById             String?                             @db.Uuid
+  updatedById             String?                             @db.Uuid
+  disabledById            String?                             @db.Uuid
+  revokedById             String?                             @db.Uuid
+  createdAt               DateTime                            @default(now())
+  updatedAt               DateTime                            @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnit      ZatcaEgsUnit @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("ZatcaCredentialLifecycleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("ZatcaCredentialLifecycleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  disabledBy   User?        @relation("ZatcaCredentialLifecycleDisabledBy", fields: [disabledById], references: [id], onDelete: SetNull)
+  revokedBy    User?        @relation("ZatcaCredentialLifecycleRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, egsUnitId, environment])
+  @@index([organizationId])
+  @@index([egsUnitId])
+  @@index([environment])
+  @@index([lifecycleStatus])
+  @@index([complianceCsidStatus])
+  @@index([productionCsidStatus])
+  @@index([custodyProviderType])
+  @@index([certificateExpiresAt])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([disabledById])
   @@index([revokedById])
 }
 

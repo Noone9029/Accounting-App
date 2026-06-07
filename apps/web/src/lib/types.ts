@@ -5587,6 +5587,116 @@ export interface ZatcaComplianceCsidRequestPlanResponse {
   recommendedNextSteps: string[];
 }
 
+export type ZatcaCredentialLifecycleStatus =
+  | "NOT_CONFIGURED"
+  | "CSR_PENDING"
+  | "OTP_REQUIRED"
+  | "COMPLIANCE_CSID_PENDING"
+  | "COMPLIANCE_CSID_ACTIVE"
+  | "PRODUCTION_CSID_PENDING"
+  | "PRODUCTION_CSID_ACTIVE"
+  | "ROTATION_REQUIRED"
+  | "REVOKED"
+  | "DISABLED"
+  | "ERROR";
+
+export type ZatcaCredentialCustodyProviderType = "NONE" | "EXTERNAL_KMS" | "EXTERNAL_HSM" | "MANAGED_SECRET_REFERENCE" | "DUMMY_LOCAL";
+
+export interface ZatcaCredentialLifecycleMetadata {
+  id: string | null;
+  organizationId: string;
+  egsUnitId: string;
+  environment: ZatcaEnvironment;
+  lifecycleStatus: ZatcaCredentialLifecycleStatus;
+  custodyProviderType: ZatcaCredentialCustodyProviderType;
+  custodyReferenceAlias: string | null;
+  certificateFingerprint: string | null;
+  certificateSerialNumber: string | null;
+  certificateIssuer: string | null;
+  certificateSubject: string | null;
+  certificateNotBefore: string | null;
+  certificateExpiresAt: string | null;
+  certificateRequestId: string | null;
+  complianceCsidStatus: ZatcaCredentialLifecycleStatus;
+  productionCsidStatus: ZatcaCredentialLifecycleStatus;
+  lastReadinessCheckAt: string | null;
+  disabledAt: string | null;
+  revokedAt: string | null;
+  statusReason: string | null;
+  errorCode: string | null;
+  productionCompliance: false;
+  metadataOnly: true;
+  createdById: string | null;
+  updatedById: string | null;
+  disabledById: string | null;
+  revokedById: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  egsUnit?: { id: string; name: string; environment: ZatcaEnvironment; isActive?: boolean } | null;
+  secretMaterialPersisted: false;
+  privateKeyReturned: false;
+  certificateBodyReturned: false;
+  csrBodyReturned: false;
+  otpReturned: false;
+  tokenReturned: false;
+  secretReturned: false;
+  signedArtifactBodyReturned: false;
+  qrBodyReturned: false;
+  providerRequestPayloadReturned: false;
+  providerResponsePayloadReturned: false;
+}
+
+export interface ZatcaCredentialLifecycleSafetyEnvelope {
+  localOnly: true;
+  metadataOnly: true;
+  readOnly: boolean;
+  noEgsMutation: true;
+  noNetwork: true;
+  noCsidRequest: true;
+  noSigning: true;
+  noClearanceReporting: true;
+  noPdfA3: true;
+  noProductionCredentials: true;
+  noPrivateKey: true;
+  noRawCertificate: true;
+  noRawCsr: true;
+  noOtp: true;
+  noTokenBody: true;
+  noSecretBody: true;
+  noSignedArtifactBody: true;
+  noQrBody: true;
+  noProviderPayloadBodies: true;
+  noSubmissionLogs: true;
+  productionCompliance: false;
+}
+
+export interface ZatcaCredentialLifecycleResponse extends ZatcaCredentialLifecycleSafetyEnvelope {
+  lifecycle: ZatcaCredentialLifecycleMetadata;
+}
+
+export interface ZatcaCredentialLifecycleFoundationResponse extends ZatcaCredentialLifecycleSafetyEnvelope {
+  modelAvailable: boolean;
+  schemaMigrationRequired: boolean;
+  activeEgsUnit: {
+    id: string;
+    name: string;
+    environment: ZatcaEnvironment;
+    status: ZatcaRegistrationStatus;
+    isActive: boolean;
+    hasCsr: boolean;
+    hasComplianceCsid: boolean;
+    hasProductionCsid: boolean;
+    hasPrivateKey: boolean;
+    keyCustodyMode: "MISSING" | "RAW_DATABASE_PEM";
+  } | null;
+  activeCredentialLifecycle: ZatcaCredentialLifecycleMetadata | null;
+  credentialLifecycles: ZatcaCredentialLifecycleMetadata[];
+  lifecycleStates: ZatcaCredentialLifecycleStatus[];
+  custodyProviderTypes: ZatcaCredentialCustodyProviderType[];
+  blockedCapabilities: string[];
+  recommendedNextSteps: string[];
+}
+
 export interface ZatcaComplianceCsidCustodyProviderReadiness {
   localOnly?: true;
   dryRun?: true;

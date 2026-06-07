@@ -474,3 +474,11 @@ export function zatcaEgsComplianceCsidCustodyRecordsPath(egsUnitId: string) {
 export function zatcaComplianceCsidCustodyRecordRevokePath(recordId: string) {
   return `/zatca/compliance-csid-custody-records/${recordId}/revoke`;
 }
+
+export function zatcaCredentialLifecyclePath() {
+  return "/zatca/key-custody-lifecycle";
+}
+
+export function zatcaEgsCredentialLifecyclePath(egsUnitId: string) {
+  return `/zatca/egs-units/${encodeURIComponent(egsUnitId)}/key-custody-lifecycle`;
+}

@@ -2,9 +2,17 @@
 
 ## Latest Commit Inspected
 
-- `a084fff0 Plan ZATCA adapter boundary tests`
+- `84486e5a Document ZATCA key custody CSID lifecycle preflight`
 
 ## Current Development Objective
+
+- ZATCA key custody and CSID lifecycle foundation lane completed as metadata-only implementation.
+- Foundation evidence doc: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_FOUNDATION.md`.
+- Implementation added additive metadata-only schema/migration artifacts, guarded API/service/DTO endpoints, read-only settings UI lifecycle metadata, targeted API/UI tests, and safe audit event mapping.
+- No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF/A-3, provider/env change, deploy, migration execution, or production compliance claim was performed.
+- Exact next prompt title: `LedgerByte verify ZATCA key custody and CSID lifecycle foundation evidence`.
+
+## Prior Development Objective
 
 - ZATCA sandbox adapter no-network contract tests completed: yes.
 - 2026-06-07 reconciliation: latest pushed commit `a084fff0 Plan ZATCA adapter boundary tests` was inspected; required baseline ZATCA docs/scripts existed; sandbox adapter no-network contract docs/scripts did not exist and were created.
