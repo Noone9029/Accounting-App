@@ -14,6 +14,7 @@ This sprint does not request OTPs, request compliance CSIDs, request production 
 - Execution guard status with the exact guard phrase and `--execution-guard`: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
 - Execution attempt flag `--execute-csid-request` remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - Reconciliation result: required baseline ZATCA docs/scripts were present at `6e486f3c Plan ZATCA sandbox CSID approval`; no prior execution guard docs/scripts existed.
+- Follow-up custody planning now exists in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The custody guard reports `CUSTODY_METADATA_SIMULATION_BLOCKED`, so this execution guard must remain blocked before any real sandbox adapter execution or CSID response handling.
 
 ## 3. Official References Inspected
 
@@ -105,6 +106,8 @@ The guard detects the CSID custody provider source but reports custody as disabl
 - `csidResponseBodyProcessed: false`
 - `csidResponsePersisted: false`
 
+The dedicated custody guard adds the next layer: it detects the metadata-only custody model and legacy raw PEM-capable fields while keeping `realResponseBodyProcessed=false`, `dbWriteAttempted=false`, and token/secret/certificate body persistence false. Current custody blocker status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+
 ## 11. Env And Secret Handling Policy
 
 Environment handling is presence-only. The output can report that an env key is configured, but it must never print the value. Secret-like values, auth headers, request bodies, response bodies, certificate bodies, private-key bodies, binary security tokens, and OTPs are forbidden from evidence and logs.
@@ -169,4 +172,6 @@ Current blockers:
 
 ## 15. Recommended Next Prompt
 
-`ZATCA CSID response custody implementation plan`
+Completed follow-up: `ZATCA CSID response custody implementation plan`.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`

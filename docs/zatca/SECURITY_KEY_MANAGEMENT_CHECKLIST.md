@@ -55,4 +55,5 @@ The SDK readme labels the bundled certificate and private key as dummy/testing m
 - `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` records `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
 - `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - No OTP, CSID, network, sandbox adapter, request body, response body, token, secret, certificate body, private-key body, signing, clearance/reporting, PDF-A3, or production compliance behavior was executed.
-- Key custody and CSID response custody remain blockers. Next prompt: `ZATCA CSID response custody implementation plan`.
+- CSID response custody planning is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`; current custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+- Key custody, provider implementation, legacy raw PEM fields, real response-body handling, DB write approval, CSID request approval, and adapter execution approval remain blockers. Next prompt: `ZATCA sandbox adapter execution approval plan`.

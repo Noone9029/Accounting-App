@@ -18,6 +18,12 @@ The sandbox CSID preflight guard is implemented at `corepack pnpm zatca:sandbox-
 
 Current status: `PREFLIGHT_BLOCKED`. It verifies reference/code/readiness metadata only and performs no SDK signing, OTP request, CSID request, ZATCA network call, signed XML validation, QR generation, clearance/reporting, PDF-A3, or production compliance behavior.
 
+## 2026-06-07 CSID Response Custody Guard Update
+
+Response custody planning is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The standalone command is `corepack pnpm zatca:csid-response-custody-guard -- --plan --no-network --json`.
+
+Current status with the exact metadata-only custody phrase and simulation flag: `CUSTODY_METADATA_SIMULATION_BLOCKED`. The guard performs no SDK signing, OTP request, CSID request, ZATCA network call, adapter execution, real response body processing, DB connection/write, token/secret/certificate persistence, env value output, PDF-A3, clearance/reporting, QR generation, or production compliance behavior.
+
 ## Java Version
 
 Expected Java range:
@@ -229,4 +235,6 @@ No SDK command was run during the review. Readiness interpretation is unchanged:
 
 Observed status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. The guard recognizes the exact execution-guard phrase but does not run SDK commands, request OTP/CSID, call ZATCA, execute adapters, create request bodies, process response bodies, expose secrets, sign, clear/report, create PDF-A3, or enable production compliance.
 
-Next prompt: `ZATCA CSID response custody implementation plan`.
+Completed follow-up: `ZATCA CSID response custody implementation plan`.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`.

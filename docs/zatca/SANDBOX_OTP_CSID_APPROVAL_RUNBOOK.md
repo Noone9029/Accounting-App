@@ -1,5 +1,11 @@
 # ZATCA Sandbox OTP And Compliance CSID Approval Runbook
 
+## 2026-06-07 Custody Guard Note
+
+Before any real sandbox adapter execution, review `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. Current custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; real response bodies, DB writes, token/secret/certificate persistence, OTP capture, CSID requests, network calls, adapter execution, env value output, and body exposure remain prohibited.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 Date: 2026-06-07
 
 Status: Future runbook only. Do not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, expose bodies, or enable signing from this document.
@@ -158,7 +164,7 @@ The placeholder command must not be added or run until the future execution guar
 
 ## Next Stage After Approval
 
-The next stage is a separate `ZATCA sandbox CSID request execution guard` sprint. That future sprint must still be no-production, sandbox-only, custody-gated, redaction-tested, and blocked until all execution prerequisites are explicitly satisfied.
+Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`. The next stage is a separate `ZATCA sandbox adapter execution approval plan` sprint. That future sprint must still be no-production, sandbox-only, custody-gated, redaction-tested, and blocked until all execution prerequisites are explicitly satisfied.
 
 ## Execution Guard Follow-Up
 
@@ -169,4 +175,4 @@ The separate execution guard sprint is now complete as a no-network guard only:
 - Observed guard status: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`.
 - Attempted execution flag status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 
-No OTP/CSID/network call was made, the sandbox adapter was not executed, and no secrets or bodies were exposed. The next prompt is `ZATCA CSID response custody implementation plan`.
+No OTP/CSID/network call was made, the sandbox adapter was not executed, and no secrets or bodies were exposed. The next prompt is `ZATCA sandbox adapter execution approval plan`.

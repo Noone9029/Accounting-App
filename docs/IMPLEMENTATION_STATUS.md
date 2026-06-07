@@ -40,6 +40,15 @@ Current production posture:
 - The approval phrase was recognized for planning only. No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing/compliance remained disabled.
 - Current blockers are key custody, CSID response custody, sandbox adapter execution guard, actual OTP capture approval, compliance CSID request execution approval, and production signing. Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
 
+2026-06-07 ZATCA CSID Response Custody Implementation Plan update:
+
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`, `scripts/zatca-csid-response-custody-guard.cjs`, and `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Added root package scripts `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Observed custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED` with the exact metadata-only custody approval phrase and simulation flag.
+- The guard found the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`).
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
+- Current blockers are custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, production signing, production CSID lifecycle, clearance/reporting, PDF-A3, signed artifact storage, official reviews, and repeatable SDK CI. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design update:
 
 - Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.

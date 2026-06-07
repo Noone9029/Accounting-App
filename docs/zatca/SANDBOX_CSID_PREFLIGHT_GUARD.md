@@ -1,5 +1,11 @@
 # ZATCA Sandbox CSID Preflight Guard
 
+## 2026-06-07 CSID Response Custody Guard Update
+
+The preflight guard now has a dedicated custody follow-up: `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The standalone custody guard is `scripts/zatca-csid-response-custody-guard.cjs` with tests in `scripts/zatca-csid-response-custody-guard.test.cjs`.
+
+Current custody status is `CUSTODY_METADATA_SIMULATION_BLOCKED`. The response custody model was found, but the provider remains disabled and legacy raw PEM-capable fields remain blockers. The guard made no OTP request, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection/write, token/secret/certificate persistence, env value output, or body exposure. Next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 Date: 2026-06-07
 
 Status: Implemented as a local, no-network, metadata-only guard.
@@ -209,7 +215,9 @@ The approval-plan extension is documented in:
 
 ## 15. Recommended Next Prompt
 
-`ZATCA sandbox CSID request execution guard`
+Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`
 
 ## 16. Execution Guard Extension
 

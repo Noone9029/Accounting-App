@@ -44,4 +44,15 @@ Current LedgerByte CSR generation remains local-only. Before real compliance CSI
 - Observed execute status: `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - CSR readiness remains metadata-only; the guard does not create a CSID request body or process a response body.
 - No OTP was requested, no CSID was requested, no adapter was executed, no network call was made, and no secrets/bodies were exposed.
-- Next prompt: `ZATCA CSID response custody implementation plan`.
+- Completed follow-up: `ZATCA CSID response custody implementation plan`.
+
+## CSID Response Custody Guard Update
+
+- Implementation plan: `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`.
+- Guard doc: `CSID_RESPONSE_CUSTODY_GUARD.md`.
+- Result doc: `CSID_RESPONSE_CUSTODY_RESULTS.md`.
+- Guard script: `scripts/zatca-csid-response-custody-guard.cjs`.
+- Observed custody status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+- The guard found the custody provider and metadata-only custody model, and reports legacy `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` as blockers.
+- No real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no OTP/CSID/network/adapter execution occurred.
+- Next prompt: `ZATCA sandbox adapter execution approval plan`.

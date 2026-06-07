@@ -1,5 +1,11 @@
 # ZATCA Sandbox OTP And Compliance CSID Approval Plan
 
+## 2026-06-07 CSID Response Custody Guard Update
+
+Follow-up custody planning is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`. The custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; it did not request OTPs, request CSIDs, call ZATCA, execute the sandbox adapter, process real response bodies, attempt DB writes, persist token/secret/certificate bodies, print env values, or expose bodies.
+
+The OTP/CSID approval plan remains planning-only. Custody approval does not yet exist, so request execution remains blocked. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 Date: 2026-06-07
 
 Status: Approval design only. No OTP, CSID, ZATCA network call, sandbox adapter execution, signing, clearance/reporting, PDF-A3, or production compliance is enabled.
@@ -329,7 +335,9 @@ No shared API/UI/schema readiness metadata fields were added in this continuatio
 
 ## 19. Recommended Next Prompt
 
-`ZATCA sandbox CSID request execution guard`
+Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`
 
 ## 20. Sandbox CSID Request Execution Guard Result
 
@@ -337,4 +345,4 @@ The next guard is now documented in `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md`, w
 
 Execution guard approval recognition returns `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`. `--execute-csid-request` returns `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No OTP, CSID request, network call, sandbox adapter execution, request body creation, response body processing, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior was performed.
 
-Recommended next prompt: `ZATCA CSID response custody implementation plan`.
+Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.

@@ -36,6 +36,14 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Remaining ZATCA gaps include key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
 - Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
 
+## 2026-06-07 ZATCA CSID Response Custody Implementation Plan
+
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`, `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`, and the standalone guard at `scripts/zatca-csid-response-custody-guard.cjs`.
+- Current custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`; the provider boundary and metadata-only model are visible, but provider storage is disabled and legacy raw PEM-capable fields remain blockers.
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB connection or write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
+- Remaining ZATCA gaps include approved custody provider implementation, sandbox adapter execution approval, OTP capture approval, CSID request approval, compliance invoice checks, production CSID lifecycle, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official reviews, and repeatable SDK CI.
+- Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 ## 2026-06-06 ZATCA Key Custody and CSID Lifecycle Design
 
 - Added `docs/zatca/KEY_CUSTODY_AND_CSID_LIFECYCLE_DESIGN.md`, `docs/zatca/CSID_LIFECYCLE_CHECKLIST.md`, and `docs/zatca/KEY_CUSTODY_DECISION_MATRIX.md`.

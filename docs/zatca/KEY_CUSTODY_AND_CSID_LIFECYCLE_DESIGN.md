@@ -10,9 +10,13 @@ The next guard is now implemented in `SANDBOX_CSID_PREFLIGHT_GUARD.md`, with cur
 
 Current preflight status: `PREFLIGHT_BLOCKED`. The guard found the repo-local planning references and code surfaces, but key custody, CSID response custody, sandbox adapter execution, OTP approval, compliance CSID request approval, and production signing remain blocked. It made no OTP request, no CSID request, no ZATCA network call, and exposed no private-key, certificate, CSID, token, auth-header, request, or response bodies.
 
-Recommended next prompt: `ZATCA sandbox CSID request execution guard`.
+Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+
+Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
 
 2026-06-06 update: `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` now document the planning-only approval phrase, runbook, and observed `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED` result. No OTP, CSID, ZATCA network call, sandbox adapter execution, secret/body exposure, signing, clearance/reporting, PDF-A3, or production compliance was enabled.
+
+2026-06-07 update: `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md` now define the sealed custody slot before any real sandbox response may be processed. Current custody guard status is `CUSTODY_METADATA_SIMULATION_BLOCKED`: provider custody remains disabled, legacy raw PEM-capable fields remain blockers, and no OTP, CSID request, network call, sandbox adapter execution, real response body processing, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
 
 ## 1. Purpose And Scope
 
@@ -453,7 +457,9 @@ Required response:
 
 ## 20. Recommended Next Prompt
 
-`ZATCA sandbox CSID request execution guard`
+Completed follow-ups: `ZATCA sandbox CSID request execution guard` and `ZATCA CSID response custody implementation plan`.
+
+Next prompt: `ZATCA sandbox adapter execution approval plan`
 
 ## 21. Sandbox CSID Request Execution Guard Result
 
@@ -467,4 +473,4 @@ The no-network execution guard is now complete:
 
 The guard intentionally does not solve key custody or CSID response custody. No OTP/CSID/network call was made, the sandbox adapter was not executed, and no secrets or bodies were exposed.
 
-Recommended next prompt: `ZATCA CSID response custody implementation plan`.
+Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.

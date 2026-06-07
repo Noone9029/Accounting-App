@@ -18,7 +18,9 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Real sandbox adapter execution | BLOCKED | Adapter remains blocked and no ZATCA network call is allowed. |
 | Sandbox OTP/CSID approval plan docs | DONE_LOCAL | `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` are metadata-only. |
 | Approval phrase recognition | DONE_LOCAL | Exact phrase plus `--approval-plan` returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/adapter execution occurs. |
-| Next execution guard | PLANNED | `ZATCA sandbox CSID request execution guard`. |
+| Sandbox request execution guard | DONE_LOCAL | `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` and `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` document `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
+| CSID response custody implementation plan | DONE_LOCAL | `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md` document `CUSTODY_METADATA_SIMULATION_BLOCKED`; no real response body, DB write, token/secret/certificate persistence, OTP, CSID request, network call, or adapter execution occurred. |
+| Next adapter approval plan | PLANNED | `ZATCA sandbox adapter execution approval plan`. |
 
 ## Local Readiness
 
@@ -80,6 +82,19 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Legacy CSID body persistence risk identified | DONE_LOCAL | `requestComplianceCsid` can persist CSID body if an adapter succeeds; keep real use blocked. |
 | Compliance CSID request executed in this task | NOT_APPLICABLE | No CSID request was made. |
 | Compliance CSID execution approval | MANUAL_APPROVAL_REQUIRED | Future sandbox preflight only. |
+
+## CSID Response Custody Guard Readiness
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Custody implementation plan exists | DONE_LOCAL | `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md` defines the provider boundary and fail-closed sequence. |
+| Custody guard script exists | DONE_LOCAL | `scripts/zatca-csid-response-custody-guard.cjs` uses Node core modules only and requires `--no-network`. |
+| Custody guard test exists | DONE_LOCAL | `scripts/zatca-csid-response-custody-guard.test.cjs` covers no-network refusal, approval phrase behavior, redaction, strict mode, provider/model detection, and legacy PEM blocker detection. |
+| Metadata-only simulation status | BLOCKED | Exact phrase plus `--simulate-metadata-only-response` returns `CUSTODY_METADATA_SIMULATION_BLOCKED`. |
+| Real response body processed | NOT_APPLICABLE | False in the guard result. |
+| DB connection/write attempted | NOT_APPLICABLE | False in the guard result. |
+| Token/secret/certificate persisted | BLOCKED | False in the guard result; provider remains disabled. |
+| Legacy raw PEM fields | BLOCKED | `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` must not receive real CSID response material. |
 
 ## Compliance Invoice Validation Readiness
 
@@ -169,4 +184,4 @@ This checklist is metadata-only planning. It does not request OTPs, request comp
 | Execute CSID request flag | BLOCKED | `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. |
 | OTP/CSID/network/adapter execution | BLOCKED | No OTP, CSID request, network call, or sandbox adapter execution occurred. |
 | Secret/body exposure | BLOCKED | No env values, OTPs, tokens, secrets, request bodies, response bodies, certificate bodies, or private-key bodies exposed. |
-| Next step | PLANNED | `ZATCA CSID response custody implementation plan`. |
+| Next step | PLANNED | `ZATCA sandbox adapter execution approval plan`. |

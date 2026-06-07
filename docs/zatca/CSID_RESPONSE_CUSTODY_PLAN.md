@@ -16,6 +16,14 @@ The sandbox CSID preflight guard is documented in `SANDBOX_CSID_PREFLIGHT_GUARD.
 
 Current result: `PREFLIGHT_BLOCKED`. The guard found the custody provider surface but confirms CSID response custody remains disabled/unapproved. No OTP, CSID, token, secret, certificate, auth header, request body, response body, private key, signed XML, or QR payload body was requested, stored, printed, or exposed.
 
+## 2026-06-07 CSID Response Custody Implementation Guard Update
+
+The custody implementation path is now documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, the guard is documented in `CSID_RESPONSE_CUSTODY_GUARD.md`, and the metadata-only result is recorded in `CSID_RESPONSE_CUSTODY_RESULTS.md`.
+
+Current custody guard status: `CUSTODY_METADATA_SIMULATION_BLOCKED`. The guard found the disabled custody provider and metadata-only custody model, detected legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`), and confirmed no OTP, CSID request, ZATCA network call, sandbox adapter execution, real response body processing, DB connection, DB write, token/secret/certificate persistence, env value exposure, or body exposure occurred.
+
+Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 ## Official files inspected
 
 - reference/zatca-docs/compliance_csid.pdf
@@ -243,4 +251,4 @@ Recommended next step:
 
 Custody remains the next blocker: `csidResponseCustodyApproved=false`, provider implementation ready `false`, token/secret/certificate storage ready `false`, body storage allowed `false`, response body processed `false`, and response persisted `false`.
 
-No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Next prompt: `ZATCA CSID response custody implementation plan`.
+No OTP, CSID request, network call, adapter execution, response body, token, secret, certificate body, or private-key body was handled by the guard. Completed follow-up: `ZATCA CSID response custody implementation plan`. Next prompt: `ZATCA sandbox adapter execution approval plan`.

@@ -2,30 +2,35 @@
 
 ## Latest Commit Inspected
 
-- `90dec971 Plan ZATCA sandbox CSID approval`
+- `1c854585 Guard ZATCA sandbox CSID execution`
 
 ## Current Development Objective
 
-- ZATCA sandbox OTP and compliance CSID approval plan completed: yes.
-- 2026-06-07 reconciliation: the latest pushed branch state already contained the approval docs, guard extension, and tests; they were updated in place instead of duplicated.
-- Approval plan doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_PLAN.md`.
-- Approval runbook created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`.
-- Approval result doc created: `docs/zatca/SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`.
-- Guard script extended: `scripts/zatca-sandbox-csid-preflight.cjs`.
-- Guard test updated: `scripts/zatca-sandbox-csid-preflight.test.cjs`.
-- Base preflight status remains: `PREFLIGHT_BLOCKED`.
-- Approval recognition status: `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-- Approval phrase: `I approve ZATCA sandbox OTP and compliance CSID request planning only. No production, no customer data, no production CSID, no clearance, no reporting, no PDF-A3, no signing enablement, no secret/body exposure, and metadata-only evidence.`
+- ZATCA CSID response custody implementation plan completed: yes.
+- 2026-06-07 reconciliation: latest pushed commit `1c854585 Guard ZATCA sandbox CSID execution` was inspected; required baseline ZATCA docs/scripts existed; CSID response custody guard docs/scripts did not exist and were created.
+- Custody implementation plan created: `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`.
+- Custody guard doc created: `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`.
+- Custody result doc created: `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`.
+- Custody guard script added: `scripts/zatca-csid-response-custody-guard.cjs`.
+- Custody guard test added: `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Package scripts added: `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Custody guard approval phrase: `I approve ZATCA CSID response custody metadata-only planning. No real OTP, no real CSID, no real ZATCA network, no real response body, no secret storage, no body exposure, and metadata-only evidence.`
+- Base custody status without phrase: `CUSTODY_GUARD_BLOCKED_APPROVAL_REQUIRED`.
+- Custody guard status with exact phrase and `--simulate-metadata-only-response`: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
 - OTP/CSID/network call made: no.
 - Sandbox adapter executed: no.
-- Private key/certificate/CSID/token/secret/request/response bodies exposed: no.
-- Production signing enabled: no.
-- Code/readiness metadata changed: script/docs only; no API/UI/schema/migration/runtime readiness fields changed.
-- Env presence handling: booleans only; values are not printed, stored, copied, or used.
-- Optional readiness metadata decision: no shared API/UI/schema readiness fields were added; the guard output already exposes the safe planning booleans and adding runtime metadata fields would risk implying execution support.
-- Key custody recommendation remains KMS/HSM/external signing or equivalent custody for production private keys, with application tables storing metadata only. Secrets manager may be a controlled interim only for non-production/sandbox CSID token/secret/certificate custody after explicit approval.
-- Current blockers: key custody implementation, CSID response custody approval, sandbox CSID request execution guard, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing, production Phase 2 QR proof, clearance/reporting, PDF-A3, retry/error queue, production signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
-- Exact next prompt title: `ZATCA sandbox CSID request execution guard`.
+- Real response body processed: no.
+- DB connection attempted: no.
+- DB write attempted: no.
+- Token/secret/certificate body persisted: no.
+- Env values exposed: no.
+- Secrets/bodies exposed: no.
+- Evidence policy: metadata-only.
+- Provider/custody model finding: custody provider source found and metadata-only custody model found; provider remains disabled/unapproved.
+- Legacy PEM field finding: `privateKeyPem`, `complianceCsidPem`, and `productionCsidPem` remain raw PEM-capable blockers.
+- Code/readiness metadata changed: standalone guard script, guard tests, package scripts, and docs only; no API/UI/schema/migration/runtime execution changes.
+- Current blockers: custody provider implementation/approval, legacy raw PEM-capable fields, real response-body processing approval, DB write approval, CSID request approval, sandbox adapter execution approval, OTP capture approval, production CSID lifecycle, production signing and Phase 2 QR, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, and repeatable SDK CI.
+- Exact next prompt title: `ZATCA sandbox adapter execution approval plan`.
 
 ## Prior ZATCA/Dummy Signing Trail
 

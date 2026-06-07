@@ -72,6 +72,25 @@ Remaining risks:
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing remains disabled.
 - Key custody, CSID response custody, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
 
+### ZATCA CSID response custody implementation plan added
+
+Added a metadata-only response custody implementation plan and guard before any future real sandbox compliance CSID response may be processed.
+
+Risk reduced:
+
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`.
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_GUARD.md`.
+- Added `docs/zatca/CSID_RESPONSE_CUSTODY_RESULTS.md`.
+- Added `scripts/zatca-csid-response-custody-guard.cjs`.
+- Added `scripts/zatca-csid-response-custody-guard.test.cjs`.
+- Added root package scripts `zatca:csid-response-custody-guard` and `test:zatca-csid-response-custody-guard`.
+- Observed status is `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+
+Remaining risks:
+
+- No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no real response body was processed, no DB write was attempted, no token/secret/certificate body was persisted, no env values were printed, and no secrets/bodies were exposed.
+- Custody provider implementation/approval, legacy raw PEM-capable fields, sandbox adapter execution approval, OTP capture approval, CSID request approval, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
+
 ### ZATCA key custody and CSID lifecycle design added
 
 Captured the key custody, certificate/CSID lifecycle, and sandbox approval-gate design without enabling onboarding or signing.

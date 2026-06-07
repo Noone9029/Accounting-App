@@ -35,6 +35,9 @@ These notes track LedgerByte's local ZATCA Phase 2 groundwork and the manual evi
 - `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` records the planning-only approval recognition result: `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
 - `SANDBOX_CSID_REQUEST_EXECUTION_GUARD.md` documents the no-network sandbox compliance CSID request execution guard, exact guard phrase, preconditions, refusal boundaries, and status taxonomy.
 - `SANDBOX_CSID_REQUEST_EXECUTION_RESULTS.md` records the current execution guard result: `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; the execute flag remains `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
+- `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md` defines the response custody implementation path, safe metadata, provider boundary, redaction rules, failure behavior, and future sequence before any real sandbox response may be processed.
+- `CSID_RESPONSE_CUSTODY_GUARD.md` documents the standalone no-network/no-DB response custody guard and blocker taxonomy.
+- `CSID_RESPONSE_CUSTODY_RESULTS.md` records the current custody guard result: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
 - `evidence/README.md` defines the evidence directory policy and forbids XML bodies, QR payload bodies, keys, OTPs, tokens, headers, and customer payloads.
 - `OFFICIAL_SDK_FIXTURE_VALIDATION_RESULTS.md` records the current official fixture pass; official samples pass under Java 11, LedgerByte standard fixture passes SDK global validation, and the simplified fixture passes XSD/EN/PIH but remains non-compliant because signing, QR/certificate, CSID, clearance/reporting, and PDF/A-3 are still missing.
 - `evidence/generated-xml-fixture-validation-20260606.json` records metadata-only local SDK validation for sanitized generated standard invoice and credit-note fixtures.
@@ -75,7 +78,9 @@ The key custody and CSID lifecycle design is now documented in `KEY_CUSTODY_AND_
 
 The sandbox CSID preflight guard is available through `corepack pnpm zatca:sandbox-csid-preflight -- --plan --no-network --json`. Current base status is `PREFLIGHT_BLOCKED`: references and code surfaces are present, but key custody, CSID response custody, real sandbox adapter execution, OTP approval, CSID request approval, and production signing remain blocked. With the exact planning phrase plus `--approval-plan`, it reports `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`. With the exact execution-guard phrase plus `--execution-guard`, it reports `EXECUTION_GUARD_READY_BUT_REQUEST_BLOCKED`; `--execute-csid-request` reports `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`. No OTP/CSID/network/adapter/signing behavior is enabled by the guard.
 
-Latest recommended ZATCA prompt: `ZATCA CSID response custody implementation plan`.
+The CSID response custody guard is available through `corepack pnpm zatca:csid-response-custody-guard -- --plan --no-network --json`. Current approved metadata-only simulation status is `CUSTODY_METADATA_SIMULATION_BLOCKED`: the custody provider and metadata model are present, but provider storage remains disabled, legacy raw PEM-capable fields remain blockers, and no OTP/CSID/network/adapter execution, real response body processing, DB write, token/secret/certificate persistence, env value output, or body exposure occurs.
+
+Latest recommended ZATCA prompt: `ZATCA sandbox adapter execution approval plan`.
 
 ## Reference Folder Rule
 

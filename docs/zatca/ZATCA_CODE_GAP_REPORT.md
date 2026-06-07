@@ -22,6 +22,14 @@ The guard verifies local reference presence, CSR property keys, ZATCA code surfa
 
 The sandbox OTP/CSID approval plan is documented in `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md`. The guard recognizes the exact approval phrase only with `--approval-plan` and returns `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP/CSID/network/sandbox-adapter execution or body exposure is enabled.
 
+## Current CSID Response Custody Guard Update
+
+The CSID response custody implementation plan and guard are documented in `CSID_RESPONSE_CUSTODY_IMPLEMENTATION_PLAN.md`, `CSID_RESPONSE_CUSTODY_GUARD.md`, and `CSID_RESPONSE_CUSTODY_RESULTS.md`.
+
+Current status: `CUSTODY_METADATA_SIMULATION_BLOCKED`.
+
+The guard detects the disabled custody provider, metadata-only custody model, and legacy raw PEM-capable fields (`privateKeyPem`, `complianceCsidPem`, `productionCsidPem`). It does not request OTP/CSID, call ZATCA, run adapter HTTP, process real response bodies, attempt DB writes, persist token/secret/certificate bodies, print env values, expose bodies, enable signing, or claim production compliance. Recommended next prompt: `ZATCA sandbox adapter execution approval plan`.
+
 ## Current SDK CI Readiness Update
 
 The no-network SDK CI readiness guard is implemented at `corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json`. It does not run SDK validation or write XML/evidence by default.
