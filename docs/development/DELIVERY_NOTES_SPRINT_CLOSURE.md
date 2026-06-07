@@ -82,9 +82,14 @@ Date: 2026-06-04
 - Focused delivery-note browser workflow coverage is now closed by `docs/development/DELIVERY_NOTE_BROWSER_WORKFLOW_SPRINT_CLOSURE.md`.
 - Source invoice/quote reverse visibility and reference-only stock issue wording are now closed by `docs/development/DELIVERY_NOTE_SOURCE_VISIBILITY_WORDING_SPRINT_CLOSURE.md`.
 - No stock-issue picker in the delivery-note UI; stock issue linkage is backend-supported as a safe reference.
+- Related sales inventory returns can now link to delivered delivery note lines through the dedicated Sales Inventory Return workflow, but delivery note detail does not yet show a reverse related-return panel.
 - No delivery-note email/send workflow.
 - No delivery note to shipment/carrier/logistics workflow.
 - No hosted/customer-data proof, deployed E2E with safe seeded data, accountant sign-off, or production hardening.
+
+## 2026-06-06 Follow-Up
+
+The Sales Inventory Return Document Sprint added dedicated operational customer stock returns that can reference delivered delivery notes. This does not change the delivery-note boundary: delivery notes remain fulfillment documents and do not create stock movements, journals, AR changes, VAT entries, ZATCA submissions, emails, or payment links by themselves.
 
 ## Recommended Next Sprint
 

@@ -181,11 +181,17 @@ No OS shutdown, restart, sleep, hibernate, lock-screen, logout, or power command
 - Multi-PO and partial bill matching policy.
 - Review detail timeline beyond the exception center.
 - Variance proposal handoff from review status.
-- Purchase return and supplier debit note handoff from review status.
+- Purchase return handoff now exists as an explicit non-posting operational workflow; supplier debit note/refund automation remains separate.
 - Landed cost.
 - Hosted/beta/customer-data proof.
 - Broad AP/inventory smoke, E2E, load, and concurrency coverage.
 
 ## Recommended Next Sprint
 
-Implement a purchase matching review detail/timeline page or accountant-calibrated tolerance policy. Keep variance posting, purchase returns, landed cost, and supplier communication in separate approval-gated sprints.
+Implement a purchase matching review detail/timeline page or accountant-calibrated tolerance policy. Keep variance posting, debit note/refund automation, inventory return movement, landed cost, and supplier communication in separate approval-gated sprints.
+
+## Follow-Up Note
+
+The 2026-06-05 Purchase Returns Workflow Sprint added explicit non-posting purchase return handoff from `NEEDS_RETURN_REVIEW` matching reviews. Matching reviews still do not resolve automatically, post journals, create debit notes/refunds, move inventory, or mutate source documents.
+
+The 2026-06-05 Inventory Valuation Variance Preview Sprint added read-only valuation preview links for `NEEDS_VARIANCE_REVIEW` matching reviews. Matching reviews still do not resolve automatically, post journals, book variances, change AP balances, change inventory valuation, or mutate source documents.
