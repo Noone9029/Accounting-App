@@ -57,6 +57,7 @@ describe("ZATCA controller", () => {
     expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestPlan).toBe("function");
     expect(typeof ZatcaController.prototype.getEgsSandboxCsidRequestSchemaPlan).toBe("function");
     expect(typeof ZatcaController.prototype.getEgsSandboxCsidResponseCustodyDryRunPlan).toBe("function");
+    expect(typeof ZatcaController.prototype.getEgsSandboxCsidExecutionApprovalPlan).toBe("function");
     expect(typeof ZatcaController.prototype.getEgsComplianceCsidRequestDryRun).toBe("function");
   });
 

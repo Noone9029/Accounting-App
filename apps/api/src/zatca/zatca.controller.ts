@@ -216,6 +216,12 @@ export class ZatcaController {
     return this.zatcaService.getEgsUnitSandboxCsidResponseCustodyDryRunPlan(organizationId, id);
   }
 
+  @Get("zatca/egs-units/:id/sandbox-csid-execution-approval-plan")
+  @RequirePermissions(PERMISSIONS.zatca.view)
+  getEgsSandboxCsidExecutionApprovalPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.zatcaService.getEgsUnitSandboxCsidExecutionApprovalPlan(organizationId, id);
+  }
+
   @Get("zatca/egs-units/:id/compliance-csid-custody-plan")
   @RequirePermissions(PERMISSIONS.zatca.view)
   getEgsComplianceCsidCustodyPlan(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
