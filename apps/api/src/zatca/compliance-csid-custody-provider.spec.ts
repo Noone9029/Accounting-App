@@ -168,6 +168,13 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     expect(response.configuredProvider).toBe("DISABLED");
     expect(response.providerConfigPresent).toBe(false);
     expect(response.configurationPlanSummary.bodyStorageAllowed).toBe(false);
+    expect(response.referenceOnlyBoundaryAvailable).toBe(true);
+    expect(response.referenceOnlyBoundary.runtimeProvider).toBe("DISABLED");
+    expect(response.referenceOnlyBoundary.localReferenceProviderAvailableForTests).toBe(true);
+    expect(response.referenceOnlyBoundary.bodyStorageAllowed).toBe(false);
+    expect(response.referenceOnlyBoundary.productionCompliance).toBe(false);
+    expect(response.legacyRawPemBlockers).toContain("ZatcaEgsUnit.privateKeyPem");
+    expect(response.legacyRawPemBlockers).toContain("ZatcaSubmissionLog.responsePayloadBase64");
     expect(response.productionCompliance).toBe(false);
     expect(JSON.stringify(response)).not.toMatch(/BEGIN CERTIFICATE|BEGIN PRIVATE KEY|binary-security-token-body|secret-value|access[_-]?key|password/i);
     expect(prisma.zatcaSubmissionLog.create).not.toHaveBeenCalled();
@@ -196,6 +203,12 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     expect(response.providerConfigPresent).toBe(true);
     expect(response.bodyStorageAllowed).toBe(false);
     expect(response.productionCompliance).toBe(false);
+    expect(response.referenceOnlyBoundaryAvailable).toBe(true);
+    expect(response.referenceOnlyBoundary.runtimeProvider).toBe("DISABLED");
+    expect(response.referenceOnlyBoundary.realProviderImplementationReady).toBe(false);
+    expect(response.referenceOnlyBoundary.bodyStorageAllowed).toBe(false);
+    expect(response.localReferenceProviderAvailableForTests).toBe(true);
+    expect(response.legacyRawPemBlockers).toContain("ZatcaEgsUnit.complianceCsidPem");
     expect(serialized).not.toContain("kms-key-raw-secret-value");
     expect(serialized).not.toContain("prefix-raw-secret-value");
     expect(serialized).not.toContain("raw-region-value");
@@ -229,6 +242,9 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
       expect(plan.providerReadiness.enabled).toBe(false);
       expect(plan.providerConfigurationReady).toBe(false);
       expect(plan.configuredProvider).toBe("DISABLED");
+      expect(plan.referenceOnlyBoundary.runtimeProvider).toBe("DISABLED");
+      expect(plan.referenceOnlyBoundary.localReferenceProviderAvailableForTests).toBe(true);
+      expect(plan.legacyRawPemBlockers).toContain("ZatcaEgsUnit.productionCsidPem");
       expect(plan.custodyGate.allowed).toBe(false);
       expect(plan.custodyGate.providerReadiness.provider).toBe("DISABLED");
       expect(plan.custodyGate.providerConfiguration.providerConfigurationReady).toBe(false);

@@ -2,15 +2,22 @@
 
 ## Latest Commit Inspected
 
-- `84486e5a Document ZATCA key custody CSID lifecycle preflight`
+- `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809 Merge PR #1: ZATCA key custody and CSID lifecycle metadata foundation`
 
 ## Current Development Objective
 
-- ZATCA key custody and CSID lifecycle foundation lane completed as metadata-only implementation.
+- Post-merge main sync completed after PR #1 merged into `main`.
+- PR #1: `ZATCA key custody and CSID lifecycle metadata foundation`.
+- Merge commit on `main`: `fd6dbff97e5c669a1c2cda1fc329fecdda5bb809`.
+- Source branch still exists and was not deleted: `codex/dev-12-generated-documents-storage-retention` at `e7bcee7a60ed9eea0b101dbf799985e123af3797`.
+- ZATCA key custody and CSID lifecycle foundation is now on `main` as metadata-only implementation.
 - Foundation evidence doc: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_FOUNDATION.md`.
+- Post-merge note: `docs/development/ZATCA_KEY_CUSTODY_CSID_LIFECYCLE_POST_MERGE.md`.
 - Implementation added additive metadata-only schema/migration artifacts, guarded API/service/DTO endpoints, read-only settings UI lifecycle metadata, targeted API/UI tests, and safe audit event mapping.
 - No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF/A-3, provider/env change, deploy, migration execution, or production compliance claim was performed.
-- Exact next prompt title: `LedgerByte verify ZATCA key custody and CSID lifecycle foundation evidence`.
+- Real ZATCA production compliance remains disabled and not claimed.
+- Remaining blockers: real custody provider approval, KMS/HSM or equivalent signing boundary, real CSR/OTP/CSID onboarding, production CSID lifecycle, certificate rotation/revocation, signing and Phase 2 QR, clearance/reporting, PDF/A-3, signed artifact storage, and official/legal/accounting review.
+- Exact next prompt title: `LedgerByte create next ZATCA custody implementation branch`.
 
 ## Prior Development Objective
 
@@ -5681,6 +5688,18 @@
 ## Next Thread Prompt
 
 `ZATCA sandbox CSID request execution guard`
+
+## LedgerByte ZATCA Custody Provider Boundary Implementation Completed
+
+- Branch: `codex/zatca-custody-provider-boundary-preflight`.
+- Starting commit: `fe6642f3 Document ZATCA custody provider boundary preflight`.
+- Implemented safe reference-only ZATCA custody provider boundary interfaces/classes for disabled and local-reference test-only behavior.
+- Runtime provider remains disabled by default; local-reference provider requires explicit test-only construction and does not enable real custody.
+- API readiness metadata now exposes reference-only boundary availability and legacy blocker fields without enabling custody.
+- No real OTP, real CSID, real ZATCA network call, sandbox portal login, private-key generation/storage, raw certificate/CSR storage, request/response body handling, signing, clearance/reporting, PDF-A-3, provider/env change, migration execution, deploy, production credential, or production compliance claim was performed.
+- Graphify output remained ignored and uncommitted.
+- Implementation doc: `docs/development/ZATCA_CUSTODY_PROVIDER_BOUNDARY_IMPLEMENTATION.md`.
+- Exact next prompt title: `LedgerByte verify ZATCA custody provider boundary evidence`.
 
 ## ZATCA Sandbox CSID Request Execution Guard Completed
 

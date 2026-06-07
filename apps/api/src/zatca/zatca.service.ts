@@ -99,6 +99,7 @@ import {
   type ComplianceCsidCustodyProviderConfigurationPlan,
   type CustodyProviderReadiness,
 } from "./custody/compliance-csid-secret-custody.provider";
+import { readZatcaCustodyProviderBoundaryPlan } from "./custody/zatca-custody-provider-boundary";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { readZatcaHashModeConfig } from "./zatca-hash-mode";
 
@@ -1362,6 +1363,7 @@ export class ZatcaService {
 
   getComplianceCsidCustodyProviderConfigurationPlan() {
     const plan = readComplianceCsidCustodyProviderConfig();
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
     return {
       localOnly: true,
       dryRun: true,
@@ -1380,12 +1382,17 @@ export class ZatcaService {
       noQrPayloadBody: true,
       noClearanceReporting: true,
       noPdfA3: true,
+      referenceOnlyBoundary,
+      referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+      localReferenceProviderAvailableForTests: referenceOnlyBoundary.localReferenceProviderAvailableForTests,
+      legacyRawPemBlockers: referenceOnlyBoundary.legacyRawPemBlockers,
       ...plan,
     };
   }
 
   getComplianceCsidCustodyProviderReadiness() {
     const readiness = this.getComplianceCsidSecretCustodyProviderReadiness();
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
     return {
       localOnly: true,
       dryRun: true,
@@ -1403,6 +1410,10 @@ export class ZatcaService {
       noCsrBody: true,
       noClearanceReporting: true,
       noPdfA3: true,
+      referenceOnlyBoundary,
+      referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+      localReferenceProviderAvailableForTests: referenceOnlyBoundary.localReferenceProviderAvailableForTests,
+      legacyRawPemBlockers: referenceOnlyBoundary.legacyRawPemBlockers,
       ...readiness,
     };
   }
@@ -1546,6 +1557,7 @@ export class ZatcaService {
     const latestCustodyRecord = latestRecord ? this.toSafeComplianceCsidCustodyRecord(latestRecord) : null;
     const providerReadiness = this.getComplianceCsidSecretCustodyProviderReadiness();
     const providerConfiguration = readComplianceCsidCustodyProviderConfig();
+    const referenceOnlyBoundary = readZatcaCustodyProviderBoundaryPlan();
     const custodyGate = this.getComplianceCsidCustodyGate(egsUnit, providerReadiness, providerConfiguration);
 
     return {
@@ -1586,9 +1598,13 @@ export class ZatcaService {
       custodyRecordCount,
       configuredProvider: providerConfiguration.configuredProvider,
       providerConfiguration,
+      referenceOnlyBoundary,
       providerConfigurationReady: false,
       providerConfigPresent: providerConfiguration.providerConfigPresent,
       futureReferenceModeOnly: true,
+      referenceOnlyBoundaryAvailable: referenceOnlyBoundary.interfaceAvailable,
+      localReferenceProviderAvailableForTests: referenceOnlyBoundary.localReferenceProviderAvailableForTests,
+      legacyRawPemBlockers: referenceOnlyBoundary.legacyRawPemBlockers,
       providerReadiness,
       custodyGate,
       tokenStorageReady: false,
