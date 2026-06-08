@@ -2,19 +2,20 @@
 
 ## Latest Commit Inspected
 
-- `8867c2c1259f3655b7dcfde8ef853a0799ec2404 Merge PR #4: ZATCA sandbox CSID response custody dry-run planning`
+- `2f40904929081271b150eb2189928d0490e20507 Merge PR #5: ZATCA sandbox CSID execution approval gate`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-sandbox-csid-execution-approval-gate`.
-- Latest completed merge on `main`: PR #4 `ZATCA sandbox CSID response custody dry-run planning`, merge commit `8867c2c1259f3655b7dcfde8ef853a0799ec2404`.
-- Current lane: sandbox CSID execution approval gate only.
-- New planning doc: `docs/development/ZATCA_SANDBOX_CSID_EXECUTION_APPROVAL_GATE.md`.
-- Implemented metadata-only approval gate API: `GET /zatca/egs-units/:id/sandbox-csid-execution-approval-plan`.
-- No real OTP, CSID, ZATCA network call, private-key generation/storage, raw certificate/CSR storage, request/response body creation or processing, signing, clearance/reporting, PDF-A-3, provider/env change, deploy, migration execution, or production compliance claim is authorized.
+- Current branch: `codex/zatca-sandbox-access-otp-runbook`.
+- Latest completed lane: PR #5 `ZATCA sandbox CSID execution approval gate`, merge commit `2f40904929081271b150eb2189928d0490e20507`.
+- Current lane: human-operated sandbox access and manual OTP capture runbook only.
+- New runbook: `docs/zatca/SANDBOX_ACCESS_AND_MANUAL_OTP_RUNBOOK.md`.
+- New sprint closure doc: `docs/development/ZATCA_SANDBOX_ACCESS_OTP_RUNBOOK_SPRINT_CLOSURE.md`.
+- New static guard: `scripts/zatca-sandbox-access-otp-runbook-guard.cjs`.
+- Safety status: documentation/static guard only; no sandbox portal login, OTP capture, CSID request, ZATCA network call, request/response body creation or processing, private-key generation/storage, raw certificate/CSR storage, signing, clearance/reporting, PDF-A-3, provider/env change, deploy, migration execution, or production compliance claim is authorized.
 - Real ZATCA production compliance remains disabled and not claimed.
-- Remaining blockers: manual sandbox access approval, manual sandbox OTP capture approval, real custody provider approval, KMS/HSM or managed-secret boundary, sandbox CSID request execution approval, real sandbox request-body creation approval, real sandbox response-body processing approval, real sandbox response custody approval, legacy PEM/payload-capable fields, signing and Phase 2 QR, clearance/reporting, PDF-A-3, production CSID lifecycle, and official/legal/accounting/ZATCA specialist review.
-- Exact next prompt title: `LedgerByte approve and merge ZATCA sandbox CSID execution approval gate PR`.
+- Remaining blockers: manual sandbox access confirmation, manual OTP capture approval, OTP entry approval, real custody provider approval, KMS/HSM or managed-secret boundary, request-body creation approval, real sandbox network request approval, response-body processing approval, response custody approval, sandbox CSID storage by approved custody provider, legacy PEM/payload-capable fields, signing and Phase 2 QR, clearance/reporting, PDF-A-3, production CSID lifecycle, and official/legal/accounting/ZATCA specialist review.
+- Exact next prompt title: `LedgerByte approve and merge ZATCA sandbox access OTP runbook PR`.
 
 ## Prior Development Objective
 
