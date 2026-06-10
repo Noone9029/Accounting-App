@@ -6,6 +6,14 @@
 
 ## Current Development Objective
 
+- Current completed lane: PR #6 sandbox access/manual OTP runbook merged.
+- Current Antigravity lane: sandbox access confirmation checklist.
+- This is docs-only.
+- No sandbox login, OTP capture, CSID request, ZATCA network call, request/response body processing, signing, clearance/reporting, PDF-A-3, or production compliance claim.
+- Recommended next prompt: `LedgerByte prepare manual OTP capture approval checklist.`
+
+## Prior Development Objective
+
 - Current branch: `codex/zatca-sandbox-access-otp-runbook`.
 - Latest completed lane: PR #5 `ZATCA sandbox CSID execution approval gate`, merge commit `2f40904929081271b150eb2189928d0490e20507`.
 - Current lane: human-operated sandbox access and manual OTP capture runbook only.
