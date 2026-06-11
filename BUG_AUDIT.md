@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `c21cb392` (`Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`) plus the current controlled-beta route-surface hardening pass.
+Latest commit audited: `5502434b` (`Merge pull request #19 from codex/controlled-beta-route-hardening-followup`) plus the current controlled-beta setup onboarding hardening pass.
 
 ## Scope
 
@@ -36,6 +36,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta setup onboarding now stays on the richer customer flow and preserves source context
+
+Fixed small but real onboarding/workflow issues across setup, dashboard quick actions, and the first invoice/payment entry points without changing accounting behavior or runtime ZATCA behavior.
+
+Risk reduced:
+
+- The setup wizard no longer sends `First customer` into the generic `/contacts` surface; it now points to `/customers`, which keeps the first workflow on the richer customer workspace.
+- The setup wizard `First invoice` and `First payment` links now include `returnTo=/setup`, so save/cancel flows can return users to guided setup instead of dropping them into generic transaction routes.
+- Dashboard quick actions for invoice, customer payment, purchase bill, supplier payment, and cash expense now include `returnTo=/dashboard`, keeping first-workflow navigation anchored to the dashboard surface.
+- Sales invoice empty-state guidance now sends the user to `/customers` instead of the generic contacts list when no customer exists yet.
+- Customer payment empty-state guidance now sends the user to `/customers` instead of the generic contacts list when the first workflow is blocked on customer setup.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/lib/dashboard.test.ts`
+  - `apps/web/src/components/onboarding/setup-wizard.test.tsx`
+  - `apps/web/src/app/(app)/dashboard/page.test.tsx`
+  - `apps/web/src/components/forms/sales-invoice-form.test.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`
+
+Remaining risks:
+
+- This pass did not change setup checklist generation, dashboard data loading, accounting/report math, posting behavior, AP workflow rules, or runtime ZATCA behavior.
+- The setup flow still relies on existing customer creation through the customer workspace and underlying contact forms; no dedicated `/customers/new` route was added in this pass.
 
 ### Controlled-beta route surfaces now hand off to the right customer, supplier, and archive states
 

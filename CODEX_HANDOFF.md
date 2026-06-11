@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `c21cb392 Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`
+- Main commit inspected: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
+- PR #19 merge pushed to `main`: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
 - PR #18 merge pushed to `main`: `c21cb392 Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`
 - PR #17 cleanup merge pushed to `main`: `a9c9cef1 Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`
 - PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
@@ -16,54 +17,66 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-route-hardening-followup`.
-- Current completed lane: verified and merged PR `#18` into `main`, then hardened controlled-beta route surfaces across contacts, documents, reports, and storage wording from synced `main`.
-- Branch source used for this lane: `main` at `c21cb392`.
-- Branch status versus `main`: frontend-only controlled-beta route-surface hardening on top of the merged invoice/bill workflow pass.
+- Current branch: `codex/controlled-beta-setup-onboarding-hardening`.
+- Current completed lane: diagnosed and fixed PR `#19` CI, merged PR `#19` into `main`, then hardened controlled-beta setup onboarding and first-workflow routing from synced `main`.
+- Branch source used for this lane: `main` at `5502434b`.
+- Branch status versus `main`: frontend/docs/tests-only onboarding hardening on top of the merged route-surface pass.
 - Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted to confirm the shared route/helper/test files before editing. No Graphify regeneration was performed.
-- PR #18 merge result:
-  - PR `#18` `Controlled beta product workflow hardening` was rechecked through the GitHub API and found `open`, `mergeable=true`, `mergeable_state=clean`, `draft=false`, head `dc86b888499f38717efea0e17dd0083d6ff76cad`, and green on `Non-mutating verification`, `GitGuardian Security Checks`, `Vercel – ledgerbyte-api-test`, `Vercel – ledgerbyte-web-test`, plus non-blocking `Vercel Preview Comments`.
-  - The branch `codex/controlled-beta-e2e-product-hardening` was merged locally with a merge commit and pushed to `main` as `c21cb392`.
-  - No further ZATCA approval-gate work was continued in this lane.
+- PR #19 CI root cause and merge result:
+  - PR `#19` `Controlled beta route surface hardening` was rechecked through GitHub and originally failed `Non-mutating verification` at `Run local CI verification gate`.
+  - Root cause: `scripts/verify-gate.cjs` still fell back to broad repo verification for frontend/docs/test PRs like `#19`, so CI pulled unrelated existing failures outside the PR scope, including broad repo `packages/zatca-core` failures and a separate unrelated web test outside the touched files.
+  - Fix applied on `codex/controlled-beta-route-hardening-followup`: narrow frontend/docs/test PRs to web typecheck, changed web test files only, and web build; add `scripts/run-web-jest-by-paths.cjs`; extend `scripts/verify-gate.test.cjs`; set workflow `fetch-depth: 2`; and make the scoped Jest runner Linux-compatible.
+  - Fix commits pushed to PR branch: `214ddc78 Scope PR verification to touched web changes` and `0609c344 Fix scoped web Jest runner on Linux`.
+  - PR `#19` went green and was merged into `main` with merge commit `5502434b`.
 - Product areas reviewed:
   - `apps/web/src/app/(app)/dashboard`
-  - `apps/web/src/app/(app)/contacts`
-  - `apps/web/src/app/(app)/documents`
-  - `apps/web/src/app/(app)/reports`
-  - `apps/web/src/app/(app)/settings/storage`
-  - `apps/web/src/app/(app)/settings/zatca`
-  - related shared helpers/components in `apps/web/src/components/reports`, `apps/web/src/lib/documents`, `apps/web/src/lib/storage`, and `apps/web/src/components/parties`
+  - `apps/web/src/app/(app)/setup`
+  - `apps/web/src/app/(app)/organization/setup`
+  - `apps/web/src/app/(app)/customers`
+  - `apps/web/src/app/(app)/suppliers`
+  - `apps/web/src/app/(app)/sales/invoices/new`
+  - `apps/web/src/app/(app)/sales/customer-payments/new`
+  - `apps/web/src/app/(app)/purchases/bills/new`
+  - related shared helpers/components in `apps/web/src/components/onboarding`, `apps/web/src/components/forms`, and `apps/web/src/lib/dashboard`
 - Product workflow fixes completed:
-  - `apps/web/src/app/(app)/contacts/page.tsx` now routes pure-customer and pure-supplier rows to the richer `/customers/<id>` and `/suppliers/<id>` surfaces, while keeping `BOTH` contacts on the combined `/contacts/<id>` view.
-  - The contacts empty-state next step now points suppliers to `/purchases/bills/new` instead of incorrectly telling them to create the first invoice, and the top copy now keeps the customer/supplier guidance generic and controlled-beta safe.
-  - `apps/web/src/components/reports/report-pages.tsx` now routes aged receivables/payables contact links to `/customers/<id>` and `/suppliers/<id>`, and the aging guidance links now send users to the matching customer/supplier list rather than the generic contacts page.
-  - `apps/web/src/app/(app)/documents/page.tsx` now hides the archived-PDF download button for `FAILED` document rows and replaces it with clear unavailable copy instead of implying a missing PDF can be downloaded.
-  - `apps/web/src/lib/storage.ts` now labels backup readiness as metadata review status instead of wording that could be read as proven backup/restore execution.
-  - Targeted tests were added or updated in `apps/web/src/app/(app)/contacts/page.test.tsx`, `apps/web/src/components/reports/report-pages.test.tsx`, `apps/web/src/app/(app)/documents/page.test.tsx`, `apps/web/src/lib/documents.test.ts`, and `apps/web/src/lib/storage.test.ts`.
+  - Setup wizard `First customer` now opens the richer `/customers` workspace instead of sending first-time users to the generic `/contacts` surface.
+  - Setup wizard `First invoice` and `First payment` now append `returnTo=/setup`, so cancel/save paths stay anchored to guided setup instead of silently dropping the user into generic lists/details.
+  - Dashboard quick actions for invoice, customer payment, purchase bill, supplier payment, and cash expense now append `returnTo=/dashboard`, keeping the first workflow anchored to the dashboard context.
+  - Sales invoice empty-state guidance now points users to `/customers` instead of the generic contacts list when no customer exists yet.
+  - Customer payment empty-state guidance now points users to `/customers` instead of the generic contacts list when the first workflow is blocked on customer setup.
+  - Targeted tests were added or updated in `apps/web/src/lib/dashboard.test.ts`, `apps/web/src/components/onboarding/setup-wizard.test.tsx`, `apps/web/src/app/(app)/dashboard/page.test.tsx`, `apps/web/src/components/forms/sales-invoice-form.test.tsx`, and `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`.
 - Safety posture:
   - No schema, migration, seed/reset/delete, deploy, email send, storage mutation, report math, journal posting logic, payment allocation logic, ZATCA runtime execution, OTP/CSID handling, or production/beta/customer-data mutation changes were made.
 - Checks run:
   - `corepack pnpm install --frozen-lockfile`
-  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/contacts/page.test.tsx"`
-  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/components/reports/report-pages.test.tsx"`
-  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/documents/page.test.tsx"`
-  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/lib/documents.test.ts" "src/lib/storage.test.ts"`
+  - `corepack pnpm verify:ci:local -- --plan`
+  - `node --test scripts/verify-gate.test.cjs`
+  - `corepack pnpm verify:ci:local`
+  - `node scripts/run-web-jest-by-paths.cjs "src/app/(app)/contacts/page.test.tsx" "src/app/(app)/documents/page.test.tsx" src/components/reports/report-pages.test.tsx src/lib/documents.test.ts src/lib/storage.test.ts`
+  - `corepack pnpm --filter @ledgerbyte/web typecheck`
+  - `corepack pnpm verify:diff`
+  - `git diff --check`
+  - `git diff --cached --check`
+  - GitHub recheck of PR `#19` status, mergeability, and post-fix green verification before merge
+  - Local merge of PR `#19` branch into `main` with push of merge commit `5502434b`
+  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/lib/dashboard.test.ts" "src/components/onboarding/setup-wizard.test.tsx" "src/app/(app)/dashboard/page.test.tsx" "src/components/forms/sales-invoice-form.test.tsx" "src/app/(app)/sales/customer-payments/new/page.test.tsx"`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
   - `git diff --cached --check`
 - Skipped commands and why:
   - API typecheck was skipped because no API files changed.
+  - `node --test scripts/verify-gate.test.cjs` was not rerun on the onboarding branch because `verify-gate` was not changed in this pass.
   - `docs/IMPLEMENTATION_STATUS.md` and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass fixed route wording/handoff issues without meaningfully changing product scores or posture.
   - Graphify regeneration was skipped because existing output was stale-but-sufficient for dependency guidance and the task explicitly said not to regenerate unless genuinely needed.
   - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and report/PDF mutation checks remained out of scope or explicitly forbidden.
 - Remaining blockers:
-  - Dashboard route cards, quick actions, and attention-item drill-downs were reviewed but not changed in this pass because no isolated dashboard-only bug was confirmed without broadening scope.
-  - Setup onboarding and the first end-to-end setup-to-transaction path still need the next focused controlled-beta pass.
-  - ZATCA settings runtime behavior remains untouched; this pass reviewed wording safety only and did not edit the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx`.
+  - The onboarding arc remains intentionally narrow: no new backend features, no new checklist data, and no setup/dashboard redesign were added.
+  - Purchase bill page header copy and broader AP-first onboarding remain available for the next focused documents/reports workflow pass if the user wants broader guidance beyond safe route anchoring.
+  - ZATCA settings runtime behavior remains untouched; this pass did not edit the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx`.
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no.
-- Exact next recommended prompt title: `Controlled beta setup onboarding and first workflow hardening`
+- Exact next recommended prompt title: `Controlled beta documents and reports workflow hardening`
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
   - GitHub API previously confirmed `merged=true`, `draft=false`, head `14fb33632e5c10e370cef22d40a8ed2bee69ad68`, merge commit `2ff09fab40a097f47dfdb55fd9c5ced62ff553f5`, and docs-only changed files only.

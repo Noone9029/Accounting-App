@@ -234,8 +234,8 @@ export default function NewCustomerPaymentPage() {
         {!loadingSetup && organizationId && customers.length === 0 ? (
           <StatusMessage type="empty">
             Add a customer and create a finalized invoice before recording the first payment.{" "}
-            <Link href="/contacts" className="font-semibold text-palm hover:underline">
-              Open contacts
+            <Link href="/customers" className="font-semibold text-palm hover:underline">
+              Open customers
             </Link>
             .
           </StatusMessage>
