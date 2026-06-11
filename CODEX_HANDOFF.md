@@ -2,14 +2,14 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `8b9fa483 Update handoff after AP purchase bill merge`
+- Main merge commit inspected: `2ff09fab Merge pull request #8 from codex/zatca-sandbox-access-confirmation-checklist`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-sandbox-access-confirmation-checklist`.
-- Current completed lane: docs-only ZATCA sandbox access confirmation checklist preparation on top of current `main`.
+- Current branch: `main`.
+- Current completed lane: docs-only ZATCA sandbox access confirmation checklist merged into `main`.
 - Branch source: `codex/zatca-sandbox-access-confirmation-checklist`.
-- Branch status versus `main`: rebased cleanly onto `main`; docs-only changes only; PR #8 opened and not merged.
+- Branch status versus `main`: merged cleanly; docs-only changes only; PR #8 merged into `main`.
 - Graphify usage: existing `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` remain blast-radius guidance only; the graph was not regenerated.
 - Branch content audit:
   - ZATCA docs: `docs/zatca/SANDBOX_ACCESS_CONFIRMATION_CHECKLIST.md`.
@@ -24,14 +24,15 @@
   - Docs wording reviewed for safety boundaries.
   - ZATCA production compliance remains disabled.
   - The ZATCA sandbox access confirmation checklist remains separate from AP implementation work.
-  - PR #8 is open, mergeable, and not merged.
+  - PR #8 is merged into `main`.
 - Checks run:
   - `git diff --check`
   - `corepack pnpm verify:diff`
 - Checks observed:
-  - PR Verification is in progress on the new docs-only PR.
-- PR URL: `https://github.com/Noone9029/Accounting-App/pull/8`
-- PR number: `8`
+  - PR Verification succeeded on the docs-only PR.
+  - Vercel API/web checks were reported successful before merge.
+  - PR #8 URL: `https://github.com/Noone9029/Accounting-App/pull/8`
+  - PR #8 number: `8`
 - Deployment verification: skipped. No deploy or runtime ZATCA validation was performed.
 - Skipped commands and why:
   - ZATCA runtime commands, sandbox portal login, OTP capture, CSID request, signing, clearance/reporting, PDF-A-3, email, backup/restore, smoke, E2E, and production infrastructure commands were out of scope and explicitly forbidden.
@@ -39,7 +40,7 @@
   - Manual sandbox access confirmation must still happen outside Codex.
   - Any future OTP/CSID/runtime work remains gated behind explicit approval.
 - Production/ZATCA/customer-data behavior changed: no. This branch is documentation-only and does not change runtime behavior.
-- Exact next recommended prompt title: `Review and merge ZATCA sandbox access checklist PR`.
+- Exact next recommended prompt title: `Prepare manual OTP capture approval checklist`.
 
 ## Prior Development Objective
 
