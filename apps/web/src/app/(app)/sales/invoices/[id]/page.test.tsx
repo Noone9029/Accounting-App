@@ -87,9 +87,9 @@ describe("invoice workflow guidance", () => {
     expect(screen.getByText("Unpaid")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute(
       "href",
-      "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1",
+      "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1&returnTo=%2Fsales%2Finvoices%2Finvoice-1",
     );
-    expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
+    expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "View report" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("button", { name: "Download invoice PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
