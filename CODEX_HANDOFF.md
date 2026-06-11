@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `edc306e6 Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`
+- Main commit inspected: `a9c9cef1 Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`
+- PR #17 cleanup merge pushed to `main`: `a9c9cef1 Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`
 - PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
 - PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
 - PR #11 merge commit in main history: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
@@ -14,11 +15,39 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-pdf-a3-approval-gate`.
-- Current completed lane: verified and merged PR `#16` into `main`, then added the PDF-A3 approval gate docs/static-guard arc on top of synced `main`.
-- Branch source used for this lane: `main` at `edc306e6`.
-- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#16` is already merged into `main`.
-- Graphify usage: not needed for this lane because the blast radius stayed within docs, package scripts, and standalone `scripts/`.
+- Current branch: `codex/controlled-beta-e2e-product-hardening`.
+- Current completed lane: merged green/docs-only PR `#17` into `main` as cleanup, then hardened the controlled-beta invoice and bill workflow navigation surfaces from synced `main`.
+- Branch source used for this lane: `main` at `a9c9cef1`.
+- Branch status versus `main`: frontend-only controlled-beta workflow hardening on top of the cleaned mainline.
+- Graphify usage: skipped because `graphify-out/` was not present in this clean worktree and the blast radius stayed inside a small set of known web routes/components/tests.
+- Pending ZATCA PR cleanup result:
+  - PR `#17` `ZATCA PDF-A3 approval gate` was rechecked through the GitHub API and found `open`, `mergeable=true`, `mergeable_state=clean`, `draft=false`, and green on `Non-mutating verification`, `GitGuardian Security Checks`, `Vercel – ledgerbyte-api-test`, `Vercel – ledgerbyte-web-test`, plus non-blocking `Vercel Preview Comments`.
+  - The docs/static-guard branch `codex/zatca-pdf-a3-approval-gate` at head `dc692b3391f5a12d1c6c02cdae5a8fd447e6264a` was merged locally in the isolated worktree and pushed to `main` as `a9c9cef1`.
+  - No further ZATCA approval-gate work was continued in this lane.
+- Product workflow fixes completed:
+  - `apps/web/src/components/forms/sales-invoice-form.tsx` now honors safe `returnTo` values on edit routes as well as create routes, and the edit submit label now reads `Save changes` instead of the incorrect draft-create wording.
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` now preserves `returnTo=/sales/invoices/<id>` when handing off to customer payment and credit-note creation, and customer ledger links now route to the richer `/customers/<id>` surface.
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx` now preserves `returnTo=/purchases/bills/<id>` when handing off to supplier payment, purchase debit note, and purchase receipt creation, and supplier ledger links now route to `/suppliers/<id>`.
+  - Targeted tests were updated in `apps/web/src/components/forms/sales-invoice-form.test.tsx`, `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`, and `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`.
+- Safety posture:
+  - No schema, migration, seed/reset/delete, deploy, email, storage mutation, report math, journal posting logic, payment allocation logic, ZATCA runtime execution, OTP/CSID handling, or production/beta/customer-data mutation changes were made.
+- Checks run:
+  - `corepack pnpm install --frozen-lockfile`
+  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath src/components/forms/sales-invoice-form.test.tsx`
+  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/sales/invoices/[id]/page.test.tsx"`
+  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/purchases/bills/[id]/page.test.tsx"`
+  - `corepack pnpm --filter @ledgerbyte/web typecheck`
+  - `corepack pnpm verify:diff`
+  - `git diff --check`
+- Skipped commands and why:
+  - API typecheck was skipped because no API files changed.
+  - Graphify regeneration was skipped because output was absent in the clean worktree and the task explicitly said not to regenerate unless genuinely needed.
+  - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and report/PDF mutation checks remained out of scope or explicitly forbidden.
+- Remaining blockers:
+  - This lane only hardened invoice/bill navigation and edit-path UX; dashboard, documents, reports, contacts list/detail, setup, storage wording, and broader empty/error/loading state review still need the same route-by-route pass.
+  - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
+- Production/ZATCA/customer-data behavior changed: no.
+- Exact next recommended prompt title: `Controlled beta route hardening follow-up: dashboard documents reports contacts storage`
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
   - GitHub API previously confirmed `merged=true`, `draft=false`, head `14fb33632e5c10e370cef22d40a8ed2bee69ad68`, merge commit `2ff09fab40a097f47dfdb55fd9c5ced62ff553f5`, and docs-only changed files only.

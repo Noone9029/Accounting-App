@@ -1,8 +1,8 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-05-16
+Audit date: 2026-06-11
 
-Latest commit audited: `edc306e6` (`Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`) plus the current PDF-A3 approval-gate pass.
+Latest commit audited: `a9c9cef1` (`Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`) plus the current controlled-beta workflow hardening pass.
 
 ## Scope
 
@@ -36,6 +36,27 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta invoice and bill workflow return paths hardened
+
+Fixed real user-flow blockers in the draft-edit and post-transaction guidance surfaces without changing accounting behavior.
+
+Risk reduced:
+
+- Sales invoice edit now preserves a safe `returnTo` on edit routes for both cancel and post-save redirect instead of silently dropping the user back into the generic invoice flow.
+- Sales invoice edit submit wording now says `Save changes` in edit mode instead of the misleading `Save draft invoice`.
+- Sales invoice detail now passes `returnTo=/sales/invoices/<id>` into customer payment and credit note creation flows, so the user can return to the source invoice after the guided next step.
+- Purchase bill detail now passes `returnTo=/purchases/bills/<id>` into supplier payment, purchase debit note, and purchase receipt creation flows, so the AP workflow stays anchored to the source bill.
+- Invoice and bill ledger links now open the richer customer/supplier detail surfaces (`/customers/<id>` and `/suppliers/<id>`) instead of the generic contact-detail route.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/components/forms/sales-invoice-form.test.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`
+
+Remaining risks:
+
+- This pass did not change invoice/bill posting, journal creation, payment allocation, debit/credit note accounting, report math, ZATCA runtime behavior, PDF generation logic, or storage behavior.
+- Other requested route groups in the broader controlled-beta hardening arc still need the same focused review: setup, dashboard, contacts, documents, reports, and storage wording.
 
 ### ZATCA PDF-A3 approval gate added
 

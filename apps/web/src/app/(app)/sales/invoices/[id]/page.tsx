@@ -563,12 +563,18 @@ export default function SalesInvoiceDetailPage() {
             </button>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
-            <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+            <Link
+              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+            >
               Record payment
             </Link>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
-            <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+            <Link
+              href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+            >
               Create credit note
             </Link>
           ) : null}
@@ -702,12 +708,18 @@ export default function SalesInvoiceDetailPage() {
               {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canCreateCustomerPayment ? (
-                    <Link href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+                    <Link
+                      href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+                    >
                       Record payment
                     </Link>
                   ) : null}
                   {canCreateCreditNote ? (
-                    <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+                    <Link
+                      href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+                    >
                       Create credit note
                     </Link>
                   ) : null}
@@ -1354,7 +1366,7 @@ export function InvoiceWorkflowGuidance({
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
             <Link
-              href={`/sales/customer-payments/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`}
+              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record payment
@@ -1369,7 +1381,7 @@ export function InvoiceWorkflowGuidance({
             Download invoice PDF
           </button>
           {invoice.customerId ? (
-            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/customers/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View customer ledger
             </Link>
           ) : null}

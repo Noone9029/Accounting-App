@@ -57,17 +57,17 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.getByText(/supplier payable is open/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute(
       "href",
-      "/purchases/supplier-payments/new?supplierId=00000000-0000-0000-0000-000000000201&billId=00000000-0000-0000-0000-000000000701",
+      "/purchases/supplier-payments/new?supplierId=00000000-0000-0000-0000-000000000201&billId=00000000-0000-0000-0000-000000000701&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701",
     );
     expect(screen.getByRole("link", { name: "Create debit note" })).toHaveAttribute(
       "href",
-      "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201",
+      "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701",
     );
     expect(screen.getByRole("button", { name: "Download purchase bill PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute(
       "href",
-      "/contacts/00000000-0000-0000-0000-000000000201",
+      "/suppliers/00000000-0000-0000-0000-000000000201",
     );
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
   });

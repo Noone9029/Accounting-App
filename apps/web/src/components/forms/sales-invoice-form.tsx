@@ -113,16 +113,19 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   );
 
   useEffect(() => {
-    if (initialInvoice || initialCustomerId || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
 
     const query = new URLSearchParams(window.location.search);
-    const queryCustomerId = query.get("customerId") ?? "";
-    if (queryCustomerId) {
-      setCustomerId(queryCustomerId);
-    }
     setReturnTo(safeReturnToFromSearch(window.location.search));
+
+    if (!initialInvoice && !initialCustomerId) {
+      const queryCustomerId = query.get("customerId") ?? "";
+      if (queryCustomerId) {
+        setCustomerId(queryCustomerId);
+      }
+    }
   }, [initialInvoice, initialCustomerId]);
 
   useEffect(() => {
@@ -425,7 +428,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-          {submitting ? "Saving..." : initialInvoice ? "Save draft invoice" : "Create draft invoice"}
+          {submitting ? "Saving..." : initialInvoice ? "Save changes" : "Create draft invoice"}
         </button>
         <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
           Cancel

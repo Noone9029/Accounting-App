@@ -191,20 +191,23 @@ export default function PurchaseBillDetailPage() {
             </Link>
           ) : null}
           {bill?.supplierId ? (
-            <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/suppliers/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               Supplier ledger
             </Link>
           ) : null}
           {bill?.supplierId && canCreateDebitNote ? (
             <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Create debit note
             </Link>
           ) : null}
           {bill && receivingStatus && canCreateReceipt && hasReceiptRemaining(receivingStatus) ? (
-            <Link href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${bill.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+            <Link
+              href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
+              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+            >
               Receive stock
             </Link>
           ) : null}
@@ -546,7 +549,7 @@ export function PurchaseBillWorkflowGuidance({
           ) : null}
           {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
             <Link
-              href={`/purchases/supplier-payments/new?supplierId=${bill.supplierId}&billId=${bill.id}`}
+              href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record supplier payment
@@ -554,7 +557,7 @@ export function PurchaseBillWorkflowGuidance({
           ) : null}
           {bill.status === "FINALIZED" && bill.supplierId && canCreateDebitNote ? (
             <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}`}
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Create debit note
@@ -571,7 +574,7 @@ export function PurchaseBillWorkflowGuidance({
             </button>
           ) : null}
           {bill.supplierId ? (
-            <Link href={`/contacts/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/suppliers/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               View supplier ledger
             </Link>
           ) : null}
