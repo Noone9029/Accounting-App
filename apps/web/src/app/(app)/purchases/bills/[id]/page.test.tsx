@@ -57,15 +57,18 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.getByText(/supplier payable is open/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute(
       "href",
-      "/purchases/supplier-payments/new?supplierId=supplier-1&billId=bill-1",
+      "/purchases/supplier-payments/new?supplierId=00000000-0000-0000-0000-000000000201&billId=00000000-0000-0000-0000-000000000701",
     );
     expect(screen.getByRole("link", { name: "Create debit note" })).toHaveAttribute(
       "href",
-      "/purchases/debit-notes/new?billId=bill-1&supplierId=supplier-1",
+      "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201",
     );
     expect(screen.getByRole("button", { name: "Download purchase bill PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
-    expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
+    expect(screen.getByRole("link", { name: "View supplier ledger" })).toHaveAttribute(
+      "href",
+      "/contacts/00000000-0000-0000-0000-000000000201",
+    );
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
   });
 
@@ -90,10 +93,10 @@ describe("purchase bill workflow guidance", () => {
 
 function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
   return {
-    id: "bill-1",
+    id: "00000000-0000-0000-0000-000000000701",
     organizationId: "org-1",
     billNumber: "BILL-001",
-    supplierId: "supplier-1",
+    supplierId: "00000000-0000-0000-0000-000000000201",
     branchId: null,
     billDate: "2026-05-21T00:00:00.000Z",
     dueDate: null,
@@ -111,7 +114,13 @@ function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
     finalizedAt: null,
     journalEntryId: null,
     reversalJournalEntryId: null,
-    supplier: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier", type: "SUPPLIER", taxNumber: null },
+    supplier: {
+      id: "00000000-0000-0000-0000-000000000201",
+      name: "Beta Supplier",
+      displayName: "Beta Supplier",
+      type: "SUPPLIER",
+      taxNumber: null,
+    },
     branch: null,
     purchaseOrderId: null,
     purchaseOrder: null,
