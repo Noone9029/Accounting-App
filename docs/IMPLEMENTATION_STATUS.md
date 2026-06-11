@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA PDF-A3 Approval Gate update:
+
+- PR `#16` `ZATCA clearance reporting approval gate` was verified live, then merged into `main` with merge commit `edc306e6`.
+- Added `docs/zatca/PDF_A3_APPROVAL_GATE.md`, `docs/zatca/PDF_A3_APPROVAL_RESULTS.md`, `docs/development/ZATCA_PDF_A3_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-pdf-a3-approval-gate.cjs`, and `scripts/zatca-pdf-a3-approval-gate.test.cjs`.
+- Added root package scripts `zatca:pdf-a3-approval-gate` and `test:zatca-pdf-a3-approval-gate`.
+- Observed default status is `PDF_A3_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `PDF_A3_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No PDF-A3 was generated, no XML was embedded, no signed XML was embedded, no file was persisted, no object-storage/database/document-store write was executed, no invoice/customer data was read, and no signing/QR/ZATCA/clearance/reporting/production-compliance behavior was enabled.
+- Current blockers are actual PDF-A3 generation, XML embedding, archive persistence, PDF/XML body handling, object-storage/database/document-store writes, and production compliance launch.
+- Recommended next prompt: `ZATCA production compliance launch gate`.
+
 2026-06-11 ZATCA Clearance Reporting Approval Gate update:
 
 - PR `#15` `ZATCA signing and Phase 2 QR approval gate` was verified live, then merged into `main` with merge commit `154bbf82`.
