@@ -104,16 +104,19 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
   );
 
   useEffect(() => {
-    if (initialBill || initialSupplierId || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
 
     const query = new URLSearchParams(window.location.search);
-    const querySupplierId = query.get("supplierId") ?? "";
-    if (querySupplierId) {
-      setSupplierId(querySupplierId);
-    }
     setReturnTo(safeReturnToFromSearch(window.location.search));
+
+    if (!initialBill && !initialSupplierId) {
+      const querySupplierId = query.get("supplierId") ?? "";
+      if (querySupplierId) {
+        setSupplierId(querySupplierId);
+      }
+    }
   }, [initialBill, initialSupplierId]);
 
   useEffect(() => {

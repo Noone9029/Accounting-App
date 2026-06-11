@@ -1,14 +1,15 @@
 import { Type } from "class-transformer";
 import { PurchaseBillInventoryPostingMode } from "@prisma/client";
-import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, Length, ValidateNested } from "class-validator";
+import { IsPostgresUuid } from "./postgres-uuid.decorator";
 import { PurchaseBillLineDto } from "./purchase-bill-line.dto";
 
 export class CreatePurchaseBillDto {
-  @IsUUID()
+  @IsPostgresUuid()
   supplierId!: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsPostgresUuid()
   branchId?: string | null;
 
   @IsDateString()
