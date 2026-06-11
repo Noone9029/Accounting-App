@@ -2,7 +2,7 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `154bbf82 Merge pull request #15 from Noone9029/codex/zatca-signing-phase2-qr-approval-gate`
+- Main commit inspected: `edc306e6 Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`
 - PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
 - PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
 - PR #11 merge commit in main history: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
@@ -10,13 +10,14 @@
 - PR #13 merge commit in main history: `db8f058c Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`
 - PR #14 merge commit in main history: `ce2489a5 Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`
 - PR #15 merge commit in main history: `154bbf82 Merge pull request #15 from Noone9029/codex/zatca-signing-phase2-qr-approval-gate`
+- PR #16 merge commit in main history: `edc306e6 Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-clearance-reporting-approval-gate`.
-- Current completed lane: verified and merged PR `#15` into `main`, then added the clearance/reporting approval gate docs/static-guard arc on top of synced `main`.
-- Branch source used for this lane: `main` at `154bbf82`.
-- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#15` is already merged into `main`.
+- Current branch: `codex/zatca-pdf-a3-approval-gate`.
+- Current completed lane: verified and merged PR `#16` into `main`, then added the PDF-A3 approval gate docs/static-guard arc on top of synced `main`.
+- Branch source used for this lane: `main` at `edc306e6`.
+- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#16` is already merged into `main`.
 - Graphify usage: not needed for this lane because the blast radius stayed within docs, package scripts, and standalone `scripts/`.
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
@@ -57,33 +58,38 @@
   - The head commit matched `57e596ee712cfff1d51d883470da620045695177`.
   - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
   - The branch was merged into `main` with merge commit `154bbf82`.
+- PR #16 merge status:
+  - PR #16 `ZATCA clearance reporting approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
+  - The head commit matched `3e0d0ab70f7e8299edb681f246db8b9961db240a`.
+  - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
+  - The branch was merged into `main` with merge commit `edc306e6`.
 - Branch content audit:
-  - Added ZATCA docs: `docs/zatca/CLEARANCE_REPORTING_APPROVAL_GATE.md` and `docs/zatca/CLEARANCE_REPORTING_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_CLEARANCE_REPORTING_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-clearance-reporting-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-clearance-reporting-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:clearance-reporting-approval-gate` and `test:zatca-clearance-reporting-approval-gate`.
+  - Added ZATCA docs: `docs/zatca/PDF_A3_APPROVAL_GATE.md` and `docs/zatca/PDF_A3_APPROVAL_RESULTS.md`.
+  - Added sprint closure doc: `docs/development/ZATCA_PDF_A3_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+  - Added standalone guard: `scripts/zatca-pdf-a3-approval-gate.cjs`.
+  - Added standalone guard test: `scripts/zatca-pdf-a3-approval-gate.test.cjs`.
+  - Added root package scripts: `zatca:pdf-a3-approval-gate` and `test:zatca-pdf-a3-approval-gate`.
   - Updated handoff/readiness docs: `CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `BUG_AUDIT.md`.
   - No app code, schema, migration, runtime ZATCA implementation, env file, or secret-handling path was changed.
 - Safety posture:
   - Planning/approval metadata only.
   - Metadata-only evidence.
-  - No sandbox portal login, OTP capture, CSID request, request body creation, sandbox network request execution, adapter execution, response body processing, response custody storage, custody provider execution, CSID storage, signing execution, Phase 2 QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, ZATCA API calls, request/response body handling, private-key use, certificate use, token or secret use, PDF-A3, invoice/accounting/customer data mutation, payload storage, or production compliance claim.
+  - No sandbox portal login, OTP capture, CSID request, request body creation, sandbox network request execution, adapter execution, response body processing, response custody storage, custody provider execution, CSID storage, signing execution, Phase 2 QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, PDF-A3 generation, XML embedding, signed XML embedding, invoice archive creation, PDF/XML body handling, PDF library invocation, file persistence, object-storage/database/document-store writes, invoice/accounting/customer data reads or mutation, or production compliance claim.
 - Guard behavior:
-  - Default clearance/reporting status is `CLEARANCE_REPORTING_APPROVAL_BLOCKED`.
-  - The exact clearance/reporting approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `CLEARANCE_REPORTING_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - Clearance execution, reporting execution, invoice/note submission, ZATCA API calls, request/response body handling, CSID/token/secret/certificate/private-key use, signed XML/QR usage, and PDF-A3 generation remain blocked even when the phrase is recognized.
+  - Default PDF-A3 status is `PDF_A3_APPROVAL_BLOCKED`.
+  - The exact PDF-A3 approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `PDF_A3_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+  - PDF-A3 generation, XML embedding, signed XML embedding, invoice archive creation, PDF/XML body handling, PDF library invocation, file persistence, object-storage/database/document-store writes, signing, QR generation, ZATCA network calls, and clearance/reporting remain blocked even when the phrase is recognized.
 - Checks run:
   - `git fetch origin`
-  - GitHub verification for PR #15 mergeability, clean scope, successful checks, and head commit before merging into `main`
-  - GitHub merge of PR `#15` with expected head `57e596ee712cfff1d51d883470da620045695177`
-  - `git worktree add E:\CodexWorktrees\Accounting-App\clearance-reporting-gate -b codex/zatca-clearance-reporting-approval-gate origin/main`
+  - GitHub verification for PR #16 mergeability, clean scope, successful checks, and head commit before merging into `main`
+  - GitHub merge of PR `#16` with expected head `3e0d0ab70f7e8299edb681f246db8b9961db240a`
+  - `git worktree add E:\CodexWorktrees\Accounting-App\pdf-a3-gate -b codex/zatca-pdf-a3-approval-gate origin/main`
+  - `node --test scripts/zatca-pdf-a3-approval-gate.test.cjs`
+  - `corepack pnpm test:zatca-pdf-a3-approval-gate`
+  - `corepack pnpm zatca:pdf-a3-approval-gate -- --json --strict`
   - `node --test scripts/zatca-clearance-reporting-approval-gate.test.cjs`
   - `corepack pnpm test:zatca-clearance-reporting-approval-gate`
   - `corepack pnpm zatca:clearance-reporting-approval-gate -- --json --strict`
-  - `node --test scripts/zatca-signing-phase2-qr-approval-gate.test.cjs`
-  - `corepack pnpm test:zatca-signing-phase2-qr-approval-gate`
-  - `corepack pnpm zatca:signing-phase2-qr-approval-gate -- --json --strict`
   - `node --test scripts/verify-gate.test.cjs`
   - `corepack pnpm verify:ci:local -- --plan`
   - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')"`
@@ -91,25 +97,24 @@
   - `git diff --cached --check`
   - `corepack pnpm verify:diff`
 - Checks observed:
-  - PR #15 URL: `https://github.com/Noone9029/Accounting-App/pull/15`
-  - PR #15 number: `15`
+  - PR #16 URL: `https://github.com/Noone9029/Accounting-App/pull/16`
+  - PR #16 number: `16`
   - The three `node --test ...` commands passed.
   - The two `corepack pnpm test:...` commands passed.
   - The two strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
 - Deployment verification: skipped. No deploy, sandbox portal login, or runtime ZATCA validation was performed.
 - Skipped commands and why:
-  - ZATCA runtime commands, sandbox portal login, OTP capture, request body creation, sandbox network request execution, adapter execution, response body processing, response custody handling, custody provider execution, CSID storage, signing execution, QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, ZATCA API calls, request/response body handling, private-key/certificate/CSID use, PDF-A3, email, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
+  - ZATCA runtime commands, sandbox portal login, OTP capture, request body creation, sandbox network request execution, adapter execution, response body processing, response custody handling, custody provider execution, CSID storage, signing execution, QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, PDF-A3 generation, XML embedding, invoice archive creation, PDF/XML body handling, object-storage/database/document-store writes, email, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
 - Remaining blockers:
-  - Clearance execution remains blocked.
-  - Reporting execution remains blocked.
-  - Invoice and note submission remain blocked.
-  - ZATCA API execution remains blocked.
-  - Request/response body handling remains blocked.
-  - PDF-A3 remains blocked.
-  - Production compliance remains blocked.
+  - PDF-A3 generation remains blocked.
+  - XML embedding and signed XML embedding remain blocked.
+  - Invoice archive creation and file persistence remain blocked.
+  - PDF/XML body handling remains blocked.
+  - Object-storage/database/document-store writes remain blocked.
+  - Production compliance launch remains blocked.
   - Existing unrelated dirty files remain outside this arc and must stay unstaged: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no. This lane adds docs, a standalone static guard, tests, and package scripts only.
-- Exact next recommended prompt title: `ZATCA PDF-A3 approval gate`.
+- Exact next recommended prompt title: `ZATCA production compliance launch gate`.
 
 ## Prior Development Objective
 

@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `154bbf82` (`Merge pull request #15 from Noone9029/codex/zatca-signing-phase2-qr-approval-gate`) plus the current clearance/reporting approval-gate pass.
+Latest commit audited: `edc306e6` (`Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`) plus the current PDF-A3 approval-gate pass.
 
 ## Scope
 
@@ -36,6 +36,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### ZATCA PDF-A3 approval gate added
+
+Added a dedicated metadata-only approval gate for future ZATCA PDF-A3 planning without allowing any real archive generation, embedding, or persistence.
+
+Risk reduced:
+
+- PR `#16` `ZATCA clearance reporting approval gate` was verified live and merged into `main` at `edc306e6` before this lane started.
+- Added `docs/zatca/PDF_A3_APPROVAL_GATE.md`.
+- Added `docs/zatca/PDF_A3_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_PDF_A3_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-pdf-a3-approval-gate.cjs`.
+- Added `scripts/zatca-pdf-a3-approval-gate.test.cjs`.
+- Added root package scripts `zatca:pdf-a3-approval-gate` and `test:zatca-pdf-a3-approval-gate`.
+- Default status is `PDF_A3_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `PDF_A3_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No PDF-A3 was generated, no XML was embedded, no signed XML was embedded, no file was persisted, no object-storage/database/document-store write was executed, and no invoice/customer data was read.
+- No signing, QR, ZATCA, clearance/reporting, or production compliance behavior was enabled.
+- Production compliance launch remains blocked.
 
 ### ZATCA clearance/reporting approval gate added
 
