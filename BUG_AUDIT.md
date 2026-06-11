@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `5502434b` (`Merge pull request #19 from codex/controlled-beta-route-hardening-followup`) plus the current controlled-beta setup onboarding hardening pass.
+Latest commit audited: `5a29ab76` (`Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`) plus the current controlled-beta documents/reports hardening pass.
 
 ## Scope
 
@@ -36,6 +36,24 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta documents and reports workflow surfaces hardened
+
+Fixed small but real documents/reports workflow issues without changing accounting logic, VAT math, report math, generated PDF behavior, storage-provider behavior, or runtime ZATCA behavior.
+
+Risk reduced:
+
+- The documents archive filter no longer depends on a hand-maintained type list. It now derives options from shared generated-document labels, which keeps `SALES_QUOTE` and `BANK_RECONCILIATION_REPORT` archive rows filterable.
+- Aged Receivables and Aged Payables helper actions now preserve report context with safe `returnTo` parameters on create/payment routes instead of silently dropping users into detached workflows.
+- The reports index now explicitly frames VAT Return as a draft accountant-review view only, which reduces wording that could be read as an official VAT filing or submission surface.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/lib/documents.test.ts`
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+
+Remaining risks:
+
+- VAT Return export actions remain unavailable because the current backend does not expose dedicated VAT Return export endpoints, and this pass intentionally did not add misleading export UI.
+- This pass did not change report math, VAT math, journal posting behavior, generated PDF logic, archive persistence, backup execution, restore execution, or runtime ZATCA behavior.
 
 ### Controlled-beta setup onboarding now stays on the richer customer flow and preserves source context
 

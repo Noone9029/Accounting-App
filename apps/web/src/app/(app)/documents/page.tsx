@@ -8,6 +8,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
+  GENERATED_DOCUMENT_TYPES,
   canCreateApGeneratedDocumentEmail,
   canDownloadGeneratedDocument,
   documentSourceTypeLabel,
@@ -21,30 +22,7 @@ import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { DocumentType, GeneratedDocument, GeneratedDocumentStatus } from "@/lib/types";
 
-const documentTypes: Array<"" | DocumentType> = [
-  "",
-  "SALES_INVOICE",
-  "DELIVERY_NOTE",
-  "CREDIT_NOTE",
-  "CUSTOMER_PAYMENT_RECEIPT",
-  "CUSTOMER_REFUND",
-  "CUSTOMER_STATEMENT",
-  "SUPPLIER_STATEMENT",
-  "PURCHASE_ORDER",
-  "PURCHASE_BILL",
-  "PURCHASE_DEBIT_NOTE",
-  "SUPPLIER_PAYMENT_RECEIPT",
-  "SUPPLIER_REFUND",
-  "CASH_EXPENSE",
-  "REPORT_GENERAL_LEDGER",
-  "REPORT_TRIAL_BALANCE",
-  "REPORT_PROFIT_AND_LOSS",
-  "REPORT_BALANCE_SHEET",
-  "REPORT_VAT_SUMMARY",
-  "REPORT_AGED_RECEIVABLES",
-  "REPORT_AGED_PAYABLES",
-  "BANK_RECONCILIATION_REPORT",
-];
+const documentTypes: Array<"" | DocumentType> = ["", ...GENERATED_DOCUMENT_TYPES];
 const statuses: Array<"" | GeneratedDocumentStatus> = ["", "GENERATED", "FAILED", "SUPERSEDED"];
 
 export default function GeneratedDocumentsPage() {

@@ -60,7 +60,7 @@ export function ReportsIndexPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">Reports</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Start with Profit & Loss after your first finalized invoice or payment. Reports are derived from posted journals and current open AR/AP balances.
+            Start with Profit & Loss after your first finalized invoice or payment. Most reports are derived from posted journals and current open AR/AP balances, while VAT Return stays a draft accountant-review view only.
           </p>
         </div>
         <Link href="/setup" className="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -760,6 +760,7 @@ export function AgingReportGuide({ kind }: { kind: AgingReportKind }) {
 
 function ReportActionLinks({ kind }: { kind: AgingReportKind }) {
   const isReceivables = kind === "receivables";
+  const returnTo = isReceivables ? "/reports/aged-receivables" : "/reports/aged-payables";
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       <Link
@@ -768,10 +769,16 @@ function ReportActionLinks({ kind }: { kind: AgingReportKind }) {
       >
         {isReceivables ? "View customers" : "View suppliers"}
       </Link>
-      <Link href={isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+      <Link
+        href={`${isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"}?returnTo=${encodeURIComponent(returnTo)}`}
+        className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
+      >
         {isReceivables ? "Create invoice" : "Create bill"}
       </Link>
-      <Link href={isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+      <Link
+        href={`${isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"}?returnTo=${encodeURIComponent(returnTo)}`}
+        className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+      >
         {isReceivables ? "Record payment" : "Record supplier payment"}
       </Link>
       <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">

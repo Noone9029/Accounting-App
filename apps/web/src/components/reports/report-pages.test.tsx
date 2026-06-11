@@ -26,6 +26,7 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Open Profit & Loss" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Guided setup" })).toHaveAttribute("href", "/setup");
+    expect(screen.getByText(/VAT Return stays a draft accountant-review view only/i)).toBeInTheDocument();
     expect(screen.getByText(/Outstanding sales invoice balances after posted payments and credits/i)).toBeInTheDocument();
     expect(screen.getByText(/Operational VAT summary/i)).toBeInTheDocument();
   });
@@ -38,8 +39,8 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/balance due after posted payments, credit notes, and refunds/)).toBeInTheDocument();
     expect(screen.getByText(/customer ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View customers" })).toHaveAttribute("href", "/customers");
-    expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new");
-    expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute("href", "/sales/customer-payments/new");
+    expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new?returnTo=%2Freports%2Faged-receivables");
+    expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute("href", "/sales/customer-payments/new?returnTo=%2Freports%2Faged-receivables");
   });
 
   it("links aged receivables rows back to the customer and invoice", () => {
@@ -57,8 +58,8 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/Supplier bills that still have a balance due/)).toBeInTheDocument();
     expect(screen.getByText(/supplier ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View suppliers" })).toHaveAttribute("href", "/suppliers");
-    expect(screen.getByRole("link", { name: "Create bill" })).toHaveAttribute("href", "/purchases/bills/new");
-    expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute("href", "/purchases/supplier-payments/new");
+    expect(screen.getByRole("link", { name: "Create bill" })).toHaveAttribute("href", "/purchases/bills/new?returnTo=%2Freports%2Faged-payables");
+    expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute("href", "/purchases/supplier-payments/new?returnTo=%2Freports%2Faged-payables");
   });
 
   it("links aged payables rows back to the supplier and bill", () => {

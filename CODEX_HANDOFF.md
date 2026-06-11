@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
+- Main commit inspected: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
+- PR #20 merge pushed to `main`: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
 - PR #19 merge pushed to `main`: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
 - PR #18 merge pushed to `main`: `c21cb392 Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`
 - PR #17 cleanup merge pushed to `main`: `a9c9cef1 Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`
@@ -17,162 +18,53 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-setup-onboarding-hardening`.
-- Current completed lane: diagnosed and fixed PR `#19` CI, merged PR `#19` into `main`, then hardened controlled-beta setup onboarding and first-workflow routing from synced `main`.
-- Branch source used for this lane: `main` at `5502434b`.
-- Branch status versus `main`: frontend/docs/tests-only onboarding hardening on top of the merged route-surface pass.
+- Current branch: `codex/controlled-beta-documents-reports-hardening`.
+- Current completed lane: verified PR `#20`, merged it into `main`, synced the latest main state, then hardened controlled-beta documents and reports workflow surfaces from a clean worktree branch.
+- Branch source used for this lane: `main` at `5a29ab76`.
+- Branch status versus `main`: frontend/docs/tests-only documents/reports hardening on top of the merged setup-onboarding pass.
 - Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted to confirm the shared route/helper/test files before editing. No Graphify regeneration was performed.
-- PR #19 CI root cause and merge result:
-  - PR `#19` `Controlled beta route surface hardening` was rechecked through GitHub and originally failed `Non-mutating verification` at `Run local CI verification gate`.
-  - Root cause: `scripts/verify-gate.cjs` still fell back to broad repo verification for frontend/docs/test PRs like `#19`, so CI pulled unrelated existing failures outside the PR scope, including broad repo `packages/zatca-core` failures and a separate unrelated web test outside the touched files.
-  - Fix applied on `codex/controlled-beta-route-hardening-followup`: narrow frontend/docs/test PRs to web typecheck, changed web test files only, and web build; add `scripts/run-web-jest-by-paths.cjs`; extend `scripts/verify-gate.test.cjs`; set workflow `fetch-depth: 2`; and make the scoped Jest runner Linux-compatible.
-  - Fix commits pushed to PR branch: `214ddc78 Scope PR verification to touched web changes` and `0609c344 Fix scoped web Jest runner on Linux`.
-  - PR `#19` went green and was merged into `main` with merge commit `5502434b`.
+- PR #20 merge result:
+  - PR `#20` `Controlled beta setup onboarding hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, and green with `PR Verification`, `Vercel - ledgerbyte-api-test`, and `Vercel - ledgerbyte-web-test` successful.
+  - The verified head stayed `0a2b3cc1d8a7d5e81a96c4c50d73ca7d1d366ffe`.
+  - The diff remained frontend/docs/tests only and did not touch schema, migrations, API accounting logic, ZATCA runtime, email, deploy, env, secrets, or customer data.
+  - PR `#20` was merged into `main` with merge commit `5a29ab76`.
 - Product areas reviewed:
-  - `apps/web/src/app/(app)/dashboard`
-  - `apps/web/src/app/(app)/setup`
-  - `apps/web/src/app/(app)/organization/setup`
-  - `apps/web/src/app/(app)/customers`
-  - `apps/web/src/app/(app)/suppliers`
-  - `apps/web/src/app/(app)/sales/invoices/new`
-  - `apps/web/src/app/(app)/sales/customer-payments/new`
-  - `apps/web/src/app/(app)/purchases/bills/new`
-  - related shared helpers/components in `apps/web/src/components/onboarding`, `apps/web/src/components/forms`, and `apps/web/src/lib/dashboard`
+  - `apps/web/src/app/(app)/documents`
+  - `apps/web/src/app/(app)/reports`
+  - `apps/web/src/components/reports`
+  - `apps/web/src/lib/documents`
+  - `apps/web/src/lib/reports`
+  - `apps/web/src/lib/storage`
+  - `CODEX_HANDOFF.md`
+  - `BUG_AUDIT.md`
 - Product workflow fixes completed:
-  - Setup wizard `First customer` now opens the richer `/customers` workspace instead of sending first-time users to the generic `/contacts` surface.
-  - Setup wizard `First invoice` and `First payment` now append `returnTo=/setup`, so cancel/save paths stay anchored to guided setup instead of silently dropping the user into generic lists/details.
-  - Dashboard quick actions for invoice, customer payment, purchase bill, supplier payment, and cash expense now append `returnTo=/dashboard`, keeping the first workflow anchored to the dashboard context.
-  - Sales invoice empty-state guidance now points users to `/customers` instead of the generic contacts list when no customer exists yet.
-  - Customer payment empty-state guidance now points users to `/customers` instead of the generic contacts list when the first workflow is blocked on customer setup.
-  - Targeted tests were added or updated in `apps/web/src/lib/dashboard.test.ts`, `apps/web/src/components/onboarding/setup-wizard.test.tsx`, `apps/web/src/app/(app)/dashboard/page.test.tsx`, `apps/web/src/components/forms/sales-invoice-form.test.tsx`, and `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`.
+  - The documents archive filter now derives its options from shared generated-document metadata instead of a hand-maintained list, so newer controlled-beta document types such as `SALES_QUOTE` and `BANK_RECONCILIATION_REPORT` remain filterable.
+  - Aging report helper actions now preserve report context with safe `returnTo` query parameters for receivables and payables workflows instead of silently dropping users into detached create/payment flows.
+  - The reports index now explicitly says VAT Return remains a draft accountant-review view only, which removes wording that could be read as the same class of posted-journal financial statement or an official filing/submission surface.
+  - Targeted tests were added or updated in `apps/web/src/lib/documents.test.ts` and `apps/web/src/components/reports/report-pages.test.tsx`.
 - Safety posture:
-  - No schema, migration, seed/reset/delete, deploy, email send, storage mutation, report math, journal posting logic, payment allocation logic, ZATCA runtime execution, OTP/CSID handling, or production/beta/customer-data mutation changes were made.
+  - No schema, migration, seed/reset/delete, deploy, email send, storage mutation, report math, VAT math, journal posting logic, payment allocation logic, generated PDF logic, ZATCA runtime execution, OTP/CSID handling, or production/beta/customer-data mutation changes were made.
 - Checks run:
   - `corepack pnpm install --frozen-lockfile`
-  - `corepack pnpm verify:ci:local -- --plan`
-  - `node --test scripts/verify-gate.test.cjs`
-  - `corepack pnpm verify:ci:local`
-  - `node scripts/run-web-jest-by-paths.cjs "src/app/(app)/contacts/page.test.tsx" "src/app/(app)/documents/page.test.tsx" src/components/reports/report-pages.test.tsx src/lib/documents.test.ts src/lib/storage.test.ts`
+  - GitHub recheck of PR `#20` status, mergeability, head SHA, green verification, and safe frontend/docs/tests-only scope before merge
+  - GitHub merge of PR `#20` with expected head `0a2b3cc1d8a7d5e81a96c4c50d73ca7d1d366ffe`
+  - `corepack pnpm exec jest --config jest.config.cjs --runTestsByPath src/lib/documents.test.ts src/components/reports/report-pages.test.tsx`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
-  - `git diff --cached --check`
-  - GitHub recheck of PR `#19` status, mergeability, and post-fix green verification before merge
-  - Local merge of PR `#19` branch into `main` with push of merge commit `5502434b`
-  - `node .\\node_modules\\jest\\bin\\jest.js --config jest.config.cjs --runTestsByPath "src/lib/dashboard.test.ts" "src/components/onboarding/setup-wizard.test.tsx" "src/app/(app)/dashboard/page.test.tsx" "src/components/forms/sales-invoice-form.test.tsx" "src/app/(app)/sales/customer-payments/new/page.test.tsx"`
-  - `corepack pnpm --filter @ledgerbyte/web typecheck`
-  - `corepack pnpm verify:diff`
-  - `git diff --check`
-  - `git diff --cached --check`
 - Skipped commands and why:
   - API typecheck was skipped because no API files changed.
-  - `node --test scripts/verify-gate.test.cjs` was not rerun on the onboarding branch because `verify-gate` was not changed in this pass.
-  - `docs/IMPLEMENTATION_STATUS.md` and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass fixed route wording/handoff issues without meaningfully changing product scores or posture.
+  - `apps/web/src/app/(app)/documents/page.test.tsx` was not run directly in this worktree because Windows command parsing around the `(app)` segment broke the path-specific invocation; the shared document helper test and web typecheck still passed for the actual change.
+  - `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass fixed narrow route/filter/wording issues without materially changing product posture or readiness scoring.
   - Graphify regeneration was skipped because existing output was stale-but-sufficient for dependency guidance and the task explicitly said not to regenerate unless genuinely needed.
   - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and report/PDF mutation checks remained out of scope or explicitly forbidden.
 - Remaining blockers:
-  - The onboarding arc remains intentionally narrow: no new backend features, no new checklist data, and no setup/dashboard redesign were added.
-  - Purchase bill page header copy and broader AP-first onboarding remain available for the next focused documents/reports workflow pass if the user wants broader guidance beyond safe route anchoring.
+  - VAT Return still has no dedicated export route by design in the current backend, so this pass intentionally did not add frontend export actions that would imply official filing/export support.
+  - Broader customer/supplier workspace polish remains for the next focused controlled-beta arc.
   - ZATCA settings runtime behavior remains untouched; this pass did not edit the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx`.
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no.
-- Exact next recommended prompt title: `Controlled beta documents and reports workflow hardening`
-- Main sync and PR status:
-  - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
-  - GitHub API previously confirmed `merged=true`, `draft=false`, head `14fb33632e5c10e370cef22d40a8ed2bee69ad68`, merge commit `2ff09fab40a097f47dfdb55fd9c5ced62ff553f5`, and docs-only changed files only.
-  - Successful PR checks observed before merge: `Non-mutating verification`, `Vercel – ledgerbyte-api-test`, `Vercel – ledgerbyte-web-test`, and `GitGuardian Security Checks`.
-- PR #9 merge status:
-  - PR #9 `ZATCA manual OTP capture approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `5f1b2c0b6572049026cbe82881de6ec8d60b549a`.
-  - PR verification and Vercel API/web checks were observed successful before merge.
-  - The branch was merged into `main` with merge commit `a4190941`.
-- PR #10 merge status:
-  - PR #10 `ZATCA request body creation approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only after PR #9 landed.
-  - The head commit matched `e8b59c9424d908af6b5a17671b472c6793919ee3`.
-  - PR verification and Vercel API/web checks were observed successful before merge.
-  - The branch was merged into `main` with merge commit `feb32ccc`.
-- PR #11 merge status:
-  - PR #11 `ZATCA sandbox network request approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `fadcf3f2f62f170abf9506764be22cf6434fb474`.
-  - `Non-mutating verification`, `GitGuardian Security Checks`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge; `Vercel Preview Comments` completed successfully and was non-blocking.
-  - The branch was merged into `main` with merge commit `13bf16a5`.
-- PR #12 merge status:
-  - PR #12 `ZATCA sandbox response processing approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `f20e688af0e79938300afc327be13ce9b8eaf9c4`.
-  - `Vercel – ledgerbyte-api-test` and `Vercel – ledgerbyte-web-test` were observed successful before merge.
-  - The branch was merged into `main` with merge commit `d15884f8`.
-- PR #13 merge status:
-  - PR #13 `ZATCA sandbox response custody approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `1f6773568eeebc57ec98033acda3a7b6d17a743f`.
-  - `Vercel – ledgerbyte-api-test` and `Vercel – ledgerbyte-web-test` were observed successful before merge.
-  - The branch was merged into `main` with merge commit `db8f058c`.
-- PR #14 merge status:
-  - PR #14 `ZATCA sandbox CSID storage approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script plus verify-gate CI narrowing only when rechecked against `main`.
-  - The head commit matched `7f6f1b25a62725e8753280c4f1057cd1a019839f`.
-  - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
-  - The branch was merged into `main` with merge commit `ce2489a5`.
-- PR #15 merge status:
-  - PR #15 `ZATCA signing and Phase 2 QR approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `57e596ee712cfff1d51d883470da620045695177`.
-  - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
-  - The branch was merged into `main` with merge commit `154bbf82`.
-- PR #16 merge status:
-  - PR #16 `ZATCA clearance reporting approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
-  - The head commit matched `3e0d0ab70f7e8299edb681f246db8b9961db240a`.
-  - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
-  - The branch was merged into `main` with merge commit `edc306e6`.
-- Branch content audit:
-  - Added ZATCA docs: `docs/zatca/PDF_A3_APPROVAL_GATE.md` and `docs/zatca/PDF_A3_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_PDF_A3_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-pdf-a3-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-pdf-a3-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:pdf-a3-approval-gate` and `test:zatca-pdf-a3-approval-gate`.
-  - Updated handoff/readiness docs: `CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `BUG_AUDIT.md`.
-  - No app code, schema, migration, runtime ZATCA implementation, env file, or secret-handling path was changed.
-- Safety posture:
-  - Planning/approval metadata only.
-  - Metadata-only evidence.
-  - No sandbox portal login, OTP capture, CSID request, request body creation, sandbox network request execution, adapter execution, response body processing, response custody storage, custody provider execution, CSID storage, signing execution, Phase 2 QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, PDF-A3 generation, XML embedding, signed XML embedding, invoice archive creation, PDF/XML body handling, PDF library invocation, file persistence, object-storage/database/document-store writes, invoice/accounting/customer data reads or mutation, or production compliance claim.
-- Guard behavior:
-  - Default PDF-A3 status is `PDF_A3_APPROVAL_BLOCKED`.
-  - The exact PDF-A3 approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `PDF_A3_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - PDF-A3 generation, XML embedding, signed XML embedding, invoice archive creation, PDF/XML body handling, PDF library invocation, file persistence, object-storage/database/document-store writes, signing, QR generation, ZATCA network calls, and clearance/reporting remain blocked even when the phrase is recognized.
-- Checks run:
-  - `git fetch origin`
-  - GitHub verification for PR #16 mergeability, clean scope, successful checks, and head commit before merging into `main`
-  - GitHub merge of PR `#16` with expected head `3e0d0ab70f7e8299edb681f246db8b9961db240a`
-  - `git worktree add E:\CodexWorktrees\Accounting-App\pdf-a3-gate -b codex/zatca-pdf-a3-approval-gate origin/main`
-  - `node --test scripts/zatca-pdf-a3-approval-gate.test.cjs`
-  - `corepack pnpm test:zatca-pdf-a3-approval-gate`
-  - `corepack pnpm zatca:pdf-a3-approval-gate -- --json --strict`
-  - `node --test scripts/zatca-clearance-reporting-approval-gate.test.cjs`
-  - `corepack pnpm test:zatca-clearance-reporting-approval-gate`
-  - `corepack pnpm zatca:clearance-reporting-approval-gate -- --json --strict`
-  - `node --test scripts/verify-gate.test.cjs`
-  - `corepack pnpm verify:ci:local -- --plan`
-  - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')"`
-  - `git diff --check`
-  - `git diff --cached --check`
-  - `corepack pnpm verify:diff`
-- Checks observed:
-  - PR #16 URL: `https://github.com/Noone9029/Accounting-App/pull/16`
-  - PR #16 number: `16`
-  - The three `node --test ...` commands passed.
-  - The two `corepack pnpm test:...` commands passed.
-  - The two strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
-- Deployment verification: skipped. No deploy, sandbox portal login, or runtime ZATCA validation was performed.
-- Skipped commands and why:
-  - ZATCA runtime commands, sandbox portal login, OTP capture, request body creation, sandbox network request execution, adapter execution, response body processing, response custody handling, custody provider execution, CSID storage, signing execution, QR generation, signed XML generation, clearance execution, reporting execution, invoice or note submission, PDF-A3 generation, XML embedding, invoice archive creation, PDF/XML body handling, object-storage/database/document-store writes, email, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
-- Remaining blockers:
-  - PDF-A3 generation remains blocked.
-  - XML embedding and signed XML embedding remain blocked.
-  - Invoice archive creation and file persistence remain blocked.
-  - PDF/XML body handling remains blocked.
-  - Object-storage/database/document-store writes remain blocked.
-  - Production compliance launch remains blocked.
-  - Existing unrelated dirty files remain outside this arc and must stay unstaged: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
-- Production/ZATCA/customer-data behavior changed: no. This lane adds docs, a standalone static guard, tests, and package scripts only.
-- Exact next recommended prompt title: `ZATCA production compliance launch gate`.
+- Exact next recommended prompt title: `Controlled beta customer supplier workspace polish`
 
 ## Prior Development Objective
 
