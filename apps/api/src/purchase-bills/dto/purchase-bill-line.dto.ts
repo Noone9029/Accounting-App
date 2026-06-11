@@ -1,8 +1,9 @@
-import { IsDecimal, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsDecimal, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { IsPostgresUuid } from "./postgres-uuid.decorator";
 
 export class PurchaseBillLineDto {
   @IsOptional()
-  @IsUUID()
+  @IsPostgresUuid()
   itemId?: string | null;
 
   @IsOptional()
@@ -10,7 +11,7 @@ export class PurchaseBillLineDto {
   description?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsPostgresUuid()
   accountId?: string | null;
 
   @IsDecimal({ decimal_digits: "0,4" })
@@ -24,7 +25,7 @@ export class PurchaseBillLineDto {
   discountRate?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsPostgresUuid()
   taxRateId?: string | null;
 
   @IsOptional()

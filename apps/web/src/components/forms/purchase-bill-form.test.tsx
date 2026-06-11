@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { PurchaseBillForm } from "./purchase-bill-form";
 
@@ -38,10 +38,17 @@ describe("PurchaseBillForm", () => {
     window.history.pushState({}, "", "/purchases/bills/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
-    apiRequestMock.mockImplementation((path: string) => {
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
+      if (path === "/purchase-bills" && options?.method === "POST") {
+        return Promise.resolve({
+          id: "bill-1",
+          billNumber: "BILL-000001",
+          status: "DRAFT",
+        });
+      }
       if (path === "/contacts") {
         return Promise.resolve([
-          contactFixture("supplier-1", "Beta Supplier"),
+          contactFixture("00000000-0000-0000-0000-000000000201", "Beta Supplier"),
           contactFixture("supplier-2", "Second Supplier"),
         ]);
       }
@@ -51,9 +58,9 @@ describe("PurchaseBillForm", () => {
       if (path === "/accounts") {
         return Promise.resolve([
           {
-            id: "expense-1",
-            code: "501",
-            name: "Office supplies",
+            id: "00000000-0000-0000-0000-000000000401",
+            code: "1000",
+            name: "Cash",
             type: "EXPENSE",
             isActive: true,
             allowPosting: true,
@@ -61,10 +68,27 @@ describe("PurchaseBillForm", () => {
         ]);
       }
       if (path === "/tax-rates") {
-        return Promise.resolve([]);
+        return Promise.resolve([
+          {
+            id: "00000000-0000-0000-0000-000000000501",
+            name: "VAT 15%",
+            rate: "15.0000",
+            scope: "PURCHASES",
+            category: "STANDARD",
+            isActive: true,
+          },
+        ]);
       }
       if (path === "/branches") {
-        return Promise.resolve([]);
+        return Promise.resolve([
+          {
+            id: "00000000-0000-0000-0000-000000000101",
+            name: "Riyadh Demo Branch",
+            displayName: "Riyadh Demo Branch",
+            countryCode: "SA",
+            isDefault: true,
+          },
+        ]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -77,6 +101,46 @@ describe("PurchaseBillForm", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-2"));
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-2");
+  });
+
+  it("submits selected branch, account, and tax IDs instead of visible labels", async () => {
+    render(<PurchaseBillForm />);
+
+    await waitFor(() => expect(screen.getByRole("option", { name: "Beta Supplier" })).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("Supplier"), { target: { value: "00000000-0000-0000-0000-000000000201" } });
+    fireEvent.change(screen.getByLabelText("Branch"), { target: { value: "00000000-0000-0000-0000-000000000101" } });
+
+    const lineRow = screen.getAllByRole("row")[1]!;
+    const lineControls = within(lineRow);
+    const lineTextboxes = lineControls.getAllByRole("textbox");
+    const lineComboboxes = lineControls.getAllByRole("combobox");
+
+    fireEvent.change(lineTextboxes[0]!, { target: { value: "TEST" } });
+    fireEvent.change(lineComboboxes[1]!, { target: { value: "00000000-0000-0000-0000-000000000401" } });
+    fireEvent.change(lineComboboxes[2]!, { target: { value: "00000000-0000-0000-0000-000000000501" } });
+    fireEvent.change(lineTextboxes[2]!, { target: { value: "1000" } });
+
+    fireEvent.submit(screen.getByRole("button", { name: "Save draft" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/purchase-bills",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.objectContaining({
+            supplierId: "00000000-0000-0000-0000-000000000201",
+            branchId: "00000000-0000-0000-0000-000000000101",
+            lines: [
+              expect.objectContaining({
+                accountId: "00000000-0000-0000-0000-000000000401",
+                taxRateId: "00000000-0000-0000-0000-000000000501",
+              }),
+            ],
+          }),
+        }),
+      ),
+    );
   });
 });
 
