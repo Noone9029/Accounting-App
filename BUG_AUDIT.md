@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `e9a4b819` (`Merge pull request #23 from Noone9029/codex/controlled-beta-payments-statements-workflow-hardening`) plus the current controlled-beta final readiness triage pass.
+Latest commit audited: `114dfb3f` (`Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`) plus the current controlled-beta route-load verification batch.
 
 ## Scope
 
@@ -36,6 +36,21 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta settings root route restored
+
+Fixed a real route-load gap where `/settings` had no page on the merged PR #24 base, leaving the settings route family without a root entry even though the controlled-beta verification batch expected it to load safely.
+
+Risk reduced:
+
+- Added `apps/web/src/app/(app)/settings/page.tsx` and redirected `/settings` to `/settings/team`.
+- Added `apps/web/src/app/(app)/route-load-verification.test.tsx` to cover `/settings` along with the under-tested controlled-beta route modules for setup, customer/supplier workspaces, reports, storage settings, sales invoices, sales credit notes, purchase bills, and purchase debit notes.
+- Re-ran the broader non-mutating route suite across dashboard, contact detail, documents, bills, matching, payment routes, invoice detail, team settings, and ZATCA settings on the PR #24 merged base.
+
+Remaining risks:
+
+- Customer and supplier statements still share the combined contact-detail surface instead of dedicated statement routes.
+- This pass stayed frontend/tests/docs only; no schema, accounting logic, payment allocation logic, statement balance logic, report math, VAT math, generated PDF logic, ZATCA runtime, or production/beta/customer-data behavior changed.
 
 ### Controlled-beta payment-detail return path chain hardened
 

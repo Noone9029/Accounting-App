@@ -24,6 +24,7 @@ Branch: `codex/controlled-beta-final-product-readiness-triage`
 - Preserved the same context on customer and supplier payment-detail `Back` actions, so workspace > payment list > payment detail can round-trip without falling back to the generic payment ledgers.
 - Preserved payment-detail context on customer `View invoice` / `AR report` next actions and supplier `View bill` / `AP report` next actions, so users can review adjacent workflow surfaces and return to the payment step they came from.
 - Added targeted frontend regression coverage for the list/detail return-path chain on both customer and supplier payments.
+- Follow-up route-load verification is now captured in `docs/development/CONTROLLED_BETA_ROUTE_LOAD_VERIFICATION_BATCH.md` on top of the merged PR `#24` base.
 
 ## Tests And Checks Run
 
@@ -41,8 +42,8 @@ LedgerByte remains suitable for controlled beta/user-testing with selected teste
 
 ### Must fix before controlled beta expansion
 
-- Run the next route-load verification batch across the reviewed journey surfaces to confirm the browser/runtime path matches the current code-level fixes, especially around route continuity and action visibility.
 - Continue checking older detail surfaces for the same context-loss pattern if they are part of the tester script, especially where workflow pages link into documents, reports, or shared contact views.
+- Customer/supplier statements are still shared through the combined contact-detail surface instead of dedicated statement routes.
 
 ### Should fix during early controlled beta
 
