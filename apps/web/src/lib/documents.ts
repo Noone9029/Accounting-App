@@ -26,6 +26,8 @@ const documentTypeLabels: Record<DocumentType, string> = {
   BANK_RECONCILIATION_REPORT: "Bank Reconciliation Report",
 };
 
+export const GENERATED_DOCUMENT_TYPES = Object.keys(documentTypeLabels) as DocumentType[];
+
 export function documentTypeLabel(type: DocumentType): string {
   return documentTypeLabels[type];
 }

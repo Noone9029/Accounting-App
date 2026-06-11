@@ -1,4 +1,5 @@
 import {
+  GENERATED_DOCUMENT_TYPES,
   canDownloadGeneratedDocument,
   canCreateApGeneratedDocumentEmail,
   documentSourceTypeLabel,
@@ -10,6 +11,11 @@ import { PERMISSIONS, type Permission } from "./permissions";
 import type { GeneratedDocument } from "./types";
 
 describe("document helpers", () => {
+  it("keeps every supported generated document type available to archive filters", () => {
+    expect(GENERATED_DOCUMENT_TYPES).toContain("SALES_QUOTE");
+    expect(GENERATED_DOCUMENT_TYPES).toContain("BANK_RECONCILIATION_REPORT");
+  });
+
   it("labels report document types clearly", () => {
     expect(documentTypeLabel("REPORT_GENERAL_LEDGER")).toBe("General Ledger Report");
     expect(documentTypeLabel("REPORT_TRIAL_BALANCE")).toBe("Trial Balance Report");
