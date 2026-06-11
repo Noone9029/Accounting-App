@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `13bf16a5` (`Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`) plus the current sandbox response processing approval-gate pass.
+Latest commit audited: `d15884f8` (`Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`) plus the current sandbox response custody approval-gate pass.
 
 ## Scope
 
@@ -149,6 +149,27 @@ Remaining risks:
 
 - No network request was executed, no adapter was executed, no request body was created, no response body was received, no response body was processed, no response custody was stored, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
 - Response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
+### ZATCA sandbox response custody approval gate added
+
+Added a dedicated metadata-only approval gate for future sandbox response custody planning without allowing any response custody, provider execution, or storage writes.
+
+Risk reduced:
+
+- PR `#12` `ZATCA sandbox response processing approval gate` was rechecked live and merged into `main` at `d15884f8` before this branch was created.
+- Added `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE.md`.
+- Added `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-sandbox-response-custody-approval-gate.cjs`.
+- Added `scripts/zatca-sandbox-response-custody-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-response-custody-approval-gate` and `test:zatca-sandbox-response-custody-approval-gate`.
+- Default status is `SANDBOX_RESPONSE_CUSTODY_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_RESPONSE_CUSTODY_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No network request was executed, no adapter was executed, no request body was created, no response body was received, no response body was processed, no response custody was stored, no custody provider was executed, no secret-manager write was executed, no database write was executed, no object-storage write was executed, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
 
 ### ZATCA sandbox request body creation approval gate added
 

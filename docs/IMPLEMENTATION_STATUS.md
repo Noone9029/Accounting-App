@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA Sandbox Response Custody Approval Gate update:
+
+- PR `#12` `ZATCA sandbox response processing approval gate` was verified live, then merged into `main` with merge commit `d15884f8`.
+- Added `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE.md`, `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_RESULTS.md`, `docs/development/ZATCA_SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-sandbox-response-custody-approval-gate.cjs`, and `scripts/zatca-sandbox-response-custody-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-response-custody-approval-gate` and `test:zatca-sandbox-response-custody-approval-gate`.
+- Observed default status is `SANDBOX_RESPONSE_CUSTODY_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_RESPONSE_CUSTODY_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No network request was executed, no adapter was executed, no request body was created, no response body was received, no response body was processed, no response custody was stored, no custody provider was executed, no secret-manager write was executed, no database write was executed, no object-storage write was executed, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Current blockers are real sandbox network execution, adapter execution, response body receipt, response processing approval, response custody approval, sandbox CSID storage by an approved custody provider, signing, clearance/reporting, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA sandbox CSID storage approval gate`.
+
 2026-06-11 ZATCA Sandbox Response Processing Approval Gate update:
 
 - PR `#11` `ZATCA sandbox network request approval gate` was verified live, then merged into `main` with merge commit `13bf16a5`.
