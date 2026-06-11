@@ -70,6 +70,7 @@ describe("InventoryValuationVariancesPage", () => {
     expect(screen.getAllByText("Price variance").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Critical").length).toBeGreaterThan(0);
     expect(screen.getByText(/No posting, inventory valuation, AP balance, supplier credit, refund, or return automation/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Example Supplier" })[0]).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getAllByRole("link", { name: "Purchase order: PO-000001" })[0]).toHaveAttribute("href", "/purchases/purchase-orders/po-1");
     expect(screen.getAllByRole("link", { name: "Purchase bill: BILL-000001" })[0]).toHaveAttribute("href", "/purchases/bills/bill-1");
     expect(screen.getAllByRole("link", { name: "Purchase receipt: PRC-000001" })[0]).toHaveAttribute("href", "/inventory/purchase-receipts/receipt-1");

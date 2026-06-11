@@ -13,6 +13,7 @@ import { contactIdentificationOptions, formatContactIdentificationType, getConta
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, statementPdfPath, supplierStatementPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatcaReadinessStatusLabel } from "@/lib/zatca";
@@ -241,10 +242,24 @@ export default function ContactDetailPage() {
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
             Review the contact profile, ledger trail, statements, and next accounting actions from one place.
           </p>
+          {profile?.type === "BOTH" ? (
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
+              This contact appears in both customer and supplier workspaces. Use the workspace buttons to switch between receivables and payables context.
+            </p>
+          ) : null}
         </div>
-        <Link href="/contacts" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {profile
+            ? contactWorkspaceActions(profile).map((action) => (
+                <Link key={action.href} href={action.href} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  {action.label}
+                </Link>
+              ))
+            : null}
+          <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Back to contacts
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -518,6 +533,17 @@ function sectionLabel(section: ActiveSection): string {
     case "supplier-statement":
       return "Supplier statement";
   }
+}
+
+function contactWorkspaceActions(contact: Pick<Contact, "id" | "type">): Array<{ href: string; label: string }> {
+  const actions: Array<{ href: string; label: string }> = [];
+  if (contact.type === "CUSTOMER" || contact.type === "BOTH") {
+    actions.push({ href: partyDetailHref("customer", contact.id), label: "Customer workspace" });
+  }
+  if (contact.type === "SUPPLIER" || contact.type === "BOTH") {
+    actions.push({ href: partyDetailHref("supplier", contact.id), label: "Supplier workspace" });
+  }
+  return actions;
 }
 
 export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: { contactId: string; closingBalance: string; rowCount: number }) {
