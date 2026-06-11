@@ -24,6 +24,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA Manual OTP Capture Approval Gate update:
+
+- Added `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_GATE.md`, `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_RESULTS.md`, `docs/development/ZATCA_MANUAL_OTP_CAPTURE_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-manual-otp-capture-approval-gate.cjs`, and `scripts/zatca-manual-otp-capture-approval-gate.test.cjs`.
+- Added root package scripts `zatca:manual-otp-capture-approval-gate` and `test:zatca-manual-otp-capture-approval-gate`.
+- Observed default status is `MANUAL_OTP_CAPTURE_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `MANUAL_OTP_CAPTURE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No OTP was captured, no OTP value was stored, no OTP value was shared with Codex, no CSID was requested, no ZATCA network call was made, no request body was created, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Current blockers are manual OTP execution, request body creation approval, real sandbox network request approval, response processing approval, response custody approval, sandbox CSID storage by an approved custody provider, signing, clearance/reporting, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA sandbox request body creation approval gate`.
+
 2026-06-06 ZATCA Sandbox CSID Preflight Guard update:
 
 - Added `scripts/zatca-sandbox-csid-preflight.cjs`, `scripts/zatca-sandbox-csid-preflight.test.cjs`, `docs/zatca/SANDBOX_CSID_PREFLIGHT_GUARD.md`, and `docs/zatca/SANDBOX_CSID_PREFLIGHT_RESULTS.md`.
