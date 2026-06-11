@@ -335,8 +335,8 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         {!loading && organizationId && customers.length === 0 ? (
           <StatusMessage type="empty">
             Add a customer before creating the first invoice.{" "}
-            <Link href="/contacts" className="font-semibold text-palm hover:underline">
-              Open contacts
+            <Link href="/customers" className="font-semibold text-palm hover:underline">
+              Open customers
             </Link>
             .
           </StatusMessage>

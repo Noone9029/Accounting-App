@@ -95,6 +95,48 @@ describe("SalesInvoiceForm", () => {
     expect(screen.getByText(/assigned from the invoice number sequence/i)).toBeInTheDocument();
   });
 
+  it("points the first invoice empty state to the dedicated customers page", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([]);
+      }
+      if (path === "/items") {
+        return Promise.resolve([]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([
+          {
+            id: "revenue-1",
+            code: "401",
+            name: "Sales revenue",
+            type: "REVENUE",
+            isActive: true,
+            allowPosting: true,
+          },
+        ]);
+      }
+      if (path === "/tax-rates") {
+        return Promise.resolve([]);
+      }
+      if (path === "/branches") {
+        return Promise.resolve([]);
+      }
+      if (path === "/sales-invoices/next-number") {
+        return Promise.resolve({
+          invoiceNumber: "INV-000042",
+          editable: false,
+          overrideAllowed: false,
+          helperText: "Preview only. The invoice number is assigned from the invoice number sequence when the draft is saved.",
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceForm />);
+
+    expect(await screen.findByRole("link", { name: "Open customers" })).toHaveAttribute("href", "/customers");
+  });
+
   it("uses returnTo from the edit route query string for cancel and post-save redirect", async () => {
     window.history.pushState({}, "", "/sales/invoices/invoice-1/edit?returnTo=/customers/customer-1");
     apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {

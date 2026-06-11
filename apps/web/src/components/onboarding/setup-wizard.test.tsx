@@ -39,6 +39,9 @@ describe("setup wizard components", () => {
     expect(screen.getByText("Create at least one active tax rate.")).toBeInTheDocument();
     expect(screen.getByText("Create a first invoice before recording payment.")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Open tax rates" })[0]).toHaveAttribute("href", "/tax-rates");
+    expect(screen.getByRole("link", { name: "Add first customer" })).toHaveAttribute("href", "/customers");
+    expect(screen.getAllByRole("link", { name: "Create first invoice" })[0]).toHaveAttribute("href", "/sales/invoices/new?returnTo=%2Fsetup");
+    expect(screen.getAllByRole("link", { name: "Record first payment" })[0]).toHaveAttribute("href", "/sales/customer-payments/new?returnTo=%2Fsetup");
     expect(screen.getByRole("link", { name: "Continue: VAT/tax profile" })).toHaveAttribute("href", "/tax-rates");
   });
 
@@ -122,7 +125,7 @@ function sampleChecklist(): DashboardOnboardingChecklist {
       item("organization_profile", "Organization profile complete", "COMPLETE", "/settings/organization", ["Legal profile fields complete: yes"], [], []),
       item("chart_of_accounts", "Chart of accounts available", "COMPLETE", "/accounts", ["Active posting accounts: 8"], [], []),
       item("tax_profile", "VAT/tax profile complete", "INCOMPLETE", "/tax-rates", ["Active tax rates: 0"], ["Create at least one active tax rate."], []),
-      item("customer_created", "At least one customer", "INCOMPLETE", "/contacts", ["Customer contacts: 0"], ["Create a customer contact."], []),
+      item("customer_created", "At least one customer", "INCOMPLETE", "/customers", ["Customer contacts: 0"], ["Create a customer contact."], []),
       item("first_invoice", "At least one sales invoice", "WARNING", "/sales/invoices", ["Sales invoices: 0"], [], ["Create a first invoice before recording payment."]),
       item(
         "bank_payment_method",
@@ -160,7 +163,7 @@ function sampleChecklist(): DashboardOnboardingChecklist {
         [],
         ["OTP and CSID are still required."],
       ),
-      item("contact_vat_id_validation", "Contact VAT and ID validation ready", "COMPLETE", "/contacts", ["Backend/frontend validation is enabled."], [], []),
+      item("contact_vat_id_validation", "Contact VAT and ID validation ready", "COMPLETE", "/customers", ["Backend/frontend validation is enabled."], [], []),
       item("storage_readiness_checked", "Backup and storage readiness checked", "WARNING", "/settings/storage", ["Storage providers: database, database"], [], [
         "Signed XML and QR body persistence remain blocked.",
       ]),

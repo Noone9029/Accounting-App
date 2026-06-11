@@ -86,6 +86,34 @@ describe("NewCustomerPaymentPage", () => {
     expect(screen.getByText("INV-001")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-1");
   });
+
+  it("points the first payment empty state to the dedicated customers page", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([
+          {
+            id: "cash-1",
+            code: "111",
+            name: "Cash on hand",
+            type: "ASSET",
+            isActive: true,
+            allowPosting: true,
+          },
+        ]);
+      }
+      if (path === "/bank-accounts") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<NewCustomerPaymentPage />);
+
+    expect(await screen.findByRole("link", { name: "Open customers" })).toHaveAttribute("href", "/customers");
+  });
 });
 
 function contactFixture(id: string, name: string) {

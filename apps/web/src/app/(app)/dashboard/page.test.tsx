@@ -116,6 +116,38 @@ describe("DashboardPage Sales/AR attention", () => {
     expect(screen.queryByText("INV-000001")).not.toBeInTheDocument();
     expect(screen.queryByText("COL-000001")).not.toBeInTheDocument();
   });
+
+  it("keeps dashboard quick actions anchored back to the dashboard", async () => {
+    mockActiveMembership = {
+      role: {
+        permissions: [
+          "dashboard.view",
+          "salesInvoices.view",
+          "contacts.view",
+          "salesInvoices.create",
+          "customerPayments.create",
+          "purchaseBills.create",
+        ],
+      },
+    };
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole("link", { name: "Create invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/new?returnTo=%2Fdashboard",
+    );
+    expect(
+      screen
+        .getAllByRole("link", { name: "Record customer payment" })
+        .map((link) => link.getAttribute("href")),
+    ).toContain("/sales/customer-payments/new?returnTo=%2Fdashboard");
+    expect(
+      screen
+        .getAllByRole("link", { name: "Create purchase bill" })
+        .map((link) => link.getAttribute("href")),
+    ).toContain("/purchases/bills/new?returnTo=%2Fdashboard");
+  });
 });
 
 function summaryFixture(): DashboardSummary {

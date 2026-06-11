@@ -40,6 +40,7 @@ describe("dashboard helpers", () => {
     });
 
     expect(actions.map((action) => action.label)).toEqual(["Create invoice", "View reports"]);
+    expect(actions[0]?.href).toBe("/sales/invoices/new?returnTo=%2Fdashboard");
   });
 
   it("resolves drill-down links by permission", () => {
@@ -114,6 +115,9 @@ describe("dashboard helpers", () => {
         actionHref: "/organization/setup",
       }),
     );
+    expect(steps[3]?.actionHref).toBe("/customers");
+    expect(steps[4]?.actionHref).toBe("/sales/invoices/new?returnTo=%2Fsetup");
+    expect(steps[6]?.actionHref).toBe("/sales/customer-payments/new?returnTo=%2Fsetup");
     expect(steps[2]?.evidence).toContain("Active tax rates: 0");
     expect(steps[2]?.blockers).toContain("Create at least one active tax rate.");
     expect(steps[4]?.warnings).toContain("Create a test invoice before go-live rehearsals.");
@@ -175,7 +179,9 @@ describe("dashboard helpers", () => {
       "first_payment",
       "first_report",
     ]);
-    expect(steps.find((step) => step.id === "first_payment")?.actionHref).toBe("/sales/customer-payments/new");
+    expect(steps.find((step) => step.id === "customer_created")?.actionHref).toBe("/customers");
+    expect(steps.find((step) => step.id === "first_invoice")?.actionHref).toBe("/sales/invoices/new?returnTo=%2Fsetup");
+    expect(steps.find((step) => step.id === "first_payment")?.actionHref).toBe("/sales/customer-payments/new?returnTo=%2Fsetup");
     expect(steps.find((step) => step.id === "first_report")?.actionHref).toBe("/reports/profit-and-loss");
     expect(summary.completedSteps).toBe(1);
     expect(summary.totalSteps).toBe(6);

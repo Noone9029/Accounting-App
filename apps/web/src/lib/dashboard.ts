@@ -16,14 +16,35 @@ export interface DashboardQuickAction {
   permission: Permission;
 }
 
+export const DASHBOARD_ROUTE = "/dashboard";
 export const SETUP_WIZARD_ROUTE = "/setup";
 
 export const DASHBOARD_QUICK_ACTIONS: readonly DashboardQuickAction[] = [
-  { label: "Create invoice", href: "/sales/invoices/new", permission: PERMISSIONS.salesInvoices.create },
-  { label: "Record customer payment", href: "/sales/customer-payments/new", permission: PERMISSIONS.customerPayments.create },
-  { label: "Create purchase bill", href: "/purchases/bills/new", permission: PERMISSIONS.purchaseBills.create },
-  { label: "Record supplier payment", href: "/purchases/supplier-payments/new", permission: PERMISSIONS.supplierPayments.create },
-  { label: "Create cash expense", href: "/purchases/cash-expenses/new", permission: PERMISSIONS.cashExpenses.create },
+  {
+    label: "Create invoice",
+    href: `/sales/invoices/new?returnTo=${encodeURIComponent(DASHBOARD_ROUTE)}`,
+    permission: PERMISSIONS.salesInvoices.create,
+  },
+  {
+    label: "Record customer payment",
+    href: `/sales/customer-payments/new?returnTo=${encodeURIComponent(DASHBOARD_ROUTE)}`,
+    permission: PERMISSIONS.customerPayments.create,
+  },
+  {
+    label: "Create purchase bill",
+    href: `/purchases/bills/new?returnTo=${encodeURIComponent(DASHBOARD_ROUTE)}`,
+    permission: PERMISSIONS.purchaseBills.create,
+  },
+  {
+    label: "Record supplier payment",
+    href: `/purchases/supplier-payments/new?returnTo=${encodeURIComponent(DASHBOARD_ROUTE)}`,
+    permission: PERMISSIONS.supplierPayments.create,
+  },
+  {
+    label: "Create cash expense",
+    href: `/purchases/cash-expenses/new?returnTo=${encodeURIComponent(DASHBOARD_ROUTE)}`,
+    permission: PERMISSIONS.cashExpenses.create,
+  },
   { label: "Import bank statement", href: "/bank-accounts", permission: PERMISSIONS.bankStatements.import },
   { label: "View reports", href: "/reports", permission: PERMISSIONS.reports.view },
   { label: "Inventory adjustment", href: "/inventory/adjustments/new", permission: PERMISSIONS.inventoryAdjustments.create },
@@ -248,13 +269,13 @@ const SETUP_STEP_COPY: Record<
   },
   customer_created: {
     title: "First customer",
-    actionHref: "/contacts",
+    actionHref: "/customers",
     actionLabel: "Add first customer",
-    safeExplanation: "Create or review customer records from the contacts page. The wizard does not create contacts automatically.",
+    safeExplanation: "Create or review customer records from the dedicated customer workspace. The wizard does not create contacts automatically.",
   },
   first_invoice: {
     title: "First invoice",
-    actionHref: "/sales/invoices/new",
+    actionHref: `/sales/invoices/new?returnTo=${encodeURIComponent(SETUP_WIZARD_ROUTE)}`,
     actionLabel: "Create first invoice",
     safeExplanation: "Use the sales invoice workflow to create a draft invoice for review. The wizard does not finalize or submit invoices.",
   },
@@ -266,7 +287,7 @@ const SETUP_STEP_COPY: Record<
   },
   first_payment: {
     title: "First payment",
-    actionHref: "/sales/customer-payments/new",
+    actionHref: `/sales/customer-payments/new?returnTo=${encodeURIComponent(SETUP_WIZARD_ROUTE)}`,
     actionLabel: "Record first payment",
     safeExplanation: "Record a customer payment against a finalized invoice. The wizard does not allocate or post payments automatically.",
   },
@@ -285,7 +306,7 @@ const SETUP_STEP_COPY: Record<
   },
   contact_vat_id_validation: {
     title: "Contact VAT/ID validation",
-    actionHref: "/contacts",
+    actionHref: "/customers",
     actionLabel: "Review contacts",
     safeExplanation: "Contact VAT and buyer identification validation stays in the existing contact workflows. This wizard only reports checklist evidence.",
   },
