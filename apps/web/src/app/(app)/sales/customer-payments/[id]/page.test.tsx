@@ -7,6 +7,7 @@ import type { AuditLogEntry, AuditLogListResponse, CustomerPayment, CustomerPaym
 const mockApiRequest = jest.fn();
 const mockDownloadPdf = jest.fn();
 const mockPermissionCan = jest.fn();
+let searchParams = new URLSearchParams();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +24,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "payment-1" }),
+  useSearchParams: () => searchParams,
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -53,6 +55,7 @@ describe("customer payment workflow guidance", () => {
     mockDownloadPdf.mockReset();
     mockPermissionCan.mockReset();
     mockPermissionCan.mockReturnValue(true);
+    searchParams = new URLSearchParams();
   });
 
   afterEach(() => {
@@ -253,6 +256,34 @@ describe("customer payment workflow guidance", () => {
     expect(await screen.findByText("Receipt PDF generated and downloaded.")).toBeInTheDocument();
   });
 
+  it("keeps the filtered list context on the detail back action", async () => {
+    searchParams = new URLSearchParams("returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1");
+
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/customer-payments/payment-1") {
+        return Promise.resolve(paymentFixture());
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([]);
+      }
+      if (path === "/generated-documents?documentType=CUSTOMER_PAYMENT_RECEIPT&sourceType=CustomerPayment&sourceId=payment-1") {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/audit-logs?")) {
+        return Promise.resolve(auditLogListFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CustomerPaymentDetailPage />);
+
+    expect((await screen.findAllByText("CP-001")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+  });
+
   it("displays backend validation errors from unapplied allocation reversal", async () => {
     mockApiRequest.mockImplementation((path: string) => {
       if (path === "/customer-payments/payment-1") {
@@ -382,6 +413,7 @@ describe("customer payment workflow guidance", () => {
         receiptData={null}
         actionLoading={false}
         loadingReceiptData={false}
+        paymentDetailHref="/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1"
         onPreviewReceiptData={jest.fn()}
         onDownloadReceiptPdf={jest.fn()}
       />,
@@ -390,13 +422,19 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText(/Payment recorded/)).toBeInTheDocument();
     expect(screen.getByText("Posted")).toBeInTheDocument();
     expect(screen.getByText(/linked invoice balances were reduced/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/invoice-1?returnTo=%2Fsales%2Fcustomer-payments%2Fpayment-1%3FreturnTo%3D%252Fsales%252Fcustomer-payments%253FcustomerId%253Dcustomer-1%2526returnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
     expect(screen.getByRole("link", { name: "Open customer workspace" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("button", { name: "Preview receipt" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
     expect(screen.getByText(/explicit receipt PDF route/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
-    expect(screen.getByRole("link", { name: "AR report" })).toHaveAttribute("href", "/reports/aged-receivables");
+    expect(screen.getByRole("link", { name: "AR report" })).toHaveAttribute(
+      "href",
+      "/reports/aged-receivables?returnTo=%2Fsales%2Fcustomer-payments%2Fpayment-1%3FreturnTo%3D%252Fsales%252Fcustomer-payments%253FcustomerId%253Dcustomer-1%2526returnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
   });
 
   it("calls out unapplied customer credit without changing posting behavior", () => {
@@ -407,6 +445,7 @@ describe("customer payment workflow guidance", () => {
         receiptData={null}
         actionLoading={false}
         loadingReceiptData={false}
+        paymentDetailHref="/sales/customer-payments/payment-1"
         onPreviewReceiptData={jest.fn()}
         onDownloadReceiptPdf={jest.fn()}
       />,

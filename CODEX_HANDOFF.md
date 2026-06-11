@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `fc3e3307 Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`
+- Main commit inspected: `e9a4b819 Merge pull request #23 from Noone9029/codex/controlled-beta-payments-statements-workflow-hardening`
+- PR #23 merge pushed to `main`: `e9a4b819 Merge pull request #23 from Noone9029/codex/controlled-beta-payments-statements-workflow-hardening`
 - PR #22 merge pushed to `main`: `fc3e3307 Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`
 - PR #21 merge pushed to `main`: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
 - PR #20 merge pushed to `main`: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
@@ -20,60 +21,64 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-payments-statements-workflow-hardening`.
-- Branch base used for this lane: `main` at merged PR `#22` commit `fc3e3307`.
-- Branch status versus `main`: frontend/tests/docs-only payments/statements workflow hardening on top of the merged customer/supplier workspace polish pass.
+- Current branch: `codex/controlled-beta-final-product-readiness-triage`.
+- Branch base used for this lane: `main` at merged PR `#23` commit `e9a4b819`.
+- Branch status versus `main`: frontend/tests/docs-only final readiness triage on top of the merged payments/statements hardening pass.
 - Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted; no Graphify regeneration was performed.
-- PR #22 merge result:
-  - PR `#22` `Controlled beta customer supplier workspace polish` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, green, and frontend/docs/tests only.
-  - The verified head stayed `2eb5c4364a0373f974dd2bbe53465a6f44d18715`.
-  - Verified successful checks before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, and `GitGuardian Security Checks`.
-  - PR `#22` was merged into `main` with merge commit `fc3e3307`.
-- Payment and statement workflow surfaces reviewed:
+- PR #23 merge result:
+  - PR `#23` `Controlled beta payments and statements workflow hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, on expected head `a7b799ccfdb32cc57928cdb667a9b5d1c95903d5`, and frontend/docs/tests only.
+  - Verified live statuses before merge: `Vercel - ledgerbyte-api-test` and `Vercel - ledgerbyte-web-test` were both `success` / `Ready`.
+  - PR `#23` was merged into `main` with merge commit `e9a4b819`.
+- Final controlled-beta surfaces reviewed:
+  - `apps/web/src/app/(app)/setup`
+  - `apps/web/src/app/(app)/dashboard`
+  - `apps/web/src/app/(app)/customers`
+  - `apps/web/src/app/(app)/suppliers`
+  - `apps/web/src/app/(app)/contacts`
   - `apps/web/src/app/(app)/sales/customer-payments`
   - `apps/web/src/app/(app)/purchases/supplier-payments`
-  - `apps/web/src/components/parties/party-pages.tsx`
+  - `apps/web/src/app/(app)/documents`
   - `apps/web/src/components/reports/report-pages.tsx`
-  - `apps/web/src/app/(app)/reports/aged-receivables`
-  - `apps/web/src/app/(app)/reports/aged-payables`
+  - `apps/web/src/app/(app)/reports`
+  - `apps/web/src/app/(app)/settings`
   - `CODEX_HANDOFF.md`
   - `BUG_AUDIT.md`
+  - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
 - Real fixes completed:
-  - Customer and supplier workspace cards now hand payment list pages a safe `returnTo` path, and the payment list pages keep that workspace context on the top-level action bar instead of dropping users into detached list flows.
-  - Filtered customer/supplier payment lists now respect `customerId` or `supplierId` query context, so workspace handoffs show only the relevant party’s payments instead of the entire ledger-wide list.
-  - Customer payment empty-state invoice creation now preserves the current customer workspace context, and supplier payment empty-state bill creation now preserves the current supplier workspace context.
-  - Aging reports now show an explicit `Back to workspace` path when they are opened from customer or supplier workspaces.
-  - Supplier payment surfaces no longer describe their downloadable document as a `receipt`; they now use neutral payment-document/PDF wording so the UI does not imply a supplier-facing receipt/advice was sent or confirmed.
+  - Customer and supplier payment list `View` links now preserve the filtered list context, including the prior workspace `returnTo`, instead of dropping users into detached payment detail pages.
+  - Customer and supplier payment detail pages now honor that preserved `returnTo` on the top-level `Back` action, so workspace > payment list > payment detail can round-trip without falling back to the generic payment ledgers.
+  - Customer payment next actions now pass payment-detail context into `View invoice` and `AR report`, and supplier payment next actions do the same for `View bill` and `AP report`.
+  - Added `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md` with reviewed surfaces, fixes made, current verdict, blocker classes, and next-track recommendation.
   - Targeted frontend regression coverage was added/updated in:
     - `apps/web/src/app/(app)/sales/customer-payments/page.test.tsx`
+    - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx`
     - `apps/web/src/app/(app)/purchases/supplier-payments/page.test.tsx`
-    - `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`
-    - `apps/web/src/app/(app)/purchases/supplier-payments/new/page.test.tsx`
     - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
-    - `apps/web/src/components/reports/report-pages.test.tsx`
 - Safety posture:
   - No schema, migration, seed/reset/delete, deploy, email send, report math, VAT math, journal posting logic, payment allocation logic, generated PDF logic, ZATCA runtime execution, env/secrets handling, or production/beta/customer-data mutation changes were made.
 - Checks run:
-  - `git fetch origin`
-  - GitHub API recheck of PR `#22` status, mergeability, head SHA, checks, and changed files before merge
-  - Local merge of `origin/codex/controlled-beta-customer-supplier-workspace-polish` into `main`
-  - `git push origin main`
+  - GitHub API recheck of PR `#23` status, mergeability, head SHA, live statuses, and changed files before merge
+  - GitHub merge of PR `#23`
+  - `git fetch origin main --prune`
+  - `git worktree add C:\Users\Ahmad\.config\superpowers\worktrees\Accounting App\controlled-beta-final-product-readiness-triage -b codex/controlled-beta-final-product-readiness-triage origin/main`
   - `corepack pnpm install --frozen-lockfile`
-  - `node E:\Accounting App-arc6\node_modules\.pnpm\jest@30.3.0_@types+node@22._cc389d01ae9b92078ddae9af4dfd390d\node_modules\jest\bin\jest.js --config jest.config.cjs --runTestsByPath src/app/(app)/sales/customer-payments/page.test.tsx src/app/(app)/purchases/supplier-payments/page.test.tsx src/app/(app)/sales/customer-payments/new/page.test.tsx src/app/(app)/purchases/supplier-payments/new/page.test.tsx src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx src/components/reports/report-pages.test.tsx`
+  - `node node_modules/.pnpm/jest@30.3.0_@types+node@22._cc389d01ae9b92078ddae9af4dfd390d/node_modules/jest/bin/jest.js --config jest.config.cjs --runTestsByPath src/app/(app)/sales/customer-payments/page.test.tsx src/app/(app)/sales/customer-payments/[id]/page.test.tsx src/app/(app)/purchases/supplier-payments/page.test.tsx src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
 - Skipped commands and why:
   - API typecheck was skipped because no API files changed.
-  - `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass improves routing/workspace clarity only and does not materially change product posture or scoring.
+  - `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `README.md` were not updated because this pass improves journey continuity and readiness documentation only; it does not materially change product posture, score, or launch state.
   - Graphify regeneration was skipped because existing output was sufficient and regeneration was explicitly discouraged unless genuinely needed.
   - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden.
 - Remaining blockers:
-  - Payment and report detail pages outside this pass still need the same return-path review if broader context preservation becomes a beta priority.
   - Statement tabs still live on the shared contact-detail surface; this pass did not add new dedicated customer/supplier statement routes.
+  - Final route-load/browser verification across the controlled-beta journey is still pending; this pass stayed in code-review/frontend-test/readiness-doc scope only.
+  - Older secondary detail routes outside the payment path fixes should keep being watched for the same context-loss pattern during beta verification.
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no.
-- Exact next recommended prompt title: `Controlled beta final product readiness triage`
+- Readiness triage artifact path: `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
+- Exact next recommended prompt title: `Controlled beta route-load verification batch`
 
 ## Prior Development Objective
 

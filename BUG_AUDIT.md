@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `fc3e3307` (`Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`) plus the current controlled-beta payments/statements workflow hardening pass.
+Latest commit audited: `e9a4b819` (`Merge pull request #23 from Noone9029/codex/controlled-beta-payments-statements-workflow-hardening`) plus the current controlled-beta final readiness triage pass.
 
 ## Scope
 
@@ -36,6 +36,26 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta payment-detail return path chain hardened
+
+Fixed a real main-journey continuity bug where workspace-filtered payment lists handed users into payment detail, invoice/bill review, and aging reports without preserving a usable route back through the payment workflow they came from.
+
+Risk reduced:
+
+- Customer and supplier payment list `View` actions now carry the filtered list context, including the prior workspace `returnTo`, into payment detail routes.
+- Customer and supplier payment detail pages now use that preserved `returnTo` on the top-level `Back` action instead of always dropping users into the generic ledger-wide payment list.
+- Customer payment next actions now open invoice and AR report links with a payment-detail return path, and supplier payment next actions do the same for bill and AP report links.
+- Added focused regression coverage in:
+  - `apps/web/src/app/(app)/sales/customer-payments/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
+
+Remaining risks:
+
+- This pass did not add `returnTo` handling to every document/archive surface; the broader route-load verification batch should keep watching for similar context loss on older detail routes.
+- This pass did not change payment posting, allocation logic, report math, VAT math, generated PDF behavior, runtime ZATCA behavior, or production/beta/customer-data behavior.
 
 ### Controlled-beta payments and statements workflow surfaces hardened
 

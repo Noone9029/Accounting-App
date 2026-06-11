@@ -60,6 +60,10 @@ describe("SupplierPaymentsPage", () => {
       "href",
       "/purchases/supplier-payments/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
     );
+    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments/payment-1?returnTo=%2Fpurchases%2Fsupplier-payments%3FsupplierId%3Dsupplier-1%26returnTo%3D%252Fsuppliers%252Fsupplier-1",
+    );
   });
 });
 
