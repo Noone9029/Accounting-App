@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `0f6037ea` (`Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`) plus the current controlled-beta customer/supplier workspace polish pass.
+Latest commit audited: `fc3e3307` (`Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`) plus the current controlled-beta payments/statements workflow hardening pass.
 
 ## Scope
 
@@ -36,6 +36,30 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta payments and statements workflow surfaces hardened
+
+Fixed small but real workflow bugs where customer/supplier workspaces, payment lists, payment creation routes, and aging reports lost useful party context or used wording that overstated what the supplier-payment surface actually proves.
+
+Risk reduced:
+
+- Customer and supplier workspace summary cards now hand payment list pages a safe `returnTo` path, and the filtered payment lists keep that workspace context visible with explicit `Back to workspace` actions.
+- Customer payment lists now respect `customerId` query context, and supplier payment lists now respect `supplierId` query context, instead of dropping workspace-originated handoffs into the full unfiltered payment ledgers.
+- Customer payment empty-state invoice creation now preserves the current customer workspace context, and supplier payment empty-state bill creation now preserves the current supplier workspace context.
+- Aging reports now expose a clear `Back to workspace` action when reached from a customer or supplier workspace.
+- Supplier payment UI copy no longer calls the downloadable document a `receipt`; it now uses neutral payment-document/PDF wording so the UI does not imply a receipt/advice was sent, acknowledged, or externally confirmed.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/app/(app)/sales/customer-payments/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/new/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+
+Remaining risks:
+
+- This pass did not add new dedicated customer/supplier statement routes; statement tabs still live on the shared contact-detail surface.
+- This pass did not change payment posting, allocation, journal behavior, statement math, report math, VAT math, generated PDF behavior, ZATCA runtime, or production/beta/customer-data behavior.
 
 ### Controlled-beta customer and supplier workspace handoff polished
 

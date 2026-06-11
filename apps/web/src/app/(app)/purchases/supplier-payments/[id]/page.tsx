@@ -218,7 +218,7 @@ export default function SupplierPaymentDetailPage() {
     try {
       await downloadPdf(supplierPaymentReceiptPdfPath(payment.id), `supplier-payment-${payment.paymentNumber}.pdf`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download supplier payment receipt.");
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download supplier payment PDF.");
     } finally {
       setActionLoading(false);
     }
@@ -236,7 +236,7 @@ export default function SupplierPaymentDetailPage() {
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">{payment ? payment.paymentNumber : "Supplier payment"}</h1>
-          <p className="mt-1 text-sm text-steel">Supplier payment posting, bill matching, and receipt PDF.</p>
+          <p className="mt-1 text-sm text-steel">Supplier payment posting, bill matching, and downloadable payment PDF.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Link href="/purchases/supplier-payments" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -249,7 +249,7 @@ export default function SupplierPaymentDetailPage() {
           ) : null}
           {payment && canDownloadGeneratedDocuments ? (
             <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              Download receipt PDF
+              Download payment PDF
             </button>
           ) : null}
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
@@ -455,17 +455,17 @@ export default function SupplierPaymentDetailPage() {
               <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Receipt data preview</h2>
-                  <p className="mt-1 text-sm text-steel">Structured supplier payment receipt preview. Downloading the receipt stores a generated PDF archive record.</p>
+                  <p className="mt-1 text-sm text-steel">Structured supplier payment document preview. Downloading the PDF stores a generated archive record.</p>
                 </div>
                 {canDownloadGeneratedDocuments ? (
                   <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    Download receipt PDF
+                    Download payment PDF
                   </button>
                 ) : null}
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-                  <Summary label="Receipt number" value={receiptData.receiptNumber} />
+                  <Summary label="Payment number" value={receiptData.receiptNumber} />
                   <Summary label="Supplier" value={receiptData.supplier.displayName ?? receiptData.supplier.name} />
                   <Summary label="Payment date" value={formatOptionalDate(receiptData.paymentDate, "-")} />
                   <Summary label="Status" value={receiptData.status} />
@@ -506,7 +506,7 @@ export function SupplierPaymentWorkflowGuidance({
     <div className="space-y-4">
       {recorded ? (
         <StatusMessage type="success">
-          Supplier payment recorded. The receipt and allocation details below show what changed; linked bill balances are updated.
+          Supplier payment recorded. The payment details below show what changed; linked bill balances are updated.
         </StatusMessage>
       ) : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -528,7 +528,7 @@ export function SupplierPaymentWorkflowGuidance({
           <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
             <Summary label="Amount paid" value={formatMoneyAmount(payment.amountPaid, payment.currency)} />
             <Summary label="Applied to bills" value={formatMoneyAmount(formatUnits(appliedTotalUnits), payment.currency)} />
-            <Summary label="Receipt" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
+            <Summary label="Payment number" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
           </div>
         </div>
 
@@ -548,7 +548,7 @@ export function SupplierPaymentWorkflowGuidance({
                 disabled={actionLoading}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
               >
-                Download receipt PDF
+                Download payment PDF
               </button>
             ) : null}
             <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -610,7 +610,7 @@ function supplierPaymentOutcomeDescription(payment: SupplierPayment, hasUnapplie
     return "This supplier payment is posted. Allocated amounts reduced purchase bill balances, and the remaining unapplied supplier credit can be matched to a later bill or refunded.";
   }
 
-  return "This supplier payment is posted. Receipt details are available, and linked purchase bill balances were reduced by the allocations below.";
+    return "This supplier payment is posted. Payment details are available, and linked purchase bill balances were reduced by the allocations below.";
 }
 
 function supplierPaymentNextActionDescription(payment: SupplierPayment, hasUnapplied: boolean): string {
@@ -619,7 +619,7 @@ function supplierPaymentNextActionDescription(payment: SupplierPayment, hasUnapp
   }
 
   if (hasUnapplied) {
-    return "Review the receipt, then either apply the remaining credit to another bill or record a supplier refund from the actions above.";
+    return "Review the payment details, then either apply the remaining credit to another bill or record a supplier refund from the actions above.";
   }
 
   return "Review the purchase bill, supplier ledger, and AP report to confirm the payable loop is closed.";

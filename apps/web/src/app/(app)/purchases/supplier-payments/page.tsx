@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -8,12 +9,14 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { SupplierPayment } from "@/lib/types";
 
 export default function SupplierPaymentsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const searchParams = useSearchParams();
   const [payments, setPayments] = useState<SupplierPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -22,6 +25,13 @@ export default function SupplierPaymentsPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
   const canVoidPayment = can(PERMISSIONS.supplierPayments.void);
+  const supplierId = searchParams.get("supplierId")?.trim() ?? "";
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
+  const workspaceHref = supplierId ? partyDetailHref("supplier", supplierId) : "";
+  const recordPaymentHref = supplierId
+    ? `/purchases/supplier-payments/new?supplierId=${encodeURIComponent(supplierId)}&returnTo=${encodeURIComponent(returnTo || workspaceHref)}`
+    : "/purchases/supplier-payments/new";
+  const visiblePayments = supplierId ? payments.filter((payment) => payment.supplierId === supplierId) : payments;
 
   useEffect(() => {
     if (!organizationId) {
@@ -79,13 +89,22 @@ export default function SupplierPaymentsPage() {
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Supplier payments</h1>
-          <p className="mt-1 text-sm text-steel">Posted supplier payments and purchase bill allocations.</p>
+          <p className="mt-1 text-sm text-steel">
+            {supplierId ? "Recorded supplier payments for this workspace. Payment PDFs remain explicit output actions." : "Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions."}
+          </p>
         </div>
-        {canCreatePayment ? (
-          <Link href="/purchases/supplier-payments/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Record payment
-          </Link>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {returnTo ? (
+            <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Back to workspace
+            </Link>
+          ) : null}
+          {canCreatePayment ? (
+            <Link href={recordPaymentHref} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+              Record payment
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -93,10 +112,16 @@ export default function SupplierPaymentsPage() {
         {loading ? <StatusMessage type="loading">Loading supplier payments...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && payments.length === 0 ? <StatusMessage type="empty">No supplier payments found.</StatusMessage> : null}
+        {!loading && organizationId && visiblePayments.length === 0 ? (
+          <StatusMessage type="empty">
+            {supplierId
+              ? "No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance."
+              : "No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance."}
+          </StatusMessage>
+        ) : null}
       </div>
 
-      {payments.length > 0 ? (
+      {visiblePayments.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
           <table className="w-full min-w-[1080px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
@@ -113,7 +138,7 @@ export default function SupplierPaymentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {payments.map((payment) => (
+              {visiblePayments.map((payment) => (
                 <tr key={payment.id}>
                   <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
                   <td className="px-4 py-3 font-medium text-ink">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</td>

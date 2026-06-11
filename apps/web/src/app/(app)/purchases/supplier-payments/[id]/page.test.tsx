@@ -35,7 +35,7 @@ describe("supplier payment workflow guidance", () => {
     expect(screen.getByText(/linked purchase bill balances were reduced/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
     expect(screen.getByRole("link", { name: "Open supplier workspace" })).toHaveAttribute("href", "/suppliers/supplier-1");
-    expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download payment PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
   });
@@ -69,7 +69,7 @@ describe("supplier payment workflow guidance", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Download receipt PDF" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download payment PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
   });
 });
