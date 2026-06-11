@@ -175,6 +175,7 @@ function assertSafePlan(plan) {
 function detectChangedFilesForCiScope(cwd = process.cwd()) {
   const candidates = [
     ["git", ["diff", "--name-only", "--diff-filter=ACMR", "origin/main...HEAD"]],
+    ["git", ["diff-tree", "-m", "--no-commit-id", "--name-only", "-r", "HEAD"]],
     ["git", ["show", "--pretty=", "--name-only", "HEAD"]],
   ];
 
