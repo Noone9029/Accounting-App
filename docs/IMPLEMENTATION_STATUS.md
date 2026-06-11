@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA Clearance Reporting Approval Gate update:
+
+- PR `#15` `ZATCA signing and Phase 2 QR approval gate` was verified live, then merged into `main` with merge commit `154bbf82`.
+- Added `docs/zatca/CLEARANCE_REPORTING_APPROVAL_GATE.md`, `docs/zatca/CLEARANCE_REPORTING_APPROVAL_RESULTS.md`, `docs/development/ZATCA_CLEARANCE_REPORTING_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-clearance-reporting-approval-gate.cjs`, and `scripts/zatca-clearance-reporting-approval-gate.test.cjs`.
+- Added root package scripts `zatca:clearance-reporting-approval-gate` and `test:zatca-clearance-reporting-approval-gate`.
+- Observed default status is `CLEARANCE_REPORTING_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `CLEARANCE_REPORTING_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No clearance was executed, no reporting was executed, no invoice or note was submitted, no ZATCA network call was made, no request body was created, no response body was processed, no CSID/token/secret/certificate/private-key was used, and no signing/QR/PDF-A3/production-compliance behavior was enabled.
+- Current blockers are actual clearance execution, actual reporting execution, actual invoice/note submission, ZATCA API execution, request/response handling, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA PDF-A3 approval gate`.
+
 2026-06-11 ZATCA Signing And Phase 2 QR Approval Gate update:
 
 - PR `#14` `ZATCA sandbox CSID storage approval gate` was verified live, then merged into `main` with merge commit `ce2489a5`.

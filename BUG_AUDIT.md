@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `ce2489a5` (`Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`) plus the current signing and Phase 2 QR approval-gate pass.
+Latest commit audited: `154bbf82` (`Merge pull request #15 from Noone9029/codex/zatca-signing-phase2-qr-approval-gate`) plus the current clearance/reporting approval-gate pass.
 
 ## Scope
 
@@ -36,6 +36,28 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### ZATCA clearance/reporting approval gate added
+
+Added a dedicated metadata-only approval gate for future ZATCA clearance/reporting planning without allowing any real submission, API call, or payload handling.
+
+Risk reduced:
+
+- PR `#15` `ZATCA signing and Phase 2 QR approval gate` was verified live and merged into `main` at `154bbf82` before this lane started.
+- Added `docs/zatca/CLEARANCE_REPORTING_APPROVAL_GATE.md`.
+- Added `docs/zatca/CLEARANCE_REPORTING_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_CLEARANCE_REPORTING_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-clearance-reporting-approval-gate.cjs`.
+- Added `scripts/zatca-clearance-reporting-approval-gate.test.cjs`.
+- Added root package scripts `zatca:clearance-reporting-approval-gate` and `test:zatca-clearance-reporting-approval-gate`.
+- Default status is `CLEARANCE_REPORTING_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `CLEARANCE_REPORTING_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No clearance was executed, no reporting was executed, no invoice or note was submitted, no ZATCA network call was made, no request body was created, no response body was processed, and no CSID/token/secret/certificate/private-key was used.
+- No signing, QR, PDF-A3, or production compliance behavior was enabled.
+- PDF-A3 and production compliance remain blocked.
 
 ### AP purchase bill edit return routing hardened
 
