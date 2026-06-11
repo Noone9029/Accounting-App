@@ -88,6 +88,26 @@ Remaining risks:
 - No OTP was requested, no CSID was requested, no ZATCA network call was made, no sandbox adapter was executed, no secrets/bodies were exposed, and production signing remains disabled.
 - Key custody, CSID response custody, sandbox CSID request execution guard, real sandbox adapter execution, compliance invoice checks, production CSID lifecycle, production signing, Phase 2 QR, clearance/reporting, PDF-A3, retry/error queue, signed artifact storage, official/legal/accounting review, and repeatable SDK CI remain blocked.
 
+### ZATCA manual OTP capture approval gate added
+
+Added a dedicated metadata-only approval gate for future human-operated sandbox OTP capture confirmation without allowing execution.
+
+Risk reduced:
+
+- Added `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_GATE.md`.
+- Added `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_MANUAL_OTP_CAPTURE_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-manual-otp-capture-approval-gate.cjs`.
+- Added `scripts/zatca-manual-otp-capture-approval-gate.test.cjs`.
+- Added root package scripts `zatca:manual-otp-capture-approval-gate` and `test:zatca-manual-otp-capture-approval-gate`.
+- Default status is `MANUAL_OTP_CAPTURE_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `MANUAL_OTP_CAPTURE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No OTP was captured, no OTP value was stored, no OTP value was shared with Codex, no CSID was requested, no ZATCA network call was made, no request body was created, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Request body creation approval, real sandbox network request approval, response processing approval, response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
 ### ZATCA CSID response custody implementation plan added
 
 Added a metadata-only response custody implementation plan and guard before any future real sandbox compliance CSID response may be processed.
