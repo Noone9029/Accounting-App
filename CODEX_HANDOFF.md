@@ -2,15 +2,35 @@
 
 ## Latest Commit Inspected
 
-- `2f40904929081271b150eb2189928d0490e20507 Merge PR #5: ZATCA sandbox CSID execution approval gate`
+- `c2047b6a fix: accept seeded purchase bill UUIDs`
 
 ## Current Development Objective
 
-- Current completed lane: PR #6 sandbox access/manual OTP runbook merged.
-- Current Antigravity lane: sandbox access confirmation checklist.
-- This is docs-only.
-- No sandbox login, OTP capture, CSID request, ZATCA network call, request/response body processing, signing, clearance/reporting, PDF-A-3, or production compliance claim.
-- Recommended next prompt: `LedgerByte prepare manual OTP capture approval checklist.`
+- Current branch: `codex/purchase-bill-seeded-uuid-validation`.
+- Current completed lane: AP purchase bill creation hardening completed.
+- Branch status versus `main`: still ahead of `main` by 2 commits and not merged.
+- Graphify usage: existing `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were used as a blast-radius map only; Graphify was not regenerated.
+- Code changed in this arc: `apps/web/src/components/forms/purchase-bill-form.tsx`, `apps/web/src/components/forms/purchase-bill-form.test.tsx`, and `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`.
+- Fix shipped: `PurchaseBillForm` now preserves safe `returnTo` query routing during edit flows, so edit cancel/save can return to supplier-context routes instead of always falling back to `/purchases/bills` or the bill detail page.
+- Purchase bill test hardening: purchase bill form and workflow guidance tests now use UUID-shaped supplier/bill ids so the AP test surface better matches real validation expectations.
+- Checks run:
+  - `corepack pnpm --filter @ledgerbyte/api test -- purchase-bill-dto`
+  - `corepack pnpm --filter @ledgerbyte/web test -- purchase-bill-form`
+  - `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath 'src/app/(app)/purchases/bills/[id]/page.test.tsx'`
+  - `corepack pnpm --filter @ledgerbyte/api typecheck`
+  - `corepack pnpm --filter @ledgerbyte/web typecheck`
+  - `corepack pnpm verify:diff`
+  - `git diff --check`
+- Deployment verification: skipped in this run. No beta deploy or remote route verification was performed before commit/push.
+- Skipped commands and why:
+  - `node --test`: not applicable; this arc did not add Node test-runner scripts.
+  - Migrations, seed/reset/delete, E2E, smoke, ZATCA, email, backup/restore, and production deploy commands: explicitly out of scope for this lane.
+- Remaining blockers:
+  - No new API DTO defect was found beyond the already-pushed seeded UUID validation fix at `c2047b6a`.
+  - Existing unrelated dirty files remain outside this arc: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
+  - Vercel beta route-load verification still needs a separate safe pass after push if remote confirmation is required.
+- Production/ZATCA/customer-data behavior changed: no. This arc is frontend routing/test hardening only and does not change schema, accounting posting, ZATCA, email, or production posture.
+- Exact next recommended prompt title: `AP purchase bill lifecycle QA and merge readiness`.
 
 ## Prior Development Objective
 

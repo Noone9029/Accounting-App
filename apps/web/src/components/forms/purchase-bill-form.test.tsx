@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import type { PurchaseBill } from "@/lib/types";
 import { PurchaseBillForm } from "./purchase-bill-form";
 
 const apiRequestMock = jest.fn();
@@ -46,10 +47,17 @@ describe("PurchaseBillForm", () => {
           status: "DRAFT",
         });
       }
+      if (path === "/purchase-bills/bill-1" && options?.method === "PATCH") {
+        return Promise.resolve({
+          id: "bill-1",
+          billNumber: "BILL-000001",
+          status: "DRAFT",
+        });
+      }
       if (path === "/contacts") {
         return Promise.resolve([
           contactFixture("00000000-0000-0000-0000-000000000201", "Beta Supplier"),
-          contactFixture("supplier-2", "Second Supplier"),
+          contactFixture("00000000-0000-0000-0000-000000000202", "Second Supplier"),
         ]);
       }
       if (path === "/items") {
@@ -95,12 +103,19 @@ describe("PurchaseBillForm", () => {
   });
 
   it("prefills the supplier from the new-bill route query string", async () => {
-    window.history.pushState({}, "", "/purchases/bills/new?supplierId=supplier-2&returnTo=/suppliers/supplier-2");
+    window.history.pushState(
+      {},
+      "",
+      "/purchases/bills/new?supplierId=00000000-0000-0000-0000-000000000202&returnTo=/suppliers/00000000-0000-0000-0000-000000000202",
+    );
 
     render(<PurchaseBillForm />);
 
-    await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-2"));
-    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-2");
+    await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("00000000-0000-0000-0000-000000000202"));
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+      "href",
+      "/suppliers/00000000-0000-0000-0000-000000000202",
+    );
   });
 
   it("submits selected branch, account, and tax IDs instead of visible labels", async () => {
@@ -142,6 +157,60 @@ describe("PurchaseBillForm", () => {
       ),
     );
   });
+
+  it("uses returnTo from the edit route query string for cancel and post-save redirect", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/purchases/bills/bill-1/edit?returnTo=/suppliers/00000000-0000-0000-0000-000000000201",
+    );
+
+    render(
+      <PurchaseBillForm
+        initialBill={billFixture({
+          id: "bill-1",
+          supplierId: "00000000-0000-0000-0000-000000000201",
+          branchId: "00000000-0000-0000-0000-000000000101",
+          lines: [
+            {
+              id: "line-1",
+              organizationId: "org-1",
+              billId: "bill-1",
+              itemId: null,
+              description: "Office supplies",
+              accountId: "00000000-0000-0000-0000-000000000401",
+              quantity: "1.0000",
+              unitPrice: "100.0000",
+              discountRate: "0.0000",
+              lineGrossAmount: "100.0000",
+              discountAmount: "0.0000",
+              taxableAmount: "100.0000",
+              taxAmount: "15.0000",
+              lineTotal: "115.0000",
+              taxRateId: "00000000-0000-0000-0000-000000000501",
+              sortOrder: 0,
+              account: undefined,
+              taxRate: undefined,
+              item: undefined,
+            },
+          ],
+        })}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+        "href",
+        "/suppliers/00000000-0000-0000-0000-000000000201",
+      ),
+    );
+
+    fireEvent.submit(screen.getByRole("button", { name: "Save changes" }).closest("form")!);
+
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/suppliers/00000000-0000-0000-0000-000000000201"),
+    );
+  });
 });
 
 function contactFixture(id: string, name: string) {
@@ -154,5 +223,49 @@ function contactFixture(id: string, name: string) {
     phone: null,
     taxNumber: null,
     isActive: true,
+  };
+}
+
+function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
+  return {
+    id: "bill-1",
+    organizationId: "org-1",
+    billNumber: "BILL-000001",
+    supplierId: "00000000-0000-0000-0000-000000000201",
+    branchId: null,
+    billDate: "2026-06-11T00:00:00.000Z",
+    dueDate: null,
+    currency: "SAR",
+    status: "DRAFT",
+    inventoryPostingMode: "DIRECT_EXPENSE_OR_ASSET",
+    subtotal: "100.0000",
+    discountTotal: "0.0000",
+    taxableTotal: "100.0000",
+    taxTotal: "15.0000",
+    total: "115.0000",
+    balanceDue: "115.0000",
+    notes: null,
+    terms: null,
+    finalizedAt: null,
+    journalEntryId: null,
+    reversalJournalEntryId: null,
+    supplier: {
+      id: "00000000-0000-0000-0000-000000000201",
+      name: "Beta Supplier",
+      displayName: "Beta Supplier",
+      type: "SUPPLIER",
+      taxNumber: null,
+    },
+    branch: null,
+    purchaseOrderId: null,
+    purchaseOrder: null,
+    journalEntry: null,
+    reversalJournalEntry: null,
+    lines: [],
+    paymentAllocations: [],
+    supplierPaymentUnappliedAllocations: [],
+    debitNotes: [],
+    debitNoteAllocations: [],
+    ...overrides,
   };
 }

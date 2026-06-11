@@ -37,6 +37,21 @@ Reviewed the current LedgerByte monorepo without adding product features:
 
 ## Bugs Found And Fixed
 
+### AP purchase bill edit return routing hardened
+
+Fixed a purchase bill edit-path reliability bug where `PurchaseBillForm` ignored a safe `returnTo` query whenever an existing draft bill was loaded for edit.
+
+Risk reduced:
+
+- Edit purchase bill cancel and post-save redirect now preserve a safe supplier-context `returnTo` path instead of always falling back to `/purchases/bills` or the bill detail page.
+- Added a targeted failing-then-passing form test covering edit-route `returnTo` handling.
+- Tightened purchase bill frontend tests to use UUID-shaped supplier and bill ids so the AP route/test surface better matches real validation expectations after the seeded UUID validation fix.
+
+Remaining risks:
+
+- This change does not alter AP posting, bill finalization, supplier payment allocation, debit notes, inventory clearing, email, ZATCA, hosted behavior, or production posture.
+- Beta Vercel route-load verification for the updated branch was not run in this pass.
+
 ### ZATCA sandbox CSID preflight guard added
 
 Added a metadata-only, no-network preflight guard for future sandbox compliance CSID readiness.
