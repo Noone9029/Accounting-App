@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA Sandbox CSID Storage Approval Gate update:
+
+- PR `#13` `ZATCA sandbox response custody approval gate` was verified live, then merged into `main` with merge commit `db8f058c`.
+- Added `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_GATE.md`, `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_RESULTS.md`, `docs/development/ZATCA_SANDBOX_CSID_STORAGE_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-sandbox-csid-storage-approval-gate.cjs`, and `scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-csid-storage-approval-gate` and `test:zatca-sandbox-csid-storage-approval-gate`.
+- Observed default status is `SANDBOX_CSID_STORAGE_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_CSID_STORAGE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No custody provider was executed, no CSID was stored, no binary security token was stored, no CSID secret was stored, no certificate/private key/CSR was stored, no database write was executed, no secret-manager write was executed, no KMS/HSM/object-storage write was executed, and no request/response/network/adapter/signing/clearance/PDF-A3/production-compliance behavior was enabled.
+- Current blockers are actual sandbox CSID storage execution, approved custody-provider implementation, signing, Phase 2 QR, clearance/reporting, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA signing and Phase 2 QR approval gate`.
+
 2026-06-11 ZATCA Sandbox Response Custody Approval Gate update:
 
 - PR `#12` `ZATCA sandbox response processing approval gate` was verified live, then merged into `main` with merge commit `d15884f8`.

@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `d15884f8` (`Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`) plus the current sandbox response custody approval-gate pass.
+Latest commit audited: `db8f058c` (`Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`) plus the current sandbox CSID storage approval-gate pass.
 
 ## Scope
 
@@ -170,6 +170,27 @@ Remaining risks:
 
 - No network request was executed, no adapter was executed, no request body was created, no response body was received, no response body was processed, no response custody was stored, no custody provider was executed, no secret-manager write was executed, no database write was executed, no object-storage write was executed, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
 - Sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
+### ZATCA sandbox CSID storage approval gate added
+
+Added a dedicated metadata-only approval gate for future sandbox CSID storage planning without allowing any credential storage or custody-provider execution.
+
+Risk reduced:
+
+- PR `#13` `ZATCA sandbox response custody approval gate` was rechecked live and merged into `main` at `db8f058c` before this branch was created.
+- Added `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_GATE.md`.
+- Added `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_SANDBOX_CSID_STORAGE_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-sandbox-csid-storage-approval-gate.cjs`.
+- Added `scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-csid-storage-approval-gate` and `test:zatca-sandbox-csid-storage-approval-gate`.
+- Default status is `SANDBOX_CSID_STORAGE_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_CSID_STORAGE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No custody provider was executed, no CSID was stored, no binary security token was stored, no CSID secret was stored, no certificate/private key/CSR was stored, no database write was executed, no secret-manager write was executed, no KMS/HSM/object-storage write was executed, no network request was executed, no adapter was executed, no request body was created, no response body was processed, no response custody was stored, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Signing, Phase 2 QR, clearance/reporting, PDF-A3, and production compliance remain blocked.
 
 ### ZATCA sandbox request body creation approval gate added
 
