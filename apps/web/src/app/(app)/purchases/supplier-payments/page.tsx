@@ -28,6 +28,15 @@ export default function SupplierPaymentsPage() {
   const supplierId = searchParams.get("supplierId")?.trim() ?? "";
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const workspaceHref = supplierId ? partyDetailHref("supplier", supplierId) : "";
+  const listContextParams = new URLSearchParams();
+  if (supplierId) {
+    listContextParams.set("supplierId", supplierId);
+  }
+  if (returnTo) {
+    listContextParams.set("returnTo", returnTo);
+  }
+  const listContextHref = `/purchases/supplier-payments${listContextParams.size > 0 ? `?${listContextParams.toString()}` : ""}`;
+  const detailReturnTo = supplierId || returnTo ? listContextHref : "";
   const recordPaymentHref = supplierId
     ? `/purchases/supplier-payments/new?supplierId=${encodeURIComponent(supplierId)}&returnTo=${encodeURIComponent(returnTo || workspaceHref)}`
     : "/purchases/supplier-payments/new";
@@ -150,7 +159,10 @@ export default function SupplierPaymentsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Link href={`/purchases/supplier-payments/${payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <Link
+                        href={detailReturnTo ? `/purchases/supplier-payments/${payment.id}?returnTo=${encodeURIComponent(detailReturnTo)}` : `/purchases/supplier-payments/${payment.id}`}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                      >
                         View
                       </Link>
                       {payment.status === "POSTED" && canVoidPayment ? (

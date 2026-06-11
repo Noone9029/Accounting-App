@@ -60,6 +60,10 @@ describe("CustomerPaymentsPage", () => {
       "href",
       "/sales/customer-payments/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
     );
+    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1",
+    );
   });
 });
 

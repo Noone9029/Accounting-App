@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
@@ -30,7 +30,7 @@ import {
 } from "@/lib/customer-payments";
 import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
-import { partyDetailHref } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listOpenSalesInvoicesForCustomer } from "@/lib/sales-invoices";
@@ -49,6 +49,7 @@ const MAX_ALLOCATION_AUDIT_LOOKUPS = 10;
 
 export default function CustomerPaymentDetailPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [payment, setPayment] = useState<CustomerPayment | null>(null);
@@ -74,6 +75,7 @@ export default function CustomerPaymentDetailPage() {
   const canVoidPaymentPermission = can(PERMISSIONS.customerPayments.void);
   const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
   const canViewAuditLogs = can(PERMISSIONS.auditLogs.view);
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -384,6 +386,8 @@ export default function CustomerPaymentDetailPage() {
     payment && applyAmount
       ? validateCustomerPaymentUnappliedAllocation(applyAmount, payment.unappliedAmount, selectedOpenInvoice?.balanceDue ?? "0.0000")
       : null;
+  const paymentDetailHref =
+    payment ? `/sales/customer-payments/${payment.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
 
   return (
     <section>
@@ -393,7 +397,7 @@ export default function CustomerPaymentDetailPage() {
           <p className="mt-1 text-sm text-steel">Payment posting, allocations, and reversal reference.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/sales/customer-payments" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
@@ -427,6 +431,7 @@ export default function CustomerPaymentDetailPage() {
             receiptData={receiptData}
             actionLoading={actionLoading}
             loadingReceiptData={loadingReceiptData}
+            paymentDetailHref={paymentDetailHref}
             onPreviewReceiptData={() => void previewReceiptData()}
             onDownloadReceiptPdf={() => void downloadReceiptPdf()}
           />
@@ -911,6 +916,7 @@ export function CustomerPaymentWorkflowGuidance({
   receiptData,
   actionLoading,
   loadingReceiptData,
+  paymentDetailHref,
   onPreviewReceiptData,
   onDownloadReceiptPdf,
 }: {
@@ -919,6 +925,7 @@ export function CustomerPaymentWorkflowGuidance({
   receiptData: CustomerPaymentReceiptData | null;
   actionLoading: boolean;
   loadingReceiptData: boolean;
+  paymentDetailHref: string;
   onPreviewReceiptData: () => void;
   onDownloadReceiptPdf: () => void;
 }) {
@@ -961,7 +968,10 @@ export function CustomerPaymentWorkflowGuidance({
           <p className="mt-1 text-sm leading-6 text-steel">{paymentNextActionDescription(payment, hasUnapplied)}</p>
           <div className="mt-4 flex flex-col gap-2">
             {firstAllocatedInvoice ? (
-              <Link href={`/sales/invoices/${firstAllocatedInvoice.id}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
+              <Link
+                href={`/sales/invoices/${firstAllocatedInvoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
+                className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+              >
                 View invoice
               </Link>
             ) : null}
@@ -988,7 +998,10 @@ export function CustomerPaymentWorkflowGuidance({
               Open customer workspace
             </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Link href="/reports/aged-receivables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Link
+                href={`/reports/aged-receivables${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
+                className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
                 AR report
               </Link>
               <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

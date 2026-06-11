@@ -35,6 +35,15 @@ export default function CustomerPaymentsPage() {
   const customerId = searchParams.get("customerId")?.trim() ?? "";
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const workspaceHref = customerId ? partyDetailHref("customer", customerId) : "";
+  const listContextParams = new URLSearchParams();
+  if (customerId) {
+    listContextParams.set("customerId", customerId);
+  }
+  if (returnTo) {
+    listContextParams.set("returnTo", returnTo);
+  }
+  const listContextHref = `/sales/customer-payments${listContextParams.size > 0 ? `?${listContextParams.toString()}` : ""}`;
+  const detailReturnTo = customerId || returnTo ? listContextHref : "";
   const recordPaymentHref = customerId
     ? `/sales/customer-payments/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(returnTo || workspaceHref)}`
     : "/sales/customer-payments/new";
@@ -168,7 +177,10 @@ export default function CustomerPaymentsPage() {
                     <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <Link href={`/sales/customer-payments/${payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        <Link
+                          href={detailReturnTo ? `/sales/customer-payments/${payment.id}?returnTo=${encodeURIComponent(detailReturnTo)}` : `/sales/customer-payments/${payment.id}`}
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
                           View
                         </Link>
                         {payment.status === "POSTED" && canVoidPayment ? (
