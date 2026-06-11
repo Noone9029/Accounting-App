@@ -52,6 +52,36 @@ describe("purchase bill DTO validation", () => {
     expect(messages).toEqual([]);
   });
 
+  it("rejects empty strings in optional ID fields", () => {
+    const messages = validateCreatePurchaseBill({
+      supplierId: "bd2071a7-7b2e-4621-b82c-88f522e6fa9a",
+      branchId: "",
+      billDate: "2026-06-11T00:00:00.000Z",
+      currency: "SAR",
+      lines: [
+        {
+          itemId: "",
+          accountId: "",
+          taxRateId: "",
+          description: "Office supplies",
+          quantity: "1.0000",
+          unitPrice: "100.0000",
+          discountRate: "0.0000",
+          sortOrder: 0,
+        },
+      ],
+    });
+
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "branchId must be a PostgreSQL UUID",
+        "itemId must be a PostgreSQL UUID",
+        "accountId must be a PostgreSQL UUID",
+        "taxRateId must be a PostgreSQL UUID",
+      ]),
+    );
+  });
+
   it("rejects display labels and account codes in ID fields", () => {
     const messages = validateCreatePurchaseBill({
       supplierId: "TEST",

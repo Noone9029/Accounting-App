@@ -35,6 +35,8 @@ jest.mock("@/lib/api", () => ({
 }));
 
 describe("PurchaseBillForm", () => {
+  const billId = "00000000-0000-0000-0000-000000000701";
+
   beforeEach(() => {
     window.history.pushState({}, "", "/purchases/bills/new");
     apiRequestMock.mockReset();
@@ -47,9 +49,9 @@ describe("PurchaseBillForm", () => {
           status: "DRAFT",
         });
       }
-      if (path === "/purchase-bills/bill-1" && options?.method === "PATCH") {
+      if (path === `/purchase-bills/${billId}` && options?.method === "PATCH") {
         return Promise.resolve({
-          id: "bill-1",
+          id: billId,
           billNumber: "BILL-000001",
           status: "DRAFT",
         });
@@ -162,20 +164,20 @@ describe("PurchaseBillForm", () => {
     window.history.pushState(
       {},
       "",
-      "/purchases/bills/bill-1/edit?returnTo=/suppliers/00000000-0000-0000-0000-000000000201",
+      `/purchases/bills/${billId}/edit?returnTo=/suppliers/00000000-0000-0000-0000-000000000201`,
     );
 
     render(
       <PurchaseBillForm
         initialBill={billFixture({
-          id: "bill-1",
+          id: billId,
           supplierId: "00000000-0000-0000-0000-000000000201",
           branchId: "00000000-0000-0000-0000-000000000101",
           lines: [
             {
               id: "line-1",
               organizationId: "org-1",
-              billId: "bill-1",
+              billId,
               itemId: null,
               description: "Office supplies",
               accountId: "00000000-0000-0000-0000-000000000401",
@@ -228,7 +230,7 @@ function contactFixture(id: string, name: string) {
 
 function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
   return {
-    id: "bill-1",
+    id: "00000000-0000-0000-0000-000000000701",
     organizationId: "org-1",
     billNumber: "BILL-000001",
     supplierId: "00000000-0000-0000-0000-000000000201",

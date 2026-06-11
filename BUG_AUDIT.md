@@ -45,7 +45,8 @@ Risk reduced:
 
 - Edit purchase bill cancel and post-save redirect now preserve a safe supplier-context `returnTo` path instead of always falling back to `/purchases/bills` or the bill detail page.
 - Added a targeted failing-then-passing form test covering edit-route `returnTo` handling.
-- Tightened purchase bill frontend tests to use UUID-shaped supplier and bill ids so the AP route/test surface better matches real validation expectations after the seeded UUID validation fix.
+- Tightened purchase bill frontend tests to use UUID-shaped supplier and bill ids across the AP purchase bill form and detail guidance surface so the route/test inputs better match real validation expectations after the seeded UUID validation fix.
+- Added DTO regression coverage proving optional purchase bill reference ids accept `null` but still reject empty strings and visible labels.
 
 Remaining risks:
 

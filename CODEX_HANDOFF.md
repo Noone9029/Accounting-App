@@ -2,35 +2,48 @@
 
 ## Latest Commit Inspected
 
-- `c2047b6a fix: accept seeded purchase bill UUIDs`
+- `ff74a1ed Harden AP purchase bill creation workflow`
 
 ## Current Development Objective
 
 - Current branch: `codex/purchase-bill-seeded-uuid-validation`.
-- Current completed lane: AP purchase bill creation hardening completed.
-- Branch status versus `main`: still ahead of `main` by 2 commits and not merged.
-- Graphify usage: existing `graphify-out/GRAPH_REPORT.md`, `graphify-out/manifest.json`, and `graphify-out/graph.json` were used as a blast-radius map only; Graphify was not regenerated.
-- Code changed in this arc: `apps/web/src/components/forms/purchase-bill-form.tsx`, `apps/web/src/components/forms/purchase-bill-form.test.tsx`, and `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`.
-- Fix shipped: `PurchaseBillForm` now preserves safe `returnTo` query routing during edit flows, so edit cancel/save can return to supplier-context routes instead of always falling back to `/purchases/bills` or the bill detail page.
-- Purchase bill test hardening: purchase bill form and workflow guidance tests now use UUID-shaped supplier/bill ids so the AP test surface better matches real validation expectations.
+- Current completed lane: AP purchase bill lifecycle QA and merge-readiness pass completed.
+- Branch status versus `main`: ahead `3`, behind `0`, and not merged.
+- Graphify usage: existing `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were used as blast-radius guidance only; the graph was not regenerated and is stale (`25ae0b5b` vs current branch tip).
+- Branch content audit:
+  - AP purchase bill validation/workflow files: `apps/api/src/purchase-bills/dto/create-purchase-bill.dto.ts`, `apps/api/src/purchase-bills/dto/purchase-bill-line.dto.ts`, `apps/api/src/purchase-bills/dto/postgres-uuid.decorator.ts`, and `apps/web/src/components/forms/purchase-bill-form.tsx`.
+  - AP tests: `apps/api/src/purchase-bills/purchase-bill-dto.spec.ts`, `apps/web/src/components/forms/purchase-bill-form.test.tsx`, and `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`.
+  - Handoff/audit docs: `CODEX_HANDOFF.md` and `BUG_AUDIT.md`.
+  - Included but unrelated-to-AP docs in this branch: `docs/development/ZATCA_SANDBOX_ACCESS_CONFIRMATION_CHECKLIST_SPRINT_CLOSURE.md` and `docs/zatca/SANDBOX_ACCESS_CONFIRMATION_CHECKLIST.md` from commit `815ff4f9`.
+- AP lifecycle QA result:
+  - New bill route, edit bill route, bill detail guidance, DTO validation, frontend submit payload, and safe `returnTo` behavior were code-reviewed.
+  - `PurchaseBillForm` preserves safe `returnTo` routing during edit flows, so cancel/save can return to supplier-context routes instead of always falling back to `/purchases/bills` or the bill detail page.
+  - Purchase bill dropdowns still submit ids, not visible labels, for supplier, branch, account, and tax references.
+  - Seeded deterministic PostgreSQL UUIDs and normal UUIDs are accepted.
+  - Visible labels and empty-string optional id references are rejected by DTO validation coverage.
+- Merge-readiness verdict:
+  - AP purchase bill code/tests are ready for PR review after targeted local verification.
+  - The branch is not clean as a single-theme PR because it also contains the unrelated ZATCA sandbox access checklist docs.
+  - Recommended action: split the ZATCA checklist docs into a separate docs PR/branch before opening the AP purchase bill hardening PR.
 - Checks run:
   - `corepack pnpm --filter @ledgerbyte/api test -- purchase-bill-dto`
   - `corepack pnpm --filter @ledgerbyte/web test -- purchase-bill-form`
-  - `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath 'src/app/(app)/purchases/bills/[id]/page.test.tsx'`
+  - `node E:\Accounting App\apps\web\node_modules\jest\bin\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/purchases/bills/[id]/page.test.tsx"` (used because the Windows `pnpm test -- --runTestsByPath ...[id]...` wrapper misparsed the literal route path)
   - `corepack pnpm --filter @ledgerbyte/api typecheck`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
-- Deployment verification: skipped in this run. No beta deploy or remote route verification was performed before commit/push.
+- Deployment verification: skipped in this run. No beta deploy or remote route-load verification was performed.
 - Skipped commands and why:
-  - `node --test`: not applicable; this arc did not add Node test-runner scripts.
+  - `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath 'src/app/(app)/purchases/bills/[id]/page.test.tsx'`: Windows command parsing treated the literal `[id]` route path as shell syntax, so the equivalent direct Jest invocation was used instead.
+  - Beta deploy / remote route-load verification: optional only and skipped to keep this pass non-deploying.
   - Migrations, seed/reset/delete, E2E, smoke, ZATCA, email, backup/restore, and production deploy commands: explicitly out of scope for this lane.
 - Remaining blockers:
-  - No new API DTO defect was found beyond the already-pushed seeded UUID validation fix at `c2047b6a`.
+  - The AP branch still contains unrelated ZATCA checklist docs and should be split before PR if the goal is an AP-only review.
   - Existing unrelated dirty files remain outside this arc: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
-  - Vercel beta route-load verification still needs a separate safe pass after push if remote confirmation is required.
-- Production/ZATCA/customer-data behavior changed: no. This arc is frontend routing/test hardening only and does not change schema, accounting posting, ZATCA, email, or production posture.
-- Exact next recommended prompt title: `AP purchase bill lifecycle QA and merge readiness`.
+  - Vercel beta route-load verification still needs a separate safe pass if remote confirmation is required.
+- Production/ZATCA/customer-data behavior changed: no. This arc remains DTO/frontend/test/doc hardening only and does not change schema, accounting posting, ZATCA runtime behavior, email, or production posture.
+- Exact next recommended prompt title: `Open or merge AP purchase bill hardening PR`.
 
 ## Prior Development Objective
 
