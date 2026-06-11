@@ -2,52 +2,44 @@
 
 ## Latest Commit Inspected
 
-- Main merge commit inspected: `96a8453e Merge pull request #7 from codex/ap-purchase-bill-hardening-clean`
+- Main commit inspected: `8b9fa483 Update handoff after AP purchase bill merge`
 
 ## Current Development Objective
 
-- Current branch: `main`.
-- Current completed lane: AP-only purchase bill hardening PR #7 merged into `main`.
-- Branch source: `codex/ap-purchase-bill-hardening-clean` at `6f7ff2305fa5f41cc60e7135b43ac4ef89b5971b`.
-- Branch status versus `main`: merged cleanly; no ZATCA checklist docs were included in the PR.
-- Graphify usage: existing `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were used as blast-radius guidance only; the graph was not regenerated and is stale (`25ae0b5b` vs current branch tip).
+- Current branch: `codex/zatca-sandbox-access-confirmation-checklist`.
+- Current completed lane: docs-only ZATCA sandbox access confirmation checklist preparation on top of current `main`.
+- Branch source: `codex/zatca-sandbox-access-confirmation-checklist`.
+- Branch status versus `main`: rebased cleanly onto `main`; docs-only changes only; PR #8 opened and not merged.
+- Graphify usage: existing `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` remain blast-radius guidance only; the graph was not regenerated.
 - Branch content audit:
-  - AP purchase bill validation/workflow files: `apps/api/src/purchase-bills/dto/create-purchase-bill.dto.ts`, `apps/api/src/purchase-bills/dto/purchase-bill-line.dto.ts`, `apps/api/src/purchase-bills/dto/postgres-uuid.decorator.ts`, and `apps/web/src/components/forms/purchase-bill-form.tsx`.
-  - AP tests: `apps/api/src/purchase-bills/purchase-bill-dto.spec.ts`, `apps/web/src/components/forms/purchase-bill-form.test.tsx`, and `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`.
-  - Handoff/audit docs: `CODEX_HANDOFF.md` and `BUG_AUDIT.md`.
-  - Explicitly excluded from this branch: `docs/development/ZATCA_SANDBOX_ACCESS_CONFIRMATION_CHECKLIST_SPRINT_CLOSURE.md` and `docs/zatca/SANDBOX_ACCESS_CONFIRMATION_CHECKLIST.md`.
-- AP lifecycle QA result:
-  - New bill route, edit bill route, bill detail guidance, DTO validation, frontend submit payload, and safe `returnTo` behavior were code-reviewed.
-  - `PurchaseBillForm` preserves safe `returnTo` routing during edit flows, so cancel/save can return to supplier-context routes instead of always falling back to `/purchases/bills` or the bill detail page.
-  - Purchase bill dropdowns still submit ids, not visible labels, for supplier, branch, account, and tax references.
-  - Seeded deterministic PostgreSQL UUIDs and normal UUIDs are accepted.
-  - Visible labels and empty-string optional id references are rejected by DTO validation coverage.
+  - ZATCA docs: `docs/zatca/SANDBOX_ACCESS_CONFIRMATION_CHECKLIST.md`.
+  - Sprint closure doc: `docs/development/ZATCA_SANDBOX_ACCESS_CONFIRMATION_CHECKLIST_SPRINT_CLOSURE.md`.
+  - Handoff/audit doc: `CODEX_HANDOFF.md`.
+  - No app code, schema, migration, or runtime files are included in this PR branch.
+- Safety posture:
+  - Human-operated sandbox access confirmation only.
+  - Metadata-only evidence.
+  - No Codex sandbox portal login, OTP capture, OTP storage, CSID request, ZATCA network call, request/response body creation or processing, signing, clearance/reporting, PDF-A-3, or production compliance claim.
 - Merge-readiness verdict:
-  - AP purchase bill code/tests were merged after targeted local verification.
-  - The PR contained only the AP purchase bill hardening files plus AP-relevant handoff/audit updates.
-  - The ZATCA sandbox access confirmation checklist remains on its separate docs-only branch for an independent PR.
+  - Docs wording reviewed for safety boundaries.
+  - ZATCA production compliance remains disabled.
+  - The ZATCA sandbox access confirmation checklist remains separate from AP implementation work.
+  - PR #8 is open, mergeable, and not merged.
 - Checks run:
-  - `corepack pnpm --filter @ledgerbyte/api test -- purchase-bill-dto`
-  - `corepack pnpm --filter @ledgerbyte/web test -- purchase-bill-form`
-  - `node node_modules/jest/bin/jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/purchases/bills/[id]/page.test.tsx"` from `apps/web` (used because the Windows `pnpm test -- --runTestsByPath ...[id]...` wrapper misparsed the literal route path)
-  - `corepack pnpm --filter @ledgerbyte/api typecheck`
-  - `corepack pnpm --filter @ledgerbyte/web typecheck`
-  - `corepack pnpm verify:diff`
   - `git diff --check`
-- Deployment verification: skipped in this run. No beta deploy or remote route-load verification was performed.
+  - `corepack pnpm verify:diff`
+- Checks observed:
+  - PR Verification is in progress on the new docs-only PR.
+- PR URL: `https://github.com/Noone9029/Accounting-App/pull/8`
+- PR number: `8`
+- Deployment verification: skipped. No deploy or runtime ZATCA validation was performed.
 - Skipped commands and why:
-  - `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath 'src/app/(app)/purchases/bills/[id]/page.test.tsx'`: Windows command parsing treated the literal `[id]` route path as shell syntax, so the equivalent direct Jest invocation was used instead.
-  - Beta deploy / remote route-load verification: optional only and skipped to keep this pass non-deploying.
-  - `corepack pnpm install --frozen-lockfile` and `corepack pnpm db:generate` were run in this clean worktree because the isolated branch started without local `node_modules` or a generated Prisma client.
-  - Migrations, seed/reset/delete, E2E, smoke, ZATCA, email, backup/restore, and production deploy commands: explicitly out of scope for this lane.
+  - ZATCA runtime commands, sandbox portal login, OTP capture, CSID request, signing, clearance/reporting, PDF-A-3, email, backup/restore, smoke, E2E, and production infrastructure commands were out of scope and explicitly forbidden.
 - Remaining blockers:
-  - Existing unrelated dirty files remain outside this arc in the source checkout: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
-  - Vercel beta route-load verification still needs a separate safe pass if remote confirmation is required.
-- Production/ZATCA/customer-data behavior changed: no. This arc remains DTO/frontend/test/doc hardening only and does not change schema, accounting posting, ZATCA runtime behavior, email, or production posture.
-- PR status: PR #7 opened and merged cleanly into `main`.
-- PR URL: `https://github.com/Noone9029/Accounting-App/pull/7`
-- Checks observed: PR Verification successful; Vercel API/web checks were reported successful before merge.
-- Exact next recommended prompt title: `Open ZATCA sandbox access checklist PR`.
+  - Manual sandbox access confirmation must still happen outside Codex.
+  - Any future OTP/CSID/runtime work remains gated behind explicit approval.
+- Production/ZATCA/customer-data behavior changed: no. This branch is documentation-only and does not change runtime behavior.
+- Exact next recommended prompt title: `Review and merge ZATCA sandbox access checklist PR`.
 
 ## Prior Development Objective
 
