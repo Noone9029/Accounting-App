@@ -108,6 +108,27 @@ Remaining risks:
 - No OTP was captured, no OTP value was stored, no OTP value was shared with Codex, no CSID was requested, no ZATCA network call was made, no request body was created, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
 - Request body creation approval, real sandbox network request approval, response processing approval, response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
 
+### ZATCA sandbox request body creation approval gate added
+
+Added a dedicated metadata-only approval gate for future sandbox request body creation planning without allowing any real body creation or execution.
+
+Risk reduced:
+
+- Added `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE.md`.
+- Added `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-sandbox-request-body-creation-approval-gate.cjs`.
+- Added `scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-request-body-creation-approval-gate` and `test:zatca-sandbox-request-body-creation-approval-gate`.
+- Default status is `REQUEST_BODY_CREATION_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `REQUEST_BODY_CREATION_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- The manual OTP gate remains unmerged and is now tracked by stacked PR `#9`; this lane builds on that verified docs/static-guard branch.
+- No request body was created, no real OTP was included, no CSID was requested, no ZATCA network call was made, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Real sandbox network request approval, response processing approval, response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
 ### ZATCA CSID response custody implementation plan added
 
 Added a metadata-only response custody implementation plan and guard before any future real sandbox compliance CSID response may be processed.
