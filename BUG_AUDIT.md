@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Latest commit audited: `db8f058c` (`Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`) plus the current sandbox CSID storage approval-gate pass.
+Latest commit audited: `ce2489a5` (`Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`) plus the current signing and Phase 2 QR approval-gate pass.
 
 ## Scope
 
@@ -191,6 +191,27 @@ Remaining risks:
 
 - No custody provider was executed, no CSID was stored, no binary security token was stored, no CSID secret was stored, no certificate/private key/CSR was stored, no database write was executed, no secret-manager write was executed, no KMS/HSM/object-storage write was executed, no network request was executed, no adapter was executed, no request body was created, no response body was processed, no response custody was stored, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
 - Signing, Phase 2 QR, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
+### ZATCA signing and Phase 2 QR approval gate added
+
+Added a dedicated metadata-only approval gate for future signing and Phase 2 QR planning without allowing any signing, QR, signed XML, or SDK execution.
+
+Risk reduced:
+
+- PR `#14` `ZATCA sandbox CSID storage approval gate` was rechecked live and merged into `main` at `ce2489a5` before this branch was created.
+- Added `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_GATE.md`.
+- Added `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_SIGNING_AND_PHASE2_QR_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-signing-phase2-qr-approval-gate.cjs`.
+- Added `scripts/zatca-signing-phase2-qr-approval-gate.test.cjs`.
+- Added root package scripts `zatca:signing-phase2-qr-approval-gate` and `test:zatca-signing-phase2-qr-approval-gate`.
+- Default status is `SIGNING_PHASE2_QR_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `SIGNING_PHASE2_QR_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No signing was executed, no QR was generated, no signed XML was generated, no signature was generated, no private key/certificate/CSID was used, no SDK signing command was executed, no ZATCA network call was made, and no clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Clearance/reporting, PDF-A3, and production compliance remain blocked.
 
 ### ZATCA sandbox request body creation approval gate added
 

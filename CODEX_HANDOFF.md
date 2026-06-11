@@ -2,19 +2,20 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `db8f058c Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`
+- Main commit inspected: `ce2489a5 Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`
 - PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
 - PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
 - PR #11 merge commit in main history: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
 - PR #12 merge commit in main history: `d15884f8 Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`
 - PR #13 merge commit in main history: `db8f058c Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`
+- PR #14 merge commit in main history: `ce2489a5 Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-sandbox-csid-storage-approval-gate`.
-- Current completed lane: verified and merged PR `#13` into `main`, then added the sandbox CSID storage approval gate docs/static-guard arc on top of synced `main`.
-- Branch source used for this lane: `main` at `db8f058c`.
-- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#13` is already merged into `main`.
+- Current branch: `codex/zatca-signing-phase2-qr-approval-gate`.
+- Current completed lane: verified and merged PR `#14` into `main`, then added the signing and Phase 2 QR approval gate docs/static-guard arc on top of synced `main`.
+- Branch source used for this lane: `main` at `ce2489a5`.
+- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#14` is already merged into `main`.
 - Graphify usage: not needed for this lane because the blast radius stayed within docs, package scripts, and standalone `scripts/`.
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
@@ -45,73 +46,66 @@
   - The head commit matched `1f6773568eeebc57ec98033acda3a7b6d17a743f`.
   - `Vercel – ledgerbyte-api-test` and `Vercel – ledgerbyte-web-test` were observed successful before merge.
   - The branch was merged into `main` with merge commit `db8f058c`.
+- PR #14 merge status:
+  - PR #14 `ZATCA sandbox CSID storage approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script plus verify-gate CI narrowing only when rechecked against `main`.
+  - The head commit matched `7f6f1b25a62725e8753280c4f1057cd1a019839f`.
+  - `PR Verification`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge.
+  - The branch was merged into `main` with merge commit `ce2489a5`.
 - Branch content audit:
-  - Added ZATCA docs: `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_GATE.md` and `docs/zatca/SANDBOX_CSID_STORAGE_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_SANDBOX_CSID_STORAGE_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-sandbox-csid-storage-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:sandbox-csid-storage-approval-gate` and `test:zatca-sandbox-csid-storage-approval-gate`.
+  - Added ZATCA docs: `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_GATE.md` and `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_RESULTS.md`.
+  - Added sprint closure doc: `docs/development/ZATCA_SIGNING_AND_PHASE2_QR_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+  - Added standalone guard: `scripts/zatca-signing-phase2-qr-approval-gate.cjs`.
+  - Added standalone guard test: `scripts/zatca-signing-phase2-qr-approval-gate.test.cjs`.
+  - Added root package scripts: `zatca:signing-phase2-qr-approval-gate` and `test:zatca-signing-phase2-qr-approval-gate`.
   - Updated handoff/readiness docs: `CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `BUG_AUDIT.md`.
   - No app code, schema, migration, runtime ZATCA implementation, env file, or secret-handling path was changed.
 - Safety posture:
   - Planning/approval metadata only.
   - Metadata-only evidence.
-  - No sandbox portal login, OTP capture, OTP storage, OTP sharing, request body creation, sandbox network request execution, adapter execution, response body processing, response custody storage, custody provider execution, CSID storage, binary security token storage, CSID secret storage, certificate storage, private-key storage, CSR storage, secret-manager write, database write, KMS write, HSM write, object-storage write, backup write, log write, docs write, screenshot evidence, OTP inclusion, CSID request, signing, clearance/reporting, PDF-A3, or production compliance claim.
+  - No sandbox portal login, OTP capture, CSID request, request body creation, sandbox network request execution, adapter execution, response body processing, response custody storage, custody provider execution, CSID storage, signing execution, Phase 2 QR generation, signed XML generation, signature generation, private-key use, certificate use, token or secret use, SDK signing command execution, clearance/reporting, PDF-A3, invoice/accounting/customer data mutation, or production compliance claim.
 - Guard behavior:
-  - Default CSID-storage status is `SANDBOX_CSID_STORAGE_APPROVAL_BLOCKED`.
-  - The exact CSID-storage approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_CSID_STORAGE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - CSID storage, token/secret/certificate/private-key/CSR storage, custody provider execution, and database/secret-manager/KMS/HSM/object-storage writes remain blocked even when the phrase is recognized.
+  - Default signing-and-QR status is `SIGNING_PHASE2_QR_APPROVAL_BLOCKED`.
+  - The exact signing-and-QR approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `SIGNING_PHASE2_QR_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+  - Signing, Phase 2 QR generation, signed XML generation, signature generation, private-key/certificate/CSID use, SDK signing command execution, and ZATCA network calls remain blocked even when the phrase is recognized.
 - Checks run:
   - `git fetch origin`
-  - GitHub verification for PR #13 mergeability, clean scope, successful checks, and head commit before merging into `main`
-  - GitHub merge of PR `#13` with expected head `1f6773568eeebc57ec98033acda3a7b6d17a743f`
-  - `git worktree add E:\CodexWorktrees\Accounting-App\csid-storage-gate -b codex/zatca-sandbox-csid-storage-approval-gate origin/main`
+  - GitHub verification for PR #14 mergeability, clean scope, successful checks, and head commit before merging into `main`
+  - GitHub merge of PR `#14` with expected head `7f6f1b25a62725e8753280c4f1057cd1a019839f`
+  - `git worktree add E:\CodexWorktrees\Accounting-App\signing-phase2-qr-gate -b codex/zatca-signing-phase2-qr-approval-gate origin/main`
+  - `node --test scripts/zatca-signing-phase2-qr-approval-gate.test.cjs`
+  - `corepack pnpm test:zatca-signing-phase2-qr-approval-gate`
+  - `corepack pnpm zatca:signing-phase2-qr-approval-gate -- --json --strict`
   - `node --test scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs`
   - `corepack pnpm test:zatca-sandbox-csid-storage-approval-gate`
   - `corepack pnpm zatca:sandbox-csid-storage-approval-gate -- --json --strict`
-  - `node --test scripts/zatca-sandbox-response-custody-approval-gate.test.cjs`
-  - `corepack pnpm test:zatca-sandbox-response-custody-approval-gate`
-  - `corepack pnpm zatca:sandbox-response-custody-approval-gate -- --json --strict`
+  - `node --test scripts/verify-gate.test.cjs`
+  - `corepack pnpm verify:ci:local -- --plan`
   - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')"`
   - `git diff --check`
   - `git diff --cached --check`
   - `corepack pnpm verify:diff`
 - Checks observed:
-  - PR #13 URL: `https://github.com/Noone9029/Accounting-App/pull/13`
-  - PR #13 number: `13`
+  - PR #14 URL: `https://github.com/Noone9029/Accounting-App/pull/14`
+  - PR #14 number: `14`
   - PR #12 URL: `https://github.com/Noone9029/Accounting-App/pull/12`
   - PR #12 number: `12`
-  - PR #9 URL: `https://github.com/Noone9029/Accounting-App/pull/9`
-  - PR #9 number: `9`
-  - PR #10 URL: `https://github.com/Noone9029/Accounting-App/pull/10`
-  - PR #10 number: `10`
-  - PR #11 URL: `https://github.com/Noone9029/Accounting-App/pull/11`
-  - PR #11 number: `11`
-  - The two `node --test ...` commands passed.
+  - The three `node --test ...` commands passed.
   - The two `corepack pnpm test:...` commands passed.
   - The two strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
 - Deployment verification: skipped. No deploy, sandbox portal login, or runtime ZATCA validation was performed.
 - Skipped commands and why:
-  - ZATCA runtime commands, sandbox portal login, OTP capture, OTP entry, request body creation, sandbox network request execution, adapter execution, response body processing, response custody handling, custody provider execution, CSID storage, token/secret/certificate/private-key/CSR storage, secret-manager writes, database writes, KMS writes, HSM writes, object-storage writes, backup/restore, CSID request, signing, clearance/reporting, PDF-A3, email, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
+  - ZATCA runtime commands, sandbox portal login, OTP capture, request body creation, sandbox network request execution, adapter execution, response body processing, response custody handling, custody provider execution, CSID storage, signing execution, QR generation, signed XML generation, private-key/certificate/CSID use, SDK signing commands, clearance/reporting, PDF-A3, email, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
 - Remaining blockers:
-  - Manual sandbox access confirmation, manual OTP capture, and request body creation approval remain prerequisite metadata gates only.
-  - Real sandbox network request execution remains blocked.
-  - Adapter execution remains blocked.
-  - Response processing remains blocked.
-  - Response custody storage remains blocked.
-  - Custody provider execution remains blocked.
-  - CSID storage remains blocked.
-  - Binary security token, CSID secret, certificate, private-key, and CSR storage remain blocked.
-  - Secret-manager writes remain blocked.
-  - Database writes remain blocked.
-  - KMS writes remain blocked.
-  - HSM writes remain blocked.
-  - Object-storage writes remain blocked.
-  - Sandbox CSID storage approval remains blocked.
   - Sandbox CSID storage by an approved custody provider remains blocked.
+  - Signing execution remains blocked.
+  - Phase 2 QR generation remains blocked.
+  - Signed XML generation remains blocked.
+  - SDK signing command execution remains blocked.
+  - Clearance/reporting remains blocked.
+  - PDF-A3 remains blocked.
   - Existing unrelated dirty files remain outside this arc and must stay unstaged: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no. This lane adds docs, a standalone static guard, tests, and package scripts only.
-- Exact next recommended prompt title: `ZATCA signing and Phase 2 QR approval gate`.
+- Exact next recommended prompt title: `ZATCA clearance reporting approval gate`.
 
 ## Prior Development Objective
 

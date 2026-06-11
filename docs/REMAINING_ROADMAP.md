@@ -18,6 +18,16 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-11 ZATCA Signing And Phase 2 QR Approval Gate
+
+- PR `#14` `ZATCA sandbox CSID storage approval gate` was verified live and merged into `main` at `ce2489a5` before this new branch was cut.
+- Added `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_GATE.md`, `docs/zatca/SIGNING_AND_PHASE2_QR_APPROVAL_RESULTS.md`, `scripts/zatca-signing-phase2-qr-approval-gate.cjs`, and `scripts/zatca-signing-phase2-qr-approval-gate.test.cjs`.
+- Current status is `SIGNING_PHASE2_QR_APPROVAL_BLOCKED` by default.
+- The exact approval phrase with `--metadata-only` is recognized only for metadata confirmation and returns `SIGNING_PHASE2_QR_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No signing was executed, no QR was generated, no signed XML was generated, no private key/certificate/CSID was used, no SDK signing command was executed, and no ZATCA network/clearance/reporting/PDF-A3/production-compliance behavior was enabled.
+- Remaining ZATCA gaps now explicitly include actual signing execution, actual Phase 2 QR generation, clearance/reporting, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA clearance reporting approval gate`.
+
 ## 2026-06-11 ZATCA Sandbox CSID Storage Approval Gate
 
 - PR `#13` `ZATCA sandbox response custody approval gate` was verified live and merged into `main` at `db8f058c` before this new branch was cut.
