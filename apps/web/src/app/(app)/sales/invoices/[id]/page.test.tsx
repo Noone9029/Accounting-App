@@ -123,6 +123,7 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
 
     await waitFor(() => expect(screen.getByRole("link", { name: "DN-000042" })).toHaveAttribute("href", "/sales/delivery-notes/dn-1"));
     expect(screen.getByText("Related delivery notes")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Customer workspace" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByText(/fulfillment documents/i)).toBeInTheDocument();
     expect(screen.getByText(/do not post journals, create accounts receivable, file VAT, send email, call ZATCA, or move inventory/i)).toBeInTheDocument();
     expect(await screen.findByText("Related collection cases")).toBeInTheDocument();

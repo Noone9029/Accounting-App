@@ -11,6 +11,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -251,8 +252,8 @@ export default function PurchaseDebitNoteDetailPage() {
             </Link>
           ) : null}
           {debitNote?.supplierId ? (
-            <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Supplier ledger
+            <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Supplier workspace
             </Link>
           ) : null}
           {debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 ? (
@@ -566,8 +567,8 @@ export function PurchaseDebitNoteWorkflowGuidance({
               Download debit note PDF
             </button>
           ) : null}
-          <Link href={`/contacts/${debitNote.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            View supplier ledger
+          <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Open supplier workspace
           </Link>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

@@ -21,6 +21,7 @@ import {
   inventoryValuationVarianceTypeLabel,
   landedCostPreviewUrl,
 } from "@/lib/inventory";
+import { partyDetailHref } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
   InventoryValuationVariancePreviewItem,
@@ -244,7 +245,7 @@ export default function InventoryValuationVariancesPage() {
                     <div>
                       <p className="text-xs uppercase tracking-wide text-steel">Supplier group</p>
                       {linkPermissions.supplier ? (
-                        <Link href={`/contacts/${group.supplierId}`} className="text-base font-semibold text-palm hover:underline">
+                        <Link href={partyDetailHref("supplier", group.supplierId)} className="text-base font-semibold text-palm hover:underline">
                           {group.supplierName}
                         </Link>
                       ) : (

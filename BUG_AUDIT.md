@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `5a29ab76` (`Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`) plus the current controlled-beta documents/reports hardening pass.
+Latest commit audited: `0f6037ea` (`Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`) plus the current controlled-beta customer/supplier workspace polish pass.
 
 ## Scope
 
@@ -36,6 +36,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta customer and supplier workspace handoff polished
+
+Fixed small but real customer/supplier workflow bugs where detail and review surfaces still handed users back to generic `/contacts/:id` routes even though richer `/customers/:id` and `/suppliers/:id` workspaces now exist.
+
+Risk reduced:
+
+- Generic contact detail now exposes explicit `Customer workspace` and `Supplier workspace` buttons based on the contact role, and mixed `BOTH` contacts now explain that both workspaces are available.
+- Customer payment, supplier payment, purchase debit note, and sales invoice workflow guidance now point to the richer customer/supplier workspace routes instead of the generic combined contact page.
+- Purchase matching and inventory valuation variance supplier-group links now drill into `/suppliers/:id`, which keeps AP review follow-up aligned with the supplier workspace instead of a mixed contact route.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/inventory/valuation-variances/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/matching/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
+
+Remaining risks:
+
+- This pass did not yet sweep every older sales/purchases detail route that may still use generic contact links, so a broader payments/statements hardening pass is still needed.
+- No accounting math, posting logic, payment allocation logic, report math, VAT math, generated PDF behavior, ZATCA runtime, or production/beta/customer-data behavior changed.
 
 ### Controlled-beta documents and reports workflow surfaces hardened
 

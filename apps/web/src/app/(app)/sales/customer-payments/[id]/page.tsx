@@ -30,6 +30,7 @@ import {
 } from "@/lib/customer-payments";
 import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listOpenSalesInvoicesForCustomer } from "@/lib/sales-invoices";
@@ -983,8 +984,8 @@ export function CustomerPaymentWorkflowGuidance({
             <p className="text-xs leading-5 text-steel">
               Downloading the PDF uses the explicit receipt PDF route and may archive a generated receipt record. Payment posting and allocation actions do not create receipts automatically.
             </p>
-            <Link href={`/contacts/${payment.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              View customer ledger
+            <Link href={partyDetailHref("customer", payment.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Open customer workspace
             </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Link href="/reports/aged-receivables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

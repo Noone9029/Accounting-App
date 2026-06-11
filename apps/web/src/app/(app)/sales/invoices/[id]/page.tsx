@@ -16,6 +16,7 @@ import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnap
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -553,8 +554,8 @@ export default function SalesInvoiceDetailPage() {
             </Link>
           ) : null}
           {invoice?.customerId ? (
-            <Link href={`/contacts/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Customer ledger
+            <Link href={partyDetailHref("customer", invoice.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Customer workspace
             </Link>
           ) : null}
           {invoice ? (

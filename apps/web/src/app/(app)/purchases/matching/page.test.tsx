@@ -57,6 +57,7 @@ describe("PurchaseMatchingExceptionsPage", () => {
     expect(screen.getByText(/does not post journals, update AP balances, change inventory quantities, or book variances/i)).toBeInTheDocument();
     expect(screen.getByText("Total exceptions")).toBeInTheDocument();
     expect(screen.getAllByText("Example Supplier").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Example Supplier" })[0]).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getAllByText("Over Billed").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Over billed").length).toBeGreaterThan(0);
     expect(screen.getAllByText("No review started").length).toBeGreaterThan(0);

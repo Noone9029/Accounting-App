@@ -391,7 +391,7 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText("Posted")).toBeInTheDocument();
     expect(screen.getByText(/linked invoice balances were reduced/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
-    expect(screen.getByRole("link", { name: "View customer ledger" })).toHaveAttribute("href", "/contacts/customer-1");
+    expect(screen.getByRole("link", { name: "Open customer workspace" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("button", { name: "Preview receipt" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download receipt PDF" })).toBeInTheDocument();
     expect(screen.getByText(/explicit receipt PDF route/)).toBeInTheDocument();

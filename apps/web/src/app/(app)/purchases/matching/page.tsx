@@ -8,6 +8,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, inventoryValuationVariancePreviewUrl } from "@/lib/inventory";
+import { partyDetailHref } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
   PurchaseMatchingContext,
@@ -272,7 +273,7 @@ export default function PurchaseMatchingExceptionsPage() {
                     <div>
                       <div className="text-xs uppercase tracking-wide text-steel">Supplier</div>
                       {linkPermissions.supplier ? (
-                        <Link href={`/contacts/${group.supplierId}`} className="text-base font-semibold text-palm hover:underline">
+                        <Link href={partyDetailHref("supplier", group.supplierId)} className="text-base font-semibold text-palm hover:underline">
                           {group.supplierName}
                         </Link>
                       ) : (

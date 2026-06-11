@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
+- Main commit inspected: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
+- PR #21 merge pushed to `main`: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
 - PR #20 merge pushed to `main`: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
 - PR #19 merge pushed to `main`: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
 - PR #18 merge pushed to `main`: `c21cb392 Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`
@@ -18,53 +19,63 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-documents-reports-hardening`.
-- Current completed lane: verified PR `#20`, merged it into `main`, synced the latest main state, then hardened controlled-beta documents and reports workflow surfaces from a clean worktree branch.
-- Branch source used for this lane: `main` at `5a29ab76`.
-- Branch status versus `main`: frontend/docs/tests-only documents/reports hardening on top of the merged setup-onboarding pass.
-- Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted to confirm the shared route/helper/test files before editing. No Graphify regeneration was performed.
-- PR #20 merge result:
-  - PR `#20` `Controlled beta setup onboarding hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, and green with `PR Verification`, `Vercel - ledgerbyte-api-test`, and `Vercel - ledgerbyte-web-test` successful.
-  - The verified head stayed `0a2b3cc1d8a7d5e81a96c4c50d73ca7d1d366ffe`.
-  - The diff remained frontend/docs/tests only and did not touch schema, migrations, API accounting logic, ZATCA runtime, email, deploy, env, secrets, or customer data.
-  - PR `#20` was merged into `main` with merge commit `5a29ab76`.
-- Product areas reviewed:
-  - `apps/web/src/app/(app)/documents`
-  - `apps/web/src/app/(app)/reports`
-  - `apps/web/src/components/reports`
-  - `apps/web/src/lib/documents`
-  - `apps/web/src/lib/reports`
-  - `apps/web/src/lib/storage`
+- Current branch: `codex/controlled-beta-customer-supplier-workspace-polish`.
+- Branch base used for this lane: `main` at merged PR `#21` commit `0f6037ea`.
+- Branch status versus `main`: frontend/tests/docs-only customer/supplier workspace polish on top of the merged documents/reports hardening pass.
+- Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted; no Graphify regeneration was performed.
+- PR #21 merge result:
+  - PR `#21` `Controlled beta documents and reports workflow hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, green, and frontend/docs/tests only.
+  - The verified head stayed `8c7ce389c5576d629726584e48b748f39e9bc2dd`.
+  - Verified successful checks before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, and `GitGuardian Security Checks`.
+  - PR `#21` was merged into `main` with merge commit `0f6037ea`.
+- Customer/supplier workspace surfaces reviewed:
+  - `apps/web/src/app/(app)/customers/*`
+  - `apps/web/src/app/(app)/suppliers/*`
+  - `apps/web/src/app/(app)/contacts/*`
+  - `apps/web/src/app/(app)/sales/invoices/[id]`
+  - `apps/web/src/app/(app)/sales/customer-payments/[id]`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]`
+  - `apps/web/src/app/(app)/purchases/debit-notes/[id]`
+  - `apps/web/src/app/(app)/purchases/matching`
+  - `apps/web/src/app/(app)/inventory/valuation-variances`
   - `CODEX_HANDOFF.md`
   - `BUG_AUDIT.md`
-- Product workflow fixes completed:
-  - The documents archive filter now derives its options from shared generated-document metadata instead of a hand-maintained list, so newer controlled-beta document types such as `SALES_QUOTE` and `BANK_RECONCILIATION_REPORT` remain filterable.
-  - Aging report helper actions now preserve report context with safe `returnTo` query parameters for receivables and payables workflows instead of silently dropping users into detached create/payment flows.
-  - The reports index now explicitly says VAT Return remains a draft accountant-review view only, which removes wording that could be read as the same class of posted-journal financial statement or an official filing/submission surface.
-  - Targeted tests were added or updated in `apps/web/src/lib/documents.test.ts` and `apps/web/src/components/reports/report-pages.test.tsx`.
+- Real fixes completed:
+  - Generic contact detail now exposes explicit `Customer workspace` and `Supplier workspace` handoff buttons based on the contact role, and mixed contacts now clearly say both workspaces are available.
+  - Customer/supplier workflow guidance links that still dropped users into generic `/contacts/:id` now open the richer `/customers/:id` or `/suppliers/:id` workspaces instead.
+  - Supplier drill-down links inside purchase matching and inventory valuation variance review now open the supplier workspace rather than the generic contact route.
+  - Sales invoice detail now labels the richer target honestly as `Customer workspace` instead of a generic ledger surface.
+  - Targeted frontend regression coverage was added/updated in:
+    - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
+    - `apps/web/src/app/(app)/inventory/valuation-variances/page.test.tsx`
+    - `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.test.tsx`
+    - `apps/web/src/app/(app)/purchases/matching/page.test.tsx`
+    - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
+    - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx`
+    - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
 - Safety posture:
-  - No schema, migration, seed/reset/delete, deploy, email send, storage mutation, report math, VAT math, journal posting logic, payment allocation logic, generated PDF logic, ZATCA runtime execution, OTP/CSID handling, or production/beta/customer-data mutation changes were made.
+  - No schema, migration, seed/reset/delete, deploy, email send, report math, VAT math, journal posting logic, payment allocation logic, generated PDF logic, ZATCA runtime execution, env/secrets handling, or production/beta/customer-data mutation changes were made.
 - Checks run:
+  - `git fetch origin --prune`
+  - GitHub API recheck of PR `#21` status, mergeability, head SHA, checks, and changed files before merge
+  - Local merge of `origin/codex/controlled-beta-documents-reports-hardening` into `main`
+  - `git push origin main`
   - `corepack pnpm install --frozen-lockfile`
-  - GitHub recheck of PR `#20` status, mergeability, head SHA, green verification, and safe frontend/docs/tests-only scope before merge
-  - GitHub merge of PR `#20` with expected head `0a2b3cc1d8a7d5e81a96c4c50d73ca7d1d366ffe`
-  - `corepack pnpm exec jest --config jest.config.cjs --runTestsByPath src/lib/documents.test.ts src/components/reports/report-pages.test.tsx`
+  - `corepack pnpm exec jest --config jest.config.cjs --runTestsByPath src/app/(app)/contacts/[id]/page.test.tsx src/app/(app)/inventory/valuation-variances/page.test.tsx src/app/(app)/purchases/debit-notes/[id]/page.test.tsx src/app/(app)/purchases/matching/page.test.tsx src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx src/app/(app)/sales/customer-payments/[id]/page.test.tsx src/app/(app)/sales/invoices/[id]/page.test.tsx`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
 - Skipped commands and why:
   - API typecheck was skipped because no API files changed.
-  - `apps/web/src/app/(app)/documents/page.test.tsx` was not run directly in this worktree because Windows command parsing around the `(app)` segment broke the path-specific invocation; the shared document helper test and web typecheck still passed for the actual change.
-  - `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass fixed narrow route/filter/wording issues without materially changing product posture or readiness scoring.
-  - Graphify regeneration was skipped because existing output was stale-but-sufficient for dependency guidance and the task explicitly said not to regenerate unless genuinely needed.
-  - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and report/PDF mutation checks remained out of scope or explicitly forbidden.
+  - `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md` were not updated because this pass improves routing/workspace clarity only and does not materially change product posture or scoring.
+  - Graphify regeneration was skipped because existing output was sufficient and regeneration was explicitly discouraged unless genuinely needed.
+  - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden.
 - Remaining blockers:
-  - VAT Return still has no dedicated export route by design in the current backend, so this pass intentionally did not add frontend export actions that would imply official filing/export support.
-  - Broader customer/supplier workspace polish remains for the next focused controlled-beta arc.
-  - ZATCA settings runtime behavior remains untouched; this pass did not edit the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx`.
+  - Some older workflow/detail pages outside this pass still route through generic contact surfaces and need the same targeted customer/supplier workspace review.
+  - This pass did not touch the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx` or `apps/api/scripts/smoke-accounting.ts`.
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no.
-- Exact next recommended prompt title: `Controlled beta customer supplier workspace polish`
+- Exact next recommended prompt title: `Controlled beta payments and statements workflow hardening`
 
 ## Prior Development Objective
 

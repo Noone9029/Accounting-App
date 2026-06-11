@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { CustomerLedgerGuidance, CustomerStatementDocumentGuidance, LedgerTable, SupplierLedgerGuidance, SupplierStatementDocumentGuidance } from "./page";
-import type { CustomerLedgerRow, SupplierLedgerRow } from "@/lib/types";
+import ContactDetailPage, { CustomerLedgerGuidance, CustomerStatementDocumentGuidance, LedgerTable, SupplierLedgerGuidance, SupplierStatementDocumentGuidance } from "./page";
+import type { Contact, CustomerLedger, CustomerLedgerRow, SupplierLedger, SupplierLedgerRow } from "@/lib/types";
+
+const apiRequestMock = jest.fn();
+const canMock = jest.fn((_: string) => true);
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -16,6 +19,71 @@ jest.mock("next/link", () => ({
     </a>
   ),
 }));
+
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "contact-1" }),
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: (permission: string) => canMock(permission),
+  }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => apiRequestMock(...args),
+}));
+
+describe("ContactDetailPage workspace handoff", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+    canMock.mockReset();
+    canMock.mockReturnValue(true);
+  });
+
+  it("shows the customer workspace handoff for customer contacts", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts/contact-1") {
+        return Promise.resolve(contactFixture({ type: "CUSTOMER" }));
+      }
+      if (path === "/contacts/contact-1/ledger") {
+        return Promise.resolve(customerLedgerFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<ContactDetailPage />);
+
+    expect(await screen.findByRole("link", { name: "Customer workspace" })).toHaveAttribute("href", "/customers/contact-1");
+    expect(screen.queryByRole("link", { name: "Supplier workspace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to contacts" })).toHaveAttribute("href", "/contacts");
+  });
+
+  it("shows both workspace buttons for mixed contacts", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts/contact-1") {
+        return Promise.resolve(contactFixture({ type: "BOTH" }));
+      }
+      if (path === "/contacts/contact-1/ledger") {
+        return Promise.resolve(customerLedgerFixture());
+      }
+      if (path === "/contacts/contact-1/supplier-ledger") {
+        return Promise.resolve(supplierLedgerFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<ContactDetailPage />);
+
+    expect(await screen.findByText(/appears in both customer and supplier workspaces/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Customer workspace" })).toHaveAttribute("href", "/customers/contact-1");
+    expect(screen.getByRole("link", { name: "Supplier workspace" })).toHaveAttribute("href", "/suppliers/contact-1");
+  });
+});
 
 describe("customer ledger drill-down guidance", () => {
   it("explains payment impact and links to the next customer workflow steps", () => {
@@ -132,5 +200,49 @@ function supplierLedgerRow(overrides: Partial<SupplierLedgerRow> = {}): Supplier
     status: "POSTED",
     metadata: {},
     ...overrides,
+  };
+}
+
+function contactFixture(overrides: Partial<Contact> = {}): Contact {
+  return {
+    id: "contact-1",
+    organizationId: "org-1",
+    type: "CUSTOMER",
+    name: "Alpha Contact",
+    displayName: "Alpha Contact",
+    email: "alpha@example.com",
+    phone: "0500000000",
+    taxNumber: null,
+    addressLine1: null,
+    addressLine2: null,
+    buildingNumber: null,
+    district: null,
+    city: null,
+    postalCode: null,
+    countryCode: "SA",
+    identificationType: null,
+    identificationNumber: null,
+    isActive: true,
+    ...overrides,
+  };
+}
+
+function customerLedgerFixture(): CustomerLedger {
+  const contact = contactFixture({ type: "CUSTOMER" });
+  return {
+    contact,
+    openingBalance: "0.0000",
+    closingBalance: "0.0000",
+    rows: [],
+  };
+}
+
+function supplierLedgerFixture(): SupplierLedger {
+  const contact = contactFixture({ type: "SUPPLIER" });
+  return {
+    contact,
+    openingBalance: "0.0000",
+    closingBalance: "0.0000",
+    rows: [],
   };
 }

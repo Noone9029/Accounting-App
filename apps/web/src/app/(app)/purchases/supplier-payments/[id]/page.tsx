@@ -11,6 +11,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, supplierPaymentReceiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -242,8 +243,8 @@ export default function SupplierPaymentDetailPage() {
             Back
           </Link>
           {payment?.supplierId ? (
-            <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Supplier ledger
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Supplier workspace
             </Link>
           ) : null}
           {payment && canDownloadGeneratedDocuments ? (
@@ -550,8 +551,8 @@ export function SupplierPaymentWorkflowGuidance({
                 Download receipt PDF
               </button>
             ) : null}
-            <Link href={`/contacts/${payment.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              View supplier ledger
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Open supplier workspace
             </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
