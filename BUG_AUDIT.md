@@ -2,7 +2,7 @@
 
 Audit date: 2026-05-16
 
-Commit inspected: pending (`Fix ZATCA PIH chain and address warnings`)
+Latest commit audited: `13bf16a5` (`Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`) plus the current sandbox response processing approval-gate pass.
 
 ## Scope
 
@@ -128,6 +128,27 @@ Remaining risks:
 - PR `#9` and PR `#10` were merged into `main` before this branch was created, but the new network-request lane still does not permit any real network execution.
 - No network request was executed, no adapter was executed, no request body was created, no real OTP was included, no CSID was requested, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
 - Response processing approval, response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
+
+### ZATCA sandbox response processing approval gate added
+
+Added a dedicated metadata-only approval gate for future sandbox response processing planning without allowing any response receipt, response processing, or response custody behavior.
+
+Risk reduced:
+
+- PR `#11` `ZATCA sandbox network request approval gate` was rechecked live and merged into `main` at `13bf16a5` before this branch was created.
+- Added `docs/zatca/SANDBOX_RESPONSE_PROCESSING_APPROVAL_GATE.md`.
+- Added `docs/zatca/SANDBOX_RESPONSE_PROCESSING_APPROVAL_RESULTS.md`.
+- Added `docs/development/ZATCA_SANDBOX_RESPONSE_PROCESSING_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+- Added `scripts/zatca-sandbox-response-processing-approval-gate.cjs`.
+- Added `scripts/zatca-sandbox-response-processing-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-response-processing-approval-gate` and `test:zatca-sandbox-response-processing-approval-gate`.
+- Default status is `SANDBOX_RESPONSE_PROCESSING_APPROVAL_BLOCKED`.
+- The exact phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_RESPONSE_PROCESSING_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+
+Remaining risks:
+
+- No network request was executed, no adapter was executed, no request body was created, no response body was received, no response body was processed, no response custody was stored, no real OTP was included, no CSID was requested, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Response custody approval, sandbox CSID storage approval, signing, clearance/reporting, PDF-A3, and production compliance remain blocked.
 
 ### ZATCA sandbox request body creation approval gate added
 
