@@ -114,6 +114,41 @@ describe("NewCustomerPaymentPage", () => {
 
     expect(await screen.findByRole("link", { name: "Open customers" })).toHaveAttribute("href", "/customers");
   });
+
+  it("keeps the selected customer context when no open invoices exist", async () => {
+    window.history.pushState({}, "", "/sales/customer-payments/new?customerId=customer-1&returnTo=/customers/customer-1");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([contactFixture("customer-1", "Beta Customer")]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([
+          {
+            id: "cash-1",
+            code: "111",
+            name: "Cash on hand",
+            type: "ASSET",
+            isActive: true,
+            allowPosting: true,
+          },
+        ]);
+      }
+      if (path === "/bank-accounts") {
+        return Promise.resolve([]);
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<NewCustomerPaymentPage />);
+
+    expect(await screen.findByRole("link", { name: "Create and finalize an invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+  });
 });
 
 function contactFixture(id: string, name: string) {

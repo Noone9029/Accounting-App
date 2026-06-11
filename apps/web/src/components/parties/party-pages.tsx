@@ -18,7 +18,9 @@ import {
   getSupplierApSummary,
   listCustomers,
   listSuppliers,
+  buildPartyTransactionHref,
   partyStatusBadgeClass,
+  partyDetailHref,
   partyTransactionActionHref,
   partyTransactionsCsv,
   partyTransactionTypeOptions,
@@ -668,17 +670,17 @@ function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: Par
           { label: "Delivery notes", sourceType: "DeliveryNote", href: `/sales/delivery-notes?customerId=${encodeURIComponent(contactId)}` },
           { label: "Invoice history", sourceType: "SalesInvoice", href: `/sales/invoices?customerId=${encodeURIComponent(contactId)}` },
           { label: "Credit notes", sourceType: "CreditNote", href: `/sales/credit-notes?customerId=${encodeURIComponent(contactId)}` },
-          { label: "Payments", sourceType: "CustomerPayment", href: `/sales/customer-payments?customerId=${encodeURIComponent(contactId)}` },
+          { label: "Payments", sourceType: "CustomerPayment", href: buildPartyTransactionHref("/sales/customer-payments", "customer", contactId) },
           { label: "Refunds", sourceType: "CustomerRefund", href: `/sales/customer-refunds?customerId=${encodeURIComponent(contactId)}` },
-          { label: "Aged receivables", href: "/reports/aged-receivables", balance: overdueBalance(detail) },
+          { label: "Aged receivables", href: `/reports/aged-receivables?returnTo=${encodeURIComponent(partyDetailHref("customer", contactId))}`, balance: overdueBalance(detail) },
         ]
       : [
           { label: "Bills", sourceType: "PurchaseBill", href: `/purchases/bills?supplierId=${encodeURIComponent(contactId)}`, balance: openBalance(detail) },
           { label: "Purchase orders", sourceType: "PurchaseOrder", href: `/purchases/purchase-orders?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Supplier credits", sourceType: "PurchaseDebitNote", href: `/purchases/debit-notes?supplierId=${encodeURIComponent(contactId)}` },
-          { label: "Supplier payments", sourceType: "SupplierPayment", href: `/purchases/supplier-payments?supplierId=${encodeURIComponent(contactId)}` },
+          { label: "Supplier payments", sourceType: "SupplierPayment", href: buildPartyTransactionHref("/purchases/supplier-payments", "supplier", contactId) },
           { label: "Supplier refunds", sourceType: "SupplierRefund", href: `/purchases/supplier-refunds?supplierId=${encodeURIComponent(contactId)}` },
-          { label: "Aged payables", href: "/reports/aged-payables", balance: overdueBalance(detail) },
+          { label: "Aged payables", href: `/reports/aged-payables?returnTo=${encodeURIComponent(partyDetailHref("supplier", contactId))}`, balance: overdueBalance(detail) },
         ];
 
   return (

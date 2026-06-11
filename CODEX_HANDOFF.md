@@ -2,7 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
+- Main commit inspected: `fc3e3307 Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`
+- PR #22 merge pushed to `main`: `fc3e3307 Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`
 - PR #21 merge pushed to `main`: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
 - PR #20 merge pushed to `main`: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
 - PR #19 merge pushed to `main`: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
@@ -19,49 +20,46 @@
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-customer-supplier-workspace-polish`.
-- Branch base used for this lane: `main` at merged PR `#21` commit `0f6037ea`.
-- Branch status versus `main`: frontend/tests/docs-only customer/supplier workspace polish on top of the merged documents/reports hardening pass.
+- Current branch: `codex/controlled-beta-payments-statements-workflow-hardening`.
+- Branch base used for this lane: `main` at merged PR `#22` commit `fc3e3307`.
+- Branch status versus `main`: frontend/tests/docs-only payments/statements workflow hardening on top of the merged customer/supplier workspace polish pass.
 - Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted; no Graphify regeneration was performed.
-- PR #21 merge result:
-  - PR `#21` `Controlled beta documents and reports workflow hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, green, and frontend/docs/tests only.
-  - The verified head stayed `8c7ce389c5576d629726584e48b748f39e9bc2dd`.
+- PR #22 merge result:
+  - PR `#22` `Controlled beta customer supplier workspace polish` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, green, and frontend/docs/tests only.
+  - The verified head stayed `2eb5c4364a0373f974dd2bbe53465a6f44d18715`.
   - Verified successful checks before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, and `GitGuardian Security Checks`.
-  - PR `#21` was merged into `main` with merge commit `0f6037ea`.
-- Customer/supplier workspace surfaces reviewed:
-  - `apps/web/src/app/(app)/customers/*`
-  - `apps/web/src/app/(app)/suppliers/*`
-  - `apps/web/src/app/(app)/contacts/*`
-  - `apps/web/src/app/(app)/sales/invoices/[id]`
-  - `apps/web/src/app/(app)/sales/customer-payments/[id]`
-  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]`
-  - `apps/web/src/app/(app)/purchases/debit-notes/[id]`
-  - `apps/web/src/app/(app)/purchases/matching`
-  - `apps/web/src/app/(app)/inventory/valuation-variances`
+  - PR `#22` was merged into `main` with merge commit `fc3e3307`.
+- Payment and statement workflow surfaces reviewed:
+  - `apps/web/src/app/(app)/sales/customer-payments`
+  - `apps/web/src/app/(app)/purchases/supplier-payments`
+  - `apps/web/src/components/parties/party-pages.tsx`
+  - `apps/web/src/components/reports/report-pages.tsx`
+  - `apps/web/src/app/(app)/reports/aged-receivables`
+  - `apps/web/src/app/(app)/reports/aged-payables`
   - `CODEX_HANDOFF.md`
   - `BUG_AUDIT.md`
 - Real fixes completed:
-  - Generic contact detail now exposes explicit `Customer workspace` and `Supplier workspace` handoff buttons based on the contact role, and mixed contacts now clearly say both workspaces are available.
-  - Customer/supplier workflow guidance links that still dropped users into generic `/contacts/:id` now open the richer `/customers/:id` or `/suppliers/:id` workspaces instead.
-  - Supplier drill-down links inside purchase matching and inventory valuation variance review now open the supplier workspace rather than the generic contact route.
-  - Sales invoice detail now labels the richer target honestly as `Customer workspace` instead of a generic ledger surface.
+  - Customer and supplier workspace cards now hand payment list pages a safe `returnTo` path, and the payment list pages keep that workspace context on the top-level action bar instead of dropping users into detached list flows.
+  - Filtered customer/supplier payment lists now respect `customerId` or `supplierId` query context, so workspace handoffs show only the relevant party’s payments instead of the entire ledger-wide list.
+  - Customer payment empty-state invoice creation now preserves the current customer workspace context, and supplier payment empty-state bill creation now preserves the current supplier workspace context.
+  - Aging reports now show an explicit `Back to workspace` path when they are opened from customer or supplier workspaces.
+  - Supplier payment surfaces no longer describe their downloadable document as a `receipt`; they now use neutral payment-document/PDF wording so the UI does not imply a supplier-facing receipt/advice was sent or confirmed.
   - Targeted frontend regression coverage was added/updated in:
-    - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
-    - `apps/web/src/app/(app)/inventory/valuation-variances/page.test.tsx`
-    - `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.test.tsx`
-    - `apps/web/src/app/(app)/purchases/matching/page.test.tsx`
+    - `apps/web/src/app/(app)/sales/customer-payments/page.test.tsx`
+    - `apps/web/src/app/(app)/purchases/supplier-payments/page.test.tsx`
+    - `apps/web/src/app/(app)/sales/customer-payments/new/page.test.tsx`
+    - `apps/web/src/app/(app)/purchases/supplier-payments/new/page.test.tsx`
     - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx`
-    - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx`
-    - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
+    - `apps/web/src/components/reports/report-pages.test.tsx`
 - Safety posture:
   - No schema, migration, seed/reset/delete, deploy, email send, report math, VAT math, journal posting logic, payment allocation logic, generated PDF logic, ZATCA runtime execution, env/secrets handling, or production/beta/customer-data mutation changes were made.
 - Checks run:
-  - `git fetch origin --prune`
-  - GitHub API recheck of PR `#21` status, mergeability, head SHA, checks, and changed files before merge
-  - Local merge of `origin/codex/controlled-beta-documents-reports-hardening` into `main`
+  - `git fetch origin`
+  - GitHub API recheck of PR `#22` status, mergeability, head SHA, checks, and changed files before merge
+  - Local merge of `origin/codex/controlled-beta-customer-supplier-workspace-polish` into `main`
   - `git push origin main`
   - `corepack pnpm install --frozen-lockfile`
-  - `corepack pnpm exec jest --config jest.config.cjs --runTestsByPath src/app/(app)/contacts/[id]/page.test.tsx src/app/(app)/inventory/valuation-variances/page.test.tsx src/app/(app)/purchases/debit-notes/[id]/page.test.tsx src/app/(app)/purchases/matching/page.test.tsx src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx src/app/(app)/sales/customer-payments/[id]/page.test.tsx src/app/(app)/sales/invoices/[id]/page.test.tsx`
+  - `node E:\Accounting App-arc6\node_modules\.pnpm\jest@30.3.0_@types+node@22._cc389d01ae9b92078ddae9af4dfd390d\node_modules\jest\bin\jest.js --config jest.config.cjs --runTestsByPath src/app/(app)/sales/customer-payments/page.test.tsx src/app/(app)/purchases/supplier-payments/page.test.tsx src/app/(app)/sales/customer-payments/new/page.test.tsx src/app/(app)/purchases/supplier-payments/new/page.test.tsx src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx src/components/reports/report-pages.test.tsx`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
@@ -71,11 +69,23 @@
   - Graphify regeneration was skipped because existing output was sufficient and regeneration was explicitly discouraged unless genuinely needed.
   - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden.
 - Remaining blockers:
-  - Some older workflow/detail pages outside this pass still route through generic contact surfaces and need the same targeted customer/supplier workspace review.
-  - This pass did not touch the original dirty checkout copy of `apps/web/src/app/(app)/settings/zatca/page.tsx` or `apps/api/scripts/smoke-accounting.ts`.
+  - Payment and report detail pages outside this pass still need the same return-path review if broader context preservation becomes a beta priority.
+  - Statement tabs still live on the shared contact-detail surface; this pass did not add new dedicated customer/supplier statement routes.
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no.
-- Exact next recommended prompt title: `Controlled beta payments and statements workflow hardening`
+- Exact next recommended prompt title: `Controlled beta final product readiness triage`
+
+## Prior Development Objective
+
+- Current branch: `codex/controlled-beta-customer-supplier-workspace-polish`.
+- Branch base used for this lane: `main` at merged PR `#21` commit `0f6037ea`.
+- Branch status versus `main`: frontend/tests/docs-only customer/supplier workspace polish on top of the merged documents/reports hardening pass.
+- Graphify usage: used from the original checkout only as stale dependency/blast-radius guidance. `graphify-out/GRAPH_REPORT.md` and `graphify-out/manifest.json` were consulted; no Graphify regeneration was performed.
+- PR #21 merge result:
+  - PR `#21` `Controlled beta documents and reports workflow hardening` was rechecked through GitHub before merge and stayed open, non-draft, mergeable, green, and frontend/docs/tests only.
+  - The verified head stayed `8c7ce389c5576d629726584e48b748f39e9bc2dd`.
+  - Verified successful checks before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, and `GitGuardian Security Checks`.
+  - PR `#21` was merged into `main` with merge commit `0f6037ea`.
 
 ## Prior Development Objective
 

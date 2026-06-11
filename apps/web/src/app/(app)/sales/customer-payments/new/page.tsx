@@ -10,7 +10,7 @@ import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
-import { safeReturnToFromSearch } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
 
 interface AllocationState {
@@ -61,6 +61,10 @@ export default function NewCustomerPaymentPage() {
     () => paymentAllocationPreviewState(preview.totalAllocated, preview.unappliedAmount),
     [preview.totalAllocated, preview.unappliedAmount],
   );
+  const customerContextReturnTo = customerId ? returnTo || partyDetailHref("customer", customerId) : returnTo;
+  const createInvoiceHref = customerId
+    ? `/sales/invoices/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(customerContextReturnTo)}`
+    : "/sales/invoices/new";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -336,7 +340,7 @@ export default function NewCustomerPaymentPage() {
             <div className="px-4 py-5">
               <StatusMessage type="empty">
                 No finalized open invoices found for this customer.{" "}
-                <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
+                <Link href={createInvoiceHref} className="font-semibold text-palm hover:underline">
                   Create and finalize an invoice
                 </Link>
                 {" "}before recording payment.

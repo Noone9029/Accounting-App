@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
@@ -9,7 +10,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { partyDetailHref } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -419,10 +420,12 @@ export function AgedPayablesReportPage() {
 }
 
 function AgingReportPage({ title, endpoint, description, kind }: { title: string; endpoint: string; description: string; kind: AgingReportKind }) {
+  const searchParams = useSearchParams();
   const [report, setReport] = useState<AgingReport | null>(null);
   const [asOf, setAsOf] = useState(todayDateInput());
   const { loading, error, load } = useReportLoader<AgingReport>((query) => `${endpoint}${query}`, setReport);
   const slug = endpoint.split("/").at(-1) ?? "aging-report";
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
 
   useEffect(() => {
     void load(buildReportQuery({ asOf }));
@@ -430,6 +433,13 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
 
   return (
     <ReportSection title={title} description={description}>
+      {returnTo ? (
+        <div className="mb-4">
+          <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Back to workspace
+          </Link>
+        </div>
+      ) : null}
       <AgingReportGuide kind={kind} />
       <AsOfForm asOf={asOf} setAsOf={setAsOf} loading={loading} onSubmit={() => load(buildReportQuery({ asOf }))} helpText="Changing the date recalculates which open invoices or bills fall into each aging bucket." />
       <ReportExportButtons endpoint={endpoint} slug={slug} params={{ asOf }} />

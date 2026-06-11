@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { AgingReportGuide, AgingTable, ReportsIndexPage } from "./report-pages";
+import { AgedReceivablesReportPage, AgingReportGuide, AgingTable, ReportsIndexPage } from "./report-pages";
 import type { AgingReportRow } from "@/lib/types";
+
+const apiRequestMock = jest.fn();
+let searchParams = new URLSearchParams();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -17,7 +20,45 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useSearchParams: () => searchParams,
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    canAny: () => true,
+  }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => apiRequestMock(...args),
+}));
+
+jest.mock("@/lib/pdf-download", () => ({
+  downloadAuthenticatedFile: jest.fn(),
+}));
+
 describe("reports index first-workflow guidance", () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+    apiRequestMock.mockReset();
+    apiRequestMock.mockResolvedValue({
+      rows: [],
+      bucketTotals: {
+        CURRENT: "0.0000",
+        "1_30": "0.0000",
+        "31_60": "0.0000",
+        "61_90": "0.0000",
+        "90_PLUS": "0.0000",
+      },
+      grandTotal: "0.0000",
+    });
+  });
+
   it("points new users to the first report and back to setup guidance", () => {
     render(<ReportsIndexPage />);
 
@@ -80,6 +121,14 @@ describe("reports index first-workflow guidance", () => {
 
     expect(container.textContent).not.toMatch(/production submission is connected/i);
     expect(container.textContent).not.toMatch(/production compliance is enabled/i);
+  });
+
+  it("surfaces a workspace return link when aging reports are opened from a workspace", async () => {
+    searchParams = new URLSearchParams("returnTo=/customers/customer-1");
+
+    render(<AgedReceivablesReportPage />);
+
+    expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/customer-1");
   });
 });
 

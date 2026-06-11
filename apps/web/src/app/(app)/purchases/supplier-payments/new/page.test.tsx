@@ -86,6 +86,41 @@ describe("NewSupplierPaymentPage", () => {
     expect(screen.getByText("BILL-001")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-1");
   });
+
+  it("keeps the selected supplier context when no open bills exist", async () => {
+    window.history.pushState({}, "", "/purchases/supplier-payments/new?supplierId=supplier-1&returnTo=/suppliers/supplier-1");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([contactFixture("supplier-1", "Beta Supplier")]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([
+          {
+            id: "cash-1",
+            code: "111",
+            name: "Cash on hand",
+            type: "ASSET",
+            isActive: true,
+            allowPosting: true,
+          },
+        ]);
+      }
+      if (path === "/bank-accounts") {
+        return Promise.resolve([]);
+      }
+      if (path === "/purchase-bills/open?supplierId=supplier-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<NewSupplierPaymentPage />);
+
+    expect(await screen.findByRole("link", { name: "Create and finalize a bill" })).toHaveAttribute(
+      "href",
+      "/purchases/bills/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
+    );
+  });
 });
 
 function contactFixture(id: string, name: string) {

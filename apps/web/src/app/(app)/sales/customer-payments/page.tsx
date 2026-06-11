@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -15,12 +16,14 @@ import {
 } from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerPayment } from "@/lib/types";
 
 export default function CustomerPaymentsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const searchParams = useSearchParams();
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -29,6 +32,13 @@ export default function CustomerPaymentsPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const canCreatePayment = can(PERMISSIONS.customerPayments.create);
   const canVoidPayment = can(PERMISSIONS.customerPayments.void);
+  const customerId = searchParams.get("customerId")?.trim() ?? "";
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
+  const workspaceHref = customerId ? partyDetailHref("customer", customerId) : "";
+  const recordPaymentHref = customerId
+    ? `/sales/customer-payments/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(returnTo || workspaceHref)}`
+    : "/sales/customer-payments/new";
+  const visiblePayments = customerId ? payments.filter((payment) => payment.customerId === customerId) : payments;
 
   useEffect(() => {
     if (!organizationId) {
@@ -86,13 +96,22 @@ export default function CustomerPaymentsPage() {
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Customer payments</h1>
-          <p className="mt-1 text-sm text-steel">Posted customer receipts and invoice allocations.</p>
+          <p className="mt-1 text-sm text-steel">
+            {customerId ? "Recorded customer payments for this workspace. Receipt PDFs remain explicit output actions." : "Recorded customer payments and invoice allocations. Receipt PDFs remain explicit output actions."}
+          </p>
         </div>
-        {canCreatePayment ? (
-          <Link href="/sales/customer-payments/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Record payment
-          </Link>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {returnTo ? (
+            <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Back to workspace
+            </Link>
+          ) : null}
+          {canCreatePayment ? (
+            <Link href={recordPaymentHref} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+              Record payment
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -100,14 +119,16 @@ export default function CustomerPaymentsPage() {
         {loading ? <StatusMessage type="loading">Loading customer payments...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && payments.length === 0 ? (
+        {!loading && organizationId && visiblePayments.length === 0 ? (
           <StatusMessage type="empty">
-            No customer payments found. Finalize an invoice first, then record payment to close the receivables loop.
+            {customerId
+              ? "No customer payments are recorded for this workspace yet. Finalize an invoice first, then record payment to reduce the receivable balance."
+              : "No customer payments found. Finalize an invoice first, then record payment to close the receivables loop."}
           </StatusMessage>
         ) : null}
       </div>
 
-      {payments.length > 0 ? (
+      {visiblePayments.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
           <table className="w-full min-w-[1120px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
@@ -124,7 +145,7 @@ export default function CustomerPaymentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {payments.map((payment) => {
+              {visiblePayments.map((payment) => {
                 const allocationState = customerPaymentAllocationState(payment);
                 return (
                   <tr key={payment.id}>

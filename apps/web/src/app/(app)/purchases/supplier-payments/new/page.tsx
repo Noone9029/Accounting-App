@@ -9,7 +9,7 @@ import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculateSupplierPaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
-import { safeReturnToFromSearch } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
 
 interface AllocationState {
@@ -56,6 +56,10 @@ export default function NewSupplierPaymentPage() {
       ),
     [allocations, amountPaid, openBills],
   );
+  const supplierContextReturnTo = supplierId ? returnTo || partyDetailHref("supplier", supplierId) : returnTo;
+  const createBillHref = supplierId
+    ? `/purchases/bills/new?supplierId=${encodeURIComponent(supplierId)}&returnTo=${encodeURIComponent(supplierContextReturnTo)}`
+    : "/purchases/bills/new";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -280,8 +284,14 @@ export default function NewSupplierPaymentPage() {
             <tbody className="divide-y divide-slate-100">
               {openBills.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-5 text-center text-steel">
-                    No open finalized bills for this supplier.
+                  <td colSpan={6} className="px-4 py-5">
+                    <StatusMessage type="empty">
+                      No finalized open bills were found for this supplier.{" "}
+                      <Link href={createBillHref} className="font-semibold text-palm hover:underline">
+                        Create and finalize a bill
+                      </Link>
+                      {" "}before recording payment.
+                    </StatusMessage>
                   </td>
                 </tr>
               ) : (
