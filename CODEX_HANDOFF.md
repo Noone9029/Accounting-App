@@ -2,52 +2,57 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `122657b2 Update handoff after ZATCA checklist merge`
-- PR #8 merge commit in main history: `2ff09fab Merge pull request #8 from codex/zatca-sandbox-access-confirmation-checklist`
-- Manual OTP gate branch commit inspected: `5f1b2c0b Add ZATCA manual OTP capture approval gate`
+- Main commit inspected: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
+- PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
+- PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-request-body-creation-approval-gate`.
-- Current completed lane: sandbox request body creation approval gate docs/static-guard arc stacked on top of the manual OTP capture approval gate branch.
-- Branch source used for this lane: `codex/zatca-manual-otp-capture-approval-gate` at `5f1b2c0b`.
-- Branch status versus `main`: stacked docs/static-guard lane; manual OTP gate is still unmerged.
+- Current branch: `codex/zatca-sandbox-network-request-approval-gate`.
+- Current completed lane: merged the stacked manual OTP and request-body approval-gate PRs into `main`, then added the sandbox network request approval gate docs/static-guard arc on top of synced `main`.
+- Branch source used for this lane: `main` at `feb32ccc`.
+- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR #9 and PR #10 are already merged into `main`.
 - Graphify usage: not needed for this lane because the blast radius stayed within docs, package scripts, and standalone `scripts/`.
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
-  - GitHub API confirmed `merged=true`, `draft=false`, head `14fb33632e5c10e370cef22d40a8ed2bee69ad68`, merge commit `2ff09fab40a097f47dfdb55fd9c5ced62ff553f5`, and docs-only changed files only.
+  - GitHub API previously confirmed `merged=true`, `draft=false`, head `14fb33632e5c10e370cef22d40a8ed2bee69ad68`, merge commit `2ff09fab40a097f47dfdb55fd9c5ced62ff553f5`, and docs-only changed files only.
   - Successful PR checks observed before merge: `Non-mutating verification`, `Vercel – ledgerbyte-api-test`, `Vercel – ledgerbyte-web-test`, and `GitGuardian Security Checks`.
-- Manual OTP gate PR status:
-  - PR #9 `ZATCA manual OTP capture approval gate` was opened during this run at `https://github.com/Noone9029/Accounting-App/pull/9`.
-  - The manual OTP gate branch remained docs/static-guard only and locally verified.
-  - Merge was not performed because the manual OTP gate is now stacked beneath the request-body gate branch for this arc.
+- PR #9 merge status:
+  - PR #9 `ZATCA manual OTP capture approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
+  - The head commit matched `5f1b2c0b6572049026cbe82881de6ec8d60b549a`.
+  - PR verification and Vercel API/web checks were observed successful before merge.
+  - The branch was merged into `main` with merge commit `a4190941`.
+- PR #10 merge status:
+  - PR #10 `ZATCA request body creation approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only after PR #9 landed.
+  - The head commit matched `e8b59c9424d908af6b5a17671b472c6793919ee3`.
+  - PR verification and Vercel API/web checks were observed successful before merge.
+  - The branch was merged into `main` with merge commit `feb32ccc`.
 - Branch content audit:
-  - Added ZATCA docs: `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE.md` and `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-sandbox-request-body-creation-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:sandbox-request-body-creation-approval-gate` and `test:zatca-sandbox-request-body-creation-approval-gate`.
-  - Added ZATCA docs: `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_GATE.md` and `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_MANUAL_OTP_CAPTURE_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-manual-otp-capture-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-manual-otp-capture-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:manual-otp-capture-approval-gate` and `test:zatca-manual-otp-capture-approval-gate`.
+  - Added ZATCA docs: `docs/zatca/SANDBOX_NETWORK_REQUEST_APPROVAL_GATE.md` and `docs/zatca/SANDBOX_NETWORK_REQUEST_APPROVAL_RESULTS.md`.
+  - Added sprint closure doc: `docs/development/ZATCA_SANDBOX_NETWORK_REQUEST_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+  - Added standalone guard: `scripts/zatca-sandbox-network-request-approval-gate.cjs`.
+  - Added standalone guard test: `scripts/zatca-sandbox-network-request-approval-gate.test.cjs`.
+  - Added root package scripts: `zatca:sandbox-network-request-approval-gate` and `test:zatca-sandbox-network-request-approval-gate`.
   - Updated handoff/readiness docs: `CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `BUG_AUDIT.md`.
   - No app code, schema, migration, runtime ZATCA implementation, env file, or secret-handling path was changed.
 - Safety posture:
-  - Human-operated OTP capture boundary only.
+  - Planning/approval metadata only.
   - Metadata-only evidence.
-  - No Codex sandbox portal login, OTP capture, OTP storage, OTP sharing, request body creation, OTP inclusion, CSID request, ZATCA network call, request/response body creation or processing, signing, clearance/reporting, PDF-A3, or production compliance claim.
+  - No sandbox portal login, OTP capture, OTP storage, OTP sharing, request body creation, OTP inclusion, CSID request, sandbox network request execution, adapter execution, request/response body creation or processing, signing, clearance/reporting, PDF-A3, or production compliance claim.
 - Guard behavior:
-  - Default request-body status is `REQUEST_BODY_CREATION_APPROVAL_BLOCKED`.
-  - The exact request-body approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `REQUEST_BODY_CREATION_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - Request body creation remains blocked even when the phrase is recognized.
-  - Default status is `MANUAL_OTP_CAPTURE_APPROVAL_BLOCKED`.
-  - The exact approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `MANUAL_OTP_CAPTURE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - Execution remains blocked even when the phrase is recognized.
+  - Default network-request status is `SANDBOX_NETWORK_REQUEST_APPROVAL_BLOCKED`.
+  - The exact network-request approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_NETWORK_REQUEST_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+  - Network request execution and adapter execution remain blocked even when the phrase is recognized.
 - Checks run:
   - `git fetch origin`
-  - GitHub verification for PR #8 merge state, manual OTP branch commit status, and manual OTP PR creation
+  - GitHub verification for PR #9 and PR #10 mergeability, clean scope, successful checks, and head commits before merging into `main`
+  - `git merge --no-ff origin/codex/zatca-manual-otp-capture-approval-gate`
+  - `git push origin main`
+  - `git merge --no-ff origin/codex/zatca-request-body-creation-approval-gate`
+  - `git push origin main`
+  - `node --test scripts/zatca-sandbox-network-request-approval-gate.test.cjs`
+  - `corepack pnpm test:zatca-sandbox-network-request-approval-gate`
+  - `corepack pnpm zatca:sandbox-network-request-approval-gate -- --json --strict`
   - `node --test scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs`
   - `corepack pnpm test:zatca-sandbox-request-body-creation-approval-gate`
   - `corepack pnpm zatca:sandbox-request-body-creation-approval-gate -- --json --strict`
@@ -58,23 +63,26 @@
   - `git diff --check`
   - `corepack pnpm verify:diff`
 - Checks observed:
-  - PR #8 URL: `https://github.com/Noone9029/Accounting-App/pull/8`
-  - PR #8 number: `8`
   - PR #9 URL: `https://github.com/Noone9029/Accounting-App/pull/9`
   - PR #9 number: `9`
+  - PR #10 URL: `https://github.com/Noone9029/Accounting-App/pull/10`
+  - PR #10 number: `10`
+  - The three `node --test ...` commands passed.
+  - The three `corepack pnpm test:...` commands passed.
+  - The three strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
 - Deployment verification: skipped. No deploy, sandbox portal login, or runtime ZATCA validation was performed.
 - Skipped commands and why:
-  - ZATCA runtime commands, sandbox portal login, OTP capture, OTP entry, request body creation, CSID request, request/response body handling, signing, clearance/reporting, PDF-A3, email, backup/restore, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
+  - ZATCA runtime commands, sandbox portal login, OTP capture, OTP entry, request body creation, sandbox network request execution, adapter execution, CSID request, request/response body handling, signing, clearance/reporting, PDF-A3, email, backup/restore, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
 - Remaining blockers:
-  - Manual sandbox access confirmation and manual OTP capture must still happen outside Codex.
-  - Request body creation approval remains metadata-only and execution-blocked.
-  - Real sandbox network request approval remains blocked.
+  - Manual sandbox access confirmation, manual OTP capture, and request body creation approval remain prerequisite metadata gates only.
+  - Real sandbox network request execution remains blocked.
+  - Adapter execution remains blocked.
   - Response processing approval remains blocked.
   - Response custody approval remains blocked.
   - Sandbox CSID storage by an approved custody provider remains blocked.
   - Existing unrelated dirty files remain outside this arc and must stay unstaged: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no. This lane adds docs, a standalone static guard, tests, and package scripts only.
-- Exact next recommended prompt title: `ZATCA sandbox network request approval gate`.
+- Exact next recommended prompt title: `ZATCA sandbox response processing approval gate`.
 
 ## Prior Development Objective
 
