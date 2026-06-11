@@ -1,8 +1,8 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-06-11
+Audit date: 2026-06-12
 
-Latest commit audited: `a9c9cef1` (`Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`) plus the current controlled-beta workflow hardening pass.
+Latest commit audited: `c21cb392` (`Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`) plus the current controlled-beta route-surface hardening pass.
 
 ## Scope
 
@@ -36,6 +36,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta route surfaces now hand off to the right customer, supplier, and archive states
+
+Fixed small but real route-surface issues across contacts, reports, documents, and storage wording without changing accounting logic or runtime ZATCA behavior.
+
+Risk reduced:
+
+- The generic contacts list now sends pure customer contacts to `/customers/<id>` and pure supplier contacts to `/suppliers/<id>` instead of always dropping users into the older combined `/contacts/<id>` route. `BOTH` contacts still use the combined contact view.
+- Supplier-focused contacts onboarding no longer tells users to create the first invoice. When the page is opened with `?type=SUPPLIER`, the empty-state next step now points to `/purchases/bills/new`.
+- Aged Receivables and Aged Payables now send contact drill-downs to the matching customer/supplier detail pages, and their helper actions now point to `/customers` or `/suppliers` instead of the generic contacts list.
+- The generated-documents archive no longer shows `Download archived PDF` for `FAILED` rows, which previously implied a broken archive artifact could still be downloaded. Failed rows now show explicit unavailable guidance instead.
+- Storage backup readiness wording now states metadata review status rather than wording that could be read as proven backup/restore execution.
+- Added focused frontend regression coverage in:
+  - `apps/web/src/app/(app)/contacts/page.test.tsx`
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+  - `apps/web/src/app/(app)/documents/page.test.tsx`
+  - `apps/web/src/lib/documents.test.ts`
+  - `apps/web/src/lib/storage.test.ts`
+
+Remaining risks:
+
+- This pass did not change dashboard data loading, report math, document generation logic, archive persistence, backup execution, restore execution, or runtime ZATCA behavior.
+- The generic combined `/contacts/<id>` route still exists for `BOTH` contacts and remains the only surface showing both customer and supplier ledger tabs together.
 
 ### Controlled-beta invoice and bill workflow return paths hardened
 

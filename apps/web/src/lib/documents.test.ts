@@ -1,4 +1,5 @@
 import {
+  canDownloadGeneratedDocument,
   canCreateApGeneratedDocumentEmail,
   documentSourceTypeLabel,
   documentTypeLabel,
@@ -56,6 +57,12 @@ describe("document helpers", () => {
     expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ status: "FAILED" }), allowAll)).toBe(false);
     expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ sourceType: "SalesInvoice", documentType: "SALES_INVOICE" }), allowAll)).toBe(false);
     expect(canCreateApGeneratedDocumentEmail(generatedDocumentFixture({ sourceType: "PurchaseBill", documentType: "PURCHASE_ORDER" }), allowAll)).toBe(false);
+  });
+
+  it("blocks failed archive rows from offering PDF download", () => {
+    expect(canDownloadGeneratedDocument(generatedDocumentFixture())).toBe(true);
+    expect(canDownloadGeneratedDocument(generatedDocumentFixture({ status: "SUPERSEDED" }))).toBe(true);
+    expect(canDownloadGeneratedDocument(generatedDocumentFixture({ status: "FAILED" }))).toBe(false);
   });
 });
 

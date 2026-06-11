@@ -7,7 +7,9 @@ const {
   GATES,
   assertSafePlan,
   buildGatePlan,
+  getChangedWebTestPaths,
   isDocsStaticGuardPackageOnlyChange,
+  isWebDocsAndCiScopedChange,
   formatCommand,
 } = require("./verify-gate.cjs");
 
@@ -59,14 +61,12 @@ test("repo and CI local gates stay inside non-destructive verification commands"
 
 test("CI local gate generates Prisma client before workspace typecheck", () => {
   const commands = buildGatePlan("verify:ci:local", [], {
-    changedFiles: ["apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx"],
+    changedFiles: ["packages/zatca-core/src/xml.ts"],
   }).commands.map(formatCommand);
 
   assert.ok(commands.includes("corepack pnpm db:generate"));
   assert.ok(commands.indexOf("corepack pnpm db:generate") < commands.indexOf("corepack pnpm typecheck"));
-  assertSafePlan(
-    buildGatePlan("verify:ci:local", [], { changedFiles: ["apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx"] }),
-  );
+  assertSafePlan(buildGatePlan("verify:ci:local", [], { changedFiles: ["packages/zatca-core/src/xml.ts"] }));
 });
 
 test("CI local gate narrows to static-guard verification for docs/static-guard/package-script-only changes", () => {
@@ -100,14 +100,87 @@ test("CI local gate narrows to static-guard verification for docs/static-guard/p
 });
 
 test("CI local gate keeps broader repo verification when changes leave the docs/static-guard lane", () => {
-  const changedFiles = ["apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx"];
+  const changedFiles = ["packages/zatca-core/src/xml.ts"];
 
   assert.equal(isDocsStaticGuardPackageOnlyChange(changedFiles), false);
+  assert.equal(isWebDocsAndCiScopedChange(changedFiles), false);
 
   const commands = buildGatePlan("verify:ci:local", [], { changedFiles }).commands.map(formatCommand);
   assert.ok(commands.includes("corepack pnpm test"));
   assert.ok(commands.includes("corepack pnpm build"));
   assert.ok(commands.includes("corepack pnpm typecheck"));
+});
+
+test("CI local gate narrows web-and-docs route hardening diffs to web verification", () => {
+  const changedFiles = [
+    "BUG_AUDIT.md",
+    "CODEX_HANDOFF.md",
+    "apps/web/src/app/(app)/contacts/page.tsx",
+    "apps/web/src/app/(app)/contacts/page.test.tsx",
+    "apps/web/src/lib/storage.ts",
+  ];
+
+  assert.equal(isDocsStaticGuardPackageOnlyChange(changedFiles), false);
+  assert.equal(isWebDocsAndCiScopedChange(changedFiles), true);
+
+  const plan = buildGatePlan("verify:ci:local", [], { changedFiles });
+  const commands = plan.commands.map(formatCommand);
+
+  assert.deepEqual(commands.slice(0, 2), [
+    "git diff --check",
+    "corepack pnpm --filter @ledgerbyte/web typecheck",
+  ]);
+  assert.match(commands[2], /^node scripts\/run-web-jest-by-paths\.cjs /);
+  assert.match(commands[2], /src\/app\/\(app\)\/contacts\/page\.test\.tsx/);
+  assert.equal(commands[3], "corepack pnpm --filter @ledgerbyte/web build");
+});
+
+test("CI local gate adds verify-gate tests when scoped CI files change with web surfaces", () => {
+  const changedFiles = [
+    ".github/workflows/pr-verification.yml",
+    "scripts/verify-gate.cjs",
+    "scripts/verify-gate.test.cjs",
+    "apps/web/src/app/(app)/documents/page.tsx",
+    "apps/web/src/app/(app)/documents/page.test.tsx",
+  ];
+
+  assert.equal(isWebDocsAndCiScopedChange(changedFiles), true);
+
+  const plan = buildGatePlan("verify:ci:local", [], { changedFiles });
+  const commands = plan.commands.map(formatCommand);
+
+  assert.deepEqual(commands.slice(0, 3), [
+    "git diff --check",
+    "node --test scripts/verify-gate.test.cjs",
+    "corepack pnpm --filter @ledgerbyte/web typecheck",
+  ]);
+  assert.match(commands[3], /^node scripts\/run-web-jest-by-paths\.cjs /);
+  assert.match(commands[3], /src\/app\/\(app\)\/documents\/page\.test\.tsx/);
+  assert.equal(commands[4], "corepack pnpm --filter @ledgerbyte/web build");
+});
+
+test("CI local gate keeps docs-only changes lightweight in the scoped route", () => {
+  const changedFiles = ["BUG_AUDIT.md", "docs/development/DEV_02_VERIFICATION_GATE_RUNBOOK.md"];
+
+  assert.equal(isWebDocsAndCiScopedChange(changedFiles), true);
+
+  const commands = buildGatePlan("verify:ci:local", [], { changedFiles }).commands.map(formatCommand);
+  assert.deepEqual(commands, ["git diff --check"]);
+});
+
+test("changed web test path extraction keeps repo-relative Jest paths stable", () => {
+  const paths = getChangedWebTestPaths([
+    "apps/web/src/app/(app)/documents/page.tsx",
+    "apps/web/src/app/(app)/documents/page.test.tsx",
+    "apps/web/src/lib/storage.test.ts",
+    "apps/web/src/lib/storage.test.ts",
+    "CODEX_HANDOFF.md",
+  ]);
+
+  assert.deepEqual(paths, [
+    "src/app/(app)/documents/page.test.tsx",
+    "src/lib/storage.test.ts",
+  ]);
 });
 
 test("unsafe extra args are rejected before command execution", () => {

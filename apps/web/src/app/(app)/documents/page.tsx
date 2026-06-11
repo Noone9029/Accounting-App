@@ -7,7 +7,14 @@ import { ArchiveDocumentGuidance } from "@/components/documents/document-guidanc
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { canCreateApGeneratedDocumentEmail, documentSourceTypeLabel, documentTypeLabel, generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
+import {
+  canCreateApGeneratedDocumentEmail,
+  canDownloadGeneratedDocument,
+  documentSourceTypeLabel,
+  documentTypeLabel,
+  generatedDocumentStatusBadgeClass,
+  generatedDocumentStatusLabel,
+} from "@/lib/documents";
 import { apGeneratedDocumentOutboxPath } from "@/lib/email";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { downloadPdf, generatedDocumentDownloadPath } from "@/lib/pdf-download";
@@ -213,9 +220,11 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3">
                   <div className="flex min-w-[250px] flex-col gap-2">
                     {canDownloadGeneratedDocuments ? (
-                      <button type="button" onClick={() => void downloadDocument(document)} disabled={downloadingId === document.id} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                        {downloadingId === document.id ? "Downloading..." : "Download archived PDF"}
-                      </button>
+                      <GeneratedDocumentDownloadAction
+                        document={document}
+                        loading={downloadingId === document.id}
+                        onDownload={() => void downloadDocument(document)}
+                      />
                     ) : (
                       <span className="text-xs text-steel">Download permission required</span>
                     )}
@@ -290,6 +299,29 @@ interface GeneratedDocumentApEmailActionProps {
   loading: boolean;
   onRecipientChange: (recipientEmail: string) => void;
   onSubmit: (recipientEmail: string) => void;
+}
+
+interface GeneratedDocumentDownloadActionProps {
+  document: GeneratedDocument;
+  loading: boolean;
+  onDownload: () => void;
+}
+
+export function GeneratedDocumentDownloadAction({ document, loading, onDownload }: GeneratedDocumentDownloadActionProps) {
+  if (!canDownloadGeneratedDocument(document)) {
+    return <span className="text-xs text-steel">PDF unavailable until generation succeeds</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onDownload}
+      disabled={loading}
+      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+    >
+      {loading ? "Downloading..." : "Download archived PDF"}
+    </button>
+  );
 }
 
 export function GeneratedDocumentApEmailAction({ document, visible, recipientEmail, loading, onRecipientChange, onSubmit }: GeneratedDocumentApEmailActionProps) {
