@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-11 ZATCA Sandbox Request Body Creation Approval Gate update:
+
+- The manual OTP gate was not merged during this run; request-body approval work is stacked on `codex/zatca-manual-otp-capture-approval-gate`, and PR `#9` now exists for that base branch.
+- Added `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE.md`, `docs/zatca/SANDBOX_REQUEST_BODY_CREATION_APPROVAL_RESULTS.md`, `docs/development/ZATCA_SANDBOX_REQUEST_BODY_CREATION_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-sandbox-request-body-creation-approval-gate.cjs`, and `scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs`.
+- Added root package scripts `zatca:sandbox-request-body-creation-approval-gate` and `test:zatca-sandbox-request-body-creation-approval-gate`.
+- Observed default status is `REQUEST_BODY_CREATION_APPROVAL_BLOCKED`.
+- The exact approval phrase with `--metadata-only` is recognized only as metadata approval and returns `REQUEST_BODY_CREATION_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+- No request body was created, no real OTP was included, no CSID was requested, no ZATCA network call was made, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+- Current blockers are actual request body creation, real sandbox network request approval, response processing approval, response custody approval, sandbox CSID storage by an approved custody provider, signing, clearance/reporting, PDF-A3, and production compliance.
+- Recommended next prompt: `ZATCA sandbox network request approval gate`.
+
 2026-06-11 ZATCA Manual OTP Capture Approval Gate update:
 
 - Added `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_GATE.md`, `docs/zatca/MANUAL_OTP_CAPTURE_APPROVAL_RESULTS.md`, `docs/development/ZATCA_MANUAL_OTP_CAPTURE_APPROVAL_GATE_SPRINT_CLOSURE.md`, `scripts/zatca-manual-otp-capture-approval-gate.cjs`, and `scripts/zatca-manual-otp-capture-approval-gate.test.cjs`.
