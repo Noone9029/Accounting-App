@@ -43,7 +43,7 @@ export function s3ConfigRows(config: S3ConfigReadiness): Array<{ label: string; 
 }
 
 export function backupReadinessLabel(productionReady: boolean): string {
-  return productionReady ? "Backup readiness review complete" : "Backup readiness not production-ready";
+  return productionReady ? "Backup metadata review complete" : "Backup metadata review incomplete";
 }
 
 export function backupEvidenceTypeLabel(type: BackupRestoreEvidenceType): string {

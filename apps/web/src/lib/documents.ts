@@ -81,6 +81,11 @@ const apGeneratedDocumentEmailSources: Record<string, { documentType: DocumentTy
 };
 
 type ApGeneratedDocumentEmailCandidate = Pick<GeneratedDocument, "documentType" | "sourceType" | "status">;
+type GeneratedDocumentDownloadCandidate = Pick<GeneratedDocument, "status">;
+
+export function canDownloadGeneratedDocument(document: GeneratedDocumentDownloadCandidate): boolean {
+  return document.status !== "FAILED";
+}
 
 export function getApGeneratedDocumentEmailSourcePermission(document: ApGeneratedDocumentEmailCandidate): Permission | null {
   const config = apGeneratedDocumentEmailSources[document.sourceType];

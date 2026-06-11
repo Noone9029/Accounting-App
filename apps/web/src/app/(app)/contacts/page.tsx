@@ -103,7 +103,7 @@ export default function ContactsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">Contacts</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Start with one customer. VAT and buyer-ID fields can be added now or reviewed later before ZATCA rehearsals.
+            Start with one customer or supplier. VAT, ID, and address fields can be added now or reviewed later before local customer-invoice ZATCA rehearsal work.
           </p>
         </div>
         <Link href="/setup" className="inline-flex items-center gap-2 self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -196,15 +196,9 @@ export default function ContactsPage() {
         {!loading && organizationId && contacts.length === 0 ? (
           <StatusMessage type="empty">
             {canManageContacts ? (
-              <>
-                No contacts yet. Add a first customer above, then continue to{" "}
-                <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
-                  create the first invoice
-                </Link>
-                .
-              </>
+              <ContactsEmptyState contactType={initialContactType} />
             ) : (
-              "No contacts yet. Ask an administrator to add the first customer before creating invoices."
+              contactsBlockedMessage(initialContactType)
             )}
           </StatusMessage>
         ) : null}
@@ -240,7 +234,7 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{contact.buildingNumber && contact.district ? `${contact.buildingNumber}, ${contact.district}` : "Incomplete"}</td>
                   <td className="px-4 py-3 text-steel">{contact.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/contacts/${contact.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <Link href={contactPrimaryHref(contact)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                       View
                     </Link>
                   </td>
@@ -256,4 +250,44 @@ export default function ContactsPage() {
 
 function contactTypeFromQuery(value: string | null): ContactType {
   return contactTypes.includes(value as ContactType) ? (value as ContactType) : "CUSTOMER";
+}
+
+function contactPrimaryHref(contact: Pick<Contact, "id" | "type">): string {
+  if (contact.type === "CUSTOMER") {
+    return `/customers/${contact.id}`;
+  }
+  if (contact.type === "SUPPLIER") {
+    return `/suppliers/${contact.id}`;
+  }
+  return `/contacts/${contact.id}`;
+}
+
+function ContactsEmptyState({ contactType }: Readonly<{ contactType: ContactType }>) {
+  if (contactType === "SUPPLIER") {
+    return (
+      <>
+        No contacts yet. Add a first supplier above, then continue to{" "}
+        <Link href="/purchases/bills/new" className="font-semibold text-palm hover:underline">
+          create the first bill
+        </Link>
+        .
+      </>
+    );
+  }
+
+  return (
+    <>
+      No contacts yet. Add a first customer above, then continue to{" "}
+      <Link href="/sales/invoices/new" className="font-semibold text-palm hover:underline">
+        create the first invoice
+      </Link>
+      .
+    </>
+  );
+}
+
+function contactsBlockedMessage(contactType: ContactType): string {
+  return contactType === "SUPPLIER"
+    ? "No contacts yet. Ask an administrator to add the first supplier before creating bills."
+    : "No contacts yet. Ask an administrator to add the first customer before creating invoices.";
 }

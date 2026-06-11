@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { GeneratedDocumentApEmailAction } from "./page";
+import { GeneratedDocumentApEmailAction, GeneratedDocumentDownloadAction } from "./page";
 import type { GeneratedDocument } from "@/lib/types";
 
 describe("generated document AP email action", () => {
@@ -56,6 +56,21 @@ describe("generated document AP email action", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Create local email outbox" })).not.toBeInTheDocument();
+  });
+});
+
+describe("generated document download action", () => {
+  it("renders the archived download button for generated rows", () => {
+    render(<GeneratedDocumentDownloadAction document={generatedDocumentFixture()} loading={false} onDownload={jest.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Download archived PDF" })).toBeInTheDocument();
+  });
+
+  it("blocks failed rows from showing a misleading archive download action", () => {
+    render(<GeneratedDocumentDownloadAction document={generatedDocumentFixture({ status: "FAILED" })} loading={false} onDownload={jest.fn()} />);
+
+    expect(screen.getByText("PDF unavailable until generation succeeds")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download archived PDF" })).not.toBeInTheDocument();
   });
 });
 

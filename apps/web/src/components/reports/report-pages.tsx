@@ -9,6 +9,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -761,8 +762,11 @@ function ReportActionLinks({ kind }: { kind: AgingReportKind }) {
   const isReceivables = kind === "receivables";
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-      <Link href="/contacts" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-        View contacts
+      <Link
+        href={isReceivables ? "/customers" : "/suppliers"}
+        className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+      >
+        {isReceivables ? "View customers" : "View suppliers"}
       </Link>
       <Link href={isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
         {isReceivables ? "Create invoice" : "Create bill"}
@@ -803,7 +807,7 @@ export function AgingTable({ rows, kind }: { rows: AgingReportRow[]; kind: Aging
           {rows.map((row) => (
             <tr key={row.id}>
               <td className="px-4 py-3 font-medium text-ink">
-                <Link href={`/contacts/${row.contact.id}`} className="hover:text-palm">
+                <Link href={partyDetailHref(isReceivables ? "customer" : "supplier", row.contact.id)} className="hover:text-palm">
                   {row.contact.displayName ?? row.contact.name}
                 </Link>
               </td>

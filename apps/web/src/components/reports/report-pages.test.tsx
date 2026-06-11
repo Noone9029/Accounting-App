@@ -37,6 +37,7 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/AR Aging is based on outstanding sales invoices only/i)).toBeInTheDocument();
     expect(screen.getByText(/balance due after posted payments, credit notes, and refunds/)).toBeInTheDocument();
     expect(screen.getByText(/customer ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View customers" })).toHaveAttribute("href", "/customers");
     expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new");
     expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute("href", "/sales/customer-payments/new");
   });
@@ -44,7 +45,7 @@ describe("reports index first-workflow guidance", () => {
   it("links aged receivables rows back to the customer and invoice", () => {
     render(<AgingTable rows={[agingRow()]} kind="receivables" />);
 
-    expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/contacts/customer-1");
+    expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByText("1-30")).toBeInTheDocument();
@@ -55,6 +56,7 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByText(/Supplier bills that still have a balance due/)).toBeInTheDocument();
     expect(screen.getByText(/supplier ledger keeps the row-by-row payment allocation trail/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View suppliers" })).toHaveAttribute("href", "/suppliers");
     expect(screen.getByRole("link", { name: "Create bill" })).toHaveAttribute("href", "/purchases/bills/new");
     expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute("href", "/purchases/supplier-payments/new");
   });
@@ -67,7 +69,7 @@ describe("reports index first-workflow guidance", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: "Beta Supplier" })).toHaveAttribute("href", "/contacts/supplier-1");
+    expect(screen.getByRole("link", { name: "Beta Supplier" })).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getByRole("link", { name: "BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
     expect(screen.getByRole("link", { name: "Open bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
   });

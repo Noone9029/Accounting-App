@@ -43,8 +43,8 @@ describe("storage helpers", () => {
   });
 
   it("labels backup readiness and evidence without secret values", () => {
-    expect(backupReadinessLabel(false)).toBe("Backup readiness not production-ready");
-    expect(backupReadinessLabel(true)).toBe("Backup readiness review complete");
+    expect(backupReadinessLabel(false)).toBe("Backup metadata review incomplete");
+    expect(backupReadinessLabel(true)).toBe("Backup metadata review complete");
     expect(backupEvidenceTypeLabel("DATABASE_BACKUP")).toBe("Database backup");
     expect(backupEvidenceTypeLabel("RPO_RTO_REVIEW")).toBe("RPO/RTO review");
     expect(backupEvidenceStatusLabel("VERIFIED")).toBe("Verified");
