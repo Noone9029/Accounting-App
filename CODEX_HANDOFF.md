@@ -2,17 +2,18 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
+- Main commit inspected: `d15884f8 Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`
 - PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
 - PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
 - PR #11 merge commit in main history: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
+- PR #12 merge commit in main history: `d15884f8 Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`
 
 ## Current Development Objective
 
-- Current branch: `codex/zatca-sandbox-response-processing-approval-gate`.
-- Current completed lane: verified and merged PR `#11` into `main`, then added the sandbox response processing approval gate docs/static-guard arc on top of synced `main`.
-- Branch source used for this lane: `main` at `13bf16a5`.
-- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#11` is already merged into `main`.
+- Current branch: `codex/zatca-sandbox-response-custody-approval-gate`.
+- Current completed lane: verified and merged PR `#12` into `main`, then added the sandbox response custody approval gate docs/static-guard arc on top of synced `main`.
+- Branch source used for this lane: `main` at `d15884f8`.
+- Branch status versus `main`: isolated docs/static-guard/package-script lane; PR `#12` is already merged into `main`.
 - Graphify usage: not needed for this lane because the blast radius stayed within docs, package scripts, and standalone `scripts/`.
 - Main sync and PR status:
   - PR #8 `ZATCA sandbox access confirmation checklist` is already merged into `main`.
@@ -33,27 +34,35 @@
   - The head commit matched `fadcf3f2f62f170abf9506764be22cf6434fb474`.
   - `Non-mutating verification`, `GitGuardian Security Checks`, `Vercel – ledgerbyte-api-test`, and `Vercel – ledgerbyte-web-test` were observed successful before merge; `Vercel Preview Comments` completed successfully and was non-blocking.
   - The branch was merged into `main` with merge commit `13bf16a5`.
+- PR #12 merge status:
+  - PR #12 `ZATCA sandbox response processing approval gate` stayed open, non-draft, mergeable, and docs/static-guard/package-script only when rechecked against `main`.
+  - The head commit matched `f20e688af0e79938300afc327be13ce9b8eaf9c4`.
+  - `Vercel – ledgerbyte-api-test` and `Vercel – ledgerbyte-web-test` were observed successful before merge.
+  - The branch was merged into `main` with merge commit `d15884f8`.
 - Branch content audit:
-  - Added ZATCA docs: `docs/zatca/SANDBOX_RESPONSE_PROCESSING_APPROVAL_GATE.md` and `docs/zatca/SANDBOX_RESPONSE_PROCESSING_APPROVAL_RESULTS.md`.
-  - Added sprint closure doc: `docs/development/ZATCA_SANDBOX_RESPONSE_PROCESSING_APPROVAL_GATE_SPRINT_CLOSURE.md`.
-  - Added standalone guard: `scripts/zatca-sandbox-response-processing-approval-gate.cjs`.
-  - Added standalone guard test: `scripts/zatca-sandbox-response-processing-approval-gate.test.cjs`.
-  - Added root package scripts: `zatca:sandbox-response-processing-approval-gate` and `test:zatca-sandbox-response-processing-approval-gate`.
+  - Added ZATCA docs: `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE.md` and `docs/zatca/SANDBOX_RESPONSE_CUSTODY_APPROVAL_RESULTS.md`.
+  - Added sprint closure doc: `docs/development/ZATCA_SANDBOX_RESPONSE_CUSTODY_APPROVAL_GATE_SPRINT_CLOSURE.md`.
+  - Added standalone guard: `scripts/zatca-sandbox-response-custody-approval-gate.cjs`.
+  - Added standalone guard test: `scripts/zatca-sandbox-response-custody-approval-gate.test.cjs`.
+  - Added root package scripts: `zatca:sandbox-response-custody-approval-gate` and `test:zatca-sandbox-response-custody-approval-gate`.
   - Updated handoff/readiness docs: `CODEX_HANDOFF.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, and `BUG_AUDIT.md`.
   - No app code, schema, migration, runtime ZATCA implementation, env file, or secret-handling path was changed.
 - Safety posture:
   - Planning/approval metadata only.
   - Metadata-only evidence.
-  - No sandbox portal login, OTP capture, OTP storage, OTP sharing, request body creation, sandbox network request execution, adapter execution, response body receipt, response body processing, response custody storage, OTP inclusion, CSID request, signing, clearance/reporting, PDF-A3, or production compliance claim.
+  - No sandbox portal login, OTP capture, OTP storage, OTP sharing, request body creation, sandbox network request execution, adapter execution, response body receipt, response body processing, response custody storage, custody provider execution, secret-manager write, database write, object-storage write, OTP inclusion, CSID request, signing, clearance/reporting, PDF-A3, or production compliance claim.
 - Guard behavior:
-  - Default response-processing status is `SANDBOX_RESPONSE_PROCESSING_APPROVAL_BLOCKED`.
-  - The exact response-processing approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_RESPONSE_PROCESSING_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
-  - Response body receipt, response processing, and response custody storage remain blocked even when the phrase is recognized.
+  - Default response-custody status is `SANDBOX_RESPONSE_CUSTODY_APPROVAL_BLOCKED`.
+  - The exact response-custody approval phrase plus `--metadata-only` is recognized only as metadata approval and returns `SANDBOX_RESPONSE_CUSTODY_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
+  - Response custody storage, custody provider execution, secret-manager writes, database writes, and object-storage writes remain blocked even when the phrase is recognized.
 - Checks run:
   - `git fetch origin`
-  - GitHub verification for PR #11 mergeability, clean scope, successful checks, and head commit before merging into `main`
-  - GitHub merge of PR `#11` with expected head `fadcf3f2f62f170abf9506764be22cf6434fb474`
-  - `git worktree add E:\CodexWorktrees\Accounting-App\response-processing-gate -b codex/zatca-sandbox-response-processing-approval-gate origin/main`
+  - GitHub verification for PR #12 mergeability, clean scope, successful checks, and head commit before merging into `main`
+  - GitHub merge of PR `#12` with expected head `f20e688af0e79938300afc327be13ce9b8eaf9c4`
+  - `git worktree add E:\CodexWorktrees\Accounting-App\response-custody-gate -b codex/zatca-sandbox-response-custody-approval-gate origin/main`
+  - `node --test scripts/zatca-sandbox-response-custody-approval-gate.test.cjs`
+  - `corepack pnpm test:zatca-sandbox-response-custody-approval-gate`
+  - `corepack pnpm zatca:sandbox-response-custody-approval-gate -- --json --strict`
   - `node --test scripts/zatca-sandbox-response-processing-approval-gate.test.cjs`
   - `corepack pnpm test:zatca-sandbox-response-processing-approval-gate`
   - `corepack pnpm zatca:sandbox-response-processing-approval-gate -- --json --strict`
@@ -68,20 +77,23 @@
   - `corepack pnpm zatca:manual-otp-capture-approval-gate -- --json --strict`
   - `node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')"`
   - `git diff --check`
+  - `git diff --cached --check`
   - `corepack pnpm verify:diff`
 - Checks observed:
-  - PR #11 URL: `https://github.com/Noone9029/Accounting-App/pull/11`
-  - PR #11 number: `11`
+  - PR #12 URL: `https://github.com/Noone9029/Accounting-App/pull/12`
+  - PR #12 number: `12`
   - PR #9 URL: `https://github.com/Noone9029/Accounting-App/pull/9`
   - PR #9 number: `9`
   - PR #10 URL: `https://github.com/Noone9029/Accounting-App/pull/10`
   - PR #10 number: `10`
-  - The four `node --test ...` commands passed.
-  - The four `corepack pnpm test:...` commands passed.
-  - The four strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
+  - PR #11 URL: `https://github.com/Noone9029/Accounting-App/pull/11`
+  - PR #11 number: `11`
+  - The five `node --test ...` commands passed.
+  - The five `corepack pnpm test:...` commands passed.
+  - The five strict gate commands returned blocked metadata-only JSON with exit code `1` by design because no approval phrase was supplied and execution must remain blocked.
 - Deployment verification: skipped. No deploy, sandbox portal login, or runtime ZATCA validation was performed.
 - Skipped commands and why:
-  - ZATCA runtime commands, sandbox portal login, OTP capture, OTP entry, request body creation, sandbox network request execution, adapter execution, response body receipt, response body processing, response custody handling, CSID request, signing, clearance/reporting, PDF-A3, email, backup/restore, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
+  - ZATCA runtime commands, sandbox portal login, OTP capture, OTP entry, request body creation, sandbox network request execution, adapter execution, response body receipt, response body processing, response custody handling, custody provider execution, secret-manager writes, database writes, object-storage writes, CSID request, signing, clearance/reporting, PDF-A3, email, backup/restore, smoke, E2E, migrations, seed/reset/delete, and production infrastructure commands were out of scope and explicitly forbidden.
 - Remaining blockers:
   - Manual sandbox access confirmation, manual OTP capture, and request body creation approval remain prerequisite metadata gates only.
   - Real sandbox network request execution remains blocked.
@@ -89,11 +101,15 @@
   - Response body receipt remains blocked.
   - Response processing remains blocked.
   - Response custody storage remains blocked.
+  - Custody provider execution remains blocked.
+  - Secret-manager writes remain blocked.
+  - Database writes remain blocked.
+  - Object-storage writes remain blocked.
   - Response custody approval remains blocked.
   - Sandbox CSID storage by an approved custody provider remains blocked.
   - Existing unrelated dirty files remain outside this arc and must stay unstaged: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
 - Production/ZATCA/customer-data behavior changed: no. This lane adds docs, a standalone static guard, tests, and package scripts only.
-- Exact next recommended prompt title: `ZATCA sandbox response custody approval gate`.
+- Exact next recommended prompt title: `ZATCA sandbox CSID storage approval gate`.
 
 ## Prior Development Objective
 
