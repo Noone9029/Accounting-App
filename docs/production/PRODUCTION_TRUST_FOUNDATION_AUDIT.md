@@ -19,7 +19,7 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 - Status: Partial.
 - Safe for controlled beta: database-backed storage plus feature-flagged S3 attachment groundwork is acceptable for local/dev and narrow beta planning. The new proof harness adds safe no-network validation and local/mock synthetic lifecycle proof without requiring any real bucket mutation.
 - Missing for paid SaaS: private bucket proof, versioning/lifecycle decisions, signed access rules, malware scanning path, encryption/control evidence, and real non-production bucket validation remain open.
-- Next concrete implementation ticket: `Production trust implementation ticket 2: backup and restore proof harness`.
+- Next concrete implementation ticket: `PROD-C3 Object storage backup proof`.
 - Current commands/evidence: `GET /storage/readiness`, `GET /storage/migration-plan`, `GET /system/backup-readiness`, `corepack pnpm storage:proof-validate -- --json --strict --dry-run`, `corepack pnpm storage:proof-validate -- --json --strict --mock-cycle --provider local`.
 - Commands still forbidden: bucket creation, object upload/download validation against a real provider, lifecycle changes, migration execution, provider credential reads, and storage deletion.
 
@@ -29,7 +29,7 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 - Status: Partial.
 - Safe for controlled beta: existing database-backed generated-document archive metadata and download paths remain usable for controlled beta with explicit non-production limits. The proof harness confirms planned generated-document key separation without enabling real provider writes.
 - Missing for paid SaaS: generated-document runtime object-storage writes, retention/legal-hold policy, restore proof, signed access rules, and lifecycle governance remain unimplemented.
-- Next concrete implementation ticket: `Production trust implementation ticket 2: backup and restore proof harness`.
+- Next concrete implementation ticket: `PROD-C4 Generated document storage policy`.
 - Current commands/evidence: `GET /storage/readiness`, `GET /storage/migration-plan`, generated-document archive/report surfaces already documented in `docs/API_CATALOG.md`, and `corepack pnpm storage:proof-validate -- --json --strict --mock-cycle --provider local`.
 - Commands still forbidden: generated-document migration execution, provider bucket mutation, archive purge, legal-hold enforcement changes, and file-body export for proof.
 
@@ -39,28 +39,28 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 - Status: Partial.
 - Safe for controlled beta: current attachment upload/list/download/soft-delete paths with database default and optional S3 groundwork remain acceptable for controlled beta with explicit scale limits. The new proof harness adds local/mock lifecycle validation using synthetic payloads only.
 - Missing for paid SaaS: real non-production bucket validation, object backup/restore proof, malware scanning, lifecycle policy, and migration execution remain open.
-- Next concrete implementation ticket: `Production trust implementation ticket 2: backup and restore proof harness`.
+- Next concrete implementation ticket: `PROD-C3 Object storage backup proof`.
 - Current commands/evidence: `GET /storage/readiness`, `GET /storage/migration-plan`, attachment/storage sections in README and scorecard, `corepack pnpm storage:proof-validate -- --json --strict --dry-run`, and `corepack pnpm storage:proof-validate -- --json --strict --mock-cycle --provider local`.
 - Commands still forbidden: real bucket uploads/downloads, attachment migration, destructive cleanup, and provider setting changes.
 
 ## 4. Backup/PITR
 
-- Current repo evidence: `apps/api/src/system/backup-readiness.service.ts` implements metadata-only evidence tracking for database backup, PITR, migration history, object storage backup, restore drill, and RPO/RTO review; `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md` records local non-production restore-count evidence.
+- Current repo evidence: `apps/api/src/system/backup-readiness.service.ts` implements metadata-only evidence tracking for database backup, PITR, migration history, object storage backup, restore drill, and RPO/RTO review; `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md` records local non-production restore-count evidence; `scripts/backup-restore-proof-harness.cjs` now adds a synthetic backup-manifest and restore-simulation harness with temp-directory-only artifacts.
 - Status: Partial.
 - Safe for controlled beta: metadata-only readiness, evidence capture, and local restore-count proof improve operator honesty without mutating hosted environments.
 - Missing for paid SaaS: hosted provider backup/PITR proof, owner sign-off, recurring review cadence, and production-intended provider evidence.
 - Next concrete implementation ticket: `PROD-C1 Hosted backup/PITR proof`.
-- Current commands/evidence: `GET /system/backup-readiness`, `GET /system/restore-drill-plan`, `GET /system/backup-evidence`.
+- Current commands/evidence: `GET /system/backup-readiness`, `GET /system/restore-drill-plan`, `GET /system/backup-evidence`, `corepack pnpm backup:restore-proof -- --json --strict --dry-run`, `corepack pnpm backup:restore-proof -- --json --strict --mock-cycle`.
 - Commands still forbidden: real hosted backup execution, PITR invocation, provider API calls, secret reads, and customer-data export.
 
 ## 5. Restore proof
 
-- Current repo evidence: local non-production restore-count evidence is documented in `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`; launch gates and scorecard still treat hosted restore proof as blocked.
+- Current repo evidence: local non-production restore-count evidence is documented in `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`; `scripts/backup-restore-proof-harness.cjs` now proves a synthetic restore-simulation path with checksum and count verification; launch gates and scorecard still treat hosted restore proof as blocked.
 - Status: Partial.
-- Safe for controlled beta: the repo proves only local non-production restore-count behavior and operator planning; it does not claim hosted restore readiness.
+- Safe for controlled beta: the repo proves local non-production restore-count behavior, synthetic restore-simulation mechanics, and operator planning only; it does not claim hosted restore readiness.
 - Missing for paid SaaS: restore proof remains missing at the hosted-provider level. Object-storage restore proof remains missing. Hosted cleanup/rollback criteria and pass-fail ownership are not yet proven.
 - Next concrete implementation ticket: `PROD-C2 Restore drill in hosted environment`.
-- Current commands/evidence: `GET /system/restore-drill-plan`, `GET /system/backup-readiness`, `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`.
+- Current commands/evidence: `GET /system/restore-drill-plan`, `GET /system/backup-readiness`, `docs/BACKUP_AND_RESTORE_READINESS_PLAN.md`, `corepack pnpm backup:restore-proof -- --json --strict --mock-cycle`.
 - Commands still forbidden: hosted restore execution, snapshot import, destructive reset, customer-data validation dumps, and provider-side restore operations.
 
 ## 6. Monitoring/alerting
@@ -148,8 +148,8 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 - Current repo evidence: `docs/production/LAUNCH_GATE_CHECKLIST.md` enumerates controlled beta, paid private beta, public production, security, backup/restore, monitoring/support, billing/legal, and ZATCA gates with blocked/not-started status where appropriate.
 - Status: Partial.
 - Safe for controlled beta: launch gates are honest about current posture and keep beta/user-testing separated from paid SaaS and production claims.
-- Missing for paid SaaS: most paid/private-beta and public-production gates remain blocked or not started. Object-storage proof now has local/mock validation and S3 config-name validation, but real non-production bucket proof, backup/restore proof, monitoring/alerting, production email operations, billing/legal, security review, and ZATCA production compliance remain open.
-- Next concrete implementation ticket: `Production trust implementation ticket 2: backup and restore proof harness`.
+- Missing for paid SaaS: most paid/private-beta and public-production gates remain blocked or not started. Object-storage proof now has local/mock validation and S3 config-name validation, and backup/restore now has a synthetic proof harness, but real non-production bucket proof, hosted backup/PITR proof, hosted restore proof, monitoring/alerting, production email operations, billing/legal, security review, and ZATCA production compliance remain open.
+- Next concrete implementation ticket: `Production trust implementation ticket 3: monitoring and runtime health proof`.
 - Current commands/evidence: `docs/production/LAUNCH_GATE_CHECKLIST.md`, `docs/production/PRODUCTION_FOUNDATION_ROADMAP.md`, `docs/production/PAID_SAAS_V1_GAP_MATRIX.md`.
 - Commands still forbidden: treating this checklist as launch approval, flipping production claims, or using the static gate as deployment authorization.
 
@@ -161,6 +161,9 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 - `corepack pnpm storage:proof-validate -- --json --strict --dry-run`
 - `corepack pnpm storage:proof-validate -- --json --strict --mock-cycle --provider local`
 - `corepack pnpm test:storage-proof-validate`
+- `corepack pnpm backup:restore-proof -- --json --strict --dry-run`
+- `corepack pnpm backup:restore-proof -- --json --strict --mock-cycle`
+- `corepack pnpm test:backup-restore-proof`
 - `corepack pnpm verify:diff`
 - `git diff --check`
 
@@ -177,4 +180,4 @@ Scope: static repository audit only. This pass uses committed docs, code, and re
 
 ## Exact Next Recommended Prompt Title
 
-`Production trust implementation ticket 2: backup and restore proof harness`
+`Production trust implementation ticket 3: monitoring and runtime health proof`

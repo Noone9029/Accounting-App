@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `4e00557f` (`Merge pull request #29 from codex/vat-return-truthfulness-filing-export-foundation`) plus the current production trust foundation branch.
+Latest commit audited: `a5b506d9` (`Merge pull request #31 from Noone9029/codex/object-storage-proof-safe-nonproduction-validation`) plus the current backup/restore proof branch.
 
 Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
 
@@ -34,6 +34,15 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - The default gate status is `PRODUCTION_TRUST_FOUNDATION_PLANNING_ONLY`; strict success is `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS`.
 - `PASSED_WITH_BLOCKERS` means the repo is explicit about current blockers. It does not mean LedgerByte is production-ready, paid SaaS ready, official VAT filing ready, or ZATCA compliant.
 - Current trust blockers remain hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
+
+## 2026-06-12 Backup And Restore Proof Harness
+
+- No score increase is taken in this lane. This pass improves local/mock mechanical proof only; it does not improve hosted recovery readiness.
+- Added `scripts/backup-restore-proof-harness.cjs`, `scripts/backup-restore-proof-harness.test.cjs`, and package scripts `backup:restore-proof` plus `test:backup-restore-proof`.
+- Added `docs/production/BACKUP_RESTORE_PROOF_HARNESS.md`.
+- Dry-run status is `BACKUP_RESTORE_PROOF_DRY_RUN_READY`; local mock-cycle status is `BACKUP_RESTORE_MOCK_CYCLE_PASSED`.
+- The proof is synthetic-only, temp-directory-only, and no-network/no-database/no-secret-read by design.
+- Current blockers remain hosted Supabase/Postgres backup/PITR proof, hosted restore-drill proof, object-storage backup proof, object-storage restore proof, RPO/RTO review, monitoring/alerting ownership, and incident-response evidence.
 
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 

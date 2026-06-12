@@ -4,6 +4,18 @@
 
 LedgerByte now has a metadata-only backup and restore readiness surface for controlled-beta operations. The current implementation records evidence and exposes plans only; it does not run database backups, copy object-storage data, export customer data, restore snapshots, or expose secrets.
 
+## 2026-06-12 Backup/Restore Proof Harness
+
+- `scripts/backup-restore-proof-harness.cjs` and `scripts/backup-restore-proof-harness.test.cjs` now add a safe local/mock proof harness for synthetic backup-manifest and restore-simulation mechanics.
+- Package scripts:
+  - `corepack pnpm backup:restore-proof -- --json --strict --dry-run`
+  - `corepack pnpm backup:restore-proof -- --json --strict --mock-cycle`
+- Current harness statuses:
+  - `BACKUP_RESTORE_PROOF_DRY_RUN_READY`
+  - `BACKUP_RESTORE_MOCK_CYCLE_PASSED`
+- This harness is synthetic-only and temp-directory-only. It does not run `pg_dump`, `pg_restore`, Supabase PITR, object-storage export/import, or any real customer-data restore path.
+- This harness does not replace hosted backup/PITR proof, hosted restore-drill proof, object-storage backup proof, or object-storage restore proof.
+
 ## Current Storage Story
 
 - Database: Supabase/Postgres is the intended production database, with Prisma migrations as the application schema history.
@@ -61,6 +73,8 @@ Restore verification must prove tenant isolation survives the restore. Evidence 
 - `POST /system/backup-evidence/:id/revoke`
 - `BackupRestoreEvidence` metadata-only model.
 - `/settings/storage` backup readiness and evidence capture card for users with audit retention administration permission.
+- `scripts/backup-restore-proof-harness.cjs`
+- `scripts/backup-restore-proof-harness.test.cjs`
 - Smoke assertions for no backup execution, no restore execution, no secret exposure, and default `productionReady=false`.
 
 ## Verification For This Readiness Slice
@@ -130,6 +144,7 @@ Readiness after evidence capture:
 - Real S3-compatible object-storage backup policy and restore test remain blocked; local storage is database-backed.
 - Generated documents remain database-backed and do not yet have an S3-compatible write path.
 - No restore executor exists in LedgerByte; restore drills remain operator-run outside the app.
+- The synthetic proof harness verifies local/mock manifest and restore mechanics only; it does not prove hosted recovery or disaster recovery.
 - RPO/RTO review is not complete and no business targets were inferred.
 - Legal/accounting retention duration is not decided here.
 - Production storage hardening, monitoring/alerts, browser E2E expansion, billing/support operations, and real ZATCA OTP/CSID remain separate blockers.

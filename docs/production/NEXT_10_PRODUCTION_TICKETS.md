@@ -17,6 +17,12 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - The current proof is intentionally limited to dry-run config/path-policy validation and local/mock synthetic upload-read-delete proof.
 - Real non-production bucket validation, object-storage backup proof, and object-storage restore proof remain open and are still required before any paid-SaaS or production claim.
 
+## 2026-06-12 Backup And Restore Proof Harness Update
+
+- `Production trust implementation ticket 2` now has a safe proof harness in `scripts/backup-restore-proof-harness.cjs` plus `docs/production/BACKUP_RESTORE_PROOF_HARNESS.md`.
+- The current proof is intentionally limited to synthetic manifest/payload creation, checksum validation, record-count validation, restore simulation, and temp-directory cleanup.
+- Hosted Supabase/Postgres backup/PITR proof, hosted restore-drill proof, object-storage backup proof, object-storage restore proof, and monitoring ownership remain open.
+
 ## Current PROD-A2 Status
 
 - [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed.
@@ -118,4 +124,4 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 
 ## Next Ticket Recommendation
 
-`Production trust implementation ticket 2: backup and restore proof harness`
+`Production trust implementation ticket 3: monitoring and runtime health proof`

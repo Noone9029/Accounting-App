@@ -24,6 +24,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-12 Backup and restore proof harness:
+
+- PR `#31` `Object storage proof validation` was reverified green/safe and merged into `main` at `a5b506d9` before this branch was created.
+- Added `scripts/backup-restore-proof-harness.cjs` and `scripts/backup-restore-proof-harness.test.cjs`.
+- Added package scripts `backup:restore-proof` and `test:backup-restore-proof`.
+- Added `docs/production/BACKUP_RESTORE_PROOF_HARNESS.md`.
+- Dry-run status is `BACKUP_RESTORE_PROOF_DRY_RUN_READY`.
+- Local mock-cycle status is `BACKUP_RESTORE_MOCK_CYCLE_PASSED`.
+- The proof harness is safe by default: no network calls, no database calls, no env-secret reads, no real backup/restore execution, and no customer-data handling.
+- The harness validates synthetic manifest creation, synthetic metadata payload creation, checksum verification, record-count verification, restore simulation, and temp-directory cleanup only.
+- Current remaining backup/restore blockers are hosted Supabase/Postgres backup/PITR proof, hosted restore-drill proof, object-storage backup proof, object-storage restore proof, RPO/RTO review, monitoring/alerting ownership, and disaster-recovery runbooks.
+- Recommended next prompt: `Production trust implementation ticket 3: monitoring and runtime health proof`.
+
 2026-06-12 Object storage proof validation:
 
 - PR `#30` `Production trust foundation gate` merged into `main` at `4411634c` before this branch was created.
@@ -35,7 +48,7 @@ Current production posture:
 - The proof harness is safe by default: no network calls, no real bucket access, no secret-value output, and no real customer-file handling.
 - The current runtime still keeps attachments database-backed by default and generated documents database-backed only. S3-compatible attachment support remains groundwork; generated-document S3 writes remain unimplemented.
 - Current remaining storage blockers are real non-production bucket validation, object-storage backup proof, object-storage restore proof, generated-document runtime object-storage writes, signed URL support, lifecycle/retention/legal-hold enforcement, malware scanning, and production-scale migration/rollback proof.
-- Recommended next prompt: `Production trust implementation ticket 2: backup and restore proof harness`.
+- Recommended next prompt at the time: `Production trust implementation ticket 2: backup and restore proof harness`.
 
 2026-06-12 VAT return truthfulness and filing-export foundation:
 

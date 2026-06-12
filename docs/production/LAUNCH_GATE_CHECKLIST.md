@@ -42,8 +42,8 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Production foundation roadmap | done | `PRODUCTION_FOUNDATION_ROADMAP.md`, gap matrix, and launch gates exist. | Convert roadmap items into owned implementation tasks. |
 | Hosting decision | blocked | Vercel is documented as beta/user-testing only. | Select paid private beta hosting posture and rollback plan. |
 | Database runtime role | blocked | Least-privilege runtime role is designed but not cut over. | Establish safe env mutation path, then validate runtime role. |
-| Hosted backup/PITR proof | blocked | Local restore-count drill exists. | Prove hosted database backup/PITR in non-production. |
-| Object storage proof | blocked | Local/mock proof harness and S3 config-name validation now exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
+| Hosted backup/PITR proof | blocked | Local restore-count drill and synthetic backup/restore harness exist, but no hosted PITR proof is recorded. | Prove hosted database backup/PITR in non-production. |
+| Object storage proof | blocked | Local/mock object-storage proof harness plus synthetic backup/restore harness exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
 | Email production path | partial | SMTP adapter and monitoring evidence groundwork exist. | Validate non-production relay, provider webhook, scheduler, and monitoring. |
 | Accountant review | blocked | Packet exists. | Complete review and resolve blocker/high findings. |
 | Legal documents | not started | No ToS/privacy/customer policy package exists. | Draft legal package for review. |
@@ -56,7 +56,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Production database security | blocked | API-layer tenancy exists; Data API grants mitigated in user-testing; RLS/runtime role incomplete. | Runtime role, migration credential split, Data API/RLS strategy, tenant isolation verification. |
 | Monitoring and alerting | not started | Health/readiness endpoints and runbooks exist. | Add uptime, API errors, workers, email, backups, storage, and support alerts. |
 | Incident response | not started | Deployment troubleshooting docs exist. | Add severity, ownership, rollback, customer communication, and postmortem process. |
-| Backup/restore proof | blocked | Local non-production restore-count evidence exists. | Hosted DB/PITR and object-storage restore drills with sanitized evidence. |
+| Backup/restore proof | blocked | Local non-production restore-count evidence and a synthetic backup/restore proof harness exist. | Hosted DB/PITR and object-storage restore drills with sanitized evidence. |
 | Production email operations | blocked | Mock/local default and opt-in SMTP groundwork exist. | Provider validation, signed webhooks, scheduler, suppression, alerts, invoice/statement sends. |
 | Billing/legal | not started | No subscription/billing/legal package exists. | Plans, payments, ToS, Privacy Policy, retention/deletion, refund/cancellation. |
 | Product QA | partial | Visual regression and route docs exist. | Real beta feedback, full smoke, full E2E, mobile QA, PDF/accountant review. |
@@ -95,9 +95,10 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Gate | Status | Evidence | Remaining work |
 | --- | --- | --- | --- |
 | Local DB restore drill | done | Local non-production restore-count evidence exists. | Keep as baseline only. |
+| Local/mock backup restore harness | done | Synthetic manifest/payload/restore-simulation harness exists with temp-directory-only artifacts and checksum/count verification. | Keep as mechanical local proof only; do not treat it as hosted proof. |
 | Hosted DB backup proof | blocked | No hosted PITR proof recorded. | Verify provider backup/PITR in non-production. |
 | Hosted DB restore drill | blocked | No hosted restore drill proof recorded. | Restore non-production snapshot and verify metadata counts. |
-| Object-storage backup proof | blocked | Local/mock proof harness exists; no real non-production bucket validation or restore proof is recorded. | Validate object backup/restore with non-production bucket. |
+| Object-storage backup proof | blocked | Local/mock object-storage proof harness and synthetic backup/restore harness exist; no real non-production bucket validation or restore proof is recorded. | Validate object backup/restore with non-production bucket. |
 | RPO/RTO review | blocked | Evidence type exists; business review missing. | Define and approve recovery objectives. |
 | Backup monitoring | not started | Planning only. | Add alerts for failed backups and stale restore evidence. |
 
