@@ -54,7 +54,7 @@ describe("BackupReadinessSafeStatus", () => {
   it("renders safe backup blockers and never renders secret-like values", () => {
     render(<BackupReadinessSafeStatus readiness={backupReadiness} restorePlan={restorePlan} />);
 
-    expect(screen.getByText("Backup readiness not production-ready")).toBeTruthy();
+    expect(screen.getByText("Backup metadata review incomplete")).toBeTruthy();
     expect(screen.getByText("No backup executed")).toBeTruthy();
     expect(screen.getByText("No restore executed")).toBeTruthy();
     expect(screen.getByText("RPO/RTO review required")).toBeTruthy();
