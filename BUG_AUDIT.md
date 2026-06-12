@@ -2,7 +2,48 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `16270562` (`Merge pull request #27 from codex/dedicated-customer-supplier-statement-routes`) plus the current Banking 2.0 parser QA and match suggestion branch.
+Latest commit audited: `848c210d` (`Merge pull request #28 from codex/banking-parser-qa-match-suggestion-foundation`) plus the current VAT return truthfulness branch.
+
+## 2026-06-12 PR #29 verification repair gate
+
+Fixed the current PR `#29` verification failure without expanding the VAT return scope.
+
+Risk reduced:
+
+- Reproduced the failed GitHub `Non-mutating verification` job locally in the isolated PR `#29` worktree using the GitHub merge ref `9cedde3ca5c46ba95b540188a1b3122d030c1b47`.
+- Localized the failing command to `corepack pnpm test` inside `corepack pnpm verify:ci:local`.
+- Confirmed the actual failing suite was `apps/web/src/components/storage/backup-readiness-safe-status.test.tsx`, not any VAT/report file from the PR `#29` diff.
+- Updated the stale test expectation from `Backup readiness not production-ready` to the current rendered label `Backup metadata review incomplete`.
+- Reran `corepack pnpm verify:ci:local` successfully after the repair, plus the PR `#29` targeted API/web report tests, both workspace typechecks, and `corepack pnpm verify:diff`.
+- Verified the VAT wording surfaces still keep VAT Return in draft/internal-review posture with internal CSV export only and no official filing, tax-authority submission, ZATCA compliance claim, filing status, PDF-A3, signing, QR, clearance, or reporting behavior.
+
+Remaining risks:
+
+- The original failure was unrelated to PR `#29` VAT behavior, so this repair adds a non-VAT test-only fix on the branch in order to clear the shared verification gate.
+- Remote GitHub `Non-mutating verification` will remain failed on the old head until the repair commit is pushed and a fresh run completes.
+- This repair does not change VAT math, report math, posting/accounting logic, filing workflow, ZATCA runtime behavior, migrations, seed/reset/delete, deploys, or customer-data posture.
+
+## 2026-06-12 VAT Return Truthfulness And Review Export Foundation
+
+Fixed VAT/report truthfulness gaps without changing VAT math, report math, posting logic, filing status, ZATCA runtime behavior, or production posture.
+
+Risk reduced:
+
+- VAT Return now states clearly that it is a draft/internal review surface for accountant or tax-advisor review only.
+- Added an internal review CSV export for VAT Return that reuses existing finalized-document report data and does not claim government-format filing, authority submission, or compliance approval.
+- VAT Summary and VAT Return now use aligned output/input VAT labels and clearer account-basis versus source-document review guidance.
+- VAT Return now shows honest empty-state guidance when no finalized sales invoices or purchase bills exist in the selected range.
+- Added focused regression coverage in:
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+  - `apps/web/src/lib/reports.test.ts`
+  - `apps/api/src/reports/report-csv.spec.ts`
+  - `apps/api/src/reports/reports.controller.spec.ts`
+  - `apps/api/src/reports/reports.service.spec.ts`
+
+Remaining risks:
+
+- VAT Return remains an internal review artifact only; no official filing format, tax-authority submission workflow, filing approval workflow, ZATCA exchange, or compliance sign-off exists.
+- PDF export remains unsupported for VAT Return, and this pass intentionally did not add misleading PDF or submission actions.
 
 ## 2026-06-12 PR #28 verification blocker repair
 

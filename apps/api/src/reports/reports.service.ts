@@ -20,7 +20,7 @@ import { Decimal } from "decimal.js";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { coreReportCsv, CoreReportKind } from "./report-csv";
+import { coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
 
 const POSTED_REPORT_STATUSES = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
 const ZERO = new Decimal(0);
@@ -423,6 +423,12 @@ export class ReportsService {
     const generatedAt = new Date();
     const report = await this.coreReport(organizationId, kind, query);
     return coreReportCsv(kind, report, generatedAt);
+  }
+
+  async vatReturnCsvFile(organizationId: string, query: ReportDateQuery) {
+    const generatedAt = new Date();
+    const report = await this.vatReturn(organizationId, query);
+    return vatReturnCsv(report, generatedAt);
   }
 
   async coreReportPdf(
@@ -921,7 +927,8 @@ export function buildVatReturnReport(
     purchases,
     notes: [
       "VAT return foundation is calculated from finalized sales invoices and finalized purchase bills in the selected date range.",
-      "Draft and voided documents are excluded; this report does not submit a tax return.",
+      "Draft and voided documents are excluded; this internal review report does not submit a tax return or create a filing record.",
+      "Internal CSV export is a draft review aid only. Government-format filing, ZATCA exchange, and compliance approval are not implemented.",
     ],
   };
 }

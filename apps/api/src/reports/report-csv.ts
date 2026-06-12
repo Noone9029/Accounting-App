@@ -12,6 +12,41 @@ export interface CsvFile {
   content: string;
 }
 
+export function vatReturnCsv(report: any, generatedAt = new Date()): CsvFile {
+  const rows: unknown[][] = [
+    ["Draft VAT Return Review Export"],
+    ["Generated At", generatedAt.toISOString()],
+    ["Period From", report.from ?? ""],
+    ["Period To", report.to ?? ""],
+    ["Basis", report.basis ?? ""],
+    ["Review Status", "Internal review only"],
+    ["Official Filing Format", "Not implemented"],
+    ["Authority Submission", "Not implemented"],
+    [],
+    ["Metric", "Amount"],
+    ["Output VAT (sales)", report.outputVat],
+    ["Input VAT (purchases)", report.inputVat],
+    ["Net VAT", report.netVat],
+    ["Net VAT Payable", report.netVatPayable],
+    ["Net VAT Refundable", report.netVatRefundable],
+    [],
+    ["Source", "Document Count", "Taxable Amount", "Tax Amount", "Gross Amount"],
+    ["Finalized sales invoices", report.sales?.documentCount, report.sales?.taxableAmount, report.sales?.taxAmount, report.sales?.grossAmount],
+    ["Finalized purchase bills", report.purchases?.documentCount, report.purchases?.taxableAmount, report.purchases?.taxAmount, report.purchases?.grossAmount],
+    [],
+    ["Notes"],
+  ];
+
+  for (const note of report.notes ?? []) {
+    rows.push([note]);
+  }
+
+  appendVatReturnDocuments(rows, "Sales documents", report.sales?.documents ?? []);
+  appendVatReturnDocuments(rows, "Purchase documents", report.purchases?.documents ?? []);
+
+  return { filename: `vat-return-draft-review-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
+}
+
 const reportTitles: Record<CoreReportKind, string> = {
   "general-ledger": "General Ledger",
   "trial-balance": "Trial Balance",
@@ -150,6 +185,13 @@ function appendAmountSection(rows: unknown[][], title: string, section: any): vo
     rows.push([`${account.code} ${account.name}`, account.amount]);
   }
   rows.push([`Total ${title.toLowerCase()}`, section?.total ?? "0.0000"]);
+}
+
+function appendVatReturnDocuments(rows: unknown[][], title: string, documents: any[]): void {
+  rows.push([], [title], ["Number", "Date", "Taxable Amount", "Tax Amount", "Gross Amount"]);
+  for (const document of documents) {
+    rows.push([document.number, dateOnly(document.documentDate), document.taxableAmount, document.taxAmount, document.grossAmount]);
+  }
 }
 
 function filenameDate(value: Date): string {

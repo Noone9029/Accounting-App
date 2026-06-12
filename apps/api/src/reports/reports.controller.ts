@@ -123,7 +123,17 @@ export class ReportsController {
   }
 
   @Get("vat-return")
-  vatReturn(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+  async vatReturn(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: ReportDateQuery,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (query.format === "csv") {
+      assertExportPermission(request);
+      const file = await this.reportsService.vatReturnCsvFile(organizationId, query);
+      return csvResponse(response, file.filename, file.content);
+    }
     return this.reportsService.vatReturn(organizationId, query);
   }
 
