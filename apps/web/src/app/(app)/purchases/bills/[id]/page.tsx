@@ -361,7 +361,7 @@ export default function PurchaseBillDetailPage() {
                       {bill.paymentAllocations.map((allocation) => (
                         <tr key={allocation.id}>
                           <td className="px-3 py-2">
-                            <Link href={`/purchases/supplier-payments/${allocation.paymentId}`} className="font-mono text-xs text-palm hover:underline">
+                            <Link href={`/purchases/supplier-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(billDetailHref)}`} className="font-mono text-xs text-palm hover:underline">
                               {allocation.payment?.paymentNumber ?? allocation.paymentId}
                             </Link>
                           </td>
@@ -395,7 +395,7 @@ export default function PurchaseBillDetailPage() {
                       {bill.supplierPaymentUnappliedAllocations.map((allocation) => (
                         <tr key={allocation.id}>
                           <td className="px-3 py-2">
-                            <Link href={`/purchases/supplier-payments/${allocation.paymentId}`} className="font-mono text-xs text-palm hover:underline">
+                            <Link href={`/purchases/supplier-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(billDetailHref)}`} className="font-mono text-xs text-palm hover:underline">
                               {allocation.payment?.paymentNumber ?? allocation.paymentId}
                             </Link>
                           </td>
@@ -587,7 +587,7 @@ export function PurchaseBillWorkflowGuidance({
             </Link>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <APActionLink href="/reports/aged-payables">AP report</APActionLink>
+            <APActionLink href={`/reports/aged-payables?returnTo=${encodeURIComponent(billDetailHref)}`}>AP report</APActionLink>
             <APActionLink href="/dashboard">Dashboard</APActionLink>
           </div>
         </div>

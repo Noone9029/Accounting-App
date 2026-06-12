@@ -101,7 +101,10 @@ describe("purchase bill workflow guidance", () => {
       "href",
       "/suppliers/00000000-0000-0000-0000-000000000201",
     );
-    expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
+    expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute(
+      "href",
+      "/reports/aged-payables?returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701",
+    );
   });
 
   it("preserves statement return context on supplier payment and debit note actions", () => {

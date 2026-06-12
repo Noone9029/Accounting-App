@@ -633,6 +633,7 @@ export default function SalesInvoiceDetailPage() {
             collectionCases={collectionCases}
             loading={collectionCasesLoading}
             canCreateCollectionCase={canCreateCollectionCase}
+            returnTo={returnTo}
           />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -714,7 +715,7 @@ export default function SalesInvoiceDetailPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canCreateCustomerPayment ? (
                     <Link
-                      href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+                      href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
                       className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
                     >
                       Record payment
@@ -722,7 +723,7 @@ export default function SalesInvoiceDetailPage() {
                   ) : null}
                   {canCreateCreditNote ? (
                     <Link
-                      href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+                      href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
                       className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
                     >
                       Create credit note
@@ -752,7 +753,7 @@ export default function SalesInvoiceDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
                         <td className="px-4 py-3">
                           {allocation.payment ? (
-                            <Link href={`/sales/customer-payments/${allocation.payment.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <Link href={`/sales/customer-payments/${allocation.payment.id}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View payment
                             </Link>
                           ) : (
@@ -806,7 +807,7 @@ export default function SalesInvoiceDetailPage() {
                         </td>
                         <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
                         <td className="px-4 py-3">
-                          <Link href={`/sales/customer-payments/${allocation.paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          <Link href={`/sales/customer-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                             View payment
                           </Link>
                         </td>
@@ -1509,15 +1510,17 @@ function RelatedCollectionCasesPanel({
   collectionCases,
   loading,
   canCreateCollectionCase,
+  returnTo = "",
 }: {
   invoice: SalesInvoice;
   collectionCases: CollectionCase[];
   loading: boolean;
   canCreateCollectionCase: boolean;
+  returnTo?: string;
 }) {
   const hasOpenCase = collectionCases.some((collectionCase) => !["PAID", "CLOSED", "CANCELLED"].includes(collectionCase.status));
   const canCreateFromInvoice = invoice.status === "FINALIZED" && Number(invoice.balanceDue) > 0 && canCreateCollectionCase && !hasOpenCase;
-  const createHref = `/sales/collections/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`;
+  const createHref = `/sales/collections/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(salesInvoiceDetailHref(invoice.id, returnTo))}`;
 
   return (
     <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">

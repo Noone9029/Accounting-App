@@ -487,7 +487,7 @@ export default function CustomerPaymentDetailPage() {
                     <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.balanceDue, payment.currency) : "-"}</td>
                     <td className="px-4 py-3">
                       {allocation.invoice ? (
-                        <Link href={`/sales/invoices/${allocation.invoice.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        <Link href={`/sales/invoices/${allocation.invoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                           View invoice
                         </Link>
                       ) : (
@@ -551,7 +551,7 @@ export default function CustomerPaymentDetailPage() {
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <Link href={`/sales/invoices/${allocation.invoiceId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View invoice
                             </Link>
                             {canReverseCustomerPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (

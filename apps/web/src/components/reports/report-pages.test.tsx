@@ -130,6 +130,38 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/customer-1");
   });
+
+  it("preserves dedicated statement return context through aging action links", () => {
+    render(<AgingReportGuide kind="receivables" returnToHref="/reports/aged-receivables?asOf=2026-06-12&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1" />);
+
+    expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/new?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
+    expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments/new?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
+  });
+
+  it("preserves dedicated statement return context on aging row drill-down links", () => {
+    render(
+      <AgingTable
+        rows={[agingRow()]}
+        kind="receivables"
+        returnToHref="/reports/aged-receivables?asOf=2026-06-12&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
+    expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
+    );
+  });
 });
 
 function agingRow(overrides: Partial<AgingReportRow> = {}): AgingReportRow {

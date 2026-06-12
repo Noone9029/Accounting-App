@@ -103,13 +103,17 @@ describe("ContactDetailPage workspace handoff", () => {
 
     expect(await screen.findByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/contact-1");
     expect(await screen.findByRole("link", { name: "Open customer workspace" })).toHaveAttribute("href", "/customers/contact-1");
+    expect(await screen.findByRole("link", { name: "Customer statement activity" })).toHaveAttribute(
+      "href",
+      "/customers/contact-1/statement?returnTo=%2Fcustomers%2Fcontact-1",
+    );
     expect(await screen.findByRole("link", { name: "View AR activity" })).toHaveAttribute(
       "href",
-      "/sales/customer-payments?customerId=contact-1&returnTo=%2Fcustomers%2Fcontact-1",
+      "/sales/customer-payments?customerId=contact-1&returnTo=%2Fcustomers%2Fcontact-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcontact-1",
     );
     expect(screen.getByRole("link", { name: "Aged receivables" })).toHaveAttribute(
       "href",
-      "/reports/aged-receivables?returnTo=%2Fcustomers%2Fcontact-1",
+      "/reports/aged-receivables?returnTo=%2Fcustomers%2Fcontact-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcontact-1",
     );
   });
 });

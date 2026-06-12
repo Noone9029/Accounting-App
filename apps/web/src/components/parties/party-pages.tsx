@@ -672,7 +672,7 @@ export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; ki
           { label: "Invoice history", sourceType: "SalesInvoice", href: `/sales/invoices?customerId=${encodeURIComponent(contactId)}` },
           { label: "Credit notes", sourceType: "CreditNote", href: `/sales/credit-notes?customerId=${encodeURIComponent(contactId)}` },
           { label: "Payments", sourceType: "CustomerPayment", href: buildPartyTransactionHref("/sales/customer-payments", "customer", contactId) },
-          { label: "Customer statement activity", href: partyStatementHref("customer", contactId), badgeLabel: "Shared view" },
+          { label: "Customer statement activity", href: partyStatementHref("customer", contactId), badgeLabel: "Statement" },
           { label: "Refunds", sourceType: "CustomerRefund", href: `/sales/customer-refunds?customerId=${encodeURIComponent(contactId)}` },
           { label: "Aged receivables", href: `/reports/aged-receivables?returnTo=${encodeURIComponent(partyDetailHref("customer", contactId))}`, balance: overdueBalance(detail) },
         ]
@@ -681,7 +681,7 @@ export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; ki
           { label: "Purchase orders", sourceType: "PurchaseOrder", href: `/purchases/purchase-orders?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Supplier credits", sourceType: "PurchaseDebitNote", href: `/purchases/debit-notes?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Supplier payments", sourceType: "SupplierPayment", href: buildPartyTransactionHref("/purchases/supplier-payments", "supplier", contactId) },
-          { label: "Supplier statement activity", href: partyStatementHref("supplier", contactId), badgeLabel: "Shared view" },
+          { label: "Supplier statement activity", href: partyStatementHref("supplier", contactId), badgeLabel: "Statement" },
           { label: "Supplier refunds", sourceType: "SupplierRefund", href: `/purchases/supplier-refunds?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Aged payables", href: `/reports/aged-payables?returnTo=${encodeURIComponent(partyDetailHref("supplier", contactId))}`, balance: overdueBalance(detail) },
         ];
@@ -692,7 +692,7 @@ export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; ki
         <div>
           <h2 className="text-base font-semibold text-ink">{kind === "customer" ? "Customer ledger visibility" : "Supplier ledger visibility"}</h2>
           <p className="mt-1 text-sm leading-6 text-steel">
-            Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte. Use the statement activity card when you need the shared contact statement tabs, then return here for customer or supplier workspace context.
+            Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte. Use the statement activity card when you need the dedicated statement route, then return here for customer or supplier workspace context.
           </p>
         </div>
         <Link href={`/contacts/${contactId}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
