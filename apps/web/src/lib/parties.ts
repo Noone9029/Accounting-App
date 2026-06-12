@@ -50,6 +50,14 @@ export function partyDetailHref(kind: PartyKind, partyId: string): string {
   return `/${kind === "customer" ? "customers" : "suppliers"}/${encodeURIComponent(requiredId(partyId, "partyId"))}`;
 }
 
+export function partyStatementHref(kind: PartyKind, partyId: string): string {
+  const id = requiredId(partyId, "partyId");
+  const params = new URLSearchParams();
+  params.set("section", kind === "customer" ? "statement" : "supplier-statement");
+  params.set("returnTo", partyDetailHref(kind, id));
+  return `/contacts/${encodeURIComponent(id)}?${params.toString()}`;
+}
+
 export function buildPartyTransactionHref(
   basePath: string,
   kind: PartyKind,

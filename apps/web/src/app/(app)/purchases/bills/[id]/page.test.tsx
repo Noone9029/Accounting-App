@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { PurchaseBillWorkflowGuidance } from "./page";
+import PurchaseBillDetailPage, { PurchaseBillWorkflowGuidance } from "./page";
 import type { PurchaseBill } from "@/lib/types";
+
+const apiRequestMock = jest.fn();
+let searchParamsMock = new URLSearchParams();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -17,7 +20,36 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "00000000-0000-0000-0000-000000000701" }),
+  useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => searchParamsMock,
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: () => true,
+  }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => apiRequestMock(...args),
+}));
+
+jest.mock("@/components/attachments/attachment-panel", () => ({
+  AttachmentPanel: () => <div>Attachment panel</div>,
+}));
+
 describe("purchase bill workflow guidance", () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+    searchParamsMock = new URLSearchParams();
+  });
+
   it("explains draft bill state and shows the finalize action", () => {
     render(
       <PurchaseBillWorkflowGuidance
@@ -72,6 +104,31 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.getByRole("link", { name: "AP report" })).toHaveAttribute("href", "/reports/aged-payables");
   });
 
+  it("preserves statement return context on supplier payment and debit note actions", () => {
+    render(
+      <PurchaseBillWorkflowGuidance
+        bill={billFixture({ status: "FINALIZED", balanceDue: "115.0000" })}
+        actionLoading={false}
+        canFinalizeBill
+        canCreateSupplierPayment
+        canCreateDebitNote
+        canDownloadGeneratedDocuments
+        returnTo="/contacts/contact-1?section=supplier-statement&returnTo=%2Fsuppliers%2F00000000-0000-0000-0000-000000000201"
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments/new?supplierId=00000000-0000-0000-0000-000000000201&billId=00000000-0000-0000-0000-000000000701&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
+    );
+    expect(screen.getByRole("link", { name: "Create debit note" })).toHaveAttribute(
+      "href",
+      "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
+    );
+  });
+
   it("hides source PDF action without generated document download permission", () => {
     render(
       <PurchaseBillWorkflowGuidance
@@ -88,6 +145,25 @@ describe("purchase bill workflow guidance", () => {
 
     expect(screen.queryByRole("button", { name: "Download purchase bill PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
+  });
+
+  it("uses the incoming shared statement return path for the back action", async () => {
+    searchParamsMock = new URLSearchParams("returnTo=%2Fcontacts%2Fcontact-1%3Fsection%3Dsupplier-statement%26returnTo%3D%252Fsuppliers%252F00000000-0000-0000-0000-000000000201");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/purchase-bills/00000000-0000-0000-0000-000000000701") {
+        return Promise.resolve(billFixture({ status: "FINALIZED", balanceDue: "115.0000" }));
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<PurchaseBillDetailPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute(
+        "href",
+        "/contacts/contact-1?section=supplier-statement&returnTo=%2Fsuppliers%2F00000000-0000-0000-0000-000000000201",
+      ),
+    );
   });
 });
 

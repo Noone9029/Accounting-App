@@ -6,6 +6,7 @@ import type { CollectionCase, DeliveryNote, SalesInvoice } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 let mockAllowedPermissions = new Set<string>();
+let searchParamsMock = new URLSearchParams();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +24,7 @@ jest.mock("next/link", () => ({
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "invoice-1" }),
   useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => searchParamsMock,
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -51,6 +53,7 @@ describe("invoice workflow guidance", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
+    searchParamsMock = new URLSearchParams();
   });
 
   it("explains draft invoice state and shows the finalize action", () => {
@@ -96,6 +99,25 @@ describe("invoice workflow guidance", () => {
     expect(screen.getByText(/ZATCA status here is local\/readiness only/)).toBeInTheDocument();
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
+  });
+
+  it("preserves statement return context when opening payment actions from invoice detail", () => {
+    render(
+      <InvoiceWorkflowGuidance
+        invoice={invoiceFixture({ status: "FINALIZED", balanceDue: "115.0000" })}
+        actionLoading={false}
+        canFinalizeInvoice
+        canCreateCustomerPayment
+        returnTo="/contacts/contact-1?section=statement&returnTo=%2Fcustomers%2Fcontact-1"
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Record payment" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1&returnTo=%2Fsales%2Finvoices%2Finvoice-1%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dstatement%2526returnTo%253D%25252Fcustomers%25252Fcontact-1",
+    );
   });
 });
 
@@ -167,6 +189,29 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
     expect(screen.queryByRole("button", { name: "Request clearance" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request reporting" })).not.toBeInTheDocument();
     expect(screen.queryByText(/production ZATCA clearance has been requested/i)).not.toBeInTheDocument();
+  });
+
+  it("uses the incoming shared statement return path for the back action", async () => {
+    searchParamsMock = new URLSearchParams("returnTo=%2Fcontacts%2Fcontact-1%3Fsection%3Dstatement%26returnTo%3D%252Fcustomers%252Fcontact-1");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") {
+        return Promise.resolve(invoiceFixture({ status: "FINALIZED", finalizedAt: "2026-06-04T10:00:00.000Z" }));
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([]);
+      }
+      if (path === "/collections/invoice/invoice-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceDetailPage />);
+
+    expect(await screen.findByRole("link", { name: "Back" })).toHaveAttribute(
+      "href",
+      "/contacts/contact-1?section=statement&returnTo=%2Fcustomers%2Fcontact-1",
+    );
   });
 });
 

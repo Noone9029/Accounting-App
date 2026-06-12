@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { SupplierApSummaryPanel, SupplierGroupedActivityTables } from "./party-pages";
-import type { PartyTransaction, SupplierApDetailSummary } from "@/lib/types";
+import { PartyActivitySummary, SupplierApSummaryPanel, SupplierGroupedActivityTables } from "./party-pages";
+import type { CustomerPartyDetail, PartyTransaction, SupplierApDetailSummary, SupplierPartyDetail } from "@/lib/types";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -60,6 +60,28 @@ describe("Supplier AP detail panels", () => {
   });
 });
 
+describe("Party activity summary statement entry points", () => {
+  it("adds a direct customer statement activity card with workspace return context", () => {
+    render(<PartyActivitySummary detail={customerDetail()} kind="customer" />);
+
+    expect(screen.getByRole("link", { name: "Customer statement activity Shared view" })).toHaveAttribute(
+      "href",
+      "/contacts/customer-1?section=statement&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+    expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/customer-1");
+  });
+
+  it("adds a direct supplier statement activity card with workspace return context", () => {
+    render(<PartyActivitySummary detail={supplierDetail()} kind="supplier" />);
+
+    expect(screen.getByRole("link", { name: "Supplier statement activity Shared view" })).toHaveAttribute(
+      "href",
+      "/contacts/supplier-1?section=supplier-statement&returnTo=%2Fsuppliers%2Fsupplier-1",
+    );
+    expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
+  });
+});
+
 function supplierApSummary(): SupplierApDetailSummary {
   return {
     readOnly: true,
@@ -112,6 +134,66 @@ function supplierApSummary(): SupplierApDetailSummary {
         nonPosting: true,
       },
     ],
+  };
+}
+
+function customerDetail(): CustomerPartyDetail {
+  return {
+    contact: {
+      id: "customer-1",
+      organizationId: "org-1",
+      type: "CUSTOMER",
+      name: "Alpha Customer",
+      displayName: "Alpha Customer",
+      email: "alpha@example.com",
+      phone: "0500000000",
+      taxNumber: null,
+      addressLine1: null,
+      addressLine2: null,
+      buildingNumber: null,
+      district: null,
+      city: null,
+      postalCode: null,
+      countryCode: "SA",
+      identificationType: null,
+      identificationNumber: null,
+      isActive: true,
+    },
+    openReceivableBalance: "150.0000",
+    overdueReceivableBalance: "20.0000",
+    lastTransactionDate: "2026-06-05T00:00:00.000Z",
+    notes: null,
+    transactions: [transaction({ sourceType: "CustomerPayment", sourceId: "payment-1", type: "Payment", balanceDue: "0.0000" })],
+  };
+}
+
+function supplierDetail(): SupplierPartyDetail {
+  return {
+    contact: {
+      id: "supplier-1",
+      organizationId: "org-1",
+      type: "SUPPLIER",
+      name: "Beta Supplier",
+      displayName: "Beta Supplier",
+      email: "beta@example.com",
+      phone: "0500000001",
+      taxNumber: null,
+      addressLine1: null,
+      addressLine2: null,
+      buildingNumber: null,
+      district: null,
+      city: null,
+      postalCode: null,
+      countryCode: "SA",
+      identificationType: null,
+      identificationNumber: null,
+      isActive: true,
+    },
+    openPayableBalance: "150.0000",
+    overduePayableBalance: "20.0000",
+    lastTransactionDate: "2026-06-05T00:00:00.000Z",
+    paymentNotes: null,
+    transactions: [transaction({ sourceType: "SupplierPayment", sourceId: "payment-1", type: "Supplier payment", balanceDue: "0.0000" })],
   };
 }
 

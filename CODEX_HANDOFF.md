@@ -2,90 +2,87 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected: `114dfb3f Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`
-- PR #24 merge pushed to `main`: `114dfb3f Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`
-- PR #23 merge pushed to `main`: `e9a4b819 Merge pull request #23 from Noone9029/codex/controlled-beta-payments-statements-workflow-hardening`
-- PR #22 merge pushed to `main`: `fc3e3307 Merge pull request #22 from Noone9029/codex/controlled-beta-customer-supplier-workspace-polish`
-- PR #21 merge pushed to `main`: `0f6037ea Merge remote-tracking branch 'origin/codex/controlled-beta-documents-reports-hardening'`
-- PR #20 merge pushed to `main`: `5a29ab76 Merge pull request #20 from Noone9029/codex/controlled-beta-setup-onboarding-hardening`
-- PR #19 merge pushed to `main`: `5502434b Merge pull request #19 from codex/controlled-beta-route-hardening-followup`
-- PR #18 merge pushed to `main`: `c21cb392 Merge branch 'codex/controlled-beta-e2e-product-hardening' into codex/tmp-main-sync`
-- PR #17 cleanup merge pushed to `main`: `a9c9cef1 Merge branch 'codex/zatca-pdf-a3-approval-gate' into codex/tmp-main-sync`
-- PR #9 merge commit in main history: `a4190941 Merge pull request #9 from codex/zatca-manual-otp-capture-approval-gate`
-- PR #10 merge commit in main history: `feb32ccc Merge pull request #10 from codex/zatca-request-body-creation-approval-gate`
-- PR #11 merge commit in main history: `13bf16a5 Merge pull request #11 from Noone9029/codex/zatca-sandbox-network-request-approval-gate`
-- PR #12 merge commit in main history: `d15884f8 Merge pull request #12 from Noone9029/codex/zatca-sandbox-response-processing-approval-gate`
-- PR #13 merge commit in main history: `db8f058c Merge pull request #13 from Noone9029/codex/zatca-sandbox-response-custody-approval-gate`
-- PR #14 merge commit in main history: `ce2489a5 Merge pull request #14 from Noone9029/codex/zatca-sandbox-csid-storage-approval-gate`
-- PR #15 merge commit in main history: `154bbf82 Merge pull request #15 from Noone9029/codex/zatca-signing-phase2-qr-approval-gate`
-- PR #16 merge commit in main history: `edc306e6 Merge pull request #16 from Noone9029/codex/zatca-clearance-reporting-approval-gate`
+- Main commit inspected before this arc: `74e7855b Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`
+- PR `#25` merge pushed to `main`: `74e7855b Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`
+- Prior main merge for context: `114dfb3f Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-route-load-verification-batch`.
-- Branch base used for this lane: `main` at merged PR `#24` commit `114dfb3f`.
-- Branch status versus `main`: frontend/tests/docs-only controlled-beta route-load verification on top of the merged final readiness triage base.
-- Graphify usage: not needed in this lane; no Graphify regeneration was performed.
-- PR #24 merge status:
-  - PR `#24` `Controlled beta final product readiness triage` was rechecked through GitHub before merge and stayed open, non-draft, mergeable `clean`, on expected head `0ac095a6b4f1e74e6e0839d0f2fd57f0c03a2e92`, and frontend/docs/tests only.
-  - Verified live statuses before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, and `GitGuardian Security Checks` were all `success`.
-  - PR `#24` was merged into `main` with merge commit `114dfb3f`.
-- Route-load surfaces reviewed:
-  - `apps/web/src/app/(app)/setup`
-  - `apps/web/src/app/(app)/dashboard`
-  - `apps/web/src/app/(app)/contacts`
-  - `apps/web/src/app/(app)/customers`
-  - `apps/web/src/app/(app)/suppliers`
-  - `apps/web/src/app/(app)/sales/invoices`
-  - `apps/web/src/app/(app)/sales/customer-payments`
-  - `apps/web/src/app/(app)/sales/credit-notes`
-  - `apps/web/src/app/(app)/purchases/bills`
-  - `apps/web/src/app/(app)/purchases/supplier-payments`
-  - `apps/web/src/app/(app)/purchases/debit-notes`
-  - `apps/web/src/app/(app)/purchases/matching`
-  - `apps/web/src/app/(app)/documents`
-  - `apps/web/src/app/(app)/reports`
-  - `apps/web/src/app/(app)/settings`
-  - `apps/web/src/app/(app)/settings/storage`
-  - `apps/web/src/app/(app)/settings/team`
-  - `apps/web/src/app/(app)/settings/zatca`
+- Current branch: `codex/controlled-beta-statement-workspace-polish`
+- Branch base used for this lane: `main` at merged PR `#25` commit `74e7855b`
+- Branch status versus `main`: frontend/tests/docs-only controlled-beta statement workspace polish on top of the merged route-load verification batch
+- Graphify usage: Graphify stayed in map-only mode; `graphify-out/GRAPH_REPORT.md` was consulted only as stale blast-radius guidance and no regeneration was performed
+- PR `#25` merge status:
+  - GitHub API recheck confirmed PR `#25` stayed open, non-draft, mergeable `clean`, on expected head `f3552bf64c73841542faca01fd46469fcb563648`, and limited to frontend/docs/tests files only
+  - Verified live statuses before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, `GitGuardian Security Checks`, and `Vercel Preview Comments` all reported success or non-blocking state
+  - PR `#25` was merged into `main` with merge commit `74e7855b`
+- Statement workspace surfaces reviewed:
+  - `apps/web/src/app/(app)/contacts/[id]/page.tsx`
+  - `apps/web/src/app/(app)/customers/[id]/page.tsx`
+  - `apps/web/src/app/(app)/suppliers/[id]/page.tsx`
+  - `apps/web/src/components/parties/party-pages.tsx`
+  - `apps/web/src/components/parties/party-new-transaction-menu.tsx`
+  - `apps/web/src/components/reports/report-pages.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/page.tsx`
+  - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`
+  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`
+  - `apps/web/src/lib/parties.ts`
   - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
-  - `docs/development/CONTROLLED_BETA_ROUTE_LOAD_VERIFICATION_BATCH.md`
-- Automated route coverage added:
-  - Added `apps/web/src/app/(app)/route-load-verification.test.tsx` for `/setup`, `/customers`, `/customers/[id]`, `/suppliers`, `/suppliers/[id]`, `/reports`, `/settings`, `/settings/storage`, `/sales/invoices`, `/sales/invoices/new`, `/sales/credit-notes`, `/purchases/bills`, `/purchases/bills/new`, and `/purchases/debit-notes`.
-  - Re-ran existing route tests for `/dashboard`, `/contacts/[id]`, `/documents`, `/purchases/bills/[id]`, `/purchases/matching`, `/purchases/supplier-payments`, `/purchases/supplier-payments/[id]`, `/sales/customer-payments`, `/sales/customer-payments/[id]`, `/sales/invoices/[id]`, `/settings/team`, and `/settings/zatca`.
 - Real fixes made:
-  - Added the missing `/settings` root route and redirected it to `/settings/team`, closing a real route-load gap in the controlled-beta settings family.
-  - Added `docs/development/CONTROLLED_BETA_ROUTE_LOAD_VERIFICATION_BATCH.md` with covered routes, checks run, skipped commands, blockers, and the controlled-beta-only verification verdict.
-- Safety posture:
-  - No schema, migration, seed/reset/delete, deploy, email send, accounting logic, payment allocation logic, statement balance logic, report math, VAT math, generated PDF logic, ZATCA runtime execution, env/secrets handling, or production/beta/customer-data mutation changes were made.
+  - Added direct customer and supplier statement entry cards from `/customers/[id]` and `/suppliers/[id]` into the existing shared `/contacts/[id]` statement tabs with safe workspace `returnTo` context
+  - Clarified customer/supplier workspace summary copy so the shared contact ledger is explicit and does not hide richer customer or supplier context
+  - Added shared-statement handoff panels for `Customer statement` and `Supplier statement` tabs with explicit workspace, activity, and aging-report follow-on links
+  - Preserved statement-context `returnTo` on shared contact ledger row drill-downs into invoice, bill, payment, refund, credit-note, debit-note, and expense detail routes
+  - Preserved that incoming statement context on sales invoice and purchase bill detail follow-on actions, including `Back`, `Record payment`, `Create credit note`, `Record supplier payment`, `Create debit note`, and `Receive stock`
+- Statement wording and safety decisions:
+  - Kept statements framed as activity review on the shared contact surface, not as official, certified, bank-confirmed, externally confirmed, or compliance evidence
+  - Kept the controlled-beta posture explicit: no production-readiness claim, no official VAT filing claim, and no ZATCA-compliance claim
+  - Did not add dedicated statement routes, statement math changes, accounting logic changes, or any new send/export side effects beyond the existing explicit download actions
+- Files changed in this lane:
+  - `apps/web/src/app/(app)/contacts/[id]/page.tsx`
+  - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`
+  - `apps/web/src/components/parties/party-pages.tsx`
+  - `apps/web/src/components/parties/party-pages.test.tsx`
+  - `apps/web/src/lib/parties.ts`
+  - `apps/web/src/lib/parties.test.ts`
+  - `BUG_AUDIT.md`
+  - `CODEX_HANDOFF.md`
+  - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
 - Checks run:
-  - GitHub API recheck of PR `#24` status, mergeability, head SHA, check runs, workflow run `27382198381`, live statuses, and changed files before merge
+  - GitHub API recheck of PR `#25` state, head SHA, mergeability, changed files, check runs, and commit statuses before merge
   - `git fetch origin --prune`
-  - `git worktree add E:\worktrees\accounting-app-route-load main`
-  - `git merge --ff-only origin/main`
-  - `git merge --no-ff origin/codex/controlled-beta-final-product-readiness-triage -m "Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage"`
+  - `git worktree add C:\Users\Ahmad\.config\superpowers\worktrees\Accounting App\statement-workspace-polish main`
+  - `git merge --no-ff origin/codex/controlled-beta-route-load-verification-batch -m "Merge pull request #25 from codex/controlled-beta-route-load-verification-batch"`
   - `git push origin main`
   - `corepack pnpm install --frozen-lockfile`
-  - `corepack pnpm test -- route-load-verification.test.tsx`
-  - `corepack pnpm test -- route-load-verification.test.tsx dashboard/page.test.tsx contacts/[id]/page.test.tsx documents/page.test.tsx purchases/bills/[id]/page.test.tsx purchases/matching/page.test.tsx purchases/supplier-payments/page.test.tsx purchases/supplier-payments/[id]/page.test.tsx sales/customer-payments/page.test.tsx sales/customer-payments/[id]/page.test.tsx sales/invoices/[id]/page.test.tsx settings/team/page.test.tsx settings/zatca/page.test.tsx`
+  - `node ...\jest.js --config jest.config.cjs --runTestsByPath src/lib/parties.test.ts src/components/parties/party-pages.test.tsx src/app/(app)/contacts/[id]/page.test.tsx src/app/(app)/sales/invoices/[id]/page.test.tsx src/app/(app)/purchases/bills/[id]/page.test.tsx`
   - `corepack pnpm --filter @ledgerbyte/web typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
 - Skipped commands and why:
-  - API typecheck was skipped because no API files changed.
-  - Whole-repo `corepack pnpm test` and `corepack pnpm build` were skipped because this lane stayed inside targeted frontend route-load verification.
-  - Graphify regeneration was skipped because it was not needed for this narrow route-load batch.
-  - Full E2E, smoke, local service startup, login flows, migrations, seed/reset/delete, deploys, ZATCA runtime, email sends, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden.
+  - API typecheck was skipped because no API files changed
+  - Whole-repo `corepack pnpm test` and `corepack pnpm build` were skipped because this arc stayed in a targeted frontend workflow lane
+  - Route-load docs were left unchanged because the route-load coverage set itself did not change in this arc
+  - Migrations, seed/reset/delete, smoke, E2E, deploys, real login, real email, ZATCA runtime, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden
+- Current controlled-beta verification verdict:
+  - LedgerByte remains controlled beta/user-testing only
+  - LedgerByte is not production-ready
+  - LedgerByte is not paid SaaS ready
+  - LedgerByte is not official VAT filing ready
+  - LedgerByte is not ZATCA compliant
 - Remaining blockers:
-  - Customer and supplier statements still live on the shared contact-detail surface; this pass did not add dedicated statement routes.
-  - Older non-critical settings children and secondary workflow routes were not expanded into this batch unless they already had direct tests.
-  - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`.
-- Production/ZATCA/customer-data behavior changed: no.
-- Readiness triage artifact paths:
-  - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
-  - `docs/development/CONTROLLED_BETA_ROUTE_LOAD_VERIFICATION_BATCH.md`
-- Exact next recommended prompt title: `Controlled beta statement workspace polish`
+  - Customer and supplier statements still rely on the shared contact-detail implementation underneath; this arc improved the handoff and return paths but did not add dedicated statement routes
+  - Older secondary detail surfaces outside invoices, bills, payments, and shared contact statements still need the same focused continuity review if tester feedback exposes more context loss
+  - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`
+- Production/ZATCA/customer-data behavior changed: no
+- Exact next recommended prompt title: `Controlled beta pilot invite readiness packet`
 
 ## Prior Development Objective
 
