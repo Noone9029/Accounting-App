@@ -21,6 +21,7 @@ import { CategorizeBankStatementTransactionDto } from "./dto/categorize-bank-sta
 import { CreateBankStatementImportDto, PreviewBankStatementImportDto } from "./dto/create-bank-statement-import.dto";
 import { IgnoreBankStatementTransactionDto } from "./dto/ignore-bank-statement-transaction.dto";
 import { MatchBankStatementTransactionDto } from "./dto/match-bank-statement-transaction.dto";
+import { suggestBankStatementMatches } from "./bank-statement-match-suggestions";
 
 const POSTED_LEDGER_STATUSES: JournalEntryStatus[] = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
 
@@ -312,6 +313,9 @@ export class BankStatementService {
 
   async matchCandidates(organizationId: string, id: string) {
     const transaction = await this.getTransactionForMutation(organizationId, id);
+    if (transaction.status !== BankStatementTransactionStatus.UNMATCHED) {
+      return [];
+    }
     const windowStart = new Date(transaction.transactionDate);
     windowStart.setUTCDate(windowStart.getUTCDate() - 7);
     const windowEnd = new Date(transaction.transactionDate);
@@ -338,30 +342,24 @@ export class BankStatementService {
       },
     });
 
-    return lines.map((line) => {
-      const reason: string[] = ["amount and direction match"];
-      let score = 70;
-      if (sameUtcDate(line.journalEntry.entryDate, transaction.transactionDate)) {
-        score += 20;
-        reason.push("same date");
-      }
-      if (transaction.reference && line.journalEntry.reference?.includes(transaction.reference)) {
-        score += 10;
-        reason.push("reference match");
-      }
-      return {
-        journalLineId: line.id,
-        journalEntryId: line.journalEntry.id,
-        date: line.journalEntry.entryDate,
-        entryNumber: line.journalEntry.entryNumber,
-        description: line.description ?? line.journalEntry.description,
-        reference: line.journalEntry.reference,
+    return suggestBankStatementMatches(
+      {
+        transactionDate: transaction.transactionDate,
+        type: transaction.type,
+        amount: this.formatMoney(transaction.amount),
+        status: transaction.status,
+        reference: transaction.reference,
+        description: transaction.description,
+        counterparty: counterpartyFromRawData(transaction.rawData),
+      },
+      lines.map((line) => ({
+        id: line.id,
         debit: this.formatMoney(line.debit),
         credit: this.formatMoney(line.credit),
-        score: Math.min(score, 100),
-        reason: reason.join(", "),
-      };
-    });
+        description: line.description,
+        journalEntry: line.journalEntry,
+      })),
+    );
   }
 
   async matchTransaction(organizationId: string, actorUserId: string, id: string, dto: MatchBankStatementTransactionDto) {
@@ -1101,8 +1099,19 @@ function importOverlapsRange(
   return true;
 }
 
-function sameUtcDate(left: Date, right: Date): boolean {
-  return left.toISOString().slice(0, 10) === right.toISOString().slice(0, 10);
+function counterpartyFromRawData(rawData: unknown): string | null {
+  if (!isRecord(rawData)) {
+    return null;
+  }
+  const normalized = rawData.normalized;
+  if (isRecord(normalized) && typeof normalized.counterparty === "string") {
+    return normalized.counterparty;
+  }
+  return typeof rawData.counterparty === "string" ? rawData.counterparty : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function startOfDate(date: Date): Date {

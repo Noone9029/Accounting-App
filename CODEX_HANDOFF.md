@@ -2,75 +2,74 @@
 
 ## Latest Commit Inspected
 
-- Main commit inspected before this arc: `74e7855b Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`
-- PR `#25` merge pushed to `main`: `74e7855b Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`
-- Prior main merge for context: `114dfb3f Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`
+- Main commit inspected for this arc: `b0f312fc Merge pull request #26 from codex/controlled-beta-statement-workspace-polish`
+- PR `#26` merge status: already merged into `main` at `b0f312fc` before this branch was cut; no additional merge action was needed.
+- Prior main merge for context: `74e7855b Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`
 
 ## Current Development Objective
 
-- Current branch: `codex/controlled-beta-statement-workspace-polish`
-- Branch base used for this lane: `main` at merged PR `#25` commit `74e7855b`
-- Branch status versus `main`: frontend/tests/docs-only controlled-beta statement workspace polish on top of the merged route-load verification batch
-- Graphify usage: Graphify stayed in map-only mode; `graphify-out/GRAPH_REPORT.md` was consulted only as stale blast-radius guidance and no regeneration was performed
-- PR `#25` merge status:
-  - GitHub API recheck confirmed PR `#25` stayed open, non-draft, mergeable `clean`, on expected head `f3552bf64c73841542faca01fd46469fcb563648`, and limited to frontend/docs/tests files only
-  - Verified live statuses before merge: `Non-mutating verification`, `Vercel - ledgerbyte-api-test`, `Vercel - ledgerbyte-web-test`, `GitGuardian Security Checks`, and `Vercel Preview Comments` all reported success or non-blocking state
-  - PR `#25` was merged into `main` with merge commit `74e7855b`
-- Statement workspace surfaces reviewed:
-  - `apps/web/src/app/(app)/contacts/[id]/page.tsx`
-  - `apps/web/src/app/(app)/customers/[id]/page.tsx`
-  - `apps/web/src/app/(app)/suppliers/[id]/page.tsx`
-  - `apps/web/src/components/parties/party-pages.tsx`
-  - `apps/web/src/components/parties/party-new-transaction-menu.tsx`
-  - `apps/web/src/components/reports/report-pages.tsx`
-  - `apps/web/src/app/(app)/sales/customer-payments/page.tsx`
-  - `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx`
-  - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`
-  - `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`
-  - `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`
-  - `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`
-  - `apps/web/src/lib/parties.ts`
-  - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
-- Real fixes made:
-  - Added direct customer and supplier statement entry cards from `/customers/[id]` and `/suppliers/[id]` into the existing shared `/contacts/[id]` statement tabs with safe workspace `returnTo` context
-  - Clarified customer/supplier workspace summary copy so the shared contact ledger is explicit and does not hide richer customer or supplier context
-  - Added shared-statement handoff panels for `Customer statement` and `Supplier statement` tabs with explicit workspace, activity, and aging-report follow-on links
-  - Preserved statement-context `returnTo` on shared contact ledger row drill-downs into invoice, bill, payment, refund, credit-note, debit-note, and expense detail routes
-  - Preserved that incoming statement context on sales invoice and purchase bill detail follow-on actions, including `Back`, `Record payment`, `Create credit note`, `Record supplier payment`, `Create debit note`, and `Receive stock`
-- Statement wording and safety decisions:
-  - Kept statements framed as activity review on the shared contact surface, not as official, certified, bank-confirmed, externally confirmed, or compliance evidence
-  - Kept the controlled-beta posture explicit: no production-readiness claim, no official VAT filing claim, and no ZATCA-compliance claim
-  - Did not add dedicated statement routes, statement math changes, accounting logic changes, or any new send/export side effects beyond the existing explicit download actions
+- Current branch: `codex/banking-parser-qa-match-suggestion-foundation`
+- Branch base used for this lane: `main` at merged PR `#26` commit `b0f312fc`
+- Branch status versus `main`: Banking 2.0 parser QA, deterministic non-mutating match suggestion foundation, and docs updates on top of merged statement workspace polish.
+- Graphify usage: not used. `graphify-out/` was not present in the clean worktree, and the banking parser/service/test files were localized enough that regeneration was unnecessary.
+- Banking/reconciliation surfaces reviewed:
+  - `apps/api/src/bank-accounts/*`
+  - `apps/api/src/bank-transfers/*`
+  - `apps/api/src/bank-reconciliations/*`
+  - `apps/api/src/bank-statements/*`
+  - `apps/web/src/app/(app)/bank-accounts/*`
+  - `apps/web/src/app/(app)/bank-transfers/*`
+  - `apps/web/src/app/(app)/bank-reconciliations/*`
+  - `apps/web/src/app/(app)/bank-statement-transactions/*`
+  - `apps/web/src/lib/bank-statements.ts`
+  - `docs/banking/*`
+  - `docs/development/DEV_09_BANKING_RECONCILIATION_CLOSURE.md`
+  - `BUG_AUDIT.md`, `CODEX_HANDOFF.md`, `README.md`, `docs/PRODUCT_READINESS_SCORECARD.md`, `docs/IMPLEMENTATION_STATUS.md`, and `docs/REMAINING_ROADMAP.md`
+- Parser formats covered:
+  - CSV
+  - JSON
+  - unsupported plain text/unknown format
+  - OFX SGML-style and XML-style
+  - CAMT.053/CAMT.054 XML
+  - MT940
+- Parser QA added:
+  - Debit/credit column variants, signed amount columns, decimal comma handling, date-times, existing balance parsing, references, counterparties, multiline MT940 narratives, missing `FITID` warnings, CAMT missing-direction warnings, duplicate candidate warnings, unsupported format errors without raw body echo, malformed JSON without raw body echo, empty-file handling, and ambiguous debit/credit handling.
+- Match-suggestion behavior added:
+  - Added pure helper `apps/api/src/bank-statements/bank-statement-match-suggestions.ts`.
+  - Reused it in `BankStatementService.matchCandidates`.
+  - Suggestions score exact amount/opposite bank-line direction, date tolerance, reference match, normalized counterparty text, and document-number matches.
+  - Already reviewed rows return no suggestions unless the statement row is still `UNMATCHED`.
+  - Suggestions remain non-mutating and do not post, match, reconcile, categorize, ignore, or create journals.
 - Files changed in this lane:
-  - `apps/web/src/app/(app)/contacts/[id]/page.tsx`
-  - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
-  - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`
-  - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
-  - `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`
-  - `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`
-  - `apps/web/src/components/parties/party-pages.tsx`
-  - `apps/web/src/components/parties/party-pages.test.tsx`
-  - `apps/web/src/lib/parties.ts`
-  - `apps/web/src/lib/parties.test.ts`
+  - `apps/api/src/bank-statements/bank-statement-import-parser.ts`
+  - `apps/api/src/bank-statements/bank-statement-import-parser.spec.ts`
+  - `apps/api/src/bank-statements/bank-statement-match-suggestions.ts`
+  - `apps/api/src/bank-statements/bank-statement-match-suggestions.spec.ts`
+  - `apps/api/src/bank-statements/bank-statement.service.ts`
+  - `apps/api/src/bank-statements/bank-statement.service.spec.ts`
   - `BUG_AUDIT.md`
   - `CODEX_HANDOFF.md`
-  - `docs/development/CONTROLLED_BETA_FINAL_PRODUCT_READINESS_TRIAGE.md`
+  - `docs/banking/BANKING_2_PARSER_QA_MATCH_SUGGESTION_FOUNDATION.md`
+  - `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`
+  - `docs/PRODUCT_READINESS_SCORECARD.md`
+  - `docs/IMPLEMENTATION_STATUS.md`
+  - `docs/REMAINING_ROADMAP.md`
 - Checks run:
-  - GitHub API recheck of PR `#25` state, head SHA, mergeability, changed files, check runs, and commit statuses before merge
+  - GitHub API recheck of PR `#26` state: already closed/merged, non-draft, head `4561f3f6d2920f09f0cced6653b1677f91277ba4`, merge commit `b0f312fc857424acd2acce39440198a219e77283`
   - `git fetch origin --prune`
-  - `git worktree add C:\Users\Ahmad\.config\superpowers\worktrees\Accounting App\statement-workspace-polish main`
-  - `git merge --no-ff origin/codex/controlled-beta-route-load-verification-batch -m "Merge pull request #25 from codex/controlled-beta-route-load-verification-batch"`
-  - `git push origin main`
+  - `git worktree add -b codex/banking-parser-qa-match-suggestion-foundation E:\Accounting App-banking-parser-qa-match-suggestion-foundation origin/main`
   - `corepack pnpm install --frozen-lockfile`
-  - `node ...\jest.js --config jest.config.cjs --runTestsByPath src/lib/parties.test.ts src/components/parties/party-pages.test.tsx src/app/(app)/contacts/[id]/page.test.tsx src/app/(app)/sales/invoices/[id]/page.test.tsx src/app/(app)/purchases/bills/[id]/page.test.tsx`
-  - `corepack pnpm --filter @ledgerbyte/web typecheck`
+  - `corepack pnpm db:generate`
+  - `corepack pnpm --filter @ledgerbyte/api test -- bank-statement-import-parser.spec.ts bank-statement-match-suggestions.spec.ts bank-statement.service.spec.ts`
+  - `corepack pnpm --filter @ledgerbyte/api typecheck`
   - `corepack pnpm verify:diff`
   - `git diff --check`
+  - `git diff --cached --check`
+  - Forbidden banking wording search for `Bank feed connected`, `Auto-reconciled`, `Bank-confirmed`, `Certified bank import`, and `Production parser certified`: no matches
 - Skipped commands and why:
-  - API typecheck was skipped because no API files changed
-  - Whole-repo `corepack pnpm test` and `corepack pnpm build` were skipped because this arc stayed in a targeted frontend workflow lane
-  - Route-load docs were left unchanged because the route-load coverage set itself did not change in this arc
-  - Migrations, seed/reset/delete, smoke, E2E, deploys, real login, real email, ZATCA runtime, backup/restore, and production infrastructure commands remained out of scope or explicitly forbidden
+  - Web typecheck and web tests were skipped because no web files changed.
+  - Whole-repo `corepack pnpm test` and `corepack pnpm build` were skipped because this arc stayed in targeted API parser/matching and docs scope.
+  - Migrations, seed/reset/delete, smoke, E2E, deployed route smoke, real login, real bank integrations, Plaid/Salt Edge/Tarabut/Lean/bank providers, raw-file archive execution, real email, ZATCA runtime, backup/restore, deploys, and production infrastructure commands remained out of scope or explicitly forbidden.
 - Current controlled-beta verification verdict:
   - LedgerByte remains controlled beta/user-testing only
   - LedgerByte is not production-ready
@@ -78,11 +77,16 @@
   - LedgerByte is not official VAT filing ready
   - LedgerByte is not ZATCA compliant
 - Remaining blockers:
-  - Customer and supplier statements still rely on the shared contact-detail implementation underneath; this arc improved the handoff and return paths but did not add dedicated statement routes
-  - Older secondary detail surfaces outside invoices, bills, payments, and shared contact statements still need the same focused continuity review if tester feedback exposes more context loss
+  - Live bank feeds
+  - Certified bank-specific parser coverage
+  - Raw-file archive execution
+  - Transfer fees and FX handling
+  - Hosted/customer-data proof
+  - Broad banking E2E/smoke/full-test coverage
+  - Accountant sign-off
   - Existing unrelated dirty files remain outside this arc in the original checkout and must stay unstaged there: `apps/api/scripts/smoke-accounting.ts`, `apps/web/src/app/(app)/settings/zatca/page.tsx`, `.codex-logs/`, and `AGENTS.md`
 - Production/ZATCA/customer-data behavior changed: no
-- Exact next recommended prompt title: `Controlled beta pilot invite readiness packet`
+- Exact next recommended prompt title: `VAT return truthfulness and filing-export foundation`
 
 ## Prior Development Objective
 

@@ -53,6 +53,14 @@ export function parseBankStatementImportInput(input: {
   }> | null;
 }): StatementImportParseResult {
   const csvText = input.csvText?.trim();
+  if (input.csvText !== undefined && input.csvText !== null && !csvText) {
+    return {
+      format: "UNKNOWN",
+      rows: [],
+      detectedColumns: [],
+      warnings: ["Statement text did not contain any rows."],
+    };
+  }
   if (csvText) {
     const format = detectBankStatementImportFormat(csvText);
     switch (format) {

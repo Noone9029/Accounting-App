@@ -55,6 +55,31 @@ describe("bank statement import parser", () => {
     });
   });
 
+  it("parses debit and credit column variants, decimal commas, and date-times", () => {
+    const result = parseBankStatementCsvText(
+      "Value Date,Narration,Transaction Reference,Debit Amount,Credit Amount,Running Balance\n2026-05-15T09:30:00Z,Service fee,FEE-44,\"1.234,56\",0,\"9.876,54\"\n15/05/2026,Receipt,RCPT-44,0,\"2.500,00\",\"12.376,54\"",
+    );
+
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        date: "2026-05-15",
+        description: "Service fee",
+        reference: "FEE-44",
+        debit: "1234.56",
+        credit: "0",
+        balance: "9876.54",
+      }),
+      expect.objectContaining({
+        date: "2026-05-15",
+        description: "Receipt",
+        reference: "RCPT-44",
+        debit: "0",
+        credit: "2500.00",
+        balance: "12376.54",
+      }),
+    ]);
+  });
+
   it("parses JSON statement text without requiring live bank input", () => {
     const result = parseBankStatementImportInput({
       csvText: '{"rows":[{"transactionDate":"2026-05-13","memo":"Receipt","amount":"100.00","counterparty":"Customer"}]}',
@@ -189,6 +214,17 @@ describe("bank statement import parser", () => {
     expect(result.warnings.join(" ")).not.toContain("<Document>");
   });
 
+  it("returns explicit empty-file warnings without treating the body as JSON rows", () => {
+    const result = parseBankStatementImportInput({ csvText: " \n\t " });
+
+    expect(result).toEqual({
+      format: "UNKNOWN",
+      rows: [],
+      detectedColumns: [],
+      warnings: ["Statement text did not contain any rows."],
+    });
+  });
+
   it("parses sanitized MT940 fixtures into normalized manual statement rows", () => {
     const result = parseBankStatementImportInput({ csvText: readFixture("sample.mt940") });
 
@@ -244,5 +280,14 @@ describe("bank statement import parser", () => {
     expect(result.rows).toEqual([]);
     expect(result.warnings).toContain("Statement format could not be detected. Use CSV, JSON, OFX, CAMT XML, or MT940 manual exports.");
     expect(result.warnings.join(" ")).not.toContain("private-looking raw body");
+  });
+
+  it("returns safe JSON errors without echoing malformed raw statement content", () => {
+    const result = parseBankStatementImportInput({ csvText: '{"rows":[{"description":"private raw memo"' });
+
+    expect(result.format).toBe("JSON");
+    expect(result.rows).toEqual([]);
+    expect(result.warnings).toContain("JSON statement text could not be parsed.");
+    expect(result.warnings.join(" ")).not.toContain("private raw memo");
   });
 });

@@ -24,6 +24,15 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-12 Banking 2.0 parser QA and match suggestion foundation:
+
+- PR `#26` `Controlled beta statement workspace polish` was already merged into `main` at `b0f312fc` before this branch was cut.
+- Added targeted manual parser QA for existing CSV, JSON, unsupported plain text, OFX, CAMT.053/CAMT.054, and MT940 support, including empty-file and raw-content-safe invalid-input handling.
+- Added deterministic non-mutating match suggestion scoring for the existing match-candidates endpoint. Suggestions score amount/direction, date tolerance, reference, normalized counterparty text, and document-number signals.
+- No live bank feed, external bank API, raw-file archive execution, automatic posting/matching/reconciliation, schema migration, seed/reset/delete, ZATCA, email, deploy, or production infrastructure change was performed.
+- Banking/reconciliation remains controlled-beta only and still needs live feeds, certified target-bank parser coverage, transfer fees, FX handling, hosted/customer-data proof, broad banking E2E/smoke/full-test coverage, and accountant sign-off before production claims.
+- Recommended next prompt: `VAT return truthfulness and filing-export foundation`.
+
 2026-06-11 ZATCA PDF-A3 Approval Gate update:
 
 - PR `#16` `ZATCA clearance reporting approval gate` was verified live, then merged into `main` with merge commit `edc306e6`.

@@ -2,7 +2,23 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `74e7855b` (`Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`) plus the current controlled-beta statement workspace polish branch.
+Latest commit audited: `b0f312fc` (`Merge pull request #26 from codex/controlled-beta-statement-workspace-polish`) plus the current Banking 2.0 parser QA and match suggestion branch.
+
+## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
+
+Expanded the manual bank statement parser QA surface and extracted deterministic match suggestion scoring without adding live feeds, automatic reconciliation, schema changes, or posting side effects.
+
+Risk reduced:
+
+- Added parser coverage for CSV debit/credit aliases, signed amount columns, decimal comma amounts, date-times, balances, JSON parse safety, unsupported plain text, empty file handling, OFX missing `FITID`, CAMT missing direction, and MT940 multiline narratives.
+- Added a pure match suggestion helper for existing manual statement matching that scores amount/direction, date tolerance, reference, normalized counterparty text, and document-number signals.
+- Reused that helper in the existing match-candidates endpoint while returning no suggestions for already reviewed statement rows.
+- Added `docs/product/FEATURE_PARITY_COMMAND_CENTER.md` and `docs/banking/BANKING_2_PARSER_QA_MATCH_SUGGESTION_FOUNDATION.md` to keep the parity and banking-blocker record explicit.
+
+Remaining risks:
+
+- No live bank feed, external bank API, certified bank-specific parser coverage, raw-file archive execution, transfer-fee handling, FX handling, hosted/customer-data proof, or accountant sign-off was added.
+- Suggestions remain suggestions only; they do not post, match, reconcile, categorize, ignore, or create journals automatically.
 
 ## Scope
 
