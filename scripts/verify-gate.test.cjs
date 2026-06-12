@@ -6,8 +6,12 @@ const assert = require("node:assert/strict");
 const {
   GATES,
   assertSafePlan,
+  buildApiDocsAndCiScopedCommands,
   buildGatePlan,
+  getChangedApiTestPaths,
+  getChangedPackageTestWorkspaces,
   getChangedWebTestPaths,
+  isApiDocsAndCiScopedChange,
   isDocsStaticGuardPackageOnlyChange,
   isWebDocsAndCiScopedChange,
   formatCommand,
@@ -135,6 +139,34 @@ test("CI local gate narrows web-and-docs route hardening diffs to web verificati
   assert.equal(commands[3], "corepack pnpm --filter @ledgerbyte/web build");
 });
 
+test("CI local gate narrows api/docs/test-only support diffs to api verification", () => {
+  const changedFiles = [
+    "BUG_AUDIT.md",
+    "CODEX_HANDOFF.md",
+    "apps/api/src/bank-statements/bank-statement-import-parser.spec.ts",
+    "apps/api/src/bank-statements/bank-statement-import-parser.ts",
+    "apps/api/src/bank-statements/bank-statement-match-suggestions.spec.ts",
+    "apps/api/src/bank-statements/bank-statement-match-suggestions.ts",
+    "packages/zatca-core/test/xml-mapping.test.ts",
+  ];
+
+  assert.equal(isDocsStaticGuardPackageOnlyChange(changedFiles), false);
+  assert.equal(isWebDocsAndCiScopedChange(changedFiles), false);
+  assert.equal(isApiDocsAndCiScopedChange(changedFiles), true);
+
+  const commands = buildApiDocsAndCiScopedCommands(changedFiles).map(formatCommand);
+
+  assert.deepEqual(commands, [
+    "git diff --check",
+    "corepack pnpm --filter @ledgerbyte/zatca-core test",
+    "corepack pnpm db:generate",
+    "corepack pnpm --filter @ledgerbyte/api typecheck",
+    "corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath src/bank-statements/bank-statement-import-parser.spec.ts src/bank-statements/bank-statement-match-suggestions.spec.ts",
+    "corepack pnpm --filter @ledgerbyte/api build",
+  ]);
+  assert.deepEqual(getChangedPackageTestWorkspaces(changedFiles), ["@ledgerbyte/zatca-core"]);
+});
+
 test("CI local gate adds verify-gate tests when scoped CI files change with web surfaces", () => {
   const changedFiles = [
     ".github/workflows/pr-verification.yml",
@@ -180,6 +212,20 @@ test("changed web test path extraction keeps repo-relative Jest paths stable", (
   assert.deepEqual(paths, [
     "src/app/(app)/documents/page.test.tsx",
     "src/lib/storage.test.ts",
+  ]);
+});
+
+test("changed api test path extraction keeps repo-relative Jest paths stable", () => {
+  const paths = getChangedApiTestPaths([
+    "apps/api/src/bank-statements/bank-statement-import-parser.spec.ts",
+    "apps/api/src/bank-statements/bank-statement.service.spec.ts",
+    "apps/api/src/bank-statements/bank-statement.service.spec.ts",
+    "CODEX_HANDOFF.md",
+  ]);
+
+  assert.deepEqual(paths, [
+    "src/bank-statements/bank-statement-import-parser.spec.ts",
+    "src/bank-statements/bank-statement.service.spec.ts",
   ]);
 });
 

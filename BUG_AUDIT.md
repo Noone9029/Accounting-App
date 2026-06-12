@@ -6,18 +6,20 @@ Latest commit audited: `16270562` (`Merge pull request #27 from codex/dedicated-
 
 ## 2026-06-12 PR #28 verification blocker repair
 
-Fixed a non-banking verification blocker where `packages/zatca-core/test/xml-mapping.test.ts` compared LF-generated XML against CRLF-checked-out fixture files inside Windows worktrees.
+Fixed two non-banking verification blockers that prevented PR `#28` from clearing the required non-mutating gate on Windows.
 
 Risk reduced:
 
-- Added line-ending normalization in the test-only fixture helper before strict XML equality checks.
-- Preserved strict content/order assertions while removing platform-specific CRLF vs LF failures.
-- Confirmed the reproduced failure was unrelated to PR #28 banking parser or match-suggestion logic.
+- Added line-ending normalization in the test-only XML fixture helper before strict equality checks in `packages/zatca-core/test/xml-mapping.test.ts`.
+- Preserved strict content/order assertions while removing platform-specific CRLF vs LF failures in the ZATCA XML fixture comparisons.
+- Narrowed `scripts/verify-gate.cjs` so API/docs diffs plus test-only support-package changes run scoped API verification instead of unrelated whole-web tests.
+- Added `scripts/verify-gate.test.cjs` coverage for the new API-scoped gate behavior and API test-path extraction.
+- Confirmed both reproduced failures were unrelated to PR `#28` banking parser or match-suggestion logic.
 
 Remaining risks:
 
 - This repair does not change ZATCA runtime behavior, signing, QR generation, network calls, clearance/reporting, PDF-A3, or production compliance posture.
-- Banking verification still depends on the normal non-mutating gate; no production/beta/customer-data behavior changed.
+- Banking verification still depends on the normal non-mutating gate and targeted API checks; no production/beta/customer-data behavior changed.
 
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 
