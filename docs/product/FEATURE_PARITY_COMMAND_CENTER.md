@@ -9,9 +9,9 @@ Date: 2026-06-12
 1. Truthful core completed in `main` through PR `#27` dedicated customer and supplier statement routes.
 2. Banking 2.0 parser QA and match-suggestion foundation completed in `main` through PR `#28`.
 3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
-4. Production trust foundation audit and non-mutating readiness gate completed in `main` through PR `#30`.
-5. Object storage proof validation completed in `main` through PR `#31`.
-6. Backup and restore proof harness is the current production-trust implementation branch.
+4. Production trust foundation audit, object-storage proof validation, and backup/restore proof harness completed through PRs `#30`, `#31`, and `#32`.
+5. Production-trust proof work is paused after PR `#32`.
+6. Current route: Wafeq-style banking feature parity, starting with XLSX statement import and downloadable bank template UX.
 7. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
@@ -19,24 +19,25 @@ Date: 2026-06-12
 - PR `#27` merged into `main` at `16270562` and added dedicated `/customers/[id]/statement` and `/suppliers/[id]/statement` routes.
 - Statement return-path continuity now survives invoice, bill, payment, and aging drill-downs without changing statement math, report math, payment allocation, VAT math, or ZATCA runtime behavior.
 - PR `#28` merged into `main` at `848c210d` and added banking parser QA, deterministic non-mutating match suggestions, and scoped verification-gate repair.
+- PR `#32` merged into `main` at `0bb4e721` and closed the backup/restore proof harness before the Wafeq banking route started.
 
 ## Current Parity Branch
 
-Branch: `codex/backup-restore-proof-harness`
+Branch: `codex/wafeq-banking-xlsx-template-import`
 
-Base after update: `main` at `a5b506d9` (`Merge pull request #31 from Noone9029/codex/object-storage-proof-safe-nonproduction-validation`)
+Base after update: `main` at `0bb4e721` (`Merge pull request #32 from codex/backup-restore-proof-harness`)
 
 Scope:
 
-- Safe backup and restore proof harness only.
-- Synthetic backup manifest plus synthetic metadata payload generation.
-- Local/mock restore simulation with checksum and record-count verification.
-- Controlled-beta readiness/docs updates only. No provider mutation, real backup/restore execution, monitoring setup, or production claim.
+- Wafeq-style manual banking foundation only.
+- Downloadable CSV statement template using LedgerByte canonical manual statement columns.
+- XLSX server preview/import support using the first worksheet.
+- Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, bank rules, bank deposits, cheques, card settlements, or production claim.
 
 Still not parity:
 
-- No real non-production bucket proof, hosted backup/PITR proof, hosted restore drill proof, or object-storage restore proof.
-- No production monitoring/alerting, runtime DB role proof, MFA/session hardening, immutable audit store, or SaaS billing/legal/support ownership.
+- No live bank feed, external aggregation, WIO/Lean/Tarabut integration, bank API call, or bank credential handling.
+- No certified bank-specific parser coverage, raw-file archive implementation, automatic matching, bank rules, deposits, cheques, card settlements, transfer fees, or FX flow.
 - No production hosting implementation, paid SaaS launch gate, official VAT filing readiness, or ZATCA execution/compliance claim.
 
 ## Operating Notes
@@ -47,4 +48,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Production trust implementation ticket 3: monitoring and runtime health proof`
+`Wafeq banking foundation: inline statement transaction review workspace`

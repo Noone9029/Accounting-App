@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `a5b506d9` (`Merge pull request #31 from Noone9029/codex/object-storage-proof-safe-nonproduction-validation`) plus the current backup/restore proof branch.
+Latest commit audited: `0bb4e721` (`Merge pull request #32 from codex/backup-restore-proof-harness`) plus the current Wafeq banking XLSX/template branch.
+
+## 2026-06-12 Wafeq banking XLSX statement import and template UX
+
+Added Wafeq-style manual bank statement import polish without adding live feeds, bank APIs, schema changes, reconciliation state changes, or accounting posting changes.
+
+Risk reduced:
+
+- Reverified PR `#32` green/safe, then merged it into `main` at `0bb4e721e054e2dcba62d834a135723c7f2ce4e2` before starting this branch.
+- Added a deterministic downloadable CSV bank statement template with canonical columns: `date`, `description`, `reference`, `bankReference`, `debit`, `credit`, `amount`, `balance`, `counterparty`, and `currency`.
+- Updated the statement import page to show XLSX as a supported manual import format, explain debit/credit versus signed amount, ISO date/currency guidance, and state clearly that no bank credentials or live feed are involved.
+- Added API-side XLSX parsing through the existing preview/import path, using the first worksheet, ignoring empty rows, warning when extra sheets are ignored, normalizing Excel date/numeric cells, and returning safe warnings for malformed workbooks.
+- Preserved CSV, JSON, text, OFX, CAMT XML, and MT940 behavior.
+- Added targeted parser, service, web helper, and statement import page tests for XLSX/template behavior.
+
+Remaining risks:
+
+- This is manual upload/paste support only. No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, bank rules, bank deposits, cheques, card settlements, or bank credentials were added.
+- XLSX support is not certified target-bank parser coverage. Real sanitized bank exports still need collection, review, and tests before any bank-specific claim.
+- Raw statement file bodies remain not archived in beta; LedgerByte stores parsed rows and import metadata only.
+- Broader import duplicate/idempotency hardening, inline transaction review workspace, accountant sign-off, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and live-feed abstractions remain open.
 
 ## 2026-06-12 Backup and restore proof harness
 

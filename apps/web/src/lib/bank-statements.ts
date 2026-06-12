@@ -57,6 +57,19 @@ export interface StatementImportClientPreview {
 }
 
 export const STATEMENT_IMPORT_MAX_FILE_BYTES = 1024 * 1024;
+export const STATEMENT_IMPORT_TEMPLATE_COLUMNS = [
+  "date",
+  "description",
+  "reference",
+  "bankReference",
+  "debit",
+  "credit",
+  "amount",
+  "balance",
+  "counterparty",
+  "currency",
+] as const;
+export const STATEMENT_IMPORT_TEMPLATE_FILENAME = "ledgerbyte-bank-statement-template.csv";
 
 export function bankStatementTransactionStatusLabel(status: BankStatementTransactionStatus): string {
   switch (status) {
@@ -258,7 +271,7 @@ export function parseStatementRowsText(input: string): StatementImportRowInput[]
 
 export function validateStatementImportFile(file: StatementImportFileLike): string | null {
   if (file.size > STATEMENT_IMPORT_MAX_FILE_BYTES) {
-    return "Statement file is too large. Use a CSV, JSON, OFX, CAMT XML, or MT940 file up to 1 MB.";
+    return "Statement file is too large. Use a CSV, XLSX, JSON, OFX, CAMT XML, or MT940 file up to 1 MB.";
   }
   const name = file.name.toLowerCase();
   const type = (file.type ?? "").toLowerCase();
@@ -268,6 +281,7 @@ export function validateStatementImportFile(file: StatementImportFileLike): stri
     name.endsWith(".txt") ||
     name.endsWith(".ofx") ||
     name.endsWith(".xml") ||
+    name.endsWith(".xlsx") ||
     name.endsWith(".camt") ||
     name.endsWith(".mt940") ||
     name.endsWith(".940") ||
@@ -279,13 +293,53 @@ export function validateStatementImportFile(file: StatementImportFileLike): stri
     "application/json",
     "text/plain",
     "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/xml",
     "text/xml",
     "application/octet-stream",
   ].includes(type);
   return allowedExtension && allowedType
     ? null
-    : "Use a CSV, JSON, OFX, CAMT XML, or MT940 statement file. Live bank feed exports are not accepted here.";
+    : "Use a CSV, XLSX, JSON, OFX, CAMT XML, or MT940 statement file. Live bank feed exports are not accepted here.";
+}
+
+export function isXlsxStatementImportFile(file: StatementImportFileLike): boolean {
+  const name = file.name.toLowerCase();
+  const type = (file.type ?? "").toLowerCase();
+  return name.endsWith(".xlsx") || type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+}
+
+export function buildStatementImportTemplateCsv(): string {
+  const sampleRows = [
+    {
+      date: "2026-01-31",
+      description: "Customer receipt",
+      reference: "RCPT-0001",
+      bankReference: "BANK-REF-0001",
+      debit: "",
+      credit: "2500.00",
+      amount: "",
+      balance: "12500.00",
+      counterparty: "Sample Customer",
+      currency: "SAR",
+    },
+    {
+      date: "2026-02-01",
+      description: "Bank fee",
+      reference: "FEE-0001",
+      bankReference: "BANK-REF-0002",
+      debit: "",
+      credit: "",
+      amount: "-15.50",
+      balance: "12484.50",
+      counterparty: "Sample Bank",
+      currency: "SAR",
+    },
+  ];
+  return [
+    STATEMENT_IMPORT_TEMPLATE_COLUMNS.join(","),
+    ...sampleRows.map((row) => STATEMENT_IMPORT_TEMPLATE_COLUMNS.map((column) => csvCell(row[column])).join(",")),
+  ].join("\r\n");
 }
 
 export function parseStatementImportText(input: string, options: { accountCurrency?: string } = {}): StatementImportClientPreview {
@@ -849,6 +903,10 @@ function statementRowDuplicateKey(row: StatementImportClientRowPreview): string 
     (row.reference ?? row.bankReference ?? "").trim().toLowerCase(),
     row.description.trim().toLowerCase(),
   ].join("|");
+}
+
+function csvCell(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replaceAll("\"", "\"\"")}"` : value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

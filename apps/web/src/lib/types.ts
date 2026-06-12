@@ -1152,6 +1152,8 @@ export interface BankStatementImport {
     invalidRowCount: number;
     totalCredits: string;
     totalDebits: string;
+    sourceFormat?: string;
+    sourceSheetName?: string | null;
     warnings: string[];
   };
 }
@@ -1180,6 +1182,8 @@ export interface BankStatementImportPreview {
   totalCredits: string;
   totalDebits: string;
   detectedColumns: string[];
+  sourceFormat?: string;
+  sourceSheetName?: string | null;
   warnings: string[];
 }
 

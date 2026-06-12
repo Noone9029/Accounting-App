@@ -128,7 +128,7 @@ export class BankStatementService {
   async previewImport(organizationId: string, bankAccountProfileId: string, dto: PreviewBankStatementImportDto) {
     await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
-    const parsed = parseBankStatementImportInput(dto);
+    const parsed = await parseBankStatementImportInput(dto);
     const validation = await this.validateImportRows(organizationId, bankAccountProfileId, parsed.rows);
 
     return {
@@ -139,6 +139,8 @@ export class BankStatementService {
       totalCredits: validation.totalCredits.toFixed(4),
       totalDebits: validation.totalDebits.toFixed(4),
       detectedColumns: parsed.detectedColumns,
+      sourceFormat: parsed.format,
+      sourceSheetName: parsed.sourceSheetName ?? null,
       warnings: [...parsed.warnings, ...validation.warnings],
     };
   }
@@ -151,7 +153,7 @@ export class BankStatementService {
   ) {
     const profile = await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
-    const parsed = parseBankStatementImportInput(dto);
+    const parsed = await parseBankStatementImportInput(dto);
     const validation = await this.validateImportRows(organizationId, profile.id, parsed.rows);
     if (validation.invalidRows.length > 0 && !dto.allowPartial) {
       throw new BadRequestException("Bank statement import contains invalid rows.");
@@ -219,6 +221,8 @@ export class BankStatementService {
         invalidRowCount: validation.invalidRows.length,
         totalCredits: validation.totalCredits.toFixed(4),
         totalDebits: validation.totalDebits.toFixed(4),
+        sourceFormat: parsed.format,
+        sourceSheetName: parsed.sourceSheetName ?? null,
         warnings: [...parsed.warnings, ...validation.warnings],
       },
     };
