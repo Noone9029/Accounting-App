@@ -11,6 +11,12 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - The static production-trust audit confirms the next execution lane should begin with object-storage proof planning and safe non-production validation.
 - The audit did not change production posture: LedgerByte remains controlled beta/user-testing only, not production-ready, not paid SaaS ready, not official VAT filing ready, and not ZATCA compliant.
 
+## 2026-06-12 Object Storage Proof Validation Update
+
+- `Production trust implementation ticket 1` now has a safe proof harness in `scripts/object-storage-proof-validate.cjs` plus `docs/production/OBJECT_STORAGE_PROOF_PLAN.md`.
+- The current proof is intentionally limited to dry-run config/path-policy validation and local/mock synthetic upload-read-delete proof.
+- Real non-production bucket validation, object-storage backup proof, and object-storage restore proof remain open and are still required before any paid-SaaS or production claim.
+
 ## Current PROD-A2 Status
 
 - [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed.
@@ -53,7 +59,7 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - Why now: attachments and generated documents are a production data-risk area, and DB/base64 is not the final storage posture.
 - Prerequisites: object storage ADR, non-production bucket, retention policy draft, generated document inventory.
 - Expected output: bucket validation plan, backup/restore proof format, generated document storage policy.
-- Safe validation method: future non-production bucket test with synthetic files and metadata-only evidence.
+- Safe validation method: local/mock proof now exists; the next step is a future non-production bucket test with synthetic files and metadata-only evidence.
 - What not to touch: customer attachments, generated PDF bodies, bucket lifecycle on production, file migration executor.
 
 ## 5. Monitoring Stack Selection
@@ -112,4 +118,4 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 
 ## Next Ticket Recommendation
 
-`Production trust implementation ticket 1: object storage proof plan and safe non-production validation`
+`Production trust implementation ticket 2: backup and restore proof harness`
