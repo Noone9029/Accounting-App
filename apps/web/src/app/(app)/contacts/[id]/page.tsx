@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
@@ -13,7 +13,7 @@ import { contactIdentificationOptions, formatContactIdentificationType, getConta
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { partyDetailHref } from "@/lib/parties";
+import { buildPartyTransactionHref, partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, statementPdfPath, supplierStatementPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatcaReadinessStatusLabel } from "@/lib/zatca";
@@ -24,6 +24,7 @@ type LedgerKind = "customer" | "supplier";
 
 export default function ContactDetailPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [contact, setContact] = useState<Contact | null>(null);
@@ -39,6 +40,7 @@ export default function ContactDetailPage() {
   const [statementPdfLoading, setStatementPdfLoading] = useState(false);
   const [addressSaving, setAddressSaving] = useState(false);
   const [identificationTypeDraft, setIdentificationTypeDraft] = useState("");
+  const [initialSectionApplied, setInitialSectionApplied] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [statementError, setStatementError] = useState("");
@@ -48,6 +50,12 @@ export default function ContactDetailPage() {
   const canManageContacts = can(PERMISSIONS.contacts.manage);
   const buyerReadiness = contact && (contact.type === "CUSTOMER" || contact.type === "BOTH") ? buildContactBuyerAddressReadiness(contact) : null;
   const identificationOption = getContactIdentificationOption(identificationTypeDraft);
+  const workspaceReturnTo = safeReturnToFromSearch(searchParams.toString());
+  const requestedSection = parseActiveSection(searchParams.get("section"));
+  const customerWorkspaceHref = profile ? partyDetailHref("customer", profile.id) : "";
+  const supplierWorkspaceHref = profile ? partyDetailHref("supplier", profile.id) : "";
+  const customerStatementReturnHref = profile ? buildContactSectionHref(profile.id, "statement", workspaceReturnTo) : "";
+  const supplierStatementReturnHref = profile ? buildContactSectionHref(profile.id, "supplier-statement", workspaceReturnTo) : "";
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -99,6 +107,24 @@ export default function ContactDetailPage() {
       cancelled = true;
     };
   }, [organizationId, params.id]);
+
+  useEffect(() => {
+    setInitialSectionApplied(false);
+  }, [params.id, requestedSection]);
+
+  useEffect(() => {
+    if (!contact || initialSectionApplied) {
+      return;
+    }
+
+    if (requestedSection && isActiveSectionAvailable(requestedSection, ledgerAvailable, supplierLedgerAvailable)) {
+      setActiveSection(requestedSection);
+    } else if (!isActiveSectionAvailable(activeSection, ledgerAvailable, supplierLedgerAvailable)) {
+      setActiveSection("overview");
+    }
+
+    setInitialSectionApplied(true);
+  }, [activeSection, contact, initialSectionApplied, ledgerAvailable, requestedSection, supplierLedgerAvailable]);
 
   useEffect(() => {
     const valid =
@@ -249,6 +275,11 @@ export default function ContactDetailPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {workspaceReturnTo ? (
+            <Link href={workspaceReturnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Back to workspace
+            </Link>
+          ) : null}
           {profile
             ? contactWorkspaceActions(profile).map((action) => (
                 <Link key={action.href} href={action.href} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -414,6 +445,15 @@ export default function ContactDetailPage() {
 
           {activeSection === "statement" && ledger ? (
             <div className="space-y-4">
+              <StatementWorkspaceContext
+                description="Customer statement activity still runs through this shared contact surface. Use the customer workspace for receivables context and the existing AR screens below for follow-on review."
+                workspaceHref={customerWorkspaceHref}
+                workspaceLabel="Open customer workspace"
+                activityHref={buildPartyTransactionHref("/sales/customer-payments", "customer", ledger.contact.id)}
+                activityLabel="View AR activity"
+                agingHref={`/reports/aged-receivables?returnTo=${encodeURIComponent(customerWorkspaceHref)}`}
+                agingLabel="Aged receivables"
+              />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <form onSubmit={loadStatement} className="flex flex-wrap items-end gap-3">
                   <label className="block">
@@ -449,7 +489,13 @@ export default function ContactDetailPage() {
                       <Summary label="Closing customer balance" value={formatLedgerBalance(statement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={statement.rows} emptyMessage="No customer statement activity was found for this period." ledgerKind="customer" contactId={statement.contact.id} />
+                  <LedgerTable
+                    rows={statement.rows}
+                    emptyMessage="No customer statement activity was found for this period."
+                    ledgerKind="customer"
+                    contactId={statement.contact.id}
+                    returnToHref={customerStatementReturnHref}
+                  />
                 </>
               ) : (
                 <StatusMessage type="info">Choose a period to review posted customer activity, then load or download the statement.</StatusMessage>
@@ -472,6 +518,15 @@ export default function ContactDetailPage() {
 
           {activeSection === "supplier-statement" && supplierLedger ? (
             <div className="space-y-4">
+              <StatementWorkspaceContext
+                description="Supplier statement activity still runs through this shared contact surface. Use the supplier workspace for payables context and the existing AP screens below for follow-on review."
+                workspaceHref={supplierWorkspaceHref}
+                workspaceLabel="Open supplier workspace"
+                activityHref={buildPartyTransactionHref("/purchases/supplier-payments", "supplier", supplierLedger.contact.id)}
+                activityLabel="View AP activity"
+                agingHref={`/reports/aged-payables?returnTo=${encodeURIComponent(supplierWorkspaceHref)}`}
+                agingLabel="Aged payables"
+              />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
                 <form onSubmit={loadSupplierStatement} className="flex flex-wrap items-end gap-3">
                   <label className="block">
@@ -507,7 +562,13 @@ export default function ContactDetailPage() {
                       <Summary label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
                     </div>
                   </div>
-                  <LedgerTable rows={supplierStatement.rows} emptyMessage="No supplier statement activity was found for this period." ledgerKind="supplier" contactId={supplierStatement.contact.id} />
+                  <LedgerTable
+                    rows={supplierStatement.rows}
+                    emptyMessage="No supplier statement activity was found for this period."
+                    ledgerKind="supplier"
+                    contactId={supplierStatement.contact.id}
+                    returnToHref={supplierStatementReturnHref}
+                  />
                 </>
               ) : (
                 <StatusMessage type="info">Choose a period to review posted supplier activity, then load or download the statement.</StatusMessage>
@@ -613,11 +674,13 @@ export function LedgerTable({
   emptyMessage,
   ledgerKind = "customer",
   contactId,
+  returnToHref,
 }: {
   rows: Array<CustomerLedgerRow | SupplierLedgerRow>;
   emptyMessage: string;
   ledgerKind?: LedgerKind;
   contactId?: string;
+  returnToHref?: string;
 }) {
   if (rows.length === 0) {
     return (
@@ -694,7 +757,7 @@ export function LedgerTable({
                     {formatStatusLabel(row.status)}
                   </span>
                 </td>
-                <td className="px-4 py-3">{renderRowLink(row)}</td>
+                <td className="px-4 py-3">{renderRowLink(row, returnToHref)}</td>
               </tr>
             ))}
           </tbody>
@@ -771,10 +834,10 @@ function ActionLink({ href, children, tone = "secondary" }: { href: string; chil
   );
 }
 
-function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
+function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow, returnToHref?: string) {
   if (row.sourceType === "SalesInvoice") {
     return (
-      <Link href={`/sales/invoices/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/invoices/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View invoice
       </Link>
     );
@@ -782,7 +845,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "CustomerPayment") {
     return (
-      <Link href={`/sales/customer-payments/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/customer-payments/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View payment
       </Link>
     );
@@ -790,7 +853,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "CreditNote") {
     return (
-      <Link href={`/sales/credit-notes/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/credit-notes/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View credit note
       </Link>
     );
@@ -799,7 +862,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
   if (row.sourceType === "CreditNoteAllocation") {
     const creditNoteId = typeof row.metadata.creditNoteId === "string" ? row.metadata.creditNoteId : "";
     return creditNoteId ? (
-      <Link href={`/sales/credit-notes/${creditNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/credit-notes/${creditNoteId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View credit note
       </Link>
     ) : (
@@ -809,7 +872,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "CustomerRefund") {
     return (
-      <Link href={`/sales/customer-refunds/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/customer-refunds/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View refund
       </Link>
     );
@@ -818,7 +881,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
   if (row.sourceType === "CustomerPaymentUnappliedAllocation") {
     const paymentId = typeof row.metadata.paymentId === "string" ? row.metadata.paymentId : "";
     return paymentId ? (
-      <Link href={`/sales/customer-payments/${paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/sales/customer-payments/${paymentId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View payment
       </Link>
     ) : (
@@ -828,7 +891,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "PurchaseBill") {
     return (
-      <Link href={`/purchases/bills/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/bills/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View bill
       </Link>
     );
@@ -836,7 +899,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "SupplierPayment") {
     return (
-      <Link href={`/purchases/supplier-payments/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/supplier-payments/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View payment
       </Link>
     );
@@ -845,7 +908,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
   if (row.sourceType === "SupplierPaymentUnappliedAllocation") {
     const paymentId = typeof row.metadata.paymentId === "string" ? row.metadata.paymentId : "";
     return paymentId ? (
-      <Link href={`/purchases/supplier-payments/${paymentId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/supplier-payments/${paymentId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View payment
       </Link>
     ) : (
@@ -855,7 +918,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "SupplierRefund") {
     return (
-      <Link href={`/purchases/supplier-refunds/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/supplier-refunds/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View refund
       </Link>
     );
@@ -863,7 +926,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "CashExpense") {
     return (
-      <Link href={`/purchases/cash-expenses/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/cash-expenses/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View expense
       </Link>
     );
@@ -871,7 +934,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   if (row.sourceType === "PurchaseDebitNote") {
     return (
-      <Link href={`/purchases/debit-notes/${row.sourceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/debit-notes/${row.sourceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View debit note
       </Link>
     );
@@ -880,7 +943,7 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
   if (row.sourceType === "PurchaseDebitNoteAllocation") {
     const debitNoteId = typeof row.metadata.debitNoteId === "string" ? row.metadata.debitNoteId : "";
     return debitNoteId ? (
-      <Link href={`/purchases/debit-notes/${debitNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+      <Link href={appendReturnTo(`/purchases/debit-notes/${debitNoteId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
         View debit note
       </Link>
     ) : (
@@ -890,11 +953,40 @@ function renderRowLink(row: CustomerLedgerRow | SupplierLedgerRow) {
 
   const invoiceId = typeof row.metadata.invoiceId === "string" ? row.metadata.invoiceId : "";
   return invoiceId ? (
-    <Link href={`/sales/invoices/${invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+    <Link href={appendReturnTo(`/sales/invoices/${invoiceId}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
       View invoice
     </Link>
   ) : (
     "-"
+  );
+}
+
+function StatementWorkspaceContext({
+  description,
+  workspaceHref,
+  workspaceLabel,
+  activityHref,
+  activityLabel,
+  agingHref,
+  agingLabel,
+}: {
+  description: string;
+  workspaceHref: string;
+  workspaceLabel: string;
+  activityHref: string;
+  activityLabel: string;
+  agingHref: string;
+  agingLabel: string;
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-steel shadow-panel">
+      <p>{description}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ActionLink href={workspaceHref}>{workspaceLabel}</ActionLink>
+        <ActionLink href={activityHref}>{activityLabel}</ActionLink>
+        <ActionLink href={agingHref}>{agingLabel}</ActionLink>
+      </div>
+    </div>
   );
 }
 
@@ -905,6 +997,38 @@ function Summary({ label, value }: { label: string; value: string }) {
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
     </div>
   );
+}
+
+function parseActiveSection(section: string | null): ActiveSection | null {
+  return section === "ledger" || section === "statement" || section === "supplier-ledger" || section === "supplier-statement" || section === "overview"
+    ? section
+    : null;
+}
+
+function isActiveSectionAvailable(section: ActiveSection, ledgerAvailable: boolean, supplierLedgerAvailable: boolean): boolean {
+  return (
+    section === "overview" ||
+    ((section === "ledger" || section === "statement") && ledgerAvailable) ||
+    ((section === "supplier-ledger" || section === "supplier-statement") && supplierLedgerAvailable)
+  );
+}
+
+function buildContactSectionHref(contactId: string, section: ActiveSection, returnTo?: string): string {
+  const params = new URLSearchParams();
+  params.set("section", section);
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
+  return `/contacts/${encodeURIComponent(contactId)}?${params.toString()}`;
+}
+
+function appendReturnTo(href: string, returnToHref?: string): string {
+  if (!returnToHref) {
+    return href;
+  }
+
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}returnTo=${encodeURIComponent(returnToHref)}`;
 }
 
 export function CustomerStatementDocumentGuidance() {

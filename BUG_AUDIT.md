@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `114dfb3f` (`Merge pull request #24 from codex/controlled-beta-final-product-readiness-triage`) plus the current controlled-beta route-load verification batch.
+Latest commit audited: `74e7855b` (`Merge pull request #25 from codex/controlled-beta-route-load-verification-batch`) plus the current controlled-beta statement workspace polish branch.
 
 ## Scope
 
@@ -36,6 +36,30 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Controlled-beta statement workspace handoff polished
+
+Fixed the remaining beta-facing statement workspace blocker where customer and supplier statements were still only discoverable through the shared `/contacts/[id]` surface, with no clear workspace entry point and weak return-path continuity once users drilled into statement activity.
+
+Risk reduced:
+
+- Added direct `Customer statement activity` and `Supplier statement activity` entry cards in the customer and supplier workspaces through `apps/web/src/components/parties/party-pages.tsx`.
+- Added a dedicated `partyStatementHref(...)` helper in `apps/web/src/lib/parties.ts` so workspace statement links always open the shared contact statement tabs with a safe workspace `returnTo`.
+- Added explicit shared-statement handoff panels in `apps/web/src/app/(app)/contacts/[id]/page.tsx` with `Open customer workspace`, `Open supplier workspace`, `View AR activity`, `View AP activity`, and aging-report follow-on links.
+- Preserved shared-statement `returnTo` context on contact-ledger row drill-downs into invoice, bill, payment, refund, credit-note, debit-note, and expense detail routes.
+- Preserved incoming statement context on invoice and purchase bill follow-on actions so `Back`, payment/debit-note, credit-note, and receipt flows stay anchored to the originating statement path.
+- Added focused regression coverage in:
+  - `apps/web/src/lib/parties.test.ts`
+  - `apps/web/src/components/parties/party-pages.test.tsx`
+  - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`
+  - `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx`
+
+Remaining risks:
+
+- Customer and supplier statements still use the shared contact-detail implementation underneath; this arc clarified the handoff and route continuity but did not add dedicated statement routes or new balance-calculation logic.
+- This pass did not change accounting math, payment allocation logic, report math, VAT math, generated PDF logic, runtime ZATCA behavior, or production/beta/customer-data behavior.
+- Older secondary detail routes outside invoices, bills, payments, and shared contact statements may still need the same return-path review if controlled-beta tester feedback exposes more generic handoff loss.
 
 ### Controlled-beta settings root route restored
 

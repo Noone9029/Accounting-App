@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
@@ -25,6 +25,7 @@ import {
   landedCostPreviewUrl,
 } from "@/lib/inventory";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
+import { safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, purchaseBillPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { purchaseDebitNoteStatusLabel } from "@/lib/purchase-debit-notes";
@@ -41,6 +42,7 @@ import type {
 export default function PurchaseBillDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [bill, setBill] = useState<PurchaseBill | null>(null);
@@ -63,6 +65,8 @@ export default function PurchaseBillDetailPage() {
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canViewValuationVariances = can(PERMISSIONS.inventory.view);
   const canViewLandedCostPreview = canViewValuationVariances && can(PERMISSIONS.purchaseBills.view);
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
+  const billDetailHref = purchaseBillDetailHref(params.id, returnTo);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -182,7 +186,7 @@ export default function PurchaseBillDetailPage() {
           <p className="mt-1 text-sm text-steel">Supplier bill detail, AP posting, allocations, and PDF download.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/purchases/bills" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/purchases/bills"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {bill?.status === "DRAFT" && canUpdateBill ? (
@@ -197,7 +201,7 @@ export default function PurchaseBillDetailPage() {
           ) : null}
           {bill?.supplierId && canCreateDebitNote ? (
             <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Create debit note
@@ -205,7 +209,7 @@ export default function PurchaseBillDetailPage() {
           ) : null}
           {bill && receivingStatus && canCreateReceipt && hasReceiptRemaining(receivingStatus) ? (
             <Link
-              href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
+              href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`}
               className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
               Receive stock
@@ -253,16 +257,17 @@ export default function PurchaseBillDetailPage() {
 
       {bill ? (
         <div className="mt-5 space-y-5">
-          <PurchaseBillWorkflowGuidance
-            bill={bill}
-            actionLoading={actionLoading}
-            canFinalizeBill={canFinalizeBill}
-            canCreateSupplierPayment={canCreateSupplierPayment}
-            canCreateDebitNote={canCreateDebitNote}
-            canDownloadGeneratedDocuments={canDownloadGeneratedDocuments}
-            onFinalize={() => void runAction("finalize")}
-            onDownloadPdf={() => void downloadBillPdf()}
-          />
+      <PurchaseBillWorkflowGuidance
+        bill={bill}
+        actionLoading={actionLoading}
+        canFinalizeBill={canFinalizeBill}
+        canCreateSupplierPayment={canCreateSupplierPayment}
+        canCreateDebitNote={canCreateDebitNote}
+        canDownloadGeneratedDocuments={canDownloadGeneratedDocuments}
+        returnTo={returnTo}
+        onFinalize={() => void runAction("finalize")}
+        onDownloadPdf={() => void downloadBillPdf()}
+      />
 
           <AttachmentPanel linkedEntityType="PURCHASE_BILL" linkedEntityId={bill.id} />
 
@@ -490,6 +495,7 @@ export function PurchaseBillWorkflowGuidance({
   canCreateSupplierPayment,
   canCreateDebitNote,
   canDownloadGeneratedDocuments,
+  returnTo = "",
   onFinalize,
   onDownloadPdf,
 }: {
@@ -499,6 +505,7 @@ export function PurchaseBillWorkflowGuidance({
   canCreateSupplierPayment: boolean;
   canCreateDebitNote: boolean;
   canDownloadGeneratedDocuments: boolean;
+  returnTo?: string;
   onFinalize: () => void;
   onDownloadPdf: () => void;
 }) {
@@ -506,6 +513,7 @@ export function PurchaseBillWorkflowGuidance({
   const supplierName = bill.supplier?.displayName ?? bill.supplier?.name ?? "this supplier";
   const hasBalanceDue = paymentState !== "Paid";
   const paidUnits = Math.max(0, parseDecimalToUnits(bill.total) - parseDecimalToUnits(bill.balanceDue));
+  const billDetailHref = purchaseBillDetailHref(bill.id, returnTo);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -549,7 +557,7 @@ export function PurchaseBillWorkflowGuidance({
           ) : null}
           {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
             <Link
-              href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
+              href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record supplier payment
@@ -557,7 +565,7 @@ export function PurchaseBillWorkflowGuidance({
           ) : null}
           {bill.status === "FINALIZED" && bill.supplierId && canCreateDebitNote ? (
             <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(`/purchases/bills/${bill.id}`)}`}
+              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}
               className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Create debit note
@@ -901,4 +909,9 @@ function TotalRow({ label, value, strong = false }: { label: string; value: stri
       <span className="font-mono text-xs">{value}</span>
     </div>
   );
+}
+
+function purchaseBillDetailHref(billId: string, returnTo = ""): string {
+  const href = `/purchases/bills/${encodeURIComponent(billId)}`;
+  return returnTo ? `${href}?returnTo=${encodeURIComponent(returnTo)}` : href;
 }

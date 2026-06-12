@@ -6,6 +6,7 @@ import type { Contact, CustomerLedger, CustomerLedgerRow, SupplierLedger, Suppli
 
 const apiRequestMock = jest.fn();
 const canMock = jest.fn((_: string) => true);
+let searchParamsMock = new URLSearchParams();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -22,6 +23,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "contact-1" }),
+  useSearchParams: () => searchParamsMock,
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -43,6 +45,7 @@ describe("ContactDetailPage workspace handoff", () => {
     apiRequestMock.mockReset();
     canMock.mockReset();
     canMock.mockReturnValue(true);
+    searchParamsMock = new URLSearchParams();
   });
 
   it("shows the customer workspace handoff for customer contacts", async () => {
@@ -83,6 +86,32 @@ describe("ContactDetailPage workspace handoff", () => {
     expect(screen.getByRole("link", { name: "Customer workspace" })).toHaveAttribute("href", "/customers/contact-1");
     expect(screen.getByRole("link", { name: "Supplier workspace" })).toHaveAttribute("href", "/suppliers/contact-1");
   });
+
+  it("opens the customer statement tab with workspace-aware handoff actions", async () => {
+    searchParamsMock = new URLSearchParams("section=statement&returnTo=/customers/contact-1");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts/contact-1") {
+        return Promise.resolve(contactFixture({ type: "CUSTOMER" }));
+      }
+      if (path === "/contacts/contact-1/ledger") {
+        return Promise.resolve(customerLedgerFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<ContactDetailPage />);
+
+    expect(await screen.findByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/contact-1");
+    expect(await screen.findByRole("link", { name: "Open customer workspace" })).toHaveAttribute("href", "/customers/contact-1");
+    expect(await screen.findByRole("link", { name: "View AR activity" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments?customerId=contact-1&returnTo=%2Fcustomers%2Fcontact-1",
+    );
+    expect(screen.getByRole("link", { name: "Aged receivables" })).toHaveAttribute(
+      "href",
+      "/reports/aged-receivables?returnTo=%2Fcustomers%2Fcontact-1",
+    );
+  });
 });
 
 describe("customer ledger drill-down guidance", () => {
@@ -116,6 +145,23 @@ describe("customer ledger drill-down guidance", () => {
     expect(screen.getByText("Posted")).toBeInTheDocument();
     expect(screen.queryByText("PAYMENT_ALLOCATION")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+  });
+
+  it("preserves statement return context on row drill-down links", () => {
+    render(
+      <LedgerTable
+        rows={[ledgerRow()]}
+        emptyMessage="No customer ledger activity yet."
+        ledgerKind="customer"
+        contactId="customer-1"
+        returnToHref="/contacts/contact-1?section=statement&returnTo=%2Fcustomers%2Fcontact-1"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "View invoice" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/invoice-1?returnTo=%2Fcontacts%2Fcontact-1%3Fsection%3Dstatement%26returnTo%3D%252Fcustomers%252Fcontact-1",
+    );
   });
 
   it("explains supplier ledger impact and links to AP actions", () => {

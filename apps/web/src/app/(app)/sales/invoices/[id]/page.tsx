@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
@@ -16,7 +16,7 @@ import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnap
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
-import { partyDetailHref } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -69,6 +69,7 @@ import type {
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
@@ -535,6 +536,8 @@ export default function SalesInvoiceDetailPage() {
   const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
   const canManageZatca = can(PERMISSIONS.zatca.manage);
   const latestSignedArtifactDraft = signedArtifactDrafts[0] ?? signedArtifactStoragePlan?.latestDraft ?? null;
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
+  const invoiceDetailHref = salesInvoiceDetailHref(params.id, returnTo);
 
   return (
     <section>
@@ -545,7 +548,7 @@ export default function SalesInvoiceDetailPage() {
           {invoice ? <p className="mt-1 text-xs text-steel">Invoice PDF downloads create an archive record for later review.</p> : null}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/sales/invoices" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
           </Link>
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
@@ -565,7 +568,7 @@ export default function SalesInvoiceDetailPage() {
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
             <Link
-              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
               className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
               Record payment
@@ -573,7 +576,7 @@ export default function SalesInvoiceDetailPage() {
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
             <Link
-              href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+              href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
               className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
               Create credit note
@@ -611,14 +614,15 @@ export default function SalesInvoiceDetailPage() {
 
       {invoice ? (
         <div className="mt-5 space-y-5">
-          <InvoiceWorkflowGuidance
-            invoice={invoice}
-            actionLoading={actionLoading}
-            canFinalizeInvoice={canFinalizeInvoice}
-            canCreateCustomerPayment={canCreateCustomerPayment}
-            onFinalize={() => void runAction("finalize")}
-            onDownloadPdf={() => void downloadInvoicePdf()}
-          />
+      <InvoiceWorkflowGuidance
+        invoice={invoice}
+        actionLoading={actionLoading}
+        canFinalizeInvoice={canFinalizeInvoice}
+        canCreateCustomerPayment={canCreateCustomerPayment}
+        returnTo={returnTo}
+        onFinalize={() => void runAction("finalize")}
+        onDownloadPdf={() => void downloadInvoicePdf()}
+      />
 
           <AttachmentPanel linkedEntityType="SALES_INVOICE" linkedEntityId={invoice.id} />
 
@@ -1310,6 +1314,7 @@ export function InvoiceWorkflowGuidance({
   actionLoading,
   canFinalizeInvoice,
   canCreateCustomerPayment,
+  returnTo = "",
   onFinalize,
   onDownloadPdf,
 }: {
@@ -1317,6 +1322,7 @@ export function InvoiceWorkflowGuidance({
   actionLoading: boolean;
   canFinalizeInvoice: boolean;
   canCreateCustomerPayment: boolean;
+  returnTo?: string;
   onFinalize: () => void;
   onDownloadPdf: () => void;
 }) {
@@ -1324,6 +1330,7 @@ export function InvoiceWorkflowGuidance({
   const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? "this customer";
   const hasBalanceDue = paymentState !== "Paid";
   const statusLabel = salesInvoiceStatusLabel(invoice.status);
+  const invoiceDetailHref = salesInvoiceDetailHref(invoice.id, returnTo);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -1367,7 +1374,7 @@ export function InvoiceWorkflowGuidance({
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
             <Link
-              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(`/sales/invoices/${invoice.id}`)}`}
+              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
               Record payment
@@ -1408,6 +1415,11 @@ export function InvoiceWorkflowGuidance({
       </div>
     </div>
   );
+}
+
+function salesInvoiceDetailHref(invoiceId: string, returnTo = ""): string {
+  const href = `/sales/invoices/${encodeURIComponent(invoiceId)}`;
+  return returnTo ? `${href}?returnTo=${encodeURIComponent(returnTo)}` : href;
 }
 
 function salesInvoiceStatusLabel(status: SalesInvoice["status"]): string {

@@ -21,6 +21,7 @@ import {
   buildPartyTransactionHref,
   partyStatusBadgeClass,
   partyDetailHref,
+  partyStatementHref,
   partyTransactionActionHref,
   partyTransactionsCsv,
   partyTransactionTypeOptions,
@@ -658,10 +659,10 @@ export function SupplierGroupedActivityTables({ transactions, emptyLabel }: { tr
   );
 }
 
-function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: PartyKind }) {
+export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: PartyKind }) {
   const counts = transactionCounts(detail.transactions);
   const contactId = detail.contact.id;
-  const cards: Array<{ label: string; href: string; sourceType?: string; balance?: string }> =
+  const cards: Array<{ label: string; href: string; sourceType?: string; balance?: string; badgeLabel?: string }> =
     kind === "customer"
       ? [
           { label: "Open invoices", sourceType: "SalesInvoice", href: `/sales/invoices?customerId=${encodeURIComponent(contactId)}`, balance: openBalance(detail) },
@@ -671,6 +672,7 @@ function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: Par
           { label: "Invoice history", sourceType: "SalesInvoice", href: `/sales/invoices?customerId=${encodeURIComponent(contactId)}` },
           { label: "Credit notes", sourceType: "CreditNote", href: `/sales/credit-notes?customerId=${encodeURIComponent(contactId)}` },
           { label: "Payments", sourceType: "CustomerPayment", href: buildPartyTransactionHref("/sales/customer-payments", "customer", contactId) },
+          { label: "Customer statement activity", href: partyStatementHref("customer", contactId), badgeLabel: "Shared view" },
           { label: "Refunds", sourceType: "CustomerRefund", href: `/sales/customer-refunds?customerId=${encodeURIComponent(contactId)}` },
           { label: "Aged receivables", href: `/reports/aged-receivables?returnTo=${encodeURIComponent(partyDetailHref("customer", contactId))}`, balance: overdueBalance(detail) },
         ]
@@ -679,6 +681,7 @@ function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: Par
           { label: "Purchase orders", sourceType: "PurchaseOrder", href: `/purchases/purchase-orders?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Supplier credits", sourceType: "PurchaseDebitNote", href: `/purchases/debit-notes?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Supplier payments", sourceType: "SupplierPayment", href: buildPartyTransactionHref("/purchases/supplier-payments", "supplier", contactId) },
+          { label: "Supplier statement activity", href: partyStatementHref("supplier", contactId), badgeLabel: "Shared view" },
           { label: "Supplier refunds", sourceType: "SupplierRefund", href: `/purchases/supplier-refunds?supplierId=${encodeURIComponent(contactId)}` },
           { label: "Aged payables", href: `/reports/aged-payables?returnTo=${encodeURIComponent(partyDetailHref("supplier", contactId))}`, balance: overdueBalance(detail) },
         ];
@@ -689,11 +692,11 @@ function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: Par
         <div>
           <h2 className="text-base font-semibold text-ink">{kind === "customer" ? "Customer ledger visibility" : "Supplier ledger visibility"}</h2>
           <p className="mt-1 text-sm leading-6 text-steel">
-            Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte.
+            Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte. Use the statement activity card when you need the shared contact statement tabs, then return here for customer or supplier workspace context.
           </p>
         </div>
         <Link href={`/contacts/${contactId}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Contact ledger
+          Open shared contact ledger
         </Link>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -702,7 +705,7 @@ function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; kind: Par
             <div className="flex items-start justify-between gap-3">
               <span className="text-sm font-semibold text-ink">{card.label}</span>
               <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                {card.sourceType ? (counts.get(card.sourceType) ?? 0) : "Report"}
+                {card.sourceType ? (counts.get(card.sourceType) ?? 0) : card.badgeLabel ?? "Report"}
               </span>
             </div>
             {card.balance ? <div className="mt-2 font-mono text-xs text-steel">{formatMoneyAmount(card.balance, "SAR")}</div> : null}
