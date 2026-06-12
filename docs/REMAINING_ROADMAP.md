@@ -24,7 +24,19 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Added `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` plus the static gate at `corepack pnpm production:trust-foundation-gate -- --json --strict`.
 - The gate is non-mutating and repo-only. It proves documentation honesty, not implementation completeness.
 - Current remaining production-trust blockers are hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
-- Recommended next prompt: `Production trust implementation ticket 1: object storage proof plan and safe non-production validation`.
+- Recommended next prompt at the time: `Production trust implementation ticket 1: object storage proof plan and safe non-production validation`.
+
+## 2026-06-12 Object storage proof validation
+
+- PR `#30` was merged into `main` at `4411634c` before this lane started.
+- Added `scripts/object-storage-proof-validate.cjs`, `scripts/object-storage-proof-validate.test.cjs`, and package scripts `storage:proof-validate` plus `test:storage-proof-validate`.
+- Added `docs/production/OBJECT_STORAGE_PROOF_PLAN.md`.
+- The new proof is intentionally safe and non-production:
+  - dry-run status is `OBJECT_STORAGE_PROOF_DRY_RUN_READY`,
+  - local mock-cycle status is `OBJECT_STORAGE_MOCK_CYCLE_PASSED`,
+  - no network calls, real bucket mutations, secret-value output, or customer-file handling occur.
+- The proof does not make LedgerByte production-ready or object-storage production-proven. Real non-production bucket validation, object-storage backup proof, object-storage restore proof, generated-document runtime object-storage writes, signed URLs, lifecycle/retention/legal-hold enforcement, malware scanning, and migration/rollback proof remain open.
+- Recommended next prompt: `Production trust implementation ticket 2: backup and restore proof harness`.
 
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 

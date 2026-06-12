@@ -15,6 +15,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 ## 2026-06-12 Production Trust Foundation Audit Note
 
 - `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
+- `docs/production/OBJECT_STORAGE_PROOF_PLAN.md`, `corepack pnpm storage:proof-validate -- --json --strict --dry-run`, and `corepack pnpm storage:proof-validate -- --json --strict --mock-cycle --provider local` now provide a safe local/mock object-storage proof harness without touching any real bucket.
 - A strict result of `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS` means the repo is explicit about current blockers. It does not mean any paid-private-beta or public-production gate below has passed.
 
 ## Controlled Beta Gate
@@ -42,7 +43,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Hosting decision | blocked | Vercel is documented as beta/user-testing only. | Select paid private beta hosting posture and rollback plan. |
 | Database runtime role | blocked | Least-privilege runtime role is designed but not cut over. | Establish safe env mutation path, then validate runtime role. |
 | Hosted backup/PITR proof | blocked | Local restore-count drill exists. | Prove hosted database backup/PITR in non-production. |
-| Object storage proof | blocked | S3-compatible adapter is feature-flagged groundwork. | Validate real non-production bucket and restore proof. |
+| Object storage proof | blocked | Local/mock proof harness and S3 config-name validation now exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
 | Email production path | partial | SMTP adapter and monitoring evidence groundwork exist. | Validate non-production relay, provider webhook, scheduler, and monitoring. |
 | Accountant review | blocked | Packet exists. | Complete review and resolve blocker/high findings. |
 | Legal documents | not started | No ToS/privacy/customer policy package exists. | Draft legal package for review. |
@@ -96,7 +97,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Local DB restore drill | done | Local non-production restore-count evidence exists. | Keep as baseline only. |
 | Hosted DB backup proof | blocked | No hosted PITR proof recorded. | Verify provider backup/PITR in non-production. |
 | Hosted DB restore drill | blocked | No hosted restore drill proof recorded. | Restore non-production snapshot and verify metadata counts. |
-| Object-storage backup proof | blocked | No real bucket validation. | Validate object backup/restore with non-production bucket. |
+| Object-storage backup proof | blocked | Local/mock proof harness exists; no real non-production bucket validation or restore proof is recorded. | Validate object backup/restore with non-production bucket. |
 | RPO/RTO review | blocked | Evidence type exists; business review missing. | Define and approve recovery objectives. |
 | Backup monitoring | not started | Planning only. | Add alerts for failed backups and stale restore evidence. |
 

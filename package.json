@@ -17,6 +17,8 @@
     "verify:ci:local": "node scripts/verify-gate.cjs verify:ci:local",
     "production:trust-foundation-gate": "node scripts/production-trust-foundation-gate.cjs",
     "test:production-trust-foundation-gate": "node --test scripts/production-trust-foundation-gate.test.cjs",
+    "storage:proof-validate": "node scripts/object-storage-proof-validate.cjs",
+    "test:storage-proof-validate": "node --test scripts/object-storage-proof-validate.test.cjs",
     "fixture:dev04:plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
     "fixture:dev04:dry-run": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
     "fixture:dev04:cleanup-plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",

@@ -2,7 +2,33 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `4e00557f` (`Merge pull request #29 from codex/vat-return-truthfulness-filing-export-foundation`) plus the current production trust foundation branch.
+Latest commit audited: `4411634c` (`Merge pull request #30 from codex/production-trust-foundation-storage-backup-monitoring-security`) plus the current object-storage proof branch.
+
+## 2026-06-12 Object storage proof validation
+
+Added a safe object-storage proof harness without changing runtime storage behavior, schema, provider settings, real buckets, or customer files.
+
+Risk reduced:
+
+- Reverified PR `#30` green/safe, then merged it into `main` at `4411634c992e5f0834a030a9ac1d7b8b7d042ae7` before starting this branch.
+- Added `scripts/object-storage-proof-validate.cjs` and `scripts/object-storage-proof-validate.test.cjs`.
+- Added root package scripts `storage:proof-validate` and `test:storage-proof-validate`.
+- Added `docs/production/OBJECT_STORAGE_PROOF_PLAN.md`.
+- Safe dry-run validation now proves provider selection, tenant-scoped key policy, content-type policy, sample size-limit handling, no-network guards, and secret-safe config reporting.
+- Safe local mock-cycle validation now proves synthetic local upload-read-delete behavior for both attachment and generated-document object-key domains using a temporary directory only.
+- Updated production-trust docs and handoff surfaces so the repo now says explicitly that:
+  - attachments remain database-backed by default,
+  - generated documents remain database-backed in the runtime path,
+  - S3-compatible validation is config-name-only unless a later approved ticket validates a real non-production bucket,
+  - object storage is still not production-proven.
+
+Remaining risks:
+
+- This proof is intentionally local/mock only and does not validate a real non-production bucket.
+- Real object-storage backup proof and restore proof remain blocked.
+- Generated-document runtime object-storage writes remain unimplemented.
+- Signed URLs, lifecycle/retention/legal-hold enforcement, malware scanning, migration/rollback proof, and production-scale controls remain unproven.
+- This work does not change production posture, paid-SaaS readiness, official VAT filing readiness, ZATCA compliance, hosting, monitoring, runtime DB roles, RLS, billing, or support operations.
 
 ## 2026-06-12 Production trust foundation audit and static gate
 

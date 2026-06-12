@@ -24,6 +24,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-12 Object storage proof validation:
+
+- PR `#30` `Production trust foundation gate` merged into `main` at `4411634c` before this branch was created.
+- Added `scripts/object-storage-proof-validate.cjs` and `scripts/object-storage-proof-validate.test.cjs`.
+- Added package scripts `storage:proof-validate` and `test:storage-proof-validate`.
+- Added `docs/production/OBJECT_STORAGE_PROOF_PLAN.md`.
+- Dry-run status is `OBJECT_STORAGE_PROOF_DRY_RUN_READY`.
+- Local mock-cycle status is `OBJECT_STORAGE_MOCK_CYCLE_PASSED`.
+- The proof harness is safe by default: no network calls, no real bucket access, no secret-value output, and no real customer-file handling.
+- The current runtime still keeps attachments database-backed by default and generated documents database-backed only. S3-compatible attachment support remains groundwork; generated-document S3 writes remain unimplemented.
+- Current remaining storage blockers are real non-production bucket validation, object-storage backup proof, object-storage restore proof, generated-document runtime object-storage writes, signed URL support, lifecycle/retention/legal-hold enforcement, malware scanning, and production-scale migration/rollback proof.
+- Recommended next prompt: `Production trust implementation ticket 2: backup and restore proof harness`.
+
 2026-06-12 VAT return truthfulness and filing-export foundation:
 
 - PR `#28` `Banking parser QA and match suggestion foundation` was verified green, then merged into `main` at `848c210d`.
@@ -43,7 +56,7 @@ Current production posture:
 - Default status is `PRODUCTION_TRUST_FOUNDATION_PLANNING_ONLY`.
 - Strict pass status is `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS`, which means the repository is honest about missing production-trust work. It does not mean production-ready.
 - Current production trust blockers remain hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
-- Recommended next prompt: `Production trust implementation ticket 1: object storage proof plan and safe non-production validation`.
+- Recommended next prompt after that lane: `Production trust implementation ticket 2: backup and restore proof harness`.
 
 2026-06-12 Banking 2.0 parser QA and match suggestion foundation:
 
