@@ -26,6 +26,7 @@ Branch: `codex/controlled-beta-final-product-readiness-triage`
 - Added targeted frontend regression coverage for the list/detail return-path chain on both customer and supplier payments.
 - Follow-up route-load verification is now captured in `docs/development/CONTROLLED_BETA_ROUTE_LOAD_VERIFICATION_BATCH.md` on top of the merged PR `#24` base.
 - Follow-on statement workspace polish on the merged PR `#25` base now adds direct customer/supplier statement entry cards, explicit shared-statement workspace handoff links, and preserved statement-context return paths through contact-ledger drill-downs plus invoice/bill follow-on actions.
+- Dedicated `/customers/[id]/statement` and `/suppliers/[id]/statement` routes now reuse the existing statement endpoints safely, keep invoice/bill/payment/aging return paths anchored to the statement route, and leave the shared contact statement tabs as fallback only.
 
 ## Tests And Checks Run
 
@@ -44,11 +45,10 @@ LedgerByte remains suitable for controlled beta/user-testing with selected teste
 ### Must fix before controlled beta expansion
 
 - Continue checking older detail surfaces for the same context-loss pattern if they are part of the tester script, especially where workflow pages link into documents, reports, or shared contact views.
-- Customer/supplier statements still rely on the shared combined contact-detail implementation instead of dedicated statement routes, even though the customer/supplier workspace handoff and return paths are now clearer.
 
 ### Should fix during early controlled beta
 
-- Revisit statement UX if tester feedback shows the shared contact-detail statement surface is still too generic, because the current polish improves entry points and continuity but does not replace it with dedicated customer/supplier statement routes.
+- Revisit shared contact-detail fallback UX if tester feedback shows the combined contact statement surface is still too generic beside the new dedicated customer/supplier statement routes.
 - Keep tightening route continuity on older secondary pages that were not changed in this arc if tester feedback shows more “lost in the app” moments.
 
 ### Production-only blocker

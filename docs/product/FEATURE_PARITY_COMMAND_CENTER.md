@@ -2,31 +2,46 @@
 
 Status: controlled-beta feature-parity tracker. This document does not claim production parity with Xero, Wafeq, banks, ZATCA, or any certified integration.
 
-## Banking 2.0 Foundation - 2026-06-12
+Date: 2026-06-12
+
+## Current Route
+
+1. Truthful core completed in `main` through PR `#27` dedicated customer and supplier statement routes.
+2. Banking 2.0 parser QA and match-suggestion foundation in open PR `#28`.
+3. VAT return truthfulness and filing-export foundation.
+4. ZATCA signing, clearance, reporting, and custody execution lanes.
+5. Production trust, operations, and broader customer exposure only after accounting and compliance depth are credible.
+
+## Completed In Main
+
+- PR `#27` merged into `main` at `16270562` and added dedicated `/customers/[id]/statement` and `/suppliers/[id]/statement` routes.
+- Statement return-path continuity now survives invoice, bill, payment, and aging drill-downs without changing statement math, report math, payment allocation, VAT math, or ZATCA runtime behavior.
+
+## Current Open Parity PR
 
 Branch: `codex/banking-parser-qa-match-suggestion-foundation`
 
-Base: `main` at `b0f312fc` (`Merge pull request #26 from codex/controlled-beta-statement-workspace-polish`)
+Base after update: `main` at `16270562` (`Merge pull request #27 from codex/dedicated-customer-supplier-statement-routes`)
 
-### Shipped In This Arc
+Scope:
 
-- PR `#26` was already merged into `main`; no additional merge action was needed before this branch was cut.
-- Manual bank parser QA was expanded for CSV, JSON, plain text unsupported handling, OFX, CAMT.053/CAMT.054, and MT940.
-- Parser coverage now includes debit/credit column variants, signed amount columns, decimal comma amounts, date-times, balance fields where already supported, reference/counterparty extraction, multiline narratives, missing reference warnings, duplicate candidate warnings, unsupported-format safety, empty-file handling, and ambiguous direction handling.
-- Deterministic match-suggestion scoring was extracted into a pure non-mutating API helper and reused by the existing match-candidates endpoint.
-- Match suggestions now rank exact amount/opposite bank-line direction, date tolerance, reference matches, normalized counterparty text, and document-number matches in descriptions.
-- Already reviewed statement rows such as matched, categorized, ignored, and voided rows return no suggestions.
+- Manual bank parser QA for CSV, JSON, OFX, CAMT.053/CAMT.054, MT940, and unsupported/plain-text safety.
+- Deterministic, non-mutating bank statement match suggestions based on amount/direction, date tolerance, reference, counterparty text, and document-number signals.
+- Controlled-beta readiness/docs updates only.
 
-### Still Not Parity
+Still not parity:
 
-- No live bank feeds were added.
-- No external bank API or aggregator was connected.
-- No Plaid, Salt Edge, Tarabut, Lean, or bank-provider call exists in this arc.
-- No raw customer bank file archive execution was added.
-- No automatic posting, matching, reconciliation, categorization, or journal creation was added.
-- No certified bank-specific parser coverage is claimed.
-- Transfer fees, FX handling, hosted/customer-data proof, and accountant sign-off remain blockers.
+- No live bank feeds, external bank APIs, Plaid, Salt Edge, Tarabut, Lean, or bank-provider calls.
+- No raw customer bank-file archive execution.
+- No automatic posting, matching, reconciliation, categorization, or journal creation.
+- No certified bank-specific parser coverage, FX handling, transfer-fee handling, hosted/customer-data proof, or accountant sign-off.
 
-### Next Feature-Parity Priority
+## Operating Notes
+
+- Prefer parity work that increases trust in real accounting workflows over cosmetic route churn.
+- Reuse existing accounting math and posting behavior unless a future arc explicitly scopes those areas.
+- Keep controlled-beta wording explicit. Do not treat parity progress as production-readiness proof.
+
+## Exact Next Recommended Prompt Title
 
 `VAT return truthfulness and filing-export foundation`

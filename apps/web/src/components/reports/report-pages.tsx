@@ -426,6 +426,7 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
   const { loading, error, load } = useReportLoader<AgingReport>((query) => `${endpoint}${query}`, setReport);
   const slug = endpoint.split("/").at(-1) ?? "aging-report";
   const returnTo = safeReturnToFromSearch(searchParams.toString());
+  const reportReturnToHref = buildAgingReportHref(endpoint, asOf, returnTo);
 
   useEffect(() => {
     void load(buildReportQuery({ asOf }));
@@ -440,7 +441,7 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
           </Link>
         </div>
       ) : null}
-      <AgingReportGuide kind={kind} />
+      <AgingReportGuide kind={kind} returnToHref={reportReturnToHref} />
       <AsOfForm asOf={asOf} setAsOf={setAsOf} loading={loading} onSubmit={() => load(buildReportQuery({ asOf }))} helpText="Changing the date recalculates which open invoices or bills fall into each aging bucket." />
       <ReportExportButtons endpoint={endpoint} slug={slug} params={{ asOf }} />
       <ReportState
@@ -458,7 +459,7 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
       {report ? (
         <div className="space-y-5">
           <SummaryGrid items={[...REPORT_BUCKETS.map((bucket) => [agingBucketLabel(bucket), report.bucketTotals[bucket]] as [string, string]), ["Grand total", report.grandTotal]]} />
-          <AgingTable rows={report.rows} kind={kind} />
+          <AgingTable rows={report.rows} kind={kind} returnToHref={reportReturnToHref} />
         </div>
       ) : null}
     </ReportSection>
@@ -736,7 +737,7 @@ function BalanceSheetSectionView({ title, section }: { title: string; section: B
   return <AmountSection title={title} total={section.total} accounts={section.accounts} />;
 }
 
-export function AgingReportGuide({ kind }: { kind: AgingReportKind }) {
+export function AgingReportGuide({ kind, returnToHref }: { kind: AgingReportKind; returnToHref?: string }) {
   const isReceivables = kind === "receivables";
   return (
     <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
@@ -763,14 +764,14 @@ export function AgingReportGuide({ kind }: { kind: AgingReportKind }) {
           </p>
         </div>
       </div>
-      <ReportActionLinks kind={kind} />
+      <ReportActionLinks kind={kind} returnToHref={returnToHref} />
     </div>
   );
 }
 
-function ReportActionLinks({ kind }: { kind: AgingReportKind }) {
+function ReportActionLinks({ kind, returnToHref }: { kind: AgingReportKind; returnToHref?: string }) {
   const isReceivables = kind === "receivables";
-  const returnTo = isReceivables ? "/reports/aged-receivables" : "/reports/aged-payables";
+  const returnTo = returnToHref || (isReceivables ? "/reports/aged-receivables" : "/reports/aged-payables");
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       <Link
@@ -798,7 +799,7 @@ function ReportActionLinks({ kind }: { kind: AgingReportKind }) {
   );
 }
 
-export function AgingTable({ rows, kind }: { rows: AgingReportRow[]; kind: AgingReportKind }) {
+export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[]; kind: AgingReportKind; returnToHref?: string }) {
   if (rows.length === 0) {
     return null;
   }
@@ -829,7 +830,7 @@ export function AgingTable({ rows, kind }: { rows: AgingReportRow[]; kind: Aging
                 </Link>
               </td>
               <td className="px-4 py-3 font-mono text-xs">
-                <Link href={isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`} className="hover:text-palm">
+                <Link href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)} className="hover:text-palm">
                   {row.number}
                 </Link>
               </td>
@@ -842,7 +843,7 @@ export function AgingTable({ rows, kind }: { rows: AgingReportRow[]; kind: Aging
                 <span className={`rounded-md px-2 py-1 text-xs font-medium ${agingBucketClass(row.bucket)}`}>{agingBucketLabel(row.bucket)}</span>
               </td>
               <td className="px-4 py-3">
-                <Link href={isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                <Link href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                   {isReceivables ? "Open invoice" : "Open bill"}
                 </Link>
               </td>
@@ -852,6 +853,27 @@ export function AgingTable({ rows, kind }: { rows: AgingReportRow[]; kind: Aging
       </table>
     </div>
   );
+}
+
+function buildAgingReportHref(endpoint: string, asOf: string, returnTo?: string): string {
+  const params = new URLSearchParams();
+  if (asOf) {
+    params.set("asOf", asOf);
+  }
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
+  const query = params.toString();
+  return query ? `${endpoint}?${query}` : endpoint;
+}
+
+function appendReturnTo(href: string, returnToHref?: string): string {
+  if (!returnToHref) {
+    return href;
+  }
+
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}returnTo=${encodeURIComponent(returnToHref)}`;
 }
 
 function agingBucketClass(bucket: AgingReportRow["bucket"]): string {

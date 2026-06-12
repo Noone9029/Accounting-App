@@ -64,9 +64,9 @@ describe("Party activity summary statement entry points", () => {
   it("adds a direct customer statement activity card with workspace return context", () => {
     render(<PartyActivitySummary detail={customerDetail()} kind="customer" />);
 
-    expect(screen.getByRole("link", { name: "Customer statement activity Shared view" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Customer statement activity Statement" })).toHaveAttribute(
       "href",
-      "/contacts/customer-1?section=statement&returnTo=%2Fcustomers%2Fcustomer-1",
+      "/customers/customer-1/statement?returnTo=%2Fcustomers%2Fcustomer-1",
     );
     expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/customer-1");
   });
@@ -74,9 +74,9 @@ describe("Party activity summary statement entry points", () => {
   it("adds a direct supplier statement activity card with workspace return context", () => {
     render(<PartyActivitySummary detail={supplierDetail()} kind="supplier" />);
 
-    expect(screen.getByRole("link", { name: "Supplier statement activity Shared view" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Supplier statement activity Statement" })).toHaveAttribute(
       "href",
-      "/contacts/supplier-1?section=supplier-statement&returnTo=%2Fsuppliers%2Fsupplier-1",
+      "/suppliers/supplier-1/statement?returnTo=%2Fsuppliers%2Fsupplier-1",
     );
     expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
   });

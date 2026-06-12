@@ -50,12 +50,13 @@ export function partyDetailHref(kind: PartyKind, partyId: string): string {
   return `/${kind === "customer" ? "customers" : "suppliers"}/${encodeURIComponent(requiredId(partyId, "partyId"))}`;
 }
 
-export function partyStatementHref(kind: PartyKind, partyId: string): string {
+export function partyStatementHref(kind: PartyKind, partyId: string, returnTo?: string): string {
   const id = requiredId(partyId, "partyId");
   const params = new URLSearchParams();
-  params.set("section", kind === "customer" ? "statement" : "supplier-statement");
-  params.set("returnTo", partyDetailHref(kind, id));
-  return `/contacts/${encodeURIComponent(id)}?${params.toString()}`;
+  const route = `${partyDetailHref(kind, id)}/statement`;
+  const resolvedReturnTo = returnTo?.trim() || partyDetailHref(kind, id);
+  params.set("returnTo", resolvedReturnTo);
+  return `${route}?${params.toString()}`;
 }
 
 export function buildPartyTransactionHref(
@@ -63,10 +64,11 @@ export function buildPartyTransactionHref(
   kind: PartyKind,
   partyId: string,
   extraParams: Record<string, string | undefined> = {},
+  returnToOverride?: string,
 ): string {
   const params = new URLSearchParams();
   params.set(kind === "customer" ? "customerId" : "supplierId", requiredId(partyId, "partyId"));
-  params.set("returnTo", partyDetailHref(kind, partyId));
+  params.set("returnTo", returnToOverride?.trim() || partyDetailHref(kind, partyId));
 
   for (const [key, value] of Object.entries(extraParams)) {
     if (value) {

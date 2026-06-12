@@ -2,7 +2,22 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `b0f312fc` (`Merge pull request #26 from codex/controlled-beta-statement-workspace-polish`) plus the current Banking 2.0 parser QA and match suggestion branch.
+Latest commit audited: `16270562` (`Merge pull request #27 from codex/dedicated-customer-supplier-statement-routes`) plus the current Banking 2.0 parser QA and match suggestion branch.
+
+## 2026-06-12 PR #28 verification blocker repair
+
+Fixed a non-banking verification blocker where `packages/zatca-core/test/xml-mapping.test.ts` compared LF-generated XML against CRLF-checked-out fixture files inside Windows worktrees.
+
+Risk reduced:
+
+- Added line-ending normalization in the test-only fixture helper before strict XML equality checks.
+- Preserved strict content/order assertions while removing platform-specific CRLF vs LF failures.
+- Confirmed the reproduced failure was unrelated to PR #28 banking parser or match-suggestion logic.
+
+Remaining risks:
+
+- This repair does not change ZATCA runtime behavior, signing, QR generation, network calls, clearance/reporting, PDF-A3, or production compliance posture.
+- Banking verification still depends on the normal non-mutating gate; no production/beta/customer-data behavior changed.
 
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 
@@ -52,6 +67,29 @@ Reviewed the current LedgerByte monorepo without adding product features:
 - API health check against `http://localhost:4000/health`
 
 ## Bugs Found And Fixed
+
+### Dedicated customer and supplier statement routes added
+
+Fixed the remaining parity blocker where customer and supplier statements still depended on the shared `/contacts/[id]` implementation path, even after workspace entry cards and fallback handoff polish were in place.
+
+Risk reduced:
+
+- Added first-class `/customers/[id]/statement` and `/suppliers/[id]/statement` routes through `apps/web/src/components/parties/party-statement-page.tsx` plus route wrappers under the customer and supplier app trees.
+- Updated `apps/web/src/lib/parties.ts` so workspace statement links now target the dedicated routes, while shared contact statement tabs remain available only as fallback.
+- Preserved statement-context `returnTo` through dedicated statement links into invoice, bill, customer payment, supplier payment, and aging report review paths.
+- Updated shared contact statement fallback panels so `Customer statement activity`, `Supplier statement activity`, `View AR activity`, `View AP activity`, and aging follow-on links can hand users into the dedicated statement route instead of dropping them back to a generic workspace path.
+- Added focused regression coverage in:
+  - `apps/web/src/components/parties/party-statement-page.test.tsx`
+  - `apps/web/src/app/(app)/customers/[id]/statement/page.test.tsx`
+  - `apps/web/src/app/(app)/suppliers/[id]/statement/page.test.tsx`
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+  - `apps/web/src/app/(app)/contacts/[id]/page.test.tsx`
+
+Remaining risks:
+
+- The dedicated routes still reuse the existing contact statement endpoints and row renderer underneath; this arc intentionally did not rewrite statement math, report math, payment allocation logic, or posting behavior.
+- Shared contact statement tabs remain in place as fallback, so future tester feedback may still justify a lighter shared-surface cleanup pass.
+- Older secondary detail surfaces outside the dedicated statement, invoice, bill, payment, and aging paths may still need the same return-path review if new tester scripts expose more context loss.
 
 ### Controlled-beta statement workspace handoff polished
 

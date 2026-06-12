@@ -22,28 +22,28 @@ describe("ZATCA XML mapping scaffold", () => {
     const input = readFixtureInput("local-standard-tax-invoice");
     const expected = readFixtureXml("local-standard-tax-invoice");
 
-    assert.equal(buildZatcaInvoiceXml(input), expected);
+    assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(input)), expected);
   });
 
   it("matches generated local standard invoice fixture", () => {
     const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
     const expected = readFixtureXml("ledgerbyte-generated-standard-invoice");
 
-    assert.equal(buildZatcaInvoiceXml(input), expected);
+    assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(input)), expected);
   });
 
   it("matches generated local credit note fixture", () => {
     const input = readFixtureInput("ledgerbyte-generated-credit-note");
     const expected = readFixtureXml("ledgerbyte-generated-credit-note");
 
-    assert.equal(buildZatcaInvoiceXml(input), expected);
+    assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(input)), expected);
   });
 
   it("matches local simplified invoice fixture", () => {
     const input = readFixtureInput("local-simplified-tax-invoice");
     const expected = readFixtureXml("local-simplified-tax-invoice");
 
-    assert.equal(buildZatcaInvoiceXml(input), expected);
+    assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(input)), expected);
   });
 
   it("generates deterministic XML for the same input", () => {
@@ -322,7 +322,13 @@ function readFixtureInput(name: string): ZatcaInvoiceInput {
 }
 
 function readFixtureXml(name: string): string {
-  return readFileSync(new URL(`../fixtures/${name}.expected.xml`, import.meta.url), "utf8").trimEnd();
+  return normalizeFixtureXml(
+    readFileSync(new URL(`../fixtures/${name}.expected.xml`, import.meta.url), "utf8"),
+  );
+}
+
+function normalizeFixtureXml(value: string): string {
+  return value.replace(/\r\n/g, "\n").trimEnd();
 }
 
 function assertMarkersInOrder(xml: string, markers: string[]): void {
