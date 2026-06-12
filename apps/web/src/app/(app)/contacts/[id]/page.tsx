@@ -13,7 +13,7 @@ import { contactIdentificationOptions, formatContactIdentificationType, getConta
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { buildPartyTransactionHref, partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
+import { buildPartyTransactionHref, partyDetailHref, partyStatementHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, statementPdfPath, supplierStatementPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import { buildContactBuyerAddressReadiness, zatcaReadinessStatusBadgeClass, zatcaReadinessStatusLabel } from "@/lib/zatca";
@@ -54,6 +54,8 @@ export default function ContactDetailPage() {
   const requestedSection = parseActiveSection(searchParams.get("section"));
   const customerWorkspaceHref = profile ? partyDetailHref("customer", profile.id) : "";
   const supplierWorkspaceHref = profile ? partyDetailHref("supplier", profile.id) : "";
+  const customerStatementWorkspaceHref = profile ? partyStatementHref("customer", profile.id, customerWorkspaceHref) : "";
+  const supplierStatementWorkspaceHref = profile ? partyStatementHref("supplier", profile.id, supplierWorkspaceHref) : "";
   const customerStatementReturnHref = profile ? buildContactSectionHref(profile.id, "statement", workspaceReturnTo) : "";
   const supplierStatementReturnHref = profile ? buildContactSectionHref(profile.id, "supplier-statement", workspaceReturnTo) : "";
 
@@ -449,9 +451,11 @@ export default function ContactDetailPage() {
                 description="Customer statement activity still runs through this shared contact surface. Use the customer workspace for receivables context and the existing AR screens below for follow-on review."
                 workspaceHref={customerWorkspaceHref}
                 workspaceLabel="Open customer workspace"
-                activityHref={buildPartyTransactionHref("/sales/customer-payments", "customer", ledger.contact.id)}
+                statementHref={customerStatementWorkspaceHref}
+                statementLabel="Customer statement activity"
+                activityHref={buildPartyTransactionHref("/sales/customer-payments", "customer", ledger.contact.id, {}, customerStatementWorkspaceHref)}
                 activityLabel="View AR activity"
-                agingHref={`/reports/aged-receivables?returnTo=${encodeURIComponent(customerWorkspaceHref)}`}
+                agingHref={`/reports/aged-receivables?returnTo=${encodeURIComponent(customerStatementWorkspaceHref)}`}
                 agingLabel="Aged receivables"
               />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -522,9 +526,11 @@ export default function ContactDetailPage() {
                 description="Supplier statement activity still runs through this shared contact surface. Use the supplier workspace for payables context and the existing AP screens below for follow-on review."
                 workspaceHref={supplierWorkspaceHref}
                 workspaceLabel="Open supplier workspace"
-                activityHref={buildPartyTransactionHref("/purchases/supplier-payments", "supplier", supplierLedger.contact.id)}
+                statementHref={supplierStatementWorkspaceHref}
+                statementLabel="Supplier statement activity"
+                activityHref={buildPartyTransactionHref("/purchases/supplier-payments", "supplier", supplierLedger.contact.id, {}, supplierStatementWorkspaceHref)}
                 activityLabel="View AP activity"
-                agingHref={`/reports/aged-payables?returnTo=${encodeURIComponent(supplierWorkspaceHref)}`}
+                agingHref={`/reports/aged-payables?returnTo=${encodeURIComponent(supplierStatementWorkspaceHref)}`}
                 agingLabel="Aged payables"
               />
               <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
@@ -965,6 +971,8 @@ function StatementWorkspaceContext({
   description,
   workspaceHref,
   workspaceLabel,
+  statementHref,
+  statementLabel,
   activityHref,
   activityLabel,
   agingHref,
@@ -973,6 +981,8 @@ function StatementWorkspaceContext({
   description: string;
   workspaceHref: string;
   workspaceLabel: string;
+  statementHref?: string;
+  statementLabel?: string;
   activityHref: string;
   activityLabel: string;
   agingHref: string;
@@ -983,6 +993,7 @@ function StatementWorkspaceContext({
       <p>{description}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <ActionLink href={workspaceHref}>{workspaceLabel}</ActionLink>
+        {statementHref && statementLabel ? <ActionLink href={statementHref}>{statementLabel}</ActionLink> : null}
         <ActionLink href={activityHref}>{activityLabel}</ActionLink>
         <ActionLink href={agingHref}>{agingLabel}</ActionLink>
       </div>

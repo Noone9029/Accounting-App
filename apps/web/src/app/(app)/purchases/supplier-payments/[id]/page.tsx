@@ -328,7 +328,7 @@ export default function SupplierPaymentDetailPage() {
                   payment.allocations.map((allocation) => (
                     <tr key={allocation.id}>
                       <td className="px-4 py-3">
-                        <Link href={`/purchases/bills/${allocation.billId}`} className="font-mono text-xs text-palm hover:underline">
+                        <Link href={`/purchases/bills/${allocation.billId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="font-mono text-xs text-palm hover:underline">
                           {allocation.bill?.billNumber ?? allocation.billId}
                         </Link>
                       </td>
@@ -388,7 +388,7 @@ export default function SupplierPaymentDetailPage() {
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <Link href={`/purchases/bills/${allocation.billId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <Link href={`/purchases/bills/${allocation.billId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
                               View bill
                             </Link>
                             {canReverseSupplierPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (

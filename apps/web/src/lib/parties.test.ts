@@ -40,11 +40,14 @@ describe("party API paths", () => {
     expect(buildPartyTransactionHref("/purchases/bills/new", "supplier", "supplier-1", { billId: "bill-1" })).toBe(
       "/purchases/bills/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1&billId=bill-1",
     );
+    expect(buildPartyTransactionHref("/sales/customer-payments", "customer", "customer-1", {}, "/customers/customer-1/statement?returnTo=%2Fcustomers%2Fcustomer-1")).toBe(
+      "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1",
+    );
     expect(partyStatementHref("customer", "customer-1")).toBe(
-      "/contacts/customer-1?section=statement&returnTo=%2Fcustomers%2Fcustomer-1",
+      "/customers/customer-1/statement?returnTo=%2Fcustomers%2Fcustomer-1",
     );
     expect(partyStatementHref("supplier", "supplier-1")).toBe(
-      "/contacts/supplier-1?section=supplier-statement&returnTo=%2Fsuppliers%2Fsupplier-1",
+      "/suppliers/supplier-1/statement?returnTo=%2Fsuppliers%2Fsupplier-1",
     );
     expect(safeReturnToFromSearch("?returnTo=/customers/customer-1")).toBe("/customers/customer-1");
     expect(safeReturnToFromSearch("?returnTo=https://example.test")).toBe("");
