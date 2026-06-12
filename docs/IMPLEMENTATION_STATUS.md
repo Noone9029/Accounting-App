@@ -1,6 +1,6 @@
 # Implementation Status
 
-Audit date: 2026-06-12
+Audit date: 2026-06-13
 
 Product Audit v2:
 
@@ -23,6 +23,17 @@ Current production posture:
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-13 Wafeq banking inline statement transaction review workspace:
+
+- PR `#33` `Wafeq banking XLSX statement import and template UX` was reverified green/safe and merged into `main` at `342120a9` before this branch was created.
+- Added the Prompt 2 Wafeq-style inline statement transaction review workspace on `/bank-accounts/[id]/statement-transactions`.
+- The workspace shows imported rows with date, description, reference, bank reference, counterparty, currency, debit, credit, current row status, needs-review badges, candidate summary, and a link to the full detail page.
+- Filters now cover all, unmatched, matched, categorized, ignored, needs review, debit, and credit; local search covers description, reference, bank reference, and counterparty; sorting covers date, amount, and status.
+- Row-level candidate preview and match confirmation reuse the existing match-candidates and match endpoints.
+- Row-level categorize/ignore and bulk categorize/ignore reuse the existing single-row APIs and report partial failures without hiding failed rows.
+- No backend endpoint, DTO, schema migration, reconciliation-state change, accounting posting change, bank rule, live bank feed, bank API call, bank credential handling, payment initiation, deposit, card settlement, cheque, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`.
 
 2026-06-12 Wafeq banking XLSX statement import and template UX:
 

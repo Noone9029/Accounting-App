@@ -4,16 +4,38 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   bankStatementTransactionStatusBadgeClass,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
+  candidateScoreLabel,
+  lockedStatementTransactionWarning,
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
-import type { BankAccountSummary, BankStatementTransaction, BankStatementTransactionStatus } from "@/lib/types";
+import { PERMISSIONS } from "@/lib/permissions";
+import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction, BankStatementTransactionStatus } from "@/lib/types";
+
+type ReviewFilter = "" | BankStatementTransactionStatus | "NEEDS_REVIEW" | "DEBIT" | "CREDIT";
+type SortMode = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "status";
+type RowActionType = "categorize" | "ignore";
+type RowResult = { type: "loading" | "success" | "error"; message: string };
+
+const STATUS_FILTERS: Array<{ value: ReviewFilter; label: string }> = [
+  { value: "", label: "All" },
+  { value: "UNMATCHED", label: "Unmatched" },
+  { value: "MATCHED", label: "Matched" },
+  { value: "CATEGORIZED", label: "Categorized" },
+  { value: "IGNORED", label: "Ignored" },
+  { value: "NEEDS_REVIEW", label: "Needs review" },
+  { value: "DEBIT", label: "Debit" },
+  { value: "CREDIT", label: "Credit" },
+];
+
+const MUTABLE_STATUSES = new Set<BankStatementTransactionStatus>(["UNMATCHED"]);
 
 function todayInputValue(offsetDays = 0): string {
   const date = new Date();
@@ -21,23 +43,50 @@ function todayInputValue(offsetDays = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
+function initialReviewFilter(value: string | null): ReviewFilter {
+  return STATUS_FILTERS.some((filter) => filter.value === value) ? (value as ReviewFilter) : "";
+}
+
+function apiStatusFilter(filter: ReviewFilter): BankStatementTransactionStatus | "" {
+  return filter === "UNMATCHED" || filter === "MATCHED" || filter === "CATEGORIZED" || filter === "IGNORED" ? filter : "";
+}
+
 export default function BankStatementTransactionsPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
-  const initialStatus = (searchParams.get("status") as BankStatementTransactionStatus | null) ?? "";
+  const { can } = usePermissions();
+  const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
   const [profile, setProfile] = useState<BankAccountSummary | null>(null);
   const [transactions, setTransactions] = useState<BankStatementTransaction[]>([]);
-  const [status, setStatus] = useState<BankStatementTransactionStatus | "">(initialStatus);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [filter, setFilter] = useState<ReviewFilter>(initialReviewFilter(searchParams.get("status")));
   const [from, setFrom] = useState(todayInputValue(-30));
   const [to, setTo] = useState(todayInputValue());
+  const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("date-desc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkAccountId, setBulkAccountId] = useState("");
+  const [bulkMemo, setBulkMemo] = useState("");
+  const [inlineAccountId, setInlineAccountId] = useState("");
+  const [inlineDescription, setInlineDescription] = useState("");
+  const [inlineIgnoreReason, setInlineIgnoreReason] = useState("");
+  const [activeAction, setActiveAction] = useState<{ rowId: string; type: RowActionType } | null>(null);
+  const [candidateRowId, setCandidateRowId] = useState<string | null>(null);
+  const [candidatesByRow, setCandidatesByRow] = useState<Record<string, BankStatementMatchCandidate[]>>({});
+  const [selectedCandidateByRow, setSelectedCandidateByRow] = useState<Record<string, string>>({});
+  const [loadingCandidatesFor, setLoadingCandidatesFor] = useState("");
+  const [rowResults, setRowResults] = useState<Record<string, RowResult>>({});
+  const [bulkMessage, setBulkMessage] = useState<RowResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const path = useMemo(() => {
     const query = new URLSearchParams();
-    if (status) {
-      query.set("status", status);
+    const backendStatus = apiStatusFilter(filter);
+    if (backendStatus) {
+      query.set("status", backendStatus);
     }
     if (from) {
       query.set("from", from);
@@ -47,7 +96,7 @@ export default function BankStatementTransactionsPage() {
     }
     const suffix = query.toString();
     return `/bank-accounts/${params.id}/statement-transactions${suffix ? `?${suffix}` : ""}`;
-  }, [from, params.id, status, to]);
+  }, [filter, from, params.id, to]);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -58,11 +107,23 @@ export default function BankStatementTransactionsPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([apiRequest<BankAccountSummary>(`/bank-accounts/${params.id}`), apiRequest<BankStatementTransaction[]>(path)])
-      .then(([profileResult, transactionsResult]) => {
-        if (!cancelled) {
-          setProfile(profileResult);
-          setTransactions(transactionsResult);
+    const requests: Array<Promise<unknown>> = [apiRequest<BankAccountSummary>(`/bank-accounts/${params.id}`), apiRequest<BankStatementTransaction[]>(path)];
+    if (canReconcile) {
+      requests.push(apiRequest<Account[]>("/accounts"));
+    }
+
+    Promise.all(requests)
+      .then(([profileResult, transactionsResult, accountsResult]) => {
+        if (cancelled) {
+          return;
+        }
+        setProfile(profileResult as BankAccountSummary);
+        setTransactions(transactionsResult as BankStatementTransaction[]);
+        if (Array.isArray(accountsResult)) {
+          const postingAccounts = accountsResult.filter((account) => account.isActive && account.allowPosting);
+          setAccounts(postingAccounts);
+          setBulkAccountId((current) => current || postingAccounts[0]?.id || "");
+          setInlineAccountId((current) => current || postingAccounts[0]?.id || "");
         }
       })
       .catch((loadError: unknown) => {
@@ -79,18 +140,187 @@ export default function BankStatementTransactionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id, path]);
+  }, [canReconcile, organizationId, params.id, path]);
+
+  const displayedTransactions = useMemo(
+    () => sortStatementTransactions(filterStatementTransactions(transactions, filter, search), sortMode),
+    [filter, search, sortMode, transactions],
+  );
+
+  const selectedRows = useMemo(() => transactions.filter((transaction) => selectedIds.has(transaction.id)), [selectedIds, transactions]);
+  const actionableSelectedRows = selectedRows.filter(isActionableStatementRow);
+  const allVisibleSelected = displayedTransactions.length > 0 && displayedTransactions.every((transaction) => selectedIds.has(transaction.id));
+  const currency = profile?.currency ?? "SAR";
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllVisible(checked: boolean) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const transaction of displayedTransactions) {
+        if (checked) {
+          next.add(transaction.id);
+        } else {
+          next.delete(transaction.id);
+        }
+      }
+      return next;
+    });
+  }
+
+  function updateTransaction(updated: BankStatementTransaction) {
+    setTransactions((current) => current.map((transaction) => (transaction.id === updated.id ? updated : transaction)));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(updated.id);
+      return next;
+    });
+  }
+
+  async function loadCandidates(transaction: BankStatementTransaction) {
+    setCandidateRowId(transaction.id);
+    setLoadingCandidatesFor(transaction.id);
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading match candidates..." } }));
+    try {
+      const candidates = await apiRequest<BankStatementMatchCandidate[]>(`/bank-statement-transactions/${transaction.id}/match-candidates`);
+      setCandidatesByRow((current) => ({ ...current, [transaction.id]: candidates }));
+      setSelectedCandidateByRow((current) => ({ ...current, [transaction.id]: current[transaction.id] || candidates[0]?.journalLineId || "" }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: candidates.length > 0 ? `${candidates.length} match candidates loaded.` : "No match candidates found.",
+        },
+      }));
+    } catch (candidateError) {
+      setCandidatesByRow((current) => ({ ...current, [transaction.id]: [] }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: candidateError instanceof Error ? candidateError.message : "Unable to load match candidates.",
+        },
+      }));
+    } finally {
+      setLoadingCandidatesFor("");
+    }
+  }
+
+  async function submitRowAction(transaction: BankStatementTransaction, action: "match" | "categorize" | "ignore", body: unknown) {
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: `Updating ${transaction.description}...` } }));
+    try {
+      const updated = await apiRequest<BankStatementTransaction>(`/bank-statement-transactions/${transaction.id}/${action}`, {
+        method: "POST",
+        body,
+      });
+      updateTransaction(updated);
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: `Row ${bankStatementTransactionStatusLabel(updated.status).toLowerCase()}.`,
+        },
+      }));
+      setActiveAction(null);
+      setInlineDescription("");
+      setInlineIgnoreReason("");
+      if (action === "match") {
+        setCandidateRowId(null);
+      }
+    } catch (actionError) {
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: actionError instanceof Error ? actionError.message : "Unable to update statement transaction.",
+        },
+      }));
+    }
+  }
+
+  async function submitBulkAction(action: "categorize" | "ignore") {
+    if (actionableSelectedRows.length === 0) {
+      setBulkMessage({ type: "error", message: "Select at least one unlocked unmatched row." });
+      return;
+    }
+    if (action === "ignore" && !bulkReason.trim()) {
+      setBulkMessage({ type: "error", message: "Bulk ignore requires one reason." });
+      return;
+    }
+    if (action === "categorize" && !bulkAccountId) {
+      setBulkMessage({ type: "error", message: "Bulk categorize requires one posting account." });
+      return;
+    }
+
+    setBulkMessage({ type: "loading", message: `Applying ${action} to ${actionableSelectedRows.length} rows...` });
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const transaction of actionableSelectedRows) {
+      try {
+        const updated = await apiRequest<BankStatementTransaction>(`/bank-statement-transactions/${transaction.id}/${action}`, {
+          method: "POST",
+          body:
+            action === "ignore"
+              ? { reason: bulkReason.trim() }
+              : { accountId: bulkAccountId, description: bulkMemo.trim() || undefined },
+        });
+        successCount += 1;
+        updateTransaction(updated);
+        setRowResults((current) => ({
+          ...current,
+          [transaction.id]: { type: "success", message: `Bulk ${action} succeeded.` },
+        }));
+      } catch (bulkError) {
+        failureCount += 1;
+        setRowResults((current) => ({
+          ...current,
+          [transaction.id]: {
+            type: "error",
+            message: bulkError instanceof Error ? bulkError.message : `Bulk ${action} failed for this row.`,
+          },
+        }));
+      }
+    }
+
+    setBulkMessage({
+      type: failureCount > 0 ? "error" : "success",
+      message:
+        failureCount > 0
+          ? `${successCount} rows updated, ${failureCount} rows failed. Failed rows remain visible.`
+          : `${successCount} rows updated.`,
+    });
+    if (failureCount === 0) {
+      setBulkReason("");
+      setBulkMemo("");
+    }
+  }
 
   return (
     <section>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Statement transactions</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} imported statement rows` : "Imported statement rows"}</p>
+          <h1 className="text-2xl font-semibold text-ink">Statement transaction review</h1>
+          <p className="mt-1 text-sm text-steel">
+            {profile ? `${profile.displayName} imported statement rows` : "Imported statement rows"} for manual match, categorize, or ignore review.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Imports
+          </Link>
+          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Reconciliation
           </Link>
           <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Back
@@ -102,21 +332,36 @@ export default function BankStatementTransactionsPage() {
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load statement transactions.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading statement transactions...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {bulkMessage ? <StatusMessage type={bulkMessage.type === "loading" ? "loading" : bulkMessage.type}>{bulkMessage.message}</StatusMessage> : null}
+        {!canReconcile ? <StatusMessage type="info">Your role can view statement rows, but inline review actions require bank statement reconcile permission.</StatusMessage> : null}
       </div>
 
       <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <StatementTransactionsGuidance profileId={params.id} />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as BankStatementTransactionStatus | "")} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">All</option>
-              {(["UNMATCHED", "MATCHED", "CATEGORIZED", "IGNORED", "VOIDED"] as BankStatementTransactionStatus[]).map((item) => (
-                <option key={item} value={item}>
-                  {bankStatementTransactionStatusLabel(item)}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Statement transaction filters">
+          {STATUS_FILTERS.map((item) => (
+            <button
+              key={item.value || "ALL"}
+              type="button"
+              onClick={() => setFilter(item.value)}
+              className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                filter === item.value ? "border-palm bg-emerald-50 text-palm" : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
+          <label className="block lg:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Search</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Description, reference, bank ref, counterparty"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+            />
           </label>
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
@@ -126,47 +371,155 @@ export default function BankStatementTransactionsPage() {
             <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
             <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Sort</span>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="date-desc">Date newest</option>
+              <option value="date-asc">Date oldest</option>
+              <option value="amount-desc">Amount high</option>
+              <option value="amount-asc">Amount low</option>
+              <option value="status">Status</option>
+            </select>
+          </label>
         </div>
       </div>
 
+      {canReconcile ? (
+        <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">Bulk review</h2>
+              <p className="mt-1 text-sm text-steel">
+                {selectedRows.length} selected, {actionableSelectedRows.length} unlocked unmatched rows can be updated. Bulk match is intentionally per-row because each row needs its own candidate.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[760px] xl:grid-cols-4">
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">Ignore reason</span>
+                <input value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              </label>
+              <button type="button" onClick={() => void submitBulkAction("ignore")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Bulk ignore
+              </button>
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">Category account</span>
+                <select value={bulkAccountId} onChange={(event) => setBulkAccountId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.code} {account.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={() => void submitBulkAction("categorize")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50">
+                Bulk categorize
+              </button>
+            </div>
+          </div>
+          <label className="mt-3 block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Bulk categorize memo</span>
+            <input value={bulkMemo} onChange={(event) => setBulkMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+        </div>
+      ) : null}
+
       <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[980px] text-left text-sm">
+        <table className="w-full min-w-[1280px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
+              <th className="px-4 py-3">
+                <input aria-label="Select visible statement rows" type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAllVisible(event.target.checked)} />
+              </th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Description</th>
               <th className="px-4 py-3">Reference</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3 text-right">Amount</th>
+              <th className="px-4 py-3">Counterparty</th>
+              <th className="px-4 py-3">Currency</th>
+              <th className="px-4 py-3 text-right">Debit</th>
+              <th className="px-4 py-3 text-right">Credit</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Match</th>
+              <th className="px-4 py-3">Suggested match</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {transactions.map((transaction) => (
-              <tr key={transaction.id}>
-                <td className="px-4 py-3 text-steel">{formatOptionalDate(transaction.transactionDate, "-")}</td>
-                <td className="px-4 py-3 text-ink">{transaction.description}</td>
-                <td className="px-4 py-3 font-mono text-xs">{transaction.reference ?? "-"}</td>
-                <td className="px-4 py-3">{bankStatementTransactionTypeLabel(transaction.type)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.amount, profile?.currency ?? "SAR")}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
-                    {bankStatementTransactionStatusLabel(transaction.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs">{transaction.matchedJournalEntry?.entryNumber ?? transaction.createdJournalEntry?.entryNumber ?? "-"}</td>
-                <td className="px-4 py-3">
-                  <Link href={`/bank-statement-transactions/${transaction.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                    Review
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {displayedTransactions.map((transaction) => {
+              const lockedWarning = lockedStatementTransactionWarning(transaction);
+              const actionable = isActionableStatementRow(transaction);
+              const candidates = candidatesByRow[transaction.id];
+              const result = rowResults[transaction.id];
+              const rowCurrency = transactionCurrency(transaction, currency);
+              return (
+                <tr key={transaction.id} className={result?.type === "error" ? "bg-rose-50/40" : undefined}>
+                  <td className="px-4 py-3 align-top">
+                    <input
+                      aria-label={`Select ${transaction.description}`}
+                      type="checkbox"
+                      checked={selectedIds.has(transaction.id)}
+                      onChange={(event) => toggleSelected(transaction.id, event.target.checked)}
+                    />
+                  </td>
+                  <td className="px-4 py-3 align-top text-steel">{formatOptionalDate(transaction.transactionDate, "-")}</td>
+                  <td className="px-4 py-3 align-top">
+                    <p className="font-medium text-ink">{transaction.description}</p>
+                    <p className="mt-1 font-mono text-xs text-steel">{readStatementRawField(transaction.rawData, "bankReference") ?? "-"}</p>
+                    {result ? <p className={`mt-2 text-xs ${result.type === "error" ? "text-rose-700" : result.type === "success" ? "text-emerald-700" : "text-steel"}`}>{result.message}</p> : null}
+                  </td>
+                  <td className="px-4 py-3 align-top font-mono text-xs">{transaction.reference ?? "-"}</td>
+                  <td className="px-4 py-3 align-top text-steel">{readStatementRawField(transaction.rawData, "counterparty") ?? "-"}</td>
+                  <td className="px-4 py-3 align-top font-mono text-xs">{rowCurrency}</td>
+                  <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "DEBIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
+                  <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "CREDIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
+                  <td className="px-4 py-3 align-top">
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
+                      {bankStatementTransactionStatusLabel(transaction.status)}
+                    </span>
+                    {actionable ? <span className="ml-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Needs review</span> : null}
+                    {lockedWarning ? <p className="mt-2 text-xs leading-5 text-amber-800">{lockedWarning}</p> : null}
+                  </td>
+                  <td className="px-4 py-3 align-top text-xs text-steel">{candidateSummary(candidates, rowCurrency)}</td>
+                  <td className="px-4 py-3 align-top">
+                    <div className="flex flex-wrap gap-2">
+                      {canReconcile && actionable ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void loadCandidates(transaction)}
+                            disabled={loadingCandidatesFor === transaction.id}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            {loadingCandidatesFor === transaction.id ? "Loading..." : "View candidates"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveAction({ rowId: transaction.id, type: "categorize" });
+                              setInlineAccountId((current) => current || accounts[0]?.id || "");
+                            }}
+                            className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                          >
+                            Categorize
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveAction({ rowId: transaction.id, type: "ignore" })}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Ignore
+                          </button>
+                        </>
+                      ) : null}
+                      <Link href={`/bank-statement-transactions/${transaction.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        Detail
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        {!loading && transactions.length === 0 ? (
+        {!loading && displayedTransactions.length === 0 ? (
           <div className="p-4">
             <StatusMessage type="empty">No statement transactions found for this filter.</StatusMessage>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -180,6 +533,38 @@ export default function BankStatementTransactionsPage() {
           </div>
         ) : null}
       </div>
+
+      {activeAction ? (
+        <InlineRowActionPanel
+          transaction={transactions.find((transaction) => transaction.id === activeAction.rowId) ?? null}
+          type={activeAction.type}
+          accounts={accounts}
+          accountId={inlineAccountId}
+          description={inlineDescription}
+          ignoreReason={inlineIgnoreReason}
+          onAccountChange={setInlineAccountId}
+          onDescriptionChange={setInlineDescription}
+          onIgnoreReasonChange={setInlineIgnoreReason}
+          onCancel={() => setActiveAction(null)}
+          onSubmit={(transaction) =>
+            activeAction.type === "categorize"
+              ? submitRowAction(transaction, "categorize", { accountId: inlineAccountId, description: inlineDescription.trim() || undefined })
+              : submitRowAction(transaction, "ignore", { reason: inlineIgnoreReason.trim() })
+          }
+        />
+      ) : null}
+
+      {candidateRowId ? (
+        <CandidateReviewPanel
+          transaction={transactions.find((transaction) => transaction.id === candidateRowId) ?? null}
+          candidates={candidatesByRow[candidateRowId] ?? []}
+          selectedJournalLineId={selectedCandidateByRow[candidateRowId] ?? ""}
+          currency={currency}
+          onSelect={(journalLineId) => setSelectedCandidateByRow((current) => ({ ...current, [candidateRowId]: journalLineId }))}
+          onClose={() => setCandidateRowId(null)}
+          onConfirm={(transaction, journalLineId) => submitRowAction(transaction, "match", { journalLineId })}
+        />
+      ) : null}
     </section>
   );
 }
@@ -187,9 +572,12 @@ export default function BankStatementTransactionsPage() {
 export function StatementTransactionsGuidance({ profileId }: { profileId: string }) {
   return (
     <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-      <h2 className="text-base font-semibold text-ink">Matched vs unmatched</h2>
+      <h2 className="text-base font-semibold text-ink">Inline statement review</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-        Unmatched rows still need review. Matched rows point to existing posted bank journal lines, categorized rows created a manual journal, and ignored rows stay out of reconciliation totals. Closed reconciliations lock their statement rows from further status changes.
+        Review imported manual statement rows without leaving the bank account. Match links a row to existing posted bank ledger activity, categorize posts through the existing manual journal path, and ignore keeps a row out of reconciliation totals. Every row-changing action is explicit.
+      </p>
+      <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
+        This workspace is manual banking only. It does not connect to live bank feeds, collect bank credentials, add bank rules, initiate payments, or auto-reconcile.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -204,4 +592,228 @@ export function StatementTransactionsGuidance({ profileId }: { profileId: string
       </div>
     </div>
   );
+}
+
+function InlineRowActionPanel({
+  transaction,
+  type,
+  accounts,
+  accountId,
+  description,
+  ignoreReason,
+  onAccountChange,
+  onDescriptionChange,
+  onIgnoreReasonChange,
+  onCancel,
+  onSubmit,
+}: {
+  transaction: BankStatementTransaction | null;
+  type: RowActionType;
+  accounts: Account[];
+  accountId: string;
+  description: string;
+  ignoreReason: string;
+  onAccountChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onIgnoreReasonChange: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: (transaction: BankStatementTransaction) => Promise<void>;
+}) {
+  if (!transaction) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">{type === "categorize" ? "Categorize row" : "Ignore row"}</h2>
+          <p className="mt-1 text-sm text-steel">{transaction.description}</p>
+        </div>
+        <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Close
+        </button>
+      </div>
+      {type === "categorize" ? (
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Offset account</span>
+            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.code} {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Memo</span>
+            <input value={description} onChange={(event) => onDescriptionChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <button type="button" disabled={!accountId} onClick={() => void onSubmit(transaction)} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            Post categorization journal
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason</span>
+            <input value={ignoreReason} onChange={(event) => onIgnoreReasonChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <button type="button" disabled={!ignoreReason.trim()} onClick={() => void onSubmit(transaction)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            Ignore row
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CandidateReviewPanel({
+  transaction,
+  candidates,
+  selectedJournalLineId,
+  currency,
+  onSelect,
+  onClose,
+  onConfirm,
+}: {
+  transaction: BankStatementTransaction | null;
+  candidates: BankStatementMatchCandidate[];
+  selectedJournalLineId: string;
+  currency: string;
+  onSelect: (journalLineId: string) => void;
+  onClose: () => void;
+  onConfirm: (transaction: BankStatementTransaction, journalLineId: string) => Promise<void>;
+}) {
+  if (!transaction) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Match candidates</h2>
+          <p className="mt-1 text-sm text-steel">{transaction.description}</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Close
+        </button>
+      </div>
+      {candidates.length === 0 ? <StatusMessage type="empty">No posted bank journal candidates matched this row.</StatusMessage> : null}
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {candidates.map((candidate) => (
+          <label key={candidate.journalLineId} className="block rounded-md border border-slate-200 p-3">
+            <div className="flex items-start gap-3">
+              <input type="radio" name="match-candidate" checked={selectedJournalLineId === candidate.journalLineId} onChange={() => onSelect(candidate.journalLineId)} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-ink">{candidate.entryNumber}</p>
+                  <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">{candidateScoreLabel(candidate)}</span>
+                </div>
+                <p className="mt-1 text-xs text-steel">
+                  {formatOptionalDate(candidate.date, "-")} - {candidate.description ?? candidate.reference ?? "Posted bank journal line"}
+                </p>
+                <p className="mt-1 text-xs text-steel">{candidate.reason}</p>
+                <p className="mt-2 font-mono text-xs text-steel">
+                  Dr {formatMoneyAmount(candidate.debit, currency)} / Cr {formatMoneyAmount(candidate.credit, currency)}
+                </p>
+              </div>
+            </div>
+          </label>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={!selectedJournalLineId}
+        onClick={() => void onConfirm(transaction, selectedJournalLineId)}
+        className="mt-4 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
+      >
+        Match selected candidate
+      </button>
+    </div>
+  );
+}
+
+function filterStatementTransactions(transactions: BankStatementTransaction[], filter: ReviewFilter, search: string): BankStatementTransaction[] {
+  const normalizedSearch = normalizeSearch(search);
+  return transactions.filter((transaction) => {
+    if (filter === "DEBIT" || filter === "CREDIT") {
+      if (transaction.type !== filter) {
+        return false;
+      }
+    } else if (filter === "NEEDS_REVIEW") {
+      if (!isActionableStatementRow(transaction)) {
+        return false;
+      }
+    } else if (filter && transaction.status !== filter) {
+      return false;
+    }
+    if (!normalizedSearch) {
+      return true;
+    }
+    return normalizeSearch(
+      [
+        transaction.description,
+        transaction.reference,
+        readStatementRawField(transaction.rawData, "bankReference"),
+        readStatementRawField(transaction.rawData, "counterparty"),
+      ]
+        .filter(Boolean)
+        .join(" "),
+    ).includes(normalizedSearch);
+  });
+}
+
+function sortStatementTransactions(transactions: BankStatementTransaction[], sortMode: SortMode): BankStatementTransaction[] {
+  return [...transactions].sort((left, right) => {
+    if (sortMode === "date-asc" || sortMode === "date-desc") {
+      const result = Date.parse(left.transactionDate) - Date.parse(right.transactionDate);
+      return sortMode === "date-asc" ? result : -result;
+    }
+    if (sortMode === "amount-asc" || sortMode === "amount-desc") {
+      const result = Number(left.amount) - Number(right.amount);
+      return sortMode === "amount-asc" ? result : -result;
+    }
+    return bankStatementTransactionStatusLabel(left.status).localeCompare(bankStatementTransactionStatusLabel(right.status));
+  });
+}
+
+function isActionableStatementRow(transaction: BankStatementTransaction): boolean {
+  return MUTABLE_STATUSES.has(transaction.status) && !lockedStatementTransactionWarning(transaction);
+}
+
+function candidateSummary(candidates: BankStatementMatchCandidate[] | undefined, currency: string): string {
+  if (!candidates) {
+    return "Open candidates to preview";
+  }
+  if (candidates.length === 0) {
+    return "No candidates found";
+  }
+  const first = candidates[0]!;
+  return `${candidateScoreLabel(first)}: ${first.entryNumber} (${formatMoneyAmount(first.debit !== "0.0000" ? first.debit : first.credit, currency)})`;
+}
+
+function transactionCurrency(transaction: BankStatementTransaction, fallback: string): string {
+  return readStatementRawField(transaction.rawData, "currency") ?? transaction.bankAccountProfile?.currency ?? fallback;
+}
+
+function readStatementRawField(rawData: unknown, field: "bankReference" | "counterparty" | "currency"): string | null {
+  if (!isRecord(rawData)) {
+    return null;
+  }
+  const normalized = rawData.normalized;
+  const normalizedValue = isRecord(normalized) ? normalized[field] : undefined;
+  const directValue = rawData[field];
+  const value = typeof normalizedValue === "string" ? normalizedValue : typeof directValue === "string" ? directValue : null;
+  return value?.trim() || null;
+}
+
+function normalizeSearch(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

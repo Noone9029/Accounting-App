@@ -1,8 +1,34 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-06-12
+Audit date: 2026-06-13
 
-Latest commit audited: `0bb4e721` (`Merge pull request #32 from codex/backup-restore-proof-harness`) plus the current Wafeq banking XLSX/template branch.
+Latest commit audited: `342120a9` (`Merge pull request #33 from Noone9029/codex/wafeq-banking-xlsx-template-import`) plus the current Wafeq banking inline statement review branch.
+
+## 2026-06-13 Wafeq banking inline statement transaction review workspace
+
+Added a Wafeq-style operator review workspace for imported statement rows without adding live feeds, bank APIs, credentials, schema changes, reconciliation state changes, or new accounting behavior.
+
+Risk reduced:
+
+- Reverified PR `#33` green/safe, then merged it into `main` at `342120a94412fe47cfab6c96905d695a9afaf127` before starting this branch.
+- Replaced the basic bank account statement rows list with an inline review workspace for imported statement transactions.
+- Added filters for all, unmatched, matched, categorized, ignored, needs review, debit, and credit rows.
+- Added local search across description, reference, bank reference, and counterparty.
+- Added date, amount, and status sorting.
+- Added inline row visibility for bank reference, counterparty, currency, debit/credit direction, candidate summary, status, and needs-review state.
+- Added row-level candidate preview and match confirmation by reusing the existing match-candidates and match endpoints.
+- Added row-level categorize and ignore actions by reusing the existing single-row endpoints.
+- Added explicit bulk ignore and bulk categorize flows that call existing single-row APIs and report partial failures without hiding failed rows.
+- Preserved the full detail page link for exception review.
+- Added targeted frontend tests for rendering, filters/search, candidate match, categorize, ignore reason validation, bulk ignore partial failure, bulk categorize, and manual-only wording.
+
+Remaining risks:
+
+- Duplicate/import idempotency and reconciliation safety hardening remains open.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, bank rules, bank deposits, cheques, card settlements, or bank credentials were added.
+- Bulk actions are explicit UI loops over existing single-row APIs, not new atomic backend batch endpoints.
+- Categorize still uses the existing manual journal posting path; this branch does not change posting logic or reversal behavior.
+- Certified target-bank parser coverage, raw statement archive execution, accountant sign-off, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and live-feed abstractions remain open.
 
 ## 2026-06-12 Wafeq banking XLSX statement import and template UX
 
@@ -22,7 +48,7 @@ Remaining risks:
 - This is manual upload/paste support only. No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, bank rules, bank deposits, cheques, card settlements, or bank credentials were added.
 - XLSX support is not certified target-bank parser coverage. Real sanitized bank exports still need collection, review, and tests before any bank-specific claim.
 - Raw statement file bodies remain not archived in beta; LedgerByte stores parsed rows and import metadata only.
-- Broader import duplicate/idempotency hardening, inline transaction review workspace, accountant sign-off, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and live-feed abstractions remain open.
+- Broader import duplicate/idempotency hardening, reconciliation safety hardening, accountant sign-off, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and live-feed abstractions remain open.
 
 ## 2026-06-12 Backup and restore proof harness
 

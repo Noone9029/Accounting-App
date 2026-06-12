@@ -1,6 +1,6 @@
 # Wafeq Banking Foundation Plan
 
-Date: 2026-06-12
+Date: 2026-06-13
 
 Status: controlled-beta manual banking parity plan. This document does not claim Wafeq equivalence, live bank-feed support, production banking readiness, bank certification, or customer-data readiness.
 
@@ -60,6 +60,24 @@ This prompt adds Wafeq-style manual import polish:
 - safe malformed-workbook warnings
 - existing CSV/JSON/OFX/CAMT/MT940 behavior preserved
 
+## Prompt 2 Completed Scope
+
+This prompt adds a Wafeq-style inline statement transaction review workspace on the bank account statement rows page:
+
+- imported statement rows can be reviewed in one table without opening each detail page first
+- row status remains explicit for unmatched, matched, categorized, ignored, and needs-review rows
+- debit, credit, amount direction, date, description, reference, bank reference, counterparty, and currency are visible inline
+- filters now cover all, unmatched, matched, categorized, ignored, needs review, debit, and credit
+- search covers description, reference, bank reference, and counterparty
+- sorting covers date, amount, and status
+- row-level match candidate preview reuses the existing match-candidates endpoint
+- row-level match confirmation reuses the existing match endpoint
+- row-level categorize and ignore reuse the existing single-row endpoints
+- bulk ignore and bulk categorize loop through the existing single-row endpoints and report partial failures without hiding failed rows
+- the full statement transaction detail page remains linked for exceptions
+
+No backend endpoint, DTO, schema, posting-state, or reconciliation-state change was required for Prompt 2.
+
 ## Not Included
 
 This prompt intentionally does not add:
@@ -77,6 +95,7 @@ This prompt intentionally does not add:
 - accounting posting logic changes
 - schema migrations
 - production or beta data mutation
+- import duplicate/idempotency safety hardening
 
 ## Dependency Decision
 
@@ -84,4 +103,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking foundation: inline statement transaction review workspace`
+`Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`
