@@ -2,7 +2,25 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `848c210d` (`Merge pull request #28 from codex/banking-parser-qa-match-suggestion-foundation`) plus the current VAT return truthfulness branch.
+Latest commit audited: `4e00557f` (`Merge pull request #29 from codex/vat-return-truthfulness-filing-export-foundation`) plus the current production trust foundation branch.
+
+## 2026-06-12 Production trust foundation audit and static gate
+
+Fixed stale route/readiness truthfulness and added a non-mutating production-trust gate without changing runtime product behavior.
+
+Risk reduced:
+
+- Reverified and safely merged PR `#29` into `main` at `4e00557f873e0a98f1c748cffdea016b9486c52c` before starting production-trust work.
+- Corrected stale route wording that still treated VAT return truthfulness as the current open parity PR after PR `#29` was already merged.
+- Added `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` to classify storage, backup, restore, monitoring, health/readiness, email, security, audit durability, billing/legal/support, and launch-gate status using current repo evidence only.
+- Added `scripts/production-trust-foundation-gate.cjs` and `scripts/production-trust-foundation-gate.test.cjs` so the repository fails closed on missing trust docs, missing controlled-beta wording, missing final-hosting separation, missing restore/monitoring/MFA/billing blocker statements, or new forbidden claims such as `production-ready`, `paid SaaS ready`, `official VAT filing ready`, `ZATCA compliant`, `production hosting complete`, `restore proof complete`, or `object storage proof complete`.
+- Added root package scripts `production:trust-foundation-gate` and `test:production-trust-foundation-gate`.
+- Updated handoff/readiness docs so the current posture stays explicit: controlled beta/user-testing only, not production-ready, not paid SaaS ready, not official VAT filing ready, and not ZATCA compliant.
+
+Remaining risks:
+
+- The new gate is static/documentary only; it does not prove hosted backup/PITR, hosted restore drills, object-storage restore proof, monitoring/alerting implementation, runtime DB role validation, RLS strategy, MFA/session hardening, immutable audit storage, or billing/legal/support ownership.
+- The next production-trust implementation ticket should start with object-storage proof planning and safe non-production validation rather than claiming broader launch readiness.
 
 ## 2026-06-12 PR #29 verification repair gate
 

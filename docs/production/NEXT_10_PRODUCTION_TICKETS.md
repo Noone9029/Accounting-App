@@ -6,6 +6,11 @@ This plan orders the first production-foundation tickets by risk reduction. It i
 
 Current state: controlled beta/user-testing. Vercel is beta/user-testing only, not final production hosting. LedgerByte is not production-launched. Real ZATCA production compliance is not enabled.
 
+## 2026-06-12 Production Trust Foundation Gate Routing
+
+- The static production-trust audit confirms the next execution lane should begin with object-storage proof planning and safe non-production validation.
+- The audit did not change production posture: LedgerByte remains controlled beta/user-testing only, not production-ready, not paid SaaS ready, not official VAT filing ready, and not ZATCA compliant.
+
 ## Current PROD-A2 Status
 
 - [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed.
@@ -107,4 +112,4 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 
 ## Next Ticket Recommendation
 
-`PROD-A2 API hosting decision` is now drafted/proposed at [ADR-013](adrs/ADR-013-api-hosting-decision.md), not implemented. Next, perform PROD-A2 verification and handoff, then open separate implementation tickets with explicit approval for any ECS/Fargate configuration, API/worker provisioning, env change, production deploy, database/Redis/storage mutation, migration, backup, ZATCA action, email send, customer-data movement, or app test against production.
+`Production trust implementation ticket 1: object storage proof plan and safe non-production validation`

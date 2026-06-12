@@ -12,6 +12,11 @@ Status values:
 
 Current practical stage: controlled beta/user-testing. Vercel is beta/user-testing only, not final production hosting. LedgerByte is not production-launched, and real ZATCA production compliance is not enabled.
 
+## 2026-06-12 Production Trust Foundation Audit Note
+
+- `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
+- A strict result of `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS` means the repo is explicit about current blockers. It does not mean any paid-private-beta or public-production gate below has passed.
+
 ## Controlled Beta Gate
 
 | Gate | Status | Evidence | Remaining work |
