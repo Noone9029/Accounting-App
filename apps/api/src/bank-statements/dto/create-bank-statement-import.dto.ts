@@ -50,6 +50,10 @@ export class CreateBankStatementImportDto {
   csvText?: string;
 
   @IsOptional()
+  @IsString()
+  xlsxBase64?: string;
+
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BankStatementImportRowDto)
@@ -75,6 +79,10 @@ export class PreviewBankStatementImportDto {
   @IsOptional()
   @IsString()
   csvText?: string;
+
+  @IsOptional()
+  @IsString()
+  xlsxBase64?: string;
 
   @IsOptional()
   @IsArray()

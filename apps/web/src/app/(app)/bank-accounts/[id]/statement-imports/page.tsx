@@ -10,10 +10,14 @@ import { apiRequest } from "@/lib/api";
 import {
   bankStatementImportStatusBadgeClass,
   bankStatementImportStatusLabel,
+  buildStatementImportTemplateCsv,
+  isXlsxStatementImportFile,
   bankStatementTransactionTypeLabel,
   parseStatementImportText,
   statementImportPreviewSummary,
   STATEMENT_IMPORT_MAX_FILE_BYTES,
+  STATEMENT_IMPORT_TEMPLATE_COLUMNS,
+  STATEMENT_IMPORT_TEMPLATE_FILENAME,
   validateStatementImportFile,
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -26,6 +30,9 @@ const EXAMPLE_ROWS = `date,description,reference,amount,balance,currency
 2026-05-13,Payment from customer,ABC123,100.0000,1250.0000,SAR
 2026-05-14,Bank fee,FEE001,-15.0000,1235.0000,SAR`;
 
+export const STATEMENT_IMPORT_FILE_ACCEPT =
+  ".csv,.xlsx,.json,.txt,.ofx,.xml,.camt,.mt940,.940,.sta,text/csv,application/json,text/plain,application/xml,text/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
 export default function BankStatementImportsPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
@@ -36,6 +43,7 @@ export default function BankStatementImportsPage() {
   const [openingStatementBalance, setOpeningStatementBalance] = useState("");
   const [closingStatementBalance, setClosingStatementBalance] = useState("");
   const [rowsText, setRowsText] = useState(EXAMPLE_ROWS);
+  const [xlsxBase64, setXlsxBase64] = useState("");
   const [clientPreview, setClientPreview] = useState<StatementImportClientPreview | null>(null);
   const [preview, setPreview] = useState<BankStatementImportPreview | null>(null);
   const [importResult, setImportResult] = useState<BankStatementImport | null>(null);
@@ -87,6 +95,10 @@ export default function BankStatementImportsPage() {
   }, [organizationId, params.id, reloadToken]);
 
   function prepareClientPreview(text = rowsText) {
+    if (xlsxBase64) {
+      setClientPreview(null);
+      return null;
+    }
     const parsed = parseStatementImportText(text, { accountCurrency: profile?.currency });
     setClientPreview(parsed);
     return parsed;
@@ -94,6 +106,7 @@ export default function BankStatementImportsPage() {
 
   function handleRowsTextChange(value: string) {
     setRowsText(value);
+    setXlsxBase64("");
     setClientPreview(null);
     setPreview(null);
     setImportResult(null);
@@ -115,12 +128,20 @@ export default function BankStatementImportsPage() {
       return;
     }
     try {
-      const text = await file.text();
       setFilename(file.name);
-      setRowsText(text);
-      const parsed = parseStatementImportText(text, { accountCurrency: profile?.currency });
-      setClientPreview(parsed);
-      setSuccess(`Loaded ${file.name}. Review the preview before importing.`);
+      if (isXlsxStatementImportFile(file)) {
+        setXlsxBase64(arrayBufferToBase64(await file.arrayBuffer()));
+        setRowsText("");
+        setClientPreview(null);
+        setSuccess(`Loaded ${file.name}. Use server preview to validate the first worksheet before importing.`);
+      } else {
+        const text = await file.text();
+        setXlsxBase64("");
+        setRowsText(text);
+        const parsed = parseStatementImportText(text, { accountCurrency: profile?.currency });
+        setClientPreview(parsed);
+        setSuccess(`Loaded ${file.name}. Review the preview before importing.`);
+      }
     } catch (fileError) {
       setError(fileError instanceof Error ? fileError.message : "Unable to read the statement file.");
       setClientPreview(null);
@@ -135,13 +156,13 @@ export default function BankStatementImportsPage() {
     setPreviewing(true);
     try {
       const parsed = prepareClientPreview();
-      if (parsed.rowCount === 0) {
+      if (!xlsxBase64 && parsed?.rowCount === 0) {
         setError("Paste or upload at least one statement row.");
         return;
       }
       const result = await apiRequest<BankStatementImportPreview>(`/bank-accounts/${params.id}/statement-imports/preview`, {
         method: "POST",
-        body: buildStatementImportPayload(filename, rowsText),
+        body: buildStatementImportPayload(filename, rowsText, xlsxBase64),
       });
       setPreview(result);
       setSuccess("Statement import preview is ready.");
@@ -161,16 +182,16 @@ export default function BankStatementImportsPage() {
     let payload;
     try {
       const parsed = prepareClientPreview();
-      if (parsed.rowCount === 0) {
+      if (!xlsxBase64 && parsed?.rowCount === 0) {
         setError("Paste or upload at least one statement row.");
         return;
       }
-      payload = buildStatementImportPayload(filename, rowsText);
+      payload = buildStatementImportPayload(filename, rowsText, xlsxBase64);
     } catch (parseError) {
       setError(parseError instanceof Error ? parseError.message : "Unable to parse statement rows.");
       return;
     }
-    if (!payload.csvText.trim()) {
+    if (!payload.xlsxBase64 && !payload.csvText.trim()) {
       setError("Paste at least one statement row.");
       return;
     }
@@ -240,18 +261,19 @@ export default function BankStatementImportsPage() {
             <label className="block rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <span className="text-sm font-semibold text-ink">Upload a manual statement file</span>
               <span className="mt-1 block text-sm leading-6 text-steel">
-                Use CSV, JSON, OFX, CAMT XML, MT940, or text exports up to {Math.round(STATEMENT_IMPORT_MAX_FILE_BYTES / 1024 / 1024)} MB. The file is read in your browser for preview; LedgerByte stores the import batch and parsed statement rows, not the raw file body.
+                Use CSV, XLSX, JSON, OFX, CAMT XML, MT940, or text exports up to {Math.round(STATEMENT_IMPORT_MAX_FILE_BYTES / 1024 / 1024)} MB. Text files are read in your browser for local preview; XLSX workbooks are validated by the server preview. LedgerByte stores the import batch and parsed statement rows, not the raw file body.
               </span>
-              <input type="file" accept=".csv,.json,.txt,.ofx,.xml,.camt,.mt940,.940,.sta,text/csv,application/json,text/plain,application/xml,text/xml" onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+              <input type="file" accept={STATEMENT_IMPORT_FILE_ACCEPT} onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
             </label>
             <div className="rounded-md border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-ink">Accepted row shapes</p>
+              <StatementImportTemplateActions />
+              <p className="mt-4 text-sm font-semibold text-ink">Accepted row shapes</p>
               <ul className="mt-2 space-y-1 text-sm leading-6 text-steel">
                 <li>date, description, debit, credit, balance</li>
                 <li>date, description, amount, balance</li>
                 <li>transactionDate, memo, amount</li>
                 <li>postedDate, details, debitAmount, creditAmount</li>
-                <li>OFX, CAMT XML, or MT940 bank export rows</li>
+                <li>XLSX first worksheet or OFX, CAMT XML, MT940 export rows</li>
               </ul>
             </div>
           </div>
@@ -272,7 +294,7 @@ export default function BankStatementImportsPage() {
           <label className="mt-4 block">
             <span className="text-sm font-medium text-slate-700">CSV text or JSON rows</span>
             <span className="mt-1 block text-xs leading-5 text-steel">
-              Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns, OFX, CAMT XML, and MT940 parser previews are also supported.
+              Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns, OFX, CAMT XML, and MT940 parser previews are also supported. XLSX files use server preview from the uploaded workbook.
             </span>
             <textarea value={rowsText} onChange={(event) => handleRowsTextChange(event.target.value)} rows={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-palm" />
           </label>
@@ -305,6 +327,7 @@ export default function BankStatementImportsPage() {
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
                 {statementImportPreviewSummary(preview)}
+                {preview.sourceFormat ? ` Source ${preview.sourceFormat}${preview.sourceSheetName ? `, sheet ${preview.sourceSheetName}` : ""}.` : ""}
               </div>
               {preview.warnings.length > 0 ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -401,7 +424,7 @@ export default function BankStatementImportsPage() {
           <div className="p-4">
             <StatusMessage type="empty">No statement imports found.</StatusMessage>
             <p className="mt-2 text-sm leading-6 text-steel">
-              Paste or upload dummy CSV, JSON, OFX, CAMT XML, or MT940 rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
+              Paste or upload dummy CSV, XLSX, JSON, OFX, CAMT XML, or MT940 rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
             </p>
           </div>
         ) : null}
@@ -415,10 +438,13 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
     <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
       <h2 className="text-base font-semibold text-ink">Manual statement import</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-        Paste bank-provided CSV, JSON, OFX, CAMT XML, and MT940 rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
+        Paste bank-provided CSV, XLSX, JSON, OFX, CAMT XML, and MT940 rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
       </p>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-        OFX/CAMT/MT940 have limited parser support for bank-specific variants. Unsupported files fail safely. Raw bank file bodies are not archived in beta; LedgerByte keeps parsed rows and import metadata only.
+        The template columns are {STATEMENT_IMPORT_TEMPLATE_COLUMNS.join(", ")}. Use either debit/credit columns or a signed amount, enter ISO dates such as 2026-01-31, and use ISO currency codes such as SAR, AED, or USD. No bank credentials are needed because this is manual statement import, not a live feed.
+      </p>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+        OFX/CAMT/MT940 and bank-specific XLSX layouts have limited parser support for variants. Unsupported files fail safely. Raw bank file bodies are not archived in beta; LedgerByte keeps parsed rows and import metadata only.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -428,6 +454,20 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
           Reconciliation summary
         </Link>
       </div>
+    </div>
+  );
+}
+
+export function StatementImportTemplateActions({ onDownload = downloadStatementTemplateCsv }: { onDownload?: () => void }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-ink">Statement template</p>
+      <p className="mt-1 text-sm leading-6 text-steel">
+        Download the canonical CSV template, then upload it as CSV or copy the same columns into the first worksheet of an XLSX workbook. Manual import only; no live bank feed or credentials.
+      </p>
+      <button type="button" onClick={onDownload} className="mt-3 rounded-md border border-palm px-3 py-2 text-sm font-semibold text-palm hover:bg-emerald-50">
+        Download template
+      </button>
     </div>
   );
 }
@@ -551,6 +591,25 @@ function PreviewStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function buildStatementImportPayload(filename: string, rowsText: string): { filename: string; csvText: string } {
-  return { filename, csvText: rowsText };
+function buildStatementImportPayload(filename: string, rowsText: string, xlsxBase64 = ""): { filename: string; csvText: string; xlsxBase64?: string } {
+  return xlsxBase64 ? { filename, csvText: "", xlsxBase64 } : { filename, csvText: rowsText };
+}
+
+function downloadStatementTemplateCsv() {
+  const blob = new Blob([buildStatementImportTemplateCsv()], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = STATEMENT_IMPORT_TEMPLATE_FILENAME;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
 }

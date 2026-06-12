@@ -4,7 +4,7 @@ Date: 2026-05-22
 
 Status: planning and sample-intake tracker. This matrix is not a parser certification, bank certification, or live bank integration claim.
 
-LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, OFX, CAMT XML, and MT940, but bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
+LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
 
 Support levels:
 
@@ -27,6 +27,7 @@ These rows describe LedgerByte-owned sanitized fixtures only. They do not repres
 | LedgerByte sanitized fixture | Generic | CAMT.054-like XML | `.xml` | Sanitized fixture available | Parses notification-style `Ntry` rows | `apps/api/src/bank-statements/fixtures/sample-camt054.xml` | `DtTm` and date fallback covered | `Amt` with currency covered | `CRDT`/`DBIT` covered | `EndToEndId`/`TxId` fallback covered | `Ustrd`/`AddtlTxInf` covered | Limited | Medium; depends on reference fields | Entries missing `CdtDbtInd` are warned, not inferred. | parser validated on sanitized sample | Manual upload/paste only. |
 | LedgerByte sanitized fixture | Generic | MT940 basic | `.mt940` | Sanitized fixture available | Parses `:61:` and `:86:` rows | `apps/api/src/bank-statements/fixtures/sample.mt940` | `YYMMDD` covered | Comma decimal covered | `C`/`D` covered | `//` reference covered | `:86:` covered | Opening/closing lines detected only indirectly | Medium; depends on reference text | Bank-specific structured `:86:` subfields need samples. | parser validated on sanitized sample | Manual upload/paste only. |
 | LedgerByte sanitized fixture | Generic | MT940 multiline narrative | `.mt940` | Sanitized fixture available | Parses multiline `:86:` narrative rows | `apps/api/src/bank-statements/fixtures/sample-mt940-multiline.mt940` | `YYMMDD` covered | Comma decimal covered | `C`/`D` covered | `//` reference covered | Multiline `:86:` covered | Opening/closing lines detected only indirectly | Medium; depends on reference text | Not certified for bank-specific narrative tags. | parser validated on sanitized sample | Manual upload/paste only. |
+| LedgerByte canonical template | Generic | XLSX first worksheet | `.xlsx` | Generated test workbook only | Parses canonical template headers from first worksheet | `apps/api/src/bank-statements/bank-statement-import-parser.spec.ts` | ISO strings and Excel date cells covered | Numeric amount/balance cells covered | Debit/credit columns and signed amount covered | `reference`/`bankReference` covered | `description`/`counterparty` covered | Covered when column exists | Medium; depends on references and descriptions | Extra worksheets are ignored with warning; bank-specific XLSX layouts are not certified. | parser validated on generated workbook | Manual upload only; no live feed. |
 
 ## Target Bank Intake Tracker
 

@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { ClientParserPreview, ImportResultPanel, StatementImportGuidance } from "./page";
+import { ClientParserPreview, ImportResultPanel, STATEMENT_IMPORT_FILE_ACCEPT, StatementImportGuidance, StatementImportTemplateActions } from "./page";
 import type { BankStatementImport } from "@/lib/types";
 
 jest.mock("next/link", () => ({
@@ -22,15 +22,34 @@ describe("statement import guidance", () => {
     render(<StatementImportGuidance profileId="bank-1" />);
 
     expect(screen.getByText("Manual statement import")).toBeInTheDocument();
-    expect(screen.getByText(/CSV, JSON, OFX, CAMT XML, and MT940/)).toBeInTheDocument();
+    expect(screen.getByText(/CSV, XLSX, JSON, OFX, CAMT XML, and MT940/)).toBeInTheDocument();
+    expect(screen.getByText(/date, description, reference, bankReference, debit, credit, amount, balance, counterparty, currency/)).toBeInTheDocument();
+    expect(screen.getByText(/Use either debit\/credit columns or a signed amount/)).toBeInTheDocument();
+    expect(screen.getByText(/ISO currency codes such as SAR, AED, or USD/)).toBeInTheDocument();
     expect(screen.getByText(/do not connect to a live bank feed/)).toBeInTheDocument();
-    expect(screen.getByText(/limited parser support for bank-specific variants/)).toBeInTheDocument();
+    expect(screen.getByText(/limited parser support for variants/)).toBeInTheDocument();
+    expect(screen.getByText(/not a live feed/)).toBeInTheDocument();
     expect(screen.getByText(/Raw bank file bodies are not archived in beta/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review unmatched rows" })).toHaveAttribute(
       "href",
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
     );
     expect(screen.getByRole("link", { name: "Reconciliation summary" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
+  });
+
+  it("shows template download action and accepts XLSX uploads", () => {
+    const onDownload = jest.fn();
+
+    render(<StatementImportTemplateActions onDownload={onDownload} />);
+
+    expect(screen.getByText("Statement template")).toBeInTheDocument();
+    expect(screen.getByText(/canonical CSV template/)).toBeInTheDocument();
+    expect(screen.getByText(/first worksheet of an XLSX workbook/)).toBeInTheDocument();
+    expect(screen.getByText(/Manual import only; no live bank feed or credentials/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download template" }));
+    expect(onDownload).toHaveBeenCalledTimes(1);
+    expect(STATEMENT_IMPORT_FILE_ACCEPT).toContain(".xlsx");
+    expect(STATEMENT_IMPORT_FILE_ACCEPT).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   });
 
   it("renders parser preview counts, warnings, and mobile-safe table", () => {

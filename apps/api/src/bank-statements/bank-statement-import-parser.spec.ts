@@ -1,14 +1,26 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import ExcelJS from "exceljs";
 import {
   detectBankStatementImportFormat,
   parseBankStatementCsvText,
   parseBankStatementImportInput,
+  parseBankStatementXlsxBase64,
 } from "./bank-statement-import-parser";
 
 describe("bank statement import parser", () => {
   function readFixture(filename: string) {
     return readFileSync(join(__dirname, "fixtures", filename), "utf8");
+  }
+
+  async function workbookBase64(sheets: Record<string, unknown[][]>) {
+    const workbook = new ExcelJS.Workbook();
+    for (const [name, rows] of Object.entries(sheets)) {
+      const worksheet = workbook.addWorksheet(name);
+      rows.forEach((row) => worksheet.addRow(row));
+    }
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer).toString("base64");
   }
 
   it("parses common CSV headers case-insensitively", () => {
@@ -55,6 +67,91 @@ describe("bank statement import parser", () => {
     });
   });
 
+  it("parses canonical CSV template headers", () => {
+    const result = parseBankStatementCsvText(
+      "date,description,reference,bankReference,debit,credit,amount,balance,counterparty,currency\n2026-01-31,Receipt,RCPT-1,BANK-1,,2500.00,,12500.00,Sample Customer,SAR",
+    );
+
+    expect(result.detectedColumns).toEqual(["date", "description", "reference", "bankReference", "debit", "credit", "amount", "balance", "counterparty", "currency"]);
+    expect(result.rows[0]).toMatchObject({
+      date: "2026-01-31",
+      description: "Receipt",
+      reference: "RCPT-1",
+      bankReference: "BANK-1",
+      credit: "2500.00",
+      balance: "12500.00",
+      counterparty: "Sample Customer",
+      currency: "SAR",
+    });
+  });
+
+  it("parses XLSX canonical headers, debit and credit columns, numeric cells, and date cells", async () => {
+    const result = await parseBankStatementXlsxBase64(
+      await workbookBase64({
+        Statement: [
+          ["date", "description", "reference", "bankReference", "debit", "credit", "balance", "currency"],
+          [new Date(Date.UTC(2026, 0, 31)), "Customer receipt", "RCPT-1", "BANK-1", "", 2500, 12500.75, "SAR"],
+          ["", "", "", "", "", "", "", ""],
+          [new Date(Date.UTC(2026, 1, 1)), "Bank fee", "FEE-1", "BANK-2", 15.5, "", 12485.25, "SAR"],
+        ],
+      }),
+    );
+
+    expect(result.format).toBe("XLSX");
+    expect(result.sourceSheetName).toBe("Statement");
+    expect(result.detectedColumns).toEqual(["date", "description", "reference", "bankReference", "debit", "credit", "balance", "currency"]);
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        sourceRowNumber: 2,
+        date: "2026-01-31",
+        description: "Customer receipt",
+        reference: "RCPT-1",
+        bankReference: "BANK-1",
+        credit: "2500",
+        balance: "12500.75",
+      }),
+      expect.objectContaining({
+        sourceRowNumber: 4,
+        date: "2026-02-01",
+        description: "Bank fee",
+        debit: "15.5",
+        balance: "12485.25",
+      }),
+    ]);
+  });
+
+  it("parses XLSX signed amount columns and warns when extra sheets are ignored", async () => {
+    const result = await parseBankStatementImportInput({
+      xlsxBase64: await workbookBase64({
+        First: [
+          ["postedDate", "details", "amount", "balance", "counterparty", "currency"],
+          ["2026-02-02", "Signed receipt", "100.00", "12600.75", "Customer", "SAR"],
+          ["2026-02-03", "Signed fee", "-12.25", "12588.50", "Bank", "SAR"],
+        ],
+        Ignored: [["date", "description", "amount"], ["2026-02-04", "Ignored", "999.00"]],
+      }),
+    });
+
+    expect(result.format).toBe("XLSX");
+    expect(result.sourceSheetName).toBe("First");
+    expect(result.rows).toEqual([
+      expect.objectContaining({ date: "2026-02-02", description: "Signed receipt", amount: "100.00", balance: "12600.75" }),
+      expect.objectContaining({ date: "2026-02-03", description: "Signed fee", amount: "-12.25", balance: "12588.50" }),
+    ]);
+    expect(result.warnings).toContain('XLSX workbook contains 2 worksheets; only the first worksheet "First" was parsed.');
+    expect(JSON.stringify(result.rows)).not.toContain("Ignored");
+  });
+
+  it("rejects malformed or empty XLSX workbooks safely", async () => {
+    await expect(parseBankStatementXlsxBase64("not-a-workbook")).resolves.toMatchObject({
+      warnings: expect.arrayContaining(["XLSX workbook could not be parsed."]),
+    });
+
+    const empty = await parseBankStatementXlsxBase64(await workbookBase64({ Empty: [] }));
+    expect(empty.rows).toEqual([]);
+    expect(empty.warnings).toContain('XLSX worksheet "Empty" did not contain any rows.');
+  });
+
   it("parses debit and credit column variants, decimal commas, and date-times", () => {
     const result = parseBankStatementCsvText(
       "Value Date,Narration,Transaction Reference,Debit Amount,Credit Amount,Running Balance\n2026-05-15T09:30:00Z,Service fee,FEE-44,\"1.234,56\",0,\"9.876,54\"\n15/05/2026,Receipt,RCPT-44,0,\"2.500,00\",\"12.376,54\"",
@@ -80,8 +177,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("parses JSON statement text without requiring live bank input", () => {
-    const result = parseBankStatementImportInput({
+  it("parses JSON statement text without requiring live bank input", async () => {
+    const result = await parseBankStatementImportInput({
       csvText: '{"rows":[{"transactionDate":"2026-05-13","memo":"Receipt","amount":"100.00","counterparty":"Customer"}]}',
     });
 
@@ -103,8 +200,8 @@ describe("bank statement import parser", () => {
     expect(detectBankStatementImportFormat("not a statement export")).toBe("UNKNOWN");
   });
 
-  it("parses sanitized OFX fixtures into normalized manual statement rows", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample.ofx") });
+  it("parses sanitized OFX fixtures into normalized manual statement rows", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample.ofx") });
 
     expect(result.format).toBe("OFX");
     expect(result.detectedColumns).toEqual(expect.arrayContaining(["DTPOSTED", "TRNAMT", "FITID", "MEMO", "CURDEF"]));
@@ -128,8 +225,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("parses OFX XML-style fixtures and warns when FITID is missing", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample-ofx-xml-missing-fitid.ofx") });
+  it("parses OFX XML-style fixtures and warns when FITID is missing", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample-ofx-xml-missing-fitid.ofx") });
 
     expect(result.format).toBe("OFX");
     expect(result.warnings).toContain("1 OFX transaction is missing FITID; duplicate checks will fall back to date, amount, and description.");
@@ -153,8 +250,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("parses sanitized CAMT fixtures into normalized manual statement rows", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample-camt053.xml") });
+  it("parses sanitized CAMT fixtures into normalized manual statement rows", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample-camt053.xml") });
 
     expect(result.format).toBe("CAMT");
     expect(result.detectedColumns).toEqual(expect.arrayContaining(["BookgDt", "Amt", "CdtDbtInd", "AcctSvcrRef", "Ustrd"]));
@@ -179,8 +276,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("parses sanitized CAMT054 fixtures with date-time and reference fallback", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample-camt054.xml") });
+  it("parses sanitized CAMT054 fixtures with date-time and reference fallback", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample-camt054.xml") });
 
     expect(result.format).toBe("CAMT");
     expect(result.rows).toEqual([
@@ -203,8 +300,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("warns safely when CAMT entries have no credit/debit indicator", () => {
-    const result = parseBankStatementImportInput({
+  it("warns safely when CAMT entries have no credit/debit indicator", async () => {
+    const result = await parseBankStatementImportInput({
       csvText: `<Document><BkToCstmrStmt><Stmt><Ntry><Amt Ccy="SAR">10.00</Amt><BookgDt><Dt>2026-05-17</Dt></BookgDt><AcctSvcrRef>FAKE-CAMT-MISSING-DIR</AcctSvcrRef></Ntry></Stmt></BkToCstmrStmt></Document>`,
     });
 
@@ -214,8 +311,8 @@ describe("bank statement import parser", () => {
     expect(result.warnings.join(" ")).not.toContain("<Document>");
   });
 
-  it("returns explicit empty-file warnings without treating the body as JSON rows", () => {
-    const result = parseBankStatementImportInput({ csvText: " \n\t " });
+  it("returns explicit empty-file warnings without treating the body as JSON rows", async () => {
+    const result = await parseBankStatementImportInput({ csvText: " \n\t " });
 
     expect(result).toEqual({
       format: "UNKNOWN",
@@ -225,8 +322,8 @@ describe("bank statement import parser", () => {
     });
   });
 
-  it("parses sanitized MT940 fixtures into normalized manual statement rows", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample.mt940") });
+  it("parses sanitized MT940 fixtures into normalized manual statement rows", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample.mt940") });
 
     expect(result.format).toBe("MT940");
     expect(result.detectedColumns).toEqual(expect.arrayContaining([":61:", ":86:", ":60F:", ":62F:"]));
@@ -250,8 +347,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("parses MT940 comma decimals, F transaction codes, and multiline :86: narratives", () => {
-    const result = parseBankStatementImportInput({ csvText: readFixture("sample-mt940-multiline.mt940") });
+  it("parses MT940 comma decimals, F transaction codes, and multiline :86: narratives", async () => {
+    const result = await parseBankStatementImportInput({ csvText: readFixture("sample-mt940-multiline.mt940") });
 
     expect(result.format).toBe("MT940");
     expect(result.rows).toEqual([
@@ -273,8 +370,8 @@ describe("bank statement import parser", () => {
     ]);
   });
 
-  it("returns a safe unsupported-format warning without echoing raw file content", () => {
-    const result = parseBankStatementImportInput({ csvText: "private-looking raw body that should not be echoed" });
+  it("returns a safe unsupported-format warning without echoing raw file content", async () => {
+    const result = await parseBankStatementImportInput({ csvText: "private-looking raw body that should not be echoed" });
 
     expect(result.format).toBe("UNKNOWN");
     expect(result.rows).toEqual([]);
@@ -282,8 +379,8 @@ describe("bank statement import parser", () => {
     expect(result.warnings.join(" ")).not.toContain("private-looking raw body");
   });
 
-  it("returns safe JSON errors without echoing malformed raw statement content", () => {
-    const result = parseBankStatementImportInput({ csvText: '{"rows":[{"description":"private raw memo"' });
+  it("returns safe JSON errors without echoing malformed raw statement content", async () => {
+    const result = await parseBankStatementImportInput({ csvText: '{"rows":[{"description":"private raw memo"' });
 
     expect(result.format).toBe("JSON");
     expect(result.rows).toEqual([]);

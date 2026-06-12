@@ -24,6 +24,18 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-12 Wafeq banking XLSX statement import and template UX:
+
+- PR `#32` `Backup and restore proof harness` was reverified green/safe and merged into `main` at `0bb4e721` before this branch was created.
+- Added Wafeq-style manual banking foundation scope: downloadable CSV statement template plus XLSX statement preview/import support.
+- XLSX parsing is API-side only, uses the first worksheet, warns when extra worksheets are ignored, ignores empty rows, normalizes Excel dates/numeric cells, and fails malformed workbooks safely.
+- Existing CSV/JSON/text/OFX/CAMT XML/MT940 behavior remains supported.
+- The import page now makes manual-only/no-live-feed/no-bank-credential wording explicit and documents canonical columns.
+- Added `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`.
+- Dependency change: `@ledgerbyte/api` now depends on `read-excel-file@9.2.0`; no browser XLSX parser dependency was added. An initial `xlsx` package attempt was rejected after audit reported unpatched high-severity advisories. ExcelJS is dev-only for generated workbook tests.
+- No live bank feed, WIO/Lean/Tarabut integration, bank API call, bank credentials, payment initiation, bank rules, bank deposits, cheques, card settlements, schema migration, accounting posting change, reconciliation state change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking foundation: inline statement transaction review workspace`.
+
 2026-06-12 Backup and restore proof harness:
 
 - PR `#31` `Object storage proof validation` was reverified green/safe and merged into `main` at `a5b506d9` before this branch was created.

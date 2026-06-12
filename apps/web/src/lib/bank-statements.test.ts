@@ -4,6 +4,7 @@ import {
   bankStatementImportStatusLabel,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
+  buildStatementImportTemplateCsv,
   candidateScoreLabel,
   closeBlockedMessage,
   closedThroughDateLabel,
@@ -15,6 +16,7 @@ import {
   reconciliationActionBlockedMessage,
   reviewEventLabel,
   statementImportPreviewSummary,
+  STATEMENT_IMPORT_TEMPLATE_COLUMNS,
   submitBlockedMessage,
   validateStatementImportFile,
 } from "./bank-statements";
@@ -145,11 +147,29 @@ describe("bank statement helpers", () => {
 
   it("validates statement upload file size and type", () => {
     expect(validateStatementImportFile({ name: "statement.csv", size: 100, type: "text/csv" })).toBeNull();
+    expect(
+      validateStatementImportFile({
+        name: "statement.xlsx",
+        size: 100,
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    ).toBeNull();
     expect(validateStatementImportFile({ name: "statement.ofx", size: 100, type: "application/octet-stream" })).toBeNull();
     expect(validateStatementImportFile({ name: "statement.xml", size: 100, type: "application/xml" })).toBeNull();
     expect(validateStatementImportFile({ name: "statement.mt940", size: 100, type: "text/plain" })).toBeNull();
-    expect(validateStatementImportFile({ name: "statement.pdf", size: 100, type: "application/pdf" })).toMatch(/CSV, JSON, OFX, CAMT XML, or MT940/);
+    expect(validateStatementImportFile({ name: "statement.pdf", size: 100, type: "application/pdf" })).toMatch(/CSV, XLSX, JSON, OFX, CAMT XML, or MT940/);
     expect(validateStatementImportFile({ name: "statement.csv", size: 1024 * 1024 + 1, type: "text/csv" })).toMatch(/too large/);
+  });
+
+  it("builds a deterministic canonical CSV template", () => {
+    const template = buildStatementImportTemplateCsv();
+    const lines = template.split(/\r?\n/);
+
+    expect(lines[0]).toBe(STATEMENT_IMPORT_TEMPLATE_COLUMNS.join(","));
+    expect(lines).toHaveLength(3);
+    expect(template).toContain("Customer receipt");
+    expect(template).toContain("Bank fee");
+    expect(template).toContain("SAR");
   });
 
   it("computes reconciliation status from difference and unmatched count", () => {

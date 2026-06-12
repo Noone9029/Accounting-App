@@ -1,3 +1,5 @@
+import readXlsxFile from "read-excel-file/universal";
+
 export interface StatementImportSourceRow {
   date?: string;
   description?: string;
@@ -13,13 +15,14 @@ export interface StatementImportSourceRow {
   sourceRowNumber: number;
 }
 
-export type StatementImportFormat = "CSV" | "JSON" | "OFX" | "CAMT" | "MT940" | "UNKNOWN";
+export type StatementImportFormat = "CSV" | "JSON" | "OFX" | "CAMT" | "MT940" | "XLSX" | "UNKNOWN";
 
 export interface StatementImportParseResult {
   format: StatementImportFormat;
   rows: StatementImportSourceRow[];
   detectedColumns: string[];
   warnings: string[];
+  sourceSheetName?: string;
 }
 
 type StatementColumn = "date" | "description" | "reference" | "bankReference" | "debit" | "credit" | "amount" | "balance" | "counterparty" | "currency";
@@ -37,8 +40,12 @@ const HEADER_ALIASES: Record<StatementColumn, string[]> = {
   currency: ["currency", "ccy"],
 };
 
-export function parseBankStatementImportInput(input: {
+const MAX_XLSX_DATA_ROWS = 5000;
+type ParsedXlsxSheet = { sheet: string; data: unknown[][] };
+
+export async function parseBankStatementImportInput(input: {
   csvText?: string | null;
+  xlsxBase64?: string | null;
   rows?: Array<{
     date?: string;
     description?: string;
@@ -51,7 +58,10 @@ export function parseBankStatementImportInput(input: {
     counterparty?: string;
     currency?: string;
   }> | null;
-}): StatementImportParseResult {
+}): Promise<StatementImportParseResult> {
+  if (input.xlsxBase64 !== undefined && input.xlsxBase64 !== null) {
+    return parseBankStatementXlsxBase64(input.xlsxBase64);
+  }
   const csvText = input.csvText?.trim();
   if (input.csvText !== undefined && input.csvText !== null && !csvText) {
     return {
@@ -99,6 +109,81 @@ export function parseBankStatementImportInput(input: {
     rows: rows.map((row, index) => sourceRowFromRecord(row as Record<string, unknown>, index + 1)),
     detectedColumns,
     warnings: rows.length === 0 ? ["No statement rows were provided."] : [],
+  };
+}
+
+export async function parseBankStatementXlsxBase64(xlsxBase64: string): Promise<StatementImportParseResult> {
+  const encoded = xlsxBase64.includes(",") ? xlsxBase64.split(",").pop() ?? "" : xlsxBase64;
+  if (!encoded.trim()) {
+    return { format: "XLSX", rows: [], detectedColumns: [], warnings: ["XLSX workbook payload was empty."] };
+  }
+
+  let sheets: ParsedXlsxSheet[];
+  try {
+    const buffer = Buffer.from(encoded, "base64");
+    if (!isLikelyXlsxBuffer(buffer)) {
+      return { format: "XLSX", rows: [], detectedColumns: [], warnings: ["XLSX workbook could not be parsed."] };
+    }
+    sheets = await (readXlsxFile as (input: unknown) => Promise<ParsedXlsxSheet[]>)(bufferToArrayBuffer(buffer));
+  } catch {
+    return { format: "XLSX", rows: [], detectedColumns: [], warnings: ["XLSX workbook could not be parsed."] };
+  }
+
+  const firstSheet = sheets[0];
+  if (!firstSheet) {
+    return { format: "XLSX", rows: [], detectedColumns: [], warnings: ["XLSX workbook did not contain any worksheets."] };
+  }
+
+  const firstSheetName = firstSheet.sheet;
+
+  const warnings =
+    sheets.length > 1
+      ? [`XLSX workbook contains ${sheets.length} worksheets; only the first worksheet "${firstSheetName}" was parsed.`]
+      : [];
+  const records = firstSheet.data.map((record, index) => ({ record, sourceRowNumber: index + 1 }));
+  const nonEmptyRecords = records
+    .filter(({ record }) => record.some((value) => cellToText(value).trim() !== ""));
+
+  if (nonEmptyRecords.length === 0) {
+    return {
+      format: "XLSX",
+      rows: [],
+      detectedColumns: [],
+      warnings: [...warnings, `XLSX worksheet "${firstSheetName}" did not contain any rows.`],
+      sourceSheetName: firstSheetName,
+    };
+  }
+
+  const headers = nonEmptyRecords[0]!.record.map((value) => cellToText(value).trim());
+  const mappedHeaders = mapHeaders(headers, "XLSX");
+  const dataRows = nonEmptyRecords.slice(1);
+  if (dataRows.length > MAX_XLSX_DATA_ROWS) {
+    return {
+      format: "XLSX",
+      rows: [],
+      detectedColumns: headers.filter(Boolean),
+      warnings: [
+        ...warnings,
+        ...mappedHeaders.warnings,
+        `XLSX workbook contains ${dataRows.length} data rows; split the file before import. The limit is ${MAX_XLSX_DATA_ROWS} rows.`,
+      ],
+      sourceSheetName: firstSheetName,
+    };
+  }
+
+  const rows = dataRows.map(({ record, sourceRowNumber }) => {
+    const rawData = Object.fromEntries(
+      headers.map((header, index) => [header || `Column ${index + 1}`, cellToText(record[index], mappedHeaders.byIndex.get(index))]),
+    );
+    return sourceRowFromRecord(rawData, sourceRowNumber);
+  });
+
+  return {
+    format: "XLSX",
+    rows,
+    detectedColumns: headers.filter(Boolean),
+    warnings: [...warnings, ...mappedHeaders.warnings],
+    sourceSheetName: firstSheetName,
   };
 }
 
@@ -333,7 +418,7 @@ export function parseBankStatementMt940Text(mt940Text: string): StatementImportP
   };
 }
 
-function mapHeaders(headers: string[]) {
+function mapHeaders(headers: string[], formatLabel = "CSV") {
   const byIndex = new Map<number, StatementColumn>();
   const seen = new Set<StatementColumn>();
   const warnings: string[] = [];
@@ -352,11 +437,11 @@ function mapHeaders(headers: string[]) {
 
   for (const required of ["date", "description"] as const) {
     if (!seen.has(required)) {
-      warnings.push(`CSV column ${required} was not detected.`);
+      warnings.push(`${formatLabel} column ${required} was not detected.`);
     }
   }
   if (!seen.has("debit") && !seen.has("credit") && !seen.has("amount")) {
-    warnings.push("CSV columns debit/credit or signed amount were not detected.");
+    warnings.push(`${formatLabel} columns debit/credit or signed amount were not detected.`);
   }
 
   return { byIndex, warnings };
@@ -416,6 +501,31 @@ function parseCsvRecords(text: string): string[][] {
   records.push(record);
   return records;
 }
+
+function cellToText(value: unknown, canonical?: StatementColumn): string {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? value.toString() : value.toString();
+  }
+  if (typeof value === "boolean") {
+    return value ? "TRUE" : "FALSE";
+  }
+  return String(value).trim();
+}
+
+function isLikelyXlsxBuffer(buffer: Buffer): boolean {
+  return buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4b;
+}
+
+function bufferToArrayBuffer(buffer: Buffer): ArrayBuffer {
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+}
+
 
 function sourceRowFromRecord(record: Record<string, unknown>, sourceRowNumber: number): StatementImportSourceRow {
   const row: StatementImportSourceRow = {

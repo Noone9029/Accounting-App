@@ -10,6 +10,7 @@ import {
   JournalEntryStatus,
   Prisma,
 } from "@prisma/client";
+import ExcelJS from "exceljs";
 import { BankStatementService } from "./bank-statement.service";
 
 describe("BankStatementService", () => {
@@ -45,6 +46,14 @@ describe("BankStatementService", () => {
     rawData: { normalized: { counterparty: "Customer LLC" } },
     bankAccountProfile: profile,
   };
+
+  async function workbookBase64(rows: unknown[][]) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Statement");
+    rows.forEach((row) => worksheet.addRow(row));
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer).toString("base64");
+  }
 
   function makeService(overrides: Record<string, unknown> = {}) {
     const prisma = {
@@ -220,6 +229,72 @@ describe("BankStatementService", () => {
       validRows: [expect.objectContaining({ description: "Receipt", reference: "PAY-1", type: BankStatementTransactionType.CREDIT })],
       invalidRows: [],
     });
+  });
+
+  it("previews XLSX statement imports with source metadata without writing to the database", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "bank.xlsx",
+        xlsxBase64: await workbookBase64([
+          ["date", "description", "reference", "debit", "credit", "balance", "currency"],
+          [new Date(Date.UTC(2026, 4, 13)), "Receipt", "PAY-1", "", 50, 1000, "SAR"],
+        ]),
+      }),
+    ).resolves.toMatchObject({
+      rowCount: 1,
+      sourceFormat: "XLSX",
+      sourceSheetName: "Statement",
+      totalCredits: "50.0000",
+      totalDebits: "0.0000",
+      validRows: [expect.objectContaining({ description: "Receipt", reference: "PAY-1", type: BankStatementTransactionType.CREDIT })],
+      invalidRows: [],
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+  });
+
+  it("imports XLSX statement rows through the existing import guard path", async () => {
+    const createdImport = { id: "import-1", rowCount: 1, status: BankStatementImportStatus.IMPORTED };
+    const tx = {
+      bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
+    };
+    const { service, prisma } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "bank.xlsx",
+        xlsxBase64: await workbookBase64([
+          ["date", "description", "amount", "balance", "currency"],
+          ["2026-05-14", "Bank fee", "-15.50", "984.50", "SAR"],
+        ]),
+      }),
+    ).resolves.toMatchObject({
+      id: "import-1",
+      importSummary: expect.objectContaining({ sourceFormat: "XLSX", sourceSheetName: "Statement" }),
+    });
+
+    expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceType: "XLSX",
+          rowCount: 1,
+          transactions: {
+            create: [
+              expect.objectContaining({
+                description: "Bank fee",
+                type: BankStatementTransactionType.DEBIT,
+                amount: "15.5000",
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
   });
 
   it("previews signed amount imports without changing matching or posting behavior", async () => {
