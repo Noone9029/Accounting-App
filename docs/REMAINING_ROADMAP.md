@@ -1,6 +1,6 @@
 # Remaining Roadmap
 
-Audit date: 2026-05-15
+Audit date: 2026-06-12
 
 For the updated Product Audit v2 planning artifacts, see:
 
@@ -18,13 +18,21 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-12 Production trust foundation audit and readiness gate
+
+- PR `#29` was merged into `main` at `4e00557f` before this lane started.
+- Added `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` plus the static gate at `corepack pnpm production:trust-foundation-gate -- --json --strict`.
+- The gate is non-mutating and repo-only. It proves documentation honesty, not implementation completeness.
+- Current remaining production-trust blockers are hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
+- Recommended next prompt: `Production trust implementation ticket 1: object storage proof plan and safe non-production validation`.
+
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 
 - Added parser QA and deterministic match-suggestion foundation on branch `codex/banking-parser-qa-match-suggestion-foundation`.
 - Parser QA now covers more common sanitized CSV/JSON/OFX/CAMT/MT940 edge cases and safe error behavior, but this does not certify any target bank.
 - Match suggestions remain non-mutating suggestions only. No automatic matching, posting, categorization, reconciliation, or journal creation was added.
 - Remaining banking roadmap items are live feeds, certified target-bank parser coverage, raw-file archive execution, transfer-fee handling, FX handling, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and accountant sign-off.
-- Recommended next prompt: `VAT return truthfulness and filing-export foundation`.
+- Recommended next prompt from that lane: `VAT return truthfulness and filing-export foundation`.
 
 ## 2026-06-11 ZATCA PDF-A3 Approval Gate
 

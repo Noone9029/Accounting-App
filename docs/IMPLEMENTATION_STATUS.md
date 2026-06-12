@@ -1,6 +1,6 @@
 # Implementation Status
 
-Audit date: 2026-05-15
+Audit date: 2026-06-12
 
 Product Audit v2:
 
@@ -32,6 +32,18 @@ Current production posture:
 - VAT Summary and VAT Return now use aligned output/input VAT labels and clearer account-basis versus source-document review guidance.
 - VAT Return empty states now explain that only finalized sales invoices and finalized purchase bills are included, with safe action links back into the existing invoice, bill, and VAT Summary flows.
 - Recommended next prompt: `Production trust foundation: storage backup monitoring and security gate`.
+
+2026-06-12 Production trust foundation audit and readiness gate:
+
+- PR `#29` was reverified green/safe and merged into `main` at `4e00557f` before this branch was created.
+- Added `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md`.
+- Added `scripts/production-trust-foundation-gate.cjs` and `scripts/production-trust-foundation-gate.test.cjs`.
+- Added package scripts `production:trust-foundation-gate` and `test:production-trust-foundation-gate`.
+- The gate reads committed docs only. It makes no network call, no database call, no provider call, no env-secret read, no storage operation, no email send, and no ZATCA execution.
+- Default status is `PRODUCTION_TRUST_FOUNDATION_PLANNING_ONLY`.
+- Strict pass status is `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS`, which means the repository is honest about missing production-trust work. It does not mean production-ready.
+- Current production trust blockers remain hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
+- Recommended next prompt: `Production trust implementation ticket 1: object storage proof plan and safe non-production validation`.
 
 2026-06-12 Banking 2.0 parser QA and match suggestion foundation:
 

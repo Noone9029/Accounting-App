@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `848c210d` (`Merge pull request #28 from codex/banking-parser-qa-match-suggestion-foundation`) plus the current VAT return truthfulness branch.
+Latest commit audited: `4e00557f` (`Merge pull request #29 from codex/vat-return-truthfulness-filing-export-foundation`) plus the current production trust foundation branch.
 
 Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
 
@@ -26,6 +26,14 @@ Scoring uses a 0-100 practical readiness scale for the current codebase. A high 
 - Added a dedicated internal review CSV export for VAT Return. It reuses existing report data and does not claim government-format filing, submission workflow, ZATCA exchange, or compliance approval.
 - VAT Summary and VAT Return now use aligned output/input VAT labels with clearer account-basis versus source-document review guidance.
 - Remaining blockers are official filing format implementation, accountant/tax advisor sign-off, authority submission workflow, ZATCA execution, PDF-A3, hosted/customer-data proof, and broader reports E2E/load coverage.
+
+## 2026-06-12 Production Trust Foundation Audit And Gate
+
+- No score increases are taken in this lane. This pass improves honesty and launch-gate discipline, not production capability.
+- Added `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` plus the static gate at `corepack pnpm production:trust-foundation-gate -- --json --strict`.
+- The default gate status is `PRODUCTION_TRUST_FOUNDATION_PLANNING_ONLY`; strict success is `PRODUCTION_TRUST_FOUNDATION_GATE_PASSED_WITH_BLOCKERS`.
+- `PASSED_WITH_BLOCKERS` means the repo is explicit about current blockers. It does not mean LedgerByte is production-ready, paid SaaS ready, official VAT filing ready, or ZATCA compliant.
+- Current trust blockers remain hosted backup/PITR proof, hosted restore drill proof, object-storage restore proof, monitoring/alerting, runtime DB role and RLS/Data API hardening, MFA/session hardening, immutable audit export strategy, and billing/legal/support ownership.
 
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 

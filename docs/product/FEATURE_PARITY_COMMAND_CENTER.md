@@ -8,9 +8,9 @@ Date: 2026-06-12
 
 1. Truthful core completed in `main` through PR `#27` dedicated customer and supplier statement routes.
 2. Banking 2.0 parser QA and match-suggestion foundation completed in `main` through PR `#28`.
-3. VAT return truthfulness and filing-export foundation on the current open branch.
-4. ZATCA signing, clearance, reporting, and custody execution lanes.
-5. Production trust, operations, and broader customer exposure only after accounting and compliance depth are credible.
+3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
+4. Production trust foundation audit and non-mutating readiness gate on the current open branch.
+5. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
 
@@ -20,22 +20,21 @@ Date: 2026-06-12
 
 ## Current Open Parity PR
 
-Branch: `codex/vat-return-truthfulness-filing-export-foundation`
+Branch: `codex/production-trust-foundation-storage-backup-monitoring-security`
 
-Base after update: `main` at `848c210d` (`Merge pull request #28 from codex/banking-parser-qa-match-suggestion-foundation`)
+Base after update: `main` at `4e00557f` (`Merge pull request #29 from codex/vat-return-truthfulness-filing-export-foundation`)
 
 Scope:
 
-- Truthful VAT Return wording that stays draft/internal-review only.
-- Safe internal CSV export foundation for VAT Return using existing finalized-document report data only.
-- VAT Summary/VAT Return terminology alignment, review guidance, and controlled-beta readiness/docs updates only.
+- Production trust audit across storage, backup, restore, monitoring, health/readiness, email, security, audit durability, billing/legal/support, and launch gates.
+- Non-mutating production trust readiness gate that validates repository honesty only.
+- Controlled-beta readiness/docs updates only. No provider mutation, backup/restore execution, storage execution, monitoring setup, or production claim.
 
 Still not parity:
 
-- No official VAT filing format.
-- No tax-authority submission workflow or filing approval workflow.
-- No ZATCA filing execution, signing, PDF-A3, or compliance approval.
-- No accountant/tax advisor sign-off, hosted/customer-data proof, or broad reports E2E/load proof.
+- No hosted backup/PITR proof, hosted restore drill proof, or object-storage restore proof.
+- No production monitoring/alerting, runtime DB role proof, MFA/session hardening, immutable audit store, or SaaS billing/legal/support ownership.
+- No production hosting implementation, paid SaaS launch gate, official VAT filing readiness, or ZATCA execution/compliance claim.
 
 ## Operating Notes
 
@@ -45,4 +44,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Production trust foundation: storage backup monitoring and security gate`
+`Production trust implementation ticket 1: object storage proof plan and safe non-production validation`
