@@ -9,6 +9,7 @@ describe("ReportsController exports", () => {
     coreReportCsvFile: jest.fn().mockResolvedValue({ filename: "report.csv", content: "Title\r\n" }),
     coreReportPdf: jest.fn().mockResolvedValue({ filename: "report.pdf", buffer: Buffer.from("%PDF-1.7\n") }),
     vatReturn: jest.fn().mockResolvedValue({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" }),
+    vatReturnCsvFile: jest.fn().mockResolvedValue({ filename: "vat-return-draft-review.csv", content: "Draft VAT Return Review Export\r\n" }),
     dashboardSummary: jest.fn().mockResolvedValue({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } }),
   };
   const controller = new ReportsController(service as never);
@@ -58,10 +59,20 @@ describe("ReportsController exports", () => {
   });
 
   it("routes VAT return requests to the document-source report engine", async () => {
-    const result = await controller.vatReturn("org-1", { from: "2026-01-01", to: "2026-01-31" });
+    const result = await controller.vatReturn("org-1", { from: "2026-01-01", to: "2026-01-31" }, request() as never, response() as never);
 
     expect(result).toMatchObject({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" });
     expect(service.vatReturn).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
+  });
+
+  it("exports VAT return review CSV without implying a filing submission endpoint", async () => {
+    const res = response();
+
+    const result = await controller.vatReturn("org-1", { from: "2026-01-01", to: "2026-01-31", format: "csv" }, request() as never, res as never);
+
+    expect(result).toBeInstanceOf(StreamableFile);
+    expect(service.vatReturnCsvFile).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31", format: "csv" });
+    expect(res.set).toHaveBeenCalledWith(expect.objectContaining({ "Content-Type": "text/csv; charset=utf-8" }));
   });
 
   it("routes financial dashboard summary requests to the reports summary engine", async () => {

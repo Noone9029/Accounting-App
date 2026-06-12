@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `16270562` (`Merge pull request #27 from codex/dedicated-customer-supplier-statement-routes`) plus the current Banking 2.0 parser QA and match suggestion branch.
+Latest commit audited: `848c210d` (`Merge pull request #28 from codex/banking-parser-qa-match-suggestion-foundation`) plus the current VAT return truthfulness branch.
+
+## 2026-06-12 VAT Return Truthfulness And Review Export Foundation
+
+Fixed VAT/report truthfulness gaps without changing VAT math, report math, posting logic, filing status, ZATCA runtime behavior, or production posture.
+
+Risk reduced:
+
+- VAT Return now states clearly that it is a draft/internal review surface for accountant or tax-advisor review only.
+- Added an internal review CSV export for VAT Return that reuses existing finalized-document report data and does not claim government-format filing, authority submission, or compliance approval.
+- VAT Summary and VAT Return now use aligned output/input VAT labels and clearer account-basis versus source-document review guidance.
+- VAT Return now shows honest empty-state guidance when no finalized sales invoices or purchase bills exist in the selected range.
+- Added focused regression coverage in:
+  - `apps/web/src/components/reports/report-pages.test.tsx`
+  - `apps/web/src/lib/reports.test.ts`
+  - `apps/api/src/reports/report-csv.spec.ts`
+  - `apps/api/src/reports/reports.controller.spec.ts`
+  - `apps/api/src/reports/reports.service.spec.ts`
+
+Remaining risks:
+
+- VAT Return remains an internal review artifact only; no official filing format, tax-authority submission workflow, filing approval workflow, ZATCA exchange, or compliance sign-off exists.
+- PDF export remains unsupported for VAT Return, and this pass intentionally did not add misleading PDF or submission actions.
 
 ## 2026-06-12 PR #28 verification blocker repair
 

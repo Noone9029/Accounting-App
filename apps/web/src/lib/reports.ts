@@ -2,6 +2,10 @@ import type { AgingBucket, BalanceSheetReport } from "./types";
 
 export const REPORT_BUCKETS: AgingBucket[] = ["CURRENT", "1_30", "31_60", "61_90", "90_PLUS"];
 export type ReportExportFormat = "csv" | "pdf";
+export const VAT_REPORT_LABELS = {
+  outputVat: "Output VAT (sales)",
+  inputVat: "Input VAT (purchases)",
+} as const;
 
 export function todayDateInput(): string {
   return new Date().toISOString().slice(0, 10);
@@ -28,6 +32,10 @@ export function buildReportExportPath(endpoint: string, params: Record<string, s
     return `${endpoint}/pdf${buildReportQuery(params)}`;
   }
   return `${endpoint}${buildReportQuery({ ...params, format: "csv" })}`;
+}
+
+export function buildVatReturnReviewExportPath(params: Record<string, string | undefined | null>): string {
+  return `/reports/vat-return${buildReportQuery({ ...params, format: "csv" })}`;
 }
 
 export function reportExportFilename(slug: string, format: ReportExportFormat, date = todayDateInput()): string {

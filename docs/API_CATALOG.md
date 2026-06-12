@@ -419,6 +419,7 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/reports/balance-sheet/pdf` | Balance Sheet PDF | Yes | Yes | Implemented | Archives generated PDF. |
 | GET | `/reports/vat-summary` | VAT Summary JSON or CSV | Yes | Yes | Implemented | VAT Summary is not an official filing export. |
 | GET | `/reports/vat-summary/pdf` | VAT Summary PDF | Yes | Yes | Implemented | Includes non-filing warning note and archives generated PDF. |
+| GET | `/reports/vat-return` | VAT Return JSON or internal review CSV | Yes | Yes | Implemented | `format=csv` returns a draft internal-review export only. No PDF endpoint, official filing format, or tax-authority submission workflow exists here. |
 | GET | `/reports/aged-receivables` | Aged Receivables JSON or CSV | Yes | Yes | Implemented | Supports `asOf`; CSV is basic. |
 | GET | `/reports/aged-receivables/pdf` | Aged Receivables PDF | Yes | Yes | Implemented | Archives generated PDF. |
 | GET | `/reports/aged-payables` | Aged Payables JSON or CSV | Yes | Yes | Implemented | Supports `asOf`; CSV is basic. |

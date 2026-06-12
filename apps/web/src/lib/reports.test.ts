@@ -4,7 +4,9 @@ import {
   balanceSheetStatusLabel,
   buildReportExportPath,
   buildReportQuery,
+  buildVatReturnReviewExportPath,
   REPORT_BUCKETS,
+  VAT_REPORT_LABELS,
   reportExportFilename,
 } from "./reports";
 
@@ -22,6 +24,7 @@ describe("report helpers", () => {
       "/reports/trial-balance/pdf?from=2026-01-01&to=2026-01-31",
     );
     expect(reportExportFilename("trial-balance", "csv", "2026-05-13")).toBe("trial-balance-2026-05-13.csv");
+    expect(buildVatReturnReviewExportPath({ from: "2026-01-01", to: "2026-01-31" })).toBe("/reports/vat-return?from=2026-01-01&to=2026-01-31&format=csv");
   });
 
   it("labels aging buckets", () => {
@@ -33,5 +36,10 @@ describe("report helpers", () => {
     expect(balanceSheetStatusClass({ balanced: true })).toContain("emerald");
     expect(balanceSheetStatusLabel({ balanced: false, difference: "1.0000" })).toBe("Out of balance by 1.0000");
     expect(balanceSheetStatusClass({ balanced: false })).toContain("rose");
+  });
+
+  it("keeps VAT labels aligned between summary and return surfaces", () => {
+    expect(VAT_REPORT_LABELS.outputVat).toBe("Output VAT (sales)");
+    expect(VAT_REPORT_LABELS.inputVat).toBe("Input VAT (purchases)");
   });
 });

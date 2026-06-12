@@ -19,8 +19,10 @@ import {
   balanceSheetStatusLabel,
   buildReportExportPath,
   buildReportQuery,
+  buildVatReturnReviewExportPath,
   monthStartDateInput,
   REPORT_BUCKETS,
+  VAT_REPORT_LABELS,
   reportExportFilename,
   todayDateInput,
 } from "@/lib/reports";
@@ -41,8 +43,8 @@ const reportLinks = [
   { group: "Financial statements", href: "/reports/trial-balance", label: "Trial Balance", description: "Confirm debits and credits stay balanced." },
   { group: "Financial statements", href: "/reports/profit-and-loss", label: "Profit & Loss", description: "Review revenue, costs, expenses, and net profit." },
   { group: "Financial statements", href: "/reports/balance-sheet", label: "Balance Sheet", description: "Check assets, liabilities, equity, and retained earnings." },
-  { group: "Tax reports", href: "/reports/vat-summary", label: "VAT Summary", description: "Operational VAT summary from posted VAT account movement. It is not an official filing workflow." },
-  { group: "Tax reports", href: "/reports/vat-return", label: "VAT Return", description: "Draft source-document VAT return view. It is not an official filing workflow." },
+  { group: "Tax reports", href: "/reports/vat-summary", label: "VAT Summary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },
+  { group: "Tax reports", href: "/reports/vat-return", label: "VAT Return", description: "Draft source-document VAT review with internal CSV export only. It is not an official filing workflow." },
   { group: "Aging", href: "/reports/aged-receivables", label: "Aged Receivables", description: "Outstanding sales invoice balances after posted payments and credits. Quotes, recurring templates, delivery notes, and collection cases are excluded." },
   { group: "Aging", href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
   { group: "Inventory", href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
@@ -61,7 +63,7 @@ export function ReportsIndexPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">Reports</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Start with Profit & Loss after your first finalized invoice or payment. Most reports are derived from posted journals and current open AR/AP balances, while VAT Return stays a draft accountant-review view only.
+            Start with Profit & Loss after your first finalized invoice or payment. Most reports are derived from posted journals and current open AR/AP balances, while VAT Return stays a draft accountant-review view with internal export only.
           </p>
         </div>
         <Link href="/setup" className="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -296,16 +298,22 @@ export function VatSummaryReportPage() {
   }, []);
 
   return (
-    <ReportSection title="VAT Summary" description="Operational VAT summary from posted VAT accounts. It is not an official filing workflow.">
+    <ReportSection title="VAT Summary" description="Account-basis VAT review from posted VAT accounts. It is not an official filing workflow.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <VatReportReviewContext
+        title="Account-basis review"
+        body="VAT Summary reflects posted movement in VAT Payable 220 and VAT Receivable 230. Compare it with VAT Return before treating either surface as filing-ready."
+        href="/reports/vat-return"
+        linkLabel="Open draft VAT Return"
+      />
       <ReportExportButtons endpoint="/reports/vat-summary" slug="vat-summary" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report} emptyText="No VAT summary data found." />
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
             items={[
-              ["Sales tax collected", report.salesVat],
-              ["Purchase tax paid", report.purchaseVat],
+              [VAT_REPORT_LABELS.outputVat, report.salesVat],
+              [VAT_REPORT_LABELS.inputVat, report.purchaseVat],
               ["Net payable", report.netVatPayable],
             ]}
           />
@@ -348,22 +356,46 @@ export function VatReturnReportPage() {
     void load(buildReportQuery({ from, to }));
   }, []);
 
+  const hasDocuments = report ? report.sales.documentCount > 0 || report.purchases.documentCount > 0 : false;
+
   return (
-    <ReportSection title="VAT Return" description="Draft VAT return view from LedgerByte operational records. It is not an official filing workflow.">
+    <ReportSection title="VAT Return" description="Draft VAT return review from finalized sales invoices and finalized purchase bills. Internal review only; no official filing workflow is implemented.">
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <VatReportReviewContext
+        title="Source-document review"
+        body="VAT Return is built from finalized sales invoices and finalized purchase bills in the selected period. Use it for internal accountant or tax-advisor review, then compare it with VAT Summary."
+        href="/reports/vat-summary"
+        linkLabel="Open VAT Summary"
+      />
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-        This view is for accountant review during controlled beta. It does not submit to a tax authority and is not an official VAT filing workflow.
+        This draft view is for accountant or tax-advisor review during controlled beta. It does not submit to a tax authority, does not create a filing record, is not a government-format export, and does not prove ZATCA or GCC filing compliance.
       </div>
-      <ReportState loading={loading} error={error} empty={!report} emptyText="No VAT return data found." />
-      {report ? (
+      <VatReturnReviewExportCard params={{ from, to }} />
+      <ReportState
+        loading={loading}
+        error={error}
+        empty={!report || !hasDocuments}
+        emptyText="No finalized VAT source documents found for this period."
+        emptyHelp="VAT Return uses finalized sales invoices and finalized purchase bills only. Draft and voided documents are excluded from this internal review surface."
+        emptyActions={<VatReturnReviewActions />}
+      />
+      {report && hasDocuments ? (
         <div className="space-y-5">
           <SummaryGrid
             items={[
-              ["Sales tax collected", report.outputVat],
-              ["Purchase tax paid", report.inputVat],
+              [VAT_REPORT_LABELS.outputVat, report.outputVat],
+              [VAT_REPORT_LABELS.inputVat, report.inputVat],
               [Number.parseFloat(report.netVatRefundable) > 0 ? "Net refundable" : "Net payable", Number.parseFloat(report.netVatRefundable) > 0 ? report.netVatRefundable : report.netVatPayable],
             ]}
           />
+          <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+            <p>
+              <span className="font-semibold text-ink">Basis:</span> {report.basis === "FINALIZED_SOURCE_DOCUMENTS" ? "Finalized sales invoices and finalized purchase bills in the selected date range." : report.basis}
+            </p>
+            <p className="mt-2">
+              <span className="font-semibold text-ink">Export status:</span> Internal draft review CSV only. Official filing format, submission workflow, authority exchange, and compliance approval are not implemented here.
+            </p>
+          </div>
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
@@ -523,6 +555,71 @@ function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slu
       </div>
       <p className="text-xs leading-5 text-steel">Exports use the current report filters and are generated from posted accounting data. No request or response body is shown on this page.</p>
       {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    </div>
+  );
+}
+
+function VatReturnReviewExportCard({ params }: { params: Record<string, string | null | undefined> }) {
+  const { canAny } = usePermissions();
+  const canExportReports = canAny(PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!canExportReports) {
+    return <StatusMessage type="info">Draft VAT review export requires report export or generated document download permission.</StatusMessage>;
+  }
+
+  async function download() {
+    setDownloading(true);
+    setError("");
+    try {
+      await downloadAuthenticatedFile(buildVatReturnReviewExportPath(params), reportExportFilename("vat-return-draft-review", "csv"));
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download draft VAT review export.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => void download()} disabled={downloading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+          {downloading ? "Downloading draft review CSV..." : "Download draft review CSV"}
+        </button>
+      </div>
+      <p className="text-xs leading-5 text-steel">
+        Internal review export only. This CSV reflects the current VAT Return filters, does not create a filing record, and is not an official tax authority submission format.
+      </p>
+      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    </div>
+  );
+}
+
+function VatReportReviewContext({ title, body, href, linkLabel }: { title: string; body: string; href: string; linkLabel: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+      <div className="font-semibold text-ink">{title}</div>
+      <p className="mt-2">{body}</p>
+      <Link href={href} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        {linkLabel}
+      </Link>
+    </div>
+  );
+}
+
+function VatReturnReviewActions() {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Link href="/sales/invoices/new?returnTo=%2Freports%2Fvat-return" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+        Create invoice
+      </Link>
+      <Link href="/purchases/bills/new?returnTo=%2Freports%2Fvat-return" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+        Create bill
+      </Link>
+      <Link href="/reports/vat-summary" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+        Open VAT Summary
+      </Link>
     </div>
   );
 }
