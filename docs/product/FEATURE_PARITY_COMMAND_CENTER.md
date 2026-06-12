@@ -2,7 +2,7 @@
 
 Status: controlled-beta feature-parity tracker. This document does not claim production parity with Xero, Wafeq, banks, ZATCA, or any certified integration.
 
-Date: 2026-06-12
+Date: 2026-06-13
 
 ## Current Route
 
@@ -11,7 +11,7 @@ Date: 2026-06-12
 3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
 4. Production trust foundation audit, object-storage proof validation, and backup/restore proof harness completed through PRs `#30`, `#31`, and `#32`.
 5. Production-trust proof work is paused after PR `#32`.
-6. Current route: Wafeq-style banking feature parity, starting with XLSX statement import and downloadable bank template UX.
+6. Current route: Wafeq-style banking feature parity, now on inline statement transaction review after XLSX statement import and downloadable template UX merged.
 7. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
@@ -20,24 +20,28 @@ Date: 2026-06-12
 - Statement return-path continuity now survives invoice, bill, payment, and aging drill-downs without changing statement math, report math, payment allocation, VAT math, or ZATCA runtime behavior.
 - PR `#28` merged into `main` at `848c210d` and added banking parser QA, deterministic non-mutating match suggestions, and scoped verification-gate repair.
 - PR `#32` merged into `main` at `0bb4e721` and closed the backup/restore proof harness before the Wafeq banking route started.
+- PR `#33` merged into `main` at `342120a9` and added Wafeq-style manual XLSX statement import plus downloadable template UX.
 
 ## Current Parity Branch
 
-Branch: `codex/wafeq-banking-xlsx-template-import`
+Branch: `codex/wafeq-banking-inline-statement-review`
 
-Base after update: `main` at `0bb4e721` (`Merge pull request #32 from codex/backup-restore-proof-harness`)
+Base after update: `main` at `342120a9` (`Merge pull request #33 from Noone9029/codex/wafeq-banking-xlsx-template-import`)
 
 Scope:
 
 - Wafeq-style manual banking foundation only.
-- Downloadable CSV statement template using LedgerByte canonical manual statement columns.
-- XLSX server preview/import support using the first worksheet.
+- Inline statement transaction review workspace on the bank account statement rows page.
+- Filters for all, unmatched, matched, categorized, ignored, needs review, debit, and credit.
+- Search by description, reference, bank reference, and counterparty.
+- Row-level candidate preview and match confirmation through the existing match endpoints.
+- Row-level and bulk categorize/ignore through the existing single-row APIs, with partial-failure reporting.
 - Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, bank rules, bank deposits, cheques, card settlements, or production claim.
 
 Still not parity:
 
 - No live bank feed, external aggregation, WIO/Lean/Tarabut integration, bank API call, or bank credential handling.
-- No certified bank-specific parser coverage, raw-file archive implementation, automatic matching, bank rules, deposits, cheques, card settlements, transfer fees, or FX flow.
+- No certified bank-specific parser coverage, raw-file archive implementation, automatic matching, duplicate/idempotency safety hardening, bank rules, deposits, cheques, card settlements, transfer fees, or FX flow.
 - No production hosting implementation, paid SaaS launch gate, official VAT filing readiness, or ZATCA execution/compliance claim.
 
 ## Operating Notes
@@ -48,4 +52,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Wafeq banking foundation: inline statement transaction review workspace`
+`Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`
