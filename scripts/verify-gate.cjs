@@ -45,7 +45,9 @@ const DOCS_STATIC_GUARD_ALLOWED_PATHS = [
 ];
 
 const DOCS_ALLOWED_PATHS = [/^(?:CODEX_HANDOFF|BUG_AUDIT|README)\.md$/i, /^docs\/.+\.md$/i];
+const API_SCOPED_ALLOWED_PATHS = [/^apps\/api\/.+/i];
 const WEB_SCOPED_ALLOWED_PATHS = [/^apps\/web\/.+/i];
+const PACKAGE_TEST_ONLY_ALLOWED_PATHS = [/^packages\/[A-Za-z0-9._-]+\/test\/.+/i];
 const CI_GATE_SCOPED_ALLOWED_PATHS = [
   /^\.github\/workflows\/pr-verification\.yml$/i,
   /^scripts\/verify-gate(?:\.test)?\.cjs$/i,
@@ -107,6 +109,10 @@ const GATES = {
 
       if (isWebDocsAndCiScopedChange(changedFiles)) {
         return buildWebDocsAndCiScopedCommands(changedFiles);
+      }
+
+      if (isApiDocsAndCiScopedChange(changedFiles)) {
+        return buildApiDocsAndCiScopedCommands(changedFiles);
       }
 
       return [
@@ -233,6 +239,18 @@ function isWebDocsAndCiScopedChange(changedFiles) {
   );
 }
 
+function isApiDocsAndCiScopedChange(changedFiles) {
+  return (
+    changedFiles.length > 0 &&
+    changedFiles.every((file) =>
+      DOCS_ALLOWED_PATHS.some((pattern) => pattern.test(file)) ||
+      API_SCOPED_ALLOWED_PATHS.some((pattern) => pattern.test(file)) ||
+      PACKAGE_TEST_ONLY_ALLOWED_PATHS.some((pattern) => pattern.test(file)) ||
+      CI_GATE_SCOPED_ALLOWED_PATHS.some((pattern) => pattern.test(file)),
+    )
+  );
+}
+
 function buildDocsStaticGuardCiCommands(changedFiles) {
   const commands = [command("git", ["diff", "--check"])];
   const changedSet = new Set(changedFiles.map((file) => file.replace(/\\/g, "/")));
@@ -272,6 +290,36 @@ function buildDocsStaticGuardCiCommands(changedFiles) {
   return commands;
 }
 
+function buildApiDocsAndCiScopedCommands(changedFiles) {
+  const commands = [command("git", ["diff", "--check"])];
+  const changedSet = new Set(changedFiles.map((file) => file.replace(/\\/g, "/")));
+  const hasApiChanges = [...changedSet].some((file) => API_SCOPED_ALLOWED_PATHS.some((pattern) => pattern.test(file)));
+  const hasCiGateChanges = [...changedSet].some((file) => CI_GATE_SCOPED_ALLOWED_PATHS.some((pattern) => pattern.test(file)));
+  const changedApiTestPaths = getChangedApiTestPaths(changedFiles);
+  const changedPackageTestWorkspaces = getChangedPackageTestWorkspaces(changedFiles);
+
+  if (hasCiGateChanges) {
+    commands.push(command("node", ["--test", "scripts/verify-gate.test.cjs"]));
+  }
+
+  for (const workspace of changedPackageTestWorkspaces) {
+    commands.push(command("corepack", ["pnpm", "--filter", workspace, "test"]));
+  }
+
+  if (hasApiChanges) {
+    commands.push(command("corepack", ["pnpm", "db:generate"]));
+    commands.push(command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "typecheck"]));
+    commands.push(
+      changedApiTestPaths.length > 0
+        ? buildScopedApiJestCommand(changedApiTestPaths)
+        : command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "test"]),
+    );
+    commands.push(command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "build"]));
+  }
+
+  return commands;
+}
+
 function buildWebDocsAndCiScopedCommands(changedFiles) {
   const commands = [command("git", ["diff", "--check"])];
   const changedSet = new Set(changedFiles.map((file) => file.replace(/\\/g, "/")));
@@ -303,6 +351,31 @@ function getChangedWebTestPaths(changedFiles) {
       .filter((file) => /^apps\/web\/src\/.+\.test\.(?:ts|tsx)$/i.test(file))
       .map((file) => file.replace(/^apps\/web\//i, "")),
   )].sort();
+}
+
+function getChangedApiTestPaths(changedFiles) {
+  return [...new Set(
+    changedFiles
+      .map((file) => file.replace(/\\/g, "/"))
+      .filter((file) => /^apps\/api\/src\/.+\.spec\.ts$/i.test(file))
+      .map((file) => file.replace(/^apps\/api\//i, "")),
+  )].sort();
+}
+
+function getChangedPackageTestWorkspaces(changedFiles) {
+  return [...new Set(
+    changedFiles
+      .map((file) => file.replace(/\\/g, "/"))
+      .map((file) => {
+        const match = /^packages\/([A-Za-z0-9._-]+)\/test\/.+/i.exec(file);
+        return match ? `@ledgerbyte/${match[1]}` : null;
+      })
+      .filter(Boolean),
+  )].sort();
+}
+
+function buildScopedApiJestCommand(apiTestPaths) {
+  return command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "test", "--", "--runTestsByPath", ...apiTestPaths]);
 }
 
 function buildScopedWebJestCommand(webTestPaths) {
@@ -396,6 +469,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  API_SCOPED_ALLOWED_PATHS,
   CI_GATE_SCOPED_ALLOWED_PATHS,
   DOCS_ALLOWED_PATHS,
   DOCS_STATIC_GUARD_ALLOWED_PATHS,
@@ -403,16 +477,22 @@ module.exports = {
   FORBIDDEN_COMMAND_PATTERNS,
   GATES,
   assertSafePlan,
+  buildApiDocsAndCiScopedCommands,
   buildGatePlan,
   buildDocsStaticGuardCiCommands,
+  buildScopedApiJestCommand,
   buildScopedWebJestCommand,
   buildWebDocsAndCiScopedCommands,
   detectChangedFilesForCiScope,
   formatCommand,
+  getChangedApiTestPaths,
+  getChangedPackageTestWorkspaces,
   getChangedWebTestPaths,
+  isApiDocsAndCiScopedChange,
   isDocsStaticGuardPackageOnlyChange,
   isWebDocsAndCiScopedChange,
   main,
+  PACKAGE_TEST_ONLY_ALLOWED_PATHS,
   splitCliArgs,
   WEB_SCOPED_ALLOWED_PATHS,
 };

@@ -1,40 +1,40 @@
 # Feature Parity Command Center
 
+Status: controlled-beta feature-parity tracker. This document does not claim production parity with Xero, Wafeq, banks, ZATCA, or any certified integration.
+
 Date: 2026-06-12
-
-## Source
-
-- Source of truth for this lane: Xero/Wafeq feature-parity audit plus the controlled-beta product posture already documented across LedgerByte readiness docs.
 
 ## Current Route
 
-1. Truthful core
-2. Banking automation
-3. VAT/ZATCA compliance depth
-4. Production trust
-5. Projects, fixed assets, and payroll later
+1. Truthful core completed in `main` through PR `#27` dedicated customer and supplier statement routes.
+2. Banking 2.0 parser QA and match-suggestion foundation in open PR `#28`.
+3. VAT return truthfulness and filing-export foundation.
+4. ZATCA signing, clearance, reporting, and custody execution lanes.
+5. Production trust, operations, and broader customer exposure only after accounting and compliance depth are credible.
 
-## Next 10 Epics
+## Completed In Main
 
-1. Banking 2.0 parser QA and match-suggestion foundation
-2. Bank import exception handling and reviewer queue
-3. Bank reconciliation close polish, lock visibility, and reviewer workflows
-4. Cashflow forecasting and due-date visibility built on trusted AR/AP/banking data
-5. VAT data-shape hardening and filing-prep workflow depth
-6. ZATCA signing, clearance, reporting, and custody execution lanes
-7. Trusted report packs, accountant review loops, and period-close evidence
-8. Backup/restore proof, operational monitoring, and production support controls
-9. Role/security hardening for production trust and broader customer exposure
-10. Projects, fixed assets, and payroll readiness after banking/reporting/production trust are credible
+- PR `#27` merged into `main` at `16270562` and added dedicated `/customers/[id]/statement` and `/suppliers/[id]/statement` routes.
+- Statement return-path continuity now survives invoice, bill, payment, and aging drill-downs without changing statement math, report math, payment allocation, VAT math, or ZATCA runtime behavior.
 
-## Deprioritized
+## Current Open Parity PR
 
-- More random route polish
-- Metadata-only ZATCA docs
-- Native mobile
-- App marketplace
-- Payroll before production trust
-- AI accountant before trusted reports and banking
+Branch: `codex/banking-parser-qa-match-suggestion-foundation`
+
+Base after update: `main` at `16270562` (`Merge pull request #27 from codex/dedicated-customer-supplier-statement-routes`)
+
+Scope:
+
+- Manual bank parser QA for CSV, JSON, OFX, CAMT.053/CAMT.054, MT940, and unsupported/plain-text safety.
+- Deterministic, non-mutating bank statement match suggestions based on amount/direction, date tolerance, reference, counterparty text, and document-number signals.
+- Controlled-beta readiness/docs updates only.
+
+Still not parity:
+
+- No live bank feeds, external bank APIs, Plaid, Salt Edge, Tarabut, Lean, or bank-provider calls.
+- No raw customer bank-file archive execution.
+- No automatic posting, matching, reconciliation, categorization, or journal creation.
+- No certified bank-specific parser coverage, FX handling, transfer-fee handling, hosted/customer-data proof, or accountant sign-off.
 
 ## Operating Notes
 
@@ -44,4 +44,4 @@ Date: 2026-06-12
 
 ## Exact Next Recommended Prompt Title
 
-`Banking 2.0 parser QA and match-suggestion foundation`
+`VAT return truthfulness and filing-export foundation`

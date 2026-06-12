@@ -42,6 +42,7 @@ describe("BankStatementService", () => {
     type: BankStatementTransactionType.CREDIT,
     amount: new Prisma.Decimal("50.0000"),
     status: BankStatementTransactionStatus.UNMATCHED,
+    rawData: { normalized: { counterparty: "Customer LLC" } },
     bankAccountProfile: profile,
   };
 
@@ -295,14 +296,14 @@ describe("BankStatementService", () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("finds match candidates by amount, direction, account, and date window", async () => {
+  it("finds suggested match candidates by amount, direction, account, date, reference, and counterparty", async () => {
     const { service, prisma } = makeService();
     prisma.journalLine.findMany.mockResolvedValue([
       {
         id: "line-1",
         debit: new Prisma.Decimal("50.0000"),
         credit: new Prisma.Decimal("0.0000"),
-        description: "Customer payment",
+        description: "Customer LLC payment",
         journalEntry: {
           id: "journal-1",
           entryNumber: "JE-000001",
@@ -314,7 +315,11 @@ describe("BankStatementService", () => {
     ]);
 
     await expect(service.matchCandidates("org-1", "statement-transaction-1")).resolves.toEqual([
-      expect.objectContaining({ journalLineId: "line-1", score: 100, reason: "amount and direction match, same date, reference match" }),
+      expect.objectContaining({
+        journalLineId: "line-1",
+        score: 100,
+        reason: "amount and direction match, same date, reference match, counterparty text match, document number match",
+      }),
     ]);
     expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -326,6 +331,18 @@ describe("BankStatementService", () => {
         }),
       }),
     );
+  });
+
+  it("does not suggest matches for already reviewed statement rows", async () => {
+    const { service, prisma } = makeService({
+      bankStatementTransaction: {
+        ...makeService().prisma.bankStatementTransaction,
+        findFirst: jest.fn().mockResolvedValue({ ...statementTransaction, status: BankStatementTransactionStatus.IGNORED }),
+      },
+    });
+
+    await expect(service.matchCandidates("org-1", "statement-transaction-1")).resolves.toEqual([]);
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
   });
 
   it("manually matches an unmatched statement transaction to a compatible journal line", async () => {
