@@ -91,9 +91,10 @@ Observed local/mock proof properties:
 ## Restore Proof Status
 
 - Still blocked.
+- `scripts/backup-restore-proof-harness.cjs` now proves synthetic manifest/payload/restore-simulation mechanics only. It does not prove object-storage restore behavior.
 - This PR does not execute or prove object-storage restore behavior.
 - Hosted database restore drills and object-storage restore drills remain separate implementation work.
 
 ## Next Implementation Ticket
 
-`Production trust implementation ticket 2: backup and restore proof harness`
+`Production trust implementation ticket 3: monitoring and runtime health proof`

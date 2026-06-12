@@ -38,6 +38,18 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - The proof does not make LedgerByte production-ready or object-storage production-proven. Real non-production bucket validation, object-storage backup proof, object-storage restore proof, generated-document runtime object-storage writes, signed URLs, lifecycle/retention/legal-hold enforcement, malware scanning, and migration/rollback proof remain open.
 - Recommended next prompt: `Production trust implementation ticket 2: backup and restore proof harness`.
 
+## 2026-06-12 Backup and restore proof harness
+
+- PR `#31` was reverified green/safe and merged into `main` at `a5b506d9` before this lane started.
+- Added `scripts/backup-restore-proof-harness.cjs`, `scripts/backup-restore-proof-harness.test.cjs`, and package scripts `backup:restore-proof` plus `test:backup-restore-proof`.
+- Added `docs/production/BACKUP_RESTORE_PROOF_HARNESS.md`.
+- The new proof is intentionally safe and non-production:
+  - dry-run status is `BACKUP_RESTORE_PROOF_DRY_RUN_READY`,
+  - local mock-cycle status is `BACKUP_RESTORE_MOCK_CYCLE_PASSED`,
+  - no network calls, database calls, env-secret reads, real backup/restore commands, or customer-data handling occur.
+- The proof does not make LedgerByte production-ready, paid SaaS ready, backup-ready, restore-ready, or disaster-recovery ready. Hosted Supabase/Postgres backup/PITR proof, hosted restore-drill proof, object-storage backup proof, object-storage restore proof, RPO/RTO review, monitoring, and incident ownership remain open.
+- Recommended next prompt: `Production trust implementation ticket 3: monitoring and runtime health proof`.
+
 ## 2026-06-12 Banking 2.0 Parser QA And Match Suggestion Foundation
 
 - Added parser QA and deterministic match-suggestion foundation on branch `codex/banking-parser-qa-match-suggestion-foundation`.

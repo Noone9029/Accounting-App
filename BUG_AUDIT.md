@@ -2,7 +2,33 @@
 
 Audit date: 2026-06-12
 
-Latest commit audited: `4411634c` (`Merge pull request #30 from codex/production-trust-foundation-storage-backup-monitoring-security`) plus the current object-storage proof branch.
+Latest commit audited: `a5b506d9` (`Merge pull request #31 from Noone9029/codex/object-storage-proof-safe-nonproduction-validation`) plus the current backup/restore proof branch.
+
+## 2026-06-12 Backup and restore proof harness
+
+Added a safe backup/restore proof harness without changing runtime backup behavior, runtime restore behavior, schema, hosted providers, or customer data.
+
+Risk reduced:
+
+- Reverified PR `#31` green/safe, then merged it into `main` at `a5b506d9d4ac5c803b1d97b7023bfa11dc41d16d` before starting this branch.
+- Added `scripts/backup-restore-proof-harness.cjs` and `scripts/backup-restore-proof-harness.test.cjs`.
+- Added root package scripts `backup:restore-proof` and `test:backup-restore-proof`.
+- Added `docs/production/BACKUP_RESTORE_PROOF_HARNESS.md`.
+- Safe dry-run validation now proves the required docs/scripts exist and reports the current synthetic-only proof boundary with no file writes.
+- Safe local mock-cycle validation now proves synthetic backup manifest creation, synthetic metadata payload creation, checksum verification, restore count verification, safe temp-directory path handling, and cleanup.
+- Updated production-trust docs and handoff surfaces so the repo now says explicitly that:
+  - the new proof is synthetic/local only,
+  - hosted Supabase/Postgres backup/PITR proof is still missing,
+  - hosted restore-drill proof is still missing,
+  - object-storage backup/restore proof is still missing,
+  - LedgerByte is still not production-ready, not paid SaaS ready, and not disaster-recovery ready.
+
+Remaining risks:
+
+- This proof is intentionally local/mock only and does not validate any hosted backup provider or restore command.
+- The historical local Docker/Postgres restore-count evidence remains baseline-only and does not replace hosted proof.
+- Real hosted backup/PITR proof, hosted restore-drill proof, object-storage backup proof, object-storage restore proof, monitoring/alerting ownership, RPO/RTO review, and incident runbooks remain blocked.
+- This work does not change production posture, paid-SaaS readiness, official VAT filing readiness, ZATCA compliance, hosting, runtime DB roles, RLS, billing, support operations, or customer-data handling.
 
 ## 2026-06-12 Object storage proof validation
 

@@ -10,8 +10,9 @@ Date: 2026-06-12
 2. Banking 2.0 parser QA and match-suggestion foundation completed in `main` through PR `#28`.
 3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
 4. Production trust foundation audit and non-mutating readiness gate completed in `main` through PR `#30`.
-5. Object storage proof validation is the current production-trust implementation branch.
-6. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
+5. Object storage proof validation completed in `main` through PR `#31`.
+6. Backup and restore proof harness is the current production-trust implementation branch.
+7. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
 
@@ -21,16 +22,16 @@ Date: 2026-06-12
 
 ## Current Parity Branch
 
-Branch: `codex/object-storage-proof-safe-nonproduction-validation`
+Branch: `codex/backup-restore-proof-harness`
 
-Base after update: `main` at `4411634c` (`Merge pull request #30 from codex/production-trust-foundation-storage-backup-monitoring-security`)
+Base after update: `main` at `a5b506d9` (`Merge pull request #31 from Noone9029/codex/object-storage-proof-safe-nonproduction-validation`)
 
 Scope:
 
-- Safe object-storage proof validation only.
-- Local/mock upload-read-delete proof for synthetic attachment and generated-document payloads.
-- No-network S3-compatible configuration-name validation only.
-- Controlled-beta readiness/docs updates only. No provider mutation, bucket creation, real upload/download/delete, backup/restore execution, monitoring setup, or production claim.
+- Safe backup and restore proof harness only.
+- Synthetic backup manifest plus synthetic metadata payload generation.
+- Local/mock restore simulation with checksum and record-count verification.
+- Controlled-beta readiness/docs updates only. No provider mutation, real backup/restore execution, monitoring setup, or production claim.
 
 Still not parity:
 
@@ -46,4 +47,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Production trust implementation ticket 2: backup and restore proof harness`
+`Production trust implementation ticket 3: monitoring and runtime health proof`
