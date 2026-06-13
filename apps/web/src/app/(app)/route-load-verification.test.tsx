@@ -10,6 +10,7 @@ import ReportsPage from "./reports/page";
 import SalesCreditNotesPage from "./sales/credit-notes/page";
 import SalesInvoicesPage from "./sales/invoices/page";
 import NewSalesInvoicePage from "./sales/invoices/new/page";
+import BankingAccountingSettingsPage from "./settings/banking-accounting/page";
 import SettingsPage from "./settings/page";
 import StorageSettingsPage from "./settings/storage/page";
 import SuppliersPage from "./suppliers/page";
@@ -134,6 +135,13 @@ describe("controlled beta route-load verification batch", () => {
     render(<StorageSettingsPage />);
 
     expect(screen.getByText("Log in and select an organization to review storage readiness.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the banking accounting settings route safely without an organization", () => {
+    render(<BankingAccountingSettingsPage />);
+
+    expect(screen.getByText("Log in and select an organization to configure banking accounting.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 

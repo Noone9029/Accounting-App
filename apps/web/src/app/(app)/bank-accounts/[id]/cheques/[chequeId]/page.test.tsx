@@ -42,26 +42,22 @@ describe("ChequeDetailPage", () => {
   });
 
   it("renders lifecycle details and manual-only wording", async () => {
-    apiRequestMock.mockResolvedValueOnce(cheque()).mockResolvedValueOnce([depositBatch()]).mockResolvedValueOnce([statementRow()]);
+    mockChequeDetailApi();
 
     render(<ChequeDetailPage />);
 
     expect(await screen.findByText("Cheque detail")).toBeInTheDocument();
     expect(screen.getByText("Received")).toBeInTheDocument();
     expect(screen.getByText(/no live bank feed is added/i)).toBeInTheDocument();
-    expect(screen.getByText(/no bank payment is sent/i)).toBeInTheDocument();
-    expect(screen.getByText(/clearing-account journal posting is deferred/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no bank payment is sent/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/direct cheque journal posting remains deferred/i)).toBeInTheDocument();
+    expect(await screen.findByText("Operational-only")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Deposit cheque" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Match cheque" })).toBeInTheDocument();
   });
 
   it("deposits a received cheque into a selected draft deposit batch", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(cheque())
-      .mockResolvedValueOnce([depositBatch()])
-      .mockResolvedValueOnce([statementRow()])
-      .mockResolvedValueOnce(cheque({ status: "DEPOSITED", depositBatchId: "dep-1", depositBatch: depositBatch() }))
-      .mockResolvedValueOnce(cheque({ status: "DEPOSITED", depositBatchId: "dep-1", depositBatch: depositBatch() }));
+    mockChequeDetailApi(cheque(), cheque({ status: "DEPOSITED", depositBatchId: "dep-1", depositBatch: depositBatch() }));
 
     render(<ChequeDetailPage />);
 
@@ -77,7 +73,7 @@ describe("ChequeDetailPage", () => {
   });
 
   it("requires reasons for bounce and void before calling the API", async () => {
-    apiRequestMock.mockResolvedValueOnce(cheque()).mockResolvedValueOnce([depositBatch()]).mockResolvedValueOnce([statementRow()]);
+    mockChequeDetailApi();
 
     render(<ChequeDetailPage />);
 
@@ -87,16 +83,11 @@ describe("ChequeDetailPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Void cheque" }));
     expect(await screen.findByText("Void reason is required.")).toBeInTheDocument();
-    expect(apiRequestMock).toHaveBeenCalledTimes(3);
+    expect(apiRequestMock).toHaveBeenCalledWith("/banking-accounting/cheques/chq-1/preflight");
   });
 
   it("matches a cheque through explicit statement action", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(cheque())
-      .mockResolvedValueOnce([depositBatch()])
-      .mockResolvedValueOnce([statementRow()])
-      .mockResolvedValueOnce(cheque({ status: "CLEARED", statementTransactionId: "stmt-1", statementTransaction: statementRow() }))
-      .mockResolvedValueOnce(cheque({ status: "CLEARED", statementTransactionId: "stmt-1", statementTransaction: statementRow() }));
+    mockChequeDetailApi(cheque(), cheque({ status: "CLEARED", statementTransactionId: "stmt-1", statementTransaction: statementRow() }));
 
     render(<ChequeDetailPage />);
 
@@ -111,6 +102,29 @@ describe("ChequeDetailPage", () => {
     });
   });
 });
+
+function mockChequeDetailApi(initial = cheque(), actionResult?: ChequeInstrument) {
+  apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+    if (path === "/banking-accounting/cheques/chq-1/preflight") {
+      return Promise.resolve({
+        status: "OPERATIONAL_ONLY",
+        ready: false,
+        reasons: ["Direct received-cheque journal posting remains deferred because source recognition would require an explicit receivable/customer-payment policy."],
+        warnings: ["Cheque matching, deposit links, clearing, bounce, and void remain operational-only."],
+      });
+    }
+    if (path === "/bank-deposits?bankAccountProfileId=bank-1") {
+      return Promise.resolve([depositBatch()]);
+    }
+    if (path === "/cheques/chq-1/match-candidates") {
+      return Promise.resolve([statementRow()]);
+    }
+    if ((path === "/cheques/chq-1/deposit" || path === "/cheques/chq-1/match-statement-transaction") && options?.method === "POST") {
+      return Promise.resolve(actionResult ?? initial);
+    }
+    return Promise.resolve(initial);
+  });
+}
 
 function cheque(overrides: Partial<ChequeInstrument> = {}): ChequeInstrument {
   return {
@@ -140,6 +154,7 @@ function cheque(overrides: Partial<ChequeInstrument> = {}): ChequeInstrument {
     memo: null,
     bounceReason: null,
     voidReason: null,
+    postedJournalEntryId: null,
     createdById: "user-1",
     updatedById: "user-1",
     createdAt: "2026-06-01T00:00:00.000Z",
@@ -149,6 +164,7 @@ function cheque(overrides: Partial<ChequeInstrument> = {}): ChequeInstrument {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     ...overrides,
   };
 }
@@ -163,6 +179,7 @@ function depositBatch(): BankDepositBatch {
     status: "DRAFT",
     memo: null,
     totalAmount: "0.0000",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -171,6 +188,7 @@ function depositBatch(): BankDepositBatch {
     voidedAt: null,
     createdAt: "2026-06-03T00:00:00.000Z",
     updatedAt: "2026-06-03T00:00:00.000Z",
+    postedJournalEntry: null,
     lines: [],
   };
 }

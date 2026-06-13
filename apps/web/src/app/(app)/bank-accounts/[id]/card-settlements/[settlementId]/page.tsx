@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getCardSettlementAccountingPreflight, postCardSettlementJournal } from "@/lib/banking-accounting";
 import {
   canMatchCardSettlement,
   canPostCardSettlement,
@@ -18,14 +20,17 @@ import {
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankStatementTransaction, CardSettlement } from "@/lib/types";
+import type { BankingAccountingPreflight, BankStatementTransaction, CardSettlement } from "@/lib/types";
 
 export default function CardSettlementDetailPage() {
   const params = useParams<{ id: string; settlementId: string }>();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
+  const canPostJournal = can(PERMISSIONS.journals.post);
   const [settlement, setSettlement] = useState<CardSettlement | null>(null);
+  const [accountingPreflight, setAccountingPreflight] = useState<BankingAccountingPreflight | null>(null);
+  const [accountingLoading, setAccountingLoading] = useState(false);
   const [matchCandidates, setMatchCandidates] = useState<BankStatementTransaction[]>([]);
   const [selectedStatementId, setSelectedStatementId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -90,6 +95,41 @@ export default function CardSettlementDetailPage() {
     };
   }, [organizationId, settlement]);
 
+  useEffect(() => {
+    if (!organizationId || !settlement) {
+      setAccountingPreflight(null);
+      return;
+    }
+
+    let cancelled = false;
+    setAccountingLoading(true);
+    getCardSettlementAccountingPreflight(settlement.id)
+      .then((preflight) => {
+        if (!cancelled) {
+          setAccountingPreflight(preflight);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setAccountingPreflight({
+            status: "BLOCKED",
+            ready: false,
+            reasons: [loadError instanceof Error ? loadError.message : "Unable to load card settlement accounting preflight."],
+            warnings: [],
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAccountingLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, settlement]);
+
   async function runSettlementAction(actionName: "post" | "void" | "unmatch-statement-transaction") {
     if (!settlement) {
       return;
@@ -137,6 +177,25 @@ export default function CardSettlementDetailPage() {
     }
   }
 
+  async function postAccountingJournal() {
+    if (!settlement) {
+      return;
+    }
+    setAction("post-journal");
+    setError("");
+    setSuccess("");
+    try {
+      const result = await postCardSettlementJournal(settlement.id);
+      setSettlement(result.record);
+      setSuccess(`Journal ${result.journalEntry.entryNumber} posted for this card settlement.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Unable to post card settlement journal.");
+    } finally {
+      setAction("");
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -175,8 +234,19 @@ export default function CardSettlementDetailPage() {
               This is a manual card settlement record for reconciliation. No live bank feed is added, no bank API is called, no card credentials are collected, and no bank payment is sent.
             </p>
             <p className="mt-2 text-xs leading-5 text-steel">
-              Journal-backed card liability or prepaid asset posting is deferred until the accounting classification and clearing model are confirmed. Posting here changes only operational status.
+              Card paydowns and prepaid top-ups can be journal-posted only after clearing-account configuration passes preflight. Credit-card credits remain operational-only until an accountant-reviewed offset policy exists.
             </p>
+          </div>
+
+          <div className="mt-5">
+            <AccountingStatusPanel
+              preflight={accountingPreflight}
+              loading={accountingLoading}
+              action={action}
+              canPost={canPostJournal}
+              onPost={() => void postAccountingJournal()}
+              postLabel="Post card settlement journal"
+            />
           </div>
 
           <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">

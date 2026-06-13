@@ -127,6 +127,7 @@ function deposit(overrides: Partial<BankDepositBatch> = {}): BankDepositBatch {
     status: "DRAFT",
     memo: "Cash drawer",
     totalAmount: "300.0000",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -139,6 +140,7 @@ function deposit(overrides: Partial<BankDepositBatch> = {}): BankDepositBatch {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     lines: [],
     ...overrides,
   };

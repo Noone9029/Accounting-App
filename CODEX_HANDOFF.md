@@ -2,96 +2,101 @@
 
 ## Latest Commit Inspected
 
-- PR `#38` was reverified green/safe and merged into `main` with merge commit `3b14ed8a3081df9179b0f8ed25695dc823c2843b`.
-- Current branch base: `origin/main` at `3b14ed8a Merge pull request #38 from Noone9029/codex/wafeq-banking-card-settlements`.
+- PR `#39` was reverified green/safe and merged into `main` with merge commit `4fb018b81111bb6c8a6002425001570eba5539e1`.
+- Current branch base: `origin/main` at `4fb018b8 Merge pull request #39 from Noone9029/codex/wafeq-banking-cheque-lifecycle`.
 
 ## Current Development Objective
 
-- Current branch: `codex/wafeq-banking-cheque-lifecycle`
-- Worktree: `E:\Accounting App-cheque-lifecycle`
-- Completed lane: Wafeq manual banking Prompt 7, cheque lifecycle.
+- Current branch: `codex/wafeq-banking-clearing-account-accounting`.
+- Worktree: `E:\Accounting App-clearing-account-accounting`.
+- Completed lane: Wafeq manual banking Prompt 8, clearing-account accounting for deposits, cards, and cheques.
 - Product posture remains controlled beta/user-testing only.
 
-## PR #38 Merge Status
+## PR #39 Merge Status
 
-- PR `#38` was open, non-draft, mergeable, and still at expected head `4cb243cd29c6f3efc864fe0db9acc9e067d49b3c`.
+- PR `#39` was open, non-draft, mergeable, and still at expected head `1a031e0705bea935f02c9495827e0247c8008931`.
 - PR Verification, Non-mutating verification, GitGuardian, Vercel Preview Comments, and Vercel API/web statuses were checked as success or non-blocking.
-- Diff scope remained card settlement module, additive card settlement storage, card settlement APIs/UI/tests/docs, and no live feeds, bank APIs, credentials, payment initiation, cheques/provider abstraction, deploy, secret, hosted database, or customer-data mutation was present.
-- PR `#38` was merged by merge commit before this branch was created from latest `origin/main`.
+- Diff scope remained cheque lifecycle module, additive cheque storage, cheque APIs/UI/tests/docs, operational-only cheque lifecycle behavior, and no live feed, bank API, bank credentials, payment initiation, provider abstraction, hosted DB connection, deploy, secret, or customer-data mutation was present.
+- PR `#39` was merged by merge commit before this branch was created from latest `origin/main`.
 
 ## Surfaces Reviewed
 
 - `apps/api/prisma/schema.prisma` and migrations.
-- `apps/api/src/bank-accounts/*`, `apps/api/src/bank-deposits/*`, `apps/api/src/card-settlements/*`, `apps/api/src/bank-statements/*`, `apps/api/src/bank-reconciliations/*`, `apps/api/src/bank-transfers/*`.
+- `apps/api/src/bank-accounts/*`, `apps/api/src/bank-deposits/*`, `apps/api/src/card-settlements/*`, `apps/api/src/cheques/*`, `apps/api/src/bank-statements/*`, `apps/api/src/bank-reconciliations/*`, `apps/api/src/bank-transfers/*`.
 - `apps/api/src/payments/*`, `apps/api/src/customer-payments/*`, `apps/api/src/supplier*`, `apps/api/src/invoices/*`, `apps/api/src/purchase*`.
-- `apps/api/src/journal*`, `apps/api/src/ledger*`, `apps/api/src/chart*`, `apps/api/src/accounts*`, `apps/api/src/audit*`, `apps/api/src/app.module.ts`.
+- `apps/api/src/journal*`, `apps/api/src/ledger*`, `apps/api/src/chart*`, `apps/api/src/accounts*`, `apps/api/src/audit*`, and `apps/api/src/app.module.ts`.
 - `apps/web/src/app/(app)/bank-accounts/[id]/*`, `apps/web/src/lib/bank-statements.ts`, `apps/web/src/lib/types.ts`, and banking/status/readiness docs.
 
 ## Files Added Or Updated
 
-- Added `apps/api/src/cheques/*`.
-- Updated `apps/api/src/app.module.ts`.
-- Updated `apps/api/src/audit-log/audit-events.ts`.
+- Added `apps/api/src/banking-accounting/*`.
 - Updated `apps/api/prisma/schema.prisma`.
-- Added `apps/api/prisma/migrations/20260613043000_cheque_instruments/migration.sql`.
-- Added `apps/web/src/app/(app)/bank-accounts/[id]/cheques/*`.
-- Updated `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx`.
-- Updated `apps/web/src/app/(app)/bank-accounts/[id]/deposits/[depositId]/page.tsx`.
-- Updated `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx` and its test.
-- Added `apps/web/src/lib/cheques.ts`.
-- Updated `apps/web/src/lib/types.ts`.
-- Updated docs: `CODEX_HANDOFF.md`, `BUG_AUDIT.md`, `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`, `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md`, `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md`.
+- Added `apps/api/prisma/migrations/20260613113000_banking_clearing_account_accounting/migration.sql`.
+- Updated `apps/api/src/app.module.ts` and `apps/api/src/audit-log/audit-events.ts`.
+- Added `apps/web/src/lib/banking-accounting.ts`.
+- Added `apps/web/src/components/banking/accounting-status-panel.tsx`.
+- Added `apps/web/src/app/(app)/settings/banking-accounting/*`.
+- Updated deposit, card-settlement, and cheque detail pages/tests under `apps/web/src/app/(app)/bank-accounts/[id]`.
+- Updated `apps/web/src/lib/types.ts`, permissions, sidebar navigation, and route-load tests.
+- Updated docs: `CODEX_HANDOFF.md`, `BUG_AUDIT.md`, `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`, `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md`.
 
 ## Implementation Summary
 
-- Added additive Prisma storage for manual cheque instruments.
-- Added cheque APIs for list/detail/create/update, mark received, mark issued, deposit, clear, bounce, void, match candidates, explicit statement-row match, and unmatch.
-- Added explicit state handling for `DRAFT`, `RECEIVED`, `ISSUED`, `DEPOSITED`, `CLEARED`, `BOUNCED`, and `VOIDED`.
-- Added validation for positive amount, cheque number, currency, bank account scope, organization scope, lifecycle transitions, active deposit-source reuse, statement direction, amount/currency/account matching, and closed reconciliation periods.
-- Added received-cheque deposit integration through existing bank deposit batch `CHEQUE_PLACEHOLDER` source lines.
-- Added direction-aware matching: received cheques match imported credit rows, while issued cheques match imported debit rows.
-- Added bank account cheque list/detail UI and an on-demand statement transaction review action for candidate cheques.
+- Added additive `BankingClearingAccountConfig` storage for existing chart-account selections only; no default account creation or hosted migration application was performed.
+- Added nullable `postedJournalEntryId` links on deposit batches, card settlements, and cheques so successful explicit journal posts are idempotently linked.
+- Added clearing-account config APIs plus preflight and explicit post-journal endpoints under `/banking-accounting`.
+- Added preflight checks for organization scope, enabled config, required accounts, account ownership, active/posting account state, safe account type where available, status, amount/currency, closed reconciliation links, duplicate posting, and balanced journal preview.
+- Added explicit deposit journal posting for safe/configured cases only: Dr bank account and Cr source clearing/payment account. Ambiguous deposit sources stay blocked or operational-only with reasons.
+- Added explicit card settlement journal posting for safe/configured paydowns and prepaid top-ups only: credit-card paydown Dr credit-card liability / Cr funding bank; prepaid top-up Dr prepaid asset / Cr funding bank. Card credits/refunds stay operational-only until an offset policy is explicit.
+- Kept direct cheque journal posting conservative and operational-only. Received/issued cheque posting is deferred until source receivable/payable/payment policy is explicit; deposit accounting can only use cheque-in-hand when the cheque was already recognized.
+- Added audit events for clearing-account config changes and successful deposit/card journal posting.
+- Added banking accounting settings UI plus accounting status/preflight panels on deposit, card settlement, and cheque detail pages.
 
 ## Accounting Decision
 
-- Existing deposit batches and card settlements are operational only because no confirmed clearing-account model exists yet.
-- Cheque lifecycle is also operational only and does not create journal entries.
-- Journal-backed cheque-in-hand, outstanding-cheque, and clearing-account posting remains deferred until the next prompt explicitly designs and tests clearing-account accounting for deposits, cards, and cheques.
+- This branch adds journal-backed posting only for safe, configured, explicit deposit/card paths.
+- Existing operational records are not silently converted.
+- No automatic posting, automatic reconciliation, automatic matching, AR/AP allocation change, VAT/ZATCA/report math change, live feed, bank API, bank credentials, provider abstraction, or payment initiation was added.
+- Ambiguous cheque cases and card credits/refunds remain operational-only by design.
 
 ## Checks Run
 
 - `git status --short`
 - `git branch --show-current`
 - `git log -1 --oneline`
-- GitHub PR `#38` metadata/status/check/diff verification through GitHub REST and connector.
-- PR `#38` merge via connector with expected head SHA.
+- GitHub PR `#39` metadata/status/check/diff verification through GitHub REST and connector.
+- PR `#39` merge via connector with expected head SHA.
 - `git fetch origin`
-- `git worktree add -b codex/wafeq-banking-cheque-lifecycle E:\Accounting App-cheque-lifecycle origin/main`
-- `corepack pnpm install --offline`
+- `git worktree add -b codex/wafeq-banking-clearing-account-accounting E:\Accounting App-clearing-account-accounting origin/main`
+- `corepack pnpm install --frozen-lockfile`
 - `corepack pnpm --filter @ledgerbyte/api db:generate`
-- `corepack pnpm --filter @ledgerbyte/api test -- cheque`
-- `corepack pnpm --filter @ledgerbyte/web test -- cheques statement-transactions/page.test`
+- `corepack pnpm --filter @ledgerbyte/api typecheck`
+- `corepack pnpm --filter @ledgerbyte/web typecheck`
+- `corepack pnpm --filter @ledgerbyte/api test -- banking-accounting.service.spec.ts`
+- `corepack pnpm --filter @ledgerbyte/api test -- banking-accounting.service.spec.ts bank-deposit.service.spec.ts card-settlement.service.spec.ts cheque.service.spec.ts bank-transfer.service.spec.ts`
+- `node .\node_modules\jest\bin\jest.js --config jest.config.cjs --runTestsByPath "src/app/(app)/settings/banking-accounting/page.test.tsx" "src/app/(app)/bank-accounts/[id]/deposits/[depositId]/page.test.tsx" "src/app/(app)/bank-accounts/[id]/card-settlements/[settlementId]/page.test.tsx" "src/app/(app)/bank-accounts/[id]/cheques/[chequeId]/page.test.tsx" "src/lib/permissions.test.ts" "src/app/(app)/route-load-verification.test.tsx"`
 
 ## Skipped Commands And Why
 
 - No seed/reset/delete, smoke, E2E, deployed checks, real login, hosted database checks, Vercel/Supabase changes, bank API calls, live feeds, provider integrations, payment initiation, ZATCA, real email, backup/restore, or production infrastructure commands were run because this prompt forbids them.
-- Broader test suites are only needed if targeted API/web tests or typechecks reveal shared impact.
+- Broader test suites were not run because targeted API/web tests and typechecks covered the touched banking-accounting surfaces.
 
 ## Current Manual Banking Verdict
 
-- LedgerByte now has manual template/XLSX import UX, inline statement transaction review, import duplicate/idempotency/reconciliation-overlap safety, deterministic bank-rule suggestions, operational bank deposit batches, operational credit/prepaid card settlements, and operational received/issued cheque lifecycle with explicit deposit and statement matching links.
+- LedgerByte now has manual template/XLSX import UX, inline statement transaction review, import duplicate/idempotency/reconciliation-overlap safety, deterministic bank-rule suggestions, operational bank deposit batches, operational credit/prepaid card settlements, operational received/issued cheque lifecycle, and explicit clearing-account accounting preflight/posting for safe configured deposit/card cases.
 - LedgerByte remains manual banking only.
-- LedgerByte still does not support live bank feeds, WIO/Lean/Tarabut integration, payment initiation, provider abstraction, cheque printing, cheque book inventory, journal-backed clearing/accounting for deposits/cards/cheques, certified target-bank parser coverage, silent auto-reconciliation, silent auto-match, or production banking readiness.
+- LedgerByte still does not support live bank feeds, WIO/Lean/Tarabut integration, payment initiation, provider abstraction, bank credentials, cheque printing, cheque book inventory, automatic posting, automatic reconciliation, automatic matching, direct cheque accounting policy, card credit/refund offset policy, certified target-bank parser coverage, or production banking readiness.
 - No production, ZATCA, VAT/reporting, infrastructure, hosted data, or customer-data behavior changed.
 
 ## Remaining Manual Banking Blockers
 
-- Clearing-account accounting design for deposits, cards, and cheques.
 - Reconciliation reports/audit polish.
 - Banking beta QA and accountant review.
+- Direct cheque-in-hand/outstanding-cheque source accounting policy.
+- Card credit/refund offset accounting policy.
 - DB-level unique statement fingerprint/index if concurrency risk requires database-enforced idempotency.
 - Certified target-bank parser coverage, raw statement archive execution, broad E2E/smoke/full-test coverage, hosted/customer-data proof, and accountant sign-off remain required before broader claims.
 
 ## Exact Next Recommended Prompt Title
 
-`Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`
+`Wafeq manual banking polish: reconciliation reports and audit trail`
