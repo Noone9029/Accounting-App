@@ -1163,6 +1163,7 @@ export interface BankDepositBatch {
   status: BankDepositBatchStatus;
   memo: string | null;
   totalAmount: string;
+  postedJournalEntryId: string | null;
   statementTransactionId: string | null;
   createdById: string | null;
   updatedById: string | null;
@@ -1178,6 +1179,7 @@ export interface BankDepositBatch {
   > | null;
   createdBy?: { id: string; name: string; email: string } | null;
   updatedBy?: { id: string; name: string; email: string } | null;
+  postedJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
   lines: BankDepositBatchLine[];
 }
 
@@ -1193,6 +1195,7 @@ export interface CardSettlement {
   status: CardSettlementStatus;
   memo: string | null;
   reference: string | null;
+  postedJournalEntryId: string | null;
   statementTransactionId: string | null;
   createdById: string | null;
   updatedById: string | null;
@@ -1209,6 +1212,7 @@ export interface CardSettlement {
   > | null;
   createdBy?: { id: string; name: string; email: string } | null;
   updatedBy?: { id: string; name: string; email: string } | null;
+  postedJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
 }
 
 export interface ChequeInstrument {
@@ -1238,6 +1242,7 @@ export interface ChequeInstrument {
   memo: string | null;
   bounceReason: string | null;
   voidReason: string | null;
+  postedJournalEntryId: string | null;
   createdById: string | null;
   updatedById: string | null;
   createdAt: string;
@@ -1250,6 +1255,92 @@ export interface ChequeInstrument {
   > | null;
   createdBy?: { id: string; name: string; email: string } | null;
   updatedBy?: { id: string; name: string; email: string } | null;
+  postedJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+}
+
+export interface BankingClearingAccountConfigAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  allowPosting: boolean;
+  isActive: boolean;
+}
+
+export interface BankingClearingAccountConfig {
+  id: string;
+  organizationId: string;
+  undepositedFundsAccountId: string | null;
+  chequeInHandAccountId: string | null;
+  outstandingChequesAccountId: string | null;
+  cardClearingAccountId: string | null;
+  creditCardLiabilityAccountId: string | null;
+  prepaidCardAssetAccountId: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  undepositedFundsAccount?: BankingClearingAccountConfigAccount | null;
+  chequeInHandAccount?: BankingClearingAccountConfigAccount | null;
+  outstandingChequesAccount?: BankingClearingAccountConfigAccount | null;
+  cardClearingAccount?: BankingClearingAccountConfigAccount | null;
+  creditCardLiabilityAccount?: BankingClearingAccountConfigAccount | null;
+  prepaidCardAssetAccount?: BankingClearingAccountConfigAccount | null;
+  updatedBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface BankingClearingAccountConfigInput {
+  undepositedFundsAccountId?: string | null;
+  chequeInHandAccountId?: string | null;
+  outstandingChequesAccountId?: string | null;
+  cardClearingAccountId?: string | null;
+  creditCardLiabilityAccountId?: string | null;
+  prepaidCardAssetAccountId?: string | null;
+  enabled?: boolean;
+}
+
+export interface BankingClearingAccountConfigValidation {
+  valid: boolean;
+  enabled?: boolean;
+  reasons: string[];
+  warnings?: string[];
+  accounts?: Array<{
+    field: keyof BankingClearingAccountConfigInput;
+    accountId: string | null;
+    valid: boolean;
+    reason: string;
+    account?: BankingClearingAccountConfigAccount;
+  }>;
+}
+
+export interface BankingClearingAccountConfigResponse {
+  config: BankingClearingAccountConfig | null;
+  validation: BankingClearingAccountConfigValidation;
+  warnings: string[];
+}
+
+export interface BankingAccountingPreflight {
+  status: "READY" | "BLOCKED" | "POSTED" | "OPERATIONAL_ONLY";
+  ready: boolean;
+  reasons: string[];
+  warnings: string[];
+  journalEntryId?: string | null;
+  journalEntryNumber?: string | null;
+  journalPreview?: {
+    entryDate: string;
+    description: string;
+    reference: string;
+    currency: string;
+    totalDebit: string;
+    totalCredit: string;
+    lines: Array<{
+      side: "DEBIT" | "CREDIT";
+      accountId: string;
+      accountCode: string;
+      accountName: string;
+      amount: string;
+      description: string;
+    }>;
+  };
 }
 
 export interface BankDepositSourceCandidate {

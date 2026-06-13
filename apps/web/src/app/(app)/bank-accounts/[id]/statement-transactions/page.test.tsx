@@ -439,6 +439,7 @@ function cardSettlement(): CardSettlement {
     status: "POSTED",
     memo: "Card paydown",
     reference: "CARD-PAY",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -468,6 +469,7 @@ function cardSettlement(): CardSettlement {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
   };
 }
 
@@ -499,6 +501,7 @@ function chequeInstrument(): ChequeInstrument {
     memo: null,
     bounceReason: null,
     voidReason: null,
+    postedJournalEntryId: null,
     createdById: "user-1",
     updatedById: "user-1",
     createdAt: "2026-05-21T00:00:00.000Z",
@@ -516,5 +519,6 @@ function chequeInstrument(): ChequeInstrument {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
   };
 }

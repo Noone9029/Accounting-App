@@ -42,18 +42,25 @@ describe("BankDepositDetailPage", () => {
   });
 
   it("adds lines, shows explicit post, and keeps safety wording visible", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(deposit())
-      .mockResolvedValueOnce([sourceCandidate()])
-      .mockResolvedValueOnce(deposit({ totalAmount: "300.0000", lines: [depositLine()] }))
-      .mockResolvedValueOnce(deposit({ totalAmount: "300.0000", lines: [depositLine()] }))
-      .mockResolvedValueOnce([sourceCandidate()]);
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/bank-deposits/dep-1/lines" && options?.method === "POST") {
+        return Promise.resolve(deposit({ totalAmount: "300.0000", lines: [depositLine()] }));
+      }
+      if (path.includes("/source-candidates")) {
+        return Promise.resolve([sourceCandidate()]);
+      }
+      if (path === "/banking-accounting/bank-deposits/dep-1/preflight") {
+        return Promise.resolve(blockedPreflight("Only posted or matched deposit batches can be journal-posted."));
+      }
+      return Promise.resolve(deposit());
+    });
 
     render(<BankDepositDetailPage />);
 
     expect(await screen.findByText("Deposit batch detail")).toBeInTheDocument();
     expect(screen.getByText(/no live bank feed is added/i)).toBeInTheDocument();
-    expect(screen.getByText(/no bank payment is sent/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no bank payment is sent/i).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Posting blocked")).toBeInTheDocument();
     expect(screen.queryByText(/card settlement/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/payment initiation enabled/i)).not.toBeInTheDocument();
 
@@ -78,27 +85,32 @@ describe("BankDepositDetailPage", () => {
   });
 
   it("matches a posted deposit batch to an explicit statement credit row", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(deposit({ status: "POSTED", totalAmount: "300.0000", lines: [depositLine()] }))
-      .mockResolvedValueOnce([statementTransaction()])
-      .mockResolvedValueOnce(
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/bank-deposits/dep-1/match-statement-transaction" && options?.method === "POST") {
+        return Promise.resolve(
+          deposit({
+            status: "MATCHED",
+            totalAmount: "300.0000",
+            lines: [depositLine()],
+            statementTransactionId: "stmt-1",
+            statementTransaction: statementTransaction(),
+          }),
+        );
+      }
+      if (path === "/bank-deposits/dep-1/match-candidates") {
+        return Promise.resolve([statementTransaction()]);
+      }
+      if (path === "/banking-accounting/bank-deposits/dep-1/preflight") {
+        return Promise.resolve(readyPreflight());
+      }
+      return Promise.resolve(
         deposit({
-          status: "MATCHED",
+          status: "POSTED",
           totalAmount: "300.0000",
           lines: [depositLine()],
-          statementTransactionId: "stmt-1",
-          statementTransaction: statementTransaction(),
-        }),
-      )
-      .mockResolvedValueOnce(
-        deposit({
-          status: "MATCHED",
-          totalAmount: "300.0000",
-          lines: [depositLine()],
-          statementTransactionId: "stmt-1",
-          statementTransaction: statementTransaction(),
         }),
       );
+    });
 
     render(<BankDepositDetailPage />);
 
@@ -116,6 +128,36 @@ describe("BankDepositDetailPage", () => {
     });
   });
 });
+
+function blockedPreflight(reason: string) {
+  return {
+    status: "BLOCKED" as const,
+    ready: false,
+    reasons: [reason],
+    warnings: ["Deposit journal posting is explicit and does not allocate invoices."],
+  };
+}
+
+function readyPreflight() {
+  return {
+    status: "READY" as const,
+    ready: true,
+    reasons: [],
+    warnings: ["Deposit journal posting is explicit and does not allocate invoices."],
+    journalPreview: {
+      entryDate: "2026-06-10T00:00:00.000Z",
+      description: "Bank deposit clearing journal",
+      reference: "BANK-DEPOSIT-dep-1",
+      currency: "SAR",
+      totalDebit: "300.0000",
+      totalCredit: "300.0000",
+      lines: [
+        { side: "DEBIT" as const, accountId: "bank-account-1", accountCode: "1010", accountName: "Main Bank", amount: "300.0000", description: "Bank deposit" },
+        { side: "CREDIT" as const, accountId: "undeposited", accountCode: "1090", accountName: "Undeposited funds", amount: "300.0000", description: "Clearing" },
+      ],
+    },
+  };
+}
 
 function bankProfile(): BankAccountSummary {
   return {
@@ -154,6 +196,7 @@ function deposit(overrides: Partial<BankDepositBatch> = {}): BankDepositBatch {
     status: "DRAFT",
     memo: "Cash drawer",
     totalAmount: "0.0000",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -166,6 +209,7 @@ function deposit(overrides: Partial<BankDepositBatch> = {}): BankDepositBatch {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     lines: [],
     ...overrides,
   };

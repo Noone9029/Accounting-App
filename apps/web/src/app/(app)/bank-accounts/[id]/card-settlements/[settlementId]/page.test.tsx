@@ -42,18 +42,26 @@ describe("CardSettlementDetailPage", () => {
   });
 
   it("posts an operational card settlement and shows safety wording", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(settlement())
-      .mockResolvedValueOnce(settlement({ status: "POSTED", postedAt: "2026-06-10T10:00:00.000Z" }))
-      .mockResolvedValueOnce(settlement({ status: "POSTED", postedAt: "2026-06-10T10:00:00.000Z" }))
-      .mockResolvedValueOnce([]);
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/card-settlements/set-1/post" && options?.method === "POST") {
+        return Promise.resolve(settlement({ status: "POSTED", postedAt: "2026-06-10T10:00:00.000Z" }));
+      }
+      if (path === "/banking-accounting/card-settlements/set-1/preflight") {
+        return Promise.resolve(blockedPreflight("Only posted or matched card settlements can be journal-posted."));
+      }
+      if (path === "/card-settlements/set-1/match-candidates") {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve(settlement());
+    });
 
     render(<CardSettlementDetailPage />);
 
     expect(await screen.findByText("Card settlement detail")).toBeInTheDocument();
     expect(screen.getByText(/no live bank feed is added/i)).toBeInTheDocument();
-    expect(screen.getByText(/no bank payment is sent/i)).toBeInTheDocument();
-    expect(screen.getByText(/journal-backed card liability or prepaid asset posting is deferred/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no bank payment is sent/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/card paydowns and prepaid top-ups can be journal-posted/i)).toBeInTheDocument();
+    expect(await screen.findByText("Posting blocked")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Post settlement" }));
 
@@ -63,11 +71,18 @@ describe("CardSettlementDetailPage", () => {
   });
 
   it("matches a posted card settlement by explicit click", async () => {
-    apiRequestMock
-      .mockResolvedValueOnce(settlement({ status: "POSTED" }))
-      .mockResolvedValueOnce([statementTransaction()])
-      .mockResolvedValueOnce(settlement({ status: "MATCHED", statementTransactionId: "stmt-1", statementTransaction: statementTransaction() }))
-      .mockResolvedValueOnce(settlement({ status: "MATCHED", statementTransactionId: "stmt-1", statementTransaction: statementTransaction() }));
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/card-settlements/set-1/match-statement-transaction" && options?.method === "POST") {
+        return Promise.resolve(settlement({ status: "MATCHED", statementTransactionId: "stmt-1", statementTransaction: statementTransaction() }));
+      }
+      if (path === "/card-settlements/set-1/match-candidates") {
+        return Promise.resolve([statementTransaction()]);
+      }
+      if (path === "/banking-accounting/card-settlements/set-1/preflight") {
+        return Promise.resolve(readyPreflight());
+      }
+      return Promise.resolve(settlement({ status: "POSTED" }));
+    });
 
     render(<CardSettlementDetailPage />);
 
@@ -85,6 +100,36 @@ describe("CardSettlementDetailPage", () => {
     });
   });
 });
+
+function blockedPreflight(reason: string) {
+  return {
+    status: "BLOCKED" as const,
+    ready: false,
+    reasons: [reason],
+    warnings: ["Card settlement journal posting is explicit."],
+  };
+}
+
+function readyPreflight() {
+  return {
+    status: "READY" as const,
+    ready: true,
+    reasons: [],
+    warnings: ["Card settlement journal posting is explicit."],
+    journalPreview: {
+      entryDate: "2026-06-10T00:00:00.000Z",
+      description: "Card settlement clearing journal",
+      reference: "CARD-SETTLEMENT-set-1",
+      currency: "SAR",
+      totalDebit: "300.0000",
+      totalCredit: "300.0000",
+      lines: [
+        { side: "DEBIT" as const, accountId: "card-liability", accountCode: "2100", accountName: "Credit card liability", amount: "300.0000", description: "Paydown" },
+        { side: "CREDIT" as const, accountId: "bank-account-1", accountCode: "1010", accountName: "Main Bank", amount: "300.0000", description: "Funding bank" },
+      ],
+    },
+  };
+}
 
 function fundingProfile(): BankAccountSummary {
   return bankProfile({ id: "bank-1", accountId: "bank-account-1", displayName: "Main Bank", type: "BANK" });
@@ -135,6 +180,7 @@ function settlement(overrides: Partial<CardSettlement> = {}): CardSettlement {
     status: "DRAFT",
     memo: "June card paydown",
     reference: "CARD-PAY",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -148,6 +194,7 @@ function settlement(overrides: Partial<CardSettlement> = {}): CardSettlement {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     ...overrides,
   };
 }

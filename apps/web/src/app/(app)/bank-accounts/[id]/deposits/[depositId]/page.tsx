@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getDepositAccountingPreflight, postDepositJournal } from "@/lib/banking-accounting";
 import {
   bankDepositSourceTypeLabel,
   bankDepositStatusBadgeClass,
@@ -23,6 +25,7 @@ import type {
   BankDepositBatch,
   BankDepositBatchLineSourceType,
   BankDepositSourceCandidate,
+  BankingAccountingPreflight,
   BankStatementTransaction,
 } from "@/lib/types";
 
@@ -40,7 +43,10 @@ export default function BankDepositDetailPage() {
   const { can } = usePermissions();
   const canManage = can(PERMISSIONS.bankStatements.manage);
   const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
+  const canPostJournal = can(PERMISSIONS.journals.post);
   const [deposit, setDeposit] = useState<BankDepositBatch | null>(null);
+  const [accountingPreflight, setAccountingPreflight] = useState<BankingAccountingPreflight | null>(null);
+  const [accountingLoading, setAccountingLoading] = useState(false);
   const [sourceCandidates, setSourceCandidates] = useState<BankDepositSourceCandidate[]>([]);
   const [matchCandidates, setMatchCandidates] = useState<BankStatementTransaction[]>([]);
   const [sourceType, setSourceType] = useState<BankDepositBatchLineSourceType>("MANUAL_CASH_RECEIPT");
@@ -117,6 +123,41 @@ export default function BankDepositDetailPage() {
       .catch((loadError: unknown) => {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Unable to load deposit supporting data.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deposit, organizationId]);
+
+  useEffect(() => {
+    if (!organizationId || !deposit) {
+      setAccountingPreflight(null);
+      return;
+    }
+
+    let cancelled = false;
+    setAccountingLoading(true);
+    getDepositAccountingPreflight(deposit.id)
+      .then((preflight) => {
+        if (!cancelled) {
+          setAccountingPreflight(preflight);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setAccountingPreflight({
+            status: "BLOCKED",
+            ready: false,
+            reasons: [loadError instanceof Error ? loadError.message : "Unable to load deposit accounting preflight."],
+            warnings: [],
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAccountingLoading(false);
         }
       });
 
@@ -238,6 +279,25 @@ export default function BankDepositDetailPage() {
     }
   }
 
+  async function postAccountingJournal() {
+    if (!deposit) {
+      return;
+    }
+    setAction("post-journal");
+    setError("");
+    setSuccess("");
+    try {
+      const result = await postDepositJournal(deposit.id);
+      setDeposit(result.record);
+      setSuccess(`Journal ${result.journalEntry.entryNumber} posted for this deposit batch.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Unable to post deposit journal.");
+    } finally {
+      setAction("");
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -276,8 +336,19 @@ export default function BankDepositDetailPage() {
 
           <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm leading-6 text-steel">
-              This deposit batch groups receipts, cash, or clearing references for manual reconciliation. No live bank feed is added, no bank API is called, no bank payment is sent, and posting this batch does not create a journal because undeposited-funds clearing is not yet confirmed.
+              This deposit batch groups receipts, cash, or clearing references for manual reconciliation. No live bank feed is added, no bank API is called, and no bank payment is sent. Accounting journal posting is separate, explicit, and limited to configured clearing-account paths.
             </p>
+          </div>
+
+          <div className="mt-5">
+            <AccountingStatusPanel
+              preflight={accountingPreflight}
+              loading={accountingLoading}
+              action={action}
+              canPost={canPostJournal}
+              onPost={() => void postAccountingJournal()}
+              postLabel="Post deposit journal"
+            />
           </div>
 
           <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">

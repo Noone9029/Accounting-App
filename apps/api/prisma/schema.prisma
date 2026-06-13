@@ -988,6 +988,8 @@ model User {
   updatedCardSettlements                            CardSettlement[]                            @relation("CardSettlementUpdatedBy")
   createdChequeInstruments                          ChequeInstrument[]                          @relation("ChequeInstrumentCreatedBy")
   updatedChequeInstruments                          ChequeInstrument[]                          @relation("ChequeInstrumentUpdatedBy")
+  createdBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigCreatedBy")
+  updatedBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigUpdatedBy")
 }
 
 model Organization {
@@ -1015,6 +1017,7 @@ model Organization {
   bankDepositBatchLines                     BankDepositBatchLine[]
   cardSettlements                           CardSettlement[]
   chequeInstruments                         ChequeInstrument[]
+  bankingClearingAccountConfig              BankingClearingAccountConfig?
   bankReconciliations                       BankReconciliation[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
@@ -1969,6 +1972,12 @@ model Account {
   inventoryVarianceCreditProposals     InventoryVarianceProposal[] @relation("InventoryVarianceProposalCreditAccount")
   bankTransfersFrom                    BankTransfer[]              @relation("BankTransferFromAccount")
   bankTransfersTo                      BankTransfer[]              @relation("BankTransferToAccount")
+  bankingUndepositedFundsConfigs       BankingClearingAccountConfig[] @relation("BankingClearingUndepositedFundsAccount")
+  bankingChequeInHandConfigs           BankingClearingAccountConfig[] @relation("BankingClearingChequeInHandAccount")
+  bankingOutstandingChequesConfigs     BankingClearingAccountConfig[] @relation("BankingClearingOutstandingChequesAccount")
+  bankingCardClearingConfigs           BankingClearingAccountConfig[] @relation("BankingClearingCardClearingAccount")
+  bankingCreditCardLiabilityConfigs    BankingClearingAccountConfig[] @relation("BankingClearingCreditCardLiabilityAccount")
+  bankingPrepaidCardAssetConfigs       BankingClearingAccountConfig[] @relation("BankingClearingPrepaidCardAssetAccount")
   categorizedBankStatementTransactions BankStatementTransaction[]  @relation("BankStatementTransactionCategorizedAccount")
   bankRules                            BankRule[]                  @relation("BankRuleCategorizeAccount")
 
@@ -2131,6 +2140,7 @@ model BankDepositBatch {
   memo                       String?
   totalAmount                Decimal                @default(0) @db.Decimal(20, 4)
   statementTransactionId     String?                @unique @db.Uuid
+  postedJournalEntryId       String?                @unique @db.Uuid
   createdById                String?                @db.Uuid
   updatedById                String?                @db.Uuid
   postedAt                   DateTime?
@@ -2141,6 +2151,7 @@ model BankDepositBatch {
   organization               Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bankAccountProfile         BankAccountProfile     @relation(fields: [bankAccountProfileId], references: [id])
   statementTransaction       BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  postedJournalEntry         JournalEntry?          @relation("BankDepositBatchPostedJournal", fields: [postedJournalEntryId], references: [id])
   createdBy                  User?                  @relation("BankDepositBatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy                  User?                  @relation("BankDepositBatchUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   lines                      BankDepositBatchLine[]
@@ -2151,6 +2162,7 @@ model BankDepositBatch {
   @@index([organizationId, bankAccountProfileId])
   @@index([organizationId, status])
   @@index([statementTransactionId])
+  @@index([postedJournalEntryId])
 }
 
 model BankDepositBatchLine {
@@ -2186,6 +2198,7 @@ model CardSettlement {
   memo                        String?
   reference                   String?
   statementTransactionId      String?                   @unique @db.Uuid
+  postedJournalEntryId        String?                   @unique @db.Uuid
   createdById                 String?                   @db.Uuid
   updatedById                 String?                   @db.Uuid
   postedAt                    DateTime?
@@ -2197,6 +2210,7 @@ model CardSettlement {
   fundingBankAccountProfile   BankAccountProfile?       @relation("CardSettlementFundingProfile", fields: [fundingBankAccountProfileId], references: [id])
   cardAccountProfile          BankAccountProfile        @relation("CardSettlementCardProfile", fields: [cardAccountProfileId], references: [id])
   statementTransaction        BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  postedJournalEntry          JournalEntry?             @relation("CardSettlementPostedJournal", fields: [postedJournalEntryId], references: [id])
   createdBy                   User?                     @relation("CardSettlementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy                   User?                     @relation("CardSettlementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
@@ -2206,6 +2220,7 @@ model CardSettlement {
   @@index([organizationId, status])
   @@index([organizationId, settlementType])
   @@index([statementTransactionId])
+  @@index([postedJournalEntryId])
 }
 
 model ChequeInstrument {
@@ -2216,6 +2231,7 @@ model ChequeInstrument {
   bankAccountProfileId   String?                 @db.Uuid
   depositBatchId         String?                 @db.Uuid
   statementTransactionId String?                 @unique @db.Uuid
+  postedJournalEntryId   String?                 @unique @db.Uuid
   counterpartyType       ChequeCounterpartyType?
   counterpartyId         String?
   counterpartyName       String
@@ -2243,6 +2259,7 @@ model ChequeInstrument {
   bankAccountProfile     BankAccountProfile?     @relation(fields: [bankAccountProfileId], references: [id])
   depositBatch           BankDepositBatch?       @relation(fields: [depositBatchId], references: [id], onDelete: SetNull)
   statementTransaction   BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  postedJournalEntry     JournalEntry?           @relation("ChequeInstrumentPostedJournal", fields: [postedJournalEntryId], references: [id])
   createdBy              User?                   @relation("ChequeInstrumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy              User?                   @relation("ChequeInstrumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
@@ -2252,8 +2269,42 @@ model ChequeInstrument {
   @@index([bankAccountProfileId])
   @@index([depositBatchId])
   @@index([statementTransactionId])
+  @@index([postedJournalEntryId])
   @@index([organizationId, chequeNumber])
   @@index([organizationId, counterpartyType, counterpartyId])
+}
+
+model BankingClearingAccountConfig {
+  id                           String       @id @default(uuid()) @db.Uuid
+  organizationId               String       @unique @db.Uuid
+  undepositedFundsAccountId    String?      @db.Uuid
+  chequeInHandAccountId        String?      @db.Uuid
+  outstandingChequesAccountId  String?      @db.Uuid
+  cardClearingAccountId        String?      @db.Uuid
+  creditCardLiabilityAccountId String?      @db.Uuid
+  prepaidCardAssetAccountId    String?      @db.Uuid
+  enabled                      Boolean      @default(false)
+  createdById                  String?      @db.Uuid
+  updatedById                  String?      @db.Uuid
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
+  organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  undepositedFundsAccount      Account?     @relation("BankingClearingUndepositedFundsAccount", fields: [undepositedFundsAccountId], references: [id], onDelete: SetNull)
+  chequeInHandAccount          Account?     @relation("BankingClearingChequeInHandAccount", fields: [chequeInHandAccountId], references: [id], onDelete: SetNull)
+  outstandingChequesAccount    Account?     @relation("BankingClearingOutstandingChequesAccount", fields: [outstandingChequesAccountId], references: [id], onDelete: SetNull)
+  cardClearingAccount          Account?     @relation("BankingClearingCardClearingAccount", fields: [cardClearingAccountId], references: [id], onDelete: SetNull)
+  creditCardLiabilityAccount   Account?     @relation("BankingClearingCreditCardLiabilityAccount", fields: [creditCardLiabilityAccountId], references: [id], onDelete: SetNull)
+  prepaidCardAssetAccount      Account?     @relation("BankingClearingPrepaidCardAssetAccount", fields: [prepaidCardAssetAccountId], references: [id], onDelete: SetNull)
+  createdBy                    User?        @relation("BankingClearingAccountConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                    User?        @relation("BankingClearingAccountConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([undepositedFundsAccountId])
+  @@index([chequeInHandAccountId])
+  @@index([outstandingChequesAccountId])
+  @@index([cardClearingAccountId])
+  @@index([creditCardLiabilityAccountId])
+  @@index([prepaidCardAssetAccountId])
 }
 
 model BankRule {
@@ -4296,6 +4347,9 @@ model JournalEntry {
   voidedSupplierRefund                  SupplierRefund?            @relation("SupplierRefundVoidReversalJournal")
   bankTransfer                          BankTransfer?              @relation("BankTransferJournal")
   voidedBankTransfer                    BankTransfer?              @relation("BankTransferVoidReversalJournal")
+  postedBankDepositBatch                BankDepositBatch?          @relation("BankDepositBatchPostedJournal")
+  postedCardSettlement                  CardSettlement?            @relation("CardSettlementPostedJournal")
+  postedChequeInstrument                ChequeInstrument?          @relation("ChequeInstrumentPostedJournal")
   bankAccountOpeningProfile             BankAccountProfile?        @relation("BankAccountOpeningBalanceJournal")
   inventoryAssetPurchaseReceipt         PurchaseReceipt?           @relation("PurchaseReceiptInventoryAssetJournal")
   inventoryAssetReversedPurchaseReceipt PurchaseReceipt?           @relation("PurchaseReceiptInventoryAssetReversalJournal")

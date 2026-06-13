@@ -2,7 +2,31 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `3b14ed8a` (`Merge pull request #38 from Noone9029/codex/wafeq-banking-card-settlements`) plus the current Wafeq banking cheque lifecycle branch.
+Latest commit audited: `4fb018b8` (`Merge pull request #39 from Noone9029/codex/wafeq-banking-cheque-lifecycle`) plus the current Wafeq banking clearing-account accounting branch.
+
+## 2026-06-13 Wafeq manual banking clearing-account accounting
+
+Added clearing-account configuration, preflight, and explicit journal-backed posting for safe configured manual banking cases without adding live feeds, bank APIs, credentials, payment initiation, provider abstraction, provider callbacks, automatic posting, automatic reconciliation, automatic matching, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.
+
+What changed:
+
+- Added organization-scoped clearing-account configuration for existing chart accounts only.
+- Added additive `postedJournalEntryId` links on bank deposit batches, card settlements, and cheque instruments.
+- Added accounting preflight for deposits, card settlements, and cheques with explicit ready, blocked, posted, or operational-only statuses.
+- Added explicit deposit journal posting for safe configured cases only: Dr bank account and Cr source clearing/payment account.
+- Added explicit card settlement journal posting for credit-card paydowns and prepaid-card top-ups only.
+- Kept card credits/refunds operational-only until an explicit offset account policy exists.
+- Kept direct received/issued cheque journal posting operational-only until source receivable/payable/payment accounting policy is explicit.
+- Added banking accounting settings UI plus deposit, card settlement, and cheque accounting status panels.
+- Added targeted API and web tests for config validation, preflight, balanced journals, duplicate posting blocks, conservative cheque behavior, and manual-only wording.
+
+Remaining risks:
+
+- Direct cheque-in-hand/outstanding-cheque journal policy remains open.
+- Card credit/refund offset posting remains open.
+- Existing operational records are not silently converted; customers need explicit review before journal posting historical manual treasury records.
+- Reconciliation reports/audit polish and banking beta QA/accountant review remain the next manual Wafeq banking route.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 
 ## 2026-06-13 Wafeq manual banking cheque lifecycle
 

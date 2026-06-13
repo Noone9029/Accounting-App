@@ -144,6 +144,7 @@ function settlement(overrides: Partial<CardSettlement> = {}): CardSettlement {
     status: "DRAFT",
     memo: "June card paydown",
     reference: "CARD-PAY",
+    postedJournalEntryId: null,
     statementTransactionId: null,
     createdById: "user-1",
     updatedById: "user-1",
@@ -157,6 +158,7 @@ function settlement(overrides: Partial<CardSettlement> = {}): CardSettlement {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     ...overrides,
   };
 }

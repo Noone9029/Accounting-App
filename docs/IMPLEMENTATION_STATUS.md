@@ -24,6 +24,20 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq manual banking clearing-account accounting:
+
+- PR `#39` `Wafeq banking cheque lifecycle` was reverified green/safe and merged into `main` at `4fb018b8` before this branch was created.
+- Added organization-scoped clearing-account configuration for existing chart-account selections, with no default account creation and no hosted migration execution.
+- Added nullable journal-entry links on bank deposit batches, card settlements, and cheque instruments so explicit posting can be idempotently tracked.
+- Added banking-accounting preflight for deposit batches, card settlements, and cheques.
+- Added explicit deposit journal posting for safe configured cases only: Dr bank account and Cr source clearing/payment account. Ambiguous deposit sources remain blocked or operational-only with reasons.
+- Added explicit card settlement journal posting for safe configured credit-card paydowns and prepaid-card top-ups only. Card credits/refunds remain operational-only until an offset policy is explicit.
+- Kept direct cheque journal posting conservative and operational-only until source receivable/payable/payment policy is explicit.
+- Added banking accounting settings UI plus deposit, card settlement, and cheque accounting status panels.
+- Existing operational treasury records are not silently converted. Posting requires explicit operator action after preflight.
+- No live bank feed, bank API, credential handling, payment initiation, provider abstraction, provider callback, silent posting, silent reconciliation, silent matching, AR/AP allocation change, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq manual banking polish: reconciliation reports and audit trail`.
+
 2026-06-13 Wafeq manual banking cheque lifecycle:
 
 - PR `#38` `Wafeq banking credit and prepaid card settlement flows` was reverified green/safe and merged into `main` at `3b14ed8a` before this branch was created.

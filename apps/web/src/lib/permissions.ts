@@ -439,6 +439,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.emailOutbox.view];
   }
 
+  if (pathname.startsWith("/settings/banking-accounting")) {
+    return [PERMISSIONS.accounts.view];
+  }
+
   if (pathname.startsWith("/settings/audit-logs")) {
     return [PERMISSIONS.auditLogs.view];
   }

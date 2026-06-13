@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getChequeAccountingPreflight, postChequeJournal } from "@/lib/banking-accounting";
 import {
   canBounceCheque,
   canClearCheque,
@@ -21,7 +23,7 @@ import {
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankDepositBatch, BankStatementTransaction, ChequeInstrument } from "@/lib/types";
+import type { BankingAccountingPreflight, BankDepositBatch, BankStatementTransaction, ChequeInstrument } from "@/lib/types";
 
 export default function ChequeDetailPage() {
   const params = useParams<{ id: string; chequeId: string }>();
@@ -29,7 +31,10 @@ export default function ChequeDetailPage() {
   const { can } = usePermissions();
   const canManage = can(PERMISSIONS.bankStatements.manage);
   const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
+  const canPostJournal = can(PERMISSIONS.journals.post);
   const [cheque, setCheque] = useState<ChequeInstrument | null>(null);
+  const [accountingPreflight, setAccountingPreflight] = useState<BankingAccountingPreflight | null>(null);
+  const [accountingLoading, setAccountingLoading] = useState(false);
   const [deposits, setDeposits] = useState<BankDepositBatch[]>([]);
   const [matchCandidates, setMatchCandidates] = useState<BankStatementTransaction[]>([]);
   const [selectedDepositId, setSelectedDepositId] = useState("");
@@ -108,6 +113,39 @@ export default function ChequeDetailPage() {
       cancelled = true;
     };
   }, [canManage, canReconcile, cheque, organizationId, params.id]);
+
+  useEffect(() => {
+    if (!organizationId || !cheque) {
+      setAccountingPreflight(null);
+      return;
+    }
+    let cancelled = false;
+    setAccountingLoading(true);
+    getChequeAccountingPreflight(cheque.id)
+      .then((preflight) => {
+        if (!cancelled) {
+          setAccountingPreflight(preflight);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled) {
+          setAccountingPreflight({
+            status: "BLOCKED",
+            ready: false,
+            reasons: [loadError instanceof Error ? loadError.message : "Unable to load cheque accounting preflight."],
+            warnings: [],
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAccountingLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cheque, organizationId]);
 
   async function runAction(actionName: "mark-received" | "mark-issued" | "clear" | "unmatch-statement-transaction") {
     if (!cheque) {
@@ -222,6 +260,25 @@ export default function ChequeDetailPage() {
     }
   }
 
+  async function postAccountingJournal() {
+    if (!cheque) {
+      return;
+    }
+    setAction("post-journal");
+    setError("");
+    setSuccess("");
+    try {
+      const result = await postChequeJournal(cheque.id);
+      setCheque(result.record);
+      setSuccess(`Journal ${result.journalEntry.entryNumber} posted for this cheque.`);
+      setReloadToken((current) => current + 1);
+    } catch (postError) {
+      setError(postError instanceof Error ? postError.message : "Cheque journal posting remains deferred.");
+    } finally {
+      setAction("");
+    }
+  }
+
   return (
     <section>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -263,8 +320,19 @@ export default function ChequeDetailPage() {
               This is a manual cheque record. No live bank feed is added, no bank API is called, no bank credentials are collected, and no bank payment is sent.
             </p>
             <p className="mt-2 text-xs leading-5 text-steel">
-              Cheque-in-hand, outstanding-cheque, and clearing-account journal posting is deferred. Matching and deposit links here require explicit user action.
+              Direct cheque journal posting remains deferred unless a later accountant-reviewed source-accounting policy confirms cheque-in-hand or outstanding-cheque recognition. Matching and deposit links here require explicit user action.
             </p>
+          </div>
+
+          <div className="mt-5">
+            <AccountingStatusPanel
+              preflight={accountingPreflight}
+              loading={accountingLoading}
+              action={action}
+              canPost={canPostJournal}
+              onPost={() => void postAccountingJournal()}
+              postLabel="Post cheque journal"
+            />
           </div>
 
           <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">

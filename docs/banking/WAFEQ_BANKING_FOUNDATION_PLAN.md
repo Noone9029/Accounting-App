@@ -36,6 +36,7 @@ LedgerByte already has:
 - operational bank deposit batches for grouping receipt-like items and explicitly matching the batch to one imported bank statement credit row
 - operational credit/prepaid card settlement records for paydowns, credits/refunds, and prepaid top-ups, with explicit statement-row matching
 - operational cheque lifecycle records for received and issued cheques, with explicit deposit-batch links and statement-row matching
+- clearing-account configuration, accounting preflight, and explicit journal-backed posting for safe configured deposit/card cases
 
 LedgerByte does not yet have:
 
@@ -43,7 +44,9 @@ LedgerByte does not yet have:
 - WIO, Lean, Tarabut, or other open-banking integrations
 - payment initiation
 - silent automatic bank-rule application
-- journal-backed clearing-account movement for deposits, card settlements, or cheques
+- automatic journal posting or automatic treasury clearing
+- direct cheque-in-hand/outstanding-cheque source accounting policy
+- card credit/refund offset accounting policy
 - reconciliation reports/audit polish for the completed manual banking workflows
 - banking beta QA/accountant review sign-off
 - certified target-bank parser coverage
@@ -171,6 +174,27 @@ This prompt adds manual cheque lifecycle workflows as LedgerByte treasury functi
 
 The schema migration is additive and limited to `ChequeInstrument` storage. Prompt 7 intentionally does not create journal entries because cheque-in-hand, outstanding-cheque, and clearing-account accounting needs the next explicit clearing-account design before journal-backed cheque clearing is safe. Cheque posting is therefore operational status tracking only. This prompt does not add live feeds, bank API calls, credentials, payment initiation, provider abstraction, cheque printing, cheque book inventory, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
 
+## Prompt 8 Completed Scope
+
+This prompt adds clearing-account accounting design and implementation for the completed manual banking route. Posting remains explicit and preflighted; no existing operational records are silently converted.
+
+- additive `BankingClearingAccountConfig` storage for existing chart-account selections
+- configurable accounts for undeposited funds, cheque-in-hand, outstanding cheques, card clearing, credit-card liability, and prepaid-card asset
+- nullable `postedJournalEntryId` links on bank deposit batches, card settlements, and cheque instruments
+- config validation for organization ownership, active posting accounts, and safe `AccountType` where the current chart model supports it
+- preflight APIs for deposit batches, card settlements, and cheques
+- explicit post-journal APIs for deposit batches and card settlements
+- conservative cheque post-journal endpoint that reports why direct cheque posting remains deferred
+- deposit journal posting for safe configured cases only: Dr bank account and Cr source clearing/payment account
+- card paydown journal posting: Dr credit-card liability and Cr funding bank
+- prepaid-card top-up journal posting: Dr prepaid-card asset and Cr funding bank
+- card credits/refunds remain operational-only until an explicit offset policy is designed
+- direct received/issued cheque journal posting remains operational-only until source receivable/payable/payment policy is explicit
+- banking accounting settings UI at `/settings/banking-accounting`
+- deposit, card settlement, and cheque detail accounting status panels with reasons, warnings, journal preview, and explicit post buttons where allowed
+
+This prompt does not add live feeds, bank API calls, bank credential handling, payment initiation, provider abstraction, provider callbacks/webhooks, automatic posting, automatic reconciliation, automatic matching, AR/AP allocation changes, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.
+
 ## Not Included
 
 This route still intentionally does not add:
@@ -186,9 +210,9 @@ This route still intentionally does not add:
 - full credit-card expense management
 - credit-card statement-cycle billing
 - reconciliation state changes
-- journal-backed clearing movement for deposit batches
-- journal-backed card settlement posting
-- journal-backed cheque clearing or outstanding-cheque posting
+- automatic journal posting
+- direct cheque clearing or outstanding-cheque posting without explicit source accounting policy
+- card credit/refund journal posting without explicit offset policy
 - destructive schema migrations
 - production or beta data mutation
 - DB-level unique fingerprint constraints
@@ -199,4 +223,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`
+`Wafeq manual banking polish: reconciliation reports and audit trail`

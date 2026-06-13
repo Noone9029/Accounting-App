@@ -163,6 +163,7 @@ function cheque(overrides: Partial<ChequeInstrument> = {}): ChequeInstrument {
     memo: null,
     bounceReason: null,
     voidReason: null,
+    postedJournalEntryId: null,
     createdById: "user-1",
     updatedById: "user-1",
     createdAt: "2026-06-01T00:00:00.000Z",
@@ -172,6 +173,7 @@ function cheque(overrides: Partial<ChequeInstrument> = {}): ChequeInstrument {
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,
+    postedJournalEntry: null,
     ...overrides,
   };
 }
