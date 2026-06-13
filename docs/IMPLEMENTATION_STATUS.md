@@ -24,6 +24,22 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq manual banking cheque lifecycle:
+
+- PR `#38` `Wafeq banking credit and prepaid card settlement flows` was reverified green/safe and merged into `main` at `3b14ed8a` before this branch was created.
+- Added operational cheque instruments for received and issued manual cheques.
+- Added draft, received, issued, deposited, cleared, bounced, and voided statuses with explicit create, update, mark received, mark issued, deposit, clear, bounce, void, match, and unmatch API behavior.
+- Added cheque number, counterparty, drawer bank, payee, amount, currency, date, reference, memo, bounce reason, void reason, bank account, deposit batch, and statement transaction tracking.
+- Added positive amount, cheque number, currency, bank account, organization-scope, active-source reuse, lifecycle transition, direction, and closed-reconciliation guards.
+- Added received-cheque deposit integration using the existing bank deposit batch `CHEQUE_PLACEHOLDER` source line type.
+- Added explicit direction-aware statement matching: received cheques match same-account credit rows; issued cheques match same-account debit rows.
+- Closed reconciliation periods block cheque matching, unmatching, and linked void changes.
+- Added bank account cheque list/detail UI at `/bank-accounts/[id]/cheques` plus on-demand cheque candidate links from the statement transaction review workspace.
+- Added a narrow additive Prisma migration limited to `ChequeInstrument`.
+- Accounting decision: cheque lifecycle is operational only and does not create journal entries because cheque-in-hand, outstanding-cheque, and clearing-account accounting need the next explicit design before journal-backed cheque posting is safe.
+- No live bank feed, bank API, credential handling, payment initiation, provider abstraction, cheque printing, cheque book inventory, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`.
+
 2026-06-13 Wafeq banking credit/prepaid card settlement flows:
 
 - PR `#37` `Wafeq banking bank deposit batches` was reverified green/safe and merged into `main` at `d86c9394` before this branch was created.
@@ -35,8 +51,8 @@ Current production posture:
 - Added bank account card settlement list/detail UI at `/bank-accounts/[id]/card-settlements` plus on-demand card settlement candidate links from the statement transaction review workspace.
 - Added a narrow additive Prisma migration limited to `CardSettlement`.
 - Accounting decision: card settlement posting is operational only and does not create journal entries because credit-card liability, prepaid-card asset, and clearing-account classification need an explicit design before journal-backed settlement posting is safe.
-- No live bank feed, bank API, credential handling, payment initiation, full cheque lifecycle, card expense management, statement-cycle billing, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
-- Recommended next prompt: `Wafeq banking treasury: cheque lifecycle`.
+- No live bank feed, bank API, credential handling, payment initiation, cheque printing, cheque book inventory, card expense management, statement-cycle billing, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`.
 
 2026-06-13 Wafeq banking bank deposit batches:
 
@@ -49,7 +65,7 @@ Current production posture:
 - Added a narrow additive Prisma migration limited to `BankDepositBatch` and `BankDepositBatchLine`.
 - Accounting decision: existing customer payments post directly to their selected paid-through account and no confirmed undeposited-funds/clearing model exists, so deposit-batch posting is operational only and does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is designed and tested.
 - This is LedgerByte treasury workflow functionality, not a claim that public Wafeq evidence proves a dedicated Wafeq deposit-batch module.
-- No live bank feed, bank API, credential handling, payment initiation, card settlement, full cheque lifecycle, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- No live bank feed, bank API, credential handling, payment initiation, card settlement, cheque printing, cheque book inventory, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
 - Recommended next prompt: `Wafeq banking treasury: credit and prepaid card settlement flows`.
 
 2026-06-13 Wafeq banking bank rules engine:

@@ -125,6 +125,9 @@ export type BankDepositBatchLineSourceType =
   | "OTHER_CLEARING_ITEM";
 export type CardSettlementType = "CREDIT_CARD_PAYDOWN" | "CREDIT_CARD_CREDIT" | "PREPAID_CARD_TOP_UP";
 export type CardSettlementStatus = "DRAFT" | "POSTED" | "MATCHED" | "VOIDED";
+export type ChequeInstrumentType = "RECEIVED" | "ISSUED";
+export type ChequeInstrumentStatus = "DRAFT" | "RECEIVED" | "ISSUED" | "DEPOSITED" | "CLEARED" | "BOUNCED" | "VOIDED";
+export type ChequeCounterpartyType = "CUSTOMER" | "SUPPLIER" | "OTHER";
 export type BankStatementImportStatus = "IMPORTED" | "PARTIALLY_RECONCILED" | "RECONCILED" | "VOIDED";
 export type BankStatementTransactionStatus = "UNMATCHED" | "MATCHED" | "CATEGORIZED" | "IGNORED" | "VOIDED";
 export type BankStatementTransactionType = "DEBIT" | "CREDIT";
@@ -1200,6 +1203,47 @@ export interface CardSettlement {
   updatedAt: string;
   fundingBankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account"> | null;
   cardAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account">;
+  statementTransaction?: Pick<
+    BankStatementTransaction,
+    "id" | "bankAccountProfileId" | "transactionDate" | "description" | "reference" | "type" | "amount" | "status" | "matchType"
+  > | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  updatedBy?: { id: string; name: string; email: string } | null;
+}
+
+export interface ChequeInstrument {
+  id: string;
+  organizationId: string;
+  chequeType: ChequeInstrumentType;
+  status: ChequeInstrumentStatus;
+  bankAccountProfileId: string | null;
+  depositBatchId: string | null;
+  statementTransactionId: string | null;
+  counterpartyType: ChequeCounterpartyType | null;
+  counterpartyId: string | null;
+  counterpartyName: string;
+  chequeNumber: string;
+  drawerBankName: string | null;
+  payeeName: string | null;
+  issueDate: string | null;
+  receivedDate: string | null;
+  dueDate: string | null;
+  depositDate: string | null;
+  clearedDate: string | null;
+  bouncedDate: string | null;
+  voidedDate: string | null;
+  amount: string;
+  currency: string;
+  reference: string | null;
+  memo: string | null;
+  bounceReason: string | null;
+  voidReason: string | null;
+  createdById: string | null;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account"> | null;
+  depositBatch?: Pick<BankDepositBatch, "id" | "depositDate" | "status" | "totalAmount" | "bankAccountProfileId"> | null;
   statementTransaction?: Pick<
     BankStatementTransaction,
     "id" | "bankAccountProfileId" | "transactionDate" | "description" | "reference" | "type" | "amount" | "status" | "matchType"

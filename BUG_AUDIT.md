@@ -2,11 +2,32 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `d86c9394` (`Merge pull request #37 from Noone9029/codex/wafeq-banking-bank-deposit-batches`) plus the current Wafeq banking card settlements branch.
+Latest commit audited: `3b14ed8a` (`Merge pull request #38 from Noone9029/codex/wafeq-banking-card-settlements`) plus the current Wafeq banking cheque lifecycle branch.
+
+## 2026-06-13 Wafeq manual banking cheque lifecycle
+
+Added operational received/issued cheque lifecycle workflows without adding live feeds, bank APIs, credentials, payment initiation, provider abstraction, cheque printing, cheque book inventory, silent matching, automatic reconciliation, journal-backed cheque clearing, or production banking claims.
+
+What changed:
+
+- Added organization-scoped cheque instruments for received and issued manual cheques.
+- Added draft, received, issued, deposited, cleared, bounced, and voided statuses with explicit API actions.
+- Added cheque number, counterparty, drawer bank, payee, amount, currency, date, reference, memo, bounce reason, void reason, bank account, deposit batch, and statement transaction tracking.
+- Added positive amount, cheque number, currency, bank account, organization-scope, lifecycle-transition, active-source reuse, and closed-reconciliation protections.
+- Added received-cheque deposit integration using existing deposit batch `CHEQUE_PLACEHOLDER` source lines.
+- Added explicit direction-aware statement matching: received cheques match credit rows; issued cheques match debit rows.
+- Added bank account cheque list/detail UI and on-demand statement transaction review links for candidate cheques.
+- Added targeted API and web tests for validation, transitions, deposit linking, matching, reconciliation locks, explicit actions, and manual-only wording.
+
+Remaining risks:
+
+- Cheque lifecycle is operational only. No journal entries are created because cheque-in-hand, outstanding-cheque, and clearing-account accounting need explicit design before journal-backed cheque clearing is safe.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- Clearing-account accounting design for deposits, card settlements, and cheques is the next manual Wafeq banking route.
 
 ## 2026-06-13 Wafeq banking credit/prepaid card settlement flows
 
-Added operational credit/prepaid card settlement workflows without adding live feeds, bank APIs, credentials, payment initiation, full cheque lifecycle, provider abstraction, card expense management, statement-cycle billing, silent matching, automatic reconciliation, journal-backed card posting, or production banking claims.
+Added operational credit/prepaid card settlement workflows without adding live feeds, bank APIs, credentials, payment initiation, cheque printing, cheque book inventory, provider abstraction, card expense management, statement-cycle billing, silent matching, automatic reconciliation, journal-backed card posting, or production banking claims.
 
 What changed:
 
@@ -21,12 +42,12 @@ What changed:
 Remaining risks:
 
 - Card settlement posting is operational only. No journal entries are created because credit-card liability, prepaid-card asset, and clearing-account classification need explicit accounting design before journal-backed settlement posting is safe.
-- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, full cheque lifecycle, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, cheque printing, cheque book inventory, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 - Cheque lifecycle is still the next Wafeq banking route.
 
 ## 2026-06-13 Wafeq banking bank deposit batches
 
-Added operational bank deposit batches for manual treasury grouping and explicit statement-credit matching without adding live feeds, bank APIs, credentials, payment initiation, card settlement, full cheque lifecycle, silent matching, automatic reconciliation, or production banking claims.
+Added operational bank deposit batches for manual treasury grouping and explicit statement-credit matching without adding live feeds, bank APIs, credentials, payment initiation, card settlement, cheque printing, cheque book inventory, silent matching, automatic reconciliation, or production banking claims.
 
 Risk reduced:
 
@@ -43,7 +64,7 @@ Remaining risks:
 
 - Deposit batches are LedgerByte treasury workflow functionality, not overclaimed as publicly proven Wafeq dedicated-module parity.
 - Posting is operational only. No journal entries are created because the current customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing-account model exists yet.
-- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, card settlements, full cheque lifecycle, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, card settlements, cheque printing, cheque book inventory, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 - Certified target-bank parser coverage, raw statement archive execution, DB-level statement fingerprint uniqueness, transfer fees, FX handling, accountant sign-off, hosted/customer-data proof, and journal-backed clearing movement remain open.
 
 ## 2026-06-13 Wafeq banking bank rules engine

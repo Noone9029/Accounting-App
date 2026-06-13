@@ -244,6 +244,9 @@ export default function BankAccountDetailPage() {
                   <Link href={`/bank-accounts/${profile.id}/card-settlements`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Card settlements
                   </Link>
+                  <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Cheques
+                  </Link>
                   <Link href={`/bank-accounts/${profile.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Reconciliation
                   </Link>
@@ -418,6 +421,11 @@ export function BankAccountWorkflowGuidance({
             {canViewStatements ? (
               <Link href={`/bank-accounts/${profile.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 Deposit batches
+              </Link>
+            ) : null}
+            {canViewStatements ? (
+              <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                Cheques
               </Link>
             ) : null}
             <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

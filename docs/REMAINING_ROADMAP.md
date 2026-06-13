@@ -18,6 +18,20 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, DB-enforced import fingerprints, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-13 Wafeq manual banking cheque lifecycle
+
+- PR `#38` was reverified green/safe and merged into `main` at `3b14ed8a` before Prompt 7 work began.
+- Added operational cheque instruments for received and issued manual cheques.
+- Added draft, received, issued, deposited, cleared, bounced, and voided cheque statuses with explicit API and UI actions.
+- Received cheques can be explicitly linked into draft bank deposit batches through cheque source lines.
+- Open received cheques can be explicitly matched to same-account, same-currency, same-amount credit statement rows; open issued cheques can be explicitly matched to debit rows.
+- Closed reconciliation periods block cheque match, unmatch, and linked void changes.
+- Added `/bank-accounts/[id]/cheques` list/detail workspaces and on-demand statement transaction review links for candidate cheques.
+- Journal-backed cheque clearing remains open because cheque-in-hand, outstanding-cheque, and clearing-account classifications need explicit accounting design before posting can be safely implemented.
+- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, provider abstraction, cheque printing, cheque book inventory, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
+- Remaining manual Wafeq banking route: clearing-account accounting design for deposits/cards/cheques, reconciliation reports/audit polish, and banking beta QA/accountant review.
+- Recommended next prompt: `Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`.
+
 ## 2026-06-13 Wafeq banking credit/prepaid card settlement flows
 
 - PR `#37` was reverified green/safe and merged into `main` at `d86c9394` before Prompt 6 work began.
@@ -28,9 +42,9 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Closed reconciliation periods block card-settlement match, unmatch, and linked void changes.
 - Added `/bank-accounts/[id]/card-settlements` list/detail workspaces and on-demand statement transaction review links for candidate card settlements.
 - Journal-backed card settlement posting remains open because credit-card liability, prepaid-card asset, and clearing-account classifications need explicit accounting design before posting can be safely implemented.
-- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, full cheque lifecycle, provider abstraction, card expense management, statement-cycle billing, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
-- Remaining Wafeq banking route: cheque lifecycle, bank-feed provider abstraction, and Lean/WIO/Tarabut sandbox integration later.
-- Recommended next prompt: `Wafeq banking treasury: cheque lifecycle`.
+- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, cheque printing, cheque book inventory, provider abstraction, card expense management, statement-cycle billing, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
+- Remaining manual Wafeq banking route: cheque lifecycle, clearing-account accounting design for deposits/cards/cheques, reconciliation reports/audit polish, and banking beta QA/accountant review.
+- Recommended next prompt: `Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`.
 
 ## 2026-06-13 Wafeq banking bank deposit batches
 
@@ -42,8 +56,8 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Added `/bank-accounts/[id]/deposits` list/detail workspaces and on-demand statement transaction review links for candidate deposit batches.
 - This is LedgerByte treasury workflow functionality, not a public Wafeq dedicated-module parity claim.
 - Journal-backed clearing movement remains open because the repo does not yet have a confirmed undeposited-funds/clearing-account model for customer receipts.
-- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, card settlement, full cheque lifecycle, provider abstraction, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
-- Remaining Wafeq banking route: card settlement flows, cheque lifecycle, bank-feed provider abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, card settlement, cheque printing, cheque book inventory, provider abstraction, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
+- Remaining manual Wafeq banking route at that point: card settlement flows, cheque lifecycle, clearing-account accounting design, reconciliation reports/audit polish, and banking beta QA/accountant review.
 - Recommended next prompt: `Wafeq banking treasury: credit and prepaid card settlement flows`.
 
 ## 2026-06-13 Wafeq banking bank rules engine
@@ -54,7 +68,7 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Explicit apply reuses existing categorize, ignore, and match service behavior; no silent posting, silent ignore, silent reconciliation, or reconciliation workflow-state change was added.
 - Added a bank account rules workspace and row-level rule suggestions in the statement transaction review workspace.
 - This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, deposits, card settlement, cheque lifecycle, provider abstraction, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
-- Remaining Wafeq banking route: bank deposit batches, card settlement flows, cheque lifecycle, bank-feed abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- Remaining manual Wafeq banking route at that point: bank deposit batches, card settlement flows, cheque lifecycle, clearing-account accounting design, reconciliation reports/audit polish, and banking beta QA/accountant review.
 - Recommended next prompt: `Wafeq banking treasury: bank deposit batches`.
 
 ## 2026-06-13 Wafeq banking import duplicate/idempotency/reconciliation safety hardening
@@ -64,7 +78,7 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Preview and import results expose duplicate-in-file, existing duplicate, closed reconciliation overlap, open reconciliation overlap, currency mismatch, importable, skipped, and blocked counts.
 - Full import blocks invalid, duplicate, and closed-period rows. Partial import imports safe rows and reports skipped rows explicitly.
 - This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, bank rules, deposits, card settlement, cheque lifecycle, provider abstraction, schema migration, reconciliation-state change, or production-readiness claim was added.
-- Remaining Wafeq banking route: bank rules engine, bank deposit batches, card settlement flows, cheque lifecycle, bank-feed abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- Remaining manual Wafeq banking route at that point: bank rules engine, bank deposit batches, card settlement flows, cheque lifecycle, clearing-account accounting design, reconciliation reports/audit polish, and banking beta QA/accountant review.
 - Recommended next prompt: `Wafeq banking automation: bank rules engine`.
 
 ## 2026-06-13 Wafeq banking inline statement transaction review workspace
@@ -74,7 +88,7 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - Operators can filter all/unmatched/matched/categorized/ignored/needs-review/debit/credit rows, search imported row text, sort by date/amount/status, preview match candidates, match a selected candidate, categorize a row, ignore a row, and keep detail-page review available for exceptions.
 - Bulk ignore and bulk categorize are explicit actions that reuse existing single-row APIs and surface partial failures.
 - This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, bank rules, deposits, card settlement, cheque lifecycle, provider abstraction, schema migration, reconciliation-state change, or production-readiness claim was added.
-- Remaining Wafeq banking route: import duplicate/idempotency/reconciliation safety hardening, bank rules, bank deposit batches, card settlement flows, cheque lifecycle, bank-feed abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- Remaining manual Wafeq banking route at that point: import duplicate/idempotency/reconciliation safety hardening, bank rules, bank deposit batches, card settlement flows, cheque lifecycle, clearing-account accounting design, reconciliation reports/audit polish, and banking beta QA/accountant review.
 - Recommended next prompt: `Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`.
 
 ## 2026-06-12 Wafeq banking XLSX statement import and template UX
@@ -84,7 +98,7 @@ LedgerByte is at the controlled beta/user-testing stage. The current Vercel depl
 - XLSX uses the first worksheet, warns for ignored extra worksheets, ignores empty rows, normalizes Excel dates/numeric values, and returns safe malformed-workbook warnings.
 - This closes the first Wafeq-style manual banking gap for template-led import, but it does not close production banking readiness.
 - No live bank feed, bank API, WIO/Lean/Tarabut integration, payment initiation, bank rules, deposits, cheques, card settlement, schema migration, posting change, reconciliation state change, hosted/customer-data proof, or production readiness claim was added.
-- Remaining Wafeq banking route after Prompt 1 was inline statement transaction review workspace, import duplicate/idempotency/reconciliation safety hardening, bank rules, bank deposit batches, card settlement flows, cheque lifecycle, bank-feed abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- Remaining manual Wafeq banking route after Prompt 1 was inline statement transaction review workspace, import duplicate/idempotency/reconciliation safety hardening, bank rules, bank deposit batches, card settlement flows, cheque lifecycle, clearing-account accounting design, reconciliation reports/audit polish, and banking beta QA/accountant review.
 - Prompt 1 next prompt at the time: `Wafeq banking foundation: inline statement transaction review workspace`.
 
 ## 2026-06-12 Production trust foundation audit and readiness gate

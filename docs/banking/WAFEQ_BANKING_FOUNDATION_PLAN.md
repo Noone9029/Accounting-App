@@ -6,7 +6,7 @@ Status: controlled-beta manual banking parity plan. This document does not claim
 
 ## Route
 
-The active banking direction is Wafeq-style banking feature parity, starting with smoother manual bank statement import rather than live-feed infrastructure.
+The active banking direction is Wafeq-style manual banking feature parity. Connected banking, bank-feed provider abstraction, Lean/WIO/Tarabut integrations, live feeds, and payment initiation are outside this manual clone route.
 
 Approved route:
 
@@ -17,8 +17,9 @@ Approved route:
 5. Bank deposit batches.
 6. Credit/prepaid card settlement flows.
 7. Cheque lifecycle.
-8. Bank-feed provider abstraction.
-9. Lean/WIO/Tarabut sandbox integration later.
+8. Clearing-account accounting design for deposits, cards, and cheques.
+9. Reconciliation reports and audit polish.
+10. Banking beta QA and accountant review.
 
 ## Current LedgerByte Baseline
 
@@ -34,6 +35,7 @@ LedgerByte already has:
 - deterministic bank rules for manual statement-transaction suggestions
 - operational bank deposit batches for grouping receipt-like items and explicitly matching the batch to one imported bank statement credit row
 - operational credit/prepaid card settlement records for paydowns, credits/refunds, and prepaid top-ups, with explicit statement-row matching
+- operational cheque lifecycle records for received and issued cheques, with explicit deposit-batch links and statement-row matching
 
 LedgerByte does not yet have:
 
@@ -41,7 +43,9 @@ LedgerByte does not yet have:
 - WIO, Lean, Tarabut, or other open-banking integrations
 - payment initiation
 - silent automatic bank-rule application
-- cheque lifecycle
+- journal-backed clearing-account movement for deposits, card settlements, or cheques
+- reconciliation reports/audit polish for the completed manual banking workflows
+- banking beta QA/accountant review sign-off
 - certified target-bank parser coverage
 
 ## Prompt 1 Completed Scope
@@ -129,7 +133,7 @@ This prompt adds bank deposit batches as LedgerByte treasury workflow functional
 - bank account deposit list and deposit detail workspaces at `/bank-accounts/[id]/deposits`
 - on-demand statement transaction review link for candidate deposit batches on unmatched credit rows
 
-The schema migration is additive and limited to `BankDepositBatch` and `BankDepositBatchLine` storage. Because the existing customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing account model exists yet, Prompt 5 does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is explicitly designed and tested. This prompt does not add live feeds, bank API calls, credentials, payment initiation, card settlements, full cheque lifecycle, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
+The schema migration is additive and limited to `BankDepositBatch` and `BankDepositBatchLine` storage. Because the existing customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing account model exists yet, Prompt 5 does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is explicitly designed and tested. This prompt does not add live feeds, bank API calls, credentials, payment initiation, card settlements, cheque printing, cheque book inventory, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
 
 ## Prompt 6 Completed Scope
 
@@ -147,7 +151,25 @@ This prompt adds credit and prepaid card settlement workflows as LedgerByte trea
 - card settlement list/detail workspaces at `/bank-accounts/[id]/card-settlements`
 - on-demand statement transaction review links for candidate card settlements
 
-The schema migration is additive and limited to `CardSettlement` storage. Prompt 6 intentionally does not create journal entries because existing bank account profiles only clearly support bank/cash/wallet/card profile metadata linked to posting accounts, while credit-card liability, prepaid-card asset, and card-clearing account classification needs an explicit accounting design before journal-backed settlement posting is safe. Card settlement posting is therefore operational status posting only. This prompt does not add live feeds, bank API calls, credentials, payment initiation, full credit-card expense management, statement-cycle billing, full cheque lifecycle, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
+The schema migration is additive and limited to `CardSettlement` storage. Prompt 6 intentionally does not create journal entries because existing bank account profiles only clearly support bank/cash/wallet/card profile metadata linked to posting accounts, while credit-card liability, prepaid-card asset, and card-clearing account classification needs an explicit accounting design before journal-backed settlement posting is safe. Card settlement posting is therefore operational status posting only. This prompt does not add live feeds, bank API calls, credentials, payment initiation, full credit-card expense management, statement-cycle billing, cheque printing, cheque book inventory, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
+
+## Prompt 7 Completed Scope
+
+This prompt adds manual cheque lifecycle workflows as LedgerByte treasury functionality aligned with Wafeq-style manual banking. It helps controlled-beta operators record received and issued cheques, progress their operational lifecycle, link received cheques into deposit batches, and explicitly match or clear cheques against imported statement rows.
+
+- persistent organization-scoped cheque instruments
+- received and issued cheque types
+- draft, received, issued, deposited, cleared, bounced, and voided operational statuses
+- cheque number, counterparty, drawer bank, payee, issue/received/due/deposit/cleared/bounced/voided dates, amount, currency, reference, memo, bounce reason, and void reason tracking
+- positive amount, cheque-number, currency, bank-account, organization-scope, and lifecycle-transition guards
+- explicit mark received, mark issued, deposit, clear, bounce, void, match, and unmatch actions
+- received cheque deposit into draft bank deposit batches through the existing `CHEQUE_PLACEHOLDER` source line type with active-source reuse protection
+- explicit statement matching from received cheques to same-account, same-currency, same-amount credit rows and issued cheques to debit rows
+- closed-reconciliation protection before matching, unmatching, or voiding linked statement rows
+- cheque list/detail workspaces at `/bank-accounts/[id]/cheques`
+- on-demand statement transaction review links for candidate received/issued cheques
+
+The schema migration is additive and limited to `ChequeInstrument` storage. Prompt 7 intentionally does not create journal entries because cheque-in-hand, outstanding-cheque, and clearing-account accounting needs the next explicit clearing-account design before journal-backed cheque clearing is safe. Cheque posting is therefore operational status tracking only. This prompt does not add live feeds, bank API calls, credentials, payment initiation, provider abstraction, cheque printing, cheque book inventory, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
 
 ## Not Included
 
@@ -160,12 +182,13 @@ This route still intentionally does not add:
 - payment initiation
 - silent automatic bank-rule application
 - automatic reconciliation
-- cheques
+- cheque printing or cheque book inventory
 - full credit-card expense management
 - credit-card statement-cycle billing
 - reconciliation state changes
 - journal-backed clearing movement for deposit batches
 - journal-backed card settlement posting
+- journal-backed cheque clearing or outstanding-cheque posting
 - destructive schema migrations
 - production or beta data mutation
 - DB-level unique fingerprint constraints
@@ -176,4 +199,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking treasury: cheque lifecycle`
+`Wafeq manual banking accounting: clearing-account design for deposits cards and cheques`

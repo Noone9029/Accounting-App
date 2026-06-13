@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 Status: planning and sample-intake tracker. This matrix is not a parser certification, bank certification, or live bank integration claim.
 
-LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, explicit bank-deposit-batch matching for posted operational deposit batches, and explicit card-settlement matching for posted operational credit/prepaid card settlements. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
+LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, explicit bank-deposit-batch matching for posted operational deposit batches, explicit card-settlement matching for posted operational credit/prepaid card settlements, and explicit cheque matching/clearing for manual received and issued cheques. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
 
 Support levels:
 
@@ -56,9 +56,21 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Keep raw file bodies out of logs, issue reports, pull requests, screenshots, and support tickets.
 - Parser validation does not imply automatic matching, live bank feeds, external bank aggregation, or accounting posting changes.
 - Bank rules are deterministic review suggestions for imported manual statement rows. They do not certify a bank parser, add a live feed, call bank APIs, initiate payments, silently reconcile rows, or silently ignore rows.
-- Bank deposit batches are LedgerByte treasury workflow records that can be explicitly matched to one imported credit row. They do not certify a parser, add live feeds, call bank APIs, initiate payments, add full cheque lifecycle, or create journal-backed clearing movement yet.
-- Card settlements are LedgerByte treasury workflow records for credit-card paydowns, card credits/refunds, and prepaid-card top-ups. They can be explicitly matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, add full cheque lifecycle, create card expenses, or create journal-backed card settlement posting yet.
+- Bank deposit batches are LedgerByte treasury workflow records that can be explicitly matched to one imported credit row. They do not certify a parser, add live feeds, call bank APIs, initiate payments, or create journal-backed clearing movement yet.
+- Card settlements are LedgerByte treasury workflow records for credit-card paydowns, card credits/refunds, and prepaid-card top-ups. They can be explicitly matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, create card expenses, or create journal-backed card settlement posting yet.
+- Cheque instruments are LedgerByte manual treasury workflow records for received and issued cheques. They can be explicitly linked to deposit batches or matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, add provider abstraction, print cheques, manage cheque books, or create journal-backed cheque clearing yet.
 - Duplicate/idempotency hardening is service-level only. No DB-level unique statement fingerprint/index exists yet.
+
+## 2026-06-13 Cheque Lifecycle Update
+
+- Added operational cheque instruments for received and issued manual cheques.
+- Matching is explicit and limited to same-account, same-currency, same-amount imported statement rows.
+- Received cheques match credit rows; issued cheques match debit rows.
+- Received cheques can be explicitly linked to draft bank deposit batches through cheque source lines.
+- Closed reconciliation periods block cheque match, unmatch, and linked void changes.
+- The additive schema is limited to cheque instrument records.
+- No live feeds, bank APIs, credentials, payment initiation, provider abstraction, cheque printing, cheque book inventory, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, journal-backed cheque clearing, or production banking readiness was added.
+- Journal-backed cheque-in-hand, outstanding-cheque, and clearing-account posting is deferred until the clearing-account accounting design is explicitly designed and tested.
 
 ## 2026-06-13 Card Settlement Update
 
@@ -67,7 +79,7 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Paydowns and top-ups match funding-account debit rows; card credits/refunds match card-account credit rows.
 - Closed reconciliation periods block card-settlement match, unmatch, and linked void changes.
 - The additive schema is limited to card settlement records.
-- No live feeds, bank APIs, credentials, payment initiation, full cheque lifecycle, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, card expense management, statement-cycle billing, journal-backed card posting, or production banking readiness was added.
+- No live feeds, bank APIs, credentials, payment initiation, cheque printing, cheque book inventory, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, card expense management, statement-cycle billing, journal-backed card posting, or production banking readiness was added.
 - Journal-backed card settlement posting is deferred until credit-card liability, prepaid-card asset, and clearing-account classification is explicitly designed and tested.
 
 ## 2026-06-13 Bank Deposit Batch Update
@@ -76,7 +88,7 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Matching is explicit and limited to same-bank-account, same-currency, same-amount imported credit statement rows.
 - Closed reconciliation periods block deposit-batch match, unmatch, and linked void changes.
 - The additive schema is limited to deposit batches and deposit lines.
-- No live feeds, bank APIs, credentials, payment initiation, card settlements, full cheque lifecycle, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, or production banking readiness was added.
+- No live feeds, bank APIs, credentials, payment initiation, card settlements, cheque printing, cheque book inventory, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, or production banking readiness was added.
 - Journal-backed clearing movement is deferred because the current customer payment flow posts directly to the paid-through account and no confirmed undeposited-funds/clearing account model exists.
 
 ## 2026-06-13 Bank Rules Update
