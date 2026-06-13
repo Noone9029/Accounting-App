@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 Status: planning and sample-intake tracker. This matrix is not a parser certification, bank certification, or live bank integration claim.
 
-LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, explicit bank-deposit-batch matching for posted operational deposit batches, explicit card-settlement matching for posted operational credit/prepaid card settlements, and explicit cheque matching/clearing for manual received and issued cheques. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
+LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, explicit bank-deposit-batch matching for posted operational deposit batches, explicit card-settlement matching for posted operational credit/prepaid card settlements, explicit cheque matching/clearing for manual received and issued cheques, and reconciliation report/audit export evidence for accountant review. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
 
 Support levels:
 
@@ -59,7 +59,14 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Bank deposit batches are LedgerByte treasury workflow records that can be explicitly matched to one imported credit row. They do not certify a parser, add live feeds, call bank APIs, initiate payments, or create journal-backed clearing movement yet.
 - Card settlements are LedgerByte treasury workflow records for credit-card paydowns, card credits/refunds, and prepaid-card top-ups. They can be explicitly matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, create card expenses, or create journal-backed card settlement posting yet.
 - Cheque instruments are LedgerByte manual treasury workflow records for received and issued cheques. They can be explicitly linked to deposit batches or matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, add provider abstraction, print cheques, manage cheque books, or create journal-backed cheque clearing yet.
+- Reconciliation report/audit export polish makes manual imports, review actions, treasury links, accounting status, and audit evidence more readable. It does not certify a parser, add live feeds, call bank APIs, initiate payments, silently reconcile rows, or change reconciliation workflow states.
 - Duplicate/idempotency hardening is service-level only. No DB-level unique statement fingerprint/index exists yet.
+
+## 2026-06-13 Reconciliation Report And Audit Update
+
+- Added clearer reconciliation report/export evidence for manual statement imports, review actions, bank-rule applications, linked deposit batches, card settlements, cheques, clearing-account journal status, operational-only records, and sanitized audit timeline metadata.
+- The update is read-only report/audit polish. It does not add or certify bank-specific parsers.
+- No live feeds, bank APIs, credentials, payment initiation, provider abstraction, silent auto-match, automatic reconciliation, VAT/ZATCA/report math change, or production banking readiness was added.
 
 ## 2026-06-13 Cheque Lifecycle Update
 

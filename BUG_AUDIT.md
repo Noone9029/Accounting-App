@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `4fb018b8` (`Merge pull request #39 from Noone9029/codex/wafeq-banking-cheque-lifecycle`) plus the current Wafeq banking clearing-account accounting branch.
+Latest commit audited: `9ca5bfe2` (`Merge pull request #40 from Noone9029/codex/wafeq-banking-clearing-account-accounting`) plus the current Wafeq banking reconciliation reports/audit polish branch.
+
+## 2026-06-13 Wafeq manual banking reconciliation reports and audit trail polish
+
+Added read-only reconciliation report, CSV export, audit timeline, linked treasury, and accounting status clarity without adding live feeds, bank APIs, credentials, payment initiation, provider abstraction, new banking modules, automatic posting, automatic reconciliation, automatic matching, reconciliation workflow-state changes, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.
+
+What changed:
+
+- Added reconciliation report summary counts for period statement rows, matched/categorized/ignored/unmatched/unreconciled rows, rule-applied rows, linked deposit/card/cheque activity, journal-posted records, operational-only records, and clearing-account config availability where safely derivable.
+- Added a reconciliation audit timeline from existing import metadata, review events, bank-rule applications, linked treasury records, posted journal links, and sanitized audit-log metadata.
+- Improved reconciliation CSV export with manual-only banking wording, account/profile context, exceptions, linked treasury summary, accounting status summary, audit/review rows, and generated timestamp.
+- Added reconciliation detail UI panels for accountant review summary, exceptions, linked treasury activity, accounting status, missing clearing-account configuration, operational-only records, and audit timeline preview.
+- Added targeted API and web tests for summary counts, linked treasury/accounting status, audit timeline, CSV export sections, secret/body exclusion, and UI panels.
+
+Remaining risks:
+
+- Banking beta QA/accountant review remains the next manual Wafeq banking route.
+- Direct cheque-in-hand/outstanding-cheque journal policy remains open.
+- Card credit/refund offset posting remains open.
+- DB-level statement fingerprint/index remains future hardening if concurrency risk requires it.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 
 ## 2026-06-13 Wafeq manual banking clearing-account accounting
 
@@ -25,7 +45,7 @@ Remaining risks:
 - Direct cheque-in-hand/outstanding-cheque journal policy remains open.
 - Card credit/refund offset posting remains open.
 - Existing operational records are not silently converted; customers need explicit review before journal posting historical manual treasury records.
-- Reconciliation reports/audit polish and banking beta QA/accountant review remain the next manual Wafeq banking route.
+- Reconciliation reports/audit polish and banking beta QA/accountant review remained the next manual Wafeq banking route at that point.
 - No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 
 ## 2026-06-13 Wafeq manual banking cheque lifecycle

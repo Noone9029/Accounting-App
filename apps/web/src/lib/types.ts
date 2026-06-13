@@ -1636,6 +1636,109 @@ export interface BankReconciliation {
   _count?: { items: number };
 }
 
+export interface BankReconciliationReportCountSummary {
+  count: number;
+  matchedCount: number;
+  journalPostedCount: number;
+  operationalOnlyCount: number;
+  totalAmount: string;
+}
+
+export interface BankReconciliationReportData {
+  organization: {
+    id: string;
+    name: string;
+    legalName: string | null;
+    taxNumber: string | null;
+    countryCode: string | null;
+    baseCurrency: string;
+  };
+  currency: string;
+  reconciliation: Pick<
+    BankReconciliation,
+    | "id"
+    | "reconciliationNumber"
+    | "status"
+    | "periodStart"
+    | "periodEnd"
+    | "statementOpeningBalance"
+    | "statementClosingBalance"
+    | "ledgerClosingBalance"
+    | "difference"
+    | "submittedAt"
+    | "approvedAt"
+    | "approvalNotes"
+    | "closedAt"
+    | "voidedAt"
+  > & {
+    submittedBy?: { id: string; name: string; email: string } | null;
+    approvedBy?: { id: string; name: string; email: string } | null;
+    closedBy?: { id: string; name: string; email: string } | null;
+    voidedBy?: { id: string; name: string; email: string } | null;
+  };
+  bankAccount: {
+    id: string;
+    displayName: string;
+    currency: string;
+    account: Pick<Account, "id" | "code" | "name"> | null;
+  };
+  items: Array<{
+    id: string;
+    statementTransactionId: string;
+    transactionDate: string;
+    description: string;
+    reference: string | null;
+    type: BankStatementTransactionType;
+    amount: string;
+    statusAtClose: BankStatementTransactionStatus;
+  }>;
+  summary: {
+    itemCount: number;
+    debitTotal: string;
+    creditTotal: string;
+    matchedCount: number;
+    categorizedCount: number;
+    ignoredCount: number;
+    totalRowsCount: number;
+    matchedRowsCount: number;
+    categorizedRowsCount: number;
+    ignoredRowsCount: number;
+    unmatchedRowsCount: number;
+    unreconciledRowsCount: number;
+    ruleAppliedRowsCount: number;
+    creditRowsCount: number;
+    debitRowsCount: number;
+    creditRowsTotal: string;
+    debitRowsTotal: string;
+    exceptionRowsCount: number;
+  };
+  linkedTreasurySummary: {
+    depositBatches: BankReconciliationReportCountSummary;
+    cardSettlements: BankReconciliationReportCountSummary;
+    cheques: BankReconciliationReportCountSummary;
+  };
+  accountingStatusSummary: {
+    clearingConfigEnabled: boolean;
+    configuredAccountCount: number;
+    journalPostedCount: number;
+    operationalOnlyCount: number;
+    missingClearingConfig: boolean;
+  };
+  auditTimeline: Array<{
+    id: string;
+    occurredAt: string;
+    type: string;
+    label: string;
+    entityType: string;
+    entityId: string;
+    status?: string | null;
+    actor?: { id: string; name: string | null; email: string | null } | null;
+    amount?: string | null;
+    reference?: string | null;
+  }>;
+  generatedAt: string;
+}
+
 export interface BankReconciliationReviewEvent {
   id: string;
   organizationId: string;

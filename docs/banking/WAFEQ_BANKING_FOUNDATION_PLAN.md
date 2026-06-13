@@ -37,6 +37,7 @@ LedgerByte already has:
 - operational credit/prepaid card settlement records for paydowns, credits/refunds, and prepaid top-ups, with explicit statement-row matching
 - operational cheque lifecycle records for received and issued cheques, with explicit deposit-batch links and statement-row matching
 - clearing-account configuration, accounting preflight, and explicit journal-backed posting for safe configured deposit/card cases
+- reconciliation report summaries, CSV export evidence, linked treasury/accounting status summaries, and audit timeline panels for manual review
 
 LedgerByte does not yet have:
 
@@ -47,7 +48,6 @@ LedgerByte does not yet have:
 - automatic journal posting or automatic treasury clearing
 - direct cheque-in-hand/outstanding-cheque source accounting policy
 - card credit/refund offset accounting policy
-- reconciliation reports/audit polish for the completed manual banking workflows
 - banking beta QA/accountant review sign-off
 - certified target-bank parser coverage
 
@@ -195,6 +195,18 @@ This prompt adds clearing-account accounting design and implementation for the c
 
 This prompt does not add live feeds, bank API calls, bank credential handling, payment initiation, provider abstraction, provider callbacks/webhooks, automatic posting, automatic reconciliation, automatic matching, AR/AP allocation changes, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.
 
+## Prompt 9 Completed Scope
+
+This prompt polishes reconciliation reports and audit evidence for the completed manual Wafeq-style banking route. It is read-only reporting and review-surface work; it does not change reconciliation state rules or accounting math.
+
+- reconciliation report data now exposes period row counts, matched/categorized/ignored/unmatched/unreconciled counts, bank-rule application counts, linked deposit/card/cheque activity counts, journal-posted counts, operational-only counts, and missing clearing-configuration status where safely derivable
+- reconciliation CSV export now includes manual-only banking wording, account/profile context, exception summary, linked treasury summary, accounting status summary, and audit timeline rows
+- reconciliation detail UI now shows accountant review summary, exceptions, linked treasury activity, accounting status, and audit timeline panels
+- audit timeline aggregation uses existing statement import metadata, review events, bank-rule applications, linked treasury records, posted journal links, and sanitized audit-log metadata where available
+- manual-only/no-live-feed/no-bank-API/no-bank-credentials/no-payment-initiation wording remains explicit
+
+This prompt does not add live feeds, bank API calls, credential handling, payment initiation, provider abstraction, provider callbacks/webhooks, new banking modules, automatic posting, automatic reconciliation, automatic matching, reconciliation workflow-state changes, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.
+
 ## Not Included
 
 This route still intentionally does not add:
@@ -223,4 +235,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq manual banking polish: reconciliation reports and audit trail`
+`Wafeq manual banking beta QA and accountant review readiness`

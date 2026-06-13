@@ -94,6 +94,12 @@ describe("BankReconciliationService", () => {
         count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([]),
       },
+      bankDepositBatch: { findMany: jest.fn().mockResolvedValue([]) },
+      cardSettlement: { findMany: jest.fn().mockResolvedValue([]) },
+      chequeInstrument: { findMany: jest.fn().mockResolvedValue([]) },
+      bankingClearingAccountConfig: { findUnique: jest.fn().mockResolvedValue(null) },
+      bankRuleApplication: { findMany: jest.fn().mockResolvedValue([]) },
+      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
       journalLine: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(),
       ...overrides,
@@ -375,6 +381,7 @@ describe("BankReconciliationService", () => {
 
   it("returns reconciliation report data with snapshotted items", async () => {
     const { service, prisma } = makeService();
+    const importedAt = new Date("2026-05-09T00:00:00.000Z");
     prisma.bankReconciliation.findFirst.mockResolvedValue({
       ...draft,
       status: BankReconciliationStatus.CLOSED,
@@ -398,6 +405,133 @@ describe("BankReconciliationService", () => {
         },
       ],
     });
+    prisma.bankStatementTransaction.findMany.mockResolvedValue([
+      {
+        id: "statement-1",
+        importId: "import-1",
+        transactionDate: new Date("2026-05-10T00:00:00.000Z"),
+        description: "Customer deposit",
+        reference: "REF-1",
+        type: BankStatementTransactionType.CREDIT,
+        amount: new Prisma.Decimal("100.0000"),
+        status: BankStatementTransactionStatus.MATCHED,
+        matchType: "OTHER",
+        matchedJournalEntryId: "journal-1",
+        createdJournalEntryId: null,
+        categorizedAccountId: null,
+        ignoredReason: null,
+        createdAt: new Date("2026-05-10T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-10T01:00:00.000Z"),
+        import: { id: "import-1", filename: "may.csv", status: "IMPORTED", rowCount: 2, importedAt },
+        matchedJournalEntry: { id: "journal-1", entryNumber: "JE-1", status: "POSTED" },
+        createdJournalEntry: null,
+      },
+      {
+        id: "statement-2",
+        importId: "import-1",
+        transactionDate: new Date("2026-05-11T00:00:00.000Z"),
+        description: "Open item",
+        reference: "REF-2",
+        type: BankStatementTransactionType.DEBIT,
+        amount: new Prisma.Decimal("25.0000"),
+        status: BankStatementTransactionStatus.UNMATCHED,
+        matchType: null,
+        matchedJournalEntryId: null,
+        createdJournalEntryId: null,
+        categorizedAccountId: null,
+        ignoredReason: null,
+        createdAt: new Date("2026-05-11T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-11T00:00:00.000Z"),
+        import: { id: "import-1", filename: "may.csv", status: "IMPORTED", rowCount: 2, importedAt },
+        matchedJournalEntry: null,
+        createdJournalEntry: null,
+      },
+    ]);
+    prisma.bankDepositBatch.findMany.mockResolvedValue([
+      {
+        id: "deposit-1",
+        status: "MATCHED",
+        depositDate: new Date("2026-05-10T00:00:00.000Z"),
+        totalAmount: new Prisma.Decimal("100.0000"),
+        currency: "SAR",
+        statementTransactionId: "statement-1",
+        postedJournalEntryId: "journal-deposit-1",
+        postedAt: new Date("2026-05-10T02:00:00.000Z"),
+        matchedAt: new Date("2026-05-10T03:00:00.000Z"),
+        postedJournalEntry: { id: "journal-deposit-1", entryNumber: "JE-DEP", status: "POSTED" },
+      },
+    ]);
+    prisma.cardSettlement.findMany.mockResolvedValue([
+      {
+        id: "card-1",
+        settlementType: "CREDIT_CARD_PAYDOWN",
+        status: "POSTED",
+        settlementDate: new Date("2026-05-12T00:00:00.000Z"),
+        amount: new Prisma.Decimal("50.0000"),
+        currency: "SAR",
+        statementTransactionId: null,
+        postedJournalEntryId: null,
+        postedAt: new Date("2026-05-12T00:00:00.000Z"),
+        matchedAt: null,
+        postedJournalEntry: null,
+      },
+    ]);
+    prisma.chequeInstrument.findMany.mockResolvedValue([
+      {
+        id: "cheque-1",
+        chequeType: "RECEIVED",
+        status: "CLEARED",
+        chequeNumber: "CHK-1",
+        counterpartyName: "Customer",
+        amount: new Prisma.Decimal("30.0000"),
+        currency: "SAR",
+        issueDate: null,
+        receivedDate: new Date("2026-05-08T00:00:00.000Z"),
+        dueDate: null,
+        depositDate: new Date("2026-05-09T00:00:00.000Z"),
+        clearedDate: new Date("2026-05-10T00:00:00.000Z"),
+        bouncedDate: null,
+        voidedDate: null,
+        statementTransactionId: "statement-1",
+        depositBatchId: "deposit-1",
+        postedJournalEntryId: null,
+        createdAt: new Date("2026-05-08T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+        postedJournalEntry: null,
+      },
+    ]);
+    prisma.bankingClearingAccountConfig.findUnique.mockResolvedValue({
+      id: "config-1",
+      enabled: true,
+      undepositedFundsAccountId: "undeposited",
+      chequeInHandAccountId: null,
+      outstandingChequesAccountId: null,
+      cardClearingAccountId: null,
+      creditCardLiabilityAccountId: "card-liability",
+      prepaidCardAssetAccountId: null,
+      updatedAt: new Date("2026-05-01T00:00:00.000Z"),
+    });
+    prisma.bankRuleApplication.findMany.mockResolvedValue([
+      {
+        id: "rule-app-1",
+        actionType: "SUGGEST_MATCH_CANDIDATES",
+        status: "APPLIED",
+        createdAt: new Date("2026-05-10T00:30:00.000Z"),
+        bankStatementTransactionId: "statement-1",
+        bankRule: { id: "rule-1", name: "Deposit rule" },
+        appliedBy: { id: "user-1", name: "Owner", email: "owner@example.com" },
+      },
+    ]);
+    prisma.auditLog.findMany.mockResolvedValue([
+      {
+        id: "audit-1",
+        action: "MATCH",
+        entityType: "BankStatementTransaction",
+        entityId: "statement-1",
+        createdAt: new Date("2026-05-10T01:00:00.000Z"),
+        actorUser: { id: "user-1", name: "Owner", email: "owner@example.com" },
+      },
+    ]);
 
     const result = await service.reportData("org-1", "rec-1");
 
@@ -410,9 +544,32 @@ describe("BankReconciliationService", () => {
         statusAtClose: BankStatementTransactionStatus.MATCHED,
       }),
     ]);
-    expect(result.summary).toMatchObject({ itemCount: 1, creditTotal: "100.0000", matchedCount: 1 });
+    expect(result.summary).toMatchObject({
+      itemCount: 1,
+      creditTotal: "100.0000",
+      matchedCount: 1,
+      totalRowsCount: 2,
+      matchedRowsCount: 1,
+      unmatchedRowsCount: 1,
+      unreconciledRowsCount: 1,
+      ruleAppliedRowsCount: 1,
+    });
+    expect(result.linkedTreasurySummary.depositBatches).toMatchObject({ count: 1, matchedCount: 1, journalPostedCount: 1 });
+    expect(result.linkedTreasurySummary.cardSettlements).toMatchObject({ count: 1, operationalOnlyCount: 1 });
+    expect(result.accountingStatusSummary).toMatchObject({ clearingConfigEnabled: true, journalPostedCount: 1, operationalOnlyCount: 2 });
+    expect(result.auditTimeline.map((event) => event.type)).toEqual(
+      expect.arrayContaining(["STATEMENT_IMPORT", "STATEMENT_ROW_REVIEW", "BANK_RULE_APPLIED", "DEPOSIT_BATCH", "AUDIT_LOG"]),
+    );
     expect(prisma.bankReconciliation.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "rec-1", organizationId: "org-1" } }),
+    );
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          entityId: expect.objectContaining({ in: expect.arrayContaining(["rec-1", "statement-1", "deposit-1"]) }),
+        }),
+      }),
     );
   });
 
