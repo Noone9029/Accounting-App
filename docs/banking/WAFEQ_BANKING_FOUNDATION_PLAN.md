@@ -33,6 +33,7 @@ LedgerByte already has:
 - deterministic non-mutating match suggestions
 - deterministic bank rules for manual statement-transaction suggestions
 - operational bank deposit batches for grouping receipt-like items and explicitly matching the batch to one imported bank statement credit row
+- operational credit/prepaid card settlement records for paydowns, credits/refunds, and prepaid top-ups, with explicit statement-row matching
 
 LedgerByte does not yet have:
 
@@ -41,7 +42,6 @@ LedgerByte does not yet have:
 - payment initiation
 - silent automatic bank-rule application
 - cheque lifecycle
-- card settlement workflows
 - certified target-bank parser coverage
 
 ## Prompt 1 Completed Scope
@@ -131,6 +131,24 @@ This prompt adds bank deposit batches as LedgerByte treasury workflow functional
 
 The schema migration is additive and limited to `BankDepositBatch` and `BankDepositBatchLine` storage. Because the existing customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing account model exists yet, Prompt 5 does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is explicitly designed and tested. This prompt does not add live feeds, bank API calls, credentials, payment initiation, card settlements, full cheque lifecycle, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
 
+## Prompt 6 Completed Scope
+
+This prompt adds credit and prepaid card settlement workflows as LedgerByte treasury functionality aligned with Wafeq-style card account operations. It helps controlled-beta operators record card paydowns, card credits/refunds, and prepaid card top-ups, then explicitly link those records to imported manual statement rows.
+
+- persistent organization-scoped card settlements
+- settlement types for credit card paydown, credit card credit/refund, and prepaid card top-up
+- draft, posted, matched, and voided operational statuses
+- funding bank account and card/prepaid account validation
+- positive amount, same-account, currency, and organization-scope guards
+- explicit post and void actions
+- explicit match action from one posted settlement to one same-account, same-currency, same-amount imported statement row
+- direction-aware matching: paydowns/top-ups use funding-account debit rows, while card credits/refunds use card-account credit rows
+- closed-reconciliation protection before matching, unmatching, or voiding linked statement rows
+- card settlement list/detail workspaces at `/bank-accounts/[id]/card-settlements`
+- on-demand statement transaction review links for candidate card settlements
+
+The schema migration is additive and limited to `CardSettlement` storage. Prompt 6 intentionally does not create journal entries because existing bank account profiles only clearly support bank/cash/wallet/card profile metadata linked to posting accounts, while credit-card liability, prepaid-card asset, and card-clearing account classification needs an explicit accounting design before journal-backed settlement posting is safe. Card settlement posting is therefore operational status posting only. This prompt does not add live feeds, bank API calls, credentials, payment initiation, full credit-card expense management, statement-cycle billing, full cheque lifecycle, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
+
 ## Not Included
 
 This route still intentionally does not add:
@@ -143,9 +161,11 @@ This route still intentionally does not add:
 - silent automatic bank-rule application
 - automatic reconciliation
 - cheques
-- card settlements
+- full credit-card expense management
+- credit-card statement-cycle billing
 - reconciliation state changes
 - journal-backed clearing movement for deposit batches
+- journal-backed card settlement posting
 - destructive schema migrations
 - production or beta data mutation
 - DB-level unique fingerprint constraints
@@ -156,4 +176,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking treasury: credit and prepaid card settlement flows`
+`Wafeq banking treasury: cheque lifecycle`

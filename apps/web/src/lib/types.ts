@@ -123,6 +123,8 @@ export type BankDepositBatchLineSourceType =
   | "MANUAL_CASH_RECEIPT"
   | "CHEQUE_PLACEHOLDER"
   | "OTHER_CLEARING_ITEM";
+export type CardSettlementType = "CREDIT_CARD_PAYDOWN" | "CREDIT_CARD_CREDIT" | "PREPAID_CARD_TOP_UP";
+export type CardSettlementStatus = "DRAFT" | "POSTED" | "MATCHED" | "VOIDED";
 export type BankStatementImportStatus = "IMPORTED" | "PARTIALLY_RECONCILED" | "RECONCILED" | "VOIDED";
 export type BankStatementTransactionStatus = "UNMATCHED" | "MATCHED" | "CATEGORIZED" | "IGNORED" | "VOIDED";
 export type BankStatementTransactionType = "DEBIT" | "CREDIT";
@@ -1174,6 +1176,36 @@ export interface BankDepositBatch {
   createdBy?: { id: string; name: string; email: string } | null;
   updatedBy?: { id: string; name: string; email: string } | null;
   lines: BankDepositBatchLine[];
+}
+
+export interface CardSettlement {
+  id: string;
+  organizationId: string;
+  settlementType: CardSettlementType;
+  fundingBankAccountProfileId: string | null;
+  cardAccountProfileId: string;
+  settlementDate: string;
+  currency: string;
+  amount: string;
+  status: CardSettlementStatus;
+  memo: string | null;
+  reference: string | null;
+  statementTransactionId: string | null;
+  createdById: string | null;
+  updatedById: string | null;
+  postedAt: string | null;
+  matchedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  fundingBankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account"> | null;
+  cardAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "type" | "status" | "currency" | "accountId" | "account">;
+  statementTransaction?: Pick<
+    BankStatementTransaction,
+    "id" | "bankAccountProfileId" | "transactionDate" | "description" | "reference" | "type" | "amount" | "status" | "matchType"
+  > | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  updatedBy?: { id: string; name: string; email: string } | null;
 }
 
 export interface BankDepositSourceCandidate {

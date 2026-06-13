@@ -11,7 +11,7 @@ Date: 2026-06-13
 3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
 4. Production trust foundation audit, object-storage proof validation, and backup/restore proof harness completed through PRs `#30`, `#31`, and `#32`.
 5. Production-trust proof work is paused after PR `#32`.
-6. Current route: Wafeq-style banking feature parity, now on bank deposit batches after bank rules merged.
+6. Current route: Wafeq-style banking feature parity, now on credit/prepaid card settlements after bank deposit batches merged.
 7. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
@@ -24,27 +24,29 @@ Date: 2026-06-13
 - PR `#34` merged into `main` at `43c428f6` and added Wafeq-style inline statement transaction review.
 - PR `#35` merged into `main` at `44ff1d7a` and added manual import duplicate/idempotency/reconciliation safety hardening.
 - PR `#36` merged into `main` at `dcf8a3d1` and added deterministic bank rules for manual statement transaction suggestions.
+- PR `#37` merged into `main` at `d86c9394` and added operational bank deposit batches with explicit statement-credit matching.
 
 ## Current Parity Branch
 
-Branch: `codex/wafeq-banking-bank-deposit-batches`
+Branch: `codex/wafeq-banking-card-settlements`
 
-Base after update: `main` at `dcf8a3d1` (`Merge pull request #36 from Noone9029/codex/wafeq-banking-bank-rules-engine`)
+Base after update: `main` at `d86c9394` (`Merge pull request #37 from Noone9029/codex/wafeq-banking-bank-deposit-batches`)
 
 Scope:
 
 - Wafeq-style manual banking foundation only.
-- Bank deposit batches for grouping receipt-like items into one operational treasury deposit total.
-- Draft, posted, matched, and voided deposit-batch statuses with explicit operator actions.
-- Deposit batches can be explicitly matched to one same-account, same-currency, same-amount imported bank statement credit row.
+- Credit/prepaid card settlements for recording credit-card paydowns, credit-card credits/refunds, and prepaid-card top-ups.
+- Draft, posted, matched, and voided card-settlement statuses with explicit operator actions.
+- Card settlements can be explicitly matched to one same-account, same-currency, same-amount imported statement row.
+- Matching is direction-aware: paydowns/top-ups use funding-account debit rows, while card credits/refunds use card-account credit rows.
 - Closed reconciliation periods block match, unmatch, and linked void changes.
-- Journal-backed clearing movement is deferred until an undeposited-funds/clearing-account model is confirmed.
-- Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, full cheque lifecycle, card settlements, silent auto-reconciliation, silent auto-match, or production claim.
+- Journal-backed card settlement posting is deferred until credit-card liability, prepaid-card asset, and clearing-account classifications are explicitly designed and tested.
+- Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, full cheque lifecycle, provider abstraction, silent auto-reconciliation, silent auto-match, or production claim.
 
 Still not parity:
 
 - No live bank feed, external aggregation, WIO/Lean/Tarabut integration, bank API call, or bank credential handling.
-- No certified bank-specific parser coverage, raw-file archive implementation, DB-level unique statement fingerprint/index, automatic matching execution, journal-backed undeposited-funds clearing for deposits, full cheques, card settlements, transfer fees, or FX flow.
+- No certified bank-specific parser coverage, raw-file archive implementation, DB-level unique statement fingerprint/index, automatic matching execution, journal-backed undeposited-funds clearing for deposits, journal-backed card settlement posting, full cheques, transfer fees, or FX flow.
 - No production hosting implementation, paid SaaS launch gate, official VAT filing readiness, or ZATCA execution/compliance claim.
 
 ## Operating Notes
@@ -55,4 +57,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Wafeq banking treasury: credit and prepaid card settlement flows`
+`Wafeq banking treasury: cheque lifecycle`

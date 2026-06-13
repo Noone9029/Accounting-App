@@ -24,6 +24,20 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq banking credit/prepaid card settlement flows:
+
+- PR `#37` `Wafeq banking bank deposit batches` was reverified green/safe and merged into `main` at `d86c9394` before this branch was created.
+- Added operational card settlements for credit-card paydowns, credit-card credits/refunds, and prepaid-card top-ups.
+- Added draft, posted, matched, and voided statuses with explicit create, update, post, void, match, and unmatch API behavior.
+- Added same-organization, positive amount, same-account, account currency, funding account, and card/prepaid account validation.
+- Added explicit direction-aware statement matching: paydowns/top-ups match funding-account debit rows; card credits/refunds match card-account credit rows.
+- Closed reconciliation periods block card-settlement matching, unmatching, and linked void changes.
+- Added bank account card settlement list/detail UI at `/bank-accounts/[id]/card-settlements` plus on-demand card settlement candidate links from the statement transaction review workspace.
+- Added a narrow additive Prisma migration limited to `CardSettlement`.
+- Accounting decision: card settlement posting is operational only and does not create journal entries because credit-card liability, prepaid-card asset, and clearing-account classification need an explicit design before journal-backed settlement posting is safe.
+- No live bank feed, bank API, credential handling, payment initiation, full cheque lifecycle, card expense management, statement-cycle billing, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking treasury: cheque lifecycle`.
+
 2026-06-13 Wafeq banking bank deposit batches:
 
 - PR `#36` `Wafeq banking bank rules engine` was reverified green/safe and merged into `main` at `dcf8a3d1` before this branch was created.
