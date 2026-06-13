@@ -24,6 +24,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq banking import duplicate/idempotency/reconciliation safety hardening:
+
+- PR `#34` `Wafeq banking inline statement transaction review` was reverified green/safe and merged into `main` at `43c428f6` before this branch was created.
+- Added service-level deterministic import row identity using bank account profile, date, signed amount, currency, normalized description, normalized reference, normalized bank reference, and normalized counterparty.
+- Bank reference is preferred for high-confidence duplicate detection when present; imports without bank reference fall back to the full normalized fingerprint.
+- Preview now reports duplicate-in-file, high-confidence existing duplicates, possible existing duplicates, closed reconciliation overlaps, open reconciliation overlaps, currency mismatches, importable rows, blocked rows, and row-level warning actions.
+- Full import blocks invalid rows, existing duplicate rows, and closed reconciliation overlaps. Partial import imports only safe rows and reports skipped invalid/duplicate/closed-period counts.
+- No schema migration or DB-level unique fingerprint/index was added; that remains future hardening if database-enforced idempotency is needed.
+- No live bank feed, bank API, credential handling, payment initiation, bank rule, deposit, card settlement, cheque lifecycle, provider abstraction, reconciliation-state change, accounting posting change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking automation: bank rules engine`.
+
 2026-06-13 Wafeq banking inline statement transaction review workspace:
 
 - PR `#33` `Wafeq banking XLSX statement import and template UX` was reverified green/safe and merged into `main` at `342120a9` before this branch was created.

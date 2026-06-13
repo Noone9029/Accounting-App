@@ -78,6 +78,22 @@ This prompt adds a Wafeq-style inline statement transaction review workspace on 
 
 No backend endpoint, DTO, schema, posting-state, or reconciliation-state change was required for Prompt 2.
 
+## Prompt 3 Completed Scope
+
+This prompt hardens manual import safety before automation work:
+
+- deterministic statement row identity now uses bank account profile, date, signed amount, currency, normalized description, reference, bank reference, and counterparty
+- bank reference is preferred for high-confidence duplicate detection when present
+- duplicate rows inside one file are flagged before import
+- existing imported statement rows are detected as high-confidence or possible duplicates without adding a schema migration
+- full import mode blocks invalid rows, existing duplicates, and closed-reconciliation overlaps
+- partial import mode imports safe rows and reports skipped invalid, duplicate, and closed-period rows explicitly
+- open reconciliation overlaps warn operators without changing reconciliation workflow states
+- currency mismatches against the bank account currency are blocked as invalid rows
+- the import page now shows importable rows, duplicate counts, existing duplicate counts, closed/open reconciliation overlap counts, row warning badges, and skipped-row result counts
+
+No schema migration or DB-level unique fingerprint/index was added. A persisted fingerprint column plus unique index remains a future hardening task if import volume or concurrency risk requires database-enforced idempotency.
+
 ## Not Included
 
 This prompt intentionally does not add:
@@ -95,7 +111,7 @@ This prompt intentionally does not add:
 - accounting posting logic changes
 - schema migrations
 - production or beta data mutation
-- import duplicate/idempotency safety hardening
+- DB-level unique fingerprint constraints
 
 ## Dependency Decision
 
@@ -103,4 +119,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`
+`Wafeq banking automation: bank rules engine`

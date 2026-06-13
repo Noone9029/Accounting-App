@@ -232,8 +232,16 @@ export function lockedStatementTransactionWarning(transaction: Pick<BankStatemen
   return closed ? `Statement transaction belongs to closed reconciliation ${closed.reconciliation.reconciliationNumber}.` : null;
 }
 
-export function statementImportPreviewSummary(preview: Pick<BankStatementImportPreview, "rowCount" | "validRows" | "invalidRows" | "totalCredits" | "totalDebits">): string {
-  return `${preview.validRows.length} valid / ${preview.invalidRows.length} invalid of ${preview.rowCount} rows. Credits ${preview.totalCredits}, debits ${preview.totalDebits}.`;
+export function statementImportPreviewSummary(
+  preview: Pick<BankStatementImportPreview, "rowCount" | "validRows" | "invalidRows" | "totalCredits" | "totalDebits" | "summary">,
+): string {
+  const base = `${preview.validRows.length} valid / ${preview.invalidRows.length} invalid of ${preview.rowCount} rows. Credits ${preview.totalCredits}, debits ${preview.totalDebits}.`;
+  if (!preview.summary) {
+    return base;
+  }
+  const duplicateCount = preview.summary.duplicateInFileCount + preview.summary.duplicateExistingCount;
+  const blocked = preview.summary.blockedRowCount;
+  return `${base} ${preview.summary.importableRowCount} rows are importable${duplicateCount > 0 ? `, ${duplicateCount} duplicate rows need review` : ""}${blocked > 0 ? `, ${blocked} rows block full import` : ""}.`;
 }
 
 export function reviewEventLabel(event: Pick<BankReconciliationReviewEvent, "action" | "fromStatus" | "toStatus">): string {

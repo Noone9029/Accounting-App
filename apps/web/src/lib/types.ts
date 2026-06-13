@@ -1149,13 +1149,52 @@ export interface BankStatementImport {
   importSummary?: {
     sourceRowCount: number;
     importedRowCount: number;
+    skippedRowCount?: number;
     invalidRowCount: number;
+    duplicateInFileCount?: number;
+    duplicateExistingCount?: number;
+    blockedByClosedReconciliationCount?: number;
+    openReconciliationOverlapCount?: number;
+    currencyMismatchCount?: number;
     totalCredits: string;
     totalDebits: string;
     sourceFormat?: string;
     sourceSheetName?: string | null;
     warnings: string[];
+    rowWarnings?: BankStatementImportRowWarning[];
   };
+}
+
+export type BankStatementImportWarningCode =
+  | "DUPLICATE_IN_FILE"
+  | "DUPLICATE_EXISTING_HIGH_CONFIDENCE"
+  | "DUPLICATE_EXISTING_POSSIBLE"
+  | "CLOSED_RECONCILIATION_OVERLAP"
+  | "OPEN_RECONCILIATION_OVERLAP"
+  | "CURRENCY_MISMATCH"
+  | "PARTIAL_IMPORT_REQUIRED";
+
+export interface BankStatementImportRowWarning {
+  rowNumber: number;
+  code: BankStatementImportWarningCode;
+  severity: "warning" | "blocking";
+  message: string;
+  action: string;
+}
+
+export interface BankStatementImportSafetySummary {
+  sourceRowCount: number;
+  validRowCount: number;
+  invalidRowCount: number;
+  importableRowCount: number;
+  duplicateInFileCount: number;
+  duplicateExistingHighConfidenceCount: number;
+  duplicateExistingPossibleCount: number;
+  duplicateExistingCount: number;
+  closedReconciliationOverlapCount: number;
+  openReconciliationOverlapCount: number;
+  currencyMismatchCount: number;
+  blockedRowCount: number;
 }
 
 export interface BankStatementImportPreviewRow {
@@ -1163,6 +1202,9 @@ export interface BankStatementImportPreviewRow {
   date: string;
   description: string;
   reference: string | null;
+  bankReference?: string | null;
+  counterparty?: string | null;
+  currency?: string | null;
   type: BankStatementTransactionType;
   amount: string;
   rawData: unknown;
@@ -1185,6 +1227,8 @@ export interface BankStatementImportPreview {
   sourceFormat?: string;
   sourceSheetName?: string | null;
   warnings: string[];
+  rowWarnings?: BankStatementImportRowWarning[];
+  summary?: BankStatementImportSafetySummary;
 }
 
 export interface BankStatementTransaction {

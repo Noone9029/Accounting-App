@@ -2,7 +2,31 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `342120a9` (`Merge pull request #33 from Noone9029/codex/wafeq-banking-xlsx-template-import`) plus the current Wafeq banking inline statement review branch.
+Latest commit audited: `43c428f6` (`Merge pull request #34 from Noone9029/codex/wafeq-banking-inline-statement-review`) plus the current Wafeq banking import safety hardening branch.
+
+## 2026-06-13 Wafeq banking import duplicate/idempotency/reconciliation safety hardening
+
+Hardened manual statement import safety without adding live feeds, bank APIs, credentials, schema changes, reconciliation state changes, or new accounting posting behavior.
+
+Risk reduced:
+
+- Reverified PR `#34` green/safe, then merged it into `main` at `43c428f6811b98bc539a76a0c55adc4eee895e8c` before starting this branch.
+- Added deterministic service-level statement row identity using bank account profile, date, signed amount, currency, normalized description, reference, bank reference, and counterparty.
+- Prefer bank reference for high-confidence duplicate detection when present.
+- Flag duplicate rows inside a single uploaded file.
+- Detect high-confidence and possible duplicates against existing non-voided statement transactions for the same bank account profile.
+- Block full import when invalid rows, existing duplicates, or closed reconciliation overlaps are present.
+- Allow partial import to import safe rows while explicitly reporting skipped invalid, duplicate, and closed-period rows.
+- Warn when imported rows overlap an open reconciliation without changing reconciliation workflow states.
+- Block currency mismatches against the bank account currency.
+- Updated statement import UX to show importable rows, duplicate counts, existing duplicate counts, closed/open reconciliation overlaps, row-level warning badges, and skipped-row result counts.
+- Added targeted API and frontend tests for duplicate/idempotency/reconciliation safety behavior.
+
+Remaining risks:
+
+- No DB-level unique statement fingerprint/index was added; database-enforced idempotency remains future hardening if concurrency risk requires it.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, bank rules, bank deposits, cheques, card settlements, or bank credentials were added.
+- Certified target-bank parser coverage, raw statement archive execution, accountant sign-off, hosted/customer-data proof, broad E2E/smoke/full-test coverage, and live-feed abstractions remain open.
 
 ## 2026-06-13 Wafeq banking inline statement transaction review workspace
 

@@ -358,6 +358,166 @@ describe("BankStatementService", () => {
     );
   });
 
+  it("flags identical rows in one upload as duplicate-in-file before import", async () => {
+    const { service, prisma } = makeService();
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "duplicates.csv",
+        csvText:
+          "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Receipt,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR\n2026-05-13,Receipt,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR",
+      }),
+    ).resolves.toMatchObject({
+      summary: expect.objectContaining({ duplicateInFileCount: 1, blockedRowCount: 1 }),
+      invalidRows: [
+        expect.objectContaining({
+          rowNumber: 3,
+          warnings: [expect.objectContaining({ code: "DUPLICATE_IN_FILE", severity: "blocking" })],
+        }),
+      ],
+      rowWarnings: expect.arrayContaining([expect.objectContaining({ code: "DUPLICATE_IN_FILE", rowNumber: 3 })]),
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("detects and blocks high-confidence duplicates against existing imported rows", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankStatementTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2026-05-13T00:00:00.000Z"),
+        type: BankStatementTransactionType.CREDIT,
+        amount: new Prisma.Decimal("50.0000"),
+        reference: "PAY-1",
+        description: "Existing receipt",
+        rawData: {
+          normalized: {
+            description: "Existing receipt",
+            reference: "PAY-1",
+            bankReference: "BANK-REF-1",
+            counterparty: "Customer LLC",
+            currency: "SAR",
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "duplicate-existing.csv",
+        csvText: "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Receipt,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR",
+      }),
+    ).resolves.toMatchObject({
+      summary: expect.objectContaining({ duplicateExistingHighConfidenceCount: 1, duplicateExistingCount: 1 }),
+      rowWarnings: expect.arrayContaining([expect.objectContaining({ code: "DUPLICATE_EXISTING_HIGH_CONFIDENCE", rowNumber: 2 })]),
+    });
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "duplicate-existing.csv",
+        csvText: "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Receipt,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR",
+      }),
+    ).rejects.toThrow("Bank statement import contains duplicate statement rows.");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("does not over-block same date and amount when reference and counterparty differ", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankStatementTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2026-05-13T00:00:00.000Z"),
+        type: BankStatementTransactionType.CREDIT,
+        amount: new Prisma.Decimal("50.0000"),
+        reference: "PAY-1",
+        description: "Customer A receipt",
+        rawData: {
+          normalized: {
+            description: "Customer A receipt",
+            reference: "PAY-1",
+            bankReference: "BANK-REF-1",
+            counterparty: "Customer A",
+            currency: "SAR",
+          },
+        },
+      },
+    ]);
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "same-amount-different-party.csv",
+        csvText: "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Customer B receipt,PAY-2,BANK-REF-2,0.0000,50.0000,Customer B,SAR",
+      }),
+    ).resolves.toMatchObject({
+      summary: expect.objectContaining({ duplicateExistingCount: 0, blockedRowCount: 0 }),
+      rowWarnings: [],
+    });
+  });
+
+  it("partial import skips existing duplicate rows and imports safe rows explicitly", async () => {
+    const createdImport = { id: "import-1", rowCount: 1, status: BankStatementImportStatus.IMPORTED };
+    const tx = {
+      bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
+    };
+    const { service, prisma } = makeService({
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    });
+    prisma.bankStatementTransaction.findMany.mockResolvedValue([
+      {
+        transactionDate: new Date("2026-05-13T00:00:00.000Z"),
+        type: BankStatementTransactionType.CREDIT,
+        amount: new Prisma.Decimal("50.0000"),
+        reference: "PAY-1",
+        description: "Receipt",
+        rawData: { normalized: { bankReference: "BANK-REF-1", currency: "SAR", counterparty: "Customer LLC" } },
+      },
+    ]);
+
+    await expect(
+      service.importStatement("org-1", "user-1", "profile-1", {
+        filename: "partial-duplicates.csv",
+        allowPartial: true,
+        csvText:
+          "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Receipt,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR\n2026-05-14,Fee,FEE-1,BANK-REF-2,5.0000,0.0000,Bank,SAR",
+      }),
+    ).resolves.toMatchObject({
+      id: "import-1",
+      importSummary: expect.objectContaining({
+        sourceRowCount: 2,
+        importedRowCount: 1,
+        skippedRowCount: 1,
+        duplicateExistingCount: 1,
+      }),
+    });
+    expect(tx.bankStatementImport.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          rowCount: 1,
+          transactions: { create: [expect.objectContaining({ description: "Fee" })] },
+        }),
+      }),
+    );
+  });
+
+  it("warns for open reconciliation overlap without blocking preview", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankReconciliation.findFirst.mockImplementation(({ where }: { where: { status: unknown } }) => {
+      return Promise.resolve(
+        typeof where.status === "object"
+          ? { id: "reconciliation-open", reconciliationNumber: "REC-OPEN-1", status: BankReconciliationStatus.DRAFT }
+          : null,
+      );
+    });
+
+    await expect(
+      service.previewImport("org-1", "profile-1", {
+        filename: "open-overlap.csv",
+        csvText: "date,description,debit,credit,currency\n2026-05-13,Receipt,0.0000,50.0000,SAR",
+      }),
+    ).resolves.toMatchObject({
+      summary: expect.objectContaining({ openReconciliationOverlapCount: 1, blockedRowCount: 0 }),
+      rowWarnings: expect.arrayContaining([expect.objectContaining({ code: "OPEN_RECONCILIATION_OVERLAP", severity: "warning" })]),
+    });
+  });
+
   it("rejects imports that overlap a closed reconciliation period", async () => {
     const { service, prisma } = makeService();
     prisma.bankReconciliation.findFirst.mockResolvedValue({ id: "reconciliation-1", reconciliationNumber: "REC-000001" });

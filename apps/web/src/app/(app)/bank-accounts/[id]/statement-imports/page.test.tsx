@@ -1,7 +1,14 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { ClientParserPreview, ImportResultPanel, STATEMENT_IMPORT_FILE_ACCEPT, StatementImportGuidance, StatementImportTemplateActions } from "./page";
+import {
+  ClientParserPreview,
+  ImportResultPanel,
+  ServerImportPreviewPanel,
+  STATEMENT_IMPORT_FILE_ACCEPT,
+  StatementImportGuidance,
+  StatementImportTemplateActions,
+} from "./page";
 import type { BankStatementImport } from "@/lib/types";
 
 jest.mock("next/link", () => ({
@@ -123,7 +130,10 @@ describe("statement import guidance", () => {
           importSummary: {
             sourceRowCount: 3,
             importedRowCount: 2,
+            skippedRowCount: 1,
             invalidRowCount: 1,
+            duplicateExistingCount: 0,
+            blockedByClosedReconciliationCount: 0,
             totalCredits: "100.0000",
             totalDebits: "15.0000",
             warnings: ["Row 3 may duplicate an existing statement transaction."],
@@ -133,12 +143,98 @@ describe("statement import guidance", () => {
     );
 
     expect(screen.getByText("Statement import saved")).toBeInTheDocument();
-    expect(screen.getByText(/manual statement batch with 2 rows and skipped 1 invalid rows/)).toBeInTheDocument();
+    expect(screen.getByText(/manual statement batch with 2 rows and skipped 1 rows/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review unmatched rows" })).toHaveAttribute(
       "href",
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
     );
     expect(screen.getByRole("link", { name: "Open reconciliation" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
     expect(screen.queryByText(/live bank sync/i)).not.toBeInTheDocument();
+  });
+
+  it("renders server preview safety summary and row warning badges", () => {
+    render(
+      <ServerImportPreviewPanel
+        currency="SAR"
+        preview={{
+          filename: "statement.csv",
+          rowCount: 3,
+          totalCredits: "100.0000",
+          totalDebits: "15.0000",
+          detectedColumns: ["date", "description", "bankReference", "credit"],
+          sourceFormat: "CSV",
+          sourceSheetName: null,
+          warnings: ["1 row duplicates another row in this file."],
+          summary: {
+            sourceRowCount: 3,
+            validRowCount: 2,
+            invalidRowCount: 1,
+            importableRowCount: 1,
+            duplicateInFileCount: 1,
+            duplicateExistingHighConfidenceCount: 1,
+            duplicateExistingPossibleCount: 0,
+            duplicateExistingCount: 1,
+            closedReconciliationOverlapCount: 1,
+            openReconciliationOverlapCount: 1,
+            currencyMismatchCount: 0,
+            blockedRowCount: 3,
+          },
+          rowWarnings: [
+            {
+              rowNumber: 2,
+              code: "DUPLICATE_EXISTING_HIGH_CONFIDENCE",
+              severity: "blocking",
+              message: "Row 2 has the same bank reference, date, amount, and currency as an existing statement transaction.",
+              action: "Skip this row unless the existing transaction has been voided and reviewed.",
+            },
+            {
+              rowNumber: 3,
+              code: "CLOSED_RECONCILIATION_OVERLAP",
+              severity: "blocking",
+              message: "Row 3 falls inside closed reconciliation REC-000001.",
+              action: "Do not import this row into a closed reconciliation period.",
+            },
+            {
+              rowNumber: 2,
+              code: "OPEN_RECONCILIATION_OVERLAP",
+              severity: "warning",
+              message: "Row 2 overlaps open reconciliation REC-OPEN-1.",
+              action: "Review the open reconciliation before closing it.",
+            },
+          ],
+          validRows: [
+            {
+              rowNumber: 2,
+              date: "2026-05-13T00:00:00.000Z",
+              description: "Customer receipt",
+              reference: "PAY-1",
+              bankReference: "BANK-REF-1",
+              type: "CREDIT",
+              amount: "100.0000",
+              rawData: {},
+            },
+            {
+              rowNumber: 3,
+              date: "2026-05-14T00:00:00.000Z",
+              description: "Bank fee",
+              reference: "FEE-1",
+              type: "DEBIT",
+              amount: "15.0000",
+              rawData: {},
+            },
+          ],
+          invalidRows: [{ rowNumber: 4, errors: ["Row 4 duplicates row 2 in this import file."], rawData: {} }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Importable")).toBeInTheDocument();
+    expect(screen.getByText("Duplicate rows")).toBeInTheDocument();
+    expect(screen.getByText("Closed overlaps")).toBeInTheDocument();
+    expect(screen.getByText(/1 rows are importable, 2 duplicate rows need review, 3 rows block full import/)).toBeInTheDocument();
+    expect(screen.getByText("Existing duplicate")).toBeInTheDocument();
+    expect(screen.getByText("Closed period")).toBeInTheDocument();
+    expect(screen.getByText("Open reconciliation")).toBeInTheDocument();
+    expect(screen.getByText(/Row 4 duplicates row 2 in this import file/)).toBeInTheDocument();
   });
 });

@@ -2,104 +2,104 @@
 
 ## Latest Commit Inspected
 
-- PR `#33` was reverified green/safe and merged into `main` with merge commit `342120a94412fe47cfab6c96905d695a9afaf127`.
-- Current branch base: `origin/main` at `342120a9 Merge pull request #33 from Noone9029/codex/wafeq-banking-xlsx-template-import`.
+- PR `#34` was reverified green/safe and merged into `main` with merge commit `43c428f6811b98bc539a76a0c55adc4eee895e8c`.
+- Current branch base: `origin/main` at `43c428f6 Merge pull request #34 from Noone9029/codex/wafeq-banking-inline-statement-review`.
 
 ## Current Development Objective
 
-- Current branch: `codex/wafeq-banking-inline-statement-review`
-- Worktree: `E:\Accounting-App-inline-review`
-- Completed lane: Wafeq banking foundation Prompt 2, inline statement transaction review workspace.
+- Current branch: `codex/wafeq-banking-import-safety-hardening`
+- Worktree: `E:\Accounting-App-import-safety`
+- Completed lane: Wafeq banking foundation Prompt 3, import duplicate idempotency and reconciliation safety hardening.
 - Product posture remains controlled beta/user-testing only.
 
-## PR #33 Merge Status
+## PR #34 Merge Status
 
-- PR `#33` was open, non-draft, mergeable, and still at expected head `bc8d69d3b497cd479e25c8933f1d6d922b438f57`.
-- Non-mutating verification, GitGuardian, and Vercel API/web statuses were checked as success; Vercel Preview Comments also reported success.
-- Diff scope remained Wafeq manual XLSX import/template UX, parser/service/DTO updates, frontend statement import updates, tests/docs/handoff updates, and dependency lockfile updates.
-- No schema, migration, real DB connection, live bank feed, bank API, bank credential, deploy, secret, or customer-data mutation was present.
-- PR `#33` was merged by merge commit before this branch was created.
+- PR `#34` was open, non-draft, mergeable, and still at expected head `a7cc8725e1939a18e32ada9bed4e6476cb04e53b`.
+- PR Verification, Non-mutating verification, GitGuardian, Vercel Preview Comments, and Vercel API/web statuses were checked as success.
+- Diff scope remained statement review UI, tests, docs, and handoff updates only.
+- No backend endpoint/DTO, schema, migration, posting, reconciliation-state, live-feed, bank API, credential, deploy, secret, or customer-data mutation was present.
+- PR `#34` was merged by merge commit before this branch was created from latest `origin/main`.
 
 ## Surfaces Reviewed
 
+- `apps/api/src/bank-statements/bank-statement-import-parser.ts`
+- `apps/api/src/bank-statements/bank-statement.service.ts`
+- `apps/api/src/bank-statements/bank-account-statement.controller.ts`
+- `apps/api/src/bank-statements/dto/create-bank-statement-import.dto.ts`
+- `apps/api/src/bank-statements/bank-statement-match-suggestions.ts`
+- `apps/api/src/bank-statements/*.spec.ts`
+- `apps/api/prisma/schema.prisma`
+- `apps/api/src/bank-reconciliations/*`
+- `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx`
 - `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx`
-- `apps/web/src/app/(app)/bank-statement-transactions/[id]/page.tsx`
-- `apps/web/src/app/(app)/bank-accounts/[id]/reconciliation/page.tsx`
 - `apps/web/src/lib/bank-statements.ts`
 - `apps/web/src/lib/types.ts`
-- Existing bank statement/reconciliation web tests.
-- `apps/api/src/bank-statements/bank-account-statement.controller.ts`
-- `apps/api/src/bank-statements/bank-statement-transaction.controller.ts`
-- `apps/api/src/bank-statements/bank-statement.service.ts`
-- `apps/api/src/bank-statements/bank-statement-match-suggestions.ts`
-- `apps/api/src/bank-statements/dto/*.ts`
-- `apps/api/src/bank-reconciliations/*`
-- `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`
-- `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md`
-- `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`
-- `docs/IMPLEMENTATION_STATUS.md`
-- `docs/REMAINING_ROADMAP.md`
-- `docs/PRODUCT_READINESS_SCORECARD.md`
-- `CODEX_HANDOFF.md`
-- `BUG_AUDIT.md`
+- Existing bank statement/import/reconciliation tests.
+- Banking/status/readiness docs plus `CODEX_HANDOFF.md` and `BUG_AUDIT.md`.
 
 ## Files Added Or Updated
 
-- Reworked `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx`.
-- Added `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.test.tsx`.
-- Updated docs: `CODEX_HANDOFF.md`, `BUG_AUDIT.md`, `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`, `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md`.
+- Updated `apps/api/src/bank-statements/bank-statement.service.ts`.
+- Updated `apps/api/src/bank-statements/bank-statement.service.spec.ts`.
+- Updated `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx`.
+- Updated `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.test.tsx`.
+- Updated `apps/web/src/lib/bank-statements.ts`.
+- Updated `apps/web/src/lib/types.ts`.
+- Updated docs: `CODEX_HANDOFF.md`, `BUG_AUDIT.md`, `docs/banking/WAFEQ_BANKING_FOUNDATION_PLAN.md`, `docs/banking/BANK_STATEMENT_COMPATIBILITY_MATRIX.md`, `docs/product/FEATURE_PARITY_COMMAND_CENTER.md`, `docs/IMPLEMENTATION_STATUS.md`, `docs/REMAINING_ROADMAP.md`, and `docs/PRODUCT_READINESS_SCORECARD.md`.
 
 ## Implementation Summary
 
-- The bank account statement rows page is now an inline review workspace rather than a basic list.
-- Rows show date, description, reference, bank reference, counterparty, currency, debit, credit, current status, needs-review badge, candidate summary, and a detail-page link.
-- Filters cover all, unmatched, matched, categorized, ignored, needs review, debit, and credit.
-- Search covers description, reference, bank reference, and counterparty.
-- Sorting covers date, amount, and status.
-- Row-level candidate preview and match confirmation reuse the existing `match-candidates` and `match` endpoints.
-- Row-level categorize and ignore reuse the existing single-row endpoints.
-- Bulk ignore and bulk categorize intentionally loop through existing single-row APIs and report partial failures without hiding failed rows.
-- No backend endpoint, DTO, schema, reconciliation workflow state, or accounting posting logic change was required.
+- Added deterministic service-level statement row identity using bank account profile, date, signed amount, currency, normalized description, reference, bank reference, and counterparty.
+- Bank reference is preferred for high-confidence duplicate detection when present; rows without bank reference fall back to the full normalized fingerprint.
+- Preview now returns structured row warnings for duplicate-in-file, high-confidence existing duplicate, possible existing duplicate, closed reconciliation overlap, open reconciliation overlap, currency mismatch, and partial-import-required cases.
+- Full import blocks invalid rows, existing duplicates, and closed reconciliation overlaps.
+- Partial import imports safe rows and reports skipped invalid, duplicate, and closed-period rows explicitly.
+- Open reconciliation overlaps warn without changing reconciliation workflow states.
+- Currency mismatches against the bank account profile currency are blocked as invalid rows.
+- Statement import UX now shows importable rows, duplicate counts, existing duplicate counts, closed/open reconciliation overlaps, row warning badges, and skipped-row result counts.
+- No schema migration or DB-level unique fingerprint/index was added; database-enforced idempotency remains future hardening if needed.
 
 ## Checks Run
 
 - `git status --short`
 - `git branch --show-current`
 - `git log -1 --oneline`
-- GitHub PR `#33` metadata/status/check/diff verification through GitHub REST plus connector merge.
-- `git fetch origin main`
-- `git worktree add E:\Accounting-App-inline-review -b codex/wafeq-banking-inline-statement-review origin/main`
+- GitHub PR `#34` metadata/status/check/diff verification through GitHub connector, GitHub REST, and local diff inspection.
+- PR `#34` merge via connector with expected head SHA.
+- `git fetch origin main --prune`
+- `git worktree add -b codex/wafeq-banking-import-safety-hardening E:\Accounting-App-import-safety origin/main`
 - `corepack pnpm install --offline`
-- `corepack pnpm --filter @ledgerbyte/web test -- -t BankStatementTransactionsPage`
+- `corepack pnpm --filter @ledgerbyte/api db:generate`
+- `corepack pnpm --filter @ledgerbyte/api test -- bank-statement.service`
+- `corepack pnpm --filter @ledgerbyte/api test -- bank-statement-import-parser`
+- `corepack pnpm --filter @ledgerbyte/web test -- statement-imports`
 - `corepack pnpm --filter @ledgerbyte/web test -- bank-statements`
+- `corepack pnpm --filter @ledgerbyte/api typecheck`
 - `corepack pnpm --filter @ledgerbyte/web typecheck`
-- `corepack pnpm verify:diff`
 
 ## Skipped Commands And Why
 
-- API tests and API typecheck were skipped because this branch did not change API files.
-- Package JSON parse check was skipped because no package manifests changed on this branch.
-- No migrations, seed/reset/delete, smoke, E2E, deployed checks, real login, hosted database checks, Vercel/Supabase changes, bank API calls, live feeds, provider integrations, ZATCA, real email, backup/restore, or production infrastructure commands were run because this prompt forbids them.
-- Broader test suites were not run because targeted statement review tests, existing bank-statement helper tests, web typecheck, and `verify:diff` covered the changed web/docs surfaces without crossing the prompt's smoke/E2E/deployed-check limits.
+- No migrations, seed/reset/delete, smoke, E2E, deployed checks, real login, hosted database checks, Vercel/Supabase changes, bank API calls, live feeds, provider integrations, payment initiation, ZATCA, real email, backup/restore, or production infrastructure commands were run because this prompt forbids them.
+- Broader test suites were not run because targeted service/parser/web import tests plus API/web typechecks cover the changed import safety surfaces.
 
 ## Current Banking Verdict
 
-- LedgerByte now has Wafeq-style manual template/XLSX import UX plus an inline statement transaction review workspace for controlled-beta testing.
+- LedgerByte now has Wafeq-style manual template/XLSX import UX, inline statement transaction review, and service-level import duplicate/idempotency/reconciliation-overlap safety for controlled-beta testing.
 - LedgerByte still supports manual banking only.
-- LedgerByte still does not support live bank feeds, WIO/Lean/Tarabut integration, payment initiation, bank rules, bank deposits, cheques, card settlements, provider abstraction, certified target-bank parser coverage, or production banking readiness.
+- LedgerByte still does not support live bank feeds, WIO/Lean/Tarabut integration, payment initiation, bank rules, bank deposits, cheques, card settlements, provider abstraction, certified target-bank parser coverage, DB-level unique statement fingerprints, or production banking readiness.
 - No production, ZATCA, VAT/reporting, accounting-posting, reconciliation-state, schema, infrastructure, hosted data, or customer-data behavior changed.
 
 ## Remaining Banking Blockers
 
-- Import duplicate/idempotency/reconciliation safety hardening.
 - Bank rules engine.
 - Bank deposit batches.
 - Card settlement flows.
 - Cheque lifecycle.
 - Bank-feed provider abstraction.
 - Lean/WIO/Tarabut sandbox integration later.
+- DB-level unique statement fingerprint/index if concurrency risk requires database-enforced idempotency.
 - Certified target-bank parser coverage and accountant sign-off remain required before broader claims.
 
 ## Exact Next Recommended Prompt Title
 
-`Wafeq banking foundation: import duplicate idempotency and reconciliation safety hardening`
+`Wafeq banking automation: bank rules engine`
