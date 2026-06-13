@@ -11,7 +11,7 @@ Date: 2026-06-13
 3. VAT return truthfulness and filing-export foundation completed in `main` through PR `#29`.
 4. Production trust foundation audit, object-storage proof validation, and backup/restore proof harness completed through PRs `#30`, `#31`, and `#32`.
 5. Production-trust proof work is paused after PR `#32`.
-6. Current route: Wafeq-style banking feature parity, now on deterministic bank rules after import safety hardening merged.
+6. Current route: Wafeq-style banking feature parity, now on bank deposit batches after bank rules merged.
 7. Later only: projects, fixed assets, payroll, mobile, AI/accountant assistant, and marketplace/API ecosystem work.
 
 ## Completed In Main
@@ -23,27 +23,28 @@ Date: 2026-06-13
 - PR `#33` merged into `main` at `342120a9` and added Wafeq-style manual XLSX statement import plus downloadable template UX.
 - PR `#34` merged into `main` at `43c428f6` and added Wafeq-style inline statement transaction review.
 - PR `#35` merged into `main` at `44ff1d7a` and added manual import duplicate/idempotency/reconciliation safety hardening.
+- PR `#36` merged into `main` at `dcf8a3d1` and added deterministic bank rules for manual statement transaction suggestions.
 
 ## Current Parity Branch
 
-Branch: `codex/wafeq-banking-bank-rules-engine`
+Branch: `codex/wafeq-banking-bank-deposit-batches`
 
-Base after update: `main` at `44ff1d7a` (`Merge pull request #35 from Noone9029/codex/wafeq-banking-import-safety-hardening`)
+Base after update: `main` at `dcf8a3d1` (`Merge pull request #36 from Noone9029/codex/wafeq-banking-bank-rules-engine`)
 
 Scope:
 
 - Wafeq-style manual banking foundation only.
-- Deterministic bank rules for imported manual statement transactions.
-- Rules are organization-scoped with optional bank account profile scope, priority, enabled/disabled state, explicit `autoApply: false`, safe condition fields, and suggestion actions.
-- Dry-run returns suggestions without mutating statement rows.
-- Explicit apply reuses existing categorize, ignore, and match behavior and records rule-application audit metadata.
-- The bank account rules page and statement review panel make the manual-only, no-live-feed, no-payment-initiation boundary visible.
-- Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, bank deposits, cheques, card settlements, silent auto-reconciliation, silent auto-ignore, or production claim.
+- Bank deposit batches for grouping receipt-like items into one operational treasury deposit total.
+- Draft, posted, matched, and voided deposit-batch statuses with explicit operator actions.
+- Deposit batches can be explicitly matched to one same-account, same-currency, same-amount imported bank statement credit row.
+- Closed reconciliation periods block match, unmatch, and linked void changes.
+- Journal-backed clearing movement is deferred until an undeposited-funds/clearing-account model is confirmed.
+- Controlled-beta banking docs and tests only. No live feeds, bank APIs, bank credentials, WIO/Lean/Tarabut integration, payment initiation, full cheque lifecycle, card settlements, silent auto-reconciliation, silent auto-match, or production claim.
 
 Still not parity:
 
 - No live bank feed, external aggregation, WIO/Lean/Tarabut integration, bank API call, or bank credential handling.
-- No certified bank-specific parser coverage, raw-file archive implementation, DB-level unique statement fingerprint/index, automatic matching execution, deposits, cheques, card settlements, transfer fees, or FX flow.
+- No certified bank-specific parser coverage, raw-file archive implementation, DB-level unique statement fingerprint/index, automatic matching execution, journal-backed undeposited-funds clearing for deposits, full cheques, card settlements, transfer fees, or FX flow.
 - No production hosting implementation, paid SaaS launch gate, official VAT filing readiness, or ZATCA execution/compliance claim.
 
 ## Operating Notes
@@ -54,4 +55,4 @@ Still not parity:
 
 ## Exact Next Recommended Prompt Title
 
-`Wafeq banking treasury: bank deposit batches`
+`Wafeq banking treasury: credit and prepaid card settlement flows`

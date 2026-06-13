@@ -18,6 +18,20 @@ For the updated Product Audit v2 planning artifacts, see:
 
 LedgerByte is at the controlled beta/user-testing stage. The current Vercel deployment is beta/user-testing only and must not be treated as final production hosting. LedgerByte is not production-launched, real ZATCA production compliance is not enabled, and paid production SaaS v1 requires the production foundation work documented under `docs/production/`. The production ticket backlog, ADR index, and first 10 production tickets are planning artifacts only; no production implementation has been performed. DEV-08 local AP evidence is strong and closed for its local-only scope, but AP is not production-complete. DEV-09 local banking/reconciliation evidence is also closed for its local-only scope, but banking remains unproven for production, beta, customer data, live bank feeds, automatic matching, certified parser coverage, DB-enforced import fingerprints, and broad E2E/smoke/full-test coverage. DEV-10 local reports/financial statements evidence is closed for its local-only scope, but reporting remains unproven for production, beta, customer data, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, broad E2E/smoke/full-test coverage, and load/concurrency. DEV-11 local inventory valuation and COGS evidence is closed for its local-only scope, but inventory accounting remains unproven for production, beta, customer data, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency. DEV-12 is closed as local-only generated documents storage retention evidence, but generated-document storage remains unproven for production, beta, customer data, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test coverage, hosted behavior, and load/concurrency.
 
+## 2026-06-13 Wafeq banking bank deposit batches
+
+- PR `#36` was reverified green/safe and merged into `main` at `dcf8a3d1` before Prompt 5 work began.
+- Added operational bank deposit batches for grouping receipt-like items into a bank account deposit total.
+- Added draft, posted, matched, and voided deposit-batch statuses with explicit API and UI actions.
+- Posted deposit batches can be explicitly matched to one same-account, same-currency, same-amount imported statement credit row.
+- Closed reconciliation periods block deposit-batch match, unmatch, and linked void changes.
+- Added `/bank-accounts/[id]/deposits` list/detail workspaces and on-demand statement transaction review links for candidate deposit batches.
+- This is LedgerByte treasury workflow functionality, not a public Wafeq dedicated-module parity claim.
+- Journal-backed clearing movement remains open because the repo does not yet have a confirmed undeposited-funds/clearing-account model for customer receipts.
+- This remains manual banking only. No live bank feed, bank API, credentials, payment initiation, card settlement, full cheque lifecycle, provider abstraction, VAT/ZATCA/report change, hosted/customer-data behavior, or production-readiness claim was added.
+- Remaining Wafeq banking route: card settlement flows, cheque lifecycle, bank-feed provider abstraction, and Lean/WIO/Tarabut sandbox integration later.
+- Recommended next prompt: `Wafeq banking treasury: credit and prepaid card settlement flows`.
+
 ## 2026-06-13 Wafeq banking bank rules engine
 
 - PR `#35` was reverified green/safe and merged into `main` at `44ff1d7a` before Prompt 4 work began.
