@@ -11,6 +11,7 @@ import { BankRulesModule } from "./bank-rules/bank-rules.module";
 import { BankStatementModule } from "./bank-statements/bank-statement.module";
 import { BankTransferModule } from "./bank-transfers/bank-transfer.module";
 import { CardSettlementModule } from "./card-settlements/card-settlement.module";
+import { ChequeModule } from "./cheques/cheque.module";
 import { BranchModule } from "./branches/branch.module";
 import { CashExpenseModule } from "./cash-expenses/cash-expense.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
@@ -72,6 +73,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     BankStatementModule,
     BankTransferModule,
     CardSettlementModule,
+    ChequeModule,
     OrganizationModule,
     BranchModule,
     CashExpenseModule,

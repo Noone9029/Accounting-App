@@ -252,6 +252,9 @@ export default function BankDepositDetailPage() {
           <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Statement rows
           </Link>
+          <Link href={`/bank-accounts/${params.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Cheques
+          </Link>
         </div>
       </div>
 

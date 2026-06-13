@@ -29,6 +29,7 @@ import type {
   BankStatementTransaction,
   BankStatementTransactionStatus,
   CardSettlement,
+  ChequeInstrument,
 } from "@/lib/types";
 
 type ReviewFilter = "" | BankStatementTransactionStatus | "NEEDS_REVIEW" | "DEBIT" | "CREDIT";
@@ -92,6 +93,7 @@ export default function BankStatementTransactionsPage() {
   const [ruleSuggestionsByRow, setRuleSuggestionsByRow] = useState<Record<string, BankRuleSuggestion[]>>({});
   const [depositCandidatesByRow, setDepositCandidatesByRow] = useState<Record<string, BankDepositBatch[]>>({});
   const [cardSettlementCandidatesByRow, setCardSettlementCandidatesByRow] = useState<Record<string, CardSettlement[]>>({});
+  const [chequeCandidatesByRow, setChequeCandidatesByRow] = useState<Record<string, ChequeInstrument[]>>({});
   const [loadingCandidatesFor, setLoadingCandidatesFor] = useState("");
   const [loadingRulesFor, setLoadingRulesFor] = useState("");
   const [applyingRuleId, setApplyingRuleId] = useState("");
@@ -357,6 +359,40 @@ export default function BankStatementTransactionsPage() {
     }
   }
 
+  async function loadChequeCandidates(transaction: BankStatementTransaction) {
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading cheque candidates..." } }));
+    try {
+      const cheques = await apiRequest<ChequeInstrument[]>(`/cheques?bankAccountProfileId=${params.id}`);
+      const rowCurrency = transactionCurrency(transaction, currency);
+      const matches = cheques.filter((cheque) => {
+        const sameAmount = Number(cheque.amount) === Number(transaction.amount);
+        const sameCurrency = cheque.currency === rowCurrency;
+        const openStatus = cheque.status === "RECEIVED" || cheque.status === "ISSUED" || cheque.status === "DEPOSITED";
+        const directionMatches =
+          (transaction.type === "CREDIT" && cheque.chequeType === "RECEIVED") ||
+          (transaction.type === "DEBIT" && cheque.chequeType === "ISSUED");
+        return sameAmount && sameCurrency && openStatus && directionMatches;
+      });
+      setChequeCandidatesByRow((current) => ({ ...current, [transaction.id]: matches }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: matches.length > 0 ? `${matches.length} cheque candidates loaded.` : "No open cheques match this row.",
+        },
+      }));
+    } catch (chequeError) {
+      setChequeCandidatesByRow((current) => ({ ...current, [transaction.id]: [] }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: chequeError instanceof Error ? chequeError.message : "Unable to load cheques.",
+        },
+      }));
+    }
+  }
+
   async function applyRuleSuggestion(transaction: BankStatementTransaction, suggestion: BankRuleSuggestion) {
     setApplyingRuleId(suggestion.ruleId);
     setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: `Applying ${suggestion.ruleName}...` } }));
@@ -593,6 +629,8 @@ export default function BankStatementTransactionsPage() {
               const firstDepositCandidate = depositCandidates[0];
               const cardSettlementCandidates = cardSettlementCandidatesByRow[transaction.id] ?? [];
               const firstCardSettlementCandidate = cardSettlementCandidates[0];
+              const chequeCandidates = chequeCandidatesByRow[transaction.id] ?? [];
+              const firstChequeCandidate = chequeCandidates[0];
               const result = rowResults[transaction.id];
               const rowCurrency = transactionCurrency(transaction, currency);
               return (
@@ -660,6 +698,23 @@ export default function BankStatementTransactionsPage() {
                               className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               Find card settlements
+                            </button>
+                          ) : null}
+                          {firstChequeCandidate ? (
+                            <Link
+                              href={`/bank-accounts/${params.id}/cheques/${firstChequeCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              Match cheque
+                            </Link>
+                          ) : null}
+                          {!firstChequeCandidate ? (
+                            <button
+                              type="button"
+                              onClick={() => void loadChequeCandidates(transaction)}
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Find cheques
                             </button>
                           ) : null}
                           <button

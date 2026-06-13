@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import BankStatementTransactionsPage, { StatementTransactionsGuidance } from "./page";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
-import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction, CardSettlement } from "@/lib/types";
+import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction, CardSettlement, ChequeInstrument } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 let currentPermissions = new Set<Permission>();
@@ -228,6 +228,23 @@ describe("BankStatementTransactionsPage", () => {
     expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringContaining("match-statement-transaction"), expect.anything());
   });
 
+  it("loads cheque candidates without auto-matching statement rows", async () => {
+    apiRequestMock
+      .mockResolvedValueOnce(bankProfile())
+      .mockResolvedValueOnce([statementRow({ type: "CREDIT", amount: "150.0000", description: "Cheque deposit" })])
+      .mockResolvedValueOnce(accounts())
+      .mockResolvedValueOnce([chequeInstrument()]);
+
+    render(<BankStatementTransactionsPage />);
+
+    const chequeButtons = await screen.findAllByRole("button", { name: "Find cheques" });
+    fireEvent.click(chequeButtons[0]!);
+
+    expect(await screen.findByText("1 cheque candidates loaded.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Match cheque" })).toHaveAttribute("href", "/bank-accounts/bank-1/cheques/chq-1");
+    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringContaining("match-statement-transaction"), expect.anything());
+  });
+
   it("bulk ignores selected rows with required reason and keeps failed rows visible", async () => {
     const rows = [statementRow(), statementRow({ id: "row-2", description: "Second unmatched", reference: "REF-002" })];
     apiRequestMock
@@ -448,6 +465,54 @@ function cardSettlement(): CardSettlement {
       accountId: "card-account-1",
       account: { id: "card-account-1", code: "1050", name: "Corporate Card", type: "ASSET", allowPosting: true, isActive: true },
     },
+    statementTransaction: null,
+    createdBy: null,
+    updatedBy: null,
+  };
+}
+
+function chequeInstrument(): ChequeInstrument {
+  return {
+    id: "chq-1",
+    organizationId: "org-1",
+    chequeType: "RECEIVED",
+    status: "DEPOSITED",
+    bankAccountProfileId: "bank-1",
+    depositBatchId: "dep-1",
+    statementTransactionId: null,
+    counterpartyType: "CUSTOMER",
+    counterpartyId: null,
+    counterpartyName: "Acme Trading",
+    chequeNumber: "CHQ-100",
+    drawerBankName: "Drawer Bank",
+    payeeName: null,
+    issueDate: "2026-05-20T00:00:00.000Z",
+    receivedDate: "2026-05-21T00:00:00.000Z",
+    dueDate: "2026-05-25T00:00:00.000Z",
+    depositDate: "2026-05-26T00:00:00.000Z",
+    clearedDate: null,
+    bouncedDate: null,
+    voidedDate: null,
+    amount: "150.0000",
+    currency: "SAR",
+    reference: "REF-CHQ",
+    memo: null,
+    bounceReason: null,
+    voidReason: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    createdAt: "2026-05-21T00:00:00.000Z",
+    updatedAt: "2026-05-21T00:00:00.000Z",
+    bankAccountProfile: {
+      id: "bank-1",
+      displayName: "Main Bank",
+      type: "BANK",
+      status: "ACTIVE",
+      currency: "SAR",
+      accountId: "bank-account-1",
+      account: { id: "bank-account-1", code: "1010", name: "Main Bank", type: "ASSET", allowPosting: true, isActive: true },
+    },
+    depositBatch: { id: "dep-1", depositDate: "2026-05-26T00:00:00.000Z", status: "DRAFT", totalAmount: "150.0000", bankAccountProfileId: "bank-1" },
     statementTransaction: null,
     createdBy: null,
     updatedBy: null,

@@ -524,6 +524,27 @@ enum CardSettlementStatus {
   VOIDED
 }
 
+enum ChequeInstrumentType {
+  RECEIVED
+  ISSUED
+}
+
+enum ChequeInstrumentStatus {
+  DRAFT
+  RECEIVED
+  ISSUED
+  DEPOSITED
+  CLEARED
+  BOUNCED
+  VOIDED
+}
+
+enum ChequeCounterpartyType {
+  CUSTOMER
+  SUPPLIER
+  OTHER
+}
+
 enum BankStatementImportStatus {
   IMPORTED
   PARTIALLY_RECONCILED
@@ -965,6 +986,8 @@ model User {
   updatedBankDepositBatches                         BankDepositBatch[]                          @relation("BankDepositBatchUpdatedBy")
   createdCardSettlements                            CardSettlement[]                            @relation("CardSettlementCreatedBy")
   updatedCardSettlements                            CardSettlement[]                            @relation("CardSettlementUpdatedBy")
+  createdChequeInstruments                          ChequeInstrument[]                          @relation("ChequeInstrumentCreatedBy")
+  updatedChequeInstruments                          ChequeInstrument[]                          @relation("ChequeInstrumentUpdatedBy")
 }
 
 model Organization {
@@ -991,6 +1014,7 @@ model Organization {
   bankDepositBatches                        BankDepositBatch[]
   bankDepositBatchLines                     BankDepositBatchLine[]
   cardSettlements                           CardSettlement[]
+  chequeInstruments                         ChequeInstrument[]
   bankReconciliations                       BankReconciliation[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
@@ -1983,6 +2007,7 @@ model BankAccountProfile {
   bankDepositBatches           BankDepositBatch[]
   fundingCardSettlements       CardSettlement[]           @relation("CardSettlementFundingProfile")
   cardSettlements              CardSettlement[]           @relation("CardSettlementCardProfile")
+  chequeInstruments            ChequeInstrument[]
   reconciliations              BankReconciliation[]
 
   @@index([organizationId])
@@ -2084,6 +2109,7 @@ model BankStatementTransaction {
   bankRuleApplications  BankRuleApplication[]
   matchedDepositBatch   BankDepositBatch?
   matchedCardSettlement CardSettlement?
+  matchedChequeInstrument ChequeInstrument?
 
   @@index([organizationId])
   @@index([importId])
@@ -2118,6 +2144,7 @@ model BankDepositBatch {
   createdBy                  User?                  @relation("BankDepositBatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy                  User?                  @relation("BankDepositBatchUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   lines                      BankDepositBatchLine[]
+  chequeInstruments          ChequeInstrument[]
 
   @@index([organizationId])
   @@index([bankAccountProfileId])
@@ -2179,6 +2206,54 @@ model CardSettlement {
   @@index([organizationId, status])
   @@index([organizationId, settlementType])
   @@index([statementTransactionId])
+}
+
+model ChequeInstrument {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  organizationId         String                  @db.Uuid
+  chequeType             ChequeInstrumentType
+  status                 ChequeInstrumentStatus  @default(DRAFT)
+  bankAccountProfileId   String?                 @db.Uuid
+  depositBatchId         String?                 @db.Uuid
+  statementTransactionId String?                 @unique @db.Uuid
+  counterpartyType       ChequeCounterpartyType?
+  counterpartyId         String?
+  counterpartyName       String
+  chequeNumber           String
+  drawerBankName         String?
+  payeeName              String?
+  issueDate              DateTime?
+  receivedDate           DateTime?
+  dueDate                DateTime?
+  depositDate            DateTime?
+  clearedDate            DateTime?
+  bouncedDate            DateTime?
+  voidedDate             DateTime?
+  amount                 Decimal                 @db.Decimal(20, 4)
+  currency               String                  @default("SAR")
+  reference              String?
+  memo                   String?
+  bounceReason           String?
+  voidReason             String?
+  createdById            String?                 @db.Uuid
+  updatedById            String?                 @db.Uuid
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile     BankAccountProfile?     @relation(fields: [bankAccountProfileId], references: [id])
+  depositBatch           BankDepositBatch?       @relation(fields: [depositBatchId], references: [id], onDelete: SetNull)
+  statementTransaction   BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  createdBy              User?                   @relation("ChequeInstrumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy              User?                   @relation("ChequeInstrumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, chequeType])
+  @@index([organizationId, status])
+  @@index([bankAccountProfileId])
+  @@index([depositBatchId])
+  @@index([statementTransactionId])
+  @@index([organizationId, chequeNumber])
+  @@index([organizationId, counterpartyType, counterpartyId])
 }
 
 model BankRule {
