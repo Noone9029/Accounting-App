@@ -24,6 +24,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq banking bank rules engine:
+
+- PR `#35` `Wafeq banking import safety hardening` was reverified green/safe and merged into `main` at `44ff1d7a` before this branch was created.
+- Added deterministic bank rules for imported manual statement transactions.
+- Rules are organization-scoped with optional bank account profile scope, priority, enabled/disabled state, safe condition fields, suggestion action type, explicit `autoApply: false`, and rule-application audit records.
+- The evaluator is side-effect free and supports direction, description contains, bounded description regex, reference, bank reference, counterparty, amount equality/range, currency, source format, and date range.
+- Dry-run evaluates recent unmatched statement rows without mutation.
+- Explicit apply reuses existing categorize, ignore, and match service behavior; no silent posting, silent ignore, silent reconciliation, or reconciliation workflow-state change was added.
+- Added rule management UI at `/bank-accounts/[id]/rules` and row-level rule suggestions in the statement transaction review workspace.
+- Added a narrow additive Prisma migration for bank rule storage and rule application audit storage only.
+- No live bank feed, bank API, credential handling, payment initiation, deposit, card settlement, cheque lifecycle, provider abstraction, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking treasury: bank deposit batches`.
+
 2026-06-13 Wafeq banking import duplicate/idempotency/reconciliation safety hardening:
 
 - PR `#34` `Wafeq banking inline statement transaction review` was reverified green/safe and merged into `main` at `43c428f6` before this branch was created.

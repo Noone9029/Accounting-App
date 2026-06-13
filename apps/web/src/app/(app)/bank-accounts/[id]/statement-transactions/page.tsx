@@ -11,13 +11,23 @@ import {
   bankStatementTransactionStatusBadgeClass,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
+  bankRuleActionLabel,
   candidateScoreLabel,
   lockedStatementTransactionWarning,
 } from "@/lib/bank-statements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction, BankStatementTransactionStatus } from "@/lib/types";
+import type {
+  Account,
+  BankAccountSummary,
+  BankRuleApplyResponse,
+  BankRuleSuggestion,
+  BankRuleSuggestionsResponse,
+  BankStatementMatchCandidate,
+  BankStatementTransaction,
+  BankStatementTransactionStatus,
+} from "@/lib/types";
 
 type ReviewFilter = "" | BankStatementTransactionStatus | "NEEDS_REVIEW" | "DEBIT" | "CREDIT";
 type SortMode = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "status";
@@ -76,7 +86,11 @@ export default function BankStatementTransactionsPage() {
   const [candidateRowId, setCandidateRowId] = useState<string | null>(null);
   const [candidatesByRow, setCandidatesByRow] = useState<Record<string, BankStatementMatchCandidate[]>>({});
   const [selectedCandidateByRow, setSelectedCandidateByRow] = useState<Record<string, string>>({});
+  const [ruleSuggestionRowId, setRuleSuggestionRowId] = useState<string | null>(null);
+  const [ruleSuggestionsByRow, setRuleSuggestionsByRow] = useState<Record<string, BankRuleSuggestion[]>>({});
   const [loadingCandidatesFor, setLoadingCandidatesFor] = useState("");
+  const [loadingRulesFor, setLoadingRulesFor] = useState("");
+  const [applyingRuleId, setApplyingRuleId] = useState("");
   const [rowResults, setRowResults] = useState<Record<string, RowResult>>({});
   const [bulkMessage, setBulkMessage] = useState<RowResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -248,6 +262,66 @@ export default function BankStatementTransactionsPage() {
     }
   }
 
+  async function loadRuleSuggestions(transaction: BankStatementTransaction) {
+    setRuleSuggestionRowId(transaction.id);
+    setLoadingRulesFor(transaction.id);
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading rule suggestions..." } }));
+    try {
+      const result = await apiRequest<BankRuleSuggestionsResponse>(`/bank-statement-transactions/${transaction.id}/rule-suggestions`, {
+        method: "POST",
+      });
+      setRuleSuggestionsByRow((current) => ({ ...current, [transaction.id]: result.suggestions }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: result.suggestions.length > 0 ? `${result.suggestions.length} rule suggestions loaded.` : "No bank rules matched this row.",
+        },
+      }));
+    } catch (ruleError) {
+      setRuleSuggestionsByRow((current) => ({ ...current, [transaction.id]: [] }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: ruleError instanceof Error ? ruleError.message : "Unable to load rule suggestions.",
+        },
+      }));
+    } finally {
+      setLoadingRulesFor("");
+    }
+  }
+
+  async function applyRuleSuggestion(transaction: BankStatementTransaction, suggestion: BankRuleSuggestion) {
+    setApplyingRuleId(suggestion.ruleId);
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: `Applying ${suggestion.ruleName}...` } }));
+    try {
+      const result = await apiRequest<BankRuleApplyResponse>(`/bank-statement-transactions/${transaction.id}/apply-rule-suggestion`, {
+        method: "POST",
+        body: { ruleId: suggestion.ruleId, actionType: suggestion.actionType },
+      });
+      updateTransaction(result.transaction);
+      setRuleSuggestionRowId(null);
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: `Rule suggestion applied: ${bankStatementTransactionStatusLabel(result.transaction.status).toLowerCase()}.`,
+        },
+      }));
+    } catch (ruleError) {
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: ruleError instanceof Error ? ruleError.message : "Unable to apply rule suggestion.",
+        },
+      }));
+    } finally {
+      setApplyingRuleId("");
+    }
+  }
+
   async function submitBulkAction(action: "categorize" | "ignore") {
     if (actionableSelectedRows.length === 0) {
       setBulkMessage({ type: "error", message: "Select at least one unlocked unmatched row." });
@@ -318,6 +392,9 @@ export default function BankStatementTransactionsPage() {
         <div className="flex flex-wrap gap-2">
           <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Imports
+          </Link>
+          <Link href={`/bank-accounts/${params.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Rules
           </Link>
           <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Reconciliation
@@ -492,6 +569,14 @@ export default function BankStatementTransactionsPage() {
                           </button>
                           <button
                             type="button"
+                            onClick={() => void loadRuleSuggestions(transaction)}
+                            disabled={loadingRulesFor === transaction.id}
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            {loadingRulesFor === transaction.id ? "Loading..." : "Rule suggestions"}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               setActiveAction({ rowId: transaction.id, type: "categorize" });
                               setInlineAccountId((current) => current || accounts[0]?.id || "");
@@ -565,6 +650,16 @@ export default function BankStatementTransactionsPage() {
           onConfirm={(transaction, journalLineId) => submitRowAction(transaction, "match", { journalLineId })}
         />
       ) : null}
+
+      {ruleSuggestionRowId ? (
+        <RuleSuggestionPanel
+          transaction={transactions.find((transaction) => transaction.id === ruleSuggestionRowId) ?? null}
+          suggestions={ruleSuggestionsByRow[ruleSuggestionRowId] ?? []}
+          applyingRuleId={applyingRuleId}
+          onClose={() => setRuleSuggestionRowId(null)}
+          onApply={applyRuleSuggestion}
+        />
+      ) : null}
     </section>
   );
 }
@@ -577,9 +672,12 @@ export function StatementTransactionsGuidance({ profileId }: { profileId: string
         Review imported manual statement rows without leaving the bank account. Match links a row to existing posted bank ledger activity, categorize posts through the existing manual journal path, and ignore keeps a row out of reconciliation totals. Every row-changing action is explicit.
       </p>
       <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
-        This workspace is manual banking only. It does not connect to live bank feeds, collect bank credentials, add bank rules, initiate payments, or auto-reconcile.
+        This workspace is manual banking only. Bank rules create suggestions for review; it does not connect to live bank feeds, collect bank credentials, initiate payments, silently ignore rows, or auto-reconcile.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
+        <Link href={`/bank-accounts/${profileId}/rules`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Bank rules
+        </Link>
         <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           Import statement
         </Link>
@@ -665,6 +763,73 @@ function InlineRowActionPanel({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function RuleSuggestionPanel({
+  transaction,
+  suggestions,
+  applyingRuleId,
+  onClose,
+  onApply,
+}: {
+  transaction: BankStatementTransaction | null;
+  suggestions: BankRuleSuggestion[];
+  applyingRuleId: string;
+  onClose: () => void;
+  onApply: (transaction: BankStatementTransaction, suggestion: BankRuleSuggestion) => Promise<void>;
+}) {
+  if (!transaction) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Rule suggestions</h2>
+          <p className="mt-1 text-sm text-steel">{transaction.description}</p>
+          <p className="mt-1 text-xs leading-5 text-steel">Suggestions do not change this row until an operator applies one explicitly.</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          Close
+        </button>
+      </div>
+      {suggestions.length === 0 ? <StatusMessage type="empty">No bank rules matched this statement row.</StatusMessage> : null}
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {suggestions.map((suggestion) => {
+          const canApply = suggestion.actionType !== "SUGGEST_MATCH_CANDIDATES";
+          return (
+            <div key={suggestion.ruleId} className="rounded-md border border-slate-200 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">{suggestion.ruleName}</h3>
+                  <p className="mt-1 text-xs text-steel">{bankRuleActionLabel(suggestion.actionType)} - score {suggestion.score}</p>
+                </div>
+                <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">Priority {suggestion.priority}</span>
+              </div>
+              <ul className="mt-3 space-y-1 text-xs text-steel">
+                {suggestion.matchedReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {canApply ? (
+                <button
+                  type="button"
+                  disabled={Boolean(applyingRuleId)}
+                  onClick={() => void onApply(transaction, suggestion)}
+                  className="mt-3 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {applyingRuleId === suggestion.ruleId ? "Applying..." : "Apply suggestion"}
+                </button>
+              ) : (
+                <p className="mt-3 text-xs leading-5 text-steel">Match-candidate rules surface candidates only. Choose a specific candidate before matching.</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

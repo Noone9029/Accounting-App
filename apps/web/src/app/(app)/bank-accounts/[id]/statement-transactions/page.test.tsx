@@ -152,6 +152,62 @@ describe("BankStatementTransactionsPage", () => {
     });
   });
 
+  it("loads and explicitly applies a bank rule suggestion", async () => {
+    apiRequestMock
+      .mockResolvedValueOnce(bankProfile())
+      .mockResolvedValueOnce(statementRows())
+      .mockResolvedValueOnce(accounts())
+      .mockResolvedValueOnce({
+        transaction: statementRow(),
+        suggestions: [
+          {
+            ruleId: "rule-1",
+            ruleName: "Monthly bank fee",
+            priority: 10,
+            actionType: "SUGGEST_CATEGORIZE",
+            score: 90,
+            autoApply: false,
+            categorizeAccountId: "expense-1",
+            matchedReasons: ["Description contains bank fee."],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        transaction: statementRow({ status: "CATEGORIZED", categorizedAccountId: "expense-1" }),
+        suggestion: {
+          ruleId: "rule-1",
+          ruleName: "Monthly bank fee",
+          priority: 10,
+          actionType: "SUGGEST_CATEGORIZE",
+          score: 90,
+          autoApply: false,
+          categorizeAccountId: "expense-1",
+          matchedReasons: ["Description contains bank fee."],
+        },
+        applied: true,
+      });
+
+    render(<BankStatementTransactionsPage />);
+
+    const ruleButtons = await screen.findAllByRole("button", { name: "Rule suggestions" });
+    fireEvent.click(ruleButtons[0]!);
+    expect(await screen.findByRole("heading", { name: "Rule suggestions" })).toBeInTheDocument();
+    expect(screen.getByText("Monthly bank fee")).toBeInTheDocument();
+    expect(screen.getByText(/Suggestions do not change this row/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply suggestion" }));
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/bank-statement-transactions/row-1/apply-rule-suggestion",
+        expect.objectContaining({
+          method: "POST",
+          body: { ruleId: "rule-1", actionType: "SUGGEST_CATEGORIZE" },
+        }),
+      );
+    });
+    expect(await screen.findByText("Rule suggestion applied: categorized.")).toBeInTheDocument();
+  });
+
   it("bulk ignores selected rows with required reason and keeps failed rows visible", async () => {
     const rows = [statementRow(), statementRow({ id: "row-2", description: "Second unmatched", reference: "REF-002" })];
     apiRequestMock
@@ -209,6 +265,7 @@ describe("StatementTransactionsGuidance", () => {
     expect(screen.getByText(/Every row-changing action is explicit/)).toBeInTheDocument();
     expect(screen.getByText(/manual banking only/)).toBeInTheDocument();
     expect(screen.queryByText(/live bank sync/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Bank rules" })).toHaveAttribute("href", "/bank-accounts/bank-1/rules");
     expect(screen.getByRole("link", { name: "Import statement" })).toHaveAttribute("href", "/bank-accounts/bank-1/statement-imports");
     expect(screen.getByRole("link", { name: "Reconciliation summary" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
   });

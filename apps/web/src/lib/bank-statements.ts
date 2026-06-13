@@ -3,6 +3,8 @@ import type {
   BankReconciliationReviewEvent,
   BankReconciliationStatus,
   BankReconciliationSummary,
+  BankRuleActionType,
+  BankRuleDirection,
   BankStatementImportStatus,
   BankStatementImportPreview,
   BankStatementMatchCandidate,
@@ -127,6 +129,32 @@ export function bankStatementImportStatusBadgeClass(status: BankStatementImportS
       return "bg-emerald-50 text-emerald-700";
     case "VOIDED":
       return "bg-rose-50 text-rose-700";
+  }
+}
+
+export function bankRuleDirectionLabel(direction: BankRuleDirection): string {
+  switch (direction) {
+    case "ANY":
+      return "Any direction";
+    case "DEBIT":
+      return "Debit";
+    case "CREDIT":
+      return "Credit";
+  }
+}
+
+export function bankRuleActionLabel(action: BankRuleActionType): string {
+  switch (action) {
+    case "SUGGEST_CATEGORIZE":
+      return "Suggest categorize";
+    case "SUGGEST_IGNORE":
+      return "Suggest ignore";
+    case "SUGGEST_MATCH_CANDIDATES":
+      return "Suggest match candidates";
+    case "CATEGORIZE":
+      return "Categorize on explicit apply";
+    case "IGNORE":
+      return "Ignore on explicit apply";
   }
 }
 

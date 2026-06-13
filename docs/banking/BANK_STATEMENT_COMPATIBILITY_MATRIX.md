@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 Status: planning and sample-intake tracker. This matrix is not a parser certification, bank certification, or live bank integration claim.
 
-LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks and reconciliation-overlap warnings/blocks, but bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
+LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, and deterministic bank-rule suggestions for imported statement transactions, but bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
 
 Support levels:
 
@@ -55,7 +55,16 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Do not use the word certified unless a separate bank/compliance review has explicitly approved that wording.
 - Keep raw file bodies out of logs, issue reports, pull requests, screenshots, and support tickets.
 - Parser validation does not imply automatic matching, live bank feeds, external bank aggregation, or accounting posting changes.
+- Bank rules are deterministic review suggestions for imported manual statement rows. They do not certify a bank parser, add a live feed, call bank APIs, initiate payments, silently reconcile rows, or silently ignore rows.
 - Duplicate/idempotency hardening is service-level only. No DB-level unique statement fingerprint/index exists yet.
+
+## 2026-06-13 Bank Rules Update
+
+- Added organization-scoped deterministic bank rules with optional bank account profile scope.
+- Rule conditions can inspect normalized manual statement fields such as direction, description, reference, bank reference, counterparty, amount, currency, source format, and date range.
+- Dry-run returns suggestions without mutating statement transactions.
+- Explicit apply reuses existing categorize, ignore, or match behavior and records rule-application audit metadata.
+- This does not add live feeds, bank APIs, bank credentials, deposits, card settlements, cheques, payment initiation, silent auto-reconciliation, silent auto-ignore, or production banking readiness.
 
 ## 2026-06-13 Import Safety Update
 
@@ -65,4 +74,4 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Existing statement transactions are detected as high-confidence or possible duplicates and are blocked in full import mode.
 - Partial import can skip invalid, duplicate, and closed-reconciliation rows while reporting skipped counts explicitly.
 - Rows overlapping closed reconciliations are blocked; rows overlapping open reconciliations warn the operator before close.
-- This does not add live feeds, bank APIs, bank credentials, bank rules, deposits, card settlements, cheques, payment initiation, or production banking readiness.
+- This does not add live feeds, bank APIs, bank credentials, deposits, card settlements, cheques, payment initiation, or production banking readiness.

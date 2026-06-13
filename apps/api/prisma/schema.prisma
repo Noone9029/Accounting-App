@@ -528,6 +528,31 @@ enum BankStatementMatchType {
   OTHER
 }
 
+enum BankRuleDirection {
+  ANY
+  DEBIT
+  CREDIT
+}
+
+enum BankRuleActionType {
+  SUGGEST_CATEGORIZE
+  SUGGEST_IGNORE
+  SUGGEST_MATCH_CANDIDATES
+  CATEGORIZE
+  IGNORE
+}
+
+enum BankRuleApplicationType {
+  DRY_RUN
+  APPLIED
+}
+
+enum BankRuleApplicationStatus {
+  SUGGESTED
+  APPLIED
+  FAILED
+}
+
 enum BankReconciliationStatus {
   DRAFT
   PENDING_APPROVAL
@@ -905,6 +930,9 @@ model User {
   updatedZatcaCredentialLifecycles                  ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleUpdatedBy")
   disabledZatcaCredentialLifecycles                 ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleDisabledBy")
   revokedZatcaCredentialLifecycles                  ZatcaCredentialLifecycle[]                  @relation("ZatcaCredentialLifecycleRevokedBy")
+  createdBankRules                                  BankRule[]                                  @relation("BankRuleCreatedBy")
+  updatedBankRules                                  BankRule[]                                  @relation("BankRuleUpdatedBy")
+  appliedBankRuleApplications                       BankRuleApplication[]                       @relation("BankRuleApplicationAppliedBy")
 }
 
 model Organization {
@@ -926,6 +954,8 @@ model Organization {
   bankTransfers                             BankTransfer[]
   bankStatementImports                      BankStatementImport[]
   bankStatementTransactions                 BankStatementTransaction[]
+  bankRules                                 BankRule[]
+  bankRuleApplications                      BankRuleApplication[]
   bankReconciliations                       BankReconciliation[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
@@ -1881,6 +1911,7 @@ model Account {
   bankTransfersFrom                    BankTransfer[]              @relation("BankTransferFromAccount")
   bankTransfersTo                      BankTransfer[]              @relation("BankTransferToAccount")
   categorizedBankStatementTransactions BankStatementTransaction[]  @relation("BankStatementTransactionCategorizedAccount")
+  bankRules                            BankRule[]                  @relation("BankRuleCategorizeAccount")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -1912,6 +1943,8 @@ model BankAccountProfile {
   incomingTransfers            BankTransfer[]             @relation("BankTransferToProfile")
   statementImports             BankStatementImport[]
   statementTransactions        BankStatementTransaction[]
+  bankRules                    BankRule[]
+  bankRuleApplications         BankRuleApplication[]
   reconciliations              BankReconciliation[]
 
   @@index([organizationId])
@@ -2010,6 +2043,7 @@ model BankStatementTransaction {
   categorizedAccount    Account?                       @relation("BankStatementTransactionCategorizedAccount", fields: [categorizedAccountId], references: [id], onDelete: SetNull)
   createdJournalEntry   JournalEntry?                  @relation("BankStatementTransactionCreatedJournalEntry", fields: [createdJournalEntryId], references: [id], onDelete: SetNull)
   reconciliationItems   BankReconciliationItem[]
+  bankRuleApplications  BankRuleApplication[]
 
   @@index([organizationId])
   @@index([importId])
@@ -2019,6 +2053,78 @@ model BankStatementTransaction {
   @@index([matchedJournalLineId])
   @@index([matchedJournalEntryId])
   @@index([createdJournalEntryId])
+}
+
+model BankRule {
+  id                       String                    @id @default(uuid()) @db.Uuid
+  organizationId           String                    @db.Uuid
+  bankAccountProfileId     String?                   @db.Uuid
+  name                     String
+  enabled                  Boolean                   @default(true)
+  priority                 Int                       @default(100)
+  direction                BankRuleDirection         @default(ANY)
+  descriptionContains      String?
+  descriptionRegex         String?
+  referenceContains        String?
+  bankReferenceContains    String?
+  counterpartyContains     String?
+  amountEquals             Decimal?                  @db.Decimal(20, 4)
+  amountMin                Decimal?                  @db.Decimal(20, 4)
+  amountMax                Decimal?                  @db.Decimal(20, 4)
+  currencyEquals           String?
+  sourceFormat             String?
+  startDate                DateTime?
+  endDate                  DateTime?
+  actionType               BankRuleActionType
+  categorizeAccountId      String?                   @db.Uuid
+  ignoreReason             String?
+  autoApply                Boolean                   @default(false)
+  lastDryRunAt             DateTime?
+  lastAppliedAt            DateTime?
+  createdById              String?                   @db.Uuid
+  updatedById              String?                   @db.Uuid
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile       BankAccountProfile?       @relation(fields: [bankAccountProfileId], references: [id], onDelete: Cascade)
+  categorizeAccount        Account?                  @relation("BankRuleCategorizeAccount", fields: [categorizeAccountId], references: [id], onDelete: SetNull)
+  createdBy                User?                     @relation("BankRuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                User?                     @relation("BankRuleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  applications             BankRuleApplication[]
+
+  @@index([organizationId])
+  @@index([organizationId, enabled])
+  @@index([organizationId, bankAccountProfileId])
+  @@index([organizationId, priority])
+  @@index([categorizeAccountId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model BankRuleApplication {
+  id                         String                    @id @default(uuid()) @db.Uuid
+  organizationId             String                    @db.Uuid
+  bankRuleId                 String                    @db.Uuid
+  bankStatementTransactionId String                    @db.Uuid
+  bankAccountProfileId       String                    @db.Uuid
+  actionType                 BankRuleActionType
+  evaluationType             BankRuleApplicationType   @default(APPLIED)
+  status                     BankRuleApplicationStatus
+  matchedReasons             Json
+  result                     Json?
+  appliedById                String?                   @db.Uuid
+  createdAt                  DateTime                  @default(now())
+  organization               Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankRule                   BankRule                  @relation(fields: [bankRuleId], references: [id], onDelete: Cascade)
+  bankStatementTransaction   BankStatementTransaction  @relation(fields: [bankStatementTransactionId], references: [id], onDelete: Cascade)
+  bankAccountProfile         BankAccountProfile        @relation(fields: [bankAccountProfileId], references: [id], onDelete: Cascade)
+  appliedBy                  User?                     @relation("BankRuleApplicationAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([bankRuleId])
+  @@index([bankStatementTransactionId])
+  @@index([bankAccountProfileId])
+  @@index([appliedById])
 }
 
 model BankReconciliation {

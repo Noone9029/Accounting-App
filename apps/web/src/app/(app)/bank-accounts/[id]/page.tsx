@@ -235,6 +235,9 @@ export default function BankAccountDetailPage() {
                   <Link href={`/bank-accounts/${profile.id}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Statement transactions
                   </Link>
+                  <Link href={`/bank-accounts/${profile.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Bank rules
+                  </Link>
                   <Link href={`/bank-accounts/${profile.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     Reconciliation
                   </Link>

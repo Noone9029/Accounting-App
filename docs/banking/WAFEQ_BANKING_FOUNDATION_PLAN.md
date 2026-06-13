@@ -31,13 +31,14 @@ LedgerByte already has:
 - reconciliation draft, submit, approve, close, void, lock, and report behavior
 - manual CSV/JSON/text plus limited OFX/CAMT/MT940 parser groundwork
 - deterministic non-mutating match suggestions
+- deterministic bank rules for manual statement-transaction suggestions
 
 LedgerByte does not yet have:
 
 - live bank feeds
 - WIO, Lean, Tarabut, or other open-banking integrations
 - payment initiation
-- automatic bank rules
+- silent automatic bank-rule application
 - bank deposit batches
 - cheque lifecycle
 - card settlement workflows
@@ -94,22 +95,39 @@ This prompt hardens manual import safety before automation work:
 
 No schema migration or DB-level unique fingerprint/index was added. A persisted fingerprint column plus unique index remains a future hardening task if import volume or concurrency risk requires database-enforced idempotency.
 
+## Prompt 4 Completed Scope
+
+This prompt adds deterministic bank rules for manual statement transactions. This is LedgerByte operational automation for controlled-beta operators, not a claim that public Wafeq evidence proves generic bank-rule parity.
+
+- persistent organization-scoped rules with optional bank account profile scope
+- rule priority, enabled/disabled state, safe condition fields, action type, explicit `autoApply: false`, and created/updated metadata
+- condition support for direction, description contains, bounded description regex, reference, bank reference, counterparty, amount equality/range, currency, source format, and date range
+- suggestion actions for categorize, ignore, and match-candidate review
+- explicit apply endpoints that reuse existing categorize, ignore, and match service behavior
+- rule dry-run behavior that evaluates recent unmatched statement rows without mutating transactions
+- rule-application audit records for applied or failed explicit rule application
+- bank account rules workspace at `/bank-accounts/[id]/rules`
+- statement transaction review panel that loads rule suggestions per row and requires an explicit operator click before any row-changing action
+
+The schema migration is additive and limited to bank rule storage plus rule application audit storage. It does not add live feeds, bank API calls, credentials, payment initiation, deposits, cards, cheques, reconciliation-state changes, VAT/ZATCA/report changes, or silent posting/reconciliation/ignore behavior.
+
 ## Not Included
 
-This prompt intentionally does not add:
+This route still intentionally does not add:
 
 - live bank feeds
 - WIO, Lean, Tarabut, or provider integrations
 - bank API calls
 - bank credential collection or storage
 - payment initiation
-- bank rules
+- silent automatic bank-rule application
+- automatic reconciliation
 - bank deposits
 - cheques
 - card settlements
 - reconciliation state changes
 - accounting posting logic changes
-- schema migrations
+- destructive schema migrations
 - production or beta data mutation
 - DB-level unique fingerprint constraints
 
@@ -119,4 +137,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking automation: bank rules engine`
+`Wafeq banking treasury: bank deposit batches`

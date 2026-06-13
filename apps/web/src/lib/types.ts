@@ -119,6 +119,9 @@ export type BankTransferStatus = "POSTED" | "VOIDED";
 export type BankStatementImportStatus = "IMPORTED" | "PARTIALLY_RECONCILED" | "RECONCILED" | "VOIDED";
 export type BankStatementTransactionStatus = "UNMATCHED" | "MATCHED" | "CATEGORIZED" | "IGNORED" | "VOIDED";
 export type BankStatementTransactionType = "DEBIT" | "CREDIT";
+export type BankRuleDirection = "ANY" | "DEBIT" | "CREDIT";
+export type BankRuleActionType = "SUGGEST_CATEGORIZE" | "SUGGEST_IGNORE" | "SUGGEST_MATCH_CANDIDATES" | "CATEGORIZE" | "IGNORE";
+export type BankRuleApplicationStatus = "SUGGESTED" | "APPLIED" | "FAILED";
 export type BankStatementMatchType =
   | "JOURNAL_LINE"
   | "MANUAL_JOURNAL"
@@ -1281,6 +1284,72 @@ export interface BankStatementMatchCandidate {
   credit: string;
   score: number;
   reason: string;
+}
+
+export interface BankRule {
+  id: string;
+  organizationId: string;
+  bankAccountProfileId: string | null;
+  name: string;
+  enabled: boolean;
+  priority: number;
+  direction: BankRuleDirection;
+  descriptionContains: string | null;
+  descriptionRegex: string | null;
+  referenceContains: string | null;
+  bankReferenceContains: string | null;
+  counterpartyContains: string | null;
+  amountEquals: string | null;
+  amountMin: string | null;
+  amountMax: string | null;
+  currencyEquals: string | null;
+  sourceFormat: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  actionType: BankRuleActionType;
+  categorizeAccountId: string | null;
+  ignoreReason: string | null;
+  autoApply: boolean;
+  lastDryRunAt: string | null;
+  lastAppliedAt: string | null;
+  createdById: string | null;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "currency"> | null;
+  categorizeAccount?: Pick<Account, "id" | "code" | "name" | "type"> | null;
+}
+
+export interface BankRuleSuggestion {
+  ruleId: string;
+  ruleName: string;
+  priority: number;
+  actionType: BankRuleActionType;
+  score: number;
+  autoApply: boolean;
+  categorizeAccountId?: string | null;
+  ignoreReason?: string | null;
+  matchedReasons: string[];
+}
+
+export interface BankRuleSuggestionsResponse {
+  transaction: BankStatementTransaction;
+  suggestions: BankRuleSuggestion[];
+}
+
+export interface BankRuleDryRunResponse {
+  rule: BankRule;
+  checkedCount: number;
+  suggestions: Array<{
+    transaction: BankStatementTransaction;
+    suggestion: BankRuleSuggestion;
+  }>;
+}
+
+export interface BankRuleApplyResponse {
+  transaction: BankStatementTransaction;
+  suggestion: BankRuleSuggestion;
+  applied: boolean;
 }
 
 export interface BankReconciliationSummary {
