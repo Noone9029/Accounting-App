@@ -28,6 +28,7 @@ import type {
   BankStatementMatchCandidate,
   BankStatementTransaction,
   BankStatementTransactionStatus,
+  CardSettlement,
 } from "@/lib/types";
 
 type ReviewFilter = "" | BankStatementTransactionStatus | "NEEDS_REVIEW" | "DEBIT" | "CREDIT";
@@ -90,6 +91,7 @@ export default function BankStatementTransactionsPage() {
   const [ruleSuggestionRowId, setRuleSuggestionRowId] = useState<string | null>(null);
   const [ruleSuggestionsByRow, setRuleSuggestionsByRow] = useState<Record<string, BankRuleSuggestion[]>>({});
   const [depositCandidatesByRow, setDepositCandidatesByRow] = useState<Record<string, BankDepositBatch[]>>({});
+  const [cardSettlementCandidatesByRow, setCardSettlementCandidatesByRow] = useState<Record<string, CardSettlement[]>>({});
   const [loadingCandidatesFor, setLoadingCandidatesFor] = useState("");
   const [loadingRulesFor, setLoadingRulesFor] = useState("");
   const [applyingRuleId, setApplyingRuleId] = useState("");
@@ -314,6 +316,42 @@ export default function BankStatementTransactionsPage() {
         [transaction.id]: {
           type: "error",
           message: depositError instanceof Error ? depositError.message : "Unable to load deposit batches.",
+        },
+      }));
+    }
+  }
+
+  async function loadCardSettlementCandidates(transaction: BankStatementTransaction) {
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading card settlements..." } }));
+    try {
+      const settlements = await apiRequest<CardSettlement[]>(`/card-settlements?bankAccountProfileId=${params.id}&status=POSTED`);
+      const rowCurrency = transactionCurrency(transaction, currency);
+      const matches = settlements.filter((settlement) => {
+        const sameAmount = Number(settlement.amount) === Number(transaction.amount);
+        const sameCurrency = settlement.currency === rowCurrency;
+        const matchesDebitFundingRow =
+          transaction.type === "DEBIT" &&
+          (settlement.settlementType === "CREDIT_CARD_PAYDOWN" || settlement.settlementType === "PREPAID_CARD_TOP_UP") &&
+          settlement.fundingBankAccountProfileId === params.id;
+        const matchesCreditCardRow =
+          transaction.type === "CREDIT" && settlement.settlementType === "CREDIT_CARD_CREDIT" && settlement.cardAccountProfileId === params.id;
+        return sameAmount && sameCurrency && (matchesDebitFundingRow || matchesCreditCardRow);
+      });
+      setCardSettlementCandidatesByRow((current) => ({ ...current, [transaction.id]: matches }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: matches.length > 0 ? `${matches.length} card settlement candidates loaded.` : "No posted card settlements match this row.",
+        },
+      }));
+    } catch (cardError) {
+      setCardSettlementCandidatesByRow((current) => ({ ...current, [transaction.id]: [] }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: cardError instanceof Error ? cardError.message : "Unable to load card settlements.",
         },
       }));
     }
@@ -553,6 +591,8 @@ export default function BankStatementTransactionsPage() {
               const candidates = candidatesByRow[transaction.id];
               const depositCandidates = depositCandidatesByRow[transaction.id] ?? [];
               const firstDepositCandidate = depositCandidates[0];
+              const cardSettlementCandidates = cardSettlementCandidatesByRow[transaction.id] ?? [];
+              const firstCardSettlementCandidate = cardSettlementCandidates[0];
               const result = rowResults[transaction.id];
               const rowCurrency = transactionCurrency(transaction, currency);
               return (
@@ -603,6 +643,23 @@ export default function BankStatementTransactionsPage() {
                               className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               Find deposit batches
+                            </button>
+                          ) : null}
+                          {firstCardSettlementCandidate ? (
+                            <Link
+                              href={`/bank-accounts/${params.id}/card-settlements/${firstCardSettlementCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              Match card settlement
+                            </Link>
+                          ) : null}
+                          {!firstCardSettlementCandidate ? (
+                            <button
+                              type="button"
+                              onClick={() => void loadCardSettlementCandidates(transaction)}
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Find card settlements
                             </button>
                           ) : null}
                           <button

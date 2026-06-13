@@ -511,6 +511,19 @@ enum BankDepositBatchLineSourceType {
   OTHER_CLEARING_ITEM
 }
 
+enum CardSettlementType {
+  CREDIT_CARD_PAYDOWN
+  CREDIT_CARD_CREDIT
+  PREPAID_CARD_TOP_UP
+}
+
+enum CardSettlementStatus {
+  DRAFT
+  POSTED
+  MATCHED
+  VOIDED
+}
+
 enum BankStatementImportStatus {
   IMPORTED
   PARTIALLY_RECONCILED
@@ -950,6 +963,8 @@ model User {
   appliedBankRuleApplications                       BankRuleApplication[]                       @relation("BankRuleApplicationAppliedBy")
   createdBankDepositBatches                         BankDepositBatch[]                          @relation("BankDepositBatchCreatedBy")
   updatedBankDepositBatches                         BankDepositBatch[]                          @relation("BankDepositBatchUpdatedBy")
+  createdCardSettlements                            CardSettlement[]                            @relation("CardSettlementCreatedBy")
+  updatedCardSettlements                            CardSettlement[]                            @relation("CardSettlementUpdatedBy")
 }
 
 model Organization {
@@ -975,6 +990,7 @@ model Organization {
   bankRuleApplications                      BankRuleApplication[]
   bankDepositBatches                        BankDepositBatch[]
   bankDepositBatchLines                     BankDepositBatchLine[]
+  cardSettlements                           CardSettlement[]
   bankReconciliations                       BankReconciliation[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
@@ -1965,6 +1981,8 @@ model BankAccountProfile {
   bankRules                    BankRule[]
   bankRuleApplications         BankRuleApplication[]
   bankDepositBatches           BankDepositBatch[]
+  fundingCardSettlements       CardSettlement[]           @relation("CardSettlementFundingProfile")
+  cardSettlements              CardSettlement[]           @relation("CardSettlementCardProfile")
   reconciliations              BankReconciliation[]
 
   @@index([organizationId])
@@ -2065,6 +2083,7 @@ model BankStatementTransaction {
   reconciliationItems   BankReconciliationItem[]
   bankRuleApplications  BankRuleApplication[]
   matchedDepositBatch   BankDepositBatch?
+  matchedCardSettlement CardSettlement?
 
   @@index([organizationId])
   @@index([importId])
@@ -2125,6 +2144,41 @@ model BankDepositBatchLine {
   @@index([organizationId])
   @@index([batchId])
   @@index([organizationId, sourceType, sourceId])
+}
+
+model CardSettlement {
+  id                          String                    @id @default(uuid()) @db.Uuid
+  organizationId              String                    @db.Uuid
+  settlementType              CardSettlementType
+  fundingBankAccountProfileId String?                   @db.Uuid
+  cardAccountProfileId        String                    @db.Uuid
+  settlementDate              DateTime
+  currency                    String                    @default("SAR")
+  amount                      Decimal                   @db.Decimal(20, 4)
+  status                      CardSettlementStatus      @default(DRAFT)
+  memo                        String?
+  reference                   String?
+  statementTransactionId      String?                   @unique @db.Uuid
+  createdById                 String?                   @db.Uuid
+  updatedById                 String?                   @db.Uuid
+  postedAt                    DateTime?
+  matchedAt                   DateTime?
+  voidedAt                    DateTime?
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
+  organization                Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingBankAccountProfile   BankAccountProfile?       @relation("CardSettlementFundingProfile", fields: [fundingBankAccountProfileId], references: [id])
+  cardAccountProfile          BankAccountProfile        @relation("CardSettlementCardProfile", fields: [cardAccountProfileId], references: [id])
+  statementTransaction        BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  createdBy                   User?                     @relation("CardSettlementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                   User?                     @relation("CardSettlementUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([cardAccountProfileId])
+  @@index([fundingBankAccountProfileId])
+  @@index([organizationId, status])
+  @@index([organizationId, settlementType])
+  @@index([statementTransactionId])
 }
 
 model BankRule {

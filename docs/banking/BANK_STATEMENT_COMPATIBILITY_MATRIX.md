@@ -4,7 +4,7 @@ Date: 2026-06-13
 
 Status: planning and sample-intake tracker. This matrix is not a parser certification, bank certification, or live bank integration claim.
 
-LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, and explicit bank-deposit-batch matching for posted operational deposit batches, but bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
+LedgerByte currently supports manual upload or paste only. It has limited parser groundwork for CSV, JSON, XLSX, OFX, CAMT XML, and MT940, plus a downloadable canonical CSV template. Manual imports now include service-level duplicate/idempotency checks, reconciliation-overlap warnings/blocks, deterministic bank-rule suggestions for imported statement transactions, explicit bank-deposit-batch matching for posted operational deposit batches, and explicit card-settlement matching for posted operational credit/prepaid card settlements. Bank-specific support is not certified until real sanitized exports from that institution are reviewed and tested.
 
 Support levels:
 
@@ -56,8 +56,19 @@ These rows are placeholders for likely beta target banks and regions. Every row 
 - Keep raw file bodies out of logs, issue reports, pull requests, screenshots, and support tickets.
 - Parser validation does not imply automatic matching, live bank feeds, external bank aggregation, or accounting posting changes.
 - Bank rules are deterministic review suggestions for imported manual statement rows. They do not certify a bank parser, add a live feed, call bank APIs, initiate payments, silently reconcile rows, or silently ignore rows.
-- Bank deposit batches are LedgerByte treasury workflow records that can be explicitly matched to one imported credit row. They do not certify a parser, add live feeds, call bank APIs, initiate payments, add card settlements, add full cheque lifecycle, or create journal-backed clearing movement yet.
+- Bank deposit batches are LedgerByte treasury workflow records that can be explicitly matched to one imported credit row. They do not certify a parser, add live feeds, call bank APIs, initiate payments, add full cheque lifecycle, or create journal-backed clearing movement yet.
+- Card settlements are LedgerByte treasury workflow records for credit-card paydowns, card credits/refunds, and prepaid-card top-ups. They can be explicitly matched to direction-aware imported statement rows, but they do not certify a parser, add live feeds, call bank APIs, initiate payments, add full cheque lifecycle, create card expenses, or create journal-backed card settlement posting yet.
 - Duplicate/idempotency hardening is service-level only. No DB-level unique statement fingerprint/index exists yet.
+
+## 2026-06-13 Card Settlement Update
+
+- Added operational card settlements for credit-card paydowns, credit-card credits/refunds, and prepaid-card top-ups.
+- Matching is explicit and limited to posted settlements with same-account, same-currency, same-amount imported statement rows.
+- Paydowns and top-ups match funding-account debit rows; card credits/refunds match card-account credit rows.
+- Closed reconciliation periods block card-settlement match, unmatch, and linked void changes.
+- The additive schema is limited to card settlement records.
+- No live feeds, bank APIs, credentials, payment initiation, full cheque lifecycle, silent auto-match, automatic reconciliation, VAT/ZATCA/report changes, card expense management, statement-cycle billing, journal-backed card posting, or production banking readiness was added.
+- Journal-backed card settlement posting is deferred until credit-card liability, prepaid-card asset, and clearing-account classification is explicitly designed and tested.
 
 ## 2026-06-13 Bank Deposit Batch Update
 

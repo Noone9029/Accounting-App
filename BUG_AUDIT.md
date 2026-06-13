@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `dcf8a3d1` (`Merge pull request #36 from Noone9029/codex/wafeq-banking-bank-rules-engine`) plus the current Wafeq banking bank deposit batches branch.
+Latest commit audited: `d86c9394` (`Merge pull request #37 from Noone9029/codex/wafeq-banking-bank-deposit-batches`) plus the current Wafeq banking card settlements branch.
+
+## 2026-06-13 Wafeq banking credit/prepaid card settlement flows
+
+Added operational credit/prepaid card settlement workflows without adding live feeds, bank APIs, credentials, payment initiation, full cheque lifecycle, provider abstraction, card expense management, statement-cycle billing, silent matching, automatic reconciliation, journal-backed card posting, or production banking claims.
+
+What changed:
+
+- Added organization-scoped card settlements for credit-card paydowns, credit-card credits/refunds, and prepaid-card top-ups.
+- Added draft, posted, matched, and voided statuses with explicit API actions.
+- Added positive amount, funding/card account, same-account, currency, active posting account, and organization-scope validation.
+- Added explicit direction-aware statement matching: paydowns/top-ups match funding-account debit rows; card credits/refunds match card-account credit rows.
+- Added closed-reconciliation protections before match, unmatch, and linked void changes.
+- Added bank account card settlement list/detail UI and on-demand statement transaction review links for candidate card settlements.
+- Added targeted API and web tests for validation, transitions, matching, reconciliation locks, explicit actions, and manual-only wording.
+
+Remaining risks:
+
+- Card settlement posting is operational only. No journal entries are created because credit-card liability, prepaid-card asset, and clearing-account classification need explicit accounting design before journal-backed settlement posting is safe.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, full cheque lifecycle, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- Cheque lifecycle is still the next Wafeq banking route.
 
 ## 2026-06-13 Wafeq banking bank deposit batches
 

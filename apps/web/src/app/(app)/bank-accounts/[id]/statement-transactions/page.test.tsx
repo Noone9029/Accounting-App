@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import BankStatementTransactionsPage, { StatementTransactionsGuidance } from "./page";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
-import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction } from "@/lib/types";
+import type { Account, BankAccountSummary, BankStatementMatchCandidate, BankStatementTransaction, CardSettlement } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 let currentPermissions = new Set<Permission>();
@@ -208,6 +208,26 @@ describe("BankStatementTransactionsPage", () => {
     expect(await screen.findByText("Rule suggestion applied: categorized.")).toBeInTheDocument();
   });
 
+  it("loads card settlement candidates without auto-matching statement rows", async () => {
+    apiRequestMock
+      .mockResolvedValueOnce(bankProfile())
+      .mockResolvedValueOnce([statementRow({ type: "DEBIT", amount: "300.0000", description: "Card paydown" })])
+      .mockResolvedValueOnce(accounts())
+      .mockResolvedValueOnce([cardSettlement()]);
+
+    render(<BankStatementTransactionsPage />);
+
+    const cardButtons = await screen.findAllByRole("button", { name: "Find card settlements" });
+    fireEvent.click(cardButtons[0]!);
+
+    expect(await screen.findByText("1 card settlement candidates loaded.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Match card settlement" })).toHaveAttribute(
+      "href",
+      "/bank-accounts/bank-1/card-settlements/set-1",
+    );
+    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringContaining("match-statement-transaction"), expect.anything());
+  });
+
   it("bulk ignores selected rows with required reason and keeps failed rows visible", async () => {
     const rows = [statementRow(), statementRow({ id: "row-2", description: "Second unmatched", reference: "REF-002" })];
     apiRequestMock
@@ -387,4 +407,49 @@ function matchCandidates(): BankStatementMatchCandidate[] {
       reason: "amount and direction match, same date, reference match",
     },
   ];
+}
+
+function cardSettlement(): CardSettlement {
+  return {
+    id: "set-1",
+    organizationId: "org-1",
+    settlementType: "CREDIT_CARD_PAYDOWN",
+    fundingBankAccountProfileId: "bank-1",
+    cardAccountProfileId: "card-1",
+    settlementDate: "2026-05-21T00:00:00.000Z",
+    currency: "SAR",
+    amount: "300.0000",
+    status: "POSTED",
+    memo: "Card paydown",
+    reference: "CARD-PAY",
+    statementTransactionId: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    postedAt: "2026-05-21T00:00:00.000Z",
+    matchedAt: null,
+    voidedAt: null,
+    createdAt: "2026-05-21T00:00:00.000Z",
+    updatedAt: "2026-05-21T00:00:00.000Z",
+    fundingBankAccountProfile: {
+      id: "bank-1",
+      displayName: "Main Bank",
+      type: "BANK",
+      status: "ACTIVE",
+      currency: "SAR",
+      accountId: "bank-account-1",
+      account: { id: "bank-account-1", code: "1010", name: "Main Bank", type: "ASSET", allowPosting: true, isActive: true },
+    },
+    cardAccountProfile: {
+      id: "card-1",
+      displayName: "Corporate Card",
+      type: "CARD",
+      status: "ACTIVE",
+      currency: "SAR",
+      accountId: "card-account-1",
+      account: { id: "card-account-1", code: "1050", name: "Corporate Card", type: "ASSET", allowPosting: true, isActive: true },
+    },
+    statementTransaction: null,
+    createdBy: null,
+    updatedBy: null,
+  };
 }
