@@ -6,6 +6,7 @@ import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
 import { BankReconciliationModule } from "./bank-reconciliations/bank-reconciliation.module";
+import { BankRulesModule } from "./bank-rules/bank-rules.module";
 import { BankStatementModule } from "./bank-statements/bank-statement.module";
 import { BankTransferModule } from "./bank-transfers/bank-transfer.module";
 import { BranchModule } from "./branches/branch.module";
@@ -64,6 +65,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     AuthModule,
     BankAccountModule,
     BankReconciliationModule,
+    BankRulesModule,
     BankStatementModule,
     BankTransferModule,
     OrganizationModule,

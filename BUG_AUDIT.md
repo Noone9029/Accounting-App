@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `43c428f6` (`Merge pull request #34 from Noone9029/codex/wafeq-banking-inline-statement-review`) plus the current Wafeq banking import safety hardening branch.
+Latest commit audited: `44ff1d7a` (`Merge pull request #35 from Noone9029/codex/wafeq-banking-import-safety-hardening`) plus the current Wafeq banking bank rules branch.
+
+## 2026-06-13 Wafeq banking bank rules engine
+
+Added deterministic bank-rule automation for imported manual statement transactions without adding live feeds, bank APIs, credentials, payment initiation, silent posting, silent reconciliation, or production banking claims.
+
+Risk reduced:
+
+- Reverified PR `#35` green/safe, then merged it into `main` at `44ff1d7a07db816a920024fb043133d889b3dd21` before starting this branch.
+- Added organization-scoped bank rules with optional bank account profile scope, priority, enabled/disabled state, safe condition fields, suggestion action type, explicit `autoApply: false`, and rule-application audit records.
+- Added a side-effect-free evaluator for direction, description contains, bounded description regex, reference, bank reference, counterparty, amount equality/range, currency, source format, and date range.
+- Added dry-run behavior that evaluates recent unmatched statement rows without mutation.
+- Added explicit apply behavior that reuses existing categorize, ignore, and match service logic.
+- Added the bank account rules workspace and row-level rule suggestions in statement transaction review.
+- Added targeted evaluator, service, controller, and frontend tests.
+
+Remaining risks:
+
+- Rules are LedgerByte operational automation for controlled-beta manual banking. They are not overclaimed as publicly proven Wafeq generic rule parity.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, deposits, cheques, card settlements, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- Certified target-bank parser coverage, raw statement archive execution, DB-level statement fingerprint uniqueness, transfer fees, FX handling, accountant sign-off, and hosted/customer-data proof remain open.
 
 ## 2026-06-13 Wafeq banking import duplicate/idempotency/reconciliation safety hardening
 
