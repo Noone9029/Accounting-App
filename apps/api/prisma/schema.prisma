@@ -496,6 +496,21 @@ enum BankTransferStatus {
   VOIDED
 }
 
+enum BankDepositBatchStatus {
+  DRAFT
+  POSTED
+  MATCHED
+  VOIDED
+}
+
+enum BankDepositBatchLineSourceType {
+  CUSTOMER_PAYMENT
+  RECEIPT
+  MANUAL_CASH_RECEIPT
+  CHEQUE_PLACEHOLDER
+  OTHER_CLEARING_ITEM
+}
+
 enum BankStatementImportStatus {
   IMPORTED
   PARTIALLY_RECONCILED
@@ -933,6 +948,8 @@ model User {
   createdBankRules                                  BankRule[]                                  @relation("BankRuleCreatedBy")
   updatedBankRules                                  BankRule[]                                  @relation("BankRuleUpdatedBy")
   appliedBankRuleApplications                       BankRuleApplication[]                       @relation("BankRuleApplicationAppliedBy")
+  createdBankDepositBatches                         BankDepositBatch[]                          @relation("BankDepositBatchCreatedBy")
+  updatedBankDepositBatches                         BankDepositBatch[]                          @relation("BankDepositBatchUpdatedBy")
 }
 
 model Organization {
@@ -956,6 +973,8 @@ model Organization {
   bankStatementTransactions                 BankStatementTransaction[]
   bankRules                                 BankRule[]
   bankRuleApplications                      BankRuleApplication[]
+  bankDepositBatches                        BankDepositBatch[]
+  bankDepositBatchLines                     BankDepositBatchLine[]
   bankReconciliations                       BankReconciliation[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
@@ -1945,6 +1964,7 @@ model BankAccountProfile {
   statementTransactions        BankStatementTransaction[]
   bankRules                    BankRule[]
   bankRuleApplications         BankRuleApplication[]
+  bankDepositBatches           BankDepositBatch[]
   reconciliations              BankReconciliation[]
 
   @@index([organizationId])
@@ -2044,6 +2064,7 @@ model BankStatementTransaction {
   createdJournalEntry   JournalEntry?                  @relation("BankStatementTransactionCreatedJournalEntry", fields: [createdJournalEntryId], references: [id], onDelete: SetNull)
   reconciliationItems   BankReconciliationItem[]
   bankRuleApplications  BankRuleApplication[]
+  matchedDepositBatch   BankDepositBatch?
 
   @@index([organizationId])
   @@index([importId])
@@ -2053,6 +2074,57 @@ model BankStatementTransaction {
   @@index([matchedJournalLineId])
   @@index([matchedJournalEntryId])
   @@index([createdJournalEntryId])
+}
+
+model BankDepositBatch {
+  id                         String                 @id @default(uuid()) @db.Uuid
+  organizationId             String                 @db.Uuid
+  bankAccountProfileId       String                 @db.Uuid
+  depositDate                DateTime
+  currency                   String                 @default("SAR")
+  status                     BankDepositBatchStatus @default(DRAFT)
+  memo                       String?
+  totalAmount                Decimal                @default(0) @db.Decimal(20, 4)
+  statementTransactionId     String?                @unique @db.Uuid
+  createdById                String?                @db.Uuid
+  updatedById                String?                @db.Uuid
+  postedAt                   DateTime?
+  matchedAt                  DateTime?
+  voidedAt                   DateTime?
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  organization               Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile         BankAccountProfile     @relation(fields: [bankAccountProfileId], references: [id])
+  statementTransaction       BankStatementTransaction? @relation(fields: [statementTransactionId], references: [id], onDelete: SetNull)
+  createdBy                  User?                  @relation("BankDepositBatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                  User?                  @relation("BankDepositBatchUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  lines                      BankDepositBatchLine[]
+
+  @@index([organizationId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, bankAccountProfileId])
+  @@index([organizationId, status])
+  @@index([statementTransactionId])
+}
+
+model BankDepositBatchLine {
+  id               String                         @id @default(uuid()) @db.Uuid
+  organizationId   String                         @db.Uuid
+  batchId          String                         @db.Uuid
+  sourceType       BankDepositBatchLineSourceType
+  sourceId         String?
+  counterpartyName String?
+  reference        String?
+  amount           Decimal                        @db.Decimal(20, 4)
+  currency         String                         @default("SAR")
+  memo             String?
+  createdAt        DateTime                       @default(now())
+  organization     Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batch            BankDepositBatch               @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([batchId])
+  @@index([organizationId, sourceType, sourceId])
 }
 
 model BankRule {

@@ -24,6 +24,20 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq banking bank deposit batches:
+
+- PR `#36` `Wafeq banking bank rules engine` was reverified green/safe and merged into `main` at `dcf8a3d1` before this branch was created.
+- Added operational bank deposit batches for grouping receipt-like customer payment, cash receipt, receipt reference, cheque-placeholder, or other clearing-item lines into one bank account deposit total.
+- Added draft, posted, matched, and voided statuses with explicit create, update, add-line, remove-line, post, void, match, and unmatch API behavior.
+- Added explicit same-bank-account, same-currency, same-amount matching from a posted deposit batch to one imported statement credit row.
+- Closed reconciliation periods block deposit-batch matching, unmatching, and linked void changes.
+- Added bank account deposit list/detail UI at `/bank-accounts/[id]/deposits` plus on-demand deposit-batch candidate links from unmatched credit rows in the statement transaction review workspace.
+- Added a narrow additive Prisma migration limited to `BankDepositBatch` and `BankDepositBatchLine`.
+- Accounting decision: existing customer payments post directly to their selected paid-through account and no confirmed undeposited-funds/clearing model exists, so deposit-batch posting is operational only and does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is designed and tested.
+- This is LedgerByte treasury workflow functionality, not a claim that public Wafeq evidence proves a dedicated Wafeq deposit-batch module.
+- No live bank feed, bank API, credential handling, payment initiation, card settlement, full cheque lifecycle, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq banking treasury: credit and prepaid card settlement flows`.
+
 2026-06-13 Wafeq banking bank rules engine:
 
 - PR `#35` `Wafeq banking import safety hardening` was reverified green/safe and merged into `main` at `44ff1d7a` before this branch was created.

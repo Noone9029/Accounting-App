@@ -21,6 +21,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import type {
   Account,
   BankAccountSummary,
+  BankDepositBatch,
   BankRuleApplyResponse,
   BankRuleSuggestion,
   BankRuleSuggestionsResponse,
@@ -88,6 +89,7 @@ export default function BankStatementTransactionsPage() {
   const [selectedCandidateByRow, setSelectedCandidateByRow] = useState<Record<string, string>>({});
   const [ruleSuggestionRowId, setRuleSuggestionRowId] = useState<string | null>(null);
   const [ruleSuggestionsByRow, setRuleSuggestionsByRow] = useState<Record<string, BankRuleSuggestion[]>>({});
+  const [depositCandidatesByRow, setDepositCandidatesByRow] = useState<Record<string, BankDepositBatch[]>>({});
   const [loadingCandidatesFor, setLoadingCandidatesFor] = useState("");
   const [loadingRulesFor, setLoadingRulesFor] = useState("");
   const [applyingRuleId, setApplyingRuleId] = useState("");
@@ -289,6 +291,31 @@ export default function BankStatementTransactionsPage() {
       }));
     } finally {
       setLoadingRulesFor("");
+    }
+  }
+
+  async function loadDepositCandidates(transaction: BankStatementTransaction) {
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading deposit batches..." } }));
+    try {
+      const deposits = await apiRequest<BankDepositBatch[]>(`/bank-deposits?bankAccountProfileId=${params.id}`);
+      const matches = deposits.filter((deposit) => deposit.status === "POSTED" && Number(deposit.totalAmount) === Number(transaction.amount));
+      setDepositCandidatesByRow((current) => ({ ...current, [transaction.id]: matches }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "success",
+          message: matches.length > 0 ? `${matches.length} deposit batch candidates loaded.` : "No posted deposit batches match this credit row.",
+        },
+      }));
+    } catch (depositError) {
+      setDepositCandidatesByRow((current) => ({ ...current, [transaction.id]: [] }));
+      setRowResults((current) => ({
+        ...current,
+        [transaction.id]: {
+          type: "error",
+          message: depositError instanceof Error ? depositError.message : "Unable to load deposit batches.",
+        },
+      }));
     }
   }
 
@@ -524,6 +551,8 @@ export default function BankStatementTransactionsPage() {
               const lockedWarning = lockedStatementTransactionWarning(transaction);
               const actionable = isActionableStatementRow(transaction);
               const candidates = candidatesByRow[transaction.id];
+              const depositCandidates = depositCandidatesByRow[transaction.id] ?? [];
+              const firstDepositCandidate = depositCandidates[0];
               const result = rowResults[transaction.id];
               const rowCurrency = transactionCurrency(transaction, currency);
               return (
@@ -559,6 +588,23 @@ export default function BankStatementTransactionsPage() {
                     <div className="flex flex-wrap gap-2">
                       {canReconcile && actionable ? (
                         <>
+                          {firstDepositCandidate ? (
+                            <Link
+                              href={`/bank-accounts/${params.id}/deposits/${firstDepositCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              Match deposit batch
+                            </Link>
+                          ) : null}
+                          {transaction.type === "CREDIT" && !firstDepositCandidate ? (
+                            <button
+                              type="button"
+                              onClick={() => void loadDepositCandidates(transaction)}
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                              Find deposit batches
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => void loadCandidates(transaction)}

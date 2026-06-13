@@ -32,6 +32,7 @@ LedgerByte already has:
 - manual CSV/JSON/text plus limited OFX/CAMT/MT940 parser groundwork
 - deterministic non-mutating match suggestions
 - deterministic bank rules for manual statement-transaction suggestions
+- operational bank deposit batches for grouping receipt-like items and explicitly matching the batch to one imported bank statement credit row
 
 LedgerByte does not yet have:
 
@@ -39,7 +40,6 @@ LedgerByte does not yet have:
 - WIO, Lean, Tarabut, or other open-banking integrations
 - payment initiation
 - silent automatic bank-rule application
-- bank deposit batches
 - cheque lifecycle
 - card settlement workflows
 - certified target-bank parser coverage
@@ -111,6 +111,26 @@ This prompt adds deterministic bank rules for manual statement transactions. Thi
 
 The schema migration is additive and limited to bank rule storage plus rule application audit storage. It does not add live feeds, bank API calls, credentials, payment initiation, deposits, cards, cheques, reconciliation-state changes, VAT/ZATCA/report changes, or silent posting/reconciliation/ignore behavior.
 
+## Prompt 5 Completed Scope
+
+This prompt adds bank deposit batches as LedgerByte treasury workflow functionality. It is useful for businesses that group multiple receipts, cash items, or future cheque-like sources into one bank statement credit row, but it is not overclaimed as a publicly proven dedicated Wafeq deposit-batch module.
+
+- persistent organization-scoped bank deposit batches and deposit batch lines
+- draft, posted, matched, and voided operational statuses
+- bank-account and currency validation
+- positive line amount validation
+- reusable source-identity protection for active batches
+- source candidate visibility for existing posted customer payments
+- manual line support for cash receipts, receipt references, cheque placeholders, and other clearing items
+- explicit post action that moves the batch to posted operational status
+- explicit match action that links one posted batch to one same-account, same-currency, same-amount imported credit statement row
+- closed-reconciliation protection before matching, unmatching, or voiding a linked statement row
+- unmatch behavior that returns the batch to posted status and statement row to unmatched when reconciliation rules allow it
+- bank account deposit list and deposit detail workspaces at `/bank-accounts/[id]/deposits`
+- on-demand statement transaction review link for candidate deposit batches on unmatched credit rows
+
+The schema migration is additive and limited to `BankDepositBatch` and `BankDepositBatchLine` storage. Because the existing customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing account model exists yet, Prompt 5 does not create journal entries. Journal-backed clearing movement remains deferred until the clearing-account model is explicitly designed and tested. This prompt does not add live feeds, bank API calls, credentials, payment initiation, card settlements, full cheque lifecycle, VAT/ZATCA/report changes, silent posting, silent matching, or automatic reconciliation.
+
 ## Not Included
 
 This route still intentionally does not add:
@@ -122,11 +142,10 @@ This route still intentionally does not add:
 - payment initiation
 - silent automatic bank-rule application
 - automatic reconciliation
-- bank deposits
 - cheques
 - card settlements
 - reconciliation state changes
-- accounting posting logic changes
+- journal-backed clearing movement for deposit batches
 - destructive schema migrations
 - production or beta data mutation
 - DB-level unique fingerprint constraints
@@ -137,4 +156,4 @@ The repository did not already contain a statement XLSX parser dependency. The A
 
 ## Next Prompt
 
-`Wafeq banking treasury: bank deposit batches`
+`Wafeq banking treasury: credit and prepaid card settlement flows`

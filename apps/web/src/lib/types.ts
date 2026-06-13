@@ -116,6 +116,13 @@ export type SupplierRefundSourceType = "SUPPLIER_PAYMENT" | "PURCHASE_DEBIT_NOTE
 export type BankAccountType = "BANK" | "CASH" | "WALLET" | "CARD" | "OTHER";
 export type BankAccountStatus = "ACTIVE" | "ARCHIVED";
 export type BankTransferStatus = "POSTED" | "VOIDED";
+export type BankDepositBatchStatus = "DRAFT" | "POSTED" | "MATCHED" | "VOIDED";
+export type BankDepositBatchLineSourceType =
+  | "CUSTOMER_PAYMENT"
+  | "RECEIPT"
+  | "MANUAL_CASH_RECEIPT"
+  | "CHEQUE_PLACEHOLDER"
+  | "OTHER_CLEARING_ITEM";
 export type BankStatementImportStatus = "IMPORTED" | "PARTIALLY_RECONCILED" | "RECONCILED" | "VOIDED";
 export type BankStatementTransactionStatus = "UNMATCHED" | "MATCHED" | "CATEGORIZED" | "IGNORED" | "VOIDED";
 export type BankStatementTransactionType = "DEBIT" | "CREDIT";
@@ -1126,6 +1133,61 @@ export interface BankTransfer {
   toAccount?: Pick<Account, "id" | "code" | "name" | "type">;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
+}
+
+export interface BankDepositBatchLine {
+  id: string;
+  organizationId: string;
+  batchId: string;
+  sourceType: BankDepositBatchLineSourceType;
+  sourceId: string | null;
+  counterpartyName: string | null;
+  reference: string | null;
+  amount: string;
+  currency: string;
+  memo: string | null;
+  createdAt: string;
+}
+
+export interface BankDepositBatch {
+  id: string;
+  organizationId: string;
+  bankAccountProfileId: string;
+  depositDate: string;
+  currency: string;
+  status: BankDepositBatchStatus;
+  memo: string | null;
+  totalAmount: string;
+  statementTransactionId: string | null;
+  createdById: string | null;
+  updatedById: string | null;
+  postedAt: string | null;
+  matchedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  bankAccountProfile?: Pick<BankAccountProfile, "id" | "displayName" | "currency" | "status" | "accountId" | "account">;
+  statementTransaction?: Pick<
+    BankStatementTransaction,
+    "id" | "transactionDate" | "description" | "reference" | "type" | "amount" | "status" | "matchType"
+  > | null;
+  createdBy?: { id: string; name: string; email: string } | null;
+  updatedBy?: { id: string; name: string; email: string } | null;
+  lines: BankDepositBatchLine[];
+}
+
+export interface BankDepositSourceCandidate {
+  sourceType: "CUSTOMER_PAYMENT";
+  sourceId: string;
+  reference: string;
+  counterpartyName: string;
+  amount: string;
+  currency: string;
+  paymentDate: string;
+  depositReadiness: "ALREADY_POSTED_TO_THIS_BANK_ACCOUNT" | "OPERATIONAL_GROUPING_ONLY_CLEARING_NOT_CONFIRMED";
+  account: Pick<Account, "id" | "code" | "name" | "type"> & {
+    bankAccountProfile?: Pick<BankAccountProfile, "id" | "type" | "displayName"> | null;
+  };
 }
 
 export interface BankStatementImport {

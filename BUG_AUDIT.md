@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `44ff1d7a` (`Merge pull request #35 from Noone9029/codex/wafeq-banking-import-safety-hardening`) plus the current Wafeq banking bank rules branch.
+Latest commit audited: `dcf8a3d1` (`Merge pull request #36 from Noone9029/codex/wafeq-banking-bank-rules-engine`) plus the current Wafeq banking bank deposit batches branch.
+
+## 2026-06-13 Wafeq banking bank deposit batches
+
+Added operational bank deposit batches for manual treasury grouping and explicit statement-credit matching without adding live feeds, bank APIs, credentials, payment initiation, card settlement, full cheque lifecycle, silent matching, automatic reconciliation, or production banking claims.
+
+Risk reduced:
+
+- Reverified PR `#36` green/safe, then merged it into `main` at `dcf8a3d1639bf6ecd2b93d282e0c911ceeed3756` before starting this branch.
+- Added organization-scoped bank deposit batches and lines with bank-account scope, currency validation, positive line amount validation, and draft/posted/matched/voided statuses.
+- Added explicit create, update, line add/remove, post, void, match-candidate, match, and unmatch APIs.
+- Added source-line identity reuse protection so the same identified source cannot be used in two active deposit batches.
+- Added explicit same-bank-account, same-currency, same-amount matching to one imported statement credit row.
+- Added closed-reconciliation guards before matching, unmatching, or voiding a linked statement row.
+- Added bank account deposit list/detail UI and on-demand statement transaction review links for candidate deposit batches.
+- Added targeted API and frontend tests.
+
+Remaining risks:
+
+- Deposit batches are LedgerByte treasury workflow functionality, not overclaimed as publicly proven Wafeq dedicated-module parity.
+- Posting is operational only. No journal entries are created because the current customer payment flow posts directly to the selected paid-through account and no confirmed undeposited-funds/clearing-account model exists yet.
+- No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, card settlements, full cheque lifecycle, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
+- Certified target-bank parser coverage, raw statement archive execution, DB-level statement fingerprint uniqueness, transfer fees, FX handling, accountant sign-off, hosted/customer-data proof, and journal-backed clearing movement remain open.
 
 ## 2026-06-13 Wafeq banking bank rules engine
 
