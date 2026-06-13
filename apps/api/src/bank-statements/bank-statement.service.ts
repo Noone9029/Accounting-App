@@ -87,6 +87,9 @@ interface NormalizedStatementImportRow {
   date: Date;
   description: string;
   reference?: string;
+  bankReference?: string;
+  counterparty?: string;
+  currency?: string;
   type: BankStatementTransactionType;
   amount: Prisma.Decimal;
   rawData: Record<string, unknown>;
@@ -95,14 +98,38 @@ interface NormalizedStatementImportRow {
 interface InvalidStatementImportRow {
   rowNumber: number;
   errors: string[];
+  warnings?: StatementImportRowWarning[];
   rawData: Record<string, unknown>;
+}
+
+type StatementImportWarningCode =
+  | "DUPLICATE_IN_FILE"
+  | "DUPLICATE_EXISTING_HIGH_CONFIDENCE"
+  | "DUPLICATE_EXISTING_POSSIBLE"
+  | "CLOSED_RECONCILIATION_OVERLAP"
+  | "OPEN_RECONCILIATION_OVERLAP"
+  | "CURRENCY_MISMATCH"
+  | "PARTIAL_IMPORT_REQUIRED";
+
+interface StatementImportRowWarning {
+  rowNumber: number;
+  code: StatementImportWarningCode;
+  severity: "warning" | "blocking";
+  message: string;
+  action: string;
 }
 
 interface StatementImportValidationResult {
   validRows: NormalizedStatementImportRow[];
   invalidRows: InvalidStatementImportRow[];
   warnings: string[];
+  rowWarnings: StatementImportRowWarning[];
   closedPeriodRowNumbers: number[];
+  openPeriodRowNumbers: number[];
+  duplicateInFileRowNumbers: number[];
+  duplicateExistingHighConfidenceRowNumbers: number[];
+  duplicateExistingPossibleRowNumbers: number[];
+  currencyMismatchRowNumbers: number[];
   totalCredits: Prisma.Decimal;
   totalDebits: Prisma.Decimal;
 }
@@ -126,10 +153,10 @@ export class BankStatementService {
   }
 
   async previewImport(organizationId: string, bankAccountProfileId: string, dto: PreviewBankStatementImportDto) {
-    await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
+    const profile = await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
     const parsed = await parseBankStatementImportInput(dto);
-    const validation = await this.validateImportRows(organizationId, bankAccountProfileId, parsed.rows);
+    const validation = await this.validateImportRows(organizationId, profile.id, profile.currency, parsed.rows);
 
     return {
       filename,
@@ -142,6 +169,8 @@ export class BankStatementService {
       sourceFormat: parsed.format,
       sourceSheetName: parsed.sourceSheetName ?? null,
       warnings: [...parsed.warnings, ...validation.warnings],
+      rowWarnings: validation.rowWarnings,
+      summary: this.importValidationSummary(parsed.rows.length, validation, validation.validRows.length),
     };
   }
 
@@ -154,17 +183,30 @@ export class BankStatementService {
     const profile = await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
     const parsed = await parseBankStatementImportInput(dto);
-    const validation = await this.validateImportRows(organizationId, profile.id, parsed.rows);
+    const validation = await this.validateImportRows(organizationId, profile.id, profile.currency, parsed.rows);
     if (validation.invalidRows.length > 0 && !dto.allowPartial) {
       throw new BadRequestException("Bank statement import contains invalid rows.");
     }
-    if (validation.closedPeriodRowNumbers.length > 0) {
+    const duplicateExistingRowNumbers = new Set([
+      ...validation.duplicateExistingHighConfidenceRowNumbers,
+      ...validation.duplicateExistingPossibleRowNumbers,
+    ]);
+    if (duplicateExistingRowNumbers.size > 0 && !dto.allowPartial) {
+      throw new BadRequestException("Bank statement import contains duplicate statement rows. Preview the file and enable partial import only if the skipped rows are intentional.");
+    }
+    if (validation.closedPeriodRowNumbers.length > 0 && !dto.allowPartial) {
       throw new BadRequestException("Cannot import statement transactions into a closed reconciliation period.");
     }
-    const rows = validation.validRows;
+    const skippedRowNumbers = new Set<number>([
+      ...validation.closedPeriodRowNumbers,
+      ...validation.duplicateExistingHighConfidenceRowNumbers,
+      ...validation.duplicateExistingPossibleRowNumbers,
+    ]);
+    const rows = dto.allowPartial ? validation.validRows.filter((row) => !skippedRowNumbers.has(row.sourceRowNumber)) : validation.validRows;
     if (rows.length === 0) {
       throw new BadRequestException("Bank statement import must contain at least one valid row.");
     }
+    const importedTotals = this.importRowTotals(rows);
     const openingStatementBalance =
       dto.openingStatementBalance === undefined ? undefined : this.nonNegativeOrNegativeMoney(dto.openingStatementBalance, "Opening statement balance");
     const closingStatementBalance =
@@ -218,12 +260,19 @@ export class BankStatementService {
       importSummary: {
         sourceRowCount: parsed.rows.length,
         importedRowCount: rows.length,
+        skippedRowCount: parsed.rows.length - rows.length,
         invalidRowCount: validation.invalidRows.length,
-        totalCredits: validation.totalCredits.toFixed(4),
-        totalDebits: validation.totalDebits.toFixed(4),
+        duplicateInFileCount: validation.duplicateInFileRowNumbers.length,
+        duplicateExistingCount: duplicateExistingRowNumbers.size,
+        blockedByClosedReconciliationCount: validation.closedPeriodRowNumbers.length,
+        openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
+        currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
+        totalCredits: importedTotals.totalCredits.toFixed(4),
+        totalDebits: importedTotals.totalDebits.toFixed(4),
         sourceFormat: parsed.format,
         sourceSheetName: parsed.sourceSheetName ?? null,
         warnings: [...parsed.warnings, ...validation.warnings],
+        rowWarnings: validation.rowWarnings,
       },
     };
   }
@@ -659,13 +708,20 @@ export class BankStatementService {
   private async validateImportRows(
     organizationId: string,
     bankAccountProfileId: string,
+    bankAccountCurrency: string,
     sourceRows: StatementImportSourceRow[],
   ): Promise<StatementImportValidationResult> {
     const validRows: NormalizedStatementImportRow[] = [];
     const invalidRows: InvalidStatementImportRow[] = [];
     const warnings: string[] = [];
+    const rowWarnings: StatementImportRowWarning[] = [];
     const closedPeriodRowNumbers: number[] = [];
-    const seenRows = new Set<string>();
+    const openPeriodRowNumbers: number[] = [];
+    const duplicateInFileRowNumbers: number[] = [];
+    const duplicateExistingHighConfidenceRowNumbers: number[] = [];
+    const duplicateExistingPossibleRowNumbers: number[] = [];
+    const currencyMismatchRowNumbers: number[] = [];
+    const seenRows = new Map<string, number>();
     let totalCredits = new Prisma.Decimal(0);
     let totalDebits = new Prisma.Decimal(0);
 
@@ -676,21 +732,82 @@ export class BankStatementService {
         continue;
       }
 
-      const duplicateKey = this.statementDuplicateKey(normalized);
-      if (seenRows.has(duplicateKey)) {
+      const identity = this.statementRowIdentity(bankAccountProfileId, normalized);
+      normalized.rawData = {
+        ...normalized.rawData,
+        normalized: {
+          ...(isRecord(normalized.rawData.normalized) ? normalized.rawData.normalized : {}),
+          statementFingerprint: identity.fingerprint,
+          statementHighConfidenceKey: identity.highConfidenceKey ?? null,
+        },
+      };
+      const duplicateKey = identity.highConfidenceKey ?? identity.fingerprint;
+      const previousRowNumber = seenRows.get(duplicateKey);
+      if (previousRowNumber !== undefined) {
+        duplicateInFileRowNumbers.push(normalized.sourceRowNumber);
+        const warning = this.rowWarning(
+          normalized.sourceRowNumber,
+          "DUPLICATE_IN_FILE",
+          "blocking",
+          `Row ${normalized.sourceRowNumber} duplicates row ${previousRowNumber} in this import file.`,
+          "Remove the repeated row or use partial import to skip duplicates.",
+        );
+        rowWarnings.push(warning);
         invalidRows.push({
           rowNumber: normalized.sourceRowNumber,
-          errors: ["Duplicate row in import file."],
+          errors: [warning.message],
+          warnings: [warning],
           rawData: normalized.rawData,
         });
         continue;
       }
-      seenRows.add(duplicateKey);
+      seenRows.set(duplicateKey, normalized.sourceRowNumber);
+
+      if (normalized.currency && normalizeIdentityText(normalized.currency) !== normalizeIdentityText(bankAccountCurrency)) {
+        currencyMismatchRowNumbers.push(normalized.sourceRowNumber);
+        const warning = this.rowWarning(
+          normalized.sourceRowNumber,
+          "CURRENCY_MISMATCH",
+          "blocking",
+          `Row ${normalized.sourceRowNumber} currency ${normalized.currency} does not match bank account currency ${bankAccountCurrency}.`,
+          "Import this row into an account with the matching currency or correct the statement currency.",
+        );
+        rowWarnings.push(warning);
+        invalidRows.push({
+          rowNumber: normalized.sourceRowNumber,
+          errors: [warning.message],
+          warnings: [warning],
+          rawData: normalized.rawData,
+        });
+        continue;
+      }
 
       const closedReconciliation = await this.findClosedReconciliationForDate(organizationId, bankAccountProfileId, normalized.date);
       if (closedReconciliation) {
         closedPeriodRowNumbers.push(normalized.sourceRowNumber);
-        warnings.push(`Row ${normalized.sourceRowNumber} falls inside closed reconciliation ${closedReconciliation.reconciliationNumber}.`);
+        rowWarnings.push(
+          this.rowWarning(
+            normalized.sourceRowNumber,
+            "CLOSED_RECONCILIATION_OVERLAP",
+            "blocking",
+            `Row ${normalized.sourceRowNumber} falls inside closed reconciliation ${closedReconciliation.reconciliationNumber}.`,
+            "Do not import this row into a closed reconciliation period; reopen/void the reconciliation only through an approved workflow if the statement period is wrong.",
+          ),
+        );
+      } else {
+        const openReconciliation = await this.findOpenReconciliationForDate(organizationId, bankAccountProfileId, normalized.date);
+        if (openReconciliation) {
+          openPeriodRowNumbers.push(normalized.sourceRowNumber);
+          rowWarnings.push(
+            this.rowWarning(
+              normalized.sourceRowNumber,
+              "OPEN_RECONCILIATION_OVERLAP",
+              "warning",
+              `Row ${normalized.sourceRowNumber} overlaps open reconciliation ${openReconciliation.reconciliationNumber}.`,
+              "Review the open reconciliation before closing it so the newly imported row is handled deliberately.",
+            ),
+          );
+        }
       }
 
       if (normalized.type === BankStatementTransactionType.CREDIT) {
@@ -701,9 +818,62 @@ export class BankStatementService {
       validRows.push(normalized);
     }
 
-    warnings.push(...(await this.existingDuplicateWarnings(organizationId, bankAccountProfileId, validRows)));
+    const existingDuplicateWarnings = await this.existingDuplicateWarnings(organizationId, bankAccountProfileId, validRows);
+    rowWarnings.push(...existingDuplicateWarnings);
+    for (const warning of existingDuplicateWarnings) {
+      if (warning.code === "DUPLICATE_EXISTING_HIGH_CONFIDENCE") {
+        duplicateExistingHighConfidenceRowNumbers.push(warning.rowNumber);
+      } else if (warning.code === "DUPLICATE_EXISTING_POSSIBLE") {
+        duplicateExistingPossibleRowNumbers.push(warning.rowNumber);
+      }
+    }
 
-    return { validRows, invalidRows, warnings, closedPeriodRowNumbers, totalCredits, totalDebits };
+    if (duplicateInFileRowNumbers.length > 0) {
+      warnings.push(`${duplicateInFileRowNumbers.length} row${duplicateInFileRowNumbers.length === 1 ? "" : "s"} duplicate another row in this file.`);
+    }
+    if (duplicateExistingHighConfidenceRowNumbers.length > 0) {
+      warnings.push(`${duplicateExistingHighConfidenceRowNumbers.length} row${duplicateExistingHighConfidenceRowNumbers.length === 1 ? "" : "s"} are high-confidence duplicates of existing statement transactions.`);
+    }
+    if (duplicateExistingPossibleRowNumbers.length > 0) {
+      warnings.push(`${duplicateExistingPossibleRowNumbers.length} row${duplicateExistingPossibleRowNumbers.length === 1 ? "" : "s"} may duplicate existing statement transactions.`);
+    }
+    if (closedPeriodRowNumbers.length > 0) {
+      warnings.push(`${closedPeriodRowNumbers.length} row${closedPeriodRowNumbers.length === 1 ? "" : "s"} overlap closed reconciliation periods and cannot be imported in full mode.`);
+    }
+    if (openPeriodRowNumbers.length > 0) {
+      warnings.push(`${openPeriodRowNumbers.length} row${openPeriodRowNumbers.length === 1 ? "" : "s"} overlap open reconciliations; review them before closing.`);
+    }
+    if (
+      invalidRows.length > 0 ||
+      closedPeriodRowNumbers.length > 0 ||
+      duplicateExistingHighConfidenceRowNumbers.length > 0 ||
+      duplicateExistingPossibleRowNumbers.length > 0
+    ) {
+      rowWarnings.push(
+        this.rowWarning(
+          0,
+          "PARTIAL_IMPORT_REQUIRED",
+          "warning",
+          "Full import is blocked until invalid, duplicate, or closed-period rows are resolved.",
+          "Use preview to review row warnings; enable partial import only when skipped rows are intentional.",
+        ),
+      );
+    }
+
+    return {
+      validRows,
+      invalidRows,
+      warnings,
+      rowWarnings,
+      closedPeriodRowNumbers,
+      openPeriodRowNumbers,
+      duplicateInFileRowNumbers,
+      duplicateExistingHighConfidenceRowNumbers,
+      duplicateExistingPossibleRowNumbers,
+      currencyMismatchRowNumbers,
+      totalCredits,
+      totalDebits,
+    };
   }
 
   private validateImportRow(sourceRow: StatementImportSourceRow): NormalizedStatementImportRow | InvalidStatementImportRow {
@@ -758,26 +928,46 @@ export class BankStatementService {
     }
 
     const isCredit = credit.gt(0);
+    const reference = this.cleanOptional(sourceRow.reference || sourceRow.bankReference);
+    const bankReference = this.cleanOptional(sourceRow.bankReference);
+    const counterparty = this.cleanOptional(sourceRow.counterparty);
+    const currency = this.cleanOptional(sourceRow.currency)?.toUpperCase();
+    const amount = isCredit ? credit : debit;
+    const identity = this.statementRowIdentity("", {
+      date,
+      description,
+      reference,
+      bankReference,
+      counterparty,
+      currency,
+      type: isCredit ? BankStatementTransactionType.CREDIT : BankStatementTransactionType.DEBIT,
+      amount,
+    });
     return {
       sourceRowNumber: rowNumber,
       date,
       description,
-      reference: this.cleanOptional(sourceRow.reference || sourceRow.bankReference),
+      reference,
+      bankReference,
+      counterparty,
+      currency,
       type: isCredit ? BankStatementTransactionType.CREDIT : BankStatementTransactionType.DEBIT,
-      amount: isCredit ? credit : debit,
+      amount,
       rawData: {
         ...sourceRow.rawData,
         normalized: {
           date: sourceRow.date ?? null,
           description: sourceRow.description ?? null,
-          reference: sourceRow.reference ?? sourceRow.bankReference ?? null,
-          bankReference: sourceRow.bankReference ?? null,
+          reference: reference ?? null,
+          bankReference: bankReference ?? null,
           debit: sourceRow.debit ?? null,
           credit: sourceRow.credit ?? null,
           amount: sourceRow.amount ?? null,
           balance: sourceRow.balance ?? null,
-          counterparty: sourceRow.counterparty ?? null,
-          currency: sourceRow.currency ?? null,
+          counterparty: counterparty ?? null,
+          currency: currency ?? null,
+          statementFingerprint: identity.fingerprint,
+          statementHighConfidenceKey: identity.highConfidenceKey ?? null,
         },
       },
     };
@@ -787,7 +977,7 @@ export class BankStatementService {
     organizationId: string,
     bankAccountProfileId: string,
     rows: NormalizedStatementImportRow[],
-  ): Promise<string[]> {
+  ): Promise<StatementImportRowWarning[]> {
     if (rows.length === 0) {
       return [];
     }
@@ -801,12 +991,44 @@ export class BankStatementService {
         status: { not: BankStatementTransactionStatus.VOIDED },
         transactionDate: { gte: startOfDate(minDate), lte: endOfDate(maxDate) },
       },
-      select: { transactionDate: true, type: true, amount: true, reference: true, description: true },
+      select: { transactionDate: true, type: true, amount: true, reference: true, description: true, rawData: true },
     });
-    const existingKeys = new Set(existingTransactions.map((transaction) => this.existingStatementDuplicateKey(transaction)));
-    return rows
-      .filter((row) => existingKeys.has(this.statementDuplicateKey(row)))
-      .map((row) => `Row ${row.sourceRowNumber} may duplicate an existing statement transaction.`);
+    const existingHighConfidenceKeys = new Set<string>();
+    const existingFingerprints = new Set<string>();
+    for (const transaction of existingTransactions) {
+      const identity = this.existingStatementRowIdentity(bankAccountProfileId, transaction);
+      if (identity.highConfidenceKey) {
+        existingHighConfidenceKeys.add(identity.highConfidenceKey);
+      }
+      existingFingerprints.add(identity.fingerprint);
+    }
+
+    return rows.flatMap((row) => {
+      const identity = this.statementRowIdentity(bankAccountProfileId, row);
+      if (identity.highConfidenceKey && existingHighConfidenceKeys.has(identity.highConfidenceKey)) {
+        return [
+          this.rowWarning(
+            row.sourceRowNumber,
+            "DUPLICATE_EXISTING_HIGH_CONFIDENCE",
+            "blocking",
+            `Row ${row.sourceRowNumber} has the same bank reference, date, amount, and currency as an existing statement transaction.`,
+            "Skip this row unless the existing transaction has been voided and reviewed.",
+          ),
+        ];
+      }
+      if (existingFingerprints.has(identity.fingerprint)) {
+        return [
+          this.rowWarning(
+            row.sourceRowNumber,
+            "DUPLICATE_EXISTING_POSSIBLE",
+            "blocking",
+            `Row ${row.sourceRowNumber} matches an existing statement transaction by date, amount, currency, description, reference, and counterparty.`,
+            "Review the existing transaction before importing; use partial import only to skip this row.",
+          ),
+        ];
+      }
+      return [];
+    });
   }
 
   private async findClosedReconciliationForDate(
@@ -827,42 +1049,161 @@ export class BankStatementService {
     });
   }
 
+  private async findOpenReconciliationForDate(
+    organizationId: string,
+    bankAccountProfileId: string,
+    transactionDate: Date,
+    executor: PrismaExecutor = this.prisma,
+  ) {
+    return executor.bankReconciliation.findFirst({
+      where: {
+        organizationId,
+        bankAccountProfileId,
+        status: { in: [BankReconciliationStatus.DRAFT, BankReconciliationStatus.PENDING_APPROVAL, BankReconciliationStatus.APPROVED] },
+        periodStart: { lte: transactionDate },
+        periodEnd: { gte: transactionDate },
+      },
+      select: { id: true, reconciliationNumber: true, status: true },
+    });
+  }
+
   private previewRow(row: NormalizedStatementImportRow) {
     return {
       rowNumber: row.sourceRowNumber,
       date: row.date.toISOString(),
       description: row.description,
       reference: row.reference ?? null,
+      bankReference: row.bankReference ?? null,
+      counterparty: row.counterparty ?? null,
+      currency: row.currency ?? null,
       type: row.type,
       amount: row.amount.toFixed(4),
       rawData: row.rawData,
     };
   }
 
-  private statementDuplicateKey(row: NormalizedStatementImportRow): string {
-    return [
-      row.date.toISOString().slice(0, 10),
-      row.type,
-      row.amount.toFixed(4),
-      (row.reference ?? "").trim().toLowerCase(),
-      row.description.trim().toLowerCase(),
-    ].join("|");
+  private importValidationSummary(
+    sourceRowCount: number,
+    validation: StatementImportValidationResult,
+    importableRowCount: number,
+  ) {
+    const blockedRowCount = new Set([
+      ...validation.invalidRows.map((row) => row.rowNumber),
+      ...validation.closedPeriodRowNumbers,
+      ...validation.duplicateExistingHighConfidenceRowNumbers,
+      ...validation.duplicateExistingPossibleRowNumbers,
+    ]).size;
+    const safeImportableRowCount = Math.max(
+      0,
+      validation.validRows.length -
+        validation.closedPeriodRowNumbers.length -
+        validation.duplicateExistingHighConfidenceRowNumbers.length -
+        validation.duplicateExistingPossibleRowNumbers.length,
+    );
+    return {
+      sourceRowCount,
+      validRowCount: validation.validRows.length,
+      invalidRowCount: validation.invalidRows.length,
+      importableRowCount: Math.min(importableRowCount, safeImportableRowCount),
+      duplicateInFileCount: validation.duplicateInFileRowNumbers.length,
+      duplicateExistingHighConfidenceCount: validation.duplicateExistingHighConfidenceRowNumbers.length,
+      duplicateExistingPossibleCount: validation.duplicateExistingPossibleRowNumbers.length,
+      duplicateExistingCount:
+        validation.duplicateExistingHighConfidenceRowNumbers.length + validation.duplicateExistingPossibleRowNumbers.length,
+      closedReconciliationOverlapCount: validation.closedPeriodRowNumbers.length,
+      openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
+      currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
+      blockedRowCount,
+    };
   }
 
-  private existingStatementDuplicateKey(row: {
+  private importRowTotals(rows: NormalizedStatementImportRow[]) {
+    return rows.reduce(
+      (totals, row) => {
+        if (row.type === BankStatementTransactionType.CREDIT) {
+          totals.totalCredits = totals.totalCredits.plus(row.amount);
+        } else {
+          totals.totalDebits = totals.totalDebits.plus(row.amount);
+        }
+        return totals;
+      },
+      { totalCredits: new Prisma.Decimal(0), totalDebits: new Prisma.Decimal(0) },
+    );
+  }
+
+  private statementRowIdentity(
+    bankAccountProfileId: string,
+    row: Pick<
+      NormalizedStatementImportRow,
+      "date" | "type" | "amount" | "description" | "reference" | "bankReference" | "counterparty" | "currency"
+    >,
+  ) {
+    const signedAmount = row.type === BankStatementTransactionType.DEBIT ? row.amount.mul(-1).toFixed(4) : row.amount.toFixed(4);
+    const bankReference = normalizeIdentityText(row.bankReference);
+    const reference = normalizeIdentityText(row.reference);
+    const description = normalizeIdentityText(row.description);
+    const counterparty = normalizeIdentityText(row.counterparty);
+    const currency = normalizeIdentityText(row.currency);
+    const date = row.date.toISOString().slice(0, 10);
+    const base = [bankAccountProfileId, date, signedAmount, currency];
+    return {
+      highConfidenceKey: bankReference ? [...base, bankReference].join("|") : null,
+      fingerprint: [...base, description, reference, bankReference, counterparty].join("|"),
+    };
+  }
+
+  private existingStatementRowIdentity(
+    bankAccountProfileId: string,
+    row: {
     transactionDate: Date;
     type: BankStatementTransactionType;
     amount: Prisma.Decimal.Value;
     reference: string | null;
     description: string;
-  }): string {
-    return [
-      row.transactionDate.toISOString().slice(0, 10),
-      row.type,
-      new Prisma.Decimal(row.amount).toFixed(4),
-      (row.reference ?? "").trim().toLowerCase(),
-      row.description.trim().toLowerCase(),
-    ].join("|");
+    rawData: Prisma.JsonValue | null;
+  }) {
+    const rawIdentity = this.normalizedIdentityFromRawData(row.rawData);
+    return this.statementRowIdentity(bankAccountProfileId, {
+      date: row.transactionDate,
+      type: row.type,
+      amount: new Prisma.Decimal(row.amount),
+      description: rawIdentity.description ?? row.description,
+      reference: rawIdentity.reference ?? row.reference ?? undefined,
+      bankReference: rawIdentity.bankReference ?? undefined,
+      counterparty: rawIdentity.counterparty ?? undefined,
+      currency: rawIdentity.currency ?? undefined,
+    });
+  }
+
+  private normalizedIdentityFromRawData(rawData: Prisma.JsonValue | null): {
+    description?: string;
+    reference?: string;
+    bankReference?: string;
+    counterparty?: string;
+    currency?: string;
+  } {
+    if (!isRecord(rawData)) {
+      return {};
+    }
+    const normalized = rawData.normalized;
+    const source = isRecord(normalized) ? normalized : rawData;
+    return {
+      description: stringValue(source.description),
+      reference: stringValue(source.reference),
+      bankReference: stringValue(source.bankReference),
+      counterparty: stringValue(source.counterparty),
+      currency: stringValue(source.currency),
+    };
+  }
+
+  private rowWarning(
+    rowNumber: number,
+    code: StatementImportWarningCode,
+    severity: "warning" | "blocking",
+    message: string,
+    action: string,
+  ): StatementImportRowWarning {
+    return { rowNumber, code, severity, message, action };
   }
 
   private assertUnmatched(transaction: { status: BankStatementTransactionStatus }) {
@@ -1116,6 +1457,14 @@ function counterpartyFromRawData(rawData: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function normalizeIdentityText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 }
 
 function startOfDate(date: Date): Date {

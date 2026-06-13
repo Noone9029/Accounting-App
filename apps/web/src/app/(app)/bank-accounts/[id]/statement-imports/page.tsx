@@ -195,6 +195,10 @@ export default function BankStatementImportsPage() {
       setError("Paste at least one statement row.");
       return;
     }
+    if ((preview?.summary?.blockedRowCount ?? 0) > 0 && !allowPartial) {
+      setError("Full import is blocked by invalid, duplicate, or closed-reconciliation rows. Resolve the warnings or enable partial import to skip blocked rows.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -208,7 +212,7 @@ export default function BankStatementImportsPage() {
         },
       });
       const importedCount = imported.importSummary?.importedRowCount ?? imported.rowCount;
-      const skippedCount = imported.importSummary?.invalidRowCount ?? imported.invalidRows?.length ?? 0;
+      const skippedCount = imported.importSummary?.skippedRowCount ?? imported.importSummary?.invalidRowCount ?? imported.invalidRows?.length ?? 0;
       setSuccess(`Imported ${importedCount} statement rows${skippedCount > 0 ? ` and skipped ${skippedCount}` : ""}.`);
       setImportResult(imported);
       setPreview(null);
@@ -317,60 +321,7 @@ export default function BankStatementImportsPage() {
 
           {clientPreview ? <ClientParserPreview preview={clientPreview} currency={profile?.currency ?? "SAR"} /> : null}
 
-          {preview ? (
-            <div className="mt-5 space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <PreviewStat label="Rows" value={String(preview.rowCount)} />
-                <PreviewStat label="Valid" value={String(preview.validRows.length)} />
-                <PreviewStat label="Invalid" value={String(preview.invalidRows.length)} />
-                <PreviewStat label="Detected columns" value={preview.detectedColumns.join(", ") || "-"} />
-              </div>
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
-                {statementImportPreviewSummary(preview)}
-                {preview.sourceFormat ? ` Source ${preview.sourceFormat}${preview.sourceSheetName ? `, sheet ${preview.sourceSheetName}` : ""}.` : ""}
-              </div>
-              {preview.warnings.length > 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  {preview.warnings.map((warning) => (
-                    <p key={warning}>{warning}</p>
-                  ))}
-                </div>
-              ) : null}
-              <div className="overflow-x-auto rounded-md border border-slate-200">
-                <table className="w-full min-w-[760px] text-left text-xs">
-                  <thead className="bg-slate-50 uppercase tracking-wide text-steel">
-                    <tr>
-                      <th className="px-3 py-2">Row</th>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">Description</th>
-                      <th className="px-3 py-2">Reference</th>
-                      <th className="px-3 py-2">Type</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {preview.validRows.map((row) => (
-                      <tr key={`${row.rowNumber}-${row.description}`}>
-                        <td className="px-3 py-2 font-mono">{row.rowNumber}</td>
-                        <td className="px-3 py-2">{formatOptionalDate(row.date, "-")}</td>
-                        <td className="px-3 py-2 text-ink">{row.description}</td>
-                        <td className="px-3 py-2 font-mono">{row.reference ?? "-"}</td>
-                        <td className="px-3 py-2">{bankStatementTransactionTypeLabel(row.type)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{formatMoneyAmount(row.amount, profile?.currency ?? "SAR")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {preview.invalidRows.length > 0 ? (
-                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-                  {preview.invalidRows.map((row) => (
-                    <p key={row.rowNumber}>Row {row.rowNumber}: {row.errors.join(" ")}</p>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          {preview ? <ServerImportPreviewPanel preview={preview} currency={profile?.currency ?? "SAR"} /> : null}
 
           {importResult ? (
             <ImportResultPanel imported={importResult} profileId={params.id} />
@@ -550,16 +501,111 @@ export function ClientParserPreview({ preview, currency }: { preview: StatementI
   );
 }
 
+export function ServerImportPreviewPanel({ preview, currency }: { preview: BankStatementImportPreview; currency: string }) {
+  const rowWarningsByRow = groupRowWarningsByRow(preview.rowWarnings ?? []);
+  const summary = preview.summary;
+
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <PreviewStat label="Rows" value={String(preview.rowCount)} />
+        <PreviewStat label="Valid" value={String(preview.validRows.length)} />
+        <PreviewStat label="Invalid" value={String(preview.invalidRows.length)} />
+        <PreviewStat label="Importable" value={String(summary?.importableRowCount ?? preview.validRows.length)} />
+        <PreviewStat label="Duplicate rows" value={String((summary?.duplicateInFileCount ?? 0) + (summary?.duplicateExistingCount ?? 0))} />
+        <PreviewStat label="Existing duplicates" value={String(summary?.duplicateExistingCount ?? 0)} />
+        <PreviewStat label="Closed overlaps" value={String(summary?.closedReconciliationOverlapCount ?? 0)} />
+        <PreviewStat label="Open overlaps" value={String(summary?.openReconciliationOverlapCount ?? 0)} />
+      </div>
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
+        {statementImportPreviewSummary(preview)}
+        {preview.sourceFormat ? ` Source ${preview.sourceFormat}${preview.sourceSheetName ? `, sheet ${preview.sourceSheetName}` : ""}.` : ""}
+      </div>
+      {(preview.warnings.length > 0 || (preview.rowWarnings?.length ?? 0) > 0) ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {preview.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+          {(preview.rowWarnings ?? []).slice(0, 8).map((warning) => (
+            <p key={`${warning.code}-${warning.rowNumber}-${warning.message}`}>
+              {warning.rowNumber > 0 ? `Row ${warning.rowNumber}: ` : ""}
+              {warningLabel(warning.code)} - {warning.message} {warning.action}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      <div className="overflow-x-auto rounded-md border border-slate-200">
+        <table className="w-full min-w-[920px] text-left text-xs">
+          <thead className="bg-slate-50 uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Row</th>
+              <th className="px-3 py-2">Date</th>
+              <th className="px-3 py-2">Description</th>
+              <th className="px-3 py-2">Reference</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2">Warnings</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.validRows.map((row) => {
+              const rowWarnings = rowWarningsByRow.get(row.rowNumber) ?? [];
+              return (
+                <tr key={`${row.rowNumber}-${row.description}`}>
+                  <td className="px-3 py-2 font-mono">{row.rowNumber}</td>
+                  <td className="px-3 py-2">{formatOptionalDate(row.date, "-")}</td>
+                  <td className="px-3 py-2 text-ink">{row.description}</td>
+                  <td className="px-3 py-2 font-mono">{row.bankReference ?? row.reference ?? "-"}</td>
+                  <td className="px-3 py-2">{bankStatementTransactionTypeLabel(row.type)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{formatMoneyAmount(row.amount, currency)}</td>
+                  <td className="px-3 py-2">
+                    {rowWarnings.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {rowWarnings.map((warning) => (
+                          <span key={`${warning.code}-${warning.message}`} className={`rounded-md px-2 py-1 font-medium ${warning.severity === "blocking" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+                            {warningLabel(warning.code)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">Ready</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {preview.invalidRows.length > 0 ? (
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          {preview.invalidRows.map((row) => (
+            <p key={row.rowNumber}>Row {row.rowNumber}: {row.errors.join(" ")}</p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ImportResultPanel({ imported, profileId }: { imported: BankStatementImport; profileId: string }) {
   const importedCount = imported.importSummary?.importedRowCount ?? imported.rowCount;
   const invalidCount = imported.importSummary?.invalidRowCount ?? imported.invalidRows?.length ?? 0;
+  const skippedCount = imported.importSummary?.skippedRowCount ?? invalidCount;
+  const duplicateCount = imported.importSummary?.duplicateExistingCount ?? 0;
+  const closedOverlapCount = imported.importSummary?.blockedByClosedReconciliationCount ?? 0;
   const warnings = imported.importSummary?.warnings ?? [];
   return (
     <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
       <h2 className="text-base font-semibold text-emerald-900">Statement import saved</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900">
-        LedgerByte created a manual statement batch with {importedCount} rows{invalidCount > 0 ? ` and skipped ${invalidCount} invalid rows` : ""}. These are statement review records only; matching and categorization remain manual steps.
+        LedgerByte created a manual statement batch with {importedCount} rows{skippedCount > 0 ? ` and skipped ${skippedCount} rows` : ""}. These are statement review records only; matching and categorization remain manual steps.
       </p>
+      {duplicateCount > 0 || closedOverlapCount > 0 ? (
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          Skipped rows included {duplicateCount} existing duplicate rows and {closedOverlapCount} closed-reconciliation overlaps.
+        </p>
+      ) : null}
       {warnings.length > 0 ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900">
           {warnings.slice(0, 4).map((warning) => (
@@ -580,6 +626,38 @@ export function ImportResultPanel({ imported, profileId }: { imported: BankState
       </div>
     </div>
   );
+}
+
+function groupRowWarningsByRow(warnings: NonNullable<BankStatementImportPreview["rowWarnings"]>) {
+  const byRow = new Map<number, typeof warnings>();
+  for (const warning of warnings) {
+    if (warning.rowNumber <= 0) {
+      continue;
+    }
+    byRow.set(warning.rowNumber, [...(byRow.get(warning.rowNumber) ?? []), warning]);
+  }
+  return byRow;
+}
+
+function warningLabel(code: string): string {
+  switch (code) {
+    case "DUPLICATE_IN_FILE":
+      return "Duplicate in file";
+    case "DUPLICATE_EXISTING_HIGH_CONFIDENCE":
+      return "Existing duplicate";
+    case "DUPLICATE_EXISTING_POSSIBLE":
+      return "Possible duplicate";
+    case "CLOSED_RECONCILIATION_OVERLAP":
+      return "Closed period";
+    case "OPEN_RECONCILIATION_OVERLAP":
+      return "Open reconciliation";
+    case "CURRENCY_MISMATCH":
+      return "Currency mismatch";
+    case "PARTIAL_IMPORT_REQUIRED":
+      return "Partial import needed";
+    default:
+      return "Warning";
+  }
 }
 
 function PreviewStat({ label, value }: { label: string; value: string }) {
