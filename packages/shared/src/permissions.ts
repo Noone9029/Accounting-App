@@ -190,6 +190,12 @@ export const PERMISSIONS = {
     view: "numberSequences.view",
     manage: "numberSequences.manage",
   },
+  compliance: {
+    view: "compliance.view",
+    manage: "compliance.manage",
+    validate: "compliance.validate",
+    archive: "compliance.archive",
+  },
   zatca: {
     view: "zatca.view",
     manage: "zatca.manage",
@@ -346,6 +352,10 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.documentSettings.manage,
   PERMISSIONS.numberSequences.view,
   PERMISSIONS.numberSequences.manage,
+  PERMISSIONS.compliance.view,
+  PERMISSIONS.compliance.manage,
+  PERMISSIONS.compliance.validate,
+  PERMISSIONS.compliance.archive,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.manage,
   PERMISSIONS.zatca.generateXml,
@@ -485,6 +495,9 @@ const ACCOUNTANT_ROLE_PERMISSIONS = [
   PERMISSIONS.auditLogs.export,
   PERMISSIONS.numberSequences.view,
   PERMISSIONS.numberSequences.manage,
+  PERMISSIONS.compliance.view,
+  PERMISSIONS.compliance.validate,
+  PERMISSIONS.compliance.archive,
   PERMISSIONS.zatca.view,
   PERMISSIONS.zatca.generateXml,
   PERMISSIONS.zatca.runChecks,
@@ -598,6 +611,7 @@ const VIEWER_ROLE_PERMISSIONS = [
   PERMISSIONS.generatedDocuments.download,
   PERMISSIONS.attachments.view,
   PERMISSIONS.attachments.download,
+  PERMISSIONS.compliance.view,
   PERMISSIONS.zatca.view,
 ] as const satisfies readonly Permission[];
 

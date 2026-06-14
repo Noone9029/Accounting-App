@@ -25,4 +25,48 @@ export class UpdateOrganizationDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @IsOptional()
+  @IsString()
+  tradeLicenseNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeTrn?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeTin?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeVatRegistrationStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAddressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAddressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeEmirate?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeBusinessActivity?: string;
+
+  @IsOptional()
+  @IsString()
+  peppolParticipantId?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAspSelected?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAspOnboardingStatus?: string;
 }

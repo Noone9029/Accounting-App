@@ -37,6 +37,7 @@
     "@ledgerbyte/accounting-core": "workspace:*",
     "@ledgerbyte/pdf-core": "workspace:*",
     "@ledgerbyte/shared": "workspace:*",
+    "@ledgerbyte/uae-peppol-pint-ae": "workspace:*",
     "@ledgerbyte/zatca-core": "workspace:*",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.2",
