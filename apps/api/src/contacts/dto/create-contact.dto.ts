@@ -29,6 +29,48 @@ export class CreateContactDto {
 
   @IsOptional()
   @IsString()
+  legalName?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{15}$/, { message: "uaeTrn must be exactly 15 digits." })
+  uaeTrn?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{10}$/, { message: "uaeTin must be exactly 10 digits." })
+  uaeTin?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeVatRegistrationStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAddressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeAddressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  uaeEmirate?: string;
+
+  @IsOptional()
+  @IsString()
+  peppolParticipantId?: string;
+
+  @IsOptional()
+  @IsString()
+  peppolEndpointStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  preferredEinvoiceDeliveryMethod?: string;
+
+  @IsOptional()
+  @IsString()
   @IsIn(contactIdentificationTypes, { message: "identificationType must be one of CRN, MOM, MLS, SAG, NAT, IQA, PAS, GCC, 700, or OTH." })
   identificationType?: string;
 

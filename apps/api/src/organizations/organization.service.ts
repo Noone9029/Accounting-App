@@ -158,6 +158,17 @@ export class OrganizationService {
         countryCode: dto.countryCode?.trim(),
         baseCurrency: dto.baseCurrency?.trim(),
         timezone: dto.timezone?.trim(),
+        tradeLicenseNumber: dto.tradeLicenseNumber?.trim(),
+        uaeTrn: dto.uaeTrn?.trim(),
+        uaeTin: dto.uaeTin?.trim(),
+        uaeVatRegistrationStatus: dto.uaeVatRegistrationStatus?.trim(),
+        uaeAddressLine1: dto.uaeAddressLine1?.trim(),
+        uaeAddressLine2: dto.uaeAddressLine2?.trim(),
+        uaeEmirate: dto.uaeEmirate?.trim(),
+        uaeBusinessActivity: dto.uaeBusinessActivity?.trim(),
+        peppolParticipantId: dto.peppolParticipantId?.trim(),
+        uaeAspSelected: dto.uaeAspSelected?.trim(),
+        uaeAspOnboardingStatus: dto.uaeAspOnboardingStatus?.trim(),
       },
     });
 

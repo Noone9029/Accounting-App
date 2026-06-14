@@ -124,6 +124,84 @@ enum ContactType {
   BOTH
 }
 
+enum ComplianceCountryCode {
+  GENERIC
+  AE
+  SA
+}
+
+enum ComplianceProfileStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+  BLOCKED
+}
+
+enum ComplianceProviderType {
+  DISABLED
+  MOCK
+  ASP_PARTNER
+  ZATCA_LOCAL
+  ZATCA_SANDBOX_BLOCKED
+}
+
+enum ComplianceDocumentSourceType {
+  SALES_INVOICE
+  CREDIT_NOTE
+}
+
+enum ComplianceDocumentType {
+  INVOICE
+  TAX_INVOICE
+  COMMERCIAL_INVOICE
+  CREDIT_NOTE
+  TAX_CREDIT_NOTE
+  SELF_BILLED_INVOICE
+  SELF_BILLED_CREDIT_NOTE
+}
+
+enum ComplianceDocumentStatus {
+  DRAFT
+  READY_FOR_VALIDATION
+  VALIDATION_FAILED
+  READY_FOR_ASP
+  SUBMITTED_TO_ASP
+  ACCEPTED_BY_ASP
+  REJECTED_BY_ASP
+  REPORTED_TO_FTA
+  DELIVERED_TO_BUYER
+  FAILED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ComplianceValidationStatus {
+  PENDING
+  PASSED
+  FAILED
+  WARNING
+}
+
+enum ComplianceTransmissionStatus {
+  QUEUED
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  REPORTED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum ComplianceArchiveArtifactType {
+  XML
+  SUBMISSION_PAYLOAD
+  ASP_RESPONSE
+  FTA_CONFIRMATION
+  VALIDATION_REPORT
+  AUDIT_EXPORT
+}
+
 enum TaxRateScope {
   SALES
   PURCHASES
@@ -990,6 +1068,8 @@ model User {
   updatedChequeInstruments                          ChequeInstrument[]                          @relation("ChequeInstrumentUpdatedBy")
   createdBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigCreatedBy")
   updatedBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigUpdatedBy")
+  complianceEvents                                  ComplianceEventLog[]                        @relation("ComplianceEventActor")
+  createdDocumentArchiveRecords                     DocumentArchiveRecord[]                      @relation("DocumentArchiveRecordCreatedBy")
 }
 
 model Organization {
@@ -1000,6 +1080,17 @@ model Organization {
   countryCode                               String                                      @default("SA")
   baseCurrency                              String                                      @default("SAR")
   timezone                                  String                                      @default("Asia/Riyadh")
+  tradeLicenseNumber                        String?
+  uaeTrn                                    String?
+  uaeTin                                    String?
+  uaeVatRegistrationStatus                  String?
+  uaeAddressLine1                           String?
+  uaeAddressLine2                           String?
+  uaeEmirate                                String?
+  uaeBusinessActivity                       String?
+  peppolParticipantId                       String?
+  uaeAspSelected                            String?
+  uaeAspOnboardingStatus                    String?
   createdAt                                 DateTime                                    @default(now())
   updatedAt                                 DateTime                                    @updatedAt
   memberships                               OrganizationMember[]
@@ -1100,6 +1191,13 @@ model Organization {
   zatcaSignedArtifactStorageControlEvidence ZatcaSignedArtifactStorageControlEvidence[]
   zatcaComplianceCsidCustodyRecords         ZatcaComplianceCsidCustodyRecord[]
   zatcaCredentialLifecycles                 ZatcaCredentialLifecycle[]
+  complianceProfiles                        ComplianceProfile[]
+  complianceProviders                       ComplianceProvider[]
+  complianceDocuments                       ComplianceDocument[]
+  complianceValidationResults               ComplianceValidationResult[]
+  complianceTransmissions                   ComplianceTransmission[]
+  complianceEventLogs                       ComplianceEventLog[]
+  documentArchiveRecords                    DocumentArchiveRecord[]
 }
 
 model OrganizationDocumentSettings {
@@ -1180,6 +1278,171 @@ model GeneratedDocument {
   @@index([organizationId, sourceType, sourceId])
   @@index([organizationId, status])
   @@index([generatedById])
+}
+
+model ComplianceProvider {
+  id              String                 @id @default(uuid()) @db.Uuid
+  organizationId  String                 @db.Uuid
+  countryCode     ComplianceCountryCode
+  providerType    ComplianceProviderType @default(DISABLED)
+  name            String
+  status          String                 @default("DISABLED")
+  metadataJson    Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profiles        ComplianceProfile[]
+  transmissions   ComplianceTransmission[]
+
+  @@index([organizationId])
+  @@index([organizationId, countryCode])
+  @@index([organizationId, providerType])
+}
+
+model ComplianceProfile {
+  id              String                  @id @default(uuid()) @db.Uuid
+  organizationId  String                  @db.Uuid
+  providerId      String?                 @db.Uuid
+  countryCode     ComplianceCountryCode
+  profileKey      String
+  status          ComplianceProfileStatus @default(DRAFT)
+  settingsJson    Json?
+  readinessJson   Json?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider        ComplianceProvider?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  documents       ComplianceDocument[]
+
+  @@unique([organizationId, countryCode, profileKey])
+  @@index([organizationId])
+  @@index([providerId])
+  @@index([organizationId, status])
+}
+
+model ComplianceDocument {
+  id                         String                         @id @default(uuid()) @db.Uuid
+  organizationId             String                         @db.Uuid
+  profileId                  String?                        @db.Uuid
+  countryCode                ComplianceCountryCode
+  sourceType                 ComplianceDocumentSourceType
+  sourceId                   String                         @db.Uuid
+  documentType               ComplianceDocumentType
+  status                     ComplianceDocumentStatus       @default(DRAFT)
+  documentNumber             String
+  issueDate                  DateTime?
+  currency                   String?
+  latestValidationStatus     ComplianceValidationStatus?
+  validationSummaryJson      Json?
+  sourceSnapshotJson         Json?
+  latestArchiveRecordId      String?                        @db.Uuid
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
+  organization               Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile                    ComplianceProfile?             @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  validationResults          ComplianceValidationResult[]
+  transmissions              ComplianceTransmission[]
+  eventLogs                  ComplianceEventLog[]
+  archiveRecords             DocumentArchiveRecord[]
+  latestArchiveRecord        DocumentArchiveRecord?          @relation("ComplianceDocumentLatestArchiveRecord", fields: [latestArchiveRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, countryCode, sourceType, sourceId])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([profileId])
+  @@index([latestArchiveRecordId])
+}
+
+model ComplianceValidationResult {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  organizationId       String                     @db.Uuid
+  complianceDocumentId String                     @db.Uuid
+  status               ComplianceValidationStatus
+  validatorKey         String
+  summary              String?
+  issuesJson           Json?
+  metadataJson         Json?
+  createdAt            DateTime                   @default(now())
+  organization         Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complianceDocument   ComplianceDocument         @relation(fields: [complianceDocumentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([complianceDocumentId])
+  @@index([organizationId, status])
+}
+
+model ComplianceTransmission {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  organizationId       String                       @db.Uuid
+  complianceDocumentId String                       @db.Uuid
+  providerId           String?                      @db.Uuid
+  status               ComplianceTransmissionStatus @default(QUEUED)
+  channel              String                       @default("disabled")
+  externalReference    String?
+  submittedAt          DateTime?
+  confirmedAt          DateTime?
+  metadataJson         Json?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  organization         Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complianceDocument   ComplianceDocument           @relation(fields: [complianceDocumentId], references: [id], onDelete: Cascade)
+  provider             ComplianceProvider?          @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([complianceDocumentId])
+  @@index([providerId])
+  @@index([organizationId, status])
+}
+
+model ComplianceEventLog {
+  id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @db.Uuid
+  complianceDocumentId String?             @db.Uuid
+  eventType            String
+  fromStatus           String?
+  toStatus             String?
+  message              String?
+  metadataJson         Json?
+  actorUserId          String?             @db.Uuid
+  createdAt            DateTime            @default(now())
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complianceDocument   ComplianceDocument? @relation(fields: [complianceDocumentId], references: [id], onDelete: Cascade)
+  actorUser            User?               @relation("ComplianceEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([complianceDocumentId])
+  @@index([actorUserId])
+  @@index([organizationId, eventType])
+}
+
+model DocumentArchiveRecord {
+  id                   String                        @id @default(uuid()) @db.Uuid
+  organizationId       String                        @db.Uuid
+  complianceDocumentId String?                       @db.Uuid
+  artifactType         ComplianceArchiveArtifactType
+  sourceType           String
+  sourceId             String
+  filename             String
+  mimeType             String                        @default("application/xml")
+  storageProvider      String                        @default("metadata-only")
+  storageKey           String?
+  contentHash          String
+  sizeBytes            Int
+  metadataJson         Json?
+  createdById          String?                       @db.Uuid
+  archivedAt           DateTime                      @default(now())
+  createdAt            DateTime                      @default(now())
+  organization         Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  complianceDocument   ComplianceDocument?           @relation(fields: [complianceDocumentId], references: [id], onDelete: SetNull)
+  latestForDocuments   ComplianceDocument[]          @relation("ComplianceDocumentLatestArchiveRecord")
+  createdBy            User?                         @relation("DocumentArchiveRecordCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([complianceDocumentId])
+  @@index([organizationId, artifactType])
+  @@index([organizationId, sourceType, sourceId])
+  @@index([contentHash])
+  @@index([createdById])
 }
 
 model Attachment {
@@ -1891,6 +2154,16 @@ model Contact {
   email                      String?
   phone                      String?
   taxNumber                  String?
+  legalName                  String?
+  uaeTrn                     String?
+  uaeTin                     String?
+  uaeVatRegistrationStatus   String?
+  uaeAddressLine1            String?
+  uaeAddressLine2            String?
+  uaeEmirate                 String?
+  peppolParticipantId        String?
+  peppolEndpointStatus       String?
+  preferredEinvoiceDeliveryMethod String?
   identificationType         String?
   identificationNumber       String?
   addressLine1               String?

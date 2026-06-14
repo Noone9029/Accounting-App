@@ -192,6 +192,16 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    id: "compliance",
+    label: "Compliance",
+    permissions: [
+      permission(PERMISSIONS.compliance.view, "View compliance readiness", "See controlled-beta compliance readiness, status timelines, and local validation results."),
+      permission(PERMISSIONS.compliance.manage, "Prepare compliance documents", "Create local compliance document records from finalized source documents."),
+      permission(PERMISSIONS.compliance.validate, "Run local validation", "Run disabled-by-default local validation without ASP, FTA, or ZATCA network calls."),
+      permission(PERMISSIONS.compliance.archive, "View compliance archive", "See XML/evidence archive metadata and audit export readiness."),
+    ],
+  },
+  {
     id: "zatca",
     label: "ZATCA",
     permissions: [

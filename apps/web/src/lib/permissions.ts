@@ -443,6 +443,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.accounts.view];
   }
 
+  if (pathname.startsWith("/settings/compliance")) {
+    return [PERMISSIONS.compliance.view];
+  }
+
   if (pathname.startsWith("/settings/audit-logs")) {
     return [PERMISSIONS.auditLogs.view];
   }

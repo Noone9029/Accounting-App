@@ -24,6 +24,24 @@ Remaining risks:
 - DB-level statement fingerprint/index remains future hardening if concurrency risk requires it.
 - No live bank feeds, WIO/Lean/Tarabut integration, bank APIs, payment initiation, provider abstraction, hosted/customer-data proof, broad E2E/smoke/full-test coverage, or production readiness was added.
 
+## 2026-06-14 Compliance Core + UAE Peppol/PINT-AE readiness foundation
+
+Added a neutral compliance lifecycle and UAE readiness groundwork without production compliance claims.
+
+What changed:
+
+- Added compliance profiles, providers, documents, transmissions, validation results, event logs, and document archive metadata.
+- Added UAE organization/contact readiness fields.
+- Added local UAE TIN/TRN validation, Peppol participant ID derivation, readiness checks, and fixture-tested PINT-AE-like XML generation.
+- Added API readiness/document/local-validation endpoints and a read-only compliance settings page.
+
+Remaining risks:
+
+- UAE XML generation is readiness-oriented and not certification evidence.
+- No real ASP integration, provider payload contract, EmaraTax automation, FTA confirmation, production retention guarantee, or legal certification was added.
+- No database migration was executed; migration application remains an explicitly approved future lane.
+- No ZATCA real network, OTP, CSID, signing, clearance/reporting, PDF-A3, or production compliance behavior was enabled.
+
 ## 2026-06-13 Wafeq manual banking clearing-account accounting
 
 Added clearing-account configuration, preflight, and explicit journal-backed posting for safe configured manual banking cases without adding live feeds, bank APIs, credentials, payment initiation, provider abstraction, provider callbacks, automatic posting, automatic reconciliation, automatic matching, VAT/ZATCA/report math changes, hosted data mutation, or production banking claims.

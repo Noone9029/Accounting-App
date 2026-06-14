@@ -199,6 +199,50 @@ export type DocumentType =
   | "REPORT_AGED_PAYABLES"
   | "BANK_RECONCILIATION_REPORT";
 export type GeneratedDocumentStatus = "GENERATED" | "FAILED" | "SUPERSEDED";
+export type ComplianceDocumentStatus =
+  | "DRAFT"
+  | "READY_FOR_VALIDATION"
+  | "VALIDATION_FAILED"
+  | "READY_FOR_ASP"
+  | "SUBMITTED_TO_ASP"
+  | "ACCEPTED_BY_ASP"
+  | "REJECTED_BY_ASP"
+  | "REPORTED_TO_FTA"
+  | "DELIVERED_TO_BUYER"
+  | "FAILED"
+  | "CANCELLED"
+  | "ARCHIVED";
+export type ComplianceReadinessStatus = "READY_FOR_VALIDATION" | "NEEDS_DATA" | "BLOCKED";
+export type ComplianceCheckStatus = "PASS" | "WARNING" | "FAIL";
+export interface ComplianceReadinessCheck {
+  key: string;
+  label: string;
+  status: ComplianceCheckStatus;
+  detail: string;
+}
+export interface ComplianceReadinessResponse {
+  posture: "CONTROLLED_BETA_USER_TESTING_ONLY";
+  claim: string;
+  prohibitedClaims: string[];
+  noNetworkByDefault: boolean;
+  countries: Array<{ code: "AE" | "SA"; module: string; status: string }>;
+  uae: {
+    framework: string;
+    deadlines: Array<{ segment: string; appointAspBy: string; implementBy: string }>;
+    sources: string[];
+    expectedParticipantId: string | null;
+    readiness: {
+      status: ComplianceReadinessStatus;
+      checks: ComplianceReadinessCheck[];
+      warnings: string[];
+    };
+    buyerEndpointCoverage: {
+      activeBuyerCount: number;
+      buyerPeppolParticipantCount: number;
+    };
+  };
+  documentStatusCounts: Partial<Record<ComplianceDocumentStatus, number>>;
+}
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
 export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL" | "AP_GENERATED_DOCUMENT";
