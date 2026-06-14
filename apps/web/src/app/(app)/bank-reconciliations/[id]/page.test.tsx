@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { BankReconciliationWorkflowGuidance } from "./page";
-import type { BankReconciliation } from "@/lib/types";
+import { BankReconciliationWorkflowGuidance, ReconciliationReportReviewPanels } from "./page";
+import type { BankReconciliation, BankReconciliationReportData } from "@/lib/types";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -36,6 +36,22 @@ describe("bank reconciliation workflow guidance", () => {
       "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
     );
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard");
+  });
+
+  it("renders report summary, exceptions, treasury activity, accounting status, and audit timeline", () => {
+    render(<ReconciliationReportReviewPanels report={reportFixture()} currency="SAR" />);
+
+    expect(screen.getByText("Accountant review summary")).toBeInTheDocument();
+    expect(screen.getByText(/Manual banking only/)).toBeInTheDocument();
+    expect(screen.getByText(/No live bank feed, bank API, bank credentials, or payment initiation/)).toBeInTheDocument();
+    expect(screen.getByText("Exceptions")).toBeInTheDocument();
+    expect(screen.getByText("Linked treasury activity")).toBeInTheDocument();
+    expect(screen.getByText("Accounting status")).toBeInTheDocument();
+    expect(screen.getByText(/Clearing-account configuration is missing or disabled/)).toBeInTheDocument();
+    expect(screen.getByText(/Operational-only records are visible for review/)).toBeInTheDocument();
+    expect(screen.getByText("Audit timeline")).toBeInTheDocument();
+    expect(screen.getByText("Statement row matched")).toBeInTheDocument();
+    expect(screen.getByText("Export CSV for the full timeline.")).toBeInTheDocument();
   });
 });
 
@@ -79,5 +95,93 @@ function reconciliationFixture(overrides: Partial<BankReconciliation> = {}): Ban
     },
     _count: { items: 1 },
     ...overrides,
+  };
+}
+
+function reportFixture(): BankReconciliationReportData {
+  return {
+    organization: {
+      id: "org-1",
+      name: "LedgerByte Demo",
+      legalName: null,
+      taxNumber: null,
+      countryCode: "SA",
+      baseCurrency: "SAR",
+    },
+    currency: "SAR",
+    reconciliation: {
+      id: "rec-1",
+      reconciliationNumber: "REC-001",
+      periodStart: "2026-05-01T00:00:00.000Z",
+      periodEnd: "2026-05-31T00:00:00.000Z",
+      statementOpeningBalance: "1000.0000",
+      statementClosingBalance: "1250.0000",
+      ledgerClosingBalance: "1250.0000",
+      difference: "0.0000",
+      status: "CLOSED",
+      submittedAt: null,
+      submittedBy: null,
+      approvedAt: null,
+      approvedBy: null,
+      approvalNotes: null,
+      closedAt: "2026-05-31T00:00:00.000Z",
+      closedBy: { id: "user-1", name: "Owner", email: "owner@example.com" },
+      voidedAt: null,
+      voidedBy: null,
+    },
+    bankAccount: {
+      id: "bank-1",
+      displayName: "Main Bank",
+      currency: "SAR",
+      account: { id: "account-1", code: "1010", name: "Main Bank" },
+    },
+    items: [],
+    summary: {
+      itemCount: 1,
+      debitTotal: "25.0000",
+      creditTotal: "100.0000",
+      matchedCount: 1,
+      categorizedCount: 0,
+      ignoredCount: 0,
+      totalRowsCount: 2,
+      matchedRowsCount: 1,
+      categorizedRowsCount: 0,
+      ignoredRowsCount: 0,
+      unmatchedRowsCount: 1,
+      unreconciledRowsCount: 1,
+      ruleAppliedRowsCount: 1,
+      creditRowsCount: 1,
+      debitRowsCount: 1,
+      creditRowsTotal: "100.0000",
+      debitRowsTotal: "25.0000",
+      exceptionRowsCount: 1,
+    },
+    linkedTreasurySummary: {
+      depositBatches: { count: 1, matchedCount: 1, journalPostedCount: 1, operationalOnlyCount: 0, totalAmount: "100.0000" },
+      cardSettlements: { count: 1, matchedCount: 0, journalPostedCount: 0, operationalOnlyCount: 1, totalAmount: "50.0000" },
+      cheques: { count: 1, matchedCount: 1, journalPostedCount: 0, operationalOnlyCount: 1, totalAmount: "30.0000" },
+    },
+    accountingStatusSummary: {
+      clearingConfigEnabled: false,
+      configuredAccountCount: 0,
+      journalPostedCount: 1,
+      operationalOnlyCount: 2,
+      missingClearingConfig: true,
+    },
+    auditTimeline: [
+      {
+        id: "event-1",
+        occurredAt: "2026-05-10T00:00:00.000Z",
+        type: "STATEMENT_ROW_REVIEW",
+        label: "Statement row matched",
+        entityType: "BankStatementTransaction",
+        entityId: "statement-1",
+        status: "MATCHED",
+        actor: { id: "user-1", name: "Owner", email: "owner@example.com" },
+        amount: "100.0000",
+        reference: "REF-1",
+      },
+    ],
+    generatedAt: "2026-05-31T00:00:00.000Z",
   };
 }

@@ -3,8 +3,11 @@ import { toMoney } from "@ledgerbyte/accounting-core";
 import { renderBankReconciliationReportPdf } from "@ledgerbyte/pdf-core";
 import {
   BankAccountStatus,
+  BankDepositBatchStatus,
   BankReconciliationReviewAction,
   BankReconciliationStatus,
+  CardSettlementStatus,
+  ChequeInstrumentStatus,
   BankStatementTransactionStatus,
   BankStatementTransactionType,
   DocumentType,
@@ -29,6 +32,24 @@ const RECONCILED_STATEMENT_STATUSES: BankStatementTransactionStatus[] = [
 const REOPENABLE_RECONCILIATION_STATUSES: BankReconciliationStatus[] = [
   BankReconciliationStatus.PENDING_APPROVAL,
   BankReconciliationStatus.APPROVED,
+];
+const NON_VOIDED_DEPOSIT_STATUSES = [
+  BankDepositBatchStatus.DRAFT,
+  BankDepositBatchStatus.POSTED,
+  BankDepositBatchStatus.MATCHED,
+];
+const NON_VOIDED_CARD_SETTLEMENT_STATUSES = [
+  CardSettlementStatus.DRAFT,
+  CardSettlementStatus.POSTED,
+  CardSettlementStatus.MATCHED,
+];
+const NON_VOIDED_CHEQUE_STATUSES = [
+  ChequeInstrumentStatus.DRAFT,
+  ChequeInstrumentStatus.RECEIVED,
+  ChequeInstrumentStatus.ISSUED,
+  ChequeInstrumentStatus.DEPOSITED,
+  ChequeInstrumentStatus.CLEARED,
+  ChequeInstrumentStatus.BOUNCED,
 ];
 
 const bankReconciliationInclude = {
@@ -514,6 +535,207 @@ export class BankReconciliationService {
       throw new NotFoundException("Bank reconciliation not found.");
     }
 
+    const periodFilter = {
+      gte: reconciliation.periodStart,
+      lte: reconciliation.periodEnd,
+    };
+    const [periodTransactions, reviewEvents, deposits, cardSettlements, cheques, clearingConfig] = await Promise.all([
+      this.prisma.bankStatementTransaction.findMany({
+        where: {
+          organizationId,
+          bankAccountProfileId: reconciliation.bankAccountProfileId,
+          status: { not: BankStatementTransactionStatus.VOIDED },
+          transactionDate: periodFilter,
+        },
+        orderBy: [{ transactionDate: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          importId: true,
+          transactionDate: true,
+          description: true,
+          reference: true,
+          type: true,
+          amount: true,
+          status: true,
+          matchType: true,
+          matchedJournalEntryId: true,
+          createdJournalEntryId: true,
+          categorizedAccountId: true,
+          ignoredReason: true,
+          createdAt: true,
+          updatedAt: true,
+          import: { select: { id: true, filename: true, status: true, rowCount: true, importedAt: true } },
+          matchedJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+          createdJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+        },
+      }),
+      this.reviewEvents(organizationId, id),
+      this.prisma.bankDepositBatch.findMany({
+        where: {
+          organizationId,
+          bankAccountProfileId: reconciliation.bankAccountProfileId,
+          status: { in: NON_VOIDED_DEPOSIT_STATUSES },
+          depositDate: periodFilter,
+        },
+        orderBy: [{ depositDate: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          status: true,
+          depositDate: true,
+          totalAmount: true,
+          currency: true,
+          statementTransactionId: true,
+          postedJournalEntryId: true,
+          postedAt: true,
+          matchedAt: true,
+          postedJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+        },
+      }),
+      this.prisma.cardSettlement.findMany({
+        where: {
+          organizationId,
+          status: { in: NON_VOIDED_CARD_SETTLEMENT_STATUSES },
+          settlementDate: periodFilter,
+          OR: [
+            { fundingBankAccountProfileId: reconciliation.bankAccountProfileId },
+            { cardAccountProfileId: reconciliation.bankAccountProfileId },
+          ],
+        },
+        orderBy: [{ settlementDate: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          settlementType: true,
+          status: true,
+          settlementDate: true,
+          amount: true,
+          currency: true,
+          statementTransactionId: true,
+          postedJournalEntryId: true,
+          postedAt: true,
+          matchedAt: true,
+          postedJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+        },
+      }),
+      this.prisma.chequeInstrument.findMany({
+        where: {
+          organizationId,
+          status: { in: NON_VOIDED_CHEQUE_STATUSES },
+          OR: [
+            { bankAccountProfileId: reconciliation.bankAccountProfileId },
+            { depositBatch: { bankAccountProfileId: reconciliation.bankAccountProfileId } },
+            { statementTransaction: { bankAccountProfileId: reconciliation.bankAccountProfileId } },
+          ],
+        },
+        orderBy: [{ updatedAt: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          chequeType: true,
+          status: true,
+          chequeNumber: true,
+          counterpartyName: true,
+          amount: true,
+          currency: true,
+          issueDate: true,
+          receivedDate: true,
+          dueDate: true,
+          depositDate: true,
+          clearedDate: true,
+          bouncedDate: true,
+          voidedDate: true,
+          statementTransactionId: true,
+          depositBatchId: true,
+          postedJournalEntryId: true,
+          createdAt: true,
+          updatedAt: true,
+          postedJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+        },
+      }),
+      this.prisma.bankingClearingAccountConfig.findUnique({
+        where: { organizationId },
+        select: {
+          id: true,
+          enabled: true,
+          undepositedFundsAccountId: true,
+          chequeInHandAccountId: true,
+          outstandingChequesAccountId: true,
+          cardClearingAccountId: true,
+          creditCardLiabilityAccountId: true,
+          prepaidCardAssetAccountId: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const periodCheques = cheques.filter((cheque) =>
+      [cheque.issueDate, cheque.receivedDate, cheque.dueDate, cheque.depositDate, cheque.clearedDate, cheque.bouncedDate, cheque.createdAt, cheque.updatedAt].some(
+        (date) => this.dateInRange(date, reconciliation.periodStart, reconciliation.periodEnd),
+      ),
+    );
+    const statementSummary = this.statementSummary(periodTransactions);
+    const linkedTreasurySummary = this.linkedTreasurySummary(deposits, cardSettlements, periodCheques);
+    const accountingStatusSummary = this.accountingStatusSummary(deposits, cardSettlements, periodCheques, clearingConfig);
+    const bankRuleApplications = periodTransactions.length
+      ? await this.prisma.bankRuleApplication.findMany({
+          where: {
+            organizationId,
+            bankStatementTransactionId: { in: periodTransactions.map((transaction) => transaction.id) },
+          },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            actionType: true,
+            status: true,
+            createdAt: true,
+            bankStatementTransactionId: true,
+            bankRule: { select: { id: true, name: true } },
+            appliedBy: { select: { id: true, name: true, email: true } },
+          },
+        })
+      : [];
+    const auditEntityIds = [
+      id,
+      ...periodTransactions.map((transaction) => transaction.id),
+      ...new Set(periodTransactions.map((transaction) => transaction.importId)),
+      ...deposits.map((deposit) => deposit.id),
+      ...cardSettlements.map((settlement) => settlement.id),
+      ...periodCheques.map((cheque) => cheque.id),
+    ].filter((entityId): entityId is string => Boolean(entityId));
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: {
+        organizationId,
+        entityId: { in: auditEntityIds },
+        entityType: {
+          in: [
+            "BankStatementImport",
+            "BankStatementTransaction",
+            "BankDepositBatch",
+            "CardSettlement",
+            "ChequeInstrument",
+            "BankReconciliation",
+          ],
+        },
+      },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+        actorUser: { select: { id: true, name: true, email: true } },
+      },
+    });
+    const auditTimeline = this.auditTimeline({
+      imports: this.uniqueImports(periodTransactions),
+      transactions: periodTransactions,
+      reviewEvents,
+      bankRuleApplications,
+      deposits,
+      cardSettlements,
+      cheques: periodCheques,
+      auditLogs,
+    });
+
     const items = reconciliation.items.map((item) => ({
       id: item.id,
       statementTransactionId: item.statementTransactionId,
@@ -588,7 +810,12 @@ export class BankReconciliationService {
         matchedCount: summary.matchedCount,
         categorizedCount: summary.categorizedCount,
         ignoredCount: summary.ignoredCount,
+        ...statementSummary,
+        ruleAppliedRowsCount: new Set(bankRuleApplications.map((application) => application.bankStatementTransactionId)).size,
       },
+      linkedTreasurySummary,
+      accountingStatusSummary,
+      auditTimeline,
       generatedAt: new Date(),
     };
   }
@@ -738,6 +965,284 @@ export class BankReconciliationService {
         notes: input.notes ?? null,
       },
     });
+  }
+
+  private statementSummary(
+    transactions: Array<{
+      status: BankStatementTransactionStatus;
+      type: BankStatementTransactionType;
+      amount: Prisma.Decimal.Value;
+    }>,
+  ) {
+    const summary = {
+      totalRowsCount: transactions.length,
+      matchedRowsCount: 0,
+      categorizedRowsCount: 0,
+      ignoredRowsCount: 0,
+      unmatchedRowsCount: 0,
+      unreconciledRowsCount: 0,
+      creditRowsCount: 0,
+      debitRowsCount: 0,
+      creditRowsTotal: new Prisma.Decimal(0),
+      debitRowsTotal: new Prisma.Decimal(0),
+      exceptionRowsCount: 0,
+    };
+
+    for (const transaction of transactions) {
+      const amount = new Prisma.Decimal(transaction.amount);
+      if (transaction.type === BankStatementTransactionType.CREDIT) {
+        summary.creditRowsCount += 1;
+        summary.creditRowsTotal = summary.creditRowsTotal.plus(amount);
+      } else {
+        summary.debitRowsCount += 1;
+        summary.debitRowsTotal = summary.debitRowsTotal.plus(amount);
+      }
+
+      if (transaction.status === BankStatementTransactionStatus.MATCHED) {
+        summary.matchedRowsCount += 1;
+      } else if (transaction.status === BankStatementTransactionStatus.CATEGORIZED) {
+        summary.categorizedRowsCount += 1;
+      } else if (transaction.status === BankStatementTransactionStatus.IGNORED) {
+        summary.ignoredRowsCount += 1;
+      } else if (transaction.status === BankStatementTransactionStatus.UNMATCHED) {
+        summary.unmatchedRowsCount += 1;
+      }
+    }
+
+    summary.unreconciledRowsCount = summary.unmatchedRowsCount;
+    summary.exceptionRowsCount = summary.unmatchedRowsCount;
+    return {
+      ...summary,
+      creditRowsTotal: summary.creditRowsTotal.toFixed(4),
+      debitRowsTotal: summary.debitRowsTotal.toFixed(4),
+    };
+  }
+
+  private linkedTreasurySummary(deposits: any[], cardSettlements: any[], cheques: any[]) {
+    return {
+      depositBatches: this.treasuryCountSummary(deposits, "totalAmount"),
+      cardSettlements: this.treasuryCountSummary(cardSettlements, "amount"),
+      cheques: this.treasuryCountSummary(cheques, "amount"),
+    };
+  }
+
+  private accountingStatusSummary(deposits: any[], cardSettlements: any[], cheques: any[], clearingConfig: any) {
+    const records = [...deposits, ...cardSettlements, ...cheques];
+    const journalPostedCount = records.filter((record) => Boolean(record.postedJournalEntryId)).length;
+    const operationalOnlyCount = records.length - journalPostedCount;
+    const configuredAccountCount = clearingConfig
+      ? [
+          clearingConfig.undepositedFundsAccountId,
+          clearingConfig.chequeInHandAccountId,
+          clearingConfig.outstandingChequesAccountId,
+          clearingConfig.cardClearingAccountId,
+          clearingConfig.creditCardLiabilityAccountId,
+          clearingConfig.prepaidCardAssetAccountId,
+        ].filter(Boolean).length
+      : 0;
+    return {
+      clearingConfigEnabled: Boolean(clearingConfig?.enabled),
+      configuredAccountCount,
+      journalPostedCount,
+      operationalOnlyCount,
+      missingClearingConfig: !clearingConfig?.enabled,
+    };
+  }
+
+  private treasuryCountSummary(records: any[], amountKey: "amount" | "totalAmount") {
+    const totalAmount = records.reduce((sum, record) => sum.plus(new Prisma.Decimal(record[amountKey] ?? 0)), new Prisma.Decimal(0));
+    return {
+      count: records.length,
+      matchedCount: records.filter((record) => Boolean(record.statementTransactionId)).length,
+      journalPostedCount: records.filter((record) => Boolean(record.postedJournalEntryId)).length,
+      operationalOnlyCount: records.filter((record) => !record.postedJournalEntryId).length,
+      totalAmount: totalAmount.toFixed(4),
+    };
+  }
+
+  private auditTimeline(input: {
+    imports: any[];
+    transactions: any[];
+    reviewEvents: any[];
+    bankRuleApplications: any[];
+    deposits: any[];
+    cardSettlements: any[];
+    cheques: any[];
+    auditLogs: any[];
+  }) {
+    const events: Array<{
+      id: string;
+      occurredAt: Date;
+      type: string;
+      label: string;
+      entityType: string;
+      entityId: string;
+      status?: string | null;
+      actor?: { id: string; name: string | null; email: string | null } | null;
+      amount?: string | null;
+      reference?: string | null;
+    }> = [];
+
+    for (const statementImport of input.imports) {
+      events.push({
+        id: `import-${statementImport.id}`,
+        occurredAt: statementImport.importedAt,
+        type: "STATEMENT_IMPORT",
+        label: `Statement import created (${statementImport.rowCount} rows)`,
+        entityType: "BankStatementImport",
+        entityId: statementImport.id,
+        status: statementImport.status,
+        reference: statementImport.filename,
+      });
+    }
+    for (const transaction of input.transactions) {
+      events.push({
+        id: `statement-${transaction.id}-${transaction.status}`,
+        occurredAt: transaction.updatedAt ?? transaction.createdAt,
+        type: "STATEMENT_ROW_REVIEW",
+        label: this.statementTimelineLabel(transaction),
+        entityType: "BankStatementTransaction",
+        entityId: transaction.id,
+        status: transaction.status,
+        amount: this.formatMoney(transaction.amount),
+        reference: transaction.reference,
+      });
+    }
+    for (const application of input.bankRuleApplications) {
+      events.push({
+        id: `rule-${application.id}`,
+        occurredAt: application.createdAt,
+        type: "BANK_RULE_APPLIED",
+        label: `Bank rule ${application.status.toLowerCase()}: ${application.bankRule?.name ?? application.actionType}`,
+        entityType: "BankRuleApplication",
+        entityId: application.id,
+        status: application.status,
+        actor: application.appliedBy,
+      });
+    }
+    for (const deposit of input.deposits) {
+      events.push({
+        id: `deposit-${deposit.id}-${deposit.status}`,
+        occurredAt: deposit.matchedAt ?? deposit.postedAt ?? deposit.depositDate,
+        type: "DEPOSIT_BATCH",
+        label: `Deposit batch ${String(deposit.status).toLowerCase()}`,
+        entityType: "BankDepositBatch",
+        entityId: deposit.id,
+        status: deposit.status,
+        amount: this.formatMoney(deposit.totalAmount),
+        reference: deposit.postedJournalEntry?.entryNumber ?? null,
+      });
+      if (deposit.postedJournalEntryId) {
+        events.push({
+          id: `deposit-journal-${deposit.id}`,
+          occurredAt: deposit.postedAt ?? deposit.depositDate,
+          type: "CLEARING_JOURNAL_POSTED",
+          label: `Deposit clearing journal posted (${deposit.postedJournalEntry?.entryNumber ?? "journal linked"})`,
+          entityType: "JournalEntry",
+          entityId: deposit.postedJournalEntryId,
+          status: deposit.postedJournalEntry?.status ?? null,
+          amount: this.formatMoney(deposit.totalAmount),
+        });
+      }
+    }
+    for (const settlement of input.cardSettlements) {
+      events.push({
+        id: `card-${settlement.id}-${settlement.status}`,
+        occurredAt: settlement.matchedAt ?? settlement.postedAt ?? settlement.settlementDate,
+        type: "CARD_SETTLEMENT",
+        label: `Card settlement ${String(settlement.status).toLowerCase()}`,
+        entityType: "CardSettlement",
+        entityId: settlement.id,
+        status: settlement.status,
+        amount: this.formatMoney(settlement.amount),
+        reference: settlement.postedJournalEntry?.entryNumber ?? null,
+      });
+      if (settlement.postedJournalEntryId) {
+        events.push({
+          id: `card-journal-${settlement.id}`,
+          occurredAt: settlement.postedAt ?? settlement.settlementDate,
+          type: "CLEARING_JOURNAL_POSTED",
+          label: `Card clearing journal posted (${settlement.postedJournalEntry?.entryNumber ?? "journal linked"})`,
+          entityType: "JournalEntry",
+          entityId: settlement.postedJournalEntryId,
+          status: settlement.postedJournalEntry?.status ?? null,
+          amount: this.formatMoney(settlement.amount),
+        });
+      }
+    }
+    for (const cheque of input.cheques) {
+      events.push({
+        id: `cheque-${cheque.id}-${cheque.status}`,
+        occurredAt: cheque.clearedDate ?? cheque.depositDate ?? cheque.dueDate ?? cheque.receivedDate ?? cheque.issueDate ?? cheque.updatedAt,
+        type: "CHEQUE_LIFECYCLE",
+        label: `Cheque ${cheque.chequeNumber} ${String(cheque.status).toLowerCase()}`,
+        entityType: "ChequeInstrument",
+        entityId: cheque.id,
+        status: cheque.status,
+        amount: this.formatMoney(cheque.amount),
+        reference: cheque.chequeNumber,
+      });
+    }
+    for (const reviewEvent of input.reviewEvents) {
+      events.push({
+        id: `review-${reviewEvent.id}`,
+        occurredAt: reviewEvent.createdAt,
+        type: "RECONCILIATION_REVIEW",
+        label: `Reconciliation ${String(reviewEvent.action).toLowerCase()}`,
+        entityType: "BankReconciliation",
+        entityId: reviewEvent.reconciliationId,
+        status: reviewEvent.toStatus,
+        actor: reviewEvent.actorUser,
+      });
+    }
+    for (const log of input.auditLogs) {
+      events.push({
+        id: `audit-${log.id}`,
+        occurredAt: log.createdAt,
+        type: "AUDIT_LOG",
+        label: `${log.entityType} ${String(log.action).toLowerCase()}`,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        actor: log.actorUser,
+      });
+    }
+
+    return events
+      .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime())
+      .map((event) => ({ ...event, occurredAt: event.occurredAt.toISOString() }));
+  }
+
+  private uniqueImports(transactions: Array<{ import: any }>) {
+    const byId = new Map<string, any>();
+    for (const transaction of transactions) {
+      if (transaction.import?.id) {
+        byId.set(transaction.import.id, transaction.import);
+      }
+    }
+    return [...byId.values()];
+  }
+
+  private statementTimelineLabel(transaction: {
+    status: BankStatementTransactionStatus;
+    matchedJournalEntryId?: string | null;
+    createdJournalEntryId?: string | null;
+    categorizedAccountId?: string | null;
+    ignoredReason?: string | null;
+  }) {
+    if (transaction.status === BankStatementTransactionStatus.MATCHED) {
+      return "Statement row matched";
+    }
+    if (transaction.status === BankStatementTransactionStatus.CATEGORIZED) {
+      return transaction.createdJournalEntryId ? "Statement row categorized with journal" : "Statement row categorized";
+    }
+    if (transaction.status === BankStatementTransactionStatus.IGNORED) {
+      return "Statement row ignored";
+    }
+    return "Statement row pending review";
+  }
+
+  private dateInRange(value: Date | null | undefined, start: Date, end: Date) {
+    return Boolean(value && value >= start && value <= end);
   }
 
   private async assertNoClosedOverlap(

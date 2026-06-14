@@ -21,7 +21,7 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { bankReconciliationReportCsvPath, bankReconciliationReportPdfPath, downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankReconciliation, BankReconciliationItem, BankReconciliationReviewEvent } from "@/lib/types";
+import type { BankReconciliation, BankReconciliationItem, BankReconciliationReportData, BankReconciliationReviewEvent } from "@/lib/types";
 
 export default function BankReconciliationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -30,6 +30,7 @@ export default function BankReconciliationDetailPage() {
   const [reconciliation, setReconciliation] = useState<BankReconciliation | null>(null);
   const [items, setItems] = useState<BankReconciliationItem[]>([]);
   const [reviewEvents, setReviewEvents] = useState<BankReconciliationReviewEvent[]>([]);
+  const [reportData, setReportData] = useState<BankReconciliationReportData | null>(null);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [reopenReason, setReopenReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,12 +61,14 @@ export default function BankReconciliationDetailPage() {
       apiRequest<BankReconciliation>(`/bank-reconciliations/${params.id}`),
       apiRequest<BankReconciliationItem[]>(`/bank-reconciliations/${params.id}/items`),
       apiRequest<BankReconciliationReviewEvent[]>(`/bank-reconciliations/${params.id}/review-events`),
+      apiRequest<BankReconciliationReportData>(`/bank-reconciliations/${params.id}/report-data`),
     ])
-      .then(([reconciliationResult, itemResult, reviewEventResult]) => {
+      .then(([reconciliationResult, itemResult, reviewEventResult, reportResult]) => {
         if (!cancelled) {
           setReconciliation(reconciliationResult);
           setItems(itemResult);
           setReviewEvents(reviewEventResult);
+          setReportData(reportResult);
         }
       })
       .catch((loadError: unknown) => {
@@ -194,6 +197,8 @@ export default function BankReconciliationDetailPage() {
             <SummaryCard label="Difference" value={formatMoneyAmount(reconciliation.difference, currency)} />
             <SummaryCard label="Unmatched rows" value={String(reconciliation.unmatchedTransactionCount ?? 0)} />
           </div>
+
+          {reportData ? <ReconciliationReportReviewPanels report={reportData} currency={currency} /> : null}
 
           <BankReconciliationWorkflowGuidance reconciliation={reconciliation} blockedMessage={blockedMessage} submitBlock={submitBlock} />
 
@@ -374,6 +379,145 @@ export function BankReconciliationWorkflowGuidance({
               Dashboard
             </Link>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ReconciliationReportReviewPanels({ report, currency }: { report: BankReconciliationReportData; currency: string }) {
+  const treasury = report.linkedTreasurySummary;
+  const accounting = report.accountingStatusSummary;
+  const timelinePreview = report.auditTimeline.slice(-8).reverse();
+  return (
+    <div className="space-y-5">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Accountant review summary</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">
+              Manual banking only. This report uses imported statement rows, explicit review actions, treasury links, and posted journal links already recorded in LedgerByte.
+            </p>
+          </div>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            No live bank feed, bank API, bank credentials, or payment initiation is enabled.
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <ReportMetric label="Linked chart account" value={report.bankAccount.account ? `${report.bankAccount.account.code} ${report.bankAccount.account.name}` : "-"} />
+          <ReportMetric label="Period rows" value={String(report.summary.totalRowsCount)} />
+          <ReportMetric label="Rule-applied rows" value={String(report.summary.ruleAppliedRowsCount)} />
+          <ReportMetric label="Captured close rows" value={String(report.summary.itemCount)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <h2 className="text-base font-semibold text-ink">Exceptions</h2>
+          <div className="mt-4 grid grid-cols-1 gap-3">
+            <ReportMetric label="Unmatched rows" value={String(report.summary.unmatchedRowsCount)} />
+            <ReportMetric label="Unreconciled rows" value={String(report.summary.unreconciledRowsCount)} />
+            <ReportMetric label="Exception rows" value={String(report.summary.exceptionRowsCount)} />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <h2 className="text-base font-semibold text-ink">Linked treasury activity</h2>
+          <div className="mt-4 space-y-3">
+            <TreasuryLine label="Deposits" summary={treasury.depositBatches} currency={currency} />
+            <TreasuryLine label="Card settlements" summary={treasury.cardSettlements} currency={currency} />
+            <TreasuryLine label="Cheques" summary={treasury.cheques} currency={currency} />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <h2 className="text-base font-semibold text-ink">Accounting status</h2>
+          <div className="mt-4 space-y-3 text-sm text-steel">
+            <p>
+              <span className="font-medium text-ink">Clearing config:</span> {accounting.clearingConfigEnabled ? "Enabled" : "Missing or disabled"}
+            </p>
+            <p>
+              <span className="font-medium text-ink">Configured accounts:</span> {accounting.configuredAccountCount}
+            </p>
+            <p>
+              <span className="font-medium text-ink">Journal posted:</span> {accounting.journalPostedCount}
+            </p>
+            <p>
+              <span className="font-medium text-ink">Operational-only:</span> {accounting.operationalOnlyCount}
+            </p>
+          </div>
+          {accounting.missingClearingConfig ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Clearing-account configuration is missing or disabled. Treasury records without posted journals remain operational-only.
+            </div>
+          ) : null}
+          {accounting.operationalOnlyCount > 0 ? (
+            <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
+              Operational-only records are visible for review but are not silently posted, matched, or reconciled.
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Audit timeline</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">Recent import, row review, rule, treasury, journal, and reconciliation review events for this period.</p>
+          </div>
+          <p className="text-xs text-steel">Export CSV for the full timeline.</p>
+        </div>
+        <div className="mt-4 space-y-3">
+          {timelinePreview.map((event) => (
+            <div key={event.id} className="rounded-md border border-slate-200 px-3 py-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{event.label}</p>
+                  <p className="mt-1 text-xs text-steel">
+                    {event.type} - {formatOptionalDate(event.occurredAt, "-")} - {event.actor?.name ?? event.actor?.email ?? "System"}
+                  </p>
+                </div>
+                {event.amount ? <span className="font-mono text-xs text-steel">{formatMoneyAmount(event.amount, currency)}</span> : null}
+              </div>
+            </div>
+          ))}
+          {timelinePreview.length === 0 ? <StatusMessage type="empty">No report timeline events found for this period.</StatusMessage> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+      <p className="mt-1 font-mono text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function TreasuryLine({
+  label,
+  summary,
+  currency,
+}: {
+  label: string;
+  summary: BankReconciliationReportData["linkedTreasurySummary"]["depositBatches"];
+  currency: string;
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-ink">{label}</p>
+          <p className="mt-1 text-xs text-steel">
+            {summary.matchedCount} matched / {summary.journalPostedCount} journal posted / {summary.operationalOnlyCount} operational-only
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-xs font-semibold text-ink">{summary.count}</p>
+          <p className="mt-1 font-mono text-xs text-steel">{formatMoneyAmount(summary.totalAmount, currency)}</p>
         </div>
       </div>
     </div>

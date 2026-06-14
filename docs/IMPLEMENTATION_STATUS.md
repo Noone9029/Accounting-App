@@ -24,6 +24,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-13 Wafeq manual banking reconciliation reports and audit trail polish:
+
+- PR `#40` `Wafeq banking clearing account accounting` was reverified green/safe and merged into `main` at `9ca5bfe2` before this branch was created.
+- Added read-only reconciliation report summary fields for period statement rows, matched/categorized/ignored/unmatched/unreconciled counts, bank-rule application counts, linked treasury counts, journal-posted counts, operational-only counts, and missing clearing-account configuration where safely derivable.
+- Added reconciliation audit timeline aggregation from existing statement import metadata, review events, bank-rule applications, linked deposit/card/cheque records, posted journal links, and sanitized audit-log metadata.
+- Improved reconciliation CSV export with manual-only banking wording, header context, exception summary, linked treasury summary, accounting status summary, audit/review event rows, and generated timestamp.
+- Added reconciliation detail UI panels for accountant review summary, exceptions, linked treasury activity, accounting status, missing clearing-account warning, operational-only warning, and audit timeline preview.
+- No schema change, dependency change, live bank feed, bank API, credential handling, payment initiation, provider abstraction, new banking module, silent posting, silent reconciliation, silent matching, reconciliation workflow-state change, VAT/ZATCA/report math change, hosted/customer-data behavior, or production readiness claim was added.
+- Recommended next prompt: `Wafeq manual banking beta QA and accountant review readiness`.
+
 2026-06-13 Wafeq manual banking clearing-account accounting:
 
 - PR `#39` `Wafeq banking cheque lifecycle` was reverified green/safe and merged into `main` at `4fb018b8` before this branch was created.
@@ -36,7 +46,7 @@ Current production posture:
 - Added banking accounting settings UI plus deposit, card settlement, and cheque accounting status panels.
 - Existing operational treasury records are not silently converted. Posting requires explicit operator action after preflight.
 - No live bank feed, bank API, credential handling, payment initiation, provider abstraction, provider callback, silent posting, silent reconciliation, silent matching, AR/AP allocation change, VAT/ZATCA/report change, hosted/customer-data behavior, or production readiness claim was added.
-- Recommended next prompt: `Wafeq manual banking polish: reconciliation reports and audit trail`.
+- Prompt 8 next prompt at the time: `Wafeq manual banking polish: reconciliation reports and audit trail`.
 
 2026-06-13 Wafeq manual banking cheque lifecycle:
 

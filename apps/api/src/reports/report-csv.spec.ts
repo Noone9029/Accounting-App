@@ -64,7 +64,7 @@ describe("report CSV helpers", () => {
           closedAt: "2026-05-13T00:00:00.000Z",
           closedBy: { name: "Owner" },
         },
-        bankAccount: { displayName: "Operating Bank" },
+        bankAccount: { displayName: "Operating Bank", account: { code: "1010", name: "Operating Bank" } },
         summary: {
           itemCount: 1,
           debitTotal: "0.0000",
@@ -72,7 +72,42 @@ describe("report CSV helpers", () => {
           matchedCount: 1,
           categorizedCount: 0,
           ignoredCount: 0,
+          totalRowsCount: 2,
+          debitRowsTotal: "25.0000",
+          creditRowsTotal: "100.0000",
+          matchedRowsCount: 1,
+          categorizedRowsCount: 0,
+          ignoredRowsCount: 0,
+          unmatchedRowsCount: 1,
+          unreconciledRowsCount: 1,
+          exceptionRowsCount: 1,
+          ruleAppliedRowsCount: 1,
         },
+        linkedTreasurySummary: {
+          depositBatches: { count: 1, matchedCount: 1, journalPostedCount: 1, operationalOnlyCount: 0, totalAmount: "100.0000" },
+          cardSettlements: { count: 1, matchedCount: 0, journalPostedCount: 0, operationalOnlyCount: 1, totalAmount: "50.0000" },
+          cheques: { count: 1, matchedCount: 1, journalPostedCount: 0, operationalOnlyCount: 1, totalAmount: "30.0000" },
+        },
+        accountingStatusSummary: {
+          clearingConfigEnabled: true,
+          configuredAccountCount: 2,
+          journalPostedCount: 1,
+          operationalOnlyCount: 2,
+          missingClearingConfig: false,
+        },
+        auditTimeline: [
+          {
+            occurredAt: "2026-05-10T01:00:00.000Z",
+            type: "STATEMENT_ROW_REVIEW",
+            label: "Statement row matched",
+            entityType: "BankStatementTransaction",
+            entityId: "statement-1",
+            status: "MATCHED",
+            actor: { name: "Owner" },
+            amount: "100.0000",
+            reference: "REF-1",
+          },
+        ],
         items: [
           {
             transactionDate: "2026-05-02T00:00:00.000Z",
@@ -89,8 +124,18 @@ describe("report CSV helpers", () => {
 
     expect(csv.filename).toBe("reconciliation-REC-000001.csv");
     expect(csv.content).toContain("Bank Reconciliation Report");
+    expect(csv.content).toContain("Banking Mode,Manual statement import only");
+    expect(csv.content).toContain("Live Bank Feed,Not enabled");
+    expect(csv.content).toContain("Payment Initiation,Not enabled");
+    expect(csv.content).toContain("Linked Treasury Summary");
+    expect(csv.content).toContain("Deposits,1,1,1,0,100.0000");
+    expect(csv.content).toContain("Accounting Status");
+    expect(csv.content).toContain("Audit Timeline");
+    expect(csv.content).toContain("STATEMENT_ROW_REVIEW,Statement row matched");
     expect(csv.content).toContain("REC-000001");
     expect(csv.content).toContain("Deposit,REF-1,CREDIT,100.0000,MATCHED");
+    expect(csv.content).not.toContain("rawData");
+    expect(csv.content).not.toContain("uploadedBody");
   });
 
   it("exports VAT Return as an internal draft review CSV only", () => {
