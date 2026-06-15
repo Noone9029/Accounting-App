@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `363ee49a80737796a6f15ec606b7b7d99d9afdb1` (`origin/main` after PR #48 UAE PINT-AE official-code TODO review merge) plus the current UAE PINT-AE scenario fixture validation QA branch.
+Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UAE PINT-AE allowance/reverse-charge foundation branch.
+
+## 2026-06-16 UAE PINT-AE allowance and reverse-charge foundation
+
+Added package-local allowance/discount modeling and explicit reverse-charge blocked validation without adding provider calls or production compliance claims.
+
+### What changed
+
+- Added document-level and line-level allowance input types to `@ledgerbyte/uae-peppol-pint-ae`.
+- Added source-backed local allowance XML for reason-text allowances using `cac:AllowanceCharge`, `cbc:ChargeIndicator=false`, allowance amount, document-level tax category/rate, and `cbc:AllowanceTotalAmount` where applicable.
+- Added validation for allowance amount presence, non-negative amounts, allowance-vs-base/subtotal limits, line taxable amount calculations, document subtotal/total calculations, missing allowance reason, unsupported allowance reason code, and reverse-charge blocked status.
+- Added positive fixture coverage for document-level and line-level discount/allowance invoices.
+- Added negative fixture coverage for allowance exceeds subtotal, negative allowance, missing allowance reason, unsupported allowance reason code, and reverse-charge official mapping required.
+- Updated local QA summary metadata so provider-later blockers and official-doc-required blockers remain distinguishable.
+
+### Boundaries
+
+- Allowance support is package/fixture-level only; no API/UI/database/accounting integration was added.
+- Reverse-charge remains blocked because complete source-backed transaction flag and VAT-category serialization requirements are not implemented.
+- No real provider was selected.
+- No provider sandbox docs, credentials, provider response, or commercial terms are available.
+- No real ASP adapter, real ASP call, real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, production Peppol claim, FTA certified claim, Peppol certified claim, official UAE provider claim, accredited ASP claim by LedgerByte, ZATCA production behavior, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, real email, schema migration, seed/reset/delete, smoke, or E2E was added.
 
 ## 2026-06-16 UAE PINT-AE scenario fixture validation QA
 

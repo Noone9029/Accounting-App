@@ -32,12 +32,22 @@ export interface UaePintAeParty {
   countryCode?: string | null;
 }
 
+export interface UaePintAeAllowance {
+  amount: string | number;
+  reason?: string | null;
+  reasonCode?: string | null;
+  baseAmount?: string | number | null;
+  taxCategory?: string | null;
+  taxRate?: string | number | null;
+}
+
 export interface UaePintAeLine {
   id: string;
   description: string;
   quantity: string | number;
   unitCode?: string | null;
   unitPrice: string | number;
+  allowances?: UaePintAeAllowance[] | null;
   taxableAmount: string | number;
   taxAmount: string | number;
   lineTotal: string | number;
@@ -71,6 +81,7 @@ export interface UaePintAeDocumentInput {
   supplier: UaePintAeParty;
   buyer: UaePintAeParty;
   lines: UaePintAeLine[];
+  allowances?: UaePintAeAllowance[] | null;
   subtotal: string | number;
   taxTotal: string | number;
   total: string | number;
@@ -79,6 +90,7 @@ export interface UaePintAeDocumentInput {
   predefinedEndpointScenario?: UaePintAePredefinedEndpointScenario | null;
   transactionTypeFlags?: UaePintAeTransactionTypeFlag[] | null;
   transactionTypeFlagCode?: string | null;
+  reverseCharge?: boolean | null;
 }
 
 export interface UaePintAeSerializationMetadata {
@@ -103,6 +115,7 @@ export interface UaePintAeSerializationResult {
 }
 
 export type UaePintAeFixtureExpectedOutcome = "pass" | "fail" | "blocked";
+export type UaePintAeFixtureBlockedReason = "model-gap" | "official-doc-required" | "provider-evidence-required" | "provider-required-later";
 
 export interface UaePintAeFixtureDefinition {
   name: string;
@@ -114,7 +127,7 @@ export interface UaePintAeFixtureDefinition {
   expectedTransactionTypeFlagCode?: string;
   knownGap?: string;
   providerBlocked?: boolean;
-  blockedReason?: string;
+  blockedReason?: UaePintAeFixtureBlockedReason;
 }
 
 export interface UaePintAeFixtureXmlMetadata {
@@ -150,6 +163,7 @@ export interface UaePintAeFixtureQaSummary {
   scenariosNotCovered: string[];
   knownGaps: string[];
   providerBlockedItems: string[];
+  blockedScenarios: Array<{ scenario: string; reason: string; source: UaePintAeRuleSource }>;
   timestamp: string;
   packageVersion: string;
 }

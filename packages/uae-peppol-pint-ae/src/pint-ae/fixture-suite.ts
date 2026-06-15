@@ -5,17 +5,24 @@ import {
   UAE_PINT_AE_PROFILE_ID,
 } from "./constants";
 import {
+  allowanceExceedsSubtotalUaePintAeFixture,
+  blockedReverseChargeUaePintAeFixture,
   buyerNotSubjectUaePintAeInvoiceFixture,
   commercialUaePintAeInvoiceFixture,
   creditNoteMissingOriginalReferenceUaePintAeFixture,
   creditNoteMissingReasonUaePintAeFixture,
   deemedSupplyUaePintAeInvoiceFixture,
+  documentLevelAllowanceUaePintAeInvoiceFixture,
   exportReceiverNotRegisteredUaePintAeInvoiceFixture,
   invalidTinTrnUaePintAeInvoiceFixture,
+  lineLevelAllowanceUaePintAeInvoiceFixture,
+  missingAllowanceReasonUaePintAeFixture,
   missingBuyerEndpointUaePintAeInvoiceFixture,
   multiLineUaePintAeTaxInvoiceFixture,
+  negativeAllowanceUaePintAeFixture,
   standardUaePintAeTaxCreditNoteFixture,
   standardUaePintAeTaxInvoiceFixture,
+  unsupportedAllowanceReasonCodeUaePintAeFixture,
   unsupportedLegacyTransactionFlagUaePintAeFixture,
 } from "./fixtures";
 import { resolveUaePintAeDocumentType, validateUaePintAeDocument } from "./rules";
@@ -85,6 +92,20 @@ export function uaePintAeScenarioFixtureDefinitions(): UaePintAeFixtureDefinitio
       expectedTransactionTypeFlagCode: "00000000",
     },
     {
+      name: "document-level discount allowance invoice",
+      scenario: "document-level-discount-allowance-invoice",
+      expectedOutcome: "pass",
+      input: documentLevelAllowanceUaePintAeInvoiceFixture(),
+      expectedTransactionTypeFlagCode: "00000000",
+    },
+    {
+      name: "line-level discount allowance invoice",
+      scenario: "line-level-discount-allowance-invoice",
+      expectedOutcome: "pass",
+      input: lineLevelAllowanceUaePintAeInvoiceFixture(),
+      expectedTransactionTypeFlagCode: "00000000",
+    },
+    {
       name: "missing buyer endpoint",
       scenario: "missing-buyer-endpoint",
       expectedOutcome: "fail",
@@ -120,18 +141,43 @@ export function uaePintAeScenarioFixtureDefinitions(): UaePintAeFixtureDefinitio
       expectedErrorCodes: ["TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED"],
     },
     {
-      name: "reverse charge invoice",
-      scenario: "reverse-charge-invoice",
-      expectedOutcome: "blocked",
-      knownGap: "No source-backed UAE PINT-AE reverse-charge transaction flag mapping is implemented in this package.",
-      blockedReason: "official-doc-required",
+      name: "allowance exceeds subtotal",
+      scenario: "allowance-exceeds-subtotal",
+      expectedOutcome: "fail",
+      input: allowanceExceedsSubtotalUaePintAeFixture(),
+      expectedErrorCodes: ["DOCUMENT_ALLOWANCE_EXCEEDS_SUBTOTAL", "ALLOWANCE_EXCEEDS_BASE_AMOUNT", "SUBTOTAL_MISMATCH"],
     },
     {
-      name: "discount/allowance invoice",
-      scenario: "discount-allowance-invoice",
-      expectedOutcome: "blocked",
-      knownGap: "The current local invoice model has no allowance/charge representation, so no fixture is generated.",
-      blockedReason: "model-gap",
+      name: "negative allowance",
+      scenario: "negative-allowance",
+      expectedOutcome: "fail",
+      input: negativeAllowanceUaePintAeFixture(),
+      expectedErrorCodes: ["ALLOWANCE_AMOUNT_NEGATIVE", "SUBTOTAL_MISMATCH"],
+    },
+    {
+      name: "missing allowance reason",
+      scenario: "missing-allowance-reason",
+      expectedOutcome: "fail",
+      input: missingAllowanceReasonUaePintAeFixture(),
+      expectedErrorCodes: ["ALLOWANCE_REASON_REQUIRED"],
+    },
+    {
+      name: "unsupported allowance reason code",
+      scenario: "unsupported-allowance-reason-code",
+      expectedOutcome: "fail",
+      input: unsupportedAllowanceReasonCodeUaePintAeFixture(),
+      expectedErrorCodes: ["ALLOWANCE_REASON_CODE_OFFICIAL_MAPPING_REQUIRED"],
+      blockedReason: "official-doc-required",
+      knownGap: "Allowance reason code serialization remains blocked until a source-backed code-list mapping is implemented.",
+    },
+    {
+      name: "reverse charge blocked without official transaction flag mapping",
+      scenario: "reverse-charge-blocked-official-mapping",
+      expectedOutcome: "fail",
+      input: blockedReverseChargeUaePintAeFixture(),
+      expectedErrorCodes: ["REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED"],
+      blockedReason: "official-doc-required",
+      knownGap: "Reverse-charge invoice XML remains blocked until source-backed UAE PINT-AE transaction flag and VAT-category requirements are implemented.",
     },
     {
       name: "provider-specific payload contract",
@@ -190,6 +236,7 @@ export function summarizeUaePintAeFixtureResults(
   timestamp = new Date().toISOString(),
 ): UaePintAeFixtureQaSummary {
   const blockedDefinitions = definitions.filter((definition) => definition.expectedOutcome === "blocked");
+  const blockedScenarioDefinitions = definitions.filter((definition) => definition.blockedReason || definition.providerBlocked === true);
   return {
     summaryType: "local QA summary",
     certificationClaim: false,
@@ -200,8 +247,13 @@ export function summarizeUaePintAeFixtureResults(
     blockedFixtures: results.filter((result) => result.actualOutcome === "blocked").length,
     scenariosCovered: results.filter((result) => result.actualOutcome !== "blocked").map((result) => result.scenario),
     scenariosNotCovered: blockedDefinitions.map((definition) => definition.scenario),
-    knownGaps: blockedDefinitions.map((definition) => definition.knownGap ?? definition.name),
+    knownGaps: blockedScenarioDefinitions.map((definition) => definition.knownGap ?? definition.name),
     providerBlockedItems: blockedDefinitions.filter((definition) => definition.providerBlocked === true).map((definition) => definition.scenario),
+    blockedScenarios: blockedScenarioDefinitions.map((definition) => ({
+      scenario: definition.scenario,
+      reason: definition.blockedReason ?? (definition.providerBlocked === true ? "provider-required-later" : "official-doc-required"),
+      source: definition.providerBlocked === true ? "provider-required-later" : definition.blockedReason === "provider-evidence-required" ? "provider-required-later" : "official-doc-required",
+    })),
     timestamp,
     packageVersion: UAE_PINT_AE_PACKAGE_VERSION,
   };

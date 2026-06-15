@@ -2,17 +2,31 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-pint-ae-scenario-fixtures-validation-qa`.
-- Base: fresh `origin/main` at `363ee49a80737796a6f15ec606b7b7d99d9afdb1` after PR `#48` UAE PINT-AE official-code TODO review was merged.
+- Branch: `feature/uae-pint-ae-allowance-reverse-charge-foundation`.
+- Base: fresh `origin/main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` after PR `#49` UAE PINT-AE scenario fixture validation QA was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: UAE PINT-AE scenario fixture expansion and validation QA.
+- Current lane: UAE PINT-AE allowance/discount and reverse-charge modeling foundation.
 - Product posture remains controlled beta/user-testing only.
-- This branch expands local-only UAE PINT-AE golden fixtures, fixture validation, and QA summary coverage for the existing serializer/rule pack.
+- This branch adds package-local UAE PINT-AE allowance/discount serializer input, validation, XML fixture coverage, and explicit reverse-charge blocked validation for the existing serializer/rule pack.
 - It keeps all real ASP calls, ASP validation, FTA reporting, Peppol transmission, provider-specific adapters, and production compliance claims disabled.
+
+## UAE PINT-AE Allowance And Reverse-Charge Foundation Summary
+
+- PR `#49` was merged into `main` with merge commit `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` before this branch began.
+- Existing LedgerByte sales invoice and credit-note domain surfaces already carry discount totals and per-line discount amounts, but this branch keeps UAE allowance support package-local to avoid API/UI/accounting behavior changes.
+- Added document-level and line-level allowance types to `@ledgerbyte/uae-peppol-pint-ae` serializer input.
+- Added source-backed local allowance XML using `cac:AllowanceCharge`, `cbc:ChargeIndicator=false`, reason text, allowance amount, document allowance tax category/rate, `cbc:AllowanceTotalAmount`, and recalculated local fixture totals.
+- Added validation for non-negative allowances, allowance-vs-base/subtotal limits, missing allowance reason, unsupported allowance reason code, line net amount calculations, subtotal calculations, and total calculations.
+- Added positive fixtures for document-level and line-level discount/allowance invoices.
+- Added negative fixtures for allowance exceeds subtotal, negative allowance, missing allowance reason, unsupported allowance reason code, and reverse charge blocked pending official mapping.
+- Reverse-charge remains blocked with structured `official-doc-required` errors. The branch does not guess transaction flags, VAT category behavior, tax reason text, or provider payloads.
+- Provider-specific payload contracts remain blocked because there are still no sandbox docs, credentials, provider responses, or commercial terms.
+- No database migration, API/UI integration, accounting posting change, invoice finalization change, real ASP call, real ASP validation, real ASP submission, FTA reporting, Peppol transmission, Vercel/Supabase change, hosted/customer-data mutation, or production UAE compliance claim was added.
+- ZATCA remains parked and blocked by default.
 
 ## UAE PINT-AE Scenario Fixture Validation QA Summary
 

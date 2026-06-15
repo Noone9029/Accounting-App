@@ -37,7 +37,9 @@ Do not claim:
 - Local official UAE PINT-AE serializer/rule-pack foundation with `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, structured rule results, invoice XML generation, and credit-note reason/original-reference enforcement.
 - Source-backed official mappings for commercial invoice type code `380`, predefined endpoint participant identifications, and UAE transaction type flags.
 - Source-required guards for unknown or legacy transaction flag mappings. These values are not guessed.
-- Local scenario fixture validation suite for standard tax invoice, commercial invoice, tax credit note, predefined endpoint scenarios, negative structured-error scenarios, blocked unsupported scenarios, and a metadata-only local QA summary.
+- Local scenario fixture validation suite for standard tax invoice, commercial invoice, tax credit note, predefined endpoint scenarios, package-level document/line allowance scenarios, negative structured-error scenarios, blocked unsupported scenarios, and a metadata-only local QA summary.
+- Package-local allowance/discount serializer foundation for document-level and line-level allowances using source-backed PINT-AE/UBL `cac:AllowanceCharge` structure, reason text, non-negative amount validation, allowance-vs-base validation, document allowance tax category/rate validation, allowance total output, and recalculated local fixture totals.
+- Reverse-charge remains blocked as a structured `official-doc-required` result; LedgerByte does not serialize guessed reverse-charge transaction flags, VAT category mappings, or tax reason text.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
 - Provider-neutral ASP adapter contract with normalized provider keys, statuses, and capability flags.
 - Disabled ASP adapter that blocks submission, rejects non-mock webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
@@ -70,7 +72,9 @@ Do not claim:
 - Hosted/customer-data proof.
 - Broad E2E/smoke/full-test coverage.
 - Provider-specific payload contract and real provider validation/submission behavior.
-- Reverse-charge and allowance/discount PINT-AE fixtures until source-backed values and model support exist.
+- API/UI/accounting integration for UAE PINT-AE allowance/discount fields.
+- Source-backed allowance reason-code mapping.
+- Reverse-charge PINT-AE XML until the required official mapping is complete.
 
 ## Runtime Boundaries
 
