@@ -106,6 +106,49 @@ export function multiLineUaePintAeTaxInvoiceFixture(): UaePintAeDocumentInput {
   };
 }
 
+export function documentLevelAllowanceUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "DISC-DOC-0001",
+    allowances: [
+      {
+        amount: "100",
+        reason: "Customer discount",
+        baseAmount: "1000",
+        taxCategory: "S",
+        taxRate: "5",
+      },
+    ],
+    subtotal: "900",
+    taxTotal: "45",
+    total: "945",
+  };
+}
+
+export function lineLevelAllowanceUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "DISC-LINE-0001",
+    lines: [
+      {
+        id: "1",
+        description: "Bookkeeping services",
+        quantity: "1",
+        unitCode: "EA",
+        unitPrice: "1000",
+        allowances: [{ amount: "100", reason: "Line discount", baseAmount: "1000" }],
+        taxableAmount: "900",
+        taxAmount: "45",
+        lineTotal: "945",
+        taxCategory: "S",
+      },
+    ],
+    subtotal: "900",
+    taxTotal: "45",
+    total: "945",
+  };
+}
+
 export function missingBuyerEndpointUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
   return {
     ...standardUaePintAeTaxInvoiceFixture(),
@@ -152,6 +195,46 @@ export function unsupportedLegacyTransactionFlagUaePintAeFixture(): UaePintAeDoc
     ...standardUaePintAeTaxInvoiceFixture(),
     documentNumber: "NEG-LEGACY-FLAG",
     transactionTypeFlags: ["self-billing"],
+  };
+}
+
+export function allowanceExceedsSubtotalUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    documentNumber: "NEG-ALLOWANCE-EXCEEDS",
+    allowances: [{ amount: "1200", reason: "Excessive discount", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  };
+}
+
+export function negativeAllowanceUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    documentNumber: "NEG-ALLOWANCE-NEGATIVE",
+    allowances: [{ amount: "-10", reason: "Negative discount", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  };
+}
+
+export function missingAllowanceReasonUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    documentNumber: "NEG-ALLOWANCE-REASON",
+    allowances: [{ amount: "100", reason: "", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  };
+}
+
+export function unsupportedAllowanceReasonCodeUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    documentNumber: "NEG-ALLOWANCE-CODE",
+    allowances: [{ amount: "100", reasonCode: "95", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  };
+}
+
+export function blockedReverseChargeUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "BLOCKED-RCM-0001",
+    reverseCharge: true,
   };
 }
 

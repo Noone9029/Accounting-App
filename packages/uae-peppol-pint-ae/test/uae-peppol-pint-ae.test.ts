@@ -18,6 +18,8 @@ import {
   buildUaeReadinessReport,
   createAspProviderAdapter,
   deriveUaePeppolParticipantId,
+  documentLevelAllowanceUaePintAeInvoiceFixture,
+  lineLevelAllowanceUaePintAeInvoiceFixture,
   redactAspProviderConfig,
   runUaePintAeFixtureSuite,
   serializeUaePintAeCreditNote,
@@ -240,6 +242,55 @@ test("maps source-backed predefined endpoint scenarios", () => {
   }
 });
 
+test("serializes source-backed document-level and line-level allowances", () => {
+  const documentAllowance = serializeUaePintAeInvoice(documentLevelAllowanceUaePintAeInvoiceFixture());
+  const lineAllowance = serializeUaePintAeInvoice(lineLevelAllowanceUaePintAeInvoiceFixture());
+
+  assert.equal(documentAllowance.ok, true);
+  assert.equal(documentAllowance.validation.valid, true);
+  assert.match(documentAllowance.xml, /<cbc:ChargeIndicator>false<\/cbc:ChargeIndicator>/);
+  assert.match(documentAllowance.xml, /<cbc:AllowanceChargeReason>Customer discount<\/cbc:AllowanceChargeReason>/);
+  assert.match(documentAllowance.xml, /<cbc:AllowanceTotalAmount currencyID="AED">100.00<\/cbc:AllowanceTotalAmount>/);
+  assert.match(documentAllowance.xml, /<cbc:LineExtensionAmount currencyID="AED">1000.00<\/cbc:LineExtensionAmount>/);
+  assert.match(documentAllowance.xml, /<cbc:TaxExclusiveAmount currencyID="AED">900.00<\/cbc:TaxExclusiveAmount>/);
+  assert.match(documentAllowance.xml, /<cbc:PayableAmount currencyID="AED">945.00<\/cbc:PayableAmount>/);
+  assert.match(documentAllowance.xml, /<cac:TaxCategory>\s*<cbc:ID>S<\/cbc:ID>\s*<cbc:Percent>5<\/cbc:Percent>/);
+
+  assert.equal(lineAllowance.ok, true);
+  assert.equal(lineAllowance.validation.valid, true);
+  assert.match(lineAllowance.xml, /<cbc:AllowanceChargeReason>Line discount<\/cbc:AllowanceChargeReason>/);
+  assert.match(lineAllowance.xml, /<cbc:LineExtensionAmount currencyID="AED">900.00<\/cbc:LineExtensionAmount>/);
+  assert.equal(lineAllowance.xml.includes("<cbc:AllowanceTotalAmount"), false);
+});
+
+test("blocks unsafe allowance values and unsupported reason codes", () => {
+  const negative = serializeUaePintAeInvoice({
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    allowances: [{ amount: "-1", reason: "Bad discount", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  });
+  const unsupportedCode = serializeUaePintAeInvoice({
+    ...documentLevelAllowanceUaePintAeInvoiceFixture(),
+    allowances: [{ amount: "100", reasonCode: "95", baseAmount: "1000", taxCategory: "S", taxRate: "5" }],
+  });
+
+  assert.equal(negative.ok, false);
+  assert.equal(negative.validation.issues.some((issue) => issue.code === "ALLOWANCE_AMOUNT_NEGATIVE" && issue.source === "local-rule"), true);
+  assert.equal(unsupportedCode.ok, false);
+  assert.equal(unsupportedCode.validation.issues.some((issue) => issue.code === "ALLOWANCE_REASON_CODE_OFFICIAL_MAPPING_REQUIRED" && issue.source === "official-doc-required"), true);
+});
+
+test("keeps reverse-charge blocked until official mapping is implemented", () => {
+  const result = serializeUaePintAeInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    reverseCharge: true,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.xml, "");
+  assert.equal(result.metadata.unknownOfficialMappings.includes("REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED"), true);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED" && issue.source === "official-doc-required"), true);
+});
+
 test("builds source-backed transaction type flags", () => {
   assert.equal(UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES["free-trade-zone"], "10000000");
   assert.equal(UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES.exports, "00000001");
@@ -278,15 +329,12 @@ test("runs UAE PINT-AE scenario fixture validation suite", () => {
   assert.equal(summary.legalComplianceEvidence, false);
   assert.equal(summary.totalFixtures, definitions.length);
   assert.equal(summary.failedFixtures, 0);
-  assert.equal(summary.blockedFixtures, 3);
+  assert.equal(summary.blockedFixtures, 1);
   assert.equal(summary.packageVersion, "0.1.0");
-  assert.deepEqual(
-    summary.scenariosNotCovered.sort(),
-    ["discount-allowance-invoice", "provider-specific-payload-contract", "reverse-charge-invoice"].sort(),
-  );
+  assert.deepEqual(summary.scenariosNotCovered.sort(), ["provider-specific-payload-contract"].sort());
 
   const positiveResults = results.filter((result) => result.expectedOutcome === "pass");
-  assert.equal(positiveResults.length, 7);
+  assert.equal(positiveResults.length, 9);
   for (const result of positiveResults) {
     assert.equal(result.actualOutcome, "pass");
     assert.equal(result.generatedXmlMetadata.customizationIdPresent, true);
@@ -300,15 +348,23 @@ test("runs UAE PINT-AE scenario fixture validation suite", () => {
   assertFixturePassed(results, "deemed-supply");
   assertFixturePassed(results, "buyer-not-subject");
   assertFixturePassed(results, "multi-line-mixed-values");
+  assertFixturePassed(results, "document-level-discount-allowance-invoice");
+  assertFixturePassed(results, "line-level-discount-allowance-invoice");
   assertFixtureFailedWith(results, "missing-buyer-endpoint", "BUYER_ENDPOINT_REQUIRED");
   assertFixtureFailedWith(results, "invalid-tin-trn", "SELLER_TIN_INVALID");
   assertFixtureFailedWith(results, "invalid-tin-trn", "SELLER_TRN_INVALID");
   assertFixtureFailedWith(results, "credit-note-missing-reason", "CREDIT_NOTE_REASON_REQUIRED");
   assertFixtureFailedWith(results, "credit-note-missing-original-reference", "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED");
   assertFixtureFailedWith(results, "unsupported-legacy-transaction-flag", "TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED");
+  assertFixtureFailedWith(results, "allowance-exceeds-subtotal", "DOCUMENT_ALLOWANCE_EXCEEDS_SUBTOTAL");
+  assertFixtureFailedWith(results, "negative-allowance", "ALLOWANCE_AMOUNT_NEGATIVE");
+  assertFixtureFailedWith(results, "missing-allowance-reason", "ALLOWANCE_REASON_REQUIRED");
+  assertFixtureFailedWith(results, "unsupported-allowance-reason-code", "ALLOWANCE_REASON_CODE_OFFICIAL_MAPPING_REQUIRED");
+  assertFixtureFailedWith(results, "reverse-charge-blocked-official-mapping", "REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED");
   assert.equal(summary.providerBlockedItems.includes("provider-specific-payload-contract"), true);
-  assert.match(summary.knownGaps.join(" "), /No source-backed UAE PINT-AE reverse-charge transaction flag mapping/);
-  assert.match(summary.knownGaps.join(" "), /no allowance\/charge representation/i);
+  assert.equal(summary.blockedScenarios.some((item) => item.scenario === "reverse-charge-blocked-official-mapping" && item.source === "official-doc-required"), true);
+  assert.equal(summary.blockedScenarios.some((item) => item.scenario === "provider-specific-payload-contract" && item.source === "provider-required-later"), true);
+  assert.match(summary.knownGaps.join(" "), /Reverse-charge invoice XML remains blocked/);
 });
 
 test("disabled ASP adapter blocks submission and never emits future delivery statuses", async () => {

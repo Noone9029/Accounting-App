@@ -30,6 +30,8 @@ This document records local-only UAE PINT-AE fixture coverage in `@ledgerbyte/ua
 | Deemed supply | `deemedSupplyUaePintAeInvoiceFixture()` | Buyer endpoint value `9900000097` and transaction flag `01000000`. |
 | Buyer not subject to UAE eInvoicing regulations | `buyerNotSubjectUaePintAeInvoiceFixture()` | Buyer endpoint value `9900000098` and default transaction flag `00000000`. |
 | Multi-line invoice with mixed line values | `multiLineUaePintAeTaxInvoiceFixture()` | Multiple lines, subtotal/tax/total validation, official local XML identifiers. |
+| Document-level discount/allowance invoice | `documentLevelAllowanceUaePintAeInvoiceFixture()` | Package-local document allowance XML using `cac:AllowanceCharge`, `cbc:ChargeIndicator=false`, reason text, allowance amount, allowance tax category/rate, `cbc:AllowanceTotalAmount`, and recalculated taxable/payable totals. |
+| Line-level discount/allowance invoice | `lineLevelAllowanceUaePintAeInvoiceFixture()` | Package-local line allowance XML using `cac:AllowanceCharge`, `cbc:ChargeIndicator=false`, reason text, line allowance amount, and line net amount validation. |
 
 ## Negative Fixtures
 
@@ -40,13 +42,17 @@ This document records local-only UAE PINT-AE fixture coverage in `@ledgerbyte/ua
 | Credit note missing reason | `creditNoteMissingReasonUaePintAeFixture()` | `CREDIT_NOTE_REASON_REQUIRED` |
 | Credit note missing original reference | `creditNoteMissingOriginalReferenceUaePintAeFixture()` | `CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED` |
 | Unsupported legacy transaction flag | `unsupportedLegacyTransactionFlagUaePintAeFixture()` | `TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED` with `official-doc-required` source |
+| Allowance exceeds subtotal | `allowanceExceedsSubtotalUaePintAeFixture()` | `DOCUMENT_ALLOWANCE_EXCEEDS_SUBTOTAL`, `ALLOWANCE_EXCEEDS_BASE_AMOUNT`, `SUBTOTAL_MISMATCH` |
+| Negative allowance | `negativeAllowanceUaePintAeFixture()` | `ALLOWANCE_AMOUNT_NEGATIVE`, `SUBTOTAL_MISMATCH` |
+| Missing allowance reason | `missingAllowanceReasonUaePintAeFixture()` | `ALLOWANCE_REASON_REQUIRED` |
+| Unsupported allowance reason code | `unsupportedAllowanceReasonCodeUaePintAeFixture()` | `ALLOWANCE_REASON_CODE_OFFICIAL_MAPPING_REQUIRED` with `official-doc-required` source |
+| Reverse charge blocked without official mapping | `blockedReverseChargeUaePintAeFixture()` | `REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED` with `official-doc-required` source |
 
 ## Blocked Scenarios
 
 | Scenario | Why blocked |
 | --- | --- |
-| Reverse charge invoice | No source-backed UAE PINT-AE reverse-charge transaction flag mapping is implemented in this package. |
-| Discount/allowance invoice | The current invoice model has no allowance/charge representation. |
+| Reverse charge invoice | Source documents identify VAT category `AE` for reverse charge, but this package does not yet have a source-backed UAE reverse-charge transaction flag and complete VAT-category serialization contract. It is represented as a structured `official-doc-required` validation failure, not serialized. |
 | Provider-specific payload contract | No provider sandbox docs, credentials, non-confidential provider response, or commercial terms exist. |
 
 ## Harness
@@ -60,7 +66,7 @@ The package now exports:
 
 The fixture suite records fixture name, document type, scenario, expected outcome, actual outcome, errors, warnings, and generated XML metadata. The XML metadata checks include official `CustomizationID`, official `ProfileID`, `ProfileExecutionID`, endpoint scheme `0235`, predefined endpoint value when expected, and expected transaction flag when expected.
 
-The QA summary is metadata-only and uses the label `local QA summary`. It explicitly records `certificationClaim=false` and `legalComplianceEvidence=false`.
+The QA summary is metadata-only and uses the label `local QA summary`. It explicitly records `certificationClaim=false` and `legalComplianceEvidence=false`. It also records blocked scenario metadata so official-document blockers and provider-later blockers are not mixed together.
 
 ## Known Gaps
 
@@ -71,7 +77,9 @@ The QA summary is metadata-only and uses the label `local QA summary`. It explic
 - No FTA reporting exists.
 - No production UAE compliance claim exists.
 - No production Peppol claim exists.
-- Reverse-charge and allowance/discount fixtures remain blocked until official values and model support exist.
+- Allowance/discount support is package-local serializer input and fixture coverage only; it is not API/UI/accounting integration and does not change invoice posting or finalization behavior.
+- Allowance reason-code serialization remains blocked until a source-backed reason-code list mapping is implemented.
+- Reverse-charge XML remains blocked until a source-backed transaction flag and complete VAT-category contract are implemented.
 - ZATCA remains parked and blocked by default.
 
 ## How To Run

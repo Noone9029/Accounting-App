@@ -10,7 +10,7 @@ import {
   resolveUaePintAeEndpointId,
   resolveUaePintAeTransactionTypeFlagCode,
 } from "./constants";
-import type { UaePintAeDocumentInput, UaePintAeDocumentType, UaePintAeParty, UaePintAeRuleResult, UaePintAeValidationResult } from "./types";
+import type { UaePintAeAllowance, UaePintAeDocumentInput, UaePintAeDocumentType, UaePintAeParty, UaePintAeRuleResult, UaePintAeValidationResult } from "./types";
 
 export function resolveUaePintAeDocumentType(input: Pick<UaePintAeDocumentInput, "kind" | "documentType" | "taxTotal">): UaePintAeDocumentType {
   if (input.documentType) {
@@ -97,6 +97,16 @@ export function validateUaePintAeDocument(input: UaePintAeDocumentInput): UaePin
     });
   }
 
+  if (input.reverseCharge === true) {
+    issues.push({
+      code: "REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED",
+      severity: "error",
+      message: "Reverse-charge PINT-AE serialization is blocked until an official UAE transaction flag and required VAT-category mapping are source-backed in this package.",
+      fieldPath: "reverseCharge",
+      source: "official-doc-required",
+    });
+  }
+
   return { valid: !issues.some((issue) => issue.severity === "error"), issues };
 }
 
@@ -133,19 +143,98 @@ function validateLines(issues: UaePintAeRuleResult[], input: UaePintAeDocumentIn
     }
     requireText(issues, "LINE_UNIT_CODE_REQUIRED", line.unitCode, `Line ${index + 1} unit code is required.`, `${prefix}.unitCode`);
     requireText(issues, "LINE_TAX_CATEGORY_REQUIRED", line.taxCategory, `Line ${index + 1} VAT/tax category is required.`, `${prefix}.taxCategory`);
+    validateAllowances(issues, line.allowances, `${prefix}.allowances`, "line", toAmount(line.quantity) * toAmount(line.unitPrice));
+    const lineAllowanceTotal = sumAllowances(line.allowances);
+    const expectedTaxableAmount = toAmount(line.quantity) * toAmount(line.unitPrice) - lineAllowanceTotal;
+    if (!amountsClose(expectedTaxableAmount, toAmount(line.taxableAmount))) {
+      issues.push({
+        code: "LINE_TAXABLE_AMOUNT_MISMATCH",
+        severity: "error",
+        message: `Line ${index + 1} taxable amount must equal quantity times unit price minus line allowances.`,
+        fieldPath: `${prefix}.taxableAmount`,
+        source: "local-rule",
+      });
+    }
   });
 }
 
 function validateTotals(issues: UaePintAeRuleResult[], input: UaePintAeDocumentInput): void {
   requireAmount(issues, "TAX_TOTAL_REQUIRED", input.taxTotal, "Tax total is required.", "taxTotal");
   requireAmount(issues, "DOCUMENT_TOTAL_REQUIRED", input.total, "Document total is required.", "total");
-  const lineSubtotal = input.lines.reduce((sum, line) => sum + toAmount(line.taxableAmount), 0);
-  if (input.lines.length && !amountsClose(lineSubtotal, toAmount(input.subtotal))) {
-    issues.push({ code: "SUBTOTAL_MISMATCH", severity: "error", message: "Line extension totals do not match document subtotal.", fieldPath: "subtotal", source: "local-rule" });
+  const lineExtensionTotal = input.lines.reduce((sum, line) => sum + toAmount(line.taxableAmount), 0);
+  const allowanceTotal = sumAllowances(input.allowances);
+  validateAllowances(issues, input.allowances, "allowances", "document", lineExtensionTotal);
+  if (input.lines.length && !amountsClose(lineExtensionTotal - allowanceTotal, toAmount(input.subtotal))) {
+    issues.push({
+      code: "SUBTOTAL_MISMATCH",
+      severity: "error",
+      message: "Line extension totals minus document allowances do not match document subtotal.",
+      fieldPath: "subtotal",
+      source: "local-rule",
+    });
   }
   if (!amountsClose(toAmount(input.subtotal) + toAmount(input.taxTotal), toAmount(input.total))) {
     issues.push({ code: "DOCUMENT_TOTAL_MISMATCH", severity: "error", message: "Subtotal plus tax total does not match document total.", fieldPath: "total", source: "local-rule" });
   }
+}
+
+function validateAllowances(
+  issues: UaePintAeRuleResult[],
+  allowances: readonly UaePintAeAllowance[] | null | undefined,
+  fieldPath: string,
+  level: "document" | "line",
+  baseAmount: number,
+): void {
+  const allowanceTotal = sumAllowances(allowances);
+  if (allowanceTotal > baseAmount + 0.01) {
+    issues.push({
+      code: level === "document" ? "DOCUMENT_ALLOWANCE_EXCEEDS_SUBTOTAL" : "LINE_ALLOWANCE_EXCEEDS_BASE_AMOUNT",
+      severity: "error",
+      message: level === "document" ? "Document allowance total cannot exceed the line extension total." : "Line allowance total cannot exceed quantity times unit price.",
+      fieldPath,
+      source: "local-rule",
+    });
+  }
+
+  allowances?.forEach((allowance, index) => {
+    const prefix = `${fieldPath}.${index}`;
+    const amount = toAmount(allowance.amount);
+    requireAmount(issues, "ALLOWANCE_AMOUNT_REQUIRED", allowance.amount, "Allowance amount is required.", `${prefix}.amount`);
+    if (amount < 0) {
+      issues.push({ code: "ALLOWANCE_AMOUNT_NEGATIVE", severity: "error", message: "Allowance amount must be non-negative.", fieldPath: `${prefix}.amount`, source: "local-rule" });
+    }
+    if (allowance.baseAmount !== null && allowance.baseAmount !== undefined && amount > toAmount(allowance.baseAmount) + 0.01) {
+      issues.push({
+        code: "ALLOWANCE_EXCEEDS_BASE_AMOUNT",
+        severity: "error",
+        message: "Allowance amount cannot exceed its stated base amount.",
+        fieldPath: `${prefix}.amount`,
+        source: "local-rule",
+      });
+    }
+    if (!String(allowance.reason ?? "").trim() && !String(allowance.reasonCode ?? "").trim()) {
+      issues.push({
+        code: "ALLOWANCE_REASON_REQUIRED",
+        severity: "error",
+        message: "Allowance reason text is required unless a source-backed reason code is implemented.",
+        fieldPath: `${prefix}.reason`,
+        source: "local-rule",
+      });
+    }
+    if (String(allowance.reasonCode ?? "").trim()) {
+      issues.push({
+        code: "ALLOWANCE_REASON_CODE_OFFICIAL_MAPPING_REQUIRED",
+        severity: "error",
+        message: "Allowance reason codes are blocked until the package implements a source-backed code-list mapping.",
+        fieldPath: `${prefix}.reasonCode`,
+        source: "official-doc-required",
+      });
+    }
+    if (level === "document") {
+      requireText(issues, "DOCUMENT_ALLOWANCE_TAX_CATEGORY_REQUIRED", allowance.taxCategory, "Document-level allowances require a VAT category.", `${prefix}.taxCategory`);
+      requireAmount(issues, "DOCUMENT_ALLOWANCE_TAX_RATE_REQUIRED", allowance.taxRate ?? "", "Document-level allowances require a VAT rate.", `${prefix}.taxRate`);
+    }
+  });
 }
 
 function requireText(issues: UaePintAeRuleResult[], code: string, value: string | null | undefined, message: string, fieldPath: string): void {
@@ -155,13 +244,17 @@ function requireText(issues: UaePintAeRuleResult[], code: string, value: string 
 }
 
 function requireAmount(issues: UaePintAeRuleResult[], code: string, value: string | number, message: string, fieldPath: string): void {
-  if (!Number.isFinite(toAmount(value))) {
+  if (!String(value ?? "").trim() || !Number.isFinite(toAmount(value))) {
     issues.push({ code, severity: "error", message, fieldPath, source: "local-rule" });
   }
 }
 
 function toAmount(value: string | number): number {
   return Number(value);
+}
+
+function sumAllowances(allowances: readonly UaePintAeAllowance[] | null | undefined): number {
+  return (allowances ?? []).reduce((sum, allowance) => sum + toAmount(allowance.amount), 0);
 }
 
 function amountsClose(left: number, right: number): boolean {

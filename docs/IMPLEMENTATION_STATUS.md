@@ -16,8 +16,8 @@ Current production posture:
 - Vercel is beta/user-testing only, not final production hosting.
 - LedgerByte is not production-launched.
 - Real ZATCA production compliance is not enabled.
-- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness, official local serializer/rule-pack foundation, disabled/mock ASP connector contracts, provider-selection planning, and provider outreach execution documentation only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
-- Current UAE PINT-AE package QA now includes local scenario fixture coverage and a metadata-only local QA summary. This improves local serializer/rule-pack proof only; it is not provider validation, FTA reporting, legal compliance evidence, certification, or production Peppol evidence.
+- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness, official local serializer/rule-pack foundation, package-local allowance/discount fixture modeling, disabled/mock ASP connector contracts, provider-selection planning, and provider outreach execution documentation only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
+- Current UAE PINT-AE package QA now includes local scenario fixture coverage, package-local allowance/discount fixture coverage, reverse-charge blocked validation, and a metadata-only local QA summary. This improves local serializer/rule-pack proof only; it is not provider validation, FTA reporting, legal compliance evidence, certification, or production Peppol evidence.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - Production tickets and ADRs are planning artifacts only. No hosting, database role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation has been performed.
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
@@ -25,6 +25,19 @@ Current production posture:
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-16 UAE PINT-AE allowance and reverse-charge foundation:
+
+- PR `#49` was merged into `main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` before this branch started.
+- Created branch `feature/uae-pint-ae-allowance-reverse-charge-foundation` from updated `origin/main`.
+- Added package-local document-level and line-level allowance input modeling, validation, serializer output, and fixtures.
+- Positive allowance fixtures now cover document-level discount/allowance and line-level discount/allowance invoices.
+- Negative allowance fixtures now cover allowance exceeding subtotal/base, negative allowance, missing allowance reason, and unsupported allowance reason code.
+- Reverse-charge remains blocked through `REVERSE_CHARGE_TRANSACTION_FLAG_OFFICIAL_MAPPING_REQUIRED`; no guessed transaction flag, VAT category mapping, or tax reason text is serialized.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- No database migration, API/UI integration, accounting posting change, invoice finalization change, provider call, ASP validation/submission, FTA reporting, Peppol transmission, Vercel/Supabase change, production infrastructure command, or production UAE compliance claim was added.
+- ZATCA remains parked and blocked by default.
+- Recommended next prompt: `UAE ASP provider sandbox evidence review`.
 
 2026-06-16 UAE PINT-AE scenario fixture validation QA:
 
