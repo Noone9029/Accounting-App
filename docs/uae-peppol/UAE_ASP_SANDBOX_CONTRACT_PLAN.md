@@ -27,8 +27,9 @@ Accounting finalization remains separate from compliance delivery state. A final
 Current internal foundation before provider work:
 
 - LedgerByte can generate local official PINT-AE-shaped XML with official `CustomizationID`, `ProfileID`, and endpoint scheme `0235`.
+- LedgerByte has completed the source-backed official-code TODO review for commercial invoice type code `380`, predefined endpoint participant identifications, and transaction type flags.
 - LedgerByte still does not have real ASP validation, real ASP submission, FTA reporting, Peppol transmission, provider credentials, or provider-specific payload contract evidence.
-- Unknown official commercial-invoice type-code mapping, predefined endpoint values, and transaction flag mappings remain source-required TODOs and must not be guessed in provider branches.
+- Unknown future official values must not be guessed in provider branches.
 
 ## Safety Boundary
 

@@ -7,9 +7,12 @@ import {
   MockAspProviderAdapter,
   UAE_ELECTRONIC_ADDRESS_SCHEME_ID,
   UAE_PINT_AE_CUSTOMIZATION_ID,
+  UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES,
   UAE_PINT_AE_PROFILE_ID,
   UAE_PINT_AE_READINESS_CUSTOMIZATION_ID,
+  UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
   buildUaeDocumentReadinessReport,
+  buildUaePintAeTransactionTypeFlagCode,
   buildUaePartyReadinessReport,
   buildUaePintXml,
   buildUaeReadinessReport,
@@ -137,6 +140,7 @@ test("generates official local PINT-AE XML for a UAE tax invoice", () => {
   assert.match(result.xml, new RegExp(`<cbc:ProfileID>${escapeRegExp(UAE_PINT_AE_PROFILE_ID)}<\\/cbc:ProfileID>`));
   assert.match(result.xml, new RegExp(`<cbc:EndpointID schemeID="${UAE_ELECTRONIC_ADDRESS_SCHEME_ID}">02351234567890<\\/cbc:EndpointID>`));
   assert.match(result.xml, /<cbc:InvoiceTypeCode>380<\/cbc:InvoiceTypeCode>/);
+  assert.match(result.xml, /<cbc:ProfileExecutionID>00000000<\/cbc:ProfileExecutionID>/);
   assert.match(result.xml, /<cbc:InvoicedQuantity unitCode="EA">1.00<\/cbc:InvoicedQuantity>/);
   assert.equal(result.xml.includes(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), false);
 });
@@ -191,7 +195,7 @@ test("blocks official credit note XML when reason or original reference is missi
   assert.equal(result.validation.issues.some((issue) => issue.code === "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED"), true);
 });
 
-test("does not silently guess unknown commercial invoice type codes", () => {
+test("maps source-backed commercial invoice type code", () => {
   const result = serializeUaePintAeInvoice({
     ...standardUaePintAeTaxInvoiceFixture(),
     documentType: "commercial-invoice",
@@ -200,21 +204,64 @@ test("does not silently guess unknown commercial invoice type codes", () => {
     total: "1000",
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.validation.issues.some((issue) => issue.code === "INVOICE_TYPE_CODE_OFFICIAL_VALUE_REQUIRED" && issue.source === "official-doc-required"), true);
-  assert.equal(result.metadata.unknownOfficialMappings.includes("INVOICE_TYPE_CODE_OFFICIAL_VALUE_REQUIRED"), true);
+  assert.equal(result.ok, true);
+  assert.equal(result.validation.valid, true);
+  assert.match(result.xml, /<cbc:InvoiceTypeCode>380<\/cbc:InvoiceTypeCode>/);
 });
 
-test("does not silently guess predefined endpoint scenarios or transaction type flags", () => {
+test("maps source-backed predefined endpoint scenarios", () => {
+  const scenarioExpectations = [
+    ["deemed-supply", "deemed-supply", "01000000"],
+    ["export-receiver-not-registered", "exports", "00000001"],
+    ["buyer-not-subject", undefined, "00000000"],
+  ] as const;
+
+  for (const [scenario, flag, expectedFlagCode] of scenarioExpectations) {
+    const result = serializeUaePintAeInvoice({
+      ...standardUaePintAeTaxInvoiceFixture(),
+      buyer: {
+        ...standardUaePintAeTaxInvoiceFixture().buyer,
+        endpointId: "",
+        peppolParticipantId: "",
+        tin: null,
+        trn: null,
+      },
+      predefinedEndpointScenario: scenario,
+      transactionTypeFlags: flag ? [flag] : [],
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.validation.valid, true);
+    assert.match(result.xml, new RegExp(`<cbc:EndpointID schemeID="${UAE_ELECTRONIC_ADDRESS_SCHEME_ID}">${UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES[scenario]}<\\/cbc:EndpointID>`));
+    assert.match(result.xml, new RegExp(`<cbc:ProfileExecutionID>${expectedFlagCode}<\\/cbc:ProfileExecutionID>`));
+  }
+});
+
+test("builds source-backed transaction type flags", () => {
+  assert.equal(UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES["free-trade-zone"], "10000000");
+  assert.equal(UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES.exports, "00000001");
+  assert.equal(buildUaePintAeTransactionTypeFlagCode(["summary-invoice", "exports"]), "00010001");
+  assert.equal(buildUaePintAeTransactionTypeFlagCode(["free-trade-zone", "deemed-supply", "continuous-supply"]), "11001000");
+});
+
+test("does not silently guess unmapped transaction type flags", () => {
   const result = serializeUaePintAeInvoice({
     ...standardUaePintAeTaxInvoiceFixture(),
-    predefinedEndpointScenario: "deemed-supply",
-    transactionTypeFlags: ["exports"],
+    transactionTypeFlags: ["unknown"],
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.validation.issues.some((issue) => issue.code === "PREDEFINED_ENDPOINT_OFFICIAL_VALUE_REQUIRED" && issue.source === "official-doc-required"), true);
   assert.equal(result.validation.issues.some((issue) => issue.code === "TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED" && issue.source === "official-doc-required"), true);
+});
+
+test("blocks invalid explicit transaction type flag codes", () => {
+  const result = serializeUaePintAeInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    transactionTypeFlagCode: "not-official",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "TRANSACTION_TYPE_FLAG_CODE_INVALID" && issue.source === "local-rule"), true);
 });
 
 test("disabled ASP adapter blocks submission and never emits future delivery statuses", async () => {
@@ -273,6 +320,7 @@ test("provider factory falls back safely and blocks future providers and externa
   const futureResult = await future.submitDocument({ tenantId: "org-1", documentId: "doc-1" });
   assert.equal(futureResult.ok, false);
   assert.equal(futureResult.issues.includes("ASP_PROVIDER_NOT_IMPLEMENTED"), true);
+  assert.deepEqual(future.listCapabilities(), []);
 
   assert.throws(() => createAspProviderAdapter({ providerKey: "FUTURE_GENERIC_ASP", mode: "FUTURE", endpointUrl: "https://provider.example.test" }), /External ASP provider URLs are disabled/);
 });

@@ -2,17 +2,30 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-pint-ae-official-serializer-rule-pack`.
-- Base: fresh `origin/main` at `eb80d4bd64ff5db398a95beaed67cb76debb7435` after PR `#46` UAE ASP outreach execution pack was merged.
+- Branch: `feature/uae-pint-ae-official-code-todo-review`.
+- Base: fresh `origin/main` at `869d78ee02f603679ff0f462d2bd16d3a45fd481` after PR `#47` UAE PINT-AE official serializer and rule pack foundation was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: UAE PINT-AE official serializer and rule-pack foundation.
+- Current lane: UAE PINT-AE official-code TODO review.
 - Product posture remains controlled beta/user-testing only.
-- This branch adds a local-only official UAE PINT-AE serializer/rule-pack foundation using official identifiers while preserving the existing LedgerByte readiness XML path.
+- This branch resolves only source-backed official-code TODOs introduced by the local UAE PINT-AE serializer foundation.
 - It keeps all real ASP calls, ASP validation, FTA reporting, Peppol transmission, provider-specific adapters, and production compliance claims disabled.
+
+## UAE PINT-AE Official-Code TODO Review Summary
+
+- Merged PR `#47` into `main` with merge commit `869d78ee02f603679ff0f462d2bd16d3a45fd481` before starting this branch.
+- Added `docs/uae-peppol/UAE_PINT_AE_OFFICIAL_CODE_TODO_REVIEW.md` and `docs/development/UAE_PINT_AE_OFFICIAL_CODE_TODO_REVIEW_SPRINT_CLOSURE.md`.
+- Reviewed UAE MoF Electronic Invoicing Guidelines, UAE MoF mandatory fields, UAE MoF pre-approved provider list, OpenPeppol PINT-AE v1.0.1, OpenPeppol BIS Billing 3.0, and UAE 2025-Q2 specs for continuity.
+- Resolved commercial invoice type code as `380`.
+- Resolved predefined endpoint participant identifications as `9900000097` for deemed supply, `9900000099` for exports when the receiver is not registered in Peppol, and `9900000098` for buyers not subject to UAE eInvoicing regulations.
+- Resolved the official 8-position transaction type flags and now serialize them in `cbc:ProfileExecutionID`.
+- Unknown or legacy transaction flags still produce structured `official-doc-required` validation results.
+- Provider-specific payload contracts remain blocked on real provider sandbox docs, credentials, provider responses, and commercial terms.
+- Still no real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, provider adapter, provider credentials, hosted/customer-data mutation, Vercel/Supabase change, ZATCA production behavior, or production UAE compliance claim.
+- Next recommended arc: collect and review provider sandbox evidence before any real provider adapter work.
 
 ## UAE PINT-AE Official Serializer Rule Pack Summary
 
@@ -21,11 +34,11 @@
 - Kept existing readiness XML output and LedgerByte readiness CustomizationID separate from official serializer output.
 - Added structured rule results with `code`, `severity`, `message`, `fieldPath`, and `source` values.
 - Added local official XML serialization for invoices and credit notes with endpoint IDs, seller/buyer data, line data, tax totals, document totals, and credit-note reason/original-reference enforcement.
-- Added guards so unknown official commercial-invoice code mappings, predefined endpoint values, and transaction flag mappings are not silently guessed.
+- Added guards so unknown official mappings are not silently guessed; the follow-up official-code TODO review resolved the source-backed commercial invoice, predefined endpoint, and transaction flag values.
 - Updated compliance-core local validation to use the official local serializer and metadata-only archive hash path while recording that ASP validation is not connected.
 - Updated the UAE readiness panel wording to distinguish local readiness, official local PINT-AE XML generation, and absent ASP validation.
 - Still no real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, provider adapter, provider credentials, hosted/customer-data mutation, Vercel/Supabase change, ZATCA production behavior, or production UAE compliance claim.
-- Next recommended arc: review official-code TODOs against current OpenPeppol/UAE docs and then collect provider sandbox payload evidence before any provider adapter.
+- Next recommended arc: collect provider sandbox payload evidence before any provider adapter.
 
 ## UAE ASP Outreach Execution Pack Summary
 

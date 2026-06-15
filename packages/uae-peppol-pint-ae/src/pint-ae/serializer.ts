@@ -1,4 +1,4 @@
-import { UAE_ELECTRONIC_ADDRESS_SCHEME_ID, UAE_PINT_AE_CUSTOMIZATION_ID, UAE_PINT_AE_PROFILE_ID, resolveUaePintAeEndpointId } from "./constants";
+import { UAE_ELECTRONIC_ADDRESS_SCHEME_ID, UAE_PINT_AE_CUSTOMIZATION_ID, UAE_PINT_AE_PROFILE_ID, resolveUaePintAeBuyerEndpointId, resolveUaePintAeEndpointId, resolveUaePintAeTransactionTypeFlagCode } from "./constants";
 import { resolveUaePintAeDocumentType, resolveUaePintAeInvoiceTypeCode, validateUaePintAeDocument } from "./rules";
 import type { UaePintAeDocumentInput, UaePintAeLine, UaePintAeParty, UaePintAeSerializationMetadata, UaePintAeSerializationResult } from "./types";
 
@@ -44,7 +44,7 @@ export function serializeUaePintAeDocument(input: UaePintAeDocumentInput): UaePi
   <cbc:Note>${escapeXml(input.creditNoteReason ?? "")}</cbc:Note>`
       : "";
   const dueDate = input.paymentDueDate ? `\n  <cbc:DueDate>${escapeXml(input.paymentDueDate)}</cbc:DueDate>` : "";
-  const transactionFlag = input.transactionTypeFlagCode ? `\n  <cbc:AccountingCost>${escapeXml(input.transactionTypeFlagCode)}</cbc:AccountingCost>` : "";
+  const transactionFlag = `\n  <cbc:ProfileExecutionID>${escapeXml(resolveUaePintAeTransactionTypeFlagCode(input))}</cbc:ProfileExecutionID>`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <${root} xmlns="urn:oasis:names:specification:ubl:schema:xsd:${root}-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:CustomizationID>${UAE_PINT_AE_CUSTOMIZATION_ID}</cbc:CustomizationID>
@@ -54,7 +54,7 @@ export function serializeUaePintAeDocument(input: UaePintAeDocumentInput): UaePi
   <cbc:${input.kind === "credit-note" ? "CreditNoteTypeCode" : "InvoiceTypeCode"}>${escapeXml(resolveUaePintAeInvoiceTypeCode(input))}</cbc:${input.kind === "credit-note" ? "CreditNoteTypeCode" : "InvoiceTypeCode"}>
   <cbc:DocumentCurrencyCode>${escapeXml(input.currency)}</cbc:DocumentCurrencyCode>${dueDate}${transactionFlag}${creditNoteReference}
 ${partyXml("AccountingSupplierParty", input.supplier)}
-${partyXml("AccountingCustomerParty", input.buyer)}
+${partyXml("AccountingCustomerParty", input.buyer, resolveUaePintAeBuyerEndpointId(input))}
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="${escapeXml(input.currency)}">${formatAmount(input.taxTotal)}</cbc:TaxAmount>
   </cac:TaxTotal>
@@ -69,10 +69,10 @@ ${partyXml("AccountingCustomerParty", input.buyer)}
   return { ok: true, xml, validation, metadata };
 }
 
-function partyXml(role: "AccountingSupplierParty" | "AccountingCustomerParty", party: UaePintAeParty): string {
+function partyXml(role: "AccountingSupplierParty" | "AccountingCustomerParty", party: UaePintAeParty, endpointOverride: string | null = null): string {
   return `  <cac:${role}>
     <cac:Party>
-      <cbc:EndpointID schemeID="${UAE_ELECTRONIC_ADDRESS_SCHEME_ID}">${escapeXml(resolveUaePintAeEndpointId(party))}</cbc:EndpointID>
+      <cbc:EndpointID schemeID="${UAE_ELECTRONIC_ADDRESS_SCHEME_ID}">${escapeXml(endpointOverride ?? resolveUaePintAeEndpointId(party))}</cbc:EndpointID>
       <cac:PartyName><cbc:Name>${escapeXml(party.legalName ?? "")}</cbc:Name></cac:PartyName>
       <cac:PostalAddress>
         <cbc:StreetName>${escapeXml(party.addressLine1 ?? "")}</cbc:StreetName>

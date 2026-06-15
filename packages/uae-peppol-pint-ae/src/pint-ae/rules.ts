@@ -2,10 +2,13 @@ import {
   UAE_PINT_AE_DOCUMENT_TYPE_CODES,
   UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES,
   UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
+  isValidUaePintAePredefinedEndpointValue,
   isValidUaePintAeEndpointId,
   isValidUaeTin,
   isValidUaeTrn,
+  resolveUaePintAeBuyerEndpointId,
   resolveUaePintAeEndpointId,
+  resolveUaePintAeTransactionTypeFlagCode,
 } from "./constants";
 import type { UaePintAeDocumentInput, UaePintAeDocumentType, UaePintAeParty, UaePintAeRuleResult, UaePintAeValidationResult } from "./types";
 
@@ -48,7 +51,7 @@ export function validateUaePintAeDocument(input: UaePintAeDocumentInput): UaePin
   }
 
   validateParty(issues, "supplier", input.supplier);
-  validateParty(issues, "buyer", input.buyer);
+  validateParty(issues, "buyer", input.buyer, input.predefinedEndpointScenario ? resolveUaePintAeBuyerEndpointId(input) : null);
   validateLines(issues, input);
   validateTotals(issues, input);
 
@@ -61,17 +64,14 @@ export function validateUaePintAeDocument(input: UaePintAeDocumentInput): UaePin
     requireText(issues, "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED", input.originalInvoiceNumber, "Credit notes require an original invoice reference.", "originalInvoiceNumber");
   }
 
-  if (input.predefinedEndpointScenario) {
-    const scenarioValue = UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES[input.predefinedEndpointScenario];
-    if (!scenarioValue) {
-      issues.push({
-        code: "PREDEFINED_ENDPOINT_OFFICIAL_VALUE_REQUIRED",
-        severity: "error",
-        message: `${input.predefinedEndpointScenario} requires an official predefined endpoint value before XML can be generated.`,
-        fieldPath: "predefinedEndpointScenario",
-        source: "official-doc-required",
-      });
-    }
+  if (input.predefinedEndpointScenario && !UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES[input.predefinedEndpointScenario]) {
+    issues.push({
+      code: "PREDEFINED_ENDPOINT_OFFICIAL_VALUE_REQUIRED",
+      severity: "error",
+      message: `${input.predefinedEndpointScenario} requires an official predefined endpoint value before XML can be generated.`,
+      fieldPath: "predefinedEndpointScenario",
+      source: "official-doc-required",
+    });
   }
 
   if (input.transactionTypeFlags?.length) {
@@ -86,16 +86,28 @@ export function validateUaePintAeDocument(input: UaePintAeDocumentInput): UaePin
       });
     }
   }
+  const transactionTypeFlagCode = resolveUaePintAeTransactionTypeFlagCode(input);
+  if (!/^[01]{8}$/.test(transactionTypeFlagCode)) {
+    issues.push({
+      code: "TRANSACTION_TYPE_FLAG_CODE_INVALID",
+      severity: "error",
+      message: "UAE PINT-AE transaction type flag code must be an 8-position string containing only 0 or 1.",
+      fieldPath: "transactionTypeFlagCode",
+      source: "local-rule",
+    });
+  }
 
   return { valid: !issues.some((issue) => issue.severity === "error"), issues };
 }
 
-function validateParty(issues: UaePintAeRuleResult[], fieldPath: "supplier" | "buyer", party: UaePintAeParty): void {
+function validateParty(issues: UaePintAeRuleResult[], fieldPath: "supplier" | "buyer", party: UaePintAeParty, endpointOverride: string | null = null): void {
   const label = fieldPath === "supplier" ? "Seller" : "Buyer";
-  const endpoint = resolveUaePintAeEndpointId(party);
+  const endpoint = endpointOverride ?? resolveUaePintAeEndpointId(party);
   requireText(issues, `${label.toUpperCase()}_LEGAL_NAME_REQUIRED`, party.legalName, `${label} legal name is required.`, `${fieldPath}.legalName`);
   requireText(issues, `${label.toUpperCase()}_ENDPOINT_REQUIRED`, endpoint, `${label} endpoint is required.`, `${fieldPath}.endpointId`);
-  if (endpoint && !isValidUaePintAeEndpointId(endpoint)) {
+  if (endpoint && endpointOverride && !isValidUaePintAePredefinedEndpointValue(endpoint)) {
+    issues.push({ code: `${label.toUpperCase()}_ENDPOINT_INVALID`, severity: "error", message: `${label} predefined endpoint is not a source-backed UAE PINT-AE predefined endpoint value.`, fieldPath: `${fieldPath}.endpointId`, source: "local-rule" });
+  } else if (endpoint && !endpointOverride && !isValidUaePintAeEndpointId(endpoint)) {
     issues.push({ code: `${label.toUpperCase()}_ENDPOINT_INVALID`, severity: "error", message: `${label} endpoint must use scheme 0235 followed by a 10-digit UAE TIN.`, fieldPath: `${fieldPath}.endpointId`, source: "local-rule" });
   }
   requireText(issues, `${label.toUpperCase()}_ADDRESS_REQUIRED`, party.addressLine1, `${label} address is required.`, `${fieldPath}.addressLine1`);

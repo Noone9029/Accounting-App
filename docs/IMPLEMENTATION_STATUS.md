@@ -25,16 +25,29 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 UAE PINT-AE official-code TODO review:
+
+- PR `#47` was merged into `main` at `869d78ee02f603679ff0f462d2bd16d3a45fd481` before this branch started.
+- Created branch `feature/uae-pint-ae-official-code-todo-review` from updated `origin/main`.
+- Reviewed official UAE MoF and OpenPeppol sources for the unresolved official-code TODOs.
+- Commercial invoice type code is now source-backed as `380`.
+- Predefined endpoint participant identifications are now source-backed for deemed supply (`9900000097`), exports where the receiver is not registered in Peppol (`9900000099`), and buyers not subject to UAE eInvoicing regulations (`9900000098`).
+- Transaction type flags now use the official 8-position `0`/`1` mapping and serialize through `cbc:ProfileExecutionID`.
+- Unknown or legacy transaction flags still return structured `official-doc-required` validation results instead of being guessed.
+- Provider-specific payload contracts remain blocked on provider sandbox docs, credentials, provider responses, and commercial terms.
+- No real provider was selected and no real ASP adapter, ASP call, ASP validation, ASP submission, FTA reporting, real Peppol transmission, provider credentials, executable provider base URL, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, E2E, real email, real ZATCA call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was added.
+- Recommended next prompt: `UAE ASP provider sandbox evidence review`.
+
 2026-06-16 UAE PINT-AE official serializer rule pack:
 
 - Created branch `feature/uae-pint-ae-official-serializer-rule-pack` from fresh `origin/main` at `eb80d4bd64ff5db398a95beaed67cb76debb7435` after PR `#46` was merged.
 - Added a local-only official UAE PINT-AE serializer/rule-pack foundation in `@ledgerbyte/uae-peppol-pint-ae` while keeping the existing LedgerByte readiness XML path intact.
 - Official local serializer output uses `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, seller/buyer endpoint data, line data, tax totals, document totals, and credit-note reason/original-reference checks.
 - Structured rule results now distinguish local rules, official-doc-required gaps, and provider-required-later gaps.
-- Unknown official commercial invoice type code mapping, predefined endpoint values, and transaction flag mappings remain source-required TODOs and are not silently guessed.
+- Unknown official commercial invoice type code mapping, predefined endpoint values, and transaction flag mappings were guarded here and resolved in the follow-up official-code TODO review where source-backed.
 - Compliance-core local validation now records official local serialization attempts and metadata-only archive hashes while stating that ASP validation is not connected.
 - No real provider was selected and no real ASP adapter, ASP call, ASP validation, ASP submission, FTA reporting, real Peppol transmission, provider credentials, executable provider base URL, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, E2E, real email, real ZATCA call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was added.
-- Recommended next prompt: `UAE PINT-AE official-code TODO review`.
+- Follow-up completed by the UAE PINT-AE official-code TODO review.
 
 2026-06-15 UAE ASP outreach execution pack:
 
