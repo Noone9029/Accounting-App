@@ -6,6 +6,7 @@ import {
   Calculator,
   FileText,
   Landmark,
+  Menu,
   Package,
   Receipt,
   Settings2,
@@ -14,6 +15,9 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, SVGProps } from "react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { filterSidebarNavItems } from "@/lib/sidebar-nav";
 import { canViewNavItem, PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -48,21 +52,33 @@ const mobileWorkflowLinks: readonly {
 ];
 
 export function Sidebar() {
+  return <SidebarContent />;
+}
+
+function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
   const pathname = usePathname();
   const { activeMembership } = usePermissions();
   const visibleItems = filterSidebarNavItems(activeMembership);
 
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-5 py-4">
-        <div className="text-sm font-semibold uppercase tracking-[0.18em] text-palm">LedgerByte</div>
-        <div className="mt-1 text-xs text-steel">Saudi-first accounting workspace</div>
+    <aside className={`${compact ? "h-full w-full" : "h-screen w-72"} flex shrink-0 flex-col bg-[#061a2f] text-white`}>
+      <div className="border-b border-white/10 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-lg bg-sky-500/15 text-sm font-bold text-sky-200 ring-1 ring-sky-300/20">
+            LB
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">LedgerByte</div>
+            <div className="mt-0.5 truncate text-xs text-slate-300">Saudi-first accounting workspace</div>
+          </div>
+        </div>
       </div>
-      <div className="border-b border-slate-200 px-3 py-3">
+      <div className="border-b border-white/10 px-3 py-3">
         <GlobalCreateMenu />
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="space-y-1">
+      <ScrollArea className="min-h-0 flex-1">
+        <nav className="px-3 py-4" aria-label="Main navigation">
+          <div className="flex flex-col gap-1">
           {visibleItems.map((item) => {
             const Icon = iconsByHref[item.href];
             const activeBase = item.activePrefix ?? item.href;
@@ -71,24 +87,24 @@ export function Sidebar() {
               <div key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium ${
-                    active ? "bg-mist text-ink" : "text-slate-600 hover:bg-slate-50 hover:text-ink"
+                  className={`flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    active ? "bg-sky-500/18 text-white ring-1 ring-sky-300/20" : "text-slate-300 hover:bg-white/7 hover:text-white"
                   }`}
                 >
-                  {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
+                  {Icon ? <Icon className="size-4" aria-hidden="true" /> : null}
                   <span>{item.label}</span>
                 </Link>
                 {item.children && item.children.length > 0 ? (
-                  <div className="mb-2 ml-7 mt-1 space-y-1 border-l border-slate-200 pl-3">
+                  <div className="mb-2 ml-5 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3">
                     {item.children.map((child, index) => (
                       <div key={child.href}>
                         {child.group && child.group !== item.children?.[index - 1]?.group ? (
-                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{child.group}</div>
+                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase text-slate-500">{child.group}</div>
                         ) : null}
                         <Link
                           href={child.href}
-                          className={`block rounded-md px-2 py-1.5 text-xs ${
-                            pathname === child.href ? "bg-mist text-ink" : "text-slate-500 hover:bg-slate-50 hover:text-ink"
+                          className={`block rounded-md px-2 py-1.5 text-xs transition ${
+                            pathname === child.href ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/7 hover:text-white"
                           }`}
                         >
                           {child.label}
@@ -100,8 +116,9 @@ export function Sidebar() {
               </div>
             );
           })}
-        </div>
-      </nav>
+          </div>
+        </nav>
+      </ScrollArea>
     </aside>
   );
 }
@@ -116,24 +133,37 @@ export function MobileWorkflowNav() {
   }
 
   return (
-    <nav className="border-b border-slate-200 bg-white px-4 py-2 lg:hidden" aria-label="First workflow navigation">
-      <div className="flex gap-2 overflow-x-auto pb-1">
+    <nav className="border-b border-border bg-card px-4 py-2 lg:hidden" aria-label="First workflow navigation">
+      <div className="flex items-center gap-2">
+        <Sheet>
+          <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open navigation" />}>
+            <Menu />
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[20rem] max-w-[86vw] border-0 bg-[#061a2f] p-0 text-white" showCloseButton={false}>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation</SheetTitle>
+            </SheetHeader>
+            <SidebarContent compact />
+          </SheetContent>
+        </Sheet>
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
         {visibleLinks.map((item) => {
           const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`whitespace-nowrap rounded-md border px-3 py-2 text-xs font-semibold ${
+              className={`whitespace-nowrap rounded-md border px-3 py-2 text-xs font-semibold transition ${
                 active
-                  ? "border-palm bg-emerald-50 text-palm"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               {item.label}
             </Link>
           );
         })}
+        </div>
       </div>
     </nav>
   );

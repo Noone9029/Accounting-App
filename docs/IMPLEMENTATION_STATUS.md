@@ -26,6 +26,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte UI shadcn shell/dashboard refresh:
+
+- PR `#49` was already merged into `main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c`; this branch was created fresh from updated `origin/main`.
+- Introduced shadcn/ui in `apps/web` as the frontend component foundation and added the requested primitive components.
+- Added LedgerByte wrapper components for page headers, KPI cards, data tables, filter bars, status badges, empty states, action grids, and panel sections.
+- Reworked the app shell with a dark grouped sidebar, polished topbar, existing organization switcher/search/create-menu behavior, permission-filtered navigation, and mobile sheet navigation.
+- Redesigned `/dashboard` using existing dashboard summary/onboarding data only. The page now includes KPI cards, P&L/Cash Flow tabs, read-only attention panels, onboarding progress, quick actions, and a restrained Three.js financial-flow visual.
+- Migrated the sales invoices list, purchase bills list, and sales invoice workflow guidance/detail surface to the new shadcn/LedgerByte component pattern.
+- Three.js is used only for the dashboard background visual and includes reduced-motion and no-WebGL fallbacks.
+- No backend API, Prisma schema, migration, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase change, infrastructure command, or production compliance claim was added.
+- Remaining UI migration scope: secondary list/detail/form routes, deeper form ergonomics, authenticated visual QA across more roles, and design-system consolidation.
+- Recommended next prompt: `LedgerByte secondary routes shadcn UI migration`.
+
 2026-06-16 UAE PINT-AE scenario fixture validation QA:
 
 - PR `#48` was merged into `main` at `363ee49a80737796a6f15ec606b7b7d99d9afdb1` before this branch started.
