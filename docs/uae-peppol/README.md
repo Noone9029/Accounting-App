@@ -37,6 +37,7 @@ Do not claim:
 - Local official UAE PINT-AE serializer/rule-pack foundation with `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, structured rule results, invoice XML generation, and credit-note reason/original-reference enforcement.
 - Source-backed official mappings for commercial invoice type code `380`, predefined endpoint participant identifications, and UAE transaction type flags.
 - Source-required guards for unknown or legacy transaction flag mappings. These values are not guessed.
+- Local scenario fixture validation suite for standard tax invoice, commercial invoice, tax credit note, predefined endpoint scenarios, negative structured-error scenarios, blocked unsupported scenarios, and a metadata-only local QA summary.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
 - Provider-neutral ASP adapter contract with normalized provider keys, statuses, and capability flags.
 - Disabled ASP adapter that blocks submission, rejects non-mock webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
@@ -69,6 +70,7 @@ Do not claim:
 - Hosted/customer-data proof.
 - Broad E2E/smoke/full-test coverage.
 - Provider-specific payload contract and real provider validation/submission behavior.
+- Reverse-charge and allowance/discount PINT-AE fixtures until source-backed values and model support exist.
 
 ## Runtime Boundaries
 
@@ -97,6 +99,7 @@ Do not claim:
 ## Provider Research Docs
 
 - `docs/uae-peppol/UAE_PINT_AE_OFFICIAL_CODE_TODO_REVIEW.md`
+- `docs/uae-peppol/UAE_PINT_AE_SCENARIO_FIXTURE_COVERAGE.md`
 - `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md`
 - `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md`
 - `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md`

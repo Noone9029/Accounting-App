@@ -101,3 +101,55 @@ export interface UaePintAeSerializationResult {
   validation: UaePintAeValidationResult;
   metadata: UaePintAeSerializationMetadata;
 }
+
+export type UaePintAeFixtureExpectedOutcome = "pass" | "fail" | "blocked";
+
+export interface UaePintAeFixtureDefinition {
+  name: string;
+  scenario: string;
+  expectedOutcome: UaePintAeFixtureExpectedOutcome;
+  input?: UaePintAeDocumentInput;
+  expectedErrorCodes?: string[];
+  expectedEndpointValue?: string;
+  expectedTransactionTypeFlagCode?: string;
+  knownGap?: string;
+  providerBlocked?: boolean;
+  blockedReason?: string;
+}
+
+export interface UaePintAeFixtureXmlMetadata {
+  customizationIdPresent: boolean;
+  profileIdPresent: boolean;
+  profileExecutionIdPresent: boolean;
+  endpointScheme0235Present: boolean;
+  predefinedEndpointValuePresent: boolean;
+  expectedTransactionFlagPresent: boolean;
+}
+
+export interface UaePintAeFixtureValidationResult {
+  fixtureName: string;
+  documentType: UaePintAeDocumentType | "not-represented";
+  scenario: string;
+  expectedOutcome: UaePintAeFixtureExpectedOutcome;
+  actualOutcome: UaePintAeFixtureExpectedOutcome;
+  passed: boolean;
+  errors: UaePintAeRuleResult[];
+  warnings: string[];
+  generatedXmlMetadata: UaePintAeFixtureXmlMetadata;
+}
+
+export interface UaePintAeFixtureQaSummary {
+  summaryType: "local QA summary";
+  certificationClaim: false;
+  legalComplianceEvidence: false;
+  totalFixtures: number;
+  passedFixtures: number;
+  failedFixtures: number;
+  blockedFixtures: number;
+  scenariosCovered: string[];
+  scenariosNotCovered: string[];
+  knownGaps: string[];
+  providerBlockedItems: string[];
+  timestamp: string;
+  packageVersion: string;
+}
