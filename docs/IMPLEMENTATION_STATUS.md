@@ -16,7 +16,7 @@ Current production posture:
 - Vercel is beta/user-testing only, not final production hosting.
 - LedgerByte is not production-launched.
 - Real ZATCA production compliance is not enabled.
-- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness plus disabled/mock ASP connector contracts only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
+- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness, disabled/mock ASP connector contracts, and provider-selection planning only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - Production tickets and ADRs are planning artifacts only. No hosting, database role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation has been performed.
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
@@ -24,6 +24,16 @@ Current production posture:
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-15 UAE ASP provider selection and sandbox contract plan:
+
+- Created branch `feature/uae-asp-provider-selection-plan` from fresh `origin/main` at `b95685dc0dbdf142b161b242ee9ae731f14ff4e7` after PR `#44` was merged.
+- Added provider-selection research, scoring, sandbox contract planning, and outreach template docs for a future UAE ASP integration.
+- Reviewed official UAE MoF Electronic Invoicing Guidelines, MoF pre-approved provider list, MoF accreditation page, OpenPeppol BIS Billing 3.0, OpenPeppol PINT-AE, and provider-primary/provider-adjacent pages for Complyance, ClearTax, EDICOM, Comarch, Taxilla, Pagero / Thomson Reuters, Storecove, Sovos, OpenText, and TronStride / Aigentrix.
+- Recommended first outreach order: Complyance, ClearTax, Taxilla, EDICOM, Pagero / Thomson Reuters, Comarch, TronStride / Aigentrix, Storecove, Sovos, OpenText.
+- Recommendation is outreach guidance only: start with the most API-friendly MoF-listed providers first and do not implement a real provider until sandbox docs and commercial terms are reviewed.
+- No real ASP call, ASP submission, FTA reporting, real Peppol transmission, production Peppol claim, production UAE compliance claim, provider credentials, executable provider base URL, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, E2E, real email, real ZATCA call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was added.
+- Recommended next prompt: `UAE ASP first-provider outreach evidence and sandbox docs review`.
 
 2026-06-15 UAE disabled ASP connector contracts:
 

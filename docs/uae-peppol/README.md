@@ -40,6 +40,7 @@ Do not claim:
 - Mock ASP adapter for deterministic local tests only. Mock accepted/rejected submissions require explicit mock mode and never claim real ASP submission, FTA reporting, or buyer delivery.
 - Future provider placeholders for Complyance, ClearTax, EDICOM, and generic ASP keys that return safe not-implemented results.
 - Redacted provider config summary, arbitrary external URL blocking, and no plaintext secret response behavior.
+- Provider-selection research matrix, sandbox contract plan, and outreach template for future UAE ASP evaluation only.
 - Read-only API readiness endpoints for sales invoices and sales credit notes.
 - API/service surface for provider readiness summary, redacted config test, local/mock transmission preview, explicit mock submit, and provider status timeline.
 - Finalized sales invoice and finalized sales credit-note readiness panels with explicit local-only validation actions.
@@ -81,12 +82,22 @@ Do not claim:
 
 - MoF UAE Electronic Invoicing Guidelines: https://mof.gov.ae/wp-content/uploads/2026/02/UAE-Electronic-Invoicing-Guidelines_V-1.0-23Feb2026.pdf
 - MoF pre-approved eInvoicing service providers: https://mof.gov.ae/en/about-us/initiatives/einvoicing/pre-approved-einvoicing-service-providers/
+- MoF Accreditation of eInvoicing Service Providers: https://mof.gov.ae/en/services/accreditation-of-einvoicing-service-providers/
 - Ministerial Decision No. 244 of 2025: https://mof.gov.ae/wp-content/uploads/2025/09/Ministerial-Decision-No.-244-of-2025-on-the-Implementation-of-the-Electronic-Invoicing-System.pdf
 - OpenPeppol PINT-AE v1.0.1: https://docs.peppol.eu/poac/ae/v1.0.1/pint-ae/
+- OpenPeppol BIS Billing 3.0: https://docs.peppol.eu/poacc/billing/3.0/
+
+## Provider Research Docs
+
+- `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md`
+- `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md`
+- `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md`
+
+Current recommendation: start outreach with the most API-friendly MoF-listed providers first, beginning with Complyance, ClearTax, Taxilla, EDICOM, Pagero / Thomson Reuters, and Comarch. Do not implement a real provider until sandbox docs and commercial terms are reviewed.
 
 ## Next Engineering Slice
 
-`UAE ASP provider selection research and provider-specific sandbox contract plan`
+`UAE ASP first-provider outreach evidence and sandbox docs review`
 
 Scope:
 

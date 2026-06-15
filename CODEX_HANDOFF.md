@@ -2,16 +2,26 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-disabled-asp-connector-contracts`.
-- Base: fresh `origin/main` at `9f57820af431cde2973d20c575137ecff72bec4f` after PR `#43` UAE Peppol/PINT-AE data-entry UX and validation panels was merged and cleaned up.
+- Branch: `feature/uae-asp-provider-selection-plan`.
+- Base: fresh `origin/main` at `b95685dc0dbdf142b161b242ee9ae731f14ff4e7` after PR `#44` UAE disabled ASP connector contracts was merged and cleaned up.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: provider-neutral UAE ASP connector contracts with disabled/default behavior, explicit mock-only behavior, and API/service contract tests.
+- Current lane: UAE ASP provider-selection research and provider-specific sandbox contract planning.
 - Product posture remains controlled beta/user-testing only.
-- This branch prepares LedgerByte to orchestrate a future accredited UAE ASP API while keeping all real ASP calls, FTA reporting, Peppol transmission, and production compliance claims disabled.
+- This branch documents provider outreach order, API evidence, sandbox contract requirements, and commercial/security questions while keeping all real ASP calls, FTA reporting, Peppol transmission, and production compliance claims disabled.
+
+## UAE ASP Provider Selection Plan Summary
+
+- Added `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md` with official-source links, provider shortlist, weighted scoring, risks, unknowns, and recommended first outreach order.
+- Added `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md` with required sandbox artifacts, contract terms, provider adapter acceptance criteria, and production go-live blockers.
+- Added `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md` with a conservative provider email template and response checklist.
+- Added `docs/development/UAE_ASP_PROVIDER_SELECTION_PLAN_SPRINT_CLOSURE.md` documenting the docs-only scope and safety boundary.
+- Recommended first outreach order: Complyance, ClearTax, Taxilla, EDICOM, Pagero / Thomson Reuters, Comarch, TronStride / Aigentrix, Storecove, Sovos, OpenText.
+- Storecove, Sovos, and OpenText remain comparator providers only unless current UAE MoF status or an authorized UAE ASP partnership is confirmed.
+- Final recommendation: start outreach with the most API-friendly MoF-listed providers first; do not implement a real provider until sandbox docs and commercial terms are reviewed.
 
 ## UAE Disabled ASP Connector Contract Summary
 
@@ -36,7 +46,7 @@
 
 - Controlled beta/user-testing only.
 - UAE eInvoicing readiness and Peppol/PINT-AE readiness only.
-- Local validation/readiness and disabled/mock ASP connector contracts only.
+- Local validation/readiness, disabled/mock ASP connector contracts, and provider-selection planning only.
 - No real ASP calls, no real ASP submission, no FTA reporting, no buyer delivery, and no production Peppol or UAE compliance claim.
 - LedgerByte is not claiming FTA certification, Peppol certification, official UAE provider status, or accredited ASP status.
 - No ZATCA production behavior, real ZATCA network call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was enabled.
@@ -45,7 +55,7 @@
 
 ## Verification Notes For This Branch
 
-- Targeted package/API tests were added for disabled/mock adapter contracts, future-provider not-implemented behavior, URL blocking, redaction, provider capability flags, missing-config fallback, explicit mock submission, disabled submission blocking, and tenant scoping.
+- This branch is docs/planning only and should preserve the disabled/mock adapter behavior from PR `#44`.
 - Required verification should include package tests/typechecks, API/web targeted tests, `verify:diff`, `verify:ci:local`, `git diff --check`, and staged diff whitespace checks.
 
 ## Previous Compliance Core Snapshot
@@ -151,4 +161,4 @@
 
 ## Exact Next Recommended Prompt Title
 
-`UAE ASP provider selection research and provider-specific sandbox contract plan`
+`UAE ASP first-provider outreach evidence and sandbox docs review`
