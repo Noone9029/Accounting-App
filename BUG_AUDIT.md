@@ -2,7 +2,31 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `5816a63309dd8104a81dfd47a5a6081cbed6ac6a` (`origin/main` after PR #45 UAE ASP provider selection and sandbox contract plan merge) plus the current UAE ASP outreach execution pack branch.
+Latest commit audited: `eb80d4bd64ff5db398a95beaed67cb76debb7435` (`origin/main` after PR #46 UAE ASP outreach execution pack merge) plus the current UAE PINT-AE official serializer rule-pack branch.
+
+## 2026-06-16 UAE PINT-AE official serializer rule pack
+
+Added a local-only official UAE PINT-AE serializer and validation rule-pack foundation without implementing or selecting a real ASP provider.
+
+### What changed
+
+- Added official serializer constants for `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, UAE endpoint scheme `0235`, and TIN-derived endpoint IDs.
+- Added focused `packages/uae-peppol-pint-ae/src/pint-ae/*` modules for constants, types, rules, serializer functions, and golden fixtures.
+- Kept the existing LedgerByte readiness XML path separate from official local serializer output.
+- Added structured local rule results for endpoint, TIN/TRN, participant ID, address, VAT/category, invoice type, currency, line, tax total, total mismatch, negative invoice, and credit-note reason/reference checks.
+- Added source-required guards for unknown official commercial invoice type code mapping, predefined endpoint scenario values, and transaction flag mappings so the package does not silently guess.
+- Updated compliance-core local validation to use the official local serializer, store metadata-only archive hashes, and mark ASP validation as not connected.
+- Updated the UAE readiness panel copy to distinguish local readiness, local official XML generation, and absent ASP validation.
+- Added targeted package/API/web tests for official identifiers, endpoint scheme `0235`, missing endpoint errors, negative invoice blocking, credit-note reason/reference blocking, no-network behavior, and no unsafe certification/provider/FTA claims.
+
+### Boundaries
+
+- Controlled beta/user-testing only.
+- Local UAE PINT-AE XML generation and validation only.
+- No real provider was selected.
+- No real provider adapter, provider credentials, executable provider base URL, real ASP call, real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, production Peppol claim, FTA certified claim, Peppol certified claim, official UAE provider claim, accredited ASP claim by LedgerByte, ZATCA production behavior, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, real email, schema migration, seed/reset/delete, smoke, or E2E was added.
+- Provider-specific payload contracts remain blocked on actual provider sandbox docs and non-confidential response evidence.
+- Unknown official code/endpoint/flag values remain TODOs and are intentionally not guessed.
 
 ## 2026-06-15 UAE ASP outreach execution pack
 

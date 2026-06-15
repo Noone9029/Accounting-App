@@ -10,7 +10,7 @@ LedgerByte remains:
 
 - Bookkeeping/accounting SaaS.
 - Data-capture and master-data readiness layer.
-- Local UAE Peppol/PINT-AE readiness validator.
+- Local UAE Peppol/PINT-AE readiness validator and official local serializer/rule-pack foundation.
 - Compliance event and audit-trail system.
 - Provider-neutral orchestration layer.
 
@@ -24,11 +24,18 @@ The future ASP must handle:
 
 Accounting finalization remains separate from compliance delivery state. A finalized invoice or credit note can be ready for ASP submission without being submitted, accepted, reported, or delivered.
 
+Current internal foundation before provider work:
+
+- LedgerByte can generate local official PINT-AE-shaped XML with official `CustomizationID`, `ProfileID`, and endpoint scheme `0235`.
+- LedgerByte still does not have real ASP validation, real ASP submission, FTA reporting, Peppol transmission, provider credentials, or provider-specific payload contract evidence.
+- Unknown official commercial-invoice type-code mapping, predefined endpoint values, and transaction flag mappings remain source-required TODOs and must not be guessed in provider branches.
+
 ## Safety Boundary
 
 - Controlled beta/user-testing only.
 - UAE Peppol/PINT-AE readiness only.
 - No real ASP calls.
+- No real ASP validation.
 - No real ASP submission.
 - No FTA reporting.
 - No real Peppol transmission.

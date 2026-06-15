@@ -34,6 +34,8 @@ Do not claim:
 - Peppol participant ID derivation from 10-digit TIN as `0235{TIN}`.
 - Local readiness checklist for organization, buyer endpoint, invoice field, credit-note reference, tax identity, and Peppol participant data.
 - Fixture-tested PINT-AE-like invoice and credit-note XML generation.
+- Local official UAE PINT-AE serializer/rule-pack foundation with `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, structured rule results, invoice XML generation, and credit-note reason/original-reference enforcement.
+- Source-required guards for unknown official commercial-invoice type-code mapping, predefined endpoint scenario values, and transaction flag mappings. These values are not guessed.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
 - Provider-neutral ASP adapter contract with normalized provider keys, statuses, and capability flags.
 - Disabled ASP adapter that blocks submission, rejects non-mock webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
@@ -46,11 +48,12 @@ Do not claim:
 - API/service surface for provider readiness summary, redacted config test, local/mock transmission preview, explicit mock submit, and provider status timeline.
 - Finalized sales invoice and finalized sales credit-note readiness panels with explicit local-only validation actions.
 - Settings page showing UAE readiness, buyer endpoint coverage, rollout dates, official references, and prohibited claims.
-- Metadata-only validation/archive behavior for local readiness output: status, hashes, warnings/errors, size, filename, and source links where applicable.
+- Metadata-only validation/archive behavior for local readiness and official local serializer output: status, hashes, warnings/errors, size, filename, and source links where applicable.
 
 ## Not Implemented
 
 - Real ASP network integration.
+- Real ASP validation.
 - Provider-specific payload contract.
 - Provider-specific credentials.
 - Provider-specific base URLs.
@@ -64,6 +67,7 @@ Do not claim:
 - PDF treatment as a UAE compliance artifact.
 - Hosted/customer-data proof.
 - Broad E2E/smoke/full-test coverage.
+- Final official-code closure for commercial invoice mappings, predefined endpoint values, and transaction flag mappings.
 
 ## Runtime Boundaries
 
@@ -71,6 +75,7 @@ Do not claim:
 - UAE Peppol/PINT-AE readiness only.
 - Disabled/mock ASP behavior only.
 - No real ASP connection.
+- No real ASP validation.
 - No real ASP network call.
 - No FTA reporting.
 - No real Peppol transmission.
@@ -102,13 +107,12 @@ Current recommendation: start outreach with the most API-friendly MoF-listed pro
 
 ## Next Engineering Slice
 
-`UAE ASP provider response evidence review`
+`UAE PINT-AE official-code TODO review`
 
 Scope:
 
-- Send or manually use the provider outreach drafts outside git.
-- Track non-confidential response evidence in the provider outreach tracker.
-- Score provider responses with the evaluation rubric.
-- Keep confidential provider material, API keys, tokens, private sandbox URLs, NDAs, and price sheets out of git.
+- Review current official UAE/OpenPeppol PINT-AE docs for commercial invoice type codes, predefined endpoint values, and transaction flag mappings.
+- Update only source-backed constants/rules; keep unknown values as explicit TODOs.
+- Keep provider-specific payload contracts blocked until provider sandbox docs exist.
 - Keep all real ASP network calls disabled until provider selection, sandbox credentials, redaction rules, and explicit approval exist.
 - Preserve no FTA reporting, no buyer delivery, and no production compliance claim.

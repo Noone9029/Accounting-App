@@ -247,7 +247,128 @@ describe("ComplianceCoreService", () => {
     );
     expect(prisma.complianceDocument.findFirst).toHaveBeenCalledWith({ where: { id: "doc-1", organizationId: "org-2" } });
   });
+
+  it("records official local PINT-AE serializer validation for sales invoices without provider status", async () => {
+    const { service, prisma, tx } = makeValidationService({ sourceType: "SALES_INVOICE" });
+
+    const result = await service.validateDocument("org-1", "user-1", "doc-1");
+
+    expect(result.archiveCreated).toBe(true);
+    expect(result.validation.valid).toBe(true);
+    expect(tx.complianceValidationResult.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          validatorKey: "uae-pint-ae-official-local",
+          summary: expect.stringContaining("Official local PINT-AE XML serialization passed"),
+          metadataJson: expect.objectContaining({
+            noNetwork: true,
+            noAspValidation: true,
+            noFtaReporting: true,
+            productionCompliance: false,
+          }),
+        }),
+      }),
+    );
+    expect(tx.documentArchiveRecord.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ storageProvider: "metadata-only" }) }));
+    expect(tx.complianceEventLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ message: expect.stringContaining("without ASP validation or network calls") }) }));
+    expect(prisma.complianceTransmission.create).not.toHaveBeenCalled();
+  });
+
+  it("records official local PINT-AE serializer validation for credit notes", async () => {
+    const { service } = makeValidationService({ sourceType: "CREDIT_NOTE" });
+
+    const result = await service.validateDocument("org-1", "user-1", "doc-1");
+
+    expect(result.archiveCreated).toBe(true);
+    expect(result.validation.valid).toBe(true);
+    expect(result.validation.issues).toEqual([]);
+  });
+
+  it("returns structured official serializer errors for missing buyer endpoint", async () => {
+    const { service } = makeValidationService({
+      sourceType: "SALES_INVOICE",
+      invoice: invoiceFixture({
+        customer: { ...contactFixture(), peppolParticipantId: null, uaeTin: null },
+      }),
+    });
+
+    const result = await service.validateDocument("org-1", "user-1", "doc-1");
+
+    expect(result.archiveCreated).toBe(false);
+    expect(result.validation.valid).toBe(false);
+    expect(result.validation.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "BUYER_ENDPOINT_REQUIRED", fieldPath: "buyer.endpointId", source: "local-rule" })]),
+    );
+  });
+
+  it("returns structured official serializer errors for credit notes missing reason and original reference", async () => {
+    const { service } = makeValidationService({
+      sourceType: "CREDIT_NOTE",
+      creditNote: creditNoteFixture({ reason: "", originalInvoice: null }),
+    });
+
+    const result = await service.validateDocument("org-1", "user-1", "doc-1");
+
+    expect(result.archiveCreated).toBe(false);
+    expect(result.validation.valid).toBe(false);
+    expect(result.validation.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "CREDIT_NOTE_REASON_REQUIRED", fieldPath: "creditNoteReason", source: "local-rule" }),
+        expect.objectContaining({ code: "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED", fieldPath: "originalInvoiceNumber", source: "local-rule" }),
+      ]),
+    );
+  });
+
+  it("does not use network calls during official local PINT-AE validation", async () => {
+    const { service } = makeValidationService({ sourceType: "SALES_INVOICE" });
+    const originalFetch = global.fetch;
+    let fetchCount = 0;
+    global.fetch = jest.fn(() => {
+      fetchCount += 1;
+      throw new Error("network should not be called");
+    }) as typeof fetch;
+    try {
+      await service.validateDocument("org-1", "user-1", "doc-1");
+    } finally {
+      global.fetch = originalFetch;
+    }
+
+    expect(fetchCount).toBe(0);
+  });
 });
+
+function makeValidationService(input: { sourceType: "SALES_INVOICE" | "CREDIT_NOTE"; invoice?: unknown; creditNote?: unknown }) {
+  const complianceDocument = {
+    id: "doc-1",
+    organizationId: "org-1",
+    sourceType: input.sourceType,
+    sourceId: input.sourceType === "SALES_INVOICE" ? "invoice-1" : "credit-1",
+    documentType: input.sourceType === "SALES_INVOICE" ? "TAX_INVOICE" : "TAX_CREDIT_NOTE",
+    status: "READY_FOR_VALIDATION",
+    documentNumber: input.sourceType === "SALES_INVOICE" ? "INV-0001" : "CN-0001",
+  };
+  const tx = {
+    complianceValidationResult: { create: jest.fn().mockResolvedValue({ id: "validation-1" }) },
+    documentArchiveRecord: { create: jest.fn().mockResolvedValue({ id: "archive-1" }) },
+    complianceDocument: { update: jest.fn().mockResolvedValue({ ...complianceDocument, status: "READY_FOR_ASP", latestValidationStatus: "PASSED" }) },
+    complianceEventLog: { create: jest.fn().mockResolvedValue({ id: "event-1" }) },
+  };
+  const { service, prisma, auditLogService } = makeService({
+    complianceDocument: {
+      groupBy: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(complianceDocument),
+      update: jest.fn(),
+    },
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue(input.invoice ?? invoiceFixture({ dueDate: new Date("2026-07-14T00:00:00.000Z") })),
+    },
+    creditNote: {
+      findFirst: jest.fn().mockResolvedValue(input.creditNote ?? creditNoteFixture()),
+    },
+    $transaction: jest.fn(async (callback: (executor: typeof tx) => Promise<unknown>) => callback(tx)),
+  });
+  return { service, prisma, auditLogService, tx };
+}
 
 function organizationFixture() {
   return {
@@ -312,9 +433,9 @@ function creditNoteFixture(overrides: Record<string, unknown> = {}) {
     originalInvoice: { invoiceNumber: "INV-0001" },
     reason: "Returned service",
     lines: [documentLineFixture()],
-    taxableTotal: "100",
-    taxTotal: "5",
-    total: "105",
+    taxableTotal: "1000",
+    taxTotal: "50",
+    total: "1050",
     ...overrides,
   };
 }
