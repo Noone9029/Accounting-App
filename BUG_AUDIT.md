@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `869d78ee02f603679ff0f462d2bd16d3a45fd481` (`origin/main` after PR #47 UAE PINT-AE official serializer rule-pack merge) plus the current UAE PINT-AE official-code TODO review branch.
+Latest commit audited: `363ee49a80737796a6f15ec606b7b7d99d9afdb1` (`origin/main` after PR #48 UAE PINT-AE official-code TODO review merge) plus the current UAE PINT-AE scenario fixture validation QA branch.
+
+## 2026-06-16 UAE PINT-AE scenario fixture validation QA
+
+Expanded local-only UAE PINT-AE fixture coverage and added a structured fixture validation harness without adding provider calls or production compliance claims.
+
+### What changed
+
+- Added `docs/uae-peppol/UAE_PINT_AE_SCENARIO_FIXTURE_COVERAGE.md` and `docs/development/UAE_PINT_AE_SCENARIO_FIXTURES_VALIDATION_QA_SPRINT_CLOSURE.md`.
+- Added package fixture factories for standard tax invoice, commercial invoice type code `380`, tax credit note with reason/original reference, export receiver not registered in Peppol `9900000099`, deemed supply `9900000097`, buyer not subject `9900000098`, and multi-line invoice values.
+- Added negative fixtures for missing buyer endpoint, invalid TIN/TRN, credit-note missing reason/reference, and unsupported legacy transaction flag.
+- Added blocked fixture coverage for reverse charge, allowance/discount invoices, and provider-specific payload contract instead of inventing unsupported official values or unsupported model fields.
+- Added `validateUaePintAeFixture()`, `runUaePintAeFixtureSuite()`, and `summarizeUaePintAeFixtureResults()`.
+- Added tests proving official XML identifiers, endpoint scheme/value checks, transaction flag checks, structured negative errors, and no certification/compliance claim in the local QA summary.
+
+### Boundaries
+
+- Controlled beta/user-testing only.
+- Local UAE PINT-AE XML generation and validation only.
+- No real provider was selected.
+- No provider sandbox docs, credentials, provider response, or commercial terms are available.
+- No real ASP adapter, real ASP call, real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, production Peppol claim, FTA certified claim, Peppol certified claim, official UAE provider claim, accredited ASP claim by LedgerByte, ZATCA production behavior, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, real email, schema migration, seed/reset/delete, smoke, or E2E was added.
+- API/UI fixture coverage integration was skipped; this remains package/dev-only local QA.
 
 ## 2026-06-16 UAE PINT-AE official-code TODO review
 

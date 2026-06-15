@@ -28,6 +28,7 @@ Current internal foundation before provider work:
 
 - LedgerByte can generate local official PINT-AE-shaped XML with official `CustomizationID`, `ProfileID`, and endpoint scheme `0235`.
 - LedgerByte has completed the source-backed official-code TODO review for commercial invoice type code `380`, predefined endpoint participant identifications, and transaction type flags.
+- LedgerByte has package-level local fixture QA coverage for supported positive/negative scenarios and blocked unsupported scenarios. This is not provider validation, not FTA reporting, not certification evidence, and not production Peppol evidence.
 - LedgerByte still does not have real ASP validation, real ASP submission, FTA reporting, Peppol transmission, provider credentials, or provider-specific payload contract evidence.
 - Unknown future official values must not be guessed in provider branches.
 

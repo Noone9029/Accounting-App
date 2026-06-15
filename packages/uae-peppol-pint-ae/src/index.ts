@@ -1,4 +1,5 @@
 export * from "./pint-ae/constants";
+export * from "./pint-ae/fixture-suite";
 export * from "./pint-ae/fixtures";
 export * from "./pint-ae/rules";
 export * from "./pint-ae/serializer";

@@ -48,6 +48,15 @@ export function standardUaePintAeTaxInvoiceFixture(): UaePintAeDocumentInput {
   };
 }
 
+export function commercialUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentType: "commercial-invoice",
+    documentNumber: "COM-0001",
+    invoiceTypeCode: "",
+  };
+}
+
 export function standardUaePintAeTaxCreditNoteFixture(): UaePintAeDocumentInput {
   return {
     ...standardUaePintAeTaxInvoiceFixture(),
@@ -58,5 +67,110 @@ export function standardUaePintAeTaxCreditNoteFixture(): UaePintAeDocumentInput 
     invoiceTypeCode: "381",
     creditNoteReason: "Billing adjustment",
     originalInvoiceNumber: "INV-0001",
+  };
+}
+
+export function exportReceiverNotRegisteredUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return predefinedEndpointFixture("EXP-0001", "export-receiver-not-registered", ["exports"]);
+}
+
+export function deemedSupplyUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return predefinedEndpointFixture("DSM-0001", "deemed-supply", ["deemed-supply"]);
+}
+
+export function buyerNotSubjectUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return predefinedEndpointFixture("BNS-0001", "buyer-not-subject", []);
+}
+
+export function multiLineUaePintAeTaxInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "INV-0002",
+    lines: [
+      ...standardUaePintAeTaxInvoiceFixture().lines,
+      {
+        id: "2",
+        description: "VAT readiness review",
+        quantity: "2",
+        unitCode: "EA",
+        unitPrice: "125",
+        taxableAmount: "250",
+        taxAmount: "12.50",
+        lineTotal: "262.50",
+        taxCategory: "S",
+      },
+    ],
+    subtotal: "1250",
+    taxTotal: "62.50",
+    total: "1312.50",
+  };
+}
+
+export function missingBuyerEndpointUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "NEG-BUYER-ENDPOINT",
+    buyer: {
+      ...standardUaePintAeTaxInvoiceFixture().buyer,
+      endpointId: "",
+      peppolParticipantId: "",
+      tin: null,
+    },
+  };
+}
+
+export function invalidTinTrnUaePintAeInvoiceFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "NEG-TAX-ID",
+    supplier: {
+      ...standardUaePintAeTaxInvoiceFixture().supplier,
+      tin: "123",
+      trn: "100",
+    },
+  };
+}
+
+export function creditNoteMissingReasonUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxCreditNoteFixture(),
+    documentNumber: "NEG-CN-REASON",
+    creditNoteReason: "",
+  };
+}
+
+export function creditNoteMissingOriginalReferenceUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxCreditNoteFixture(),
+    documentNumber: "NEG-CN-REFERENCE",
+    originalInvoiceNumber: "",
+  };
+}
+
+export function unsupportedLegacyTransactionFlagUaePintAeFixture(): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber: "NEG-LEGACY-FLAG",
+    transactionTypeFlags: ["self-billing"],
+  };
+}
+
+function predefinedEndpointFixture(
+  documentNumber: string,
+  predefinedEndpointScenario: NonNullable<UaePintAeDocumentInput["predefinedEndpointScenario"]>,
+  transactionTypeFlags: NonNullable<UaePintAeDocumentInput["transactionTypeFlags"]>,
+): UaePintAeDocumentInput {
+  return {
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentNumber,
+    buyer: {
+      ...standardUaePintAeTaxInvoiceFixture().buyer,
+      endpointId: "",
+      peppolParticipantId: "",
+      tin: null,
+      trn: null,
+    },
+    predefinedEndpointScenario,
+    transactionTypeFlags,
   };
 }

@@ -19,10 +19,13 @@ import {
   createAspProviderAdapter,
   deriveUaePeppolParticipantId,
   redactAspProviderConfig,
+  runUaePintAeFixtureSuite,
   serializeUaePintAeCreditNote,
   serializeUaePintAeInvoice,
   standardUaePintAeTaxCreditNoteFixture,
   standardUaePintAeTaxInvoiceFixture,
+  summarizeUaePintAeFixtureResults,
+  uaePintAeScenarioFixtureDefinitions,
   validateUaePintAeDocument,
   validateUaePintInput,
 } from "../src";
@@ -264,6 +267,50 @@ test("blocks invalid explicit transaction type flag codes", () => {
   assert.equal(result.validation.issues.some((issue) => issue.code === "TRANSACTION_TYPE_FLAG_CODE_INVALID" && issue.source === "local-rule"), true);
 });
 
+test("runs UAE PINT-AE scenario fixture validation suite", () => {
+  const definitions = uaePintAeScenarioFixtureDefinitions();
+  const results = runUaePintAeFixtureSuite(definitions);
+  const summary = summarizeUaePintAeFixtureResults(results, definitions, "2026-06-16T00:00:00.000Z");
+
+  assert.equal(results.every((result) => result.passed), true);
+  assert.equal(summary.summaryType, "local QA summary");
+  assert.equal(summary.certificationClaim, false);
+  assert.equal(summary.legalComplianceEvidence, false);
+  assert.equal(summary.totalFixtures, definitions.length);
+  assert.equal(summary.failedFixtures, 0);
+  assert.equal(summary.blockedFixtures, 3);
+  assert.equal(summary.packageVersion, "0.1.0");
+  assert.deepEqual(
+    summary.scenariosNotCovered.sort(),
+    ["discount-allowance-invoice", "provider-specific-payload-contract", "reverse-charge-invoice"].sort(),
+  );
+
+  const positiveResults = results.filter((result) => result.expectedOutcome === "pass");
+  assert.equal(positiveResults.length, 7);
+  for (const result of positiveResults) {
+    assert.equal(result.actualOutcome, "pass");
+    assert.equal(result.generatedXmlMetadata.customizationIdPresent, true);
+    assert.equal(result.generatedXmlMetadata.profileIdPresent, true);
+    assert.equal(result.generatedXmlMetadata.profileExecutionIdPresent, true);
+    assert.equal(result.generatedXmlMetadata.endpointScheme0235Present, true);
+  }
+
+  assertFixturePassed(results, "commercial-invoice-380");
+  assertFixturePassed(results, "export-receiver-not-registered");
+  assertFixturePassed(results, "deemed-supply");
+  assertFixturePassed(results, "buyer-not-subject");
+  assertFixturePassed(results, "multi-line-mixed-values");
+  assertFixtureFailedWith(results, "missing-buyer-endpoint", "BUYER_ENDPOINT_REQUIRED");
+  assertFixtureFailedWith(results, "invalid-tin-trn", "SELLER_TIN_INVALID");
+  assertFixtureFailedWith(results, "invalid-tin-trn", "SELLER_TRN_INVALID");
+  assertFixtureFailedWith(results, "credit-note-missing-reason", "CREDIT_NOTE_REASON_REQUIRED");
+  assertFixtureFailedWith(results, "credit-note-missing-original-reference", "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED");
+  assertFixtureFailedWith(results, "unsupported-legacy-transaction-flag", "TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED");
+  assert.equal(summary.providerBlockedItems.includes("provider-specific-payload-contract"), true);
+  assert.match(summary.knownGaps.join(" "), /No source-backed UAE PINT-AE reverse-charge transaction flag mapping/);
+  assert.match(summary.knownGaps.join(" "), /no allowance\/charge representation/i);
+});
+
 test("disabled ASP adapter blocks submission and never emits future delivery statuses", async () => {
   const adapter = new DisabledAspProviderAdapter();
 
@@ -386,4 +433,19 @@ function invoiceFixture() {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assertFixturePassed(results: ReturnType<typeof runUaePintAeFixtureSuite>, scenario: string): void {
+  const result = results.find((item) => item.scenario === scenario);
+  assert.ok(result, `${scenario} fixture result should exist`);
+  assert.equal(result.passed, true);
+  assert.equal(result.actualOutcome, "pass");
+}
+
+function assertFixtureFailedWith(results: ReturnType<typeof runUaePintAeFixtureSuite>, scenario: string, code: string): void {
+  const result = results.find((item) => item.scenario === scenario);
+  assert.ok(result, `${scenario} fixture result should exist`);
+  assert.equal(result.passed, true);
+  assert.equal(result.actualOutcome, "fail");
+  assert.equal(result.errors.some((error) => error.code === code), true);
 }
