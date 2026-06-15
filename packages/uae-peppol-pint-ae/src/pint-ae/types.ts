@@ -47,12 +47,17 @@ export interface UaePintAeLine {
 export type UaePintAePredefinedEndpointScenario = "deemed-supply" | "export-receiver-not-registered" | "buyer-not-subject";
 
 export type UaePintAeTransactionTypeFlag =
+  | "free-trade-zone"
+  | "deemed-supply"
+  | "profit-margin-scheme"
+  | "summary-invoice"
+  | "continuous-supply"
+  | "agent-billing"
+  | "e-commerce"
+  | "exports"
   | "self-billing"
   | "third-party"
   | "nominal-invoice"
-  | "exports"
-  | "summary-invoice"
-  | "continuous-supply"
   | "unknown";
 
 export interface UaePintAeDocumentInput {

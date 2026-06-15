@@ -35,7 +35,8 @@ Do not claim:
 - Local readiness checklist for organization, buyer endpoint, invoice field, credit-note reference, tax identity, and Peppol participant data.
 - Fixture-tested PINT-AE-like invoice and credit-note XML generation.
 - Local official UAE PINT-AE serializer/rule-pack foundation with `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, structured rule results, invoice XML generation, and credit-note reason/original-reference enforcement.
-- Source-required guards for unknown official commercial-invoice type-code mapping, predefined endpoint scenario values, and transaction flag mappings. These values are not guessed.
+- Source-backed official mappings for commercial invoice type code `380`, predefined endpoint participant identifications, and UAE transaction type flags.
+- Source-required guards for unknown or legacy transaction flag mappings. These values are not guessed.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
 - Provider-neutral ASP adapter contract with normalized provider keys, statuses, and capability flags.
 - Disabled ASP adapter that blocks submission, rejects non-mock webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
@@ -67,7 +68,7 @@ Do not claim:
 - PDF treatment as a UAE compliance artifact.
 - Hosted/customer-data proof.
 - Broad E2E/smoke/full-test coverage.
-- Final official-code closure for commercial invoice mappings, predefined endpoint values, and transaction flag mappings.
+- Provider-specific payload contract and real provider validation/submission behavior.
 
 ## Runtime Boundaries
 
@@ -95,6 +96,7 @@ Do not claim:
 
 ## Provider Research Docs
 
+- `docs/uae-peppol/UAE_PINT_AE_OFFICIAL_CODE_TODO_REVIEW.md`
 - `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md`
 - `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md`
 - `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md`
@@ -107,12 +109,11 @@ Current recommendation: start outreach with the most API-friendly MoF-listed pro
 
 ## Next Engineering Slice
 
-`UAE PINT-AE official-code TODO review`
+`UAE ASP provider sandbox evidence review`
 
 Scope:
 
-- Review current official UAE/OpenPeppol PINT-AE docs for commercial invoice type codes, predefined endpoint values, and transaction flag mappings.
-- Update only source-backed constants/rules; keep unknown values as explicit TODOs.
+- Collect and review actual provider sandbox docs, sample payloads, status/error schemas, idempotency rules, webhook signing, evidence download, and commercial terms.
 - Keep provider-specific payload contracts blocked until provider sandbox docs exist.
 - Keep all real ASP network calls disabled until provider selection, sandbox credentials, redaction rules, and explicit approval exist.
 - Preserve no FTA reporting, no buyer delivery, and no production compliance claim.
