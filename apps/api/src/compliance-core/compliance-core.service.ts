@@ -20,9 +20,10 @@ import {
   type AspProviderOperationInput,
   type AspProviderSubmissionResult,
   buildUaeDocumentReadinessReport,
-  buildUaePintXml,
   buildUaeReadinessReport,
   deriveUaePeppolParticipantId,
+  serializeUaePintAeCreditNote,
+  serializeUaePintAeInvoice,
   type UaePintDocumentInput,
 } from "@ledgerbyte/uae-peppol-pint-ae";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -355,7 +356,7 @@ export class ComplianceCoreService {
   async validateDocument(organizationId: string, actorUserId: string, id: string) {
     const document = await this.requireDocument(organizationId, id);
     const input = await this.buildPintInput(document);
-    const result = buildUaePintXml(input);
+    const result = input.kind === "credit-note" ? serializeUaePintAeCreditNote(input) : serializeUaePintAeInvoice(input);
     const status = result.validation.valid ? ComplianceValidationStatus.PASSED : ComplianceValidationStatus.FAILED;
     const nextDocumentStatus = result.validation.valid ? ComplianceDocumentStatus.READY_FOR_ASP : ComplianceDocumentStatus.VALIDATION_FAILED;
     const archiveMetadata = result.validation.valid
@@ -374,10 +375,19 @@ export class ComplianceCoreService {
           organizationId,
           complianceDocumentId: id,
           status,
-          validatorKey: "uae-peppol-pint-ae-local",
-          summary: result.validation.valid ? "Local PINT-AE readiness validation passed. ASP submission remains disabled." : "Local PINT-AE readiness validation failed.",
+          validatorKey: "uae-pint-ae-official-local",
+          summary: result.validation.valid ? "Official local PINT-AE XML serialization passed. ASP validation is not connected." : "Official local PINT-AE XML serialization failed.",
           issuesJson: toInputJson({ issues: result.validation.issues }),
-          metadataJson: toInputJson({ noNetwork: true, noAspSubmission: true }),
+          metadataJson: toInputJson({
+            localOnly: true,
+            noNetwork: true,
+            noAspSubmission: true,
+            noAspValidation: true,
+            noFtaReporting: true,
+            productionCompliance: false,
+            serializer: result.metadata,
+            readinessValidationStillAvailable: true,
+          }),
         },
       });
 
@@ -395,7 +405,7 @@ export class ComplianceCoreService {
             storageProvider: archiveMetadata.storageProvider,
             contentHash: archiveMetadata.contentHash,
             sizeBytes: archiveMetadata.sizeBytes,
-            metadataJson: toInputJson({ generatedBy: "uae-peppol-pint-ae-local", bodyStored: false }),
+            metadataJson: toInputJson({ generatedBy: "uae-pint-ae-official-local", bodyStored: false, noAspValidation: true, noFtaReporting: true }),
             createdById: actorUserId,
           },
         });
@@ -407,7 +417,7 @@ export class ComplianceCoreService {
         data: {
           status: nextDocumentStatus,
           latestValidationStatus: status,
-          validationSummaryJson: toInputJson({ validatorKey: "uae-peppol-pint-ae-local", issueCount: result.validation.issues.length }),
+          validationSummaryJson: toInputJson({ validatorKey: "uae-pint-ae-official-local", issueCount: result.validation.issues.length, noAspValidation: true }),
           latestArchiveRecordId,
         },
       });
@@ -419,8 +429,8 @@ export class ComplianceCoreService {
           eventType: "VALIDATED_LOCALLY",
           fromStatus: document.status,
           toStatus: updatedDocument.status,
-          message: "Local validation completed without ASP network calls.",
-          metadataJson: toInputJson({ validationResultId: validation.id, noNetwork: true }),
+          message: "Official local PINT-AE serialization completed without ASP validation or network calls.",
+          metadataJson: toInputJson({ validationResultId: validation.id, noNetwork: true, noAspValidation: true, noFtaReporting: true }),
           actorUserId,
         },
       });
@@ -609,6 +619,7 @@ export class ComplianceCoreService {
 function salesInvoicePintInput(invoice: {
   invoiceNumber: string;
   issueDate: Date;
+  dueDate: Date | null;
   currency: string;
   organization: Parameters<typeof organizationParty>[0];
   customer: Parameters<typeof contactParty>[0];
@@ -630,6 +641,7 @@ function salesInvoicePintInput(invoice: {
     kind: "invoice",
     documentNumber: invoice.invoiceNumber,
     issueDate: toDateOnly(invoice.issueDate),
+    paymentDueDate: invoice.dueDate ? toDateOnly(invoice.dueDate) : null,
     currency: invoice.currency,
     supplier: organizationParty(invoice.organization),
     buyer: contactParty(invoice.customer),
@@ -637,10 +649,12 @@ function salesInvoicePintInput(invoice: {
       id: line.sortOrder ? String(line.sortOrder) : line.id,
       description: line.description,
       quantity: moneyString(line.quantity),
+      unitCode: "EA",
       unitPrice: moneyString(line.unitPrice),
       taxableAmount: moneyString(line.taxableAmount),
       taxAmount: moneyString(line.taxAmount),
       lineTotal: moneyString(line.lineTotal),
+      taxCategory: positiveAmount(line.taxAmount) ? "S" : "O",
     })),
     subtotal: moneyString(invoice.taxableTotal),
     taxTotal: moneyString(invoice.taxTotal),
@@ -681,10 +695,12 @@ function creditNotePintInput(creditNote: {
       id: line.sortOrder ? String(line.sortOrder) : line.id,
       description: line.description,
       quantity: moneyString(line.quantity),
+      unitCode: "EA",
       unitPrice: moneyString(line.unitPrice),
       taxableAmount: moneyString(line.taxableAmount),
       taxAmount: moneyString(line.taxAmount),
       lineTotal: moneyString(line.lineTotal),
+      taxCategory: positiveAmount(line.taxAmount) ? "S" : "O",
     })),
     subtotal: moneyString(creditNote.taxableTotal),
     taxTotal: moneyString(creditNote.taxTotal),
@@ -776,6 +792,10 @@ function safeDeriveParticipantId(tin: string | null): string | null {
 
 function moneyString(value: Prisma.Decimal | number | string): string {
   return value instanceof Prisma.Decimal ? value.toString() : String(value);
+}
+
+function positiveAmount(value: Prisma.Decimal | number | string): boolean {
+  return Number(moneyString(value)) > 0;
 }
 
 function toDateOnly(value: Date): string {

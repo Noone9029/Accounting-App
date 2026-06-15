@@ -5,6 +5,10 @@ import {
   DISABLED_PROVIDER_EMITTED_STATUSES,
   DisabledAspProviderAdapter,
   MockAspProviderAdapter,
+  UAE_ELECTRONIC_ADDRESS_SCHEME_ID,
+  UAE_PINT_AE_CUSTOMIZATION_ID,
+  UAE_PINT_AE_PROFILE_ID,
+  UAE_PINT_AE_READINESS_CUSTOMIZATION_ID,
   buildUaeDocumentReadinessReport,
   buildUaePartyReadinessReport,
   buildUaePintXml,
@@ -12,6 +16,11 @@ import {
   createAspProviderAdapter,
   deriveUaePeppolParticipantId,
   redactAspProviderConfig,
+  serializeUaePintAeCreditNote,
+  serializeUaePintAeInvoice,
+  standardUaePintAeTaxCreditNoteFixture,
+  standardUaePintAeTaxInvoiceFixture,
+  validateUaePintAeDocument,
   validateUaePintInput,
 } from "../src";
 
@@ -114,6 +123,98 @@ test("generates stable PINT-AE readiness XML for an invoice", () => {
   assert.match(result.xml, /<cbc:CustomizationID>urn:peppol:pint:ae:billing-1@ledgerbyte-readiness<\/cbc:CustomizationID>/);
   assert.match(result.xml, /<cbc:EndpointID schemeID="0235">02351234567890<\/cbc:EndpointID>/);
   assert.match(result.xml, /<cbc:PayableAmount currencyID="AED">1050.00<\/cbc:PayableAmount>/);
+});
+
+test("generates official local PINT-AE XML for a UAE tax invoice", () => {
+  const result = serializeUaePintAeInvoice(standardUaePintAeTaxInvoiceFixture());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.validation.valid, true);
+  assert.equal(result.metadata.localOnly, true);
+  assert.equal(result.metadata.noAspValidation, true);
+  assert.match(result.xml, /<Invoice /);
+  assert.match(result.xml, new RegExp(`<cbc:CustomizationID>${escapeRegExp(UAE_PINT_AE_CUSTOMIZATION_ID)}<\\/cbc:CustomizationID>`));
+  assert.match(result.xml, new RegExp(`<cbc:ProfileID>${escapeRegExp(UAE_PINT_AE_PROFILE_ID)}<\\/cbc:ProfileID>`));
+  assert.match(result.xml, new RegExp(`<cbc:EndpointID schemeID="${UAE_ELECTRONIC_ADDRESS_SCHEME_ID}">02351234567890<\\/cbc:EndpointID>`));
+  assert.match(result.xml, /<cbc:InvoiceTypeCode>380<\/cbc:InvoiceTypeCode>/);
+  assert.match(result.xml, /<cbc:InvoicedQuantity unitCode="EA">1.00<\/cbc:InvoicedQuantity>/);
+  assert.equal(result.xml.includes(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), false);
+});
+
+test("generates official local PINT-AE XML for a tax credit note with reason and original reference", () => {
+  const result = serializeUaePintAeCreditNote(standardUaePintAeTaxCreditNoteFixture());
+
+  assert.equal(result.ok, true);
+  assert.equal(result.validation.valid, true);
+  assert.match(result.xml, /<CreditNote /);
+  assert.match(result.xml, /<cbc:CreditNoteTypeCode>381<\/cbc:CreditNoteTypeCode>/);
+  assert.match(result.xml, /<cbc:ID>INV-0001<\/cbc:ID>/);
+  assert.match(result.xml, /<cbc:Note>Billing adjustment<\/cbc:Note>/);
+  assert.match(result.xml, /<cbc:CreditedQuantity unitCode="EA">1.00<\/cbc:CreditedQuantity>/);
+  assert.equal(result.xml.includes(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), false);
+});
+
+test("returns structured official serializer errors for missing buyer endpoint and invalid TIN", () => {
+  const validation = validateUaePintAeDocument({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    buyer: { ...standardUaePintAeTaxInvoiceFixture().buyer, peppolParticipantId: "", tin: "bad" },
+  });
+
+  assert.equal(validation.valid, false);
+  assert.equal(validation.issues.some((issue) => issue.code === "BUYER_ENDPOINT_REQUIRED" && issue.fieldPath === "buyer.endpointId" && issue.source === "local-rule"), true);
+  assert.equal(validation.issues.some((issue) => issue.code === "BUYER_TIN_INVALID" && issue.fieldPath === "buyer.tin"), true);
+});
+
+test("blocks official invoice XML for missing seller address and negative invoice values", () => {
+  const result = serializeUaePintAeInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    supplier: { ...standardUaePintAeTaxInvoiceFixture().supplier, addressLine1: "" },
+    total: "-1050",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.xml, "");
+  assert.equal(result.validation.issues.some((issue) => issue.code === "SELLER_ADDRESS_REQUIRED"), true);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "NEGATIVE_INVOICE_TOTAL_BLOCKED"), true);
+});
+
+test("blocks official credit note XML when reason or original reference is missing", () => {
+  const result = serializeUaePintAeCreditNote({
+    ...standardUaePintAeTaxCreditNoteFixture(),
+    creditNoteReason: "",
+    originalInvoiceNumber: "",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.xml, "");
+  assert.equal(result.validation.issues.some((issue) => issue.code === "CREDIT_NOTE_REASON_REQUIRED"), true);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED"), true);
+});
+
+test("does not silently guess unknown commercial invoice type codes", () => {
+  const result = serializeUaePintAeInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    documentType: "commercial-invoice",
+    invoiceTypeCode: "",
+    taxTotal: "0",
+    total: "1000",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "INVOICE_TYPE_CODE_OFFICIAL_VALUE_REQUIRED" && issue.source === "official-doc-required"), true);
+  assert.equal(result.metadata.unknownOfficialMappings.includes("INVOICE_TYPE_CODE_OFFICIAL_VALUE_REQUIRED"), true);
+});
+
+test("does not silently guess predefined endpoint scenarios or transaction type flags", () => {
+  const result = serializeUaePintAeInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    predefinedEndpointScenario: "deemed-supply",
+    transactionTypeFlags: ["exports"],
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "PREDEFINED_ENDPOINT_OFFICIAL_VALUE_REQUIRED" && issue.source === "official-doc-required"), true);
+  assert.equal(result.validation.issues.some((issue) => issue.code === "TRANSACTION_TYPE_FLAG_OFFICIAL_MAPPING_REQUIRED" && issue.source === "official-doc-required"), true);
 });
 
 test("disabled ASP adapter blocks submission and never emits future delivery statuses", async () => {
@@ -233,4 +334,8 @@ function invoiceFixture() {
     taxTotal: "50",
     total: "1050",
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

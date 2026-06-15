@@ -1,3 +1,9 @@
+export * from "./pint-ae/constants";
+export * from "./pint-ae/fixtures";
+export * from "./pint-ae/rules";
+export * from "./pint-ae/serializer";
+export * from "./pint-ae/types";
+
 export type UaePintDocumentKind = "invoice" | "credit-note";
 
 export type AspProviderKey = "DISABLED" | "MOCK" | "FUTURE_COMPLYANCE" | "FUTURE_CLEARTAX" | "FUTURE_EDICOM" | "FUTURE_GENERIC_ASP";
@@ -416,10 +422,12 @@ export interface UaePintLine {
   id: string;
   description: string;
   quantity: string | number;
+  unitCode?: string | null;
   unitPrice: string | number;
   taxableAmount: string | number;
   taxAmount: string | number;
   lineTotal: string | number;
+  taxCategory?: string | null;
 }
 
 export interface UaePintDocumentInput {
@@ -427,6 +435,7 @@ export interface UaePintDocumentInput {
   documentNumber: string;
   issueDate: string;
   currency: string;
+  paymentDueDate?: string | null;
   supplier: UaeParty;
   buyer: UaeParty;
   lines: UaePintLine[];

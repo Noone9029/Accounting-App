@@ -20,12 +20,15 @@ describe("UaeEinvoiceReadinessPanel", () => {
     expect(screen.getByText("Buyer")).toBeInTheDocument();
     expect(screen.getByText("Tax identity")).toBeInTheDocument();
     expect(screen.getByText("Peppol participant readiness")).toBeInTheDocument();
+    expect(screen.getByText("Official PINT-AE XML can be generated locally")).toBeInTheDocument();
+    expect(screen.getByText(/ASP validation is not connected yet/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Validate UAE eInvoice readiness" })).toBeEnabled();
-    expect(screen.getByText(/No network, no ASP submission, no FTA reporting/i)).toBeInTheDocument();
+    expect(screen.getByText(/ASP validation not connected yet; no network, no ASP submission, no FTA reporting/i)).toBeInTheDocument();
     expect(screen.queryByText(/FTA certified/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Peppol certified/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/official UAE eInvoicing provider/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/accredited ASP/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ASP accepted/i)).not.toBeInTheDocument();
   });
 
   it("renders permission-denied state for local validation action", () => {
@@ -56,6 +59,25 @@ describe("UaeEinvoiceReadinessPanel", () => {
 
     expect(screen.getByText("Original invoice/reference readiness")).toBeInTheDocument();
     expect(screen.getByText("Credit-note reason")).toBeInTheDocument();
+  });
+
+  it("shows official local XML readiness only when required local fields pass", () => {
+    render(
+      <UaeEinvoiceReadinessPanel
+        title="UAE eInvoicing/PINT-AE readiness"
+        response={{
+          ...readinessFixture(),
+          canAttemptLocalXmlGeneration: false,
+          readiness: { ...readinessFixture().readiness, canAttemptLocalXmlGeneration: false, status: "NEEDS_DATA" },
+        }}
+        actionLoading={false}
+        canValidate
+        onValidate={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Needs local readiness data")).toBeInTheDocument();
+    expect(screen.queryByText("Official PINT-AE XML can be generated locally")).not.toBeInTheDocument();
   });
 });
 
@@ -107,7 +129,7 @@ function readinessFixture(kind: "invoice" | "credit-note" = "invoice"): Complian
       status: "READY_FOR_ASP",
       documentNumber: kind === "invoice" ? "INV-001" : "CN-001",
       latestValidationStatus: "PASSED",
-      validationResults: [{ id: "validation-1", status: "PASSED", summary: "Local PINT-AE readiness validation passed." }],
+      validationResults: [{ id: "validation-1", status: "PASSED", summary: "Official local PINT-AE XML serialization passed. ASP validation is not connected." }],
       archiveRecords: [{ id: "archive-1", artifactType: "XML", filename: "INV-001.xml", mimeType: "application/xml", storageProvider: "metadata-only", contentHash: "hash", sizeBytes: 100 }],
     },
   };

@@ -43,17 +43,17 @@ export function UaeEinvoiceReadinessPanel({
         <div>
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-steel">
-            Peppol/PINT-AE readiness and ASP connectivity preparation for controlled beta/user-testing only. No ASP submission, FTA reporting, provider network call, or production compliance claim is made.
+            Local readiness and official PINT-AE XML generation for controlled beta/user-testing only. ASP validation is not connected yet; no ASP submission, FTA reporting, provider network call, or production compliance claim is made.
           </p>
         </div>
         <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${response.canAttemptLocalXmlGeneration ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-          {response.canAttemptLocalXmlGeneration ? "Local XML attempt ready" : "Needs readiness data"}
+          {response.canAttemptLocalXmlGeneration ? "Official PINT-AE XML can be generated locally" : "Needs local readiness data"}
         </span>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
         <Summary label="Source status" value={response.sourceStatus} />
-        <Summary label="Readiness" value={complianceStatusLabel(response.readiness.status)} />
+        <Summary label="Local readiness" value={complianceStatusLabel(response.readiness.status)} />
         <Summary label="Local only" value={response.localOnly ? "Yes" : "No"} />
         <Summary label="Latest validation" value={latestValidation?.status ?? response.complianceDocument?.latestValidationStatus ?? "-"} />
       </div>
@@ -95,7 +95,7 @@ export function UaeEinvoiceReadinessPanel({
         {response.sourceStatus !== "FINALIZED" ? <span className="text-xs text-steel">Available after document finalization.</span> : null}
         <span className="inline-flex items-center gap-1 text-xs text-steel">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          No network, no ASP submission, no FTA reporting.
+          ASP validation not connected yet; no network, no ASP submission, no FTA reporting.
         </span>
       </div>
     </section>

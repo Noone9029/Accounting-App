@@ -262,7 +262,7 @@ export interface UaeDocumentReadinessReport {
   canAttemptLocalXmlGeneration: boolean;
   validation: {
     valid: boolean;
-    issues: Array<{ code: string; severity: "ERROR" | "WARNING"; message: string }>;
+    issues: Array<{ code: string; severity: "ERROR" | "WARNING" | "error" | "warning" | "info"; message: string; fieldPath?: string; source?: string }>;
   };
   warnings: string[];
 }

@@ -2,17 +2,30 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-asp-outreach-execution-pack`.
-- Base: fresh `origin/main` at `5816a63309dd8104a81dfd47a5a6081cbed6ac6a` after PR `#45` UAE ASP provider selection and sandbox contract plan was merged and cleaned up.
+- Branch: `feature/uae-pint-ae-official-serializer-rule-pack`.
+- Base: fresh `origin/main` at `eb80d4bd64ff5db398a95beaed67cb76debb7435` after PR `#46` UAE ASP outreach execution pack was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: UAE ASP provider outreach execution pack.
+- Current lane: UAE PINT-AE official serializer and rule-pack foundation.
 - Product posture remains controlled beta/user-testing only.
-- This branch prepares provider-specific outreach packets, a response tracker, and an evaluation rubric so LedgerByte can collect sandbox/API/commercial/security evidence before coding any provider-specific adapter.
-- It keeps all real ASP calls, FTA reporting, Peppol transmission, and production compliance claims disabled.
+- This branch adds a local-only official UAE PINT-AE serializer/rule-pack foundation using official identifiers while preserving the existing LedgerByte readiness XML path.
+- It keeps all real ASP calls, ASP validation, FTA reporting, Peppol transmission, provider-specific adapters, and production compliance claims disabled.
+
+## UAE PINT-AE Official Serializer Rule Pack Summary
+
+- Added official local PINT-AE constants and exports for `urn:peppol:pint:billing-1@ae-1`, `urn:peppol:bis:billing`, endpoint scheme `0235`, and TIN-derived endpoint IDs.
+- Added `packages/uae-peppol-pint-ae/src/pint-ae/*` for official serializer types, rule results, validation helpers, XML serializers, and golden fixtures.
+- Kept existing readiness XML output and LedgerByte readiness CustomizationID separate from official serializer output.
+- Added structured rule results with `code`, `severity`, `message`, `fieldPath`, and `source` values.
+- Added local official XML serialization for invoices and credit notes with endpoint IDs, seller/buyer data, line data, tax totals, document totals, and credit-note reason/original-reference enforcement.
+- Added guards so unknown official commercial-invoice code mappings, predefined endpoint values, and transaction flag mappings are not silently guessed.
+- Updated compliance-core local validation to use the official local serializer and metadata-only archive hash path while recording that ASP validation is not connected.
+- Updated the UAE readiness panel wording to distinguish local readiness, official local PINT-AE XML generation, and absent ASP validation.
+- Still no real ASP validation, real ASP submission, FTA reporting, real Peppol transmission, provider adapter, provider credentials, hosted/customer-data mutation, Vercel/Supabase change, ZATCA production behavior, or production UAE compliance claim.
+- Next recommended arc: review official-code TODOs against current OpenPeppol/UAE docs and then collect provider sandbox payload evidence before any provider adapter.
 
 ## UAE ASP Outreach Execution Pack Summary
 
