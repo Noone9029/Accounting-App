@@ -41,6 +41,7 @@ Do not claim:
 - Future provider placeholders for Complyance, ClearTax, EDICOM, and generic ASP keys that return safe not-implemented results.
 - Redacted provider config summary, arbitrary external URL blocking, and no plaintext secret response behavior.
 - Provider-selection research matrix, sandbox contract plan, and outreach template for future UAE ASP evaluation only.
+- Provider-specific outreach execution pack with response tracker, first-contact email drafts, and evaluation rubric for collecting provider evidence before adapter coding.
 - Read-only API readiness endpoints for sales invoices and sales credit notes.
 - API/service surface for provider readiness summary, redacted config test, local/mock transmission preview, explicit mock submit, and provider status timeline.
 - Finalized sales invoice and finalized sales credit-note readiness panels with explicit local-only validation actions.
@@ -92,16 +93,22 @@ Do not claim:
 - `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md`
 - `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md`
 - `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md`
+- `docs/uae-peppol/provider-outreach/README.md`
+- `docs/uae-peppol/provider-outreach/PROVIDER_OUTREACH_TRACKER.md`
+- `docs/uae-peppol/provider-outreach/PROVIDER_RESPONSE_EVALUATION_RUBRIC.md`
+- Provider-specific email drafts under `docs/uae-peppol/provider-outreach/`
 
 Current recommendation: start outreach with the most API-friendly MoF-listed providers first, beginning with Complyance, ClearTax, Taxilla, EDICOM, Pagero / Thomson Reuters, and Comarch. Do not implement a real provider until sandbox docs and commercial terms are reviewed.
 
 ## Next Engineering Slice
 
-`UAE ASP first-provider outreach evidence and sandbox docs review`
+`UAE ASP provider response evidence review`
 
 Scope:
 
-- Compare likely commercial ASP provider paths from current official and provider documentation.
-- Select one candidate path for a provider-specific sandbox contract plan.
+- Send or manually use the provider outreach drafts outside git.
+- Track non-confidential response evidence in the provider outreach tracker.
+- Score provider responses with the evaluation rubric.
+- Keep confidential provider material, API keys, tokens, private sandbox URLs, NDAs, and price sheets out of git.
 - Keep all real ASP network calls disabled until provider selection, sandbox credentials, redaction rules, and explicit approval exist.
 - Preserve no FTA reporting, no buyer delivery, and no production compliance claim.
