@@ -244,6 +244,16 @@ export default function ContactDetailPage() {
         body: {
           identificationType: identificationType || undefined,
           identificationNumber: identificationNumber || undefined,
+          legalName: String(formData.get("legalName") || "") || undefined,
+          uaeTrn: String(formData.get("uaeTrn") || "") || undefined,
+          uaeTin: String(formData.get("uaeTin") || "") || undefined,
+          uaeVatRegistrationStatus: String(formData.get("uaeVatRegistrationStatus") || "") || undefined,
+          uaeAddressLine1: String(formData.get("uaeAddressLine1") || "") || undefined,
+          uaeAddressLine2: String(formData.get("uaeAddressLine2") || "") || undefined,
+          uaeEmirate: String(formData.get("uaeEmirate") || "") || undefined,
+          peppolParticipantId: String(formData.get("peppolParticipantId") || "") || undefined,
+          peppolEndpointStatus: String(formData.get("peppolEndpointStatus") || "") || undefined,
+          preferredEinvoiceDeliveryMethod: String(formData.get("preferredEinvoiceDeliveryMethod") || "") || undefined,
           addressLine1: String(formData.get("addressLine1") || "") || undefined,
           addressLine2: String(formData.get("addressLine2") || "") || undefined,
           buildingNumber: String(formData.get("buildingNumber") || "") || undefined,
@@ -332,6 +342,13 @@ export default function ContactDetailPage() {
                   <Summary label="Email" value={profile.email ?? "-"} />
                   <Summary label="Phone" value={profile.phone ?? "-"} />
                   <Summary label="VAT number" value={profile.taxNumber ?? "-"} />
+                  <Summary label="Legal name" value={contact?.legalName ?? "-"} />
+                  <Summary label="TRN/TIN" value={[contact?.uaeTrn, contact?.uaeTin].filter(Boolean).join(" / ") || "-"} />
+                  <Summary label="Peppol participant ID" value={contact?.peppolParticipantId ?? "-"} />
+                  <Summary label="VAT category" value={contact?.uaeVatRegistrationStatus ?? "-"} />
+                  <Summary label="Endpoint status" value={contact?.peppolEndpointStatus ?? "-"} />
+                  <Summary label="Preferred eInvoice delivery" value={contact?.preferredEinvoiceDeliveryMethod ?? "-"} />
+                  <Summary label="UAE address" value={[contact?.uaeAddressLine1, contact?.uaeAddressLine2, contact?.uaeEmirate].filter(Boolean).join(", ") || "-"} />
                   <Summary label="ID Type" value={formatContactIdentificationType(contact?.identificationType)} />
                   <Summary label="ID Number" value={contact?.identificationNumber ?? "-"} />
                   <Summary label="Street" value={contact?.addressLine1 ?? "-"} />
@@ -348,9 +365,19 @@ export default function ContactDetailPage() {
                     <div className="md:col-span-3">
                       <h3 className="text-sm font-semibold text-ink">Edit identification and address fields</h3>
                       <p className="mt-1 text-xs text-steel">
-                        ID type and ID number support buyer identification when VAT is not available. Address fields are required for clean Saudi ZATCA buyer address validation where applicable.
+                        ID type and ID number support buyer identification when VAT is not available. UAE fields support Peppol/PINT-AE readiness checks without blocking normal bookkeeping contact updates.
                       </p>
                     </div>
+                    <input name="legalName" defaultValue={contact.legalName ?? ""} placeholder="Legal name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeTrn" defaultValue={contact.uaeTrn ?? ""} placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeTin" defaultValue={contact.uaeTin ?? ""} placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="peppolParticipantId" defaultValue={contact.peppolParticipantId ?? ""} placeholder="Peppol participant ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeVatRegistrationStatus" defaultValue={contact.uaeVatRegistrationStatus ?? ""} placeholder="VAT category/status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="peppolEndpointStatus" defaultValue={contact.peppolEndpointStatus ?? ""} placeholder="Endpoint status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="preferredEinvoiceDeliveryMethod" defaultValue={contact.preferredEinvoiceDeliveryMethod ?? ""} placeholder="Preferred eInvoice delivery" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeAddressLine1" defaultValue={contact.uaeAddressLine1 ?? ""} placeholder="UAE address" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeAddressLine2" defaultValue={contact.uaeAddressLine2 ?? ""} placeholder="UAE address line 2" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                    <input name="uaeEmirate" defaultValue={contact.uaeEmirate ?? ""} placeholder="Emirate" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
                     <div>
                       <select
                         name="identificationType"

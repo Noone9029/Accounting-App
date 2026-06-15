@@ -3,19 +3,31 @@ import { render, screen } from "@testing-library/react";
 import ComplianceSettingsPage from "./page";
 
 const getComplianceReadinessMock = jest.fn();
+const getOrganizationMock = jest.fn();
+const updateOrganizationMock = jest.fn();
 
 jest.mock("@/hooks/use-active-organization", () => ({
   useActiveOrganizationId: () => "org-1",
 }));
 
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: () => true,
+  }),
+}));
+
 jest.mock("@/lib/compliance", () => ({
   complianceStatusLabel: (status: string) => status.replace(/_/g, " "),
   getComplianceReadiness: () => getComplianceReadinessMock(),
+  getOrganization: () => getOrganizationMock(),
+  updateOrganization: (...args: unknown[]) => updateOrganizationMock(...args),
 }));
 
 describe("ComplianceSettingsPage", () => {
   beforeEach(() => {
     getComplianceReadinessMock.mockReset();
+    getOrganizationMock.mockReset();
+    updateOrganizationMock.mockReset();
     getComplianceReadinessMock.mockResolvedValue({
       posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
       claim: "UAE eInvoicing-ready / Peppol PINT-AE-ready data preparation with disabled ASP connectivity.",
@@ -39,15 +51,38 @@ describe("ComplianceSettingsPage", () => {
       },
       documentStatusCounts: {},
     });
+    getOrganizationMock.mockResolvedValue({
+      id: "org-1",
+      name: "LedgerByte",
+      legalName: "LedgerByte FZ LLC",
+      taxNumber: "100000000000003",
+      countryCode: "AE",
+      baseCurrency: "AED",
+      timezone: "Asia/Dubai",
+      tradeLicenseNumber: "TL-123",
+      uaeTrn: "100000000000003",
+      uaeTin: "1234567890",
+      uaeVatRegistrationStatus: "REGISTERED",
+      uaeAddressLine1: "Business Bay",
+      uaeAddressLine2: "Office 10",
+      uaeEmirate: "Dubai",
+      uaeBusinessActivity: "Accounting software",
+      peppolParticipantId: "02351234567890",
+      uaeAspSelected: "Disabled ASP",
+      uaeAspOnboardingStatus: "NOT_STARTED",
+    });
   });
 
-  it("renders controlled-beta UAE readiness without accreditation claims", async () => {
+  it("renders controlled-beta UAE readiness and editable organization fields without accreditation claims", async () => {
     render(<ComplianceSettingsPage />);
 
-    expect(await screen.findByText("Compliance readiness")).toBeInTheDocument();
+    expect(await screen.findByText("UAE eInvoicing readiness fields")).toBeInTheDocument();
     expect(screen.getByText(/No ASP, FTA, ZATCA, signing/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("LedgerByte FZ LLC")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("02351234567890")).toBeInTheDocument();
     expect(screen.getByText(/Organization 10-digit TIN/i)).toBeInTheDocument();
     expect(screen.getByText(/Accredited ASP/i)).toBeInTheDocument();
     expect(screen.getByText(/not ASP accreditation/i)).toBeInTheDocument();
+    expect(screen.getByText(/These do not submit to an ASP or report to the FTA/i)).toBeInTheDocument();
   });
 });

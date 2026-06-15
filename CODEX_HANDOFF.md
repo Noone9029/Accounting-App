@@ -2,17 +2,47 @@
 
 ## Latest Commit Inspected
 
-- PR `#41` was reverified green/safe and merged into `main` with merge commit `7d4b9fa7fab9d971594940e8206d6cc1bc470436`.
-- Current branch: `feature/compliance-core`.
-- Worktree: `E:\Worktrees\Accounting-App\compliance-core-uae-peppol`.
-- Reconciliation base: fresh `origin/main` after PR `#41` merge.
-- Original ZATCA request-body checkout changes remain preserved in `stash@{0}` and were not restored, cleaned, reset, or mixed into this branch.
+- Branch: `feature/uae-peppol-pint-ae-data-entry-validation`.
+- Base: fresh `origin/main` at `90201c170cb2ec7788135c7c3707adbc783ff406` after PR `#42` compliance core was merged and cleaned up.
+- Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
+- `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Completed lane: Compliance Core + UAE Peppol/PINT-AE readiness foundation reconciled after Wafeq banking PR `#41`.
+- Current lane: UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels on top of the merged compliance-core foundation.
 - Product posture remains controlled beta/user-testing only.
-- This branch builds one neutral compliance-core foundation and a UAE readiness adapter surface before any real ASP or ZATCA production integration.
+- This branch adds editable UAE organization/contact readiness fields, local-only source readiness endpoints, and explicit user-triggered invoice/credit-note validation actions before any real ASP or FTA integration.
+
+## UAE Data-Entry And Validation Panel Summary
+
+- Extended the Compliance settings page with editable legal name, trade license, TRN/TIN, VAT status, UAE address/emirate, business activity, Peppol participant ID, ASP selection, and ASP onboarding status fields.
+- Added organization readiness checks for TIN/TRN, participant ID presence or derivation, UAE address completeness, VAT status, ASP selection, and ASP onboarding status.
+- Added UAE eInvoicing fields to contact creation, shared contact detail/edit, and customer/supplier detail surfaces without blocking normal bookkeeping contact creation.
+- Added local UAE eInvoicing/PINT-AE readiness panels to finalized sales invoice and sales credit-note detail pages.
+- Added read-only API readiness endpoints for sales invoices and credit notes plus explicit prepare/validate actions that reuse compliance-core document, validation result, event, and archive metadata.
+- The local validation path stores status, hashes, warnings/errors, and metadata only; PDFs are not treated as UAE compliance artifacts.
+
+## Current Safety Boundaries
+
+- Controlled beta/user-testing only.
+- UAE eInvoicing readiness and Peppol/PINT-AE readiness only.
+- Local validation/readiness only.
+- No real ASP calls, no ASP submission, no FTA reporting, and no production Peppol or UAE compliance claim.
+- LedgerByte is not claiming FTA certification, Peppol certification, official UAE provider status, or accredited ASP status.
+- No ZATCA production behavior, real ZATCA network call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was enabled.
+- No hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, or E2E was run.
+- Accounting finalization remains separate from compliance delivery state; invoice/credit-note posting, settlement, allocation, VAT math, and report math were not changed.
+
+## Verification Notes For This Branch
+
+- Targeted package/API/web tests were added for UAE readiness helpers, contact UAE field validation, invoice readiness, credit-note readiness, panel rendering, permission-denied states, and conservative copy.
+- Required verification should include package tests/typechecks, API/web targeted tests, `verify:diff`, `verify:ci:local`, `git diff --check`, and staged diff whitespace checks.
+
+## Previous Compliance Core Snapshot
+
+- PR `#42` was fixed, green, merged, and cleaned up before this branch began.
+- Compliance core introduced the neutral compliance lifecycle, UAE readiness fields, local PINT-AE helper package, metadata-only archive behavior, settings readiness dashboard, and `compliance.*` permissions.
+- Previous PR `#41` was reverified green/safe and merged into `main` with merge commit `7d4b9fa7fab9d971594940e8206d6cc1bc470436`.
 
 ## PR #41 Merge Status
 
@@ -104,12 +134,12 @@
 
 ## Remaining Blockers
 
-- UAE profile/contact form editing needs a focused UX pass beyond the read-only readiness page.
-- PINT-AE XML generator is readiness-oriented and fixture-tested; it is not official certification and must be checked against final ASP/provider contracts before real submission.
+- Real ASP connectivity is still absent and must wait for provider selection, disabled/mock connector contract tests, explicit approval, sandbox credentials, redaction rules, retry policy, and provider-specific payload validation.
+- PINT-AE XML generation is readiness-oriented and fixture-tested; it is not official certification and must be checked against final ASP/provider contracts before real submission.
 - Real ASP integration must wait for a selected provider, explicit approval, sandbox/test credentials, redaction rules, retry policy, and provider-specific contract tests.
 - Retention periods, audit export format, and legal guarantees must be re-verified against current UAE rules and counsel/accountant review before production claims.
 - KSA ZATCA should be wrapped behind the same lifecycle later without weakening current no-production/no-network gates.
 
 ## Exact Next Recommended Prompt Title
 
-`UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels`
+`UAE Peppol/PINT-AE disabled ASP connector contract tests`

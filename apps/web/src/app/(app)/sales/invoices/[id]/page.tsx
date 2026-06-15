@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-readiness-panel";
 import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
@@ -11,6 +12,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
+import { getSalesInvoiceComplianceReadiness, prepareSalesInvoiceCompliance, validateComplianceDocument } from "@/lib/compliance";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
@@ -47,6 +49,7 @@ import {
 } from "@/lib/zatca";
 import type {
   SalesInvoice,
+  ComplianceSourceReadinessResponse,
   CollectionCase,
   DeliveryNote,
   SalesInvoiceStockIssueStatus,
@@ -78,6 +81,7 @@ export default function SalesInvoiceDetailPage() {
   const [collectionCases, setCollectionCases] = useState<CollectionCase[]>([]);
   const [collectionCasesLoading, setCollectionCasesLoading] = useState(false);
   const [stockIssueStatus, setStockIssueStatus] = useState<SalesInvoiceStockIssueStatus | null>(null);
+  const [uaeReadiness, setUaeReadiness] = useState<ComplianceSourceReadinessResponse | null>(null);
   const [zatca, setZatca] = useState<ZatcaInvoiceMetadata | null>(null);
   const [zatcaReadiness, setZatcaReadiness] = useState<ZatcaInvoiceReadinessResponse | null>(null);
   const [signingPlan, setSigningPlan] = useState<ZatcaInvoiceSigningPlanResponse | null>(null);
@@ -112,11 +116,13 @@ export default function SalesInvoiceDetailPage() {
       apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null),
       apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null),
       apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
+      getSalesInvoiceComplianceReadiness(params.id).catch(() => null),
     ])
-      .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, draftListResult, storagePlanResult, validationResult]) => {
+      .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, draftListResult, storagePlanResult, validationResult, uaeReadinessResult]) => {
         if (!cancelled) {
           setInvoice(result);
           setStockIssueStatus(stockStatusResult);
+          setUaeReadiness(uaeReadinessResult);
           setZatca(zatcaResult);
           setZatcaReadiness(readinessResult);
           setSigningPlan(signingPlanResult);
@@ -223,6 +229,7 @@ export default function SalesInvoiceDetailPage() {
         await refreshZatca(updated.id);
         await fetchZatcaReadiness(updated.id).catch(() => undefined);
         await fetchZatcaSigningPlan(updated.id).catch(() => undefined);
+        await fetchUaeReadiness(updated.id).catch(() => undefined);
       }
       setSuccess(
         action === "finalize"
@@ -289,6 +296,32 @@ export default function SalesInvoiceDetailPage() {
     const result = await apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(invoiceId));
     setSigningPlan(result);
     return result;
+  }
+
+  async function fetchUaeReadiness(invoiceId: string) {
+    const result = await getSalesInvoiceComplianceReadiness(invoiceId);
+    setUaeReadiness(result);
+    return result;
+  }
+
+  async function validateUaeReadiness() {
+    if (!invoice) {
+      return;
+    }
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const prepared = await prepareSalesInvoiceCompliance(invoice.id);
+      await validateComplianceDocument(prepared.id);
+      await fetchUaeReadiness(invoice.id);
+      setSuccess("Local UAE eInvoice readiness validation completed. No ASP submission, FTA reporting, or network call was performed.");
+    } catch (validationError) {
+      await fetchUaeReadiness(invoice.id).catch(() => undefined);
+      setError(validationError instanceof Error ? validationError.message : "Unable to validate UAE eInvoice readiness.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function fetchSignedArtifactDrafts(invoiceId: string) {
@@ -535,6 +568,8 @@ export default function SalesInvoiceDetailPage() {
   const canGenerateZatca = can(PERMISSIONS.zatca.generateXml);
   const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
   const canManageZatca = can(PERMISSIONS.zatca.manage);
+  const canViewCompliance = can(PERMISSIONS.compliance.view);
+  const canValidateCompliance = can(PERMISSIONS.compliance.manage) && can(PERMISSIONS.compliance.validate);
   const latestSignedArtifactDraft = signedArtifactDrafts[0] ?? signedArtifactStoragePlan?.latestDraft ?? null;
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const invoiceDetailHref = salesInvoiceDetailHref(params.id, returnTo);
@@ -656,6 +691,18 @@ export default function SalesInvoiceDetailPage() {
           </div>
 
           {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
+
+          {canViewCompliance ? (
+            <UaeEinvoiceReadinessPanel
+              title="UAE eInvoicing/PINT-AE readiness"
+              response={uaeReadiness}
+              actionLoading={actionLoading}
+              canValidate={canValidateCompliance}
+              onValidate={() => void validateUaeReadiness()}
+            />
+          ) : (
+            <StatusMessage type="info">UAE eInvoicing readiness requires compliance view permission.</StatusMessage>
+          )}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[1040px] text-left text-sm">

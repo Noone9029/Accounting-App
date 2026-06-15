@@ -75,6 +75,26 @@ export interface UaeValidationReport {
   issues: UaeValidationIssue[];
 }
 
+export interface UaePartyReadinessReport {
+  label: string;
+  status: UaeReadinessReport["status"];
+  checks: UaeReadinessCheck[];
+}
+
+export interface UaeDocumentReadinessReport {
+  kind: UaePintDocumentKind;
+  status: UaeReadinessReport["status"];
+  seller: UaePartyReadinessReport;
+  buyer: UaePartyReadinessReport;
+  invoiceFields: UaePartyReadinessReport;
+  taxIdentity: UaePartyReadinessReport;
+  peppolParticipant: UaePartyReadinessReport;
+  originalReference?: UaePartyReadinessReport;
+  canAttemptLocalXmlGeneration: boolean;
+  validation: UaeValidationReport;
+  warnings: string[];
+}
+
 export function normalizeDigits(value: string | null | undefined): string {
   return String(value ?? "").replace(/\D/g, "");
 }
@@ -93,6 +113,83 @@ export function isValidUaeTin(value: string | null | undefined): boolean {
 
 export function isValidUaeTrn(value: string | null | undefined): boolean {
   return /^\d{15}$/.test(normalizeDigits(value));
+}
+
+export function isValidUaePeppolParticipantId(value: string | null | undefined): boolean {
+  return /^0235\d{10}$/.test(String(value ?? "").trim());
+}
+
+export function buildUaePartyReadinessReport(label: string, party: UaeParty & { peppolEndpointStatus?: string | null; preferredEinvoiceDeliveryMethod?: string | null }): UaePartyReadinessReport {
+  const checks = [
+    required(`${label.toUpperCase()}_LEGAL_NAME`, `${label} legal name`, party.legalName),
+    identityCheck(`${label.toUpperCase()}_TIN`, `${label} 10-digit TIN`, party.tin, isValidUaeTin),
+    identityCheck(`${label.toUpperCase()}_TRN`, `${label} TRN`, party.trn, isValidUaeTrn),
+    required(`${label.toUpperCase()}_UAE_ADDRESS`, `${label} UAE address`, party.addressLine1),
+    required(`${label.toUpperCase()}_EMIRATE`, `${label} emirate`, party.emirate),
+    participantCheck(`${label.toUpperCase()}_PEPPOL_ID`, `${label} Peppol participant ID`, party.peppolParticipantId, party.tin),
+  ];
+
+  if (party.peppolEndpointStatus !== undefined) {
+    checks.push(required(`${label.toUpperCase()}_ENDPOINT_STATUS`, `${label} endpoint status`, party.peppolEndpointStatus));
+  }
+  if (party.preferredEinvoiceDeliveryMethod !== undefined) {
+    checks.push(required(`${label.toUpperCase()}_EINVOICE_DELIVERY_METHOD`, `${label} preferred eInvoice delivery method`, party.preferredEinvoiceDeliveryMethod));
+  }
+
+  return { label, status: readinessStatus(checks), checks };
+}
+
+export function buildUaeDocumentReadinessReport(input: UaePintDocumentInput): UaeDocumentReadinessReport {
+  const validation = validateUaePintInput(input);
+  const seller = buildUaePartyReadinessReport("Seller", input.supplier);
+  const buyer = buildUaePartyReadinessReport("Buyer", input.buyer);
+  const invoiceFields = reportSection("Required invoice fields", [
+    required("DOCUMENT_NUMBER", "Document number", input.documentNumber),
+    required("ISSUE_DATE", "Issue date", input.issueDate),
+    required("CURRENCY", "Currency", input.currency),
+    input.lines.length > 0
+      ? { key: "LINES_PRESENT", label: "Invoice or credit-note lines", status: "PASS", detail: "At least one line is present." }
+      : { key: "LINES_PRESENT", label: "Invoice or credit-note lines", status: "FAIL", detail: "At least one line is required." },
+  ]);
+  const taxIdentity = reportSection("Tax identity", [
+    identityCheck("SELLER_TIN", "Seller 10-digit TIN", input.supplier.tin, isValidUaeTin),
+    identityCheck("SELLER_TRN", "Seller TRN", input.supplier.trn, isValidUaeTrn),
+    identityCheck("BUYER_TIN", "Buyer 10-digit TIN", input.buyer.tin, isValidUaeTin),
+    identityCheck("BUYER_TRN", "Buyer TRN", input.buyer.trn, isValidUaeTrn),
+  ]);
+  const peppolParticipant = reportSection("Peppol participant readiness", [
+    participantCheck("SELLER_PEPPOL_ID", "Seller Peppol participant ID", input.supplier.peppolParticipantId, input.supplier.tin),
+    participantCheck("BUYER_PEPPOL_ID", "Buyer Peppol participant ID", input.buyer.peppolParticipantId, input.buyer.tin),
+  ]);
+  const originalReference =
+    input.kind === "credit-note"
+      ? reportSection("Original invoice/reference readiness", [
+          required("CREDIT_NOTE_REASON", "Credit-note reason", input.creditNoteReason),
+          required("ORIGINAL_INVOICE_REFERENCE", "Original invoice reference", input.originalInvoiceNumber),
+        ])
+      : undefined;
+  const sections = [seller, buyer, invoiceFields, taxIdentity, peppolParticipant, ...(originalReference ? [originalReference] : [])];
+  const canAttemptLocalXmlGeneration = validation.valid && sections.every((section) => section.status !== "NEEDS_DATA");
+
+  const report: UaeDocumentReadinessReport = {
+    kind: input.kind,
+    status: canAttemptLocalXmlGeneration ? "READY_FOR_VALIDATION" : "NEEDS_DATA",
+    seller,
+    buyer,
+    invoiceFields,
+    taxIdentity,
+    peppolParticipant,
+    canAttemptLocalXmlGeneration,
+    validation,
+    warnings: [
+      "Local UAE eInvoicing readiness only; no ASP submission, FTA reporting, or production Peppol claim is made.",
+      "PDFs are not treated as UAE compliance artifacts in this readiness check.",
+    ],
+  };
+  if (originalReference) {
+    report.originalReference = originalReference;
+  }
+  return report;
 }
 
 export function buildUaeReadinessReport(input: UaeReadinessInput): UaeReadinessReport {
@@ -205,6 +302,9 @@ ${partyXml("AccountingCustomerParty", input.buyer)}
 function validateParty(issues: UaeValidationIssue[], prefix: string, party: UaeParty): void {
   requireText(issues, `${prefix}_LEGAL_NAME_REQUIRED`, party.legalName, `${prefix.toLowerCase()} legal name is required.`);
   requireText(issues, `${prefix}_ENDPOINT_REQUIRED`, party.peppolParticipantId, `${prefix.toLowerCase()} Peppol participant ID is required.`);
+  if (party.peppolParticipantId && !isValidUaePeppolParticipantId(party.peppolParticipantId)) {
+    issues.push({ code: `${prefix}_ENDPOINT_INVALID`, severity: "ERROR", message: `${prefix.toLowerCase()} Peppol participant ID must use scheme 0235 followed by a 10-digit UAE TIN.` });
+  }
   requireText(issues, `${prefix}_ADDRESS_REQUIRED`, party.addressLine1, `${prefix.toLowerCase()} UAE address is required.`);
   if (party.tin && !isValidUaeTin(party.tin)) {
     issues.push({ code: `${prefix}_TIN_INVALID`, severity: "ERROR", message: `${prefix.toLowerCase()} TIN must be 10 digits.` });
@@ -247,9 +347,20 @@ function participantCheck(key: string, label: string, participantId: string | nu
   if (!String(participantId ?? "").trim()) {
     return { key, label, status: "FAIL", detail: expected ? `${label} is missing; expected ${expected}.` : `${label} is missing.` };
   }
+  if (!isValidUaePeppolParticipantId(participantId)) {
+    return { key, label, status: "FAIL", detail: `${label} must use scheme 0235 followed by a 10-digit UAE TIN.` };
+  }
   return expected && participantId !== expected
     ? { key, label, status: "WARNING", detail: `${label} is configured but does not match expected ${expected}.` }
     : { key, label, status: "PASS", detail: "Configured." };
+}
+
+function reportSection(label: string, checks: UaeReadinessCheck[]): UaePartyReadinessReport {
+  return { label, status: readinessStatus(checks), checks };
+}
+
+function readinessStatus(checks: UaeReadinessCheck[]): UaeReadinessReport["status"] {
+  return checks.some((check) => check.status === "FAIL") ? "NEEDS_DATA" : "READY_FOR_VALIDATION";
 }
 
 function requireText(issues: UaeValidationIssue[], code: string, value: string | null | undefined, message: string): void {

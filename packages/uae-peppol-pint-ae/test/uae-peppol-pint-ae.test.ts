@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildUaePintXml, buildUaeReadinessReport, deriveUaePeppolParticipantId, validateUaePintInput } from "../src";
+import { buildUaeDocumentReadinessReport, buildUaePartyReadinessReport, buildUaePintXml, buildUaeReadinessReport, deriveUaePeppolParticipantId, validateUaePintInput } from "../src";
 
 test("derives UAE Peppol participant ID from a 10-digit TIN", () => {
   assert.equal(deriveUaePeppolParticipantId("1234567890"), "02351234567890");
@@ -47,6 +47,50 @@ test("reports missing buyer endpoint and credit-note reference errors", () => {
     validation.issues.map((issue) => issue.code).sort(),
     ["BUYER_ENDPOINT_REQUIRED", "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED", "CREDIT_NOTE_REASON_REQUIRED"].sort(),
   );
+});
+
+test("calculates invoice readiness and blocks local XML generation when endpoints are missing", () => {
+  const report = buildUaeDocumentReadinessReport({
+    ...invoiceFixture(),
+    supplier: { ...invoiceFixture().supplier, peppolParticipantId: "" },
+    buyer: { ...invoiceFixture().buyer, peppolParticipantId: "" },
+  });
+
+  assert.equal(report.status, "NEEDS_DATA");
+  assert.equal(report.canAttemptLocalXmlGeneration, false);
+  assert.match(report.peppolParticipant.checks.map((check) => check.detail).join(" "), /Seller Peppol participant ID is missing/i);
+  assert.match(report.peppolParticipant.checks.map((check) => check.detail).join(" "), /Buyer Peppol participant ID is missing/i);
+  assert.equal(report.validation.issues.some((issue) => issue.code === "SUPPLIER_ENDPOINT_REQUIRED"), true);
+  assert.equal(report.validation.issues.some((issue) => issue.code === "BUYER_ENDPOINT_REQUIRED"), true);
+});
+
+test("flags invalid UAE tax identities and invalid participant identifiers", () => {
+  const report = buildUaeDocumentReadinessReport({
+    ...invoiceFixture(),
+    supplier: { ...invoiceFixture().supplier, tin: "123", trn: "100", peppolParticipantId: "bad-id" },
+  });
+
+  assert.equal(report.canAttemptLocalXmlGeneration, false);
+  assert.equal(report.validation.issues.some((issue) => issue.code === "SUPPLIER_TIN_INVALID"), true);
+  assert.equal(report.validation.issues.some((issue) => issue.code === "SUPPLIER_TRN_INVALID"), true);
+  assert.equal(report.validation.issues.some((issue) => issue.code === "SUPPLIER_ENDPOINT_INVALID"), true);
+  assert.match(report.peppolParticipant.checks.map((check) => check.detail).join(" "), /must use scheme 0235/i);
+});
+
+test("calculates contact party readiness without blocking normal bookkeeping creation", () => {
+  const report = buildUaePartyReadinessReport("Buyer", {
+    legalName: "Buyer LLC",
+    tin: "2234567890",
+    trn: "200000000000003",
+    addressLine1: "Al Reem Island",
+    emirate: "Abu Dhabi",
+    peppolParticipantId: "02352234567890",
+    peppolEndpointStatus: "COLLECTED",
+    preferredEinvoiceDeliveryMethod: "PEPPOL",
+  });
+
+  assert.equal(report.status, "READY_FOR_VALIDATION");
+  assert.equal(report.checks.every((check) => check.status !== "FAIL"), true);
 });
 
 test("generates stable PINT-AE readiness XML for an invoice", () => {

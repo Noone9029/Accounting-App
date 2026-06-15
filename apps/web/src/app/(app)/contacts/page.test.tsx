@@ -79,6 +79,28 @@ describe("contacts page route guidance", () => {
       "/contacts/both-1",
     ]);
   });
+
+  it("shows UAE eInvoicing readiness fields without blocking contact rows", async () => {
+    apiRequestMock.mockResolvedValue([
+      contactFixture({
+        id: "customer-1",
+        name: "UAE Customer",
+        type: "CUSTOMER",
+        uaeTin: "1234567890",
+        uaeTrn: "100000000000003",
+        uaeAddressLine1: "Business Bay",
+        uaeEmirate: "Dubai",
+        peppolParticipantId: "02351234567890",
+      }),
+      contactFixture({ id: "customer-2", name: "Missing UAE Fields", type: "CUSTOMER" }),
+    ]);
+
+    render(<ContactsPage />);
+
+    expect(await screen.findByText("UAE eInvoicing readiness fields")).toBeInTheDocument();
+    expect(screen.getByText("Peppol 02351234567890")).toBeInTheDocument();
+    expect(screen.getByText(/Missing TIN\/TRN, Peppol ID, UAE address/i)).toBeInTheDocument();
+  });
 });
 
 function contactFixture(overrides: Partial<Contact> = {}): Contact {

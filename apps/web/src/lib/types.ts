@@ -243,6 +243,73 @@ export interface ComplianceReadinessResponse {
   };
   documentStatusCounts: Partial<Record<ComplianceDocumentStatus, number>>;
 }
+export type ComplianceSourceType = "SALES_INVOICE" | "CREDIT_NOTE";
+export type ComplianceValidationStatus = "PENDING" | "PASSED" | "FAILED" | "WARNING";
+export interface UaePartyReadinessReport {
+  label: string;
+  status: ComplianceReadinessStatus;
+  checks: ComplianceReadinessCheck[];
+}
+export interface UaeDocumentReadinessReport {
+  kind: "invoice" | "credit-note";
+  status: ComplianceReadinessStatus;
+  seller: UaePartyReadinessReport;
+  buyer: UaePartyReadinessReport;
+  invoiceFields: UaePartyReadinessReport;
+  taxIdentity: UaePartyReadinessReport;
+  peppolParticipant: UaePartyReadinessReport;
+  originalReference?: UaePartyReadinessReport;
+  canAttemptLocalXmlGeneration: boolean;
+  validation: {
+    valid: boolean;
+    issues: Array<{ code: string; severity: "ERROR" | "WARNING"; message: string }>;
+  };
+  warnings: string[];
+}
+export interface ComplianceValidationResultSummary {
+  id: string;
+  status: ComplianceValidationStatus;
+  summary: string;
+  issuesJson?: unknown;
+  metadataJson?: unknown;
+  createdAt?: string;
+}
+export interface ComplianceArchiveRecordSummary {
+  id: string;
+  artifactType: string;
+  filename: string | null;
+  mimeType: string | null;
+  storageProvider: string;
+  contentHash: string | null;
+  sizeBytes: number | null;
+  archivedAt?: string;
+}
+export interface ComplianceDocumentSummary {
+  id: string;
+  sourceType: ComplianceSourceType;
+  sourceId: string;
+  documentType: string;
+  status: ComplianceDocumentStatus;
+  documentNumber: string;
+  latestValidationStatus: ComplianceValidationStatus | null;
+  validationSummaryJson?: unknown;
+  validationResults?: ComplianceValidationResultSummary[];
+  archiveRecords?: ComplianceArchiveRecordSummary[];
+}
+export interface ComplianceSourceReadinessResponse {
+  posture: "CONTROLLED_BETA_USER_TESTING_ONLY";
+  sourceType: ComplianceSourceType;
+  sourceId: string;
+  sourceStatus: string;
+  localOnly: true;
+  noNetwork: true;
+  noAspSubmission: true;
+  noFtaReporting: true;
+  productionCompliance: false;
+  canAttemptLocalXmlGeneration: boolean;
+  readiness: UaeDocumentReadinessReport;
+  complianceDocument: ComplianceDocumentSummary | null;
+}
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
 export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL" | "AP_GENERATED_DOCUMENT";
@@ -325,6 +392,17 @@ export interface Organization {
   countryCode: string;
   baseCurrency: string;
   timezone: string;
+  tradeLicenseNumber?: string | null;
+  uaeTrn?: string | null;
+  uaeTin?: string | null;
+  uaeVatRegistrationStatus?: string | null;
+  uaeAddressLine1?: string | null;
+  uaeAddressLine2?: string | null;
+  uaeEmirate?: string | null;
+  uaeBusinessActivity?: string | null;
+  peppolParticipantId?: string | null;
+  uaeAspSelected?: string | null;
+  uaeAspOnboardingStatus?: string | null;
 }
 
 export type GlobalSearchCategory = "Contacts" | "Transactions" | "Reports" | "Pages / Navigation";
@@ -3265,6 +3343,16 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   taxNumber: string | null;
+  legalName?: string | null;
+  uaeTrn?: string | null;
+  uaeTin?: string | null;
+  uaeVatRegistrationStatus?: string | null;
+  uaeAddressLine1?: string | null;
+  uaeAddressLine2?: string | null;
+  uaeEmirate?: string | null;
+  peppolParticipantId?: string | null;
+  peppolEndpointStatus?: string | null;
+  preferredEinvoiceDeliveryMethod?: string | null;
   identificationType: ContactIdentificationType | null;
   identificationNumber: string | null;
   addressLine1: string | null;

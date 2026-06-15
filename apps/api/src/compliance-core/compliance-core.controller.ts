@@ -32,6 +32,18 @@ export class ComplianceCoreController {
     return this.complianceCoreService.getTimeline(organizationId, id);
   }
 
+  @Get("sales-invoices/:invoiceId/readiness")
+  @RequirePermissions(PERMISSIONS.compliance.view)
+  salesInvoiceReadiness(@CurrentOrganizationId() organizationId: string, @Param("invoiceId") invoiceId: string) {
+    return this.complianceCoreService.getSalesInvoiceReadiness(organizationId, invoiceId);
+  }
+
+  @Get("credit-notes/:creditNoteId/readiness")
+  @RequirePermissions(PERMISSIONS.compliance.view)
+  creditNoteReadiness(@CurrentOrganizationId() organizationId: string, @Param("creditNoteId") creditNoteId: string) {
+    return this.complianceCoreService.getCreditNoteReadiness(organizationId, creditNoteId);
+  }
+
   @Post("sales-invoices/:invoiceId/prepare")
   @RequirePermissions(PERMISSIONS.compliance.manage)
   prepareSalesInvoice(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("invoiceId") invoiceId: string) {

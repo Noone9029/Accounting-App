@@ -8,6 +8,10 @@ Safe wording:
 
 - UAE eInvoicing-ready accounting software.
 - Built for UAE Peppol/PINT-AE readiness.
+- UAE eInvoicing readiness.
+- Peppol/PINT-AE readiness.
+- ASP connectivity preparation.
+- Local validation/readiness only.
 - ASP connectivity foundation is disabled by default.
 
 Do not claim:
@@ -21,12 +25,18 @@ Do not claim:
 ## Implemented In This Branch
 
 - Nullable UAE organization/contact readiness fields.
+- Editable UAE organization readiness fields in Compliance settings for legal name, trade license number, TRN, TIN, VAT registration status, UAE address, emirate, business activity, Peppol participant ID, ASP selected, and ASP onboarding status.
+- UAE readiness checklist for TIN/TRN presence and validity, participant ID presence or derivation, UAE address completeness, VAT status, ASP selection, and ASP onboarding status.
+- Optional UAE eInvoicing fields on contact creation, shared contact detail/edit, and customer/supplier detail pages.
 - UAE TIN/TRN validation helpers.
 - Peppol participant ID derivation from 10-digit TIN as `0235{TIN}`.
-- Local readiness checklist for organization and buyer endpoint data.
+- Local readiness checklist for organization, buyer endpoint, invoice field, credit-note reference, tax identity, and Peppol participant data.
 - Fixture-tested PINT-AE-like invoice and credit-note XML generation.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
-- Read-only settings page showing UAE readiness, buyer endpoint coverage, rollout dates, official references, and prohibited claims.
+- Read-only API readiness endpoints for sales invoices and sales credit notes.
+- Finalized sales invoice and finalized sales credit-note readiness panels with explicit local-only validation actions.
+- Settings page showing UAE readiness, buyer endpoint coverage, rollout dates, official references, and prohibited claims.
+- Metadata-only validation/archive behavior for local readiness output: status, hashes, warnings/errors, size, filename, and source links where applicable.
 
 ## Not Implemented
 
@@ -37,6 +47,19 @@ Do not claim:
 - Production archive retention guarantees.
 - Legal/certification guarantee.
 - PDF treatment as a UAE compliance artifact.
+- Hosted/customer-data proof.
+- Broad E2E/smoke/full-test coverage.
+
+## Runtime Boundaries
+
+- Controlled beta/user-testing only.
+- UAE Peppol/PINT-AE readiness only.
+- No real ASP connection yet.
+- No FTA reporting yet.
+- No production compliance claim.
+- No Vercel/Supabase or production infrastructure change.
+- No ZATCA production behavior. ZATCA remains parked and blocked by default.
+- Accounting finalization remains separate from compliance delivery state.
 
 ## Official Sources To Re-Verify Before Provider Work
 
@@ -47,11 +70,11 @@ Do not claim:
 
 ## Next Engineering Slice
 
-`UAE Peppol/PINT-AE data-entry UX and invoice validation panels`
+`UAE Peppol/PINT-AE disabled ASP connector contract tests`
 
 Scope:
 
-- Add editable UAE fields to organization/contact forms.
-- Add invoice and credit-note detail validation panels.
-- Add document timeline and archive metadata panels.
-- Keep ASP send buttons disabled until a provider is selected and explicitly approved.
+- Pick one provider path for disabled/mock connector contract tests.
+- Validate request/response metadata shape without network calls or customer data.
+- Keep ASP send buttons disabled until a provider is selected, sandbox credentials exist, and explicit approval is given.
+- Preserve no FTA reporting and no production compliance claim.
