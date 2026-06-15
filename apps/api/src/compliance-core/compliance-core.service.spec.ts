@@ -29,6 +29,17 @@ function makeService(overrides: Record<string, unknown> = {}) {
       groupBy: jest.fn().mockResolvedValue([{ status: "READY_FOR_VALIDATION", _count: { status: 1 } }]),
       findFirst: jest.fn().mockResolvedValue(null),
     },
+    complianceProvider: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+    complianceTransmission: {
+      create: jest.fn().mockResolvedValue({ id: "tx-1", status: "ACCEPTED", channel: "mock-asp-local-only", externalReference: "mock-asp-1" }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    complianceEventLog: {
+      create: jest.fn().mockResolvedValue({ id: "event-1" }),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     ...overrides,
   } as any;
   const auditLogService = { log: jest.fn() } as any;
@@ -110,6 +121,131 @@ describe("ComplianceCoreService", () => {
     expect(result.readiness.validation.issues.map((issue) => issue.code)).toEqual(
       expect.arrayContaining(["CREDIT_NOTE_REASON_REQUIRED", "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED"]),
     );
+  });
+
+  it("falls back to the disabled ASP provider when config is missing", async () => {
+    const { service, prisma } = makeService();
+
+    const result = await service.getAspProviderSummary("org-1");
+
+    expect(prisma.complianceProvider.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", countryCode: "AE" } }));
+    expect(result.adapter.providerKey).toBe("DISABLED");
+    expect(result.adapter.health.status).toBe("DISABLED");
+    expect(result.noNetwork).toBe(true);
+    expect(result.noFtaReporting).toBe(true);
+    expect(JSON.stringify(result)).not.toContain("plain-secret");
+  });
+
+  it("returns safe not-implemented results for future ASP providers", async () => {
+    const { service } = makeService();
+
+    const result = await service.testAspProviderConfig("org-1", { providerKey: "FUTURE_EDICOM", mode: "FUTURE" });
+
+    expect(result.adapter.providerKey).toBe("FUTURE_EDICOM");
+    expect(result.adapter.health.ok).toBe(false);
+    expect(result.adapter.health.issues).toContain("ASP_PROVIDER_NOT_IMPLEMENTED");
+    expect(result.noRealAspCalls).toBe(true);
+  });
+
+  it("rejects arbitrary external provider URLs and redacts secrets", async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.testAspProviderConfig("org-1", {
+        providerKey: "MOCK",
+        mode: "MOCK",
+        mockModeEnabled: true,
+        endpointUrl: "https://provider.example.test",
+        apiKey: "plain-api-key",
+      }),
+    ).rejects.toThrow("External ASP provider URLs are disabled");
+
+    const result = await service.testAspProviderConfig("org-1", { providerKey: "MOCK", mode: "MOCK", mockModeEnabled: true, apiKey: "plain-api-key", secret: "plain-secret" });
+    expect(JSON.stringify(result)).not.toContain("plain-api-key");
+    expect(JSON.stringify(result)).not.toContain("plain-secret");
+    expect(result.config.apiKey).toBe("[REDACTED]");
+  });
+
+  it("creates local mock transmission only with explicit mock mode and leaves document status unchanged", async () => {
+    const complianceDocument = {
+      id: "doc-1",
+      organizationId: "org-1",
+      sourceType: "SALES_INVOICE",
+      sourceId: "invoice-1",
+      documentType: "TAX_INVOICE",
+      status: "READY_FOR_ASP",
+      documentNumber: "INV-0001",
+    };
+    const { service, prisma, auditLogService } = makeService({
+      complianceDocument: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(complianceDocument),
+      },
+    });
+
+    await expect(service.submitMockProvider("org-1", "user-1", "doc-1", { explicitMockMode: false })).rejects.toThrow("explicit mock mode");
+
+    const result = await service.submitMockProvider("org-1", "user-1", "doc-1", {
+      explicitMockMode: true,
+      scenario: "SUBMISSION_ACCEPTED",
+      config: { providerKey: "MOCK", mode: "MOCK", mockModeEnabled: true },
+    });
+
+    expect(result.provider.providerKey).toBe("MOCK");
+    expect(result.documentStatusUnchanged).toBe(true);
+    expect(result.result.mockOnly).toBe(true);
+    expect(result.result.status).toBe("ASP_ACCEPTED");
+    expect(prisma.complianceTransmission.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          complianceDocumentId: "doc-1",
+          channel: "mock-asp-local-only",
+        }),
+      }),
+    );
+    expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ entityType: "ComplianceTransmission" }));
+  });
+
+  it("blocks disabled provider submission previews and does not emit real delivery statuses", async () => {
+    const { service, prisma } = makeService({
+      complianceDocument: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "doc-1",
+          organizationId: "org-1",
+          sourceType: "SALES_INVOICE",
+          sourceId: "invoice-1",
+          documentType: "TAX_INVOICE",
+          status: "READY_FOR_ASP",
+          documentNumber: "INV-0001",
+        }),
+      },
+    });
+
+    const preview = await service.createAspTransmissionPreview("org-1", "doc-1", { config: { providerKey: "DISABLED", mode: "DISABLED" } });
+
+    expect(preview.noMutation).toBe(true);
+    expect(preview.result.ok).toBe(false);
+    expect(preview.result.status).toBe("DISABLED");
+    expect(JSON.stringify(preview)).not.toContain("REPORTED_TO_FTA");
+    expect(JSON.stringify(preview)).not.toContain("DELIVERED_TO_BUYER");
+    expect(prisma.complianceTransmission.create).not.toHaveBeenCalled();
+  });
+
+  it("enforces tenant scoping before provider status or mock submission", async () => {
+    const { service, prisma } = makeService({
+      complianceDocument: {
+        groupBy: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    });
+
+    await expect(service.getAspProviderStatusTimeline("org-2", "doc-1")).rejects.toThrow("Compliance document not found");
+    await expect(service.submitMockProvider("org-2", "user-1", "doc-1", { explicitMockMode: true, config: { providerKey: "MOCK", mode: "MOCK", mockModeEnabled: true } })).rejects.toThrow(
+      "Compliance document not found",
+    );
+    expect(prisma.complianceDocument.findFirst).toHaveBeenCalledWith({ where: { id: "doc-1", organizationId: "org-2" } });
   });
 });
 

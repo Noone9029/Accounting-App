@@ -5,12 +5,20 @@ import {
   ComplianceDocumentStatus,
   ComplianceDocumentType,
   ComplianceProfileStatus,
+  ComplianceTransmissionStatus,
   ComplianceValidationStatus,
   CreditNoteStatus,
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
 import {
+  createAspProviderAdapter,
+  redactAspProviderConfig,
+  type AspProviderConfig,
+  type AspProviderAdapter,
+  type AspProviderKey,
+  type AspProviderOperationInput,
+  type AspProviderSubmissionResult,
   buildUaeDocumentReadinessReport,
   buildUaePintXml,
   buildUaeReadinessReport,
@@ -169,6 +177,129 @@ export class ComplianceCoreService {
       where: { organizationId, complianceDocumentId: id },
       orderBy: { createdAt: "asc" },
     });
+  }
+
+  async getAspProviderSummary(organizationId: string) {
+    const provider = await this.getConfiguredAspProvider(organizationId);
+    return this.aspProviderSummary(organizationId, provider ? providerToAspConfig(provider) : null, provider);
+  }
+
+  async testAspProviderConfig(organizationId: string, config: AspProviderConfig | null | undefined) {
+    return this.aspProviderSummary(organizationId, normalizeRequestedAspConfig(config), null);
+  }
+
+  async createAspTransmissionPreview(organizationId: string, id: string, input: Partial<AspProviderOperationInput> & { config?: AspProviderConfig | null }) {
+    const document = await this.requireDocument(organizationId, id);
+    const adapter = createSafeAspAdapter(normalizeRequestedAspConfig(input.config));
+    const result = await adapter.submitDocument({
+      tenantId: organizationId,
+      documentId: document.id,
+      documentNumber: document.documentNumber,
+      scenario: input.scenario,
+      explicitMockMode: input.explicitMockMode,
+    });
+    return {
+      posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+      noMutation: true,
+      noNetwork: true,
+      noRealAspCalls: true,
+      noFtaReporting: true,
+      productionCompliance: false,
+      provider: { providerKey: adapter.providerKey, mode: adapter.mode, capabilities: adapter.listCapabilities() },
+      document: redactedComplianceDocument(document),
+      result,
+    };
+  }
+
+  async submitMockProvider(organizationId: string, actorUserId: string, id: string, input: Partial<AspProviderOperationInput> & { config?: AspProviderConfig | null }) {
+    if (input.explicitMockMode !== true) {
+      throw new BadRequestException("Mock ASP submission requires explicit mock mode.");
+    }
+    const document = await this.requireDocument(organizationId, id);
+    const config = normalizeRequestedAspConfig(input.config ?? { providerKey: "MOCK", mode: "MOCK", mockModeEnabled: true });
+    const adapter = createSafeAspAdapter(config);
+    if (adapter.providerKey !== "MOCK" || adapter.mode !== "MOCK") {
+      throw new BadRequestException("Only the explicit MOCK provider can create mock ASP submissions in this branch.");
+    }
+
+    const result = await adapter.submitDocument({
+      tenantId: organizationId,
+      documentId: document.id,
+      documentNumber: document.documentNumber,
+      scenario: input.scenario,
+      explicitMockMode: input.explicitMockMode,
+    });
+    const transmissionStatus = transmissionStatusForAspResult(result);
+
+    const transmission = await this.prisma.complianceTransmission.create({
+      data: {
+        organizationId,
+        complianceDocumentId: document.id,
+        status: transmissionStatus,
+        channel: "mock-asp-local-only",
+        externalReference: result.externalReference,
+        submittedAt: new Date(),
+        confirmedAt: result.status === "ASP_ACCEPTED" || result.status === "ASP_REJECTED" ? new Date() : undefined,
+        metadataJson: toInputJson({
+          providerKey: "MOCK",
+          mockOnly: true,
+          noNetwork: true,
+          noRealAspCalls: true,
+          noFtaReporting: true,
+          productionCompliance: false,
+          aspStatus: result.status,
+          issues: result.issues,
+        }),
+      },
+    });
+
+    await this.prisma.complianceEventLog.create({
+      data: {
+        organizationId,
+        complianceDocumentId: document.id,
+        eventType: "MOCK_ASP_SUBMISSION_RECORDED",
+        fromStatus: document.status,
+        toStatus: document.status,
+        message: "Mock ASP submission recorded for local contract testing only; no provider or FTA network call was made.",
+        metadataJson: toInputJson({ providerKey: "MOCK", mockOnly: true, noNetwork: true, aspStatus: result.status }),
+        actorUserId,
+      },
+    });
+
+    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "ComplianceTransmission", entityId: transmission.id, after: transmission });
+    return {
+      posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+      localOnly: true,
+      noNetwork: true,
+      noRealAspCalls: true,
+      noFtaReporting: true,
+      productionCompliance: false,
+      documentStatusUnchanged: true,
+      provider: { providerKey: adapter.providerKey, mode: adapter.mode, capabilities: adapter.listCapabilities() },
+      transmission,
+      result,
+    };
+  }
+
+  async getAspProviderStatusTimeline(organizationId: string, id: string) {
+    const document = await this.requireDocument(organizationId, id);
+    const provider = await this.getConfiguredAspProvider(organizationId);
+    const adapter = createSafeAspAdapter(provider ? providerToAspConfig(provider) : null);
+    const status = await adapter.getDocumentStatus({ tenantId: organizationId, documentId: document.id, documentNumber: document.documentNumber });
+    const transmissions = await this.prisma.complianceTransmission.findMany({
+      where: { organizationId, complianceDocumentId: document.id },
+      orderBy: { createdAt: "asc" },
+    });
+    return {
+      posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+      noNetwork: true,
+      noRealAspCalls: true,
+      noFtaReporting: true,
+      productionCompliance: false,
+      provider: { providerKey: adapter.providerKey, mode: adapter.mode },
+      status,
+      transmissions,
+    };
   }
 
   async prepareSalesInvoice(organizationId: string, actorUserId: string, invoiceId: string) {
@@ -378,6 +509,42 @@ export class ComplianceCoreService {
       throw new NotFoundException("Compliance document not found.");
     }
     return document;
+  }
+
+  private async getConfiguredAspProvider(organizationId: string) {
+    return this.prisma.complianceProvider.findFirst({
+      where: { organizationId, countryCode: ComplianceCountryCode.AE },
+      orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  private async aspProviderSummary(organizationId: string, config: AspProviderConfig | null, provider: { id: string; name: string; status: string; metadataJson: Prisma.JsonValue | null } | null) {
+    const adapter = createSafeAspAdapter(config);
+    const health = await adapter.healthCheck();
+    return {
+      posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+      organizationId,
+      providerBackedArchitecture:
+        "LedgerByte remains the bookkeeping, local readiness, audit trail, and orchestration layer; a future accredited UAE ASP API would perform final validation, exchange, and FTA reporting after provider selection and API review.",
+      noNetwork: true,
+      noRealAspCalls: true,
+      noFtaReporting: true,
+      noPeppolTransmission: true,
+      productionCompliance: false,
+      providerRecord: provider ? { id: provider.id, name: provider.name, status: provider.status, metadataJson: redactJson(provider.metadataJson) } : null,
+      config: redactAspProviderConfig(config),
+      adapter: {
+        providerKey: adapter.providerKey,
+        mode: adapter.mode,
+        capabilities: adapter.listCapabilities(),
+        health,
+      },
+      warnings: [
+        "Disabled/mock ASP behavior is local-only and does not contact a provider.",
+        "Future provider keys are placeholders until commercial selection and API documentation review.",
+        "No FTA reporting, real Peppol transmission, or production compliance claim is enabled.",
+      ],
+    };
   }
 
   private async buildPintInput(document: { organizationId: string; sourceId: string; sourceType: ComplianceDocumentSourceType }): Promise<UaePintDocumentInput> {
@@ -618,4 +785,102 @@ function toDateOnly(value: Date): string {
 async function sha256(value: string): Promise<string> {
   const crypto = await import("node:crypto");
   return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function providerToAspConfig(provider: { providerType: string; metadataJson: Prisma.JsonValue | null }): AspProviderConfig {
+  const metadata = isRecord(provider.metadataJson) ? provider.metadataJson : {};
+  return {
+    providerKey: aspProviderKeyFromRecord(provider.providerType, metadata),
+    mode: aspProviderModeFromRecord(provider.providerType, metadata),
+    mockModeEnabled: metadata.mockModeEnabled === true,
+    endpointUrl: typeof metadata.endpointUrl === "string" ? metadata.endpointUrl : null,
+    metadata,
+  };
+}
+
+function normalizeRequestedAspConfig(config: AspProviderConfig | null | undefined): AspProviderConfig | null {
+  if (!config) {
+    return null;
+  }
+  return {
+    providerKey: config.providerKey ?? "DISABLED",
+    mode: config.mode ?? (config.providerKey === "MOCK" ? "MOCK" : "DISABLED"),
+    mockModeEnabled: config.mockModeEnabled === true,
+    endpointUrl: config.endpointUrl ?? null,
+    apiKey: config.apiKey ?? null,
+    secret: config.secret ?? null,
+    webhookSecret: config.webhookSecret ?? null,
+    metadata: isRecord(config.metadata) ? config.metadata : null,
+  };
+}
+
+function aspProviderKeyFromRecord(providerType: string, metadata: Record<string, unknown>): AspProviderKey {
+  const metadataKey = metadata.providerKey;
+  if (typeof metadataKey === "string" && ["DISABLED", "MOCK", "FUTURE_COMPLYANCE", "FUTURE_CLEARTAX", "FUTURE_EDICOM", "FUTURE_GENERIC_ASP"].includes(metadataKey)) {
+    return metadataKey as AspProviderKey;
+  }
+  if (providerType === "MOCK") {
+    return "MOCK";
+  }
+  if (providerType === "ASP_PARTNER") {
+    return "FUTURE_GENERIC_ASP";
+  }
+  return "DISABLED";
+}
+
+function aspProviderModeFromRecord(providerType: string, metadata: Record<string, unknown>): AspProviderConfig["mode"] {
+  if (metadata.mode === "MOCK" || metadata.mode === "FUTURE" || metadata.mode === "DISABLED") {
+    return metadata.mode;
+  }
+  if (providerType === "MOCK") {
+    return "MOCK";
+  }
+  if (providerType === "ASP_PARTNER") {
+    return "FUTURE";
+  }
+  return "DISABLED";
+}
+
+function transmissionStatusForAspResult(result: AspProviderSubmissionResult): ComplianceTransmissionStatus {
+  if (result.status === "ASP_ACCEPTED") {
+    return ComplianceTransmissionStatus.ACCEPTED;
+  }
+  if (result.status === "ASP_REJECTED") {
+    return ComplianceTransmissionStatus.REJECTED;
+  }
+  return ComplianceTransmissionStatus.FAILED;
+}
+
+function redactedComplianceDocument(document: { id: string; sourceType: ComplianceDocumentSourceType; sourceId: string; documentType: ComplianceDocumentType; status: ComplianceDocumentStatus; documentNumber: string }) {
+  return {
+    id: document.id,
+    sourceType: document.sourceType,
+    sourceId: document.sourceId,
+    documentType: document.documentType,
+    status: document.status,
+    documentNumber: document.documentNumber,
+  };
+}
+
+function redactJson(value: Prisma.JsonValue | null): Prisma.JsonValue | null {
+  if (!isRecord(value)) {
+    return value;
+  }
+  return JSON.parse(
+    JSON.stringify(value, (key, nestedValue) => {
+      return /api|key|secret|token|password|credential/i.test(key) && nestedValue ? "[REDACTED]" : nestedValue;
+    }),
+  ) as Prisma.JsonValue;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createSafeAspAdapter(config: AspProviderConfig | null): AspProviderAdapter {
+  try {
+    return createAspProviderAdapter(config);
+  } catch (error) {
+    throw new BadRequestException(error instanceof Error ? error.message : "Invalid ASP provider configuration.");
+  }
 }

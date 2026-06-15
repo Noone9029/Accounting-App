@@ -1,5 +1,405 @@
 export type UaePintDocumentKind = "invoice" | "credit-note";
 
+export type AspProviderKey = "DISABLED" | "MOCK" | "FUTURE_COMPLYANCE" | "FUTURE_CLEARTAX" | "FUTURE_EDICOM" | "FUTURE_GENERIC_ASP";
+export type AspProviderMode = "DISABLED" | "MOCK" | "FUTURE";
+export type AspProviderCapability =
+  | "LOCAL_READINESS_VALIDATION"
+  | "MOCK_VALIDATION"
+  | "MOCK_SUBMISSION"
+  | "STATUS_LOOKUP"
+  | "WEBHOOK_SIGNATURE_VERIFICATION"
+  | "EVIDENCE_DOWNLOAD";
+export type AspProviderNormalizedStatus =
+  | "DISABLED"
+  | "NOT_CONFIGURED"
+  | "READY_FOR_LOCAL_VALIDATION"
+  | "LOCAL_VALIDATION_FAILED"
+  | "READY_FOR_ASP"
+  | "QUEUED_FOR_ASP"
+  | "SENT_TO_ASP"
+  | "ASP_ACCEPTED"
+  | "ASP_REJECTED"
+  | "REPORTED_TO_FTA"
+  | "FTA_REJECTED"
+  | "DELIVERED_TO_BUYER"
+  | "BUYER_REJECTED"
+  | "RETRYABLE_ERROR"
+  | "TERMINAL_ERROR"
+  | "ARCHIVED";
+
+export interface AspProviderConfig {
+  providerKey?: AspProviderKey | null;
+  mode?: AspProviderMode | null;
+  mockModeEnabled?: boolean | null;
+  endpointUrl?: string | null;
+  apiKey?: string | null;
+  secret?: string | null;
+  webhookSecret?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface AspProviderOperationInput {
+  tenantId: string;
+  documentId?: string | null;
+  documentNumber?: string | null;
+  payload?: unknown;
+  scenario?: "VALIDATION_SUCCESS" | "VALIDATION_FAILURE" | "SUBMISSION_ACCEPTED" | "SUBMISSION_REJECTED" | null;
+  explicitMockMode?: boolean | null;
+}
+
+export interface AspProviderBaseResult {
+  providerKey: AspProviderKey;
+  mode: AspProviderMode;
+  status: AspProviderNormalizedStatus;
+  ok: boolean;
+  mockOnly: boolean;
+  noNetwork: true;
+  productionCompliance: false;
+  message: string;
+  issues: string[];
+}
+
+export interface AspProviderValidationResult extends AspProviderBaseResult {
+  validatorKey: string;
+}
+
+export interface AspProviderSubmissionResult extends AspProviderBaseResult {
+  externalReference: string | null;
+}
+
+export interface AspProviderStatusResult extends AspProviderBaseResult {
+  timeline: Array<{ status: AspProviderNormalizedStatus; message: string }>;
+}
+
+export interface AspProviderWebhookResult extends AspProviderBaseResult {
+  accepted: boolean;
+}
+
+export interface AspProviderEvidenceResult extends AspProviderBaseResult {
+  available: boolean;
+  filename: string | null;
+}
+
+export interface AspProviderHealthResult extends AspProviderBaseResult {
+  capabilities: AspProviderCapability[];
+}
+
+export interface AspProviderAdapter {
+  readonly providerKey: AspProviderKey;
+  readonly mode: AspProviderMode;
+  listCapabilities(): AspProviderCapability[];
+  validateDocument(input: AspProviderOperationInput): Promise<AspProviderValidationResult>;
+  submitDocument(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult>;
+  getDocumentStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult>;
+  parseWebhook(payload: unknown): Promise<AspProviderWebhookResult>;
+  verifyWebhookSignature(payload: unknown, signature: string | null | undefined): Promise<boolean>;
+  downloadEvidence(input: AspProviderOperationInput): Promise<AspProviderEvidenceResult>;
+  healthCheck(): Promise<AspProviderHealthResult>;
+}
+
+export const ASP_PROVIDER_KEYS: AspProviderKey[] = ["DISABLED", "MOCK", "FUTURE_COMPLYANCE", "FUTURE_CLEARTAX", "FUTURE_EDICOM", "FUTURE_GENERIC_ASP"];
+export const ASP_PROVIDER_STATUSES: AspProviderNormalizedStatus[] = [
+  "DISABLED",
+  "NOT_CONFIGURED",
+  "READY_FOR_LOCAL_VALIDATION",
+  "LOCAL_VALIDATION_FAILED",
+  "READY_FOR_ASP",
+  "QUEUED_FOR_ASP",
+  "SENT_TO_ASP",
+  "ASP_ACCEPTED",
+  "ASP_REJECTED",
+  "REPORTED_TO_FTA",
+  "FTA_REJECTED",
+  "DELIVERED_TO_BUYER",
+  "BUYER_REJECTED",
+  "RETRYABLE_ERROR",
+  "TERMINAL_ERROR",
+  "ARCHIVED",
+];
+export const DISABLED_PROVIDER_EMITTED_STATUSES: AspProviderNormalizedStatus[] = ["DISABLED", "NOT_CONFIGURED"];
+
+export class DisabledAspProviderAdapter implements AspProviderAdapter {
+  readonly providerKey = "DISABLED" as const;
+  readonly mode = "DISABLED" as const;
+
+  listCapabilities(): AspProviderCapability[] {
+    return ["LOCAL_READINESS_VALIDATION"];
+  }
+
+  async validateDocument(): Promise<AspProviderValidationResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "NOT_CONFIGURED",
+      ok: false,
+      mockOnly: false,
+      message: "UAE ASP connectivity is disabled; only local readiness validation is available.",
+      issues: ["ASP_PROVIDER_DISABLED"],
+      validatorKey: "uae-asp-disabled",
+    });
+  }
+
+  async submitDocument(): Promise<AspProviderSubmissionResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "DISABLED",
+      ok: false,
+      mockOnly: false,
+      message: "ASP submission is blocked because no provider is configured.",
+      issues: ["ASP_SUBMISSION_DISABLED"],
+      externalReference: null,
+    });
+  }
+
+  async getDocumentStatus(): Promise<AspProviderStatusResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "NOT_CONFIGURED",
+      ok: false,
+      mockOnly: false,
+      message: "No ASP status is available while the provider is disabled.",
+      issues: ["ASP_PROVIDER_DISABLED"],
+      timeline: [{ status: "NOT_CONFIGURED", message: "Provider disabled; no ASP timeline exists." }],
+    });
+  }
+
+  async parseWebhook(): Promise<AspProviderWebhookResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "DISABLED",
+      ok: false,
+      mockOnly: false,
+      message: "Webhook parsing is disabled for non-mock ASP providers.",
+      issues: ["ASP_WEBHOOK_DISABLED"],
+      accepted: false,
+    });
+  }
+
+  async verifyWebhookSignature(): Promise<boolean> {
+    return false;
+  }
+
+  async downloadEvidence(): Promise<AspProviderEvidenceResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "NOT_CONFIGURED",
+      ok: false,
+      mockOnly: false,
+      message: "ASP evidence is not available because no provider is configured.",
+      issues: ["ASP_EVIDENCE_NOT_AVAILABLE"],
+      available: false,
+      filename: null,
+    });
+  }
+
+  async healthCheck(): Promise<AspProviderHealthResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "DISABLED",
+      ok: false,
+      mockOnly: false,
+      message: "ASP connector disabled; no network health check was attempted.",
+      issues: ["ASP_PROVIDER_DISABLED"],
+      capabilities: this.listCapabilities(),
+    });
+  }
+}
+
+export class MockAspProviderAdapter implements AspProviderAdapter {
+  readonly providerKey = "MOCK" as const;
+  readonly mode = "MOCK" as const;
+
+  listCapabilities(): AspProviderCapability[] {
+    return ["LOCAL_READINESS_VALIDATION", "MOCK_VALIDATION", "MOCK_SUBMISSION", "STATUS_LOOKUP", "WEBHOOK_SIGNATURE_VERIFICATION", "EVIDENCE_DOWNLOAD"];
+  }
+
+  async validateDocument(input: AspProviderOperationInput): Promise<AspProviderValidationResult> {
+    const failed = input.scenario === "VALIDATION_FAILURE";
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: failed ? "LOCAL_VALIDATION_FAILED" : "READY_FOR_ASP",
+      ok: !failed,
+      mockOnly: true,
+      message: failed ? "Mock ASP validation failed for local contract testing only." : "Mock ASP validation passed for local contract testing only.",
+      issues: failed ? ["MOCK_VALIDATION_FAILURE"] : [],
+      validatorKey: "uae-asp-mock",
+    });
+  }
+
+  async submitDocument(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    if (input.explicitMockMode !== true) {
+      return baseResult({
+        providerKey: this.providerKey,
+        mode: this.mode,
+        status: "NOT_CONFIGURED",
+        ok: false,
+        mockOnly: true,
+        message: "Mock ASP submission requires explicit mock mode for local tests.",
+        issues: ["MOCK_MODE_NOT_EXPLICIT"],
+        externalReference: null,
+      });
+    }
+    const rejected = input.scenario === "SUBMISSION_REJECTED";
+    const documentId = String(input.documentId ?? input.documentNumber ?? "document");
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: rejected ? "ASP_REJECTED" : "ASP_ACCEPTED",
+      ok: !rejected,
+      mockOnly: true,
+      message: rejected ? "Mock ASP rejected the document for local contract testing only." : "Mock ASP accepted the document for local contract testing only.",
+      issues: rejected ? ["MOCK_SUBMISSION_REJECTED"] : [],
+      externalReference: rejected ? null : `mock-asp-${stableMockReference(input.tenantId, documentId)}`,
+    });
+  }
+
+  async getDocumentStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
+    const documentId = String(input.documentId ?? input.documentNumber ?? "document");
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "READY_FOR_ASP",
+      ok: true,
+      mockOnly: true,
+      message: "Mock ASP status is deterministic and local-only.",
+      issues: [],
+      timeline: [
+        { status: "READY_FOR_LOCAL_VALIDATION", message: "Local readiness prepared." },
+        { status: "READY_FOR_ASP", message: `Mock status reference ${stableMockReference(input.tenantId, documentId)}.` },
+      ],
+    });
+  }
+
+  async parseWebhook(payload: unknown): Promise<AspProviderWebhookResult> {
+    const isMockPayload = isRecord(payload) && payload.provider === "MOCK" && payload.mockOnly === true;
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: isMockPayload ? "READY_FOR_ASP" : "TERMINAL_ERROR",
+      ok: isMockPayload,
+      mockOnly: true,
+      message: isMockPayload ? "Mock webhook parsed for local tests only." : "Only explicit mock webhook payloads are accepted.",
+      issues: isMockPayload ? [] : ["NON_MOCK_WEBHOOK_REJECTED"],
+      accepted: isMockPayload,
+    });
+  }
+
+  async verifyWebhookSignature(_payload: unknown, signature: string | null | undefined): Promise<boolean> {
+    return signature === "mock-signature";
+  }
+
+  async downloadEvidence(input: AspProviderOperationInput): Promise<AspProviderEvidenceResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "READY_FOR_ASP",
+      ok: true,
+      mockOnly: true,
+      message: "Mock evidence metadata is available for local contract testing only.",
+      issues: [],
+      available: true,
+      filename: `${String(input.documentNumber ?? input.documentId ?? "document")}.mock-asp-evidence.json`,
+    });
+  }
+
+  async healthCheck(): Promise<AspProviderHealthResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "READY_FOR_ASP",
+      ok: true,
+      mockOnly: true,
+      message: "Mock ASP adapter is healthy; no network health check was attempted.",
+      issues: [],
+      capabilities: this.listCapabilities(),
+    });
+  }
+}
+
+export class FutureAspProviderAdapter implements AspProviderAdapter {
+  readonly mode = "FUTURE" as const;
+
+  constructor(readonly providerKey: Exclude<AspProviderKey, "DISABLED" | "MOCK">) {}
+
+  listCapabilities(): AspProviderCapability[] {
+    return [];
+  }
+
+  async validateDocument(): Promise<AspProviderValidationResult> {
+    return this.notImplemented("validateDocument", { validatorKey: `uae-asp-${this.providerKey.toLowerCase()}` });
+  }
+
+  async submitDocument(): Promise<AspProviderSubmissionResult> {
+    return this.notImplemented("submitDocument", { externalReference: null });
+  }
+
+  async getDocumentStatus(): Promise<AspProviderStatusResult> {
+    return this.notImplemented("getDocumentStatus", { timeline: [] });
+  }
+
+  async parseWebhook(): Promise<AspProviderWebhookResult> {
+    return this.notImplemented("parseWebhook", { accepted: false });
+  }
+
+  async verifyWebhookSignature(): Promise<boolean> {
+    return false;
+  }
+
+  async downloadEvidence(): Promise<AspProviderEvidenceResult> {
+    return this.notImplemented("downloadEvidence", { available: false, filename: null });
+  }
+
+  async healthCheck(): Promise<AspProviderHealthResult> {
+    return this.notImplemented("healthCheck", { capabilities: [] });
+  }
+
+  private notImplemented<T extends object>(operation: string, extra: T): Promise<AspProviderBaseResult & T> {
+    return Promise.resolve(
+      baseResult({
+        providerKey: this.providerKey,
+        mode: this.mode,
+        status: "NOT_CONFIGURED",
+        ok: false,
+        mockOnly: false,
+        message: `${this.providerKey} ${operation} is not implemented; provider selection and API review are required first.`,
+        issues: ["ASP_PROVIDER_NOT_IMPLEMENTED"],
+        ...extra,
+      }),
+    );
+  }
+}
+
+export function createAspProviderAdapter(config?: AspProviderConfig | null): AspProviderAdapter {
+  assertNoExternalProviderUrl(config);
+  const providerKey = config?.providerKey ?? "DISABLED";
+  if (providerKey === "DISABLED") {
+    return new DisabledAspProviderAdapter();
+  }
+  if (providerKey === "MOCK") {
+    return config?.mode === "MOCK" && config.mockModeEnabled === true ? new MockAspProviderAdapter() : new DisabledAspProviderAdapter();
+  }
+  return new FutureAspProviderAdapter(providerKey);
+}
+
+export function redactAspProviderConfig(config?: AspProviderConfig | null): Record<string, unknown> {
+  return {
+    providerKey: config?.providerKey ?? "DISABLED",
+    mode: config?.mode ?? "DISABLED",
+    mockModeEnabled: config?.mockModeEnabled === true,
+    endpointUrlConfigured: Boolean(config?.endpointUrl),
+    apiKey: config?.apiKey ? "[REDACTED]" : null,
+    secret: config?.secret ? "[REDACTED]" : null,
+    webhookSecret: config?.webhookSecret ? "[REDACTED]" : null,
+    metadata: redactObject(config?.metadata ?? null),
+  };
+}
+
 export interface UaeParty {
   legalName?: string | null;
   peppolParticipantId?: string | null;
@@ -375,4 +775,37 @@ function formatAmount(value: string | number): string {
 
 function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function baseResult<T extends object>(result: T): T & { noNetwork: true; productionCompliance: false } {
+  return { ...result, noNetwork: true, productionCompliance: false };
+}
+
+function assertNoExternalProviderUrl(config?: AspProviderConfig | null): void {
+  if (String(config?.endpointUrl ?? "").trim()) {
+    throw new Error("External ASP provider URLs are disabled in this branch.");
+  }
+}
+
+function stableMockReference(tenantId: string, documentId: string): string {
+  let hash = 0;
+  for (const character of `${tenantId}:${documentId}`) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function redactObject(value: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!value) {
+    return null;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => {
+      return /api|key|secret|token|password|credential/i.test(key) ? [key, nestedValue ? "[REDACTED]" : nestedValue] : [key, nestedValue];
+    }),
+  );
 }

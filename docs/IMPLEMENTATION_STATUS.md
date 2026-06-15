@@ -16,7 +16,7 @@ Current production posture:
 - Vercel is beta/user-testing only, not final production hosting.
 - LedgerByte is not production-launched.
 - Real ZATCA production compliance is not enabled.
-- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
+- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness plus disabled/mock ASP connector contracts only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - Production tickets and ADRs are planning artifacts only. No hosting, database role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation has been performed.
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
@@ -24,6 +24,20 @@ Current production posture:
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-15 UAE disabled ASP connector contracts:
+
+- Created branch `feature/uae-disabled-asp-connector-contracts` from fresh `origin/main` at `9f57820af431cde2973d20c575137ecff72bec4f` after PR `#43` was merged.
+- Added provider-neutral ASP adapter types and normalized keys/statuses/capabilities in `@ledgerbyte/uae-peppol-pint-ae`.
+- Added disabled/default and explicit mock-only adapter implementations. Disabled blocks submission and never emits sent, FTA-reported, or buyer-delivered states. Mock behavior is deterministic, no-network, and clearly marked local/test-only.
+- Added future-provider placeholders for Complyance, ClearTax, EDICOM, and generic ASP keys that return safe not-implemented results.
+- Added provider factory rules: missing or disabled config falls back to disabled, mock requires explicit mock mode, future providers are placeholders, arbitrary external URLs are rejected, and secrets are redacted from responses.
+- Added compliance-core API/service surface for provider readiness/config summary, redacted test config, local/mock preview, explicit mock submit, and provider status timeline.
+- Existing tenant-scoped compliance document lookup gates preview/status/mock-submit behavior.
+- Mock submit can create a local test-only `ComplianceTransmission` and event log without changing accounting finalization or compliance document status.
+- No real ASP call, real ASP submission, FTA reporting, production Peppol claim, production UAE compliance claim, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, E2E, real email, real ZATCA call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was added.
+- ZATCA remains parked and blocked by default.
+- Recommended next prompt: `UAE ASP provider selection research and provider-specific sandbox contract plan`.
 
 2026-06-15 UAE Peppol/PINT-AE data-entry UX and validation panels:
 
