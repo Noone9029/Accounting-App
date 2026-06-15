@@ -13,6 +13,8 @@ Safe wording:
 - ASP connectivity preparation.
 - Local validation/readiness only.
 - ASP connectivity foundation is disabled by default.
+- Provider-backed architecture is planned through a future accredited UAE ASP API.
+- Disabled/mock ASP connector contracts for local testing only.
 
 Do not claim:
 
@@ -33,7 +35,13 @@ Do not claim:
 - Local readiness checklist for organization, buyer endpoint, invoice field, credit-note reference, tax identity, and Peppol participant data.
 - Fixture-tested PINT-AE-like invoice and credit-note XML generation.
 - Compliance-core document lifecycle, validation result, event timeline, transmission state, and XML/evidence archive metadata.
+- Provider-neutral ASP adapter contract with normalized provider keys, statuses, and capability flags.
+- Disabled ASP adapter that blocks submission, rejects non-mock webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
+- Mock ASP adapter for deterministic local tests only. Mock accepted/rejected submissions require explicit mock mode and never claim real ASP submission, FTA reporting, or buyer delivery.
+- Future provider placeholders for Complyance, ClearTax, EDICOM, and generic ASP keys that return safe not-implemented results.
+- Redacted provider config summary, arbitrary external URL blocking, and no plaintext secret response behavior.
 - Read-only API readiness endpoints for sales invoices and sales credit notes.
+- API/service surface for provider readiness summary, redacted config test, local/mock transmission preview, explicit mock submit, and provider status timeline.
 - Finalized sales invoice and finalized sales credit-note readiness panels with explicit local-only validation actions.
 - Settings page showing UAE readiness, buyer endpoint coverage, rollout dates, official references, and prohibited claims.
 - Metadata-only validation/archive behavior for local readiness output: status, hashes, warnings/errors, size, filename, and source links where applicable.
@@ -42,8 +50,13 @@ Do not claim:
 
 - Real ASP network integration.
 - Provider-specific payload contract.
+- Provider-specific credentials.
+- Provider-specific base URLs.
+- Real webhooks.
+- Real Peppol transmission.
 - EmaraTax onboarding automation.
 - FTA confirmation handling from a real provider.
+- FTA reporting.
 - Production archive retention guarantees.
 - Legal/certification guarantee.
 - PDF treatment as a UAE compliance artifact.
@@ -54,8 +67,11 @@ Do not claim:
 
 - Controlled beta/user-testing only.
 - UAE Peppol/PINT-AE readiness only.
-- No real ASP connection yet.
-- No FTA reporting yet.
+- Disabled/mock ASP behavior only.
+- No real ASP connection.
+- No real ASP network call.
+- No FTA reporting.
+- No real Peppol transmission.
 - No production compliance claim.
 - No Vercel/Supabase or production infrastructure change.
 - No ZATCA production behavior. ZATCA remains parked and blocked by default.
@@ -70,11 +86,11 @@ Do not claim:
 
 ## Next Engineering Slice
 
-`UAE Peppol/PINT-AE disabled ASP connector contract tests`
+`UAE ASP provider selection research and provider-specific sandbox contract plan`
 
 Scope:
 
-- Pick one provider path for disabled/mock connector contract tests.
-- Validate request/response metadata shape without network calls or customer data.
-- Keep ASP send buttons disabled until a provider is selected, sandbox credentials exist, and explicit approval is given.
-- Preserve no FTA reporting and no production compliance claim.
+- Compare likely commercial ASP provider paths from current official and provider documentation.
+- Select one candidate path for a provider-specific sandbox contract plan.
+- Keep all real ASP network calls disabled until provider selection, sandbox credentials, redaction rules, and explicit approval exist.
+- Preserve no FTA reporting, no buyer delivery, and no production compliance claim.

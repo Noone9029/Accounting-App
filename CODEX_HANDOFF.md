@@ -2,16 +2,26 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-peppol-pint-ae-data-entry-validation`.
-- Base: fresh `origin/main` at `90201c170cb2ec7788135c7c3707adbc783ff406` after PR `#42` compliance core was merged and cleaned up.
+- Branch: `feature/uae-disabled-asp-connector-contracts`.
+- Base: fresh `origin/main` at `9f57820af431cde2973d20c575137ecff72bec4f` after PR `#43` UAE Peppol/PINT-AE data-entry UX and validation panels was merged and cleaned up.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels on top of the merged compliance-core foundation.
+- Current lane: provider-neutral UAE ASP connector contracts with disabled/default behavior, explicit mock-only behavior, and API/service contract tests.
 - Product posture remains controlled beta/user-testing only.
-- This branch adds editable UAE organization/contact readiness fields, local-only source readiness endpoints, and explicit user-triggered invoice/credit-note validation actions before any real ASP or FTA integration.
+- This branch prepares LedgerByte to orchestrate a future accredited UAE ASP API while keeping all real ASP calls, FTA reporting, Peppol transmission, and production compliance claims disabled.
+
+## UAE Disabled ASP Connector Contract Summary
+
+- Added provider-neutral ASP adapter types, normalized provider keys, capability flags, status values, redaction helpers, and a factory in `@ledgerbyte/uae-peppol-pint-ae`.
+- Added `DisabledAspProviderAdapter`, `MockAspProviderAdapter`, and safe future-provider placeholders for `FUTURE_COMPLYANCE`, `FUTURE_CLEARTAX`, `FUTURE_EDICOM`, and `FUTURE_GENERIC_ASP`.
+- Disabled provider behavior blocks submission, returns disabled/not-configured status, rejects webhooks, returns no evidence, and never emits sent/reported/delivered statuses.
+- Mock provider behavior is deterministic, local-only, test-only, and can simulate validation success/failure plus accepted/rejected mock submissions only when explicit mock mode is enabled.
+- Added compliance-core API/service routes for provider readiness summary, redacted test config, transmission preview, explicit mock submission, and provider status timeline.
+- Existing compliance document tenant scoping is reused before any preview/status/mock-submission action.
+- Mock submission records a local `ComplianceTransmission` and event log only for local contract testing; it does not update accounting finalization or compliance document status.
 
 ## UAE Data-Entry And Validation Panel Summary
 
@@ -26,8 +36,8 @@
 
 - Controlled beta/user-testing only.
 - UAE eInvoicing readiness and Peppol/PINT-AE readiness only.
-- Local validation/readiness only.
-- No real ASP calls, no ASP submission, no FTA reporting, and no production Peppol or UAE compliance claim.
+- Local validation/readiness and disabled/mock ASP connector contracts only.
+- No real ASP calls, no real ASP submission, no FTA reporting, no buyer delivery, and no production Peppol or UAE compliance claim.
 - LedgerByte is not claiming FTA certification, Peppol certification, official UAE provider status, or accredited ASP status.
 - No ZATCA production behavior, real ZATCA network call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was enabled.
 - No hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, or E2E was run.
@@ -35,7 +45,7 @@
 
 ## Verification Notes For This Branch
 
-- Targeted package/API/web tests were added for UAE readiness helpers, contact UAE field validation, invoice readiness, credit-note readiness, panel rendering, permission-denied states, and conservative copy.
+- Targeted package/API tests were added for disabled/mock adapter contracts, future-provider not-implemented behavior, URL blocking, redaction, provider capability flags, missing-config fallback, explicit mock submission, disabled submission blocking, and tenant scoping.
 - Required verification should include package tests/typechecks, API/web targeted tests, `verify:diff`, `verify:ci:local`, `git diff --check`, and staged diff whitespace checks.
 
 ## Previous Compliance Core Snapshot
@@ -134,12 +144,11 @@
 
 ## Remaining Blockers
 
-- Real ASP connectivity is still absent and must wait for provider selection, disabled/mock connector contract tests, explicit approval, sandbox credentials, redaction rules, retry policy, and provider-specific payload validation.
+- Real ASP connectivity is still absent and must wait for commercial provider selection, API documentation review, explicit approval, sandbox credentials, redaction rules, retry policy, and provider-specific payload validation.
 - PINT-AE XML generation is readiness-oriented and fixture-tested; it is not official certification and must be checked against final ASP/provider contracts before real submission.
-- Real ASP integration must wait for a selected provider, explicit approval, sandbox/test credentials, redaction rules, retry policy, and provider-specific contract tests.
 - Retention periods, audit export format, and legal guarantees must be re-verified against current UAE rules and counsel/accountant review before production claims.
 - KSA ZATCA should be wrapped behind the same lifecycle later without weakening current no-production/no-network gates.
 
 ## Exact Next Recommended Prompt Title
 
-`UAE Peppol/PINT-AE disabled ASP connector contract tests`
+`UAE ASP provider selection research and provider-specific sandbox contract plan`

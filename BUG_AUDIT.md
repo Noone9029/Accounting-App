@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `90201c170cb2ec7788135c7c3707adbc783ff406` (`origin/main` after PR #42 compliance core merge) plus the current UAE Peppol/PINT-AE data-entry validation branch.
+Latest commit audited: `9f57820af431cde2973d20c575137ecff72bec4f` (`origin/main` after PR #43 UAE Peppol/PINT-AE data-entry validation merge) plus the current disabled ASP connector contracts branch.
+
+## 2026-06-15 UAE disabled ASP connector contracts
+
+Added provider-neutral UAE ASP adapter contracts, disabled/default behavior, deterministic mock-only behavior, and compliance-core API/service contract tests without enabling any real provider.
+
+What changed:
+
+- Added normalized ASP provider keys, capability flags, statuses, adapter interfaces, redaction helpers, and factory selection to `@ledgerbyte/uae-peppol-pint-ae`.
+- Added disabled, mock, and future-provider placeholder adapters. Only disabled and explicit mock mode can execute in this branch.
+- Disabled behavior blocks submission, returns disabled/not-configured status, rejects webhooks, returns no evidence, and never emits sent, FTA-reported, or buyer-delivered states.
+- Mock behavior is deterministic, no-network, and test-only. It can simulate validation success/failure and accepted/rejected mock submission only when explicit mock mode is enabled.
+- Added compliance-core provider readiness/config summary, redacted test-config, local/mock transmission preview, explicit mock submit, and provider status timeline service/API surface.
+- Reused tenant-scoped compliance document lookup before preview/status/mock submit behavior.
+- Added targeted package/API tests for disabled submission blocking, no-network behavior, missing-config fallback, future providers, URL blocking, secret redaction, status mapping, explicit mock submission, and tenant scoping.
+
+Remaining risks:
+
+- This is controlled beta/user-testing only and UAE Peppol/PINT-AE readiness only.
+- No real ASP calls, real ASP submission, FTA reporting, Peppol transmission, buyer delivery, production UAE compliance claim, provider credentials, arbitrary provider URL, or EmaraTax automation was added.
+- Future provider details remain blocked until commercial provider selection and API documentation review.
+- ZATCA remains parked and blocked by default; no ZATCA production behavior, real network call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was enabled.
 
 ## 2026-06-15 UAE Peppol/PINT-AE data-entry UX and validation panels
 

@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import type { AspProviderConfig, AspProviderOperationInput } from "@ledgerbyte/uae-peppol-pint-ae";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -32,6 +33,36 @@ export class ComplianceCoreController {
     return this.complianceCoreService.getTimeline(organizationId, id);
   }
 
+  @Get("asp-provider/readiness")
+  @RequirePermissions(PERMISSIONS.compliance.view)
+  aspProviderReadiness(@CurrentOrganizationId() organizationId: string) {
+    return this.complianceCoreService.getAspProviderSummary(organizationId);
+  }
+
+  @Post("asp-provider/test-config")
+  @RequirePermissions(PERMISSIONS.compliance.manage)
+  testAspProviderConfig(@CurrentOrganizationId() organizationId: string, @Body() body: AspProviderConfig) {
+    return this.complianceCoreService.testAspProviderConfig(organizationId, body);
+  }
+
+  @Post("documents/:id/asp-transmission-preview")
+  @RequirePermissions(PERMISSIONS.compliance.validate)
+  aspTransmissionPreview(@CurrentOrganizationId() organizationId: string, @Param("id") id: string, @Body() body: AspProviderRequestBody) {
+    return this.complianceCoreService.createAspTransmissionPreview(organizationId, id, body);
+  }
+
+  @Post("documents/:id/submit-mock-provider")
+  @RequirePermissions(PERMISSIONS.compliance.validate)
+  submitMockProvider(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() body: AspProviderRequestBody) {
+    return this.complianceCoreService.submitMockProvider(organizationId, user.id, id, body);
+  }
+
+  @Get("documents/:id/provider-status-timeline")
+  @RequirePermissions(PERMISSIONS.compliance.view)
+  providerStatusTimeline(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.complianceCoreService.getAspProviderStatusTimeline(organizationId, id);
+  }
+
   @Get("sales-invoices/:invoiceId/readiness")
   @RequirePermissions(PERMISSIONS.compliance.view)
   salesInvoiceReadiness(@CurrentOrganizationId() organizationId: string, @Param("invoiceId") invoiceId: string) {
@@ -61,4 +92,8 @@ export class ComplianceCoreController {
   validate(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.complianceCoreService.validateDocument(organizationId, user.id, id);
   }
+}
+
+interface AspProviderRequestBody extends Partial<AspProviderOperationInput> {
+  config?: AspProviderConfig | null;
 }
