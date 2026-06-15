@@ -17,6 +17,7 @@ import { BranchModule } from "./branches/branch.module";
 import { CashExpenseModule } from "./cash-expenses/cash-expense.module";
 import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.module";
 import { CollectionModule } from "./collections/collection.module";
+import { ComplianceCoreModule } from "./compliance-core/compliance-core.module";
 import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
@@ -76,6 +77,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     BankTransferModule,
     CardSettlementModule,
     ChequeModule,
+    ComplianceCoreModule,
     OrganizationModule,
     BranchModule,
     CashExpenseModule,

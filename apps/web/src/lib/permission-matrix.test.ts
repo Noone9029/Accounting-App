@@ -19,6 +19,7 @@ describe("permission matrix catalog", () => {
       "Purchases",
       "Reports",
       "Documents",
+      "Compliance",
       "ZATCA",
       "Admin",
     ]);

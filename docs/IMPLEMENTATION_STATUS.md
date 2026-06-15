@@ -16,6 +16,7 @@ Current production posture:
 - Vercel is beta/user-testing only, not final production hosting.
 - LedgerByte is not production-launched.
 - Real ZATCA production compliance is not enabled.
+- UAE compliance work is readiness groundwork only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, or production UAE eInvoicing compliance provider.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - Production tickets and ADRs are planning artifacts only. No hosting, database role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation has been performed.
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
@@ -33,6 +34,16 @@ Current production posture:
 - Added reconciliation detail UI panels for accountant review summary, exceptions, linked treasury activity, accounting status, missing clearing-account warning, operational-only warning, and audit timeline preview.
 - No schema change, dependency change, live bank feed, bank API, credential handling, payment initiation, provider abstraction, new banking module, silent posting, silent reconciliation, silent matching, reconciliation workflow-state change, VAT/ZATCA/report math change, hosted/customer-data behavior, or production readiness claim was added.
 - Recommended next prompt: `Wafeq manual banking beta QA and accountant review readiness`.
+
+2026-06-14 Compliance Core + UAE Peppol/PINT-AE readiness foundation:
+
+- Created branch `feature/compliance-core` from clean `origin/main` at `9ca5bfe2`, separate from the dirty ZATCA request-body checkout, then reconciled it after PR `#41` merged into `main` at `7d4b9fa7`.
+- Added neutral compliance-core storage for profiles, providers, documents, transmissions, validation results, event logs, and XML/evidence archive metadata.
+- Added nullable UAE organization/contact readiness fields for TRN, TIN, trade license, VAT status, address/emirate, Peppol participant ID, ASP selection/onboarding, and buyer endpoint metadata.
+- Added local `@ledgerbyte/uae-peppol-pint-ae` helpers for TIN/TRN checks, `0235{TIN}` participant ID derivation, readiness reports, and fixture-tested invoice/credit-note XML generation.
+- Added API readiness/document/local-validation endpoints and a read-only Compliance settings page.
+- Compliance document lifecycle is separate from source accounting finalization; no journal posting, VAT math, AR/AP allocation, report math, PDF behavior, ASP network call, FTA call, ZATCA call, signing, clearance/reporting, PDF-A3, hosted-data mutation, or production claim was added.
+- Recommended next prompt: `UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels`.
 
 2026-06-13 Wafeq manual banking clearing-account accounting:
 
