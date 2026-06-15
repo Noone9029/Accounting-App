@@ -140,6 +140,44 @@ describe("Contact VAT number validation", () => {
   });
 });
 
+describe("Contact UAE eInvoicing field validation", () => {
+  async function validateUaeContact(overrides: Partial<CreateContactDto>) {
+    const dto = Object.assign(new CreateContactDto(), {
+      type: ContactType.CUSTOMER,
+      name: "UAE Buyer",
+      ...overrides,
+    });
+
+    return validate(dto);
+  }
+
+  it("accepts optional UAE Peppol/PINT-AE contact fields", async () => {
+    await expect(
+      validateUaeContact({
+        legalName: "UAE Buyer LLC",
+        uaeTrn: "100000000000003",
+        uaeTin: "1234567890",
+        uaeVatRegistrationStatus: "REGISTERED",
+        uaeAddressLine1: "Business Bay",
+        uaeAddressLine2: "Office 100",
+        uaeEmirate: "Dubai",
+        peppolParticipantId: "02351234567890",
+        peppolEndpointStatus: "COLLECTED",
+        preferredEinvoiceDeliveryMethod: "PEPPOL",
+      }),
+    ).resolves.toHaveLength(0);
+  });
+
+  it("rejects malformed UAE TRN and TIN only when readiness fields are supplied", async () => {
+    await expect(validateUaeContact({ uaeTrn: "100", uaeTin: "123" })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ property: "uaeTrn" }),
+        expect.objectContaining({ property: "uaeTin" }),
+      ]),
+    );
+  });
+});
+
 describe("ContactService customer and supplier summaries", () => {
   const customer = contactFixture("customer-1", ContactType.CUSTOMER, "Alpha Customer");
   const supplier = contactFixture("supplier-1", ContactType.SUPPLIER, "Beta Supplier");

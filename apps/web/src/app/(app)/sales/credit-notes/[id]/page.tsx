@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-readiness-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getCreditNoteComplianceReadiness, prepareCreditNoteCompliance, validateComplianceDocument } from "@/lib/compliance";
 import {
   canReverseCreditNoteAllocation,
   creditNoteActiveAppliedAmount,
@@ -22,7 +24,7 @@ import {
 import { formatMoneyAmount } from "@/lib/money";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { CreditNote, OpenSalesInvoice } from "@/lib/types";
+import type { ComplianceSourceReadinessResponse, CreditNote, OpenSalesInvoice } from "@/lib/types";
 
 export default function CreditNoteDetailPage() {
   const params = useParams<{ id: string }>();
@@ -30,6 +32,7 @@ export default function CreditNoteDetailPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
+  const [uaeReadiness, setUaeReadiness] = useState<ComplianceSourceReadinessResponse | null>(null);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [amountApplied, setAmountApplied] = useState("");
@@ -47,10 +50,14 @@ export default function CreditNoteDetailPage() {
     setLoading(true);
     setError("");
 
-    apiRequest<CreditNote>(`/credit-notes/${params.id}`)
-      .then((result) => {
+    Promise.all([
+      apiRequest<CreditNote>(`/credit-notes/${params.id}`),
+      getCreditNoteComplianceReadiness(params.id).catch(() => null),
+    ])
+      .then(([result, readinessResult]) => {
         if (!cancelled) {
           setCreditNote(result);
+          setUaeReadiness(readinessResult);
           setAmountApplied("");
         }
       })
@@ -113,6 +120,9 @@ export default function CreditNoteDetailPage() {
     try {
       const updated = await apiRequest<CreditNote>(`/credit-notes/${creditNote.id}/${action}`, { method: "POST" });
       setCreditNote(updated);
+      if (action === "finalize") {
+        await fetchUaeReadiness(updated.id).catch(() => undefined);
+      }
       setSuccess(action === "finalize" ? `Finalized credit note ${updated.creditNoteNumber}.` : `Voided credit note ${updated.creditNoteNumber}.`);
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} credit note.`);
@@ -153,6 +163,34 @@ export default function CreditNoteDetailPage() {
       await downloadPdf(creditNotePdfPath(creditNote.id), `credit-note-${creditNote.creditNoteNumber}.pdf`);
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : "Unable to download credit note PDF.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function fetchUaeReadiness(creditNoteId: string) {
+    const result = await getCreditNoteComplianceReadiness(creditNoteId);
+    setUaeReadiness(result);
+    return result;
+  }
+
+  async function validateUaeReadiness() {
+    if (!creditNote) {
+      return;
+    }
+
+    setActionLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const prepared = await prepareCreditNoteCompliance(creditNote.id);
+      await validateComplianceDocument(prepared.id);
+      await fetchUaeReadiness(creditNote.id);
+      setSuccess("Local UAE credit-note readiness validation completed. No ASP submission, FTA reporting, or network call was performed.");
+    } catch (validationError) {
+      await fetchUaeReadiness(creditNote.id).catch(() => undefined);
+      setError(validationError instanceof Error ? validationError.message : "Unable to validate UAE credit-note readiness.");
     } finally {
       setActionLoading(false);
     }
@@ -230,6 +268,8 @@ export default function CreditNoteDetailPage() {
   const canFinalizeCreditNote = can(PERMISSIONS.creditNotes.finalize);
   const canVoidCreditNote = can(PERMISSIONS.creditNotes.void);
   const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 && canFinalizeCreditNote;
+  const canViewCompliance = can(PERMISSIONS.compliance.view);
+  const canValidateCompliance = can(PERMISSIONS.compliance.manage) && can(PERMISSIONS.compliance.validate);
 
   return (
     <section>
@@ -316,6 +356,18 @@ export default function CreditNoteDetailPage() {
               <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{creditNoteStatusLabel(creditNote.status)}</span>
             </div>
           </div>
+
+          {canViewCompliance ? (
+            <UaeEinvoiceReadinessPanel
+              title="UAE credit-note eInvoicing/PINT-AE readiness"
+              response={uaeReadiness}
+              actionLoading={actionLoading}
+              canValidate={canValidateCompliance}
+              onValidate={() => void validateUaeReadiness()}
+            />
+          ) : (
+            <StatusMessage type="info">UAE credit-note readiness requires compliance view permission.</StatusMessage>
+          )}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[980px] text-left text-sm">

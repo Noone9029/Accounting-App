@@ -77,6 +77,16 @@ export default function ContactsPage() {
           email: String(formData.get("email") || "") || undefined,
           phone: String(formData.get("phone") || "") || undefined,
           taxNumber: taxNumber || undefined,
+          legalName: String(formData.get("legalName") || "") || undefined,
+          uaeTrn: String(formData.get("uaeTrn") || "") || undefined,
+          uaeTin: String(formData.get("uaeTin") || "") || undefined,
+          uaeVatRegistrationStatus: String(formData.get("uaeVatRegistrationStatus") || "") || undefined,
+          uaeAddressLine1: String(formData.get("uaeAddressLine1") || "") || undefined,
+          uaeAddressLine2: String(formData.get("uaeAddressLine2") || "") || undefined,
+          uaeEmirate: String(formData.get("uaeEmirate") || "") || undefined,
+          peppolParticipantId: String(formData.get("peppolParticipantId") || "") || undefined,
+          peppolEndpointStatus: String(formData.get("peppolEndpointStatus") || "") || undefined,
+          preferredEinvoiceDeliveryMethod: String(formData.get("preferredEinvoiceDeliveryMethod") || "") || undefined,
           identificationType: identificationType || undefined,
           identificationNumber: identificationNumber || undefined,
           addressLine1: String(formData.get("addressLine1") || "") || undefined,
@@ -139,6 +149,17 @@ export default function ContactsPage() {
               <input name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
               <p className="mt-1 text-[11px] text-steel">Exactly 15 digits.</p>
             </div>
+            <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">UAE eInvoicing readiness fields</div>
+            <input name="legalName" placeholder="Legal name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeTrn" placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="TRN must be exactly 15 digits." className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeTin" placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} title="TIN must be exactly 10 digits." className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="peppolParticipantId" placeholder="Peppol participant ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeAddressLine1" placeholder="UAE address" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeAddressLine2" placeholder="UAE address line 2" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeEmirate" placeholder="Emirate" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="uaeVatRegistrationStatus" placeholder="VAT category/status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="peppolEndpointStatus" placeholder="Endpoint status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <input name="preferredEinvoiceDeliveryMethod" placeholder="Preferred eInvoice delivery" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             <div>
               <select
                 name="identificationType"
@@ -214,6 +235,7 @@ export default function ContactsPage() {
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">VAT number</th>
+                <th className="px-4 py-3">UAE readiness</th>
                 <th className="px-4 py-3">ID Type</th>
                 <th className="px-4 py-3">ID Number</th>
                 <th className="px-4 py-3">ZATCA address</th>
@@ -229,6 +251,7 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{contact.email ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.phone ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.taxNumber ?? "-"}</td>
+                  <td className="px-4 py-3 text-steel">{contact.peppolParticipantId ? `Peppol ${contact.peppolParticipantId}` : uaeContactMissingMessage(contact)}</td>
                   <td className="px-4 py-3 text-steel">{formatContactIdentificationType(contact.identificationType)}</td>
                   <td className="px-4 py-3 text-steel">{contact.identificationNumber ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.buildingNumber && contact.district ? `${contact.buildingNumber}, ${contact.district}` : "Incomplete"}</td>
@@ -260,6 +283,15 @@ function contactPrimaryHref(contact: Pick<Contact, "id" | "type">): string {
     return `/suppliers/${contact.id}`;
   }
   return `/contacts/${contact.id}`;
+}
+
+function uaeContactMissingMessage(contact: Pick<Contact, "uaeTin" | "uaeTrn" | "uaeAddressLine1" | "uaeEmirate" | "peppolParticipantId">): string {
+  const missing = [
+    !contact.uaeTin && !contact.uaeTrn ? "TIN/TRN" : null,
+    !contact.peppolParticipantId ? "Peppol ID" : null,
+    !contact.uaeAddressLine1 || !contact.uaeEmirate ? "UAE address" : null,
+  ].filter(Boolean);
+  return missing.length ? `Missing ${missing.join(", ")}` : "Ready for review";
 }
 
 function ContactsEmptyState({ contactType }: Readonly<{ contactType: ContactType }>) {

@@ -191,6 +191,39 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
     expect(screen.queryByText(/production ZATCA clearance has been requested/i)).not.toBeInTheDocument();
   });
 
+  it("renders UAE Peppol/PINT-AE readiness panel for finalized invoices", async () => {
+    mockAllowedPermissions = new Set([
+      "salesInvoices.view",
+      "compliance.view",
+      "compliance.manage",
+      "compliance.validate",
+    ]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") {
+        return Promise.resolve(invoiceFixture({ status: "FINALIZED", finalizedAt: "2026-06-04T10:00:00.000Z" }));
+      }
+      if (path === "/compliance/sales-invoices/invoice-1/readiness") {
+        return Promise.resolve(uaeReadinessFixture());
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([]);
+      }
+      if (path === "/collections/invoice/invoice-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceDetailPage />);
+
+    expect(await screen.findByText("UAE eInvoicing/PINT-AE readiness")).toBeInTheDocument();
+    expect(screen.getByText("Seller")).toBeInTheDocument();
+    expect(screen.getByText("Buyer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Validate UAE eInvoice readiness" })).toBeEnabled();
+    expect(screen.getByText(/No network, no ASP submission, no FTA reporting/i)).toBeInTheDocument();
+    expect(screen.queryByText(/FTA certified|Peppol certified|official provider|accredited ASP/i)).not.toBeInTheDocument();
+  });
+
   it("uses the incoming shared statement return path for the back action", async () => {
     searchParamsMock = new URLSearchParams("returnTo=%2Fcontacts%2Fcontact-1%3Fsection%3Dstatement%26returnTo%3D%252Fcustomers%252Fcontact-1");
     apiRequestMock.mockImplementation((path: string) => {
@@ -309,5 +342,38 @@ function collectionCaseFixture(overrides: Partial<CollectionCase> = {}): Collect
     updatedBy: null,
     activities: [{ id: "activity-1", organizationId: "org-1", collectionCaseId: "case-1", customerId: "customer-1", salesInvoiceId: "invoice-1", activityType: "PROMISE_TO_PAY", activityDate: "2026-06-04T00:00:00.000Z", note: "Promised payment", nextFollowUpDate: "2026-06-08T00:00:00.000Z", promisedPaymentDate: "2026-06-10T00:00:00.000Z", promisedAmount: "60.0000", createdById: "user-1", createdAt: "2026-06-04T00:00:00.000Z" }],
     ...overrides,
+  };
+}
+
+function uaeReadinessFixture() {
+  const section = (label: string) => ({
+    label,
+    status: "READY_FOR_VALIDATION",
+    checks: [{ key: `${label}_CHECK`, label: `${label} check`, status: "PASS", detail: "Configured." }],
+  });
+  return {
+    posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+    sourceType: "SALES_INVOICE",
+    sourceId: "invoice-1",
+    sourceStatus: "FINALIZED",
+    localOnly: true,
+    noNetwork: true,
+    noAspSubmission: true,
+    noFtaReporting: true,
+    productionCompliance: false,
+    canAttemptLocalXmlGeneration: true,
+    readiness: {
+      kind: "invoice",
+      status: "READY_FOR_VALIDATION",
+      seller: section("Seller"),
+      buyer: section("Buyer"),
+      invoiceFields: section("Required invoice fields"),
+      taxIdentity: section("Tax identity"),
+      peppolParticipant: section("Peppol participant readiness"),
+      canAttemptLocalXmlGeneration: true,
+      validation: { valid: true, issues: [] },
+      warnings: [],
+    },
+    complianceDocument: null,
   };
 }

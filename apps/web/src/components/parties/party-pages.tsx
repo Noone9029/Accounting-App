@@ -806,6 +806,13 @@ function PartyDetails({ contact, kind }: { contact: Contact; kind: PartyKind }) 
         <Summary label="Email" value={contact.email ?? "-"} />
         <Summary label="Phone" value={contact.phone ?? "-"} />
         <Summary label="VAT number" value={contact.taxNumber ?? "-"} />
+        <Summary label="Legal name" value={contact.legalName ?? "-"} />
+        <Summary label="TRN/TIN" value={[contact.uaeTrn, contact.uaeTin].filter(Boolean).join(" / ") || "-"} />
+        <Summary label="Peppol participant ID" value={contact.peppolParticipantId ?? "-"} />
+        <Summary label="VAT category" value={contact.uaeVatRegistrationStatus ?? "-"} />
+        <Summary label="Endpoint status" value={contact.peppolEndpointStatus ?? "-"} />
+        <Summary label="Preferred eInvoice delivery" value={contact.preferredEinvoiceDeliveryMethod ?? "-"} />
+        <Summary label="UAE address" value={[contact.uaeAddressLine1, contact.uaeAddressLine2, contact.uaeEmirate].filter(Boolean).join(", ") || "-"} />
         <Summary label="Billing address" value={billingAddress(contact)} />
         {kind === "supplier" ? <Summary label="Bank details / payment notes" value="No bank details are recorded yet." /> : null}
       </div>

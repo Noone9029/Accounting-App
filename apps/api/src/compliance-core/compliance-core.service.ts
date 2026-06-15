@@ -10,7 +10,13 @@ import {
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
-import { buildUaePintXml, buildUaeReadinessReport, deriveUaePeppolParticipantId, type UaePintDocumentInput } from "@ledgerbyte/uae-peppol-pint-ae";
+import {
+  buildUaeDocumentReadinessReport,
+  buildUaePintXml,
+  buildUaeReadinessReport,
+  deriveUaePeppolParticipantId,
+  type UaePintDocumentInput,
+} from "@ledgerbyte/uae-peppol-pint-ae";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -116,6 +122,44 @@ export class ComplianceCoreService {
         transmissions: { orderBy: { createdAt: "desc" }, take: 1 },
         archiveRecords: { orderBy: { archivedAt: "desc" }, take: 3 },
       },
+    });
+  }
+
+  async getSalesInvoiceReadiness(organizationId: string, invoiceId: string) {
+    const invoice = await this.prisma.salesInvoice.findFirst({
+      where: { id: invoiceId, organizationId },
+      include: { organization: true, customer: true, lines: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    const readiness = buildUaeDocumentReadinessReport(salesInvoicePintInput(invoice));
+    return this.sourceReadinessResponse({
+      organizationId,
+      sourceType: ComplianceDocumentSourceType.SALES_INVOICE,
+      sourceId: invoice.id,
+      sourceStatus: invoice.status,
+      readiness,
+    });
+  }
+
+  async getCreditNoteReadiness(organizationId: string, creditNoteId: string) {
+    const creditNote = await this.prisma.creditNote.findFirst({
+      where: { id: creditNoteId, organizationId },
+      include: { organization: true, customer: true, originalInvoice: true, lines: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!creditNote) {
+      throw new NotFoundException("Credit note not found.");
+    }
+
+    const readiness = buildUaeDocumentReadinessReport(creditNotePintInput(creditNote));
+    return this.sourceReadinessResponse({
+      organizationId,
+      sourceType: ComplianceDocumentSourceType.CREDIT_NOTE,
+      sourceId: creditNote.id,
+      sourceStatus: creditNote.status,
+      readiness,
     });
   }
 
@@ -345,26 +389,7 @@ export class ComplianceCoreService {
       if (!invoice) {
         throw new NotFoundException("Sales invoice source not found.");
       }
-      return {
-        kind: "invoice",
-        documentNumber: invoice.invoiceNumber,
-        issueDate: toDateOnly(invoice.issueDate),
-        currency: invoice.currency,
-        supplier: organizationParty(invoice.organization),
-        buyer: contactParty(invoice.customer),
-        lines: invoice.lines.map((line) => ({
-          id: line.sortOrder ? String(line.sortOrder) : line.id,
-          description: line.description,
-          quantity: moneyString(line.quantity),
-          unitPrice: moneyString(line.unitPrice),
-          taxableAmount: moneyString(line.taxableAmount),
-          taxAmount: moneyString(line.taxAmount),
-          lineTotal: moneyString(line.lineTotal),
-        })),
-        subtotal: moneyString(invoice.taxableTotal),
-        taxTotal: moneyString(invoice.taxTotal),
-        total: moneyString(invoice.total),
-      };
+      return salesInvoicePintInput(invoice);
     }
 
     const creditNote = await this.prisma.creditNote.findFirst({
@@ -374,29 +399,132 @@ export class ComplianceCoreService {
     if (!creditNote) {
       throw new NotFoundException("Credit note source not found.");
     }
+    return creditNotePintInput(creditNote);
+  }
+
+  private async sourceReadinessResponse(input: {
+    organizationId: string;
+    sourceType: ComplianceDocumentSourceType;
+    sourceId: string;
+    sourceStatus: string;
+    readiness: ReturnType<typeof buildUaeDocumentReadinessReport>;
+  }) {
+    const complianceDocument = await this.prisma.complianceDocument.findFirst({
+      where: {
+        organizationId: input.organizationId,
+        countryCode: ComplianceCountryCode.AE,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+      },
+      include: {
+        validationResults: { orderBy: { createdAt: "desc" }, take: 1 },
+        archiveRecords: { orderBy: { archivedAt: "desc" }, take: 1 },
+      },
+    });
+
     return {
-      kind: "credit-note",
-      documentNumber: creditNote.creditNoteNumber,
-      issueDate: toDateOnly(creditNote.issueDate),
-      currency: creditNote.currency,
-      supplier: organizationParty(creditNote.organization),
-      buyer: contactParty(creditNote.customer),
-      lines: creditNote.lines.map((line) => ({
-        id: line.sortOrder ? String(line.sortOrder) : line.id,
-        description: line.description,
-        quantity: moneyString(line.quantity),
-        unitPrice: moneyString(line.unitPrice),
-        taxableAmount: moneyString(line.taxableAmount),
-        taxAmount: moneyString(line.taxAmount),
-        lineTotal: moneyString(line.lineTotal),
-      })),
-      subtotal: moneyString(creditNote.taxableTotal),
-      taxTotal: moneyString(creditNote.taxTotal),
-      total: moneyString(creditNote.total),
-      creditNoteReason: creditNote.reason,
-      originalInvoiceNumber: creditNote.originalInvoice?.invoiceNumber,
+      posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      sourceStatus: input.sourceStatus,
+      localOnly: true,
+      noNetwork: true,
+      noAspSubmission: true,
+      noFtaReporting: true,
+      productionCompliance: false,
+      canAttemptLocalXmlGeneration: input.sourceStatus === "FINALIZED" && input.readiness.canAttemptLocalXmlGeneration,
+      readiness: input.readiness,
+      complianceDocument,
     };
   }
+}
+
+function salesInvoicePintInput(invoice: {
+  invoiceNumber: string;
+  issueDate: Date;
+  currency: string;
+  organization: Parameters<typeof organizationParty>[0];
+  customer: Parameters<typeof contactParty>[0];
+  lines: Array<{
+    id: string;
+    sortOrder: number;
+    description: string;
+    quantity: Prisma.Decimal;
+    unitPrice: Prisma.Decimal;
+    taxableAmount: Prisma.Decimal;
+    taxAmount: Prisma.Decimal;
+    lineTotal: Prisma.Decimal;
+  }>;
+  taxableTotal: Prisma.Decimal;
+  taxTotal: Prisma.Decimal;
+  total: Prisma.Decimal;
+}): UaePintDocumentInput {
+  return {
+    kind: "invoice",
+    documentNumber: invoice.invoiceNumber,
+    issueDate: toDateOnly(invoice.issueDate),
+    currency: invoice.currency,
+    supplier: organizationParty(invoice.organization),
+    buyer: contactParty(invoice.customer),
+    lines: invoice.lines.map((line) => ({
+      id: line.sortOrder ? String(line.sortOrder) : line.id,
+      description: line.description,
+      quantity: moneyString(line.quantity),
+      unitPrice: moneyString(line.unitPrice),
+      taxableAmount: moneyString(line.taxableAmount),
+      taxAmount: moneyString(line.taxAmount),
+      lineTotal: moneyString(line.lineTotal),
+    })),
+    subtotal: moneyString(invoice.taxableTotal),
+    taxTotal: moneyString(invoice.taxTotal),
+    total: moneyString(invoice.total),
+  };
+}
+
+function creditNotePintInput(creditNote: {
+  creditNoteNumber: string;
+  issueDate: Date;
+  currency: string;
+  organization: Parameters<typeof organizationParty>[0];
+  customer: Parameters<typeof contactParty>[0];
+  originalInvoice: { invoiceNumber: string } | null;
+  reason: string | null;
+  lines: Array<{
+    id: string;
+    sortOrder: number;
+    description: string;
+    quantity: Prisma.Decimal;
+    unitPrice: Prisma.Decimal;
+    taxableAmount: Prisma.Decimal;
+    taxAmount: Prisma.Decimal;
+    lineTotal: Prisma.Decimal;
+  }>;
+  taxableTotal: Prisma.Decimal;
+  taxTotal: Prisma.Decimal;
+  total: Prisma.Decimal;
+}): UaePintDocumentInput {
+  return {
+    kind: "credit-note",
+    documentNumber: creditNote.creditNoteNumber,
+    issueDate: toDateOnly(creditNote.issueDate),
+    currency: creditNote.currency,
+    supplier: organizationParty(creditNote.organization),
+    buyer: contactParty(creditNote.customer),
+    lines: creditNote.lines.map((line) => ({
+      id: line.sortOrder ? String(line.sortOrder) : line.id,
+      description: line.description,
+      quantity: moneyString(line.quantity),
+      unitPrice: moneyString(line.unitPrice),
+      taxableAmount: moneyString(line.taxableAmount),
+      taxAmount: moneyString(line.taxAmount),
+      lineTotal: moneyString(line.lineTotal),
+    })),
+    subtotal: moneyString(creditNote.taxableTotal),
+    taxTotal: moneyString(creditNote.taxTotal),
+    total: moneyString(creditNote.total),
+    creditNoteReason: creditNote.reason,
+    originalInvoiceNumber: creditNote.originalInvoice?.invoiceNumber,
+  };
 }
 
 function organizationParty(organization: {

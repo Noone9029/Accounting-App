@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `9ca5bfe2` (`Merge pull request #40 from Noone9029/codex/wafeq-banking-clearing-account-accounting`) plus the current Wafeq banking reconciliation reports/audit polish branch.
+Latest commit audited: `90201c170cb2ec7788135c7c3707adbc783ff406` (`origin/main` after PR #42 compliance core merge) plus the current UAE Peppol/PINT-AE data-entry validation branch.
+
+## 2026-06-15 UAE Peppol/PINT-AE data-entry UX and validation panels
+
+Added editable UAE readiness data-entry surfaces and local invoice/credit-note readiness validation panels on top of the merged compliance-core foundation.
+
+What changed:
+
+- Extended Compliance settings with legal name, trade license, TRN/TIN, VAT status, UAE address/emirate, business activity, Peppol participant ID, ASP selection, and ASP onboarding status editing.
+- Added UAE readiness checklist coverage for TIN/TRN, participant ID, UAE address, VAT status, ASP selection, and ASP onboarding status.
+- Added optional UAE eInvoicing fields to contact creation, shared contact detail/edit, and customer/supplier detail pages without blocking normal bookkeeping contact creation.
+- Added finalized sales invoice and sales credit-note UAE eInvoicing/PINT-AE readiness panels with explicit local-only validation actions.
+- Added read-only API readiness endpoints plus explicit compliance document prepare/validate integration that stores local validation metadata, hashes, warnings/errors, and status through compliance-core records.
+- Added targeted package, API, and web tests for readiness calculations, invalid TRN/TIN and participant ID warnings, missing seller/buyer endpoint warnings, no-network defaults, panel rendering, permission-denied states, and conservative copy.
+
+Remaining risks:
+
+- This is controlled beta/user-testing only and UAE Peppol/PINT-AE readiness only.
+- No real ASP connection, ASP submission, FTA reporting, production Peppol claim, or production UAE compliance claim was added.
+- LedgerByte is not claiming FTA certification, Peppol certification, official UAE provider status, or accredited ASP status.
+- Provider-specific contracts, disabled/mock ASP connector tests, sandbox credentials, legal/accountant review, retention policy proof, and broad hosted/E2E coverage remain open.
+- ZATCA remains parked and blocked by default; no ZATCA production behavior, real network call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was enabled.
 
 ## 2026-06-13 Wafeq manual banking reconciliation reports and audit trail polish
 

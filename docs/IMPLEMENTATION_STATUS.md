@@ -16,7 +16,7 @@ Current production posture:
 - Vercel is beta/user-testing only, not final production hosting.
 - LedgerByte is not production-launched.
 - Real ZATCA production compliance is not enabled.
-- UAE compliance work is readiness groundwork only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, or production UAE eInvoicing compliance provider.
+- UAE compliance work is readiness groundwork only. Current UAE Peppol/PINT-AE work is local validation/readiness only. LedgerByte is not an accredited ASP, Peppol-certified provider, FTA-certified provider, official UAE provider, or production UAE eInvoicing compliance provider.
 - Paid production SaaS v1 requires production foundation work across hosting, database security, backup/restore, monitoring, email, billing, support, legal, accountant review, and ZATCA specialist review.
 - Production tickets and ADRs are planning artifacts only. No hosting, database role, RLS, backup/restore, billing, real email, ZATCA, monitoring, or production infrastructure implementation has been performed.
 - DEV-08 through DEV-08M are closed as local-only AP evidence. That evidence does not prove AP production readiness, beta readiness, customer-data behavior, real provider email delivery, real ZATCA, or broad AP E2E/smoke/full-test coverage.
@@ -24,6 +24,20 @@ Current production posture:
 - DEV-10 is closed as local-only reports and financial statements evidence. That evidence does not prove reporting production readiness, beta readiness, customer-data behavior, accountant-certified definitions, official VAT filing, scheduled/email delivery, report packs, advanced branch/multi-period/consolidation behavior, hosted behavior, load/concurrency, or broad reports E2E/smoke/full-test coverage.
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
+
+2026-06-15 UAE Peppol/PINT-AE data-entry UX and validation panels:
+
+- Created branch `feature/uae-peppol-pint-ae-data-entry-validation` from fresh `origin/main` at `90201c170cb2ec7788135c7c3707adbc783ff406` after PR `#42` compliance core was merged.
+- Added editable UAE organization compliance fields in settings for legal name, trade license, TRN/TIN, VAT status, UAE address/emirate, business activity, Peppol participant ID, ASP selection, and ASP onboarding status.
+- Added a UAE eInvoicing readiness checklist for TIN/TRN, participant ID, UAE address, VAT status, ASP selection, and ASP onboarding status.
+- Added optional UAE eInvoicing data-entry fields to contact creation, shared contact detail/edit, and customer/supplier detail surfaces. These fields do not block normal bookkeeping contact creation unless the operator uses the readiness workflow.
+- Added local UAE eInvoicing/PINT-AE readiness panels to finalized sales invoices and finalized sales credit notes.
+- Added read-only source readiness endpoints and explicit local prepare/validate actions that reuse compliance-core documents, validation results, event logs, and metadata-only archive records.
+- Stored local validation status, hashes, warnings/errors, and archive metadata where applicable; PDFs are not treated as UAE compliance artifacts and no legal retention guarantee was added.
+- Compliance delivery remains separate from accounting finalization. No invoice/credit-note posting, settlement, allocation, VAT math, report math, or PDF behavior was changed.
+- No real ASP call, ASP submission, FTA reporting, production Peppol claim, production UAE compliance claim, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, database migration, seed/reset/delete, smoke, E2E, real email, real ZATCA call, OTP, CSID, signing, clearance/reporting, or PDF-A3 behavior was added.
+- ZATCA remains parked and blocked by default.
+- Recommended next prompt: `UAE Peppol/PINT-AE disabled ASP connector contract tests`.
 
 2026-06-13 Wafeq manual banking reconciliation reports and audit trail polish:
 
@@ -43,7 +57,7 @@ Current production posture:
 - Added local `@ledgerbyte/uae-peppol-pint-ae` helpers for TIN/TRN checks, `0235{TIN}` participant ID derivation, readiness reports, and fixture-tested invoice/credit-note XML generation.
 - Added API readiness/document/local-validation endpoints and a read-only Compliance settings page.
 - Compliance document lifecycle is separate from source accounting finalization; no journal posting, VAT math, AR/AP allocation, report math, PDF behavior, ASP network call, FTA call, ZATCA call, signing, clearance/reporting, PDF-A3, hosted-data mutation, or production claim was added.
-- Recommended next prompt: `UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels`.
+- Recommended next prompt at that point: `UAE Peppol/PINT-AE data-entry UX and invoice/credit-note validation panels`.
 
 2026-06-13 Wafeq manual banking clearing-account accounting:
 
