@@ -2,7 +2,25 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `9f57820af431cde2973d20c575137ecff72bec4f` (`origin/main` after PR #43 UAE Peppol/PINT-AE data-entry validation merge) plus the current disabled ASP connector contracts branch.
+Latest commit audited: `b95685dc0dbdf142b161b242ee9ae731f14ff4e7` (`origin/main` after PR #44 UAE disabled ASP connector contracts merge) plus the current UAE ASP provider-selection planning branch.
+
+## 2026-06-15 UAE ASP provider selection and sandbox contract plan
+
+Added provider-selection research and sandbox contract planning documents without implementing or selecting a real ASP provider.
+
+### What changed
+
+- Added `docs/uae-peppol/UAE_ASP_PROVIDER_SELECTION_MATRIX.md` with official MoF/OpenPeppol sources, provider-primary evidence links, shortlist analysis, weighted scoring, risks, unknowns, and commercial/technical/security questions.
+- Added `docs/uae-peppol/UAE_ASP_SANDBOX_CONTRACT_PLAN.md` defining required sandbox artifacts, expected contract terms, adapter acceptance criteria, state mapping rules, and production go-live blockers.
+- Added `docs/uae-peppol/UAE_ASP_PROVIDER_OUTREACH_TEMPLATE.md` for conservative provider outreach.
+- Added `docs/development/UAE_ASP_PROVIDER_SELECTION_PLAN_SPRINT_CLOSURE.md`.
+- Updated handoff, implementation status, roadmap, readiness scorecard, and UAE Peppol README docs.
+
+### Boundaries
+
+- This is documentation/planning only and controlled beta/user-testing only.
+- No real ASP calls, real ASP submission, FTA reporting, real Peppol transmission, provider credentials, executable provider base URL, production Peppol claim, FTA certified claim, Peppol certified claim, official UAE provider claim, accredited ASP claim by LedgerByte, ZATCA production behavior, hosted/customer-data mutation, Vercel/Supabase change, production infrastructure command, or schema migration was added.
+- Recommended outreach order is not a final production provider decision.
 
 ## 2026-06-15 UAE disabled ASP connector contracts
 
