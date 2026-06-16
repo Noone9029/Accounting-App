@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ComplianceReadinessPanel } from "@/components/ui-ledger/compliance-readiness-panel";
 import { LineItemsTable } from "@/components/ui-ledger/line-items-table";
 import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
@@ -228,7 +229,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
-        currency: "SAR",
+        currency: "AED",
         taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
@@ -309,6 +310,11 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             </span>
           </label>
           <label className="block">
+            <span className="text-sm font-medium text-foreground">Currency</span>
+            <Input value="AED" readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default UAE workspace currency.</span>
+          </label>
+          <label className="block">
             <span className="text-sm font-medium text-foreground">Issue date</span>
             <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1" />
           </label>
@@ -337,6 +343,26 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
           </label>
         </div>
       </PanelSection>
+
+      <ComplianceReadinessPanel
+        checks={[
+          {
+            label: "Invoice fields",
+            status: customerId && lines.length > 0 ? "pass" : "pending",
+            detail: "Customer, issue date, due date, VAT mode, and line-item fields stay in the normal draft invoice workflow.",
+          },
+          {
+            label: "Local readiness only",
+            status: "warning",
+            detail: "This form does not connect to an ASP, report to the FTA, or claim production compliance.",
+          },
+          {
+            label: "Attachments and finalization",
+            status: "pending",
+            detail: "Draft/finalize, attachment, posting, and audit behavior remain handled by the existing invoice screens.",
+          },
+        ]}
+      />
 
       <div className="flex flex-col gap-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating invoices.</StatusMessage> : null}
@@ -433,7 +459,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
                               ))}
                         </select>
                       </TableCell>
-                      <TableCell className="font-mono text-xs tabular-nums">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits, "AED") : "AED 0.00"}</TableCell>
                       <TableCell>
                         <Button type="button" variant="outline" size="xs" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
                           Remove
@@ -455,11 +481,11 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
         <TransactionSummaryCard
           rows={[
-            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal) },
-            { label: "Discount", value: formatMoneyAmount(preview.discountTotal) },
-            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal) },
-            { label: "VAT", value: formatMoneyAmount(preview.taxTotal) },
-            { label: "Total", value: formatMoneyAmount(preview.total), emphasized: true },
+            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, "AED") },
+            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, "AED") },
+            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, "AED") },
+            { label: "VAT", value: formatMoneyAmount(preview.taxTotal, "AED") },
+            { label: "Total", value: formatMoneyAmount(preview.total, "AED"), emphasized: true },
           ]}
         />
       </div>

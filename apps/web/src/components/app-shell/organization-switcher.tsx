@@ -21,7 +21,7 @@ export function OrganizationSwitcher() {
 
   if (!getAccessToken()) {
     return (
-      <Link href="/login" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <Link href="/login" className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
         Log in
       </Link>
     );
@@ -33,7 +33,7 @@ export function OrganizationSwitcher() {
 
   if (organizations.length === 0) {
     return (
-      <Link href="/organization/setup" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <Link href="/organization/setup" className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
         Create organization
       </Link>
     );
@@ -48,7 +48,7 @@ export function OrganizationSwitcher() {
           onChange={(event) => {
             setActiveOrganizationId(event.target.value);
           }}
-          className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-palm sm:min-w-48"
+          className="w-full min-w-0 rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 sm:min-w-48"
         >
           {organizations.map((organization) => (
             <option key={organization.id} value={organization.id}>
@@ -66,7 +66,7 @@ export function OrganizationSwitcher() {
           clearSession();
           window.location.href = "/login";
         }}
-        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
         Sign out
       </button>

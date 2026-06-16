@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ComplianceReadinessPanel } from "@/components/ui-ledger/compliance-readiness-panel";
 import { LineItemsTable } from "@/components/ui-ledger/line-items-table";
 import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
@@ -210,7 +211,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         branchId: branchId || null,
         billDate: `${billDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
-        currency: "SAR",
+        currency: "AED",
         notes: notes || undefined,
         terms: terms || undefined,
         inventoryPostingMode,
@@ -275,6 +276,11 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
             <span className="text-sm font-medium text-foreground">Due date</span>
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1" />
           </label>
+          <label className="block">
+            <span className="text-sm font-medium text-foreground">Currency</span>
+            <Input value="AED" readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default UAE workspace currency.</span>
+          </label>
           <label className="block md:col-span-2">
             <span className="text-sm font-medium text-foreground">Branch</span>
             <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
@@ -315,6 +321,27 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
           </div>
         ) : null}
       </PanelSection>
+
+      <ComplianceReadinessPanel
+        title="VAT readiness"
+        checks={[
+          {
+            label: "Supplier bill coding",
+            status: supplierId && lines.length > 0 ? "pass" : "pending",
+            detail: "Supplier, bill date, due date, expense/account coding, and VAT handling stay in the draft AP workflow.",
+          },
+          {
+            label: "Accountant review",
+            status: inventoryPostingMode === "INVENTORY_CLEARING" ? "warning" : "pass",
+            detail: "Inventory clearing mode keeps the existing accountant-review warning and does not post stock automation.",
+          },
+          {
+            label: "Local readiness only",
+            status: "warning",
+            detail: "No ASP validation, FTA reporting, provider integration, or production compliance claim is made here.",
+          },
+        ]}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <LineItemsTable
@@ -400,11 +427,11 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
 
         <TransactionSummaryCard
           rows={[
-            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal) },
-            { label: "Discount", value: formatMoneyAmount(preview.discountTotal) },
-            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal) },
-            { label: "VAT / Tax", value: formatMoneyAmount(preview.taxTotal) },
-            { label: "Total", value: formatMoneyAmount(preview.total), emphasized: true },
+            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, "AED") },
+            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, "AED") },
+            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, "AED") },
+            { label: "VAT / Tax", value: formatMoneyAmount(preview.taxTotal, "AED") },
+            { label: "Total", value: formatMoneyAmount(preview.total, "AED"), emphasized: true },
           ]}
         />
       </div>

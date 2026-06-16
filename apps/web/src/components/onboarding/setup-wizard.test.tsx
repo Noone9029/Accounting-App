@@ -32,7 +32,7 @@ describe("setup wizard components", () => {
     expect(screen.getByRole("heading", { name: "Bank/payment method" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First payment" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First report" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "ZATCA local readiness visibility" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "UAE eInvoicing local readiness visibility" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contact VAT/ID validation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
     expect(screen.getByText("Active tax rates: 0")).toBeInTheDocument();
@@ -53,23 +53,22 @@ describe("setup wizard components", () => {
     expect(screen.queryByText(/stack trace/)).not.toBeInTheDocument();
   });
 
-  it("keeps the ZATCA step explicit about local-only non-production readiness", () => {
+  it("keeps the UAE eInvoicing step explicit about local-only controlled-beta readiness", () => {
     render(<SetupWizardContent checklist={sampleChecklist()} />);
 
     const zatcaStep = screen.getByTestId("setup-step-zatca_local_readiness_visible");
-    expect(within(zatcaStep).getByText(/local readiness only/)).toBeInTheDocument();
-    expect(within(zatcaStep).getByText(/real ZATCA network is disabled/)).toBeInTheDocument();
-    expect(within(zatcaStep).getByText(/production compliance remains false/)).toBeInTheDocument();
-    expect(within(zatcaStep).getAllByText(/OTP and CSID are still required/).length).toBeGreaterThan(0);
-    expect(within(zatcaStep).getByText(/clearance, reporting, and PDF\/A-3 are not implemented/)).toBeInTheDocument();
-    expect(within(zatcaStep).queryByRole("button", { name: /CSID|ZATCA|clearance|reporting/i })).not.toBeInTheDocument();
+    expect(within(zatcaStep).getByText(/local readiness validation only/)).toBeInTheDocument();
+    expect(within(zatcaStep).getByText(/ASP validation is not connected/)).toBeInTheDocument();
+    expect(within(zatcaStep).getByText(/no FTA reporting is enabled/)).toBeInTheDocument();
+    expect(within(zatcaStep).getByText(/does not prove production compliance/)).toBeInTheDocument();
+    expect(within(zatcaStep).queryByRole("button", { name: /ASP|FTA|clearance|reporting/i })).not.toBeInTheDocument();
   });
 
-  it("shows controlled beta review readiness without implying ZATCA production compliance", () => {
+  it("shows controlled beta review readiness without implying production compliance", () => {
     render(<SetupWizardContent checklist={readyChecklist()} />);
 
     expect(screen.getByText("Ready for controlled beta review")).toBeInTheDocument();
-    expect(screen.getByText(/ZATCA production compliance remains false/)).toBeInTheDocument();
+    expect(screen.getByText(/UAE eInvoicing stays local readiness validation/)).toBeInTheDocument();
   });
 
   it("links the dashboard onboarding card to the setup wizard", () => {

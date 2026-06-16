@@ -26,6 +26,18 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte UI Stitch frontend foundation hardening:
+
+- PR `#53` was merged into `main` at `90d617697a94aa34f7d6c20bb6d3b0b738d816ee` before this branch was created from fresh `origin/main`.
+- The Stitch/MCP frontend foundation pass was reconciled from uncommitted local work, protected first with `stitch-frontend-pass-safety.patch`.
+- The branch keeps the shadcn migration's split `ui-ledger` component structure and adds the missing readiness wrapper as `ComplianceReadinessPanel`.
+- Real Three.js remains present only in the dashboard `FinancialFlowScene`, with reduced-motion, no-WebGL, cleanup, and jsdom fallback coverage.
+- Dashboard, shell, onboarding, permissions copy, sidebar IA, and invoice/bill form currency presentation were hardened around UAE controlled-beta bookkeeping language.
+- Browser route checks covered desktop, tablet, and mobile widths for dashboard, invoice/bill creation, customer/supplier detail, and customer/supplier payment create/detail URLs. Routes returned `200` with no horizontal overflow, but the local browser reached the authenticated access gate, so full in-app visual review remains a follow-up.
+- No backend API, Prisma schema, migration, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Authenticated UI visual QA fixture and remaining route hardening`.
+
 2026-06-16 LedgerByte UI shadcn transaction workflows:
 
 - PR `#51` was merged into `main` at `c19d69eba23eb01519ab70ece0bdaff960e2a223` before this branch was created from fresh `origin/main`.

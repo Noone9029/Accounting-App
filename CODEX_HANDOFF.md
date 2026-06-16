@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-shadcn-transaction-workflows`.
-- Base: fresh `origin/main` at `c19d69eba23eb01519ab70ece0bdaff960e2a223` after PR `#51` UI shell/dashboard shadcn refresh was merged.
+- Branch: `feature/ui-stitch-frontend-foundation-hardening`.
+- Base: fresh `origin/main` at `90d617697a94aa34f7d6c20bb6d3b0b738d816ee` after PR `#53` payment workflow shadcn migration was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,20 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch continues the shadcn/ui migration into dense transaction workflows: sales invoice creation, purchase bill creation, and the shared customer/supplier detail workspace.
+- This branch reconciles the Stitch/MCP frontend foundation pass with the merged shadcn shell, transaction, and payment workflow migrations.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## UI Stitch Frontend Foundation Hardening Summary
+
+- PR `#53` (`Continue shadcn migration for payment workflows`) was merged into `main` with merge commit `90d617697a94aa34f7d6c20bb6d3b0b738d816ee` before this branch began.
+- The Stitch/MCP frontend foundation pass was found as uncommitted local work in the original checkout, protected with `stitch-frontend-pass-safety.patch`, and reconciled into this fresh branch from updated `origin/main`.
+- The reconciliation preserved the split `apps/web/src/components/ui-ledger/*` wrapper system from the shadcn migration instead of keeping a duplicate single-file `ui-ledger.tsx`.
+- Added the split `ComplianceReadinessPanel`, tightened the dark grouped app shell, controlled-beta topbar/sidebar language, organization/search/create affordances, dashboard readiness panels, and AED-first invoice/bill form presentation.
+- Real Three.js remains present through `FinancialFlowScene` on the dashboard only; `three` and `@types/three` are already wired in `apps/web/package.json` and the dashboard scene keeps reduced-motion, no-WebGL, cleanup, and jsdom fallback behavior.
+- Browser route checks were run against the local dev server at desktop/tablet/mobile sizes and confirmed HTTP `200` plus no horizontal overflow on the selected routes. Full authenticated visual review remains limited because the local browser session reached the access gate without a seeded auth/API fixture.
+- No backend API, Prisma schema, migration, UAE PINT-AE logic, ZATCA behavior, provider integration, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: authenticated visual QA with a safe local fixture, credit/debit note forms, reports, documents, compliance/settings surfaces, and route-by-route adoption of the hardened wrappers.
 
 ## UI Shadcn Transaction Workflows Summary
 

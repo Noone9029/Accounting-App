@@ -97,7 +97,7 @@ export function GlobalCreateMenu({ className = "", placement = "sidebar" }: Glob
                 type="button"
                 aria-label="Close create menu"
                 onClick={() => setOpen(false)}
-                className="rounded-md border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 hover:text-ink"
+                className="ledger-focus rounded-md border border-line p-2 text-slate-500 hover:bg-slate-50 hover:text-ink"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -177,7 +177,7 @@ function CreateMenuAction({
 
   if (!disabledReason && action.href) {
     return (
-      <Link href={action.href} onClick={onSelect} className="flex min-h-9 items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 hover:bg-mist hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-palm">
+      <Link href={action.href} onClick={onSelect} className="ledger-focus flex min-h-9 items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-ink">
         {content}
       </Link>
     );
@@ -198,11 +198,11 @@ function CreateMenuAction({
 
 function buttonClassName(placement: "sidebar" | "topbar"): string {
   const shared =
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-palm";
+    "ledger-focus inline-flex min-h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-colors";
 
   if (placement === "topbar") {
-    return `${shared} bg-palm px-3 py-2 text-white hover:bg-teal-800`;
+    return `${shared} bg-palm px-3 py-2 text-white hover:bg-palm-dark`;
   }
 
-  return `${shared} w-full bg-palm px-3 py-2.5 text-white shadow-sm hover:bg-teal-800`;
+  return `${shared} w-full bg-palm px-3 py-2.5 text-white shadow-sm hover:bg-palm-dark`;
 }
