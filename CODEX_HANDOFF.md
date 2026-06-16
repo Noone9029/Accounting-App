@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-owner-security-organization-settings-visual-qa`.
-- Base: fresh `origin/main` at `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` after PR `#61` (`Add owner settings generated-document visual QA`) was merged.
+- Branch: `feature/security-settings-route-implementation-plan`.
+- Base: fresh `origin/main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` after PR `#62` (`Owner security and organization settings visual QA`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,21 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends authenticated local visual QA with real Owner organization, team, roles, role detail, audit-log, compliance, setup, and organization setup surfaces. It does not create fake `/settings/security`, `/settings/api`, `/settings/sessions`, or `/settings/organization` routes.
-- It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+- This branch is docs/planning only. It inventories existing auth/session/security-adjacent capabilities and plans a future real `/settings/security` route without implementing that route.
+- It keeps backend APIs, frontend route implementation, Prisma schema, migrations, auth/session/security business logic, UAE PINT-AE behavior, ZATCA behavior, provider adapters, hosted/customer-data mutation, and production security/compliance claims unchanged.
+
+## Security Settings Route Implementation Plan Summary
+
+- PR `#62` (`Owner security and organization settings visual QA`) was reverified green and merged into `main` with merge commit `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this branch began.
+- Added `docs/security/SECURITY_SETTINGS_CAPABILITY_INVENTORY.md` with source-backed classifications for login/logout, JWT token handling, password reset, invites, team members, roles/permissions, organization profile, audit logs, audit retention, rate-limit events, session gaps, MFA/SSO/API-token gaps, and password-change gaps.
+- Added `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md` defining a truthful Phase A `/settings/security` route as a read-only overview using existing `/auth/me`, team, role, organization, setup, and audit-log capabilities.
+- Added `docs/development/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- No `/settings/security` route was implemented yet. No session list, session revoke, logout-all, MFA, SSO, API-token, logged-in password-change, security notification, provider, or certification feature was added.
+- Recommended first route scope: account identity, password reset guidance, team access overview, roles/permissions shortcut, security activity/audit shortcut, organization setup posture, and real links to `/settings/team`, `/settings/roles`, `/settings/audit-logs`, `/setup`, and `/organization/setup`.
+- Capabilities explicitly not implemented: persisted active sessions, refresh tokens, session/device revocation, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, configurable security notifications, and production security guarantees.
+- No backend API, frontend route implementation, Prisma schema, migration, auth/session/security business logic, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, fake security/SSO/MFA/API-provider claim, security certification claim, or production compliance/security claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining security route scope: implement Phase A read-only route, add route permission mapping and visual QA, then design any real session/password/MFA/SSO/API-token backend in separate reviewed phases.
 
 ## Owner Security Organization Settings Visual QA Summary
 

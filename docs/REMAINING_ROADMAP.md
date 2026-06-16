@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-17 Security Settings Route Planning Update
+
+- PR `#62` was merged into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this docs-only planning branch began.
+- Added `docs/security/SECURITY_SETTINGS_CAPABILITY_INVENTORY.md` and `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md`.
+- Next security settings arc: implement a real `/settings/security` Phase A route as a read-only overview backed by existing `/auth/me`, team, roles, organization setup, and audit-log data.
+- Keep unsupported controls out of UI until backend support exists: persisted sessions, refresh tokens, session revocation, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, and configurable security notifications.
+- Future phases need explicit backend design, migrations, tests, security review, permission review, and visual QA before any session/password/MFA/SSO/API-token control is added.
+- ZATCA remains parked and preserved; provider evidence remains unavailable.
+
 Audit date: 2026-06-13
 
 For the updated Product Audit v2 planning artifacts, see:

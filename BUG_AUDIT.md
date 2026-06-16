@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` (`origin/main` after PR #61 Owner settings/generated-document visual QA merge) plus the current Owner security/organization settings visual QA branch.
+Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main` after PR #62 Owner security/organization settings visual QA merge) plus the current security settings route implementation plan branch.
+
+## 2026-06-17 LedgerByte security settings route implementation plan
+
+Merged PR `#62` into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1`, then added a docs-only implementation plan for a future real `/settings/security` route from fresh `origin/main`.
+
+### What changed
+
+- Added a source-backed auth/session/security capability inventory at `docs/security/SECURITY_SETTINGS_CAPABILITY_INVENTORY.md`.
+- Added a route plan at `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md`.
+- Added the sprint closure at `docs/development/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- Inventoried existing login, JWT bearer auth, password reset, invite tokens, team management, role/permission management, organization setup, audit logs, audit retention, and token-delivery rate-limit capabilities.
+- Documented missing capabilities instead of inventing UI: persisted sessions, refresh tokens, session revoke, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, and configurable security notifications.
+- Recommended first `/settings/security` scope as a read-only overview with real links to `/settings/team`, `/settings/roles`, `/settings/audit-logs`, `/setup`, and `/organization/setup`.
+
+### Boundaries
+
+- Documentation/planning only.
+- No `/settings/security` route was implemented.
+- No backend API, frontend route implementation, Prisma schema, migration, hosted/customer-data mutation, auth/session/security business logic, password/MFA/SSO/API-token implementation, accounting/business logic, UAE PINT-AE, ZATCA behavior, provider adapter, real ASP/email, Vercel/Supabase setting, production infrastructure, fake security feature, certification claim, or production security/compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- ZATCA remains parked and preserved.
 
 ## 2026-06-17 LedgerByte Owner security organization settings visual QA
 
@@ -1730,7 +1751,7 @@ Risk reduced:
 Remaining risks:
 
 - Generated XML still warns `BR-KSA-63` because the current `Contact` model does not capture a dedicated 4-digit buyer building number.
-- LedgerByte is still not ZATCA production compliant.
+- LedgerByte is still not ZATCA production-ready for compliance.
 - Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, PDF/A-3, key custody, and sandbox credentials remain unimplemented.
 
 ### ZATCA SDK hash mode persistence groundwork added
@@ -1757,7 +1778,7 @@ Current state:
 
 Remaining risks:
 
-- LedgerByte is still not ZATCA production compliant.
+- LedgerByte is still not ZATCA production-ready for compliance.
 - Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, and PDF/A-3 remain unimplemented.
 - Repeatable Java 11-14 CI/Docker execution, real key custody, sandbox credentials, and accountant/legal review are still required before production use.
 
@@ -1782,7 +1803,7 @@ Current state:
 
 Remaining risks:
 
-- LedgerByte is still not ZATCA production compliant.
+- LedgerByte is still not ZATCA production-ready for compliance.
 - Signing/certificate handling, real CSID onboarding, clearance/reporting, Phase 2 QR, and PDF/A-3 remain unimplemented.
 - Official hash persistence still needs repeatable fresh-EGS runtime validation, local/CI Java strategy, reset approval, and key custody design before production use.
 
@@ -1810,7 +1831,7 @@ Result:
 
 Remaining risks:
 
-- LedgerByte is still not ZATCA production compliant.
+- LedgerByte is still not ZATCA production-ready for compliance.
 - Generated XML still has production-quality seller/buyer address and identifier warnings.
 - App hash-chain storage still uses a local deterministic hash and must not be used for real ZATCA chains.
 - Signing/certificate handling, Phase 2 QR, CSID onboarding, clearance/reporting, and PDF/A-3 are not implemented.
@@ -1836,7 +1857,7 @@ Result:
 
 Remaining risks:
 
-- LedgerByte is still not ZATCA production compliant.
+- LedgerByte is still not ZATCA production-ready for compliance.
 - Official C14N11 hash computation is not implemented in app code.
 - Generated invoice XML still needs SDK validation through the local API.
 - Signing/certificate handling and Phase 2 QR are not implemented.
@@ -1863,7 +1884,7 @@ Result:
 
 Remaining risks:
 
-- LedgerByte XML is still not production compliant.
+- LedgerByte XML is still not production-ready for compliance.
 - PIH/canonical hash-chain behavior is not implemented.
 - Signing/certificate handling and Phase 2 QR are not implemented.
 - CSID onboarding, clearance/reporting, and PDF/A-3 are not implemented.
@@ -1993,7 +2014,7 @@ Current readiness snapshot:
 
 Current top 10 risks:
 
-1. ZATCA is not production compliant; local standard fixture validation now passes, but generated XML validation, official hash integration, signing, CSID, clearance, reporting, and PDF/A-3 remain missing.
+1. ZATCA is not production-ready for compliance; local standard fixture validation now passes, but generated XML validation, official hash integration, signing, CSID, clearance, reporting, and PDF/A-3 remain missing.
 2. Database/base64 attachment and generated-document storage is still active; real object storage and migration are pending.
 3. Mock/local email remains the default; real provider delivery, retries, bounces, and domain authentication are pending.
 4. Production operations are not ready: backups, restore drills, monitoring, alerts, and incident runbooks are missing.
@@ -3445,7 +3466,7 @@ Commit inspected: `dd498c7` (`Add purchases and supplier payments MVP`)
 - Core financial reports now have MVP coverage, but still need accountant review and production hardening.
 - Inventory/COGS remain unimplemented; purchase orders and bank reconciliation are MVP-grade and still need advanced hardening.
 - Generated PDFs are still stored as database base64 and need object storage before production scale.
-- ZATCA remains local/mock/scaffold only and is not production compliant.
+- ZATCA remains local/mock/scaffold only and is not production-ready for compliance.
 
 ### Next Recommended Module
 

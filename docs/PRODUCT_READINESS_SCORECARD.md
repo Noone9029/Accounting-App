@@ -2,7 +2,15 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` (`origin/main` after PR #61 Owner settings/generated-document visual QA merge) plus the current Owner security/organization settings visual QA branch.
+Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main` after PR #62 Owner security/organization settings visual QA merge) plus the current security settings route implementation plan branch.
+
+## 2026-06-17 Security Settings Route Implementation Plan Update
+
+- Controlled beta planning clarity improves because existing auth, token, member, role, organization, permission, and audit-log capabilities are now inventoried from source for a future real `/settings/security` route.
+- This is documentation/planning evidence only. It does not add a route, backend endpoint, schema, migration, auth/session/security business logic, security control, provider integration, or production security claim.
+- The recommended first route is a read-only overview: account identity, password reset guidance, team access summary, roles/permissions summary, audit-log shortcut, and organization setup posture.
+- Explicitly out of scope until backend support exists: persisted sessions, refresh tokens, session revoke, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, and configurable security notifications.
+- This does not increase production security readiness. It reduces the risk of future UI overclaiming by defining what the route may truthfully show first.
 
 ## 2026-06-17 Owner Security Organization Settings Visual QA Update
 
