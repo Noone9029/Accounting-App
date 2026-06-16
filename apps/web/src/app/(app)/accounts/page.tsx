@@ -120,7 +120,7 @@ export default function AccountsPage() {
       {canManageAccounts ? (
       <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <h2 className="text-base font-semibold text-ink">Create account</h2>
-        <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[0.7fr_1fr_0.8fr_1fr_auto]">
+        <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[0.7fr_1fr_0.8fr_1fr_auto]">
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-wide text-steel">Code</span>
             <input
@@ -163,7 +163,7 @@ export default function AccountsPage() {
             <input name="allowPosting" type="checkbox" defaultChecked />
             Posting
           </label>
-          <div className="md:col-span-5">
+          <div className="md:col-span-2 xl:col-span-5">
             <p className="mb-3 text-xs leading-5 text-steel">
               {codeSuggestion?.helperText ?? "LedgerByte can suggest a code from the selected account type range. Manual changes are audit logged."}
             </p>

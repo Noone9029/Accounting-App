@@ -1,5 +1,5 @@
 import type { Page, Route } from "@playwright/test";
-import { DEFAULT_ROLE_PERMISSIONS, type Permission } from "../../packages/shared/src/permissions";
+import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS, type Permission } from "../../packages/shared/src/permissions";
 
 export const visualApiUrl = process.env.LEDGERBYTE_VISUAL_API_URL ?? "http://127.0.0.1:4999";
 export const fixedVisualDate = "2026-05-21T12:00:00.000Z";
@@ -1538,6 +1538,9 @@ const generatedDocuments = [
     sizeBytes: 3584,
     status: "GENERATED",
     storageProvider: "DATABASE",
+    storageKey: null,
+    contentHash: "visual-hash-customer-statement",
+    generatedById: "user-1",
     generatedAt: fixedVisualDate,
     createdById: "user-1",
     createdAt: fixedVisualDate,
@@ -1555,12 +1558,65 @@ const generatedDocuments = [
     sizeBytes: 3712,
     status: "GENERATED",
     storageProvider: "DATABASE",
+    storageKey: null,
+    contentHash: "visual-hash-supplier-statement",
+    generatedById: "user-1",
+    generatedAt: fixedVisualDate,
+    createdById: "user-1",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+  },
+  {
+    id: "generated-document-failed-long",
+    organizationId: org.id,
+    documentType: "PURCHASE_BILL",
+    sourceType: "PurchaseBill",
+    sourceId: "bill-partially-paid",
+    documentNumber: "BILL-DOC-FAILED-0000000007",
+    filename: "regional-supplier-purchase-bill-with-very-long-file-name-for-mobile-archive-review-failed-generation.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: 0,
+    status: "FAILED",
+    storageProvider: "DATABASE",
+    storageKey: null,
+    contentHash: "visual-hash-failed-document",
+    generatedById: "user-1",
+    generatedAt: fixedVisualDate,
+    createdById: "user-1",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+  },
+  {
+    id: "generated-document-ready-local",
+    organizationId: org.id,
+    documentType: "REPORT_PROFIT_AND_LOSS",
+    sourceType: "Report",
+    sourceId: "reports-profit-and-loss",
+    documentNumber: "RPT-LOCAL-READY-001",
+    filename: "profit-and-loss-local-review-export-ready-in-database-storage.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: 8421,
+    status: "GENERATED",
+    storageProvider: "DATABASE",
+    storageKey: null,
+    contentHash: "visual-hash-report-document",
+    generatedById: "user-1",
     generatedAt: fixedVisualDate,
     createdById: "user-1",
     createdAt: fixedVisualDate,
     updatedAt: fixedVisualDate,
   },
 ];
+
+function filteredGeneratedDocuments(searchParams: URLSearchParams) {
+  const type = searchParams.get("documentType");
+  const status = searchParams.get("status");
+  return generatedDocuments.filter((document) => {
+    const typeMatches = !type || document.documentType === type;
+    const statusMatches = !status || document.status === status;
+    return typeMatches && statusMatches;
+  });
+}
 
 export async function installVisualApiMocks(page: Page, options: VisualFixtureOptions = {}) {
   const roleProfile = options.roleProfile ?? "Owner";
@@ -1647,14 +1703,14 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
     return json([customer, supplier]);
   }
   if (pathname === "/contacts/customers") {
-    return json([customerPartySummary()]);
+    return json(customerPartySummaries());
   }
   const customerDetailMatch = pathname.match(/^\/contacts\/customers\/([^/]+)$/);
   if (customerDetailMatch) {
     return json(customerPartyDetail(customerDetailMatch[1] as keyof typeof visualCustomers));
   }
   if (pathname === "/contacts/suppliers") {
-    return json([supplierPartySummary()]);
+    return json(supplierPartySummaries());
   }
   if (pathname === "/journal-entries") {
     return json(journalEntries());
@@ -1977,17 +2033,22 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/items") {
     return json([item]);
   }
+  if (pathname === "/accounts/next-code") {
+    const type = searchParams.get("type") ?? "ASSET";
+    return json({
+      type,
+      code: type === "LIABILITY" ? "2020" : type === "REVENUE" ? "4020" : type === "EXPENSE" ? "5020" : "1110",
+      rangeStart: type === "LIABILITY" ? "2000" : type === "REVENUE" ? "4000" : type === "EXPENSE" ? "5000" : "1000",
+      rangeEnd: type === "LIABILITY" ? "2999" : type === "REVENUE" ? "4999" : type === "EXPENSE" ? "5999" : "1999",
+      manualOverrideAllowed: true,
+      helperText: "Suggested local visual fixture code only. Manual changes are audit logged.",
+    });
+  }
   if (pathname === "/accounts") {
-    return json([
-      bankAccount.account,
-      { id: "sales-account-1", code: "4010", name: "Sales", type: "REVENUE", allowPosting: true, isActive: true },
-      { id: "purchase-account-1", code: "5010", name: "Purchases", type: "EXPENSE", allowPosting: true, isActive: true },
-      { id: "ap-account-1", code: "2010", name: "Accounts payable", type: "LIABILITY", allowPosting: true, isActive: true },
-      { id: "vat-receivable-1", code: "1410", name: "VAT receivable", type: "ASSET", allowPosting: true, isActive: true },
-    ]);
+    return json(visualAccounts());
   }
   if (pathname === "/tax-rates") {
-    return json([{ id: "tax-1", name: "VAT 15%", rate: "15.0000", scope: "BOTH", category: "STANDARD", isActive: true }]);
+    return json(visualTaxRates());
   }
   if (pathname === "/branches") {
     return json([]);
@@ -2032,7 +2093,7 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
     return json(stockValuationReport());
   }
   if (pathname === "/generated-documents") {
-    return json(generatedDocuments);
+    return json(filteredGeneratedDocuments(searchParams));
   }
   if (pathname === "/organization-document-settings") {
     return json(documentSettings());
@@ -2160,59 +2221,126 @@ function organizationProfile() {
 }
 
 function roles() {
-  return Object.values(visualRoleProfiles).map((role) => ({
+  const systemRoles = Object.values(visualRoleProfiles).map((role) => ({
     id: role.id,
     organizationId: org.id,
     name: role.name,
     permissions: role.permissions,
     isSystem: true,
-    memberCount: role.name === "Owner" ? 1 : 0,
+    memberCount: role.name === "Owner" ? 1 : role.name === "Viewer" ? 2 : 1,
     createdAt: fixedVisualDate,
     updatedAt: fixedVisualDate,
   }));
-}
 
-function organizationMembers() {
-  const ownerRole = visualRoleProfiles.Owner;
   return [
+    ...systemRoles,
     {
-      id: "membership-1",
+      id: "role-custom-long",
       organizationId: org.id,
-      userId: "user-1",
-      roleId: ownerRole.id,
-      status: "ACTIVE",
+      name: "Regional Operations Readonly Reviewer With Long Role Name",
+      permissions: [PERMISSIONS.dashboard.view, PERMISSIONS.contacts.view, PERMISSIONS.documents.view],
+      isSystem: false,
+      memberCount: 0,
       createdAt: fixedVisualDate,
       updatedAt: fixedVisualDate,
-      user: {
-        id: "user-1",
-        email: "owner-visual@example.test",
-        name: "Owner Visual Tester",
-      },
-      role: {
-        id: ownerRole.id,
-        name: ownerRole.name,
-        permissions: ownerRole.permissions,
-        isSystem: true,
-      },
     },
   ];
 }
 
-function customerPartySummary() {
+function organizationMembers() {
+  const roleByName = {
+    Owner: visualRoleProfiles.Owner,
+    Accountant: visualRoleProfiles.Accountant,
+    Sales: visualRoleProfiles.Sales,
+    Purchases: visualRoleProfiles.Purchases,
+    Viewer: visualRoleProfiles.Viewer,
+  };
+
+  return [
+    organizationMember("membership-owner", "user-owner", "Owner Visual Tester", "owner-visual@example.test", "ACTIVE", roleByName.Owner),
+    organizationMember("membership-accountant", "user-accountant", "Aisha LedgerByte Accountant With Extended Review Name", "aisha.accountant.long@example.test", "ACTIVE", roleByName.Accountant),
+    organizationMember("membership-sales", "user-sales", "Sales Workflow Reviewer", "sales.workflow.reviewer@example.test", "ACTIVE", roleByName.Sales),
+    organizationMember("membership-purchases", "user-purchases", "Purchases Workflow Reviewer", "purchases.workflow.reviewer@example.test", "ACTIVE", roleByName.Purchases),
+    organizationMember("membership-viewer", "user-viewer", "Viewer Readonly Reviewer", "viewer.visual.readonly@example.test", "ACTIVE", roleByName.Viewer),
+    organizationMember("membership-pending", "user-pending", "Pending Invite With Long External Email", "pending.invite.long.external.reviewer@example.test", "INVITED", roleByName.Viewer),
+    organizationMember("membership-suspended", "user-suspended", "Suspended Former Beta Reviewer", "suspended.former.beta.reviewer@example.test", "SUSPENDED", roleByName.Viewer),
+  ];
+}
+
+function organizationMember(
+  id: string,
+  userId: string,
+  name: string,
+  email: string,
+  status: string,
+  role: (typeof visualRoleProfiles)[VisualRoleProfileName],
+) {
   return {
-    contact: customer,
-    openReceivableBalance: "650.0000",
-    overdueReceivableBalance: "0.0000",
-    lastTransactionDate: customerPayment.paymentDate,
+    id,
+    organizationId: org.id,
+    userId,
+    roleId: role.id,
+    status,
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    user: {
+      id: userId,
+      email,
+      name,
+      createdAt: fixedVisualDate,
+    },
+    role: {
+      id: role.id,
+      name: role.name,
+      permissions: role.permissions,
+      isSystem: true,
+    },
   };
 }
 
-function supplierPartySummary() {
+function customerPartySummaries() {
+  return [
+    customerPartySummary(),
+    customerPartySummary("customer-long", "184250.6500", "45780.1200", "2026-05-21T00:00:00.000Z"),
+    customerPartySummary("customer-empty", "0.0000", "0.0000", null),
+    customerPartySummary("customer-inactive", "-125.0000", "0.0000", "2026-04-18T00:00:00.000Z"),
+  ];
+}
+
+function supplierPartySummaries() {
+  return [
+    supplierPartySummary(),
+    supplierPartySummary("supplier-long", "93210.4400", "38120.0000", "2026-05-20T00:00:00.000Z"),
+    supplierPartySummary("supplier-empty", "0.0000", "0.0000", null),
+    supplierPartySummary("supplier-inactive", "-80.0000", "0.0000", "2026-04-12T00:00:00.000Z"),
+  ];
+}
+
+function customerPartySummary(
+  id: keyof typeof visualCustomers = "customer-1",
+  openReceivableBalance = "650.0000",
+  overdueReceivableBalance = "0.0000",
+  lastTransactionDate: string | null = customerPayment.paymentDate,
+) {
   return {
-    contact: supplier,
-    openPayableBalance: "405.0000",
-    overduePayableBalance: "0.0000",
-    lastTransactionDate: supplierPayment.paymentDate,
+    contact: visualCustomers[id],
+    openReceivableBalance,
+    overdueReceivableBalance,
+    lastTransactionDate,
+  };
+}
+
+function supplierPartySummary(
+  id: keyof typeof visualSuppliers = "supplier-1",
+  openPayableBalance = "405.0000",
+  overduePayableBalance = "0.0000",
+  lastTransactionDate: string | null = supplierPayment.paymentDate,
+) {
+  return {
+    contact: visualSuppliers[id],
+    openPayableBalance,
+    overduePayableBalance,
+    lastTransactionDate,
   };
 }
 
@@ -2353,6 +2481,7 @@ function checklist() {
     ["first_invoice", "Create first invoice", "COMPLETE", "/sales/invoices/invoice-1"],
     ["first_payment", "Record payment", "COMPLETE", "/sales/customer-payments/payment-1"],
     ["first_report", "View first report", "INCOMPLETE", "/reports/profit-and-loss"],
+    ["provider_evidence", "Collect provider evidence", "WARNING", "/settings/compliance"],
   ].map(([id, label, status, href]) => ({
     id,
     label,
@@ -2360,8 +2489,8 @@ function checklist() {
     href,
     description: `${label} for the visual beta workflow.`,
     evidence: status === "COMPLETE" ? ["Stable visual fixture present."] : [],
-    blockers: [],
-    warnings: [],
+    blockers: id === "provider_evidence" ? ["Provider evidence is unavailable in this local visual fixture."] : [],
+    warnings: status === "INCOMPLETE" ? ["Finish this step in local/test data only."] : [],
   }));
 
   return {
@@ -2370,12 +2499,12 @@ function checklist() {
     tenantScoped: true,
     organizationId: org.id,
     generatedAt: fixedVisualDate,
-    status: "IN_PROGRESS",
+    status: "BLOCKED",
     readinessScore: 83,
     completedCount: 5,
-    totalCount: 6,
+    totalCount: 7,
     items,
-    blockers: [],
+    blockers: ["Provider evidence is still unavailable: no sandbox docs, credentials, provider response, or commercial terms."],
     warnings: ["Production ZATCA submission is not connected."],
     recommendedNextSteps: ["Open the Profit & Loss report after the first payment."],
     zatcaProductionCompliance: false,
@@ -3931,10 +4060,85 @@ function journalEntries() {
 
 function numberSequences() {
   return [
-    { id: "seq-invoice", scope: "INVOICE", prefix: "INV-", nextNumber: 42, padding: 4, exampleNextNumber: "INV-0042", updatedAt: fixedVisualDate },
-    { id: "seq-bill", scope: "BILL", prefix: "BILL-", nextNumber: 18, padding: 4, exampleNextNumber: "BILL-0018", updatedAt: fixedVisualDate },
+    { id: "seq-invoice", scope: "INVOICE", prefix: "INV-UAE-OPERATIONS-2026-", nextNumber: 42, padding: 6, exampleNextNumber: "INV-UAE-OPERATIONS-2026-000042", updatedAt: fixedVisualDate },
+    { id: "seq-bill", scope: "BILL", prefix: "BILL-REGIONAL-SUPPLY-", nextNumber: 18, padding: 5, exampleNextNumber: "BILL-REGIONAL-SUPPLY-00018", updatedAt: fixedVisualDate },
+    { id: "seq-credit-note", scope: "CREDIT_NOTE", prefix: "CN-", nextNumber: 7, padding: 4, exampleNextNumber: "CN-0007", updatedAt: fixedVisualDate },
+    { id: "seq-debit-note", scope: "PURCHASE_DEBIT_NOTE", prefix: "DN-", nextNumber: 9, padding: 4, exampleNextNumber: "DN-0009", updatedAt: fixedVisualDate },
+    { id: "seq-customer-statement", scope: "CUSTOMER_STATEMENT", prefix: "CSTMT-", nextNumber: 4, padding: 4, exampleNextNumber: "CSTMT-0004", updatedAt: fixedVisualDate },
     { id: "seq-supplier-statement", scope: "SUPPLIER_STATEMENT", prefix: "SSTMT-", nextNumber: 3, padding: 4, exampleNextNumber: "SSTMT-0003", updatedAt: fixedVisualDate },
   ];
+}
+
+function visualAccounts() {
+  const bank = {
+    ...bankAccount.account,
+    organizationId: org.id,
+    parentId: null,
+    description: "Primary manual bank ledger account for visual QA.",
+    isSystem: true,
+  };
+  return [
+    bank,
+    visualAccount("asset-receivables", "1100", "Accounts receivable - trade customers with exceptionally long account name", "ASSET", true, true, "asset-current"),
+    visualAccount("asset-inactive-clearing", "1199", "Inactive customer clearing account retained for historical review", "ASSET", false, false, "asset-current"),
+    visualAccount("vat-receivable-1", "1410", "VAT receivable", "ASSET", true, true, "asset-current"),
+    visualAccount("asset-current", "1000", "Current assets", "ASSET", false, true, null),
+    visualAccount("liability-payables", "2010", "Accounts payable - regional suppliers and logistics partners", "LIABILITY", true, true, "liability-current"),
+    visualAccount("liability-current", "2000", "Current liabilities", "LIABILITY", false, true, null),
+    visualAccount("equity-retained", "3010", "Retained earnings", "EQUITY", false, true, null),
+    visualAccount("sales-account-1", "4010", "Sales", "REVENUE", true, true, null),
+    visualAccount("sales-discounts-long", "4090", "Sales discounts and negative adjustments for customer statements", "REVENUE", true, true, null),
+    visualAccount("purchase-account-1", "5010", "Purchases", "EXPENSE", true, true, null),
+    visualAccount("expense-storage-review", "6195", "Document storage readiness and local review expenses", "EXPENSE", true, false, null),
+  ];
+}
+
+function visualAccount(
+  id: string,
+  code: string,
+  name: string,
+  type: string,
+  allowPosting: boolean,
+  isActive: boolean,
+  parentId: string | null,
+) {
+  return {
+    id,
+    organizationId: org.id,
+    parentId,
+    code,
+    name,
+    type,
+    description: null,
+    allowPosting,
+    isSystem: id.includes("account-1") || id.includes("vat"),
+    isActive,
+    parent: parentId ? { id: parentId, code: parentId.startsWith("asset") ? "1000" : "2000", name: parentId.startsWith("asset") ? "Current assets" : "Current liabilities" } : null,
+  };
+}
+
+function visualTaxRates() {
+  return [
+    visualTaxRate("tax-1", "UAE VAT 5% standard domestic supplies", "BOTH", "STANDARD", "5.0000", true),
+    visualTaxRate("tax-zero-export", "Zero-rated export supply review", "SALES", "ZERO_RATED", "0.0000", true),
+    visualTaxRate("tax-exempt", "Exempt financial service review", "SALES", "EXEMPT", "0.0000", true),
+    visualTaxRate("tax-reverse-charge", "Reverse charge purchase review", "PURCHASES", "REVERSE_CHARGE", "5.0000", true),
+    visualTaxRate("tax-inactive-old", "Inactive historical VAT 15% fixture", "BOTH", "STANDARD", "15.0000", false),
+  ];
+}
+
+function visualTaxRate(id: string, name: string, scope: string, category: string, rate: string, isActive: boolean) {
+  return {
+    id,
+    organizationId: org.id,
+    name,
+    scope,
+    category,
+    rate,
+    description: "Local visual fixture tax setup only.",
+    isActive,
+    isSystem: false,
+  };
 }
 
 interface MockResponse {
