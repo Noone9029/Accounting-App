@@ -23,7 +23,7 @@ describe("document guidance", () => {
     expect(screen.getByText(/PDF downloads from source records are archived automatically/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "Document settings" })).toHaveAttribute("href", "/settings/documents");
-    expect(screen.getByText(/PDF\/A-3 embedding, real ZATCA network submission/)).toBeInTheDocument();
+    expect(screen.getByText(/PDF\/A-3 embedding,\s+ZATCA network submission/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
 

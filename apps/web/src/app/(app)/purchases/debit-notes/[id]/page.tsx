@@ -240,7 +240,7 @@ export default function PurchaseDebitNoteDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold text-ink">{debitNote ? debitNote.debitNoteNumber : "Debit note"}</h1>
           <p className="mt-1 text-sm text-steel">Debit note detail, AP reversal posting, allocations, and PDF download.</p>
-          {debitNote ? <p className="mt-1 text-xs text-steel">Local AP adjustment only. No real ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</p> : null}
+          {debitNote ? <p className="mt-1 text-xs text-steel">Local AP adjustment only. No ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</p> : null}
         </div>
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap">
           <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -586,7 +586,7 @@ export function PurchaseDebitNoteWorkflowGuidance({
           <p className="mt-3 text-xs leading-5 text-steel">This debit note still has unapplied amount, but your role cannot apply it to supplier bills.</p>
         ) : null}
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
-          ZATCA handling here is local/readiness only. Real network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
+          ZATCA handling here is local/readiness only. Network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
         </div>
         <SourceDocumentGuidance className="mt-4" />
       </div>

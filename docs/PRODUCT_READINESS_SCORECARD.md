@@ -2,7 +2,17 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` (`origin/main` after PR #59 report drilldown dense entry visual QA merge) plus the current secondary operational route polish visual QA branch.
+Latest commit audited: `85813f7217d32babebf71412f43ea8034f0c0d07` (`origin/main` after PR #60 secondary operational route visual QA merge) plus the current Owner settings/generated-document storage evidence visual QA branch.
+
+## 2026-06-16 Owner Settings Generated-Document Storage Evidence Visual QA Update
+
+- Controlled beta UI confidence improves because Owner-heavy settings, generated-document archive, storage evidence, document settings, setup, accounts, tax rates, and source transaction document evidence surfaces now have local Playwright visual coverage.
+- The fixture remains local/test-only and read-only. It models existing route contracts, role permissions, long-field content, generated/failed/superseded document rows, metadata-only storage evidence, conservative compliance wording, blocked provider-evidence states, and hidden/disabled restricted actions without changing backend behavior.
+- The route matrix checks existing routes across desktop, tablet, and mobile. It uses `/settings/documents` for document settings and `/documents` for generated-document archive because `/generated-documents` is API-only.
+- The role matrix checks `Owner`, `Accountant`, and `Viewer`, including Owner settings/storage actions, Accountant accounting-adjacent permissions, and Viewer restricted settings/mutation behavior.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/owner-settings-generated-document-storage-evidence/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, storage-provider, generated-document business logic, report calculation, report export, or production compliance readiness.
+- Remaining UI readiness gaps are owner/security settings depth, generated-document detail route breadth if added later, storage execution evidence after real provider proof, and accountant sign-off on final settings/compliance wording.
 
 ## 2026-06-16 Secondary Operational Route Polish Visual QA Update
 

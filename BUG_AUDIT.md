@@ -2,7 +2,30 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` (`origin/main` after PR #59 report drilldown dense entry visual QA merge) plus the current secondary operational route polish visual QA branch.
+Latest commit audited: `85813f7217d32babebf71412f43ea8034f0c0d07` (`origin/main` after PR #60 secondary operational route visual QA merge) plus the current Owner settings/generated-document storage evidence visual QA branch.
+
+## 2026-06-16 LedgerByte Owner settings generated-document storage evidence visual QA
+
+Merged PR `#60` into `main` at `85813f7217d32babebf71412f43ea8034f0c0d07`, then added Owner settings, generated-document archive, storage evidence, and source transaction document evidence local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Extended the local visual fixture with read-only generated-document rows for invoice, credit note, purchase bill, purchase debit note, failed, superseded, and local-ready database-storage states.
+- Added metadata-only storage evidence fixture rows for database backup, generated-document backup, and RPO/RTO review. No backup, restore, provider, or storage migration operation runs.
+- Added a Playwright Owner settings/generated-document/storage evidence visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Covered `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/settings/documents`, `/setup`, `/accounts`, `/tax-rates`, `/documents`, `/sales/invoices/invoice-1`, `/purchases/bills/bill-1`, `/sales/credit-notes/credit-note-1`, and `/purchases/debit-notes/debit-note-1`.
+- Verified `Owner`, `Accountant`, and `Viewer` behavior for admin/settings action visibility, generated-document downloads, source PDF archive guidance, storage evidence copy, route/action consistency, table readability, and existing hidden/disabled restricted-action behavior.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/owner-settings-generated-document-storage-evidence/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed: local fixture coverage now includes richer generated-document archive and storage evidence states; purchase debit note and document guidance copy now denies unsupported ZATCA network behavior without stronger real-network phrasing; visual assertions now match existing Accountant account/tax management permissions and Viewer disabled settings forms.
+- Skipped `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, and `/generated-documents` because those exact app routes do not exist. `/settings/zatca` exists but was intentionally skipped to avoid ZATCA-specific visual expansion.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, report calculation logic, generated-document business logic, storage provider logic, journal posting logic, production auth behavior, UAE PINT-AE, ZATCA behavior, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake provider, fake storage, fake archive permanence, fake bank automation, fake email delivery, certification, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is owner/security settings depth, generated-document detail route breadth if added later, storage execution evidence after real object-storage proof, and accountant sign-off on final settings/compliance wording.
 
 ## 2026-06-16 LedgerByte secondary operational route polish visual QA
 
