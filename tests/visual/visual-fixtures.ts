@@ -1,7 +1,28 @@
 import type { Page, Route } from "@playwright/test";
+import { DEFAULT_ROLE_PERMISSIONS, type Permission } from "../../packages/shared/src/permissions";
 
 export const visualApiUrl = process.env.LEDGERBYTE_VISUAL_API_URL ?? "http://127.0.0.1:4999";
 export const fixedVisualDate = "2026-05-21T12:00:00.000Z";
+
+export type VisualRoleProfileName = keyof typeof visualRoleProfiles;
+
+interface VisualRoleProfile {
+  id: string;
+  name: string;
+  permissions: readonly Permission[];
+}
+
+export const visualRoleProfiles = {
+  Owner: { id: "role-owner", name: "Owner", permissions: DEFAULT_ROLE_PERMISSIONS.Owner },
+  Accountant: { id: "role-accountant", name: "Accountant", permissions: DEFAULT_ROLE_PERMISSIONS.Accountant },
+  Sales: { id: "role-sales", name: "Sales", permissions: DEFAULT_ROLE_PERMISSIONS.Sales },
+  Purchases: { id: "role-purchases", name: "Purchases", permissions: DEFAULT_ROLE_PERMISSIONS.Purchases },
+  Viewer: { id: "role-viewer", name: "Viewer", permissions: DEFAULT_ROLE_PERMISSIONS.Viewer },
+} as const satisfies Record<string, VisualRoleProfile>;
+
+export interface VisualFixtureOptions {
+  roleProfile?: VisualRoleProfileName;
+}
 
 const org = {
   id: "org-visual",
@@ -674,14 +695,16 @@ const generatedDocuments = [
   },
 ];
 
-export async function installVisualApiMocks(page: Page) {
-  await page.route(`${visualApiUrl}/**`, (route) => fulfillApiRoute(route));
+export async function installVisualApiMocks(page: Page, options: VisualFixtureOptions = {}) {
+  const roleProfile = options.roleProfile ?? "Owner";
+  await page.route(`${visualApiUrl}/**`, (route) => fulfillApiRoute(route, roleProfile));
   await page.route("**/favicon.ico", (route) => route.fulfill({ status: 204, body: "" }));
 }
 
-export async function primeVisualSession(page: Page) {
+export async function primeVisualSession(page: Page, options: VisualFixtureOptions = {}) {
+  const roleProfile = options.roleProfile ?? "Owner";
   await page.addInitScript(
-    ({ fixedNow }) => {
+    ({ fixedNow, roleName }) => {
       const fixedTimestamp = Date.parse(fixedNow);
       const OriginalDate = Date;
       class FixedDate extends OriginalDate {
@@ -696,14 +719,15 @@ export async function primeVisualSession(page: Page) {
       window.Date = FixedDate as DateConstructor;
       window.localStorage.setItem("ledgerbyte.accessToken", "visual-token");
       window.localStorage.setItem("ledgerbyte.activeOrganizationId", "org-visual");
+      window.localStorage.setItem("ledgerbyte.visualRoleProfile", roleName);
     },
-    { fixedNow: fixedVisualDate },
+    { fixedNow: fixedVisualDate, roleName: roleProfile },
   );
 }
 
-function fulfillApiRoute(route: Route) {
+function fulfillApiRoute(route: Route, roleProfile: VisualRoleProfileName) {
   const url = new URL(route.request().url());
-  const response = visualApiResponse(url.pathname, url.searchParams);
+  const response = visualApiResponse(url.pathname, url.searchParams, roleProfile);
   if (!response) {
     return route.fulfill({
       status: 404,
@@ -719,18 +743,19 @@ function fulfillApiRoute(route: Route) {
   });
 }
 
-function visualApiResponse(pathname: string, searchParams: URLSearchParams): MockResponse | null {
+function visualApiResponse(pathname: string, searchParams: URLSearchParams, roleProfile: VisualRoleProfileName): MockResponse | null {
   if (pathname === "/auth/me") {
+    const role = visualRoleProfiles[roleProfile];
     return json({
       id: "user-1",
-      email: "visual@example.test",
-      name: "Visual Tester",
+      email: `${role.name.toLowerCase()}-visual@example.test`,
+      name: `${role.name} Visual Tester`,
       memberships: [
         {
           id: "membership-1",
           status: "ACTIVE",
           organization: org,
-          role: { id: "role-owner", name: "Owner", permissions: ["admin.fullAccess"] },
+          role: { id: role.id, name: role.name, permissions: role.permissions },
         },
       ],
     });
@@ -744,6 +769,12 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   }
   if (pathname === "/organizations/org-visual") {
     return json(organizationProfile());
+  }
+  if (pathname === "/organization-members") {
+    return json(organizationMembers());
+  }
+  if (pathname === "/roles") {
+    return json(roles());
   }
   if (pathname === "/contacts") {
     return json([customer, supplier]);
@@ -1008,6 +1039,45 @@ function organizationProfile() {
     createdAt: fixedVisualDate,
     updatedAt: fixedVisualDate,
   };
+}
+
+function roles() {
+  return Object.values(visualRoleProfiles).map((role) => ({
+    id: role.id,
+    organizationId: org.id,
+    name: role.name,
+    permissions: role.permissions,
+    isSystem: true,
+    memberCount: role.name === "Owner" ? 1 : 0,
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+  }));
+}
+
+function organizationMembers() {
+  const ownerRole = visualRoleProfiles.Owner;
+  return [
+    {
+      id: "membership-1",
+      organizationId: org.id,
+      userId: "user-1",
+      roleId: ownerRole.id,
+      status: "ACTIVE",
+      createdAt: fixedVisualDate,
+      updatedAt: fixedVisualDate,
+      user: {
+        id: "user-1",
+        email: "owner-visual@example.test",
+        name: "Owner Visual Tester",
+      },
+      role: {
+        id: ownerRole.id,
+        name: ownerRole.name,
+        permissions: ownerRole.permissions,
+        isSystem: true,
+      },
+    },
+  ];
 }
 
 function customerPartySummary() {

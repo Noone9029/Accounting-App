@@ -4,6 +4,27 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 LedgerByte role-filtered UI visual QA route polish
+
+Merged PR `#55` into `main` at `311ef752bf692c16f17cafa361c8b1522cb686e8`, then added role-filtered local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Extended the local visual fixture with test-only role profile support using the existing shared default roles: `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`.
+- Added a Playwright role-filtered route matrix for `Owner` and `Viewer` across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Added create-menu checks for `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`, verifying allowed links, disabled unauthorized actions, and local route hrefs.
+- Added read-only visual fixture responses for `/roles` and `/organization-members` so `/settings` resolves through the existing team-settings route without real API calls.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/role-filtered-route-polish/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed in this branch were local fixture/test harness issues only: role-aware auth fixture output, exact label selectors, tablet breakpoint shell assertions, and route-content checks that do not assume create permissions.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, production auth behavior, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake automation, fake bank feed, fake AI, provider connectivity, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is deeper role-filtered detail-state coverage beyond this route/create-menu matrix.
+
 ## 2026-06-16 LedgerByte authenticated UI visual QA route hardening
 
 Merged PR `#54` into `main` at `0a6c5ddde244b5298933e88e4393516ff9996982`, then added a local authenticated visual QA matrix from fresh `origin/main`.
