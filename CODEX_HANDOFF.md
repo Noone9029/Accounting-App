@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-authenticated-visual-qa-route-hardening`.
-- Base: fresh `origin/main` at `0a6c5ddde244b5298933e88e4393516ff9996982` after PR `#54` (`Harden Stitch frontend foundation`) was merged.
+- Branch: `feature/ui-role-filtered-visual-qa-route-polish`.
+- Base: fresh `origin/main` at `311ef752bf692c16f17cafa361c8b1522cb686e8` after PR `#55` (`Add authenticated UI visual QA route hardening`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,21 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch adds an authenticated local visual QA route-hardening fixture on top of the merged Stitch/shadcn frontend foundation.
+- This branch extends the authenticated local visual QA fixture with role-filtered route and create-menu checks.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Role-Filtered UI Visual QA Route Polish Summary
+
+- PR `#55` (`Add authenticated UI visual QA route hardening`) was reverified green and merged into `main` with merge commit `311ef752bf692c16f17cafa361c8b1522cb686e8` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` so the local visual fixture can return real default role profiles from the shared permission catalog: `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`.
+- Added `tests/visual/role-filtered-route-polish.visual.spec.ts`, a local Playwright visual matrix that primes the existing `visual-token`/`org-visual` session with a selected role profile and uses read-only API mocks.
+- Route matrix covered `Owner` and `Viewer` across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for `/dashboard`, `/sales/invoices`, `/sales/invoices/new`, `/purchases/bills`, `/purchases/bills/new`, `/customers/customer-1`, `/suppliers/supplier-1`, `/sales/customer-payments`, `/purchases/supplier-payments`, `/sales/credit-notes`, `/purchases/debit-notes`, `/documents`, `/reports`, `/settings`, `/settings/storage`, `/settings/compliance`, and `/bank-accounts`.
+- Create-menu matrix covered `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer` across the same three viewports, verifying allowed links, disabled unauthorized actions, and local-route hrefs.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/role-filtered-route-polish/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed in this branch were local test-fixture and visual-harness issues only: role-aware `/auth/me`, read-only `/roles` and `/organization-members`, exact label assertions, tablet breakpoint handling, and role-neutral route content assertions. No app UI source defect required a frontend behavior change.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, fake provider connectivity, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: deeper role-filtered detail states, refund/collections/banking detail polish, report-depth review, and accountant review of dense mobile table/card readability.
 
 ## Authenticated UI Visual QA Route Hardening Summary
 

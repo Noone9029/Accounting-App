@@ -4,6 +4,16 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 Role-Filtered UI Visual QA Route Polish Update
+
+- Controlled beta UI confidence improves because role-filtered app-shell, route, and create-menu behavior now has local Playwright visual coverage.
+- The fixture uses the existing shared default roles: `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`.
+- The route matrix checks `Owner` and `Viewer` across desktop, tablet, and mobile. The create-menu matrix checks all five role profiles across the same viewports.
+- The checks verify allowed route access, existing access-denied behavior, sidebar/topbar shell visibility, disabled unauthorized create actions, local route hrefs, no document-level horizontal overflow, no severe topbar overlap, and conservative visible wording.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/role-filtered-route-polish/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, or production compliance readiness.
+- Remaining UI readiness gaps are deeper role-filtered detail states, refund/collections/banking detail polish, and accountant review of dense mobile table/card surfaces.
+
 ## 2026-06-16 Authenticated UI Visual QA Route Hardening Update
 
 - Controlled beta UI confidence improves because 20 authenticated app routes now have local Playwright visual checks across desktop, tablet, and mobile viewports.

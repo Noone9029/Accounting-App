@@ -26,6 +26,18 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte role-filtered UI visual QA route polish:
+
+- PR `#55` (`Add authenticated UI visual QA route hardening`) was merged into `main` at `311ef752bf692c16f17cafa361c8b1522cb686e8` before this branch was created from fresh `origin/main`.
+- Extended the local-only visual fixture to support the shared default role profiles `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`.
+- Added role-filtered route visual QA for `Owner` and `Viewer` across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Checked route behavior for dashboard, invoice/bill list and creation routes, customer/supplier detail routes, AR/AP payment lists, credit/debit note lists, documents, reports, settings, storage settings, compliance settings, and bank accounts.
+- Added create-menu visual QA for `Owner`, `Accountant`, `Sales`, `Purchases`, and `Viewer`, verifying allowed links, disabled unauthorized actions, and local route hrefs.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/role-filtered-route-polish/` and intentionally left uncommitted because `artifacts/` is ignored.
+- No backend API, Prisma schema, migration, production auth behavior, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Role-filtered detail states and accountant mobile table review`.
+
 2026-06-16 LedgerByte authenticated UI visual QA route hardening:
 
 - PR `#54` (`Harden Stitch frontend foundation`) was merged into `main` at `0a6c5ddde244b5298933e88e4393516ff9996982` before this branch was created from fresh `origin/main`.
