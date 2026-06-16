@@ -2,7 +2,17 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `643cc62dacb764d61e4f0acd7b99e51c4a43c502` (`origin/main` after PR #58 refund collections banking visual polish merge) plus the current report drilldown dense entry visual QA branch.
+Latest commit audited: `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` (`origin/main` after PR #59 report drilldown dense entry visual QA merge) plus the current secondary operational route polish visual QA branch.
+
+## 2026-06-16 Secondary Operational Route Polish Visual QA Update
+
+- Controlled beta UI confidence improves because secondary operational routes now have local Playwright visual coverage for contact lists, settings, setup, documents, chart of accounts, tax rates, and banking-adjacent review surfaces.
+- The fixture remains local/test-only and read-only. It models existing route contracts, role permissions, long-field content, list density, empty states, conservative compliance wording, blocked provider-evidence states, and disabled/restricted actions without changing backend behavior.
+- The route matrix checks existing secondary operational routes across desktop, tablet, and mobile. It uses `/settings/team`, `/tax-rates`, `/settings/number-sequences`, `/accounts`, `/setup`, `/documents`, and `/bank-accounts/bank-1/statement-transactions` where those features actually live.
+- The role matrix checks `Owner`, `Accountant`, and `Viewer`, including restricted settings/mutation behavior for Viewer and owner-only admin affordance checks for Accountant.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/secondary-operational-route-polish/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, storage-provider, banking-provider, report calculation, report export, or production compliance readiness.
+- Remaining UI readiness gaps are owner/security settings depth, generated-document storage execution evidence, secondary route component migration breadth, and accountant sign-off on final settings/compliance wording.
 
 ## 2026-06-16 Report Drilldown Dense Entry Visual QA Update
 

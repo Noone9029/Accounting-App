@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-report-drilldown-dense-entry-visual-qa`.
-- Base: fresh `origin/main` at `643cc62dacb764d61e4f0acd7b99e51c4a43c502` after PR `#58` (`Add refund collections banking visual polish`) was merged.
+- Branch: `feature/ui-secondary-operational-route-polish-visual-qa`.
+- Base: fresh `origin/main` at `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` after PR `#59` (`Add report drilldown dense entry visual QA`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,24 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends authenticated local visual QA with report drilldowns, dense accounting tables, ledger-style entry screens, statement routes, document archive, and audit-log table coverage.
+- This branch extends authenticated local visual QA with secondary operational route coverage for contacts, settings, setup, documents, chart of accounts, tax rates, and banking-adjacent routes.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Secondary Operational Route Polish Visual QA Summary
+
+- PR `#59` (`Add report drilldown dense entry visual QA`) was reverified green and merged into `main` with merge commit `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` with local/test-only secondary operational data for customer and supplier lists, team members, roles, chart of accounts, tax rates, number sequences, generated documents, setup readiness, and banking-adjacent pages. The fixture remains read-only and does not call real auth, database, hosted data, provider, ASP, email, UAE PINT-AE, ZATCA, bank-feed, storage, report export, or reconciliation automation services.
+- Added `tests/visual/secondary-operational-route-polish.visual.spec.ts`, a Playwright visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Secondary states checked: customer/supplier lists with many rows, long legal names, TRN/TIN-style fields, balances, overdue states, inactive rows, and filtered empty states; settings overview/team/roles/storage/compliance/audit logs/numbering/accounts/tax setup; setup checklist complete/incomplete/blocked-provider-evidence states; generated document long filenames, failed rows, local-ready rows, and empty states; bank account list/detail and statement transaction review states.
+- Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed admin/settings actions; Accountant coverage checks accounting-adjacent route access and absence of owner-only affordances where existing permissions restrict them; Viewer coverage checks mutation/create/delete/finalize/export/settings actions are hidden, disabled, or blocked according to existing behavior.
+- Routes checked include `/customers`, `/suppliers`, `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/accounts`, `/tax-rates`, `/setup`, `/documents`, `/bank-accounts`, `/bank-accounts/bank-1`, and `/bank-accounts/bank-1/statement-transactions`.
+- Skipped routes because they do not exist or were intentionally out of this branch scope: `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, `/generated-documents`, `/bank-accounts/bank-account-1`, `/bank-accounts/bank-account-1/transactions`; `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally avoided.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/secondary-operational-route-polish/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed: Viewer no longer sees `Add customer`/`Add supplier` mutation links on party list pages without `contacts.manage`; the chart-of-accounts create form now wraps safely at tablet/mobile widths; the local fixture now covers `/accounts/next-code` and richer secondary route data used by the visual matrix.
+- Route/action consistency checks now verify sidebar and topbar create-menu app-local hrefs resolve to real App Router pages or existing placeholders; create-menu disabled states are checked without inventing destination routes.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, fake provider connectivity, fake storage connectivity, fake export success, report certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: secondary route component migration beyond the checked polish, generated-document detail/storage execution work after real object-storage evidence, owner/security settings depth, dense entry-form ergonomics, and accountant wording review.
 
 ## Report Drilldown Dense Entry Visual QA Summary
 

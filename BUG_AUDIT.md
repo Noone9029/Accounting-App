@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `643cc62dacb764d61e4f0acd7b99e51c4a43c502` (`origin/main` after PR #58 refund collections banking visual polish merge) plus the current report drilldown dense entry visual QA branch.
+Latest commit audited: `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` (`origin/main` after PR #59 report drilldown dense entry visual QA merge) plus the current secondary operational route polish visual QA branch.
+
+## 2026-06-16 LedgerByte secondary operational route polish visual QA
+
+Merged PR `#59` into `main` at `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9`, then added secondary operational route local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Extended the local visual fixture with read-only customer/supplier list rows, team members, roles, generated documents, chart of accounts, tax rates, number sequences, setup readiness, and banking-adjacent secondary route data.
+- Added a Playwright secondary operational route matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Covered `/customers`, `/suppliers`, `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/accounts`, `/tax-rates`, `/setup`, `/documents`, `/bank-accounts`, `/bank-accounts/bank-1`, and `/bank-accounts/bank-1/statement-transactions`.
+- Verified `Owner`, `Accountant`, and `Viewer` behavior for settings/admin action visibility, contact mutation gating, secondary table readability, access-denied behavior, route/action consistency, and conservative compliance/provider wording.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/secondary-operational-route-polish/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed: Viewer no longer sees `Add customer`/`Add supplier` mutation links without `contacts.manage`; the chart-of-accounts create form now wraps safely at tablet/mobile widths; visual fixture coverage now includes `/accounts/next-code` and richer secondary route records.
+- Skipped `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, `/generated-documents`, `/bank-accounts/bank-account-1`, and `/bank-accounts/bank-account-1/transactions` because those exact routes do not exist. `/settings/zatca` exists but was intentionally skipped to avoid ZATCA-specific visual expansion in this UAE secondary-route branch.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, report calculation logic, journal posting logic, production auth behavior, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake automation, fake bank feed, fake AI, provider connectivity, fake storage connectivity, fake export success, certification, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is secondary route component migration breadth, generated-document/storage execution evidence, owner/security settings depth, and accountant sign-off on final wording.
 
 ## 2026-06-16 LedgerByte report drilldown dense entry visual QA
 

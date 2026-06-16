@@ -26,6 +26,22 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte secondary operational route polish visual QA:
+
+- PR `#59` (`Add report drilldown dense entry visual QA`) was merged into `main` at `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` before this branch was created from fresh `origin/main`.
+- Extended the local-only visual fixture with secondary operational route data for customer/supplier lists, team members, roles, generated documents, chart of accounts, tax rates, number sequences, setup readiness, and bank account review. The fixture remains read-only and local/test-only.
+- Added authenticated visual QA across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for secondary operational routes.
+- Checked customers and suppliers with many rows, long legal names, TRN/TIN-style fields, balances, overdue states, inactive rows, and empty states.
+- Checked settings overview/team/roles/storage/compliance/audit logs/numbering, chart of accounts, tax rates, setup checklist, documents/generated-document list states, bank-account list/detail, and bank statement transaction review states.
+- Checked `Owner`, `Accountant`, and `Viewer` profiles. Viewer mutation/create/delete/finalize/export/settings actions are hidden, disabled, or blocked through existing behavior; Accountant checks focus on accounting-adjacent readability and owner-only action restrictions.
+- Covered `/customers`, `/suppliers`, `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/accounts`, `/tax-rates`, `/setup`, `/documents`, `/bank-accounts`, `/bank-accounts/bank-1`, and `/bank-accounts/bank-1/statement-transactions`.
+- Skipped `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, `/generated-documents`, `/bank-accounts/bank-account-1`, and `/bank-accounts/bank-account-1/transactions` because those exact routes do not exist. Existing `/settings/team`, `/tax-rates`, `/settings/number-sequences`, `/accounts`, `/setup`, `/documents`, and `/bank-accounts/bank-1/statement-transactions` routes were covered instead. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally skipped.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/secondary-operational-route-polish/` and intentionally left uncommitted because `artifacts/` is ignored.
+- Fixed only frontend/test issues found by visual QA: party list mutation links now require `contacts.manage`, the chart-of-accounts create form wraps safely on tablet/mobile, `/accounts/next-code` has local fixture coverage, and visual assertions verify route/action consistency without fake routes.
+- No backend API, Prisma schema, migration, production auth behavior, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, fake provider/storage connectivity, fake export success, certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Owner settings and generated-document storage evidence visual QA`.
+
 2026-06-16 LedgerByte report drilldown dense entry visual QA:
 
 - PR `#58` (`Add refund collections banking visual polish`) was merged into `main` at `643cc62dacb764d61e4f0acd7b99e51c4a43c502` before this branch was created from fresh `origin/main`.
