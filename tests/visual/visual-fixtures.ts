@@ -1656,6 +1656,9 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/contacts/suppliers") {
     return json([supplierPartySummary()]);
   }
+  if (pathname === "/journal-entries") {
+    return json(journalEntries());
+  }
   const supplierDetailMatch = pathname.match(/^\/contacts\/suppliers\/([^/]+)$/);
   if (supplierDetailMatch) {
     return json(supplierPartyDetail(supplierDetailMatch[1] as keyof typeof visualSuppliers));
@@ -1735,6 +1738,31 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   }
   if (pathname === "/reports/trial-balance") {
     return json(trialBalanceReport());
+  }
+  if (pathname === "/reports/profit-and-loss") {
+    return json(profitAndLossReport());
+  }
+  if (pathname === "/reports/balance-sheet") {
+    return json(balanceSheetReport());
+  }
+  if (pathname === "/reports/vat-summary") {
+    return json(vatSummaryReport());
+  }
+  if (pathname === "/reports/vat-return") {
+    return json(vatReturnReport());
+  }
+  if (pathname === "/audit-logs") {
+    return json(auditLogList());
+  }
+  if (pathname === "/audit-logs/retention-settings") {
+    return json(auditLogRetentionSettings());
+  }
+  if (pathname === "/audit-logs/retention-preview") {
+    return json(auditLogRetentionPreview());
+  }
+  const auditLogDetailMatch = pathname.match(/^\/audit-logs\/([^/]+)$/);
+  if (auditLogDetailMatch) {
+    return json(auditLogById(auditLogDetailMatch[1]));
   }
   if (pathname === "/credit-notes") {
     return json(Object.values(creditNoteVariants));
@@ -2496,12 +2524,13 @@ function customerLedger(id: keyof typeof visualCustomers = "customer-1") {
       : [
           ledgerRow("ledger-customer-invoice", "INVOICE", "2026-05-15T00:00:00.000Z", "Invoice finalized", invoice.invoiceNumber, invoice.id, "1150.0000", "0.0000", "1150.0000"),
           ledgerRow("ledger-customer-payment", "PAYMENT", "2026-05-18T00:00:00.000Z", "Customer payment allocated", customerPayment.paymentNumber, customerPayment.id, "0.0000", "500.0000", "650.0000"),
+          ledgerRow("ledger-customer-credit-note", "CREDIT_NOTE", "2026-05-20T00:00:00.000Z", "Credit note applied for long-running customer statement review", creditNote.creditNoteNumber, creditNote.id, "0.0000", "115.0000", "535.0000"),
         ];
 
   return {
     contact: detailCustomer,
     openingBalance: "0.0000",
-    closingBalance: rows.length > 0 ? "650.0000" : "0.0000",
+    closingBalance: rows.length > 0 ? "535.0000" : "0.0000",
     rows,
   };
 }
@@ -2919,30 +2948,114 @@ function supplierPaymentReceiptData(payment = supplierPayment) {
 
 function agingReport(kind: "receivables" | "payables") {
   const isReceivables = kind === "receivables";
-  const row = isReceivables ? salesInvoiceById("invoice-overdue") : purchaseBillById("bill-overdue");
+  const baseRow = isReceivables ? salesInvoiceById("invoice-overdue") : purchaseBillById("bill-overdue");
+  const longContact = isReceivables ? visualCustomers["customer-long"] : visualSuppliers["supplier-long"];
+  const zeroContact = isReceivables ? visualCustomers["customer-empty"] : visualSuppliers["supplier-empty"];
+  const rows = [
+    agingRow(
+      isReceivables ? "invoice-current" : "bill-current",
+      isReceivables ? customer : supplier,
+      isReceivables ? "INV-AGE-CURRENT" : "BILL-AGE-CURRENT",
+      "2026-05-18T00:00:00.000Z",
+      "2026-06-17T00:00:00.000Z",
+      "1840.0000",
+      "920.0000",
+      0,
+      "CURRENT",
+    ),
+    agingRow(
+      isReceivables ? "invoice-age-1-30" : "bill-age-1-30",
+      longContact,
+      isReceivables ? "INV-AGE-001-LONG-PARTY" : "BILL-AGE-001-LONG-PARTY",
+      "2026-04-20T00:00:00.000Z",
+      "2026-05-10T00:00:00.000Z",
+      "123456.7800",
+      "45678.9000",
+      11,
+      "1_30",
+    ),
+    agingRow(
+      baseRow.id,
+      isReceivables ? customer : supplier,
+      isReceivables ? baseRow.invoiceNumber : baseRow.billNumber,
+      isReceivables ? baseRow.issueDate : baseRow.billDate,
+      baseRow.dueDate,
+      baseRow.total,
+      baseRow.balanceDue,
+      36,
+      "31_60",
+    ),
+    agingRow(
+      isReceivables ? "invoice-age-61-90" : "bill-age-61-90",
+      longContact,
+      isReceivables ? "INV-AGE-061-090" : "BILL-AGE-061-090",
+      "2026-02-15T00:00:00.000Z",
+      "2026-03-15T00:00:00.000Z",
+      "25000.0000",
+      "12500.0000",
+      67,
+      "61_90",
+    ),
+    agingRow(
+      isReceivables ? "invoice-age-90-plus" : "bill-age-90-plus",
+      longContact,
+      isReceivables ? "INV-AGE-090-PLUS-LARGE" : "BILL-AGE-090-PLUS-LARGE",
+      "2026-01-02T00:00:00.000Z",
+      "2026-01-31T00:00:00.000Z",
+      "987654.3200",
+      "123456.7800",
+      111,
+      "90_PLUS",
+    ),
+    agingRow(
+      isReceivables ? "invoice-age-zero-balance" : "bill-age-zero-balance",
+      zeroContact,
+      isReceivables ? "INV-AGE-ZERO" : "BILL-AGE-ZERO",
+      "2026-05-01T00:00:00.000Z",
+      "2026-05-20T00:00:00.000Z",
+      "0.0000",
+      "0.0000",
+      0,
+      "CURRENT",
+    ),
+  ];
+
   return {
     asOf: "2026-05-21",
+    kind,
     bucketTotals: {
-      CURRENT: "0.0000",
-      "1_30": "0.0000",
-      "31_60": isReceivables ? row.balanceDue : row.balanceDue,
-      "61_90": "0.0000",
-      "90_PLUS": "0.0000",
+      CURRENT: "920.0000",
+      "1_30": "45678.9000",
+      "31_60": baseRow.balanceDue,
+      "61_90": "12500.0000",
+      "90_PLUS": "123456.7800",
     },
-    grandTotal: row.balanceDue,
-    rows: [
-      {
-        id: row.id,
-        contact: isReceivables ? customer : supplier,
-        number: isReceivables ? row.invoiceNumber : row.billNumber,
-        issueDate: isReceivables ? row.issueDate : row.billDate,
-        dueDate: row.dueDate,
-        total: row.total,
-        balanceDue: row.balanceDue,
-        daysOverdue: 36,
-        bucket: "31_60",
-      },
-    ],
+    grandTotal: "183055.6800",
+    rows,
+  };
+}
+
+function agingRow(
+  id: string,
+  contact: { id: string; name: string; displayName: string | null },
+  number: string,
+  issueDate: string,
+  dueDate: string | null,
+  total: string,
+  balanceDue: string,
+  daysOverdue: number,
+  bucket: string,
+) {
+  return {
+    id,
+    contact: { id: contact.id, name: contact.name, displayName: contact.displayName },
+    number,
+    issueDate,
+    dueDate,
+    total,
+    balanceDue,
+    daysOverdue,
+    bucket,
   };
 }
 
@@ -2951,16 +3064,16 @@ function generalLedgerReport() {
     from: "2026-05-01",
     to: "2026-05-21",
     accounts: [
-      reportAccount("1010", "Main Bank", "ASSET", "0.0000", "0.0000", "500.0000", "250.0000", "250.0000", "0.0000", [
+      reportAccount("1010", "Main Bank - operating account with extended branch and currency label", "ASSET", "2500.0000", "0.0000", "152000.0000", "81750.5000", "72749.5000", "0.0000", [
         {
           date: customerPayment.paymentDate,
           journalEntryId: customerPayment.journalEntryId,
           entryNumber: customerPayment.journalEntry.entryNumber,
-          description: "Customer payment received",
+          description: "Customer payment received for long-name customer invoice with allocation note",
           reference: customerPayment.paymentNumber,
           debit: "500.0000",
           credit: "0.0000",
-          runningBalance: "500.0000",
+          runningBalance: "3000.0000",
         },
         {
           date: "2026-05-20T00:00:00.000Z",
@@ -2970,10 +3083,94 @@ function generalLedgerReport() {
           reference: bankTransfer.transferNumber,
           debit: "0.0000",
           credit: "250.0000",
-          runningBalance: "250.0000",
+          runningBalance: "2750.0000",
+        },
+        {
+          date: "2026-05-21T00:00:00.000Z",
+          journalEntryId: "journal-large-receipt",
+          entryNumber: "JE-LARGE-RECEIPT-0000001",
+          description: "Large collection receipt from Visual Customer International Holdings after manual statement review",
+          reference: "PAY-LARGE-RECEIPT-001",
+          debit: "151500.0000",
+          credit: "0.0000",
+          runningBalance: "154250.0000",
+        },
+        {
+          date: "2026-05-21T00:00:00.000Z",
+          journalEntryId: "journal-clearing-payment",
+          entryNumber: "JE-CLEARING-VOID-REVERSAL",
+          description: "Clearing payment reversal for visual debit/credit running balance check",
+          reference: "CLR-REV-001",
+          debit: "0.0000",
+          credit: "81500.5000",
+          runningBalance: "72749.5000",
         },
       ]),
-      reportAccount("4010", "Sales", "REVENUE", "0.0000", "0.0000", "0.0000", "1000.0000", "0.0000", "1000.0000", [
+      reportAccount("1100", "Accounts receivable - trade customers with exceptionally long account name", "ASSET", "1500.0000", "0.0000", "1150.0000", "615.0000", "2035.0000", "0.0000", [
+        {
+          date: invoice.issueDate,
+          journalEntryId: invoice.journalEntryId,
+          entryNumber: invoice.journalEntry.entryNumber,
+          description: "Sales invoice finalized",
+          reference: invoice.invoiceNumber,
+          debit: "1150.0000",
+          credit: "0.0000",
+          runningBalance: "2650.0000",
+        },
+        {
+          date: customerPayment.paymentDate,
+          journalEntryId: customerPayment.journalEntryId,
+          entryNumber: customerPayment.journalEntry.entryNumber,
+          description: "Customer payment received",
+          reference: customerPayment.paymentNumber,
+          debit: "0.0000",
+          credit: "500.0000",
+          runningBalance: "2150.0000",
+        },
+        {
+          date: creditNote.issueDate,
+          journalEntryId: creditNote.journalEntryId,
+          entryNumber: creditNote.journalEntry.entryNumber,
+          description: "Credit note applied",
+          reference: creditNote.creditNoteNumber,
+          debit: "0.0000",
+          credit: "115.0000",
+          runningBalance: "2035.0000",
+        },
+      ]),
+      reportAccount("2010", "Accounts payable - supplier logistics and regional shared services", "LIABILITY", "0.0000", "920.0000", "515.0000", "920.0000", "0.0000", "1325.0000", [
+        {
+          date: purchaseBill.billDate,
+          journalEntryId: purchaseBill.journalEntryId,
+          entryNumber: purchaseBill.journalEntry.entryNumber,
+          description: "Purchase bill finalized",
+          reference: purchaseBill.billNumber,
+          debit: "0.0000",
+          credit: "920.0000",
+          runningBalance: "1840.0000",
+        },
+        {
+          date: supplierPayment.paymentDate,
+          journalEntryId: supplierPayment.journalEntryId,
+          entryNumber: supplierPayment.journalEntry.entryNumber,
+          description: "Supplier payment allocated",
+          reference: supplierPayment.paymentNumber,
+          debit: "400.0000",
+          credit: "0.0000",
+          runningBalance: "1440.0000",
+        },
+        {
+          date: debitNote.issueDate,
+          journalEntryId: debitNote.journalEntryId,
+          entryNumber: debitNote.journalEntry.entryNumber,
+          description: "Debit note applied",
+          reference: debitNote.debitNoteNumber,
+          debit: "115.0000",
+          credit: "0.0000",
+          runningBalance: "1325.0000",
+        },
+      ]),
+      reportAccount("4010", "Sales revenue - domestic product and service income", "REVENUE", "0.0000", "0.0000", "0.0000", "1000.0000", "0.0000", "1000.0000", [
         {
           date: invoice.issueDate,
           journalEntryId: invoice.journalEntryId,
@@ -2985,6 +3182,7 @@ function generalLedgerReport() {
           runningBalance: "1000.0000",
         },
       ]),
+      reportAccount("6999", "Rounding and manual review adjustment account with zero current activity", "EXPENSE", "0.0000", "0.0000", "0.0000", "0.0000", "0.0000", "0.0000", []),
     ],
   };
 }
@@ -3000,14 +3198,149 @@ function trialBalanceReport() {
       code: "",
       name: "Totals",
       type: "ASSET",
-      openingDebit: "0.0000",
-      openingCredit: "0.0000",
-      periodDebit: "1250.0000",
-      periodCredit: "1250.0000",
-      closingDebit: "250.0000",
-      closingCredit: "1000.0000",
+      openingDebit: "4000.0000",
+      openingCredit: "920.0000",
+      periodDebit: "153665.0000",
+      periodCredit: "153665.0000",
+      closingDebit: "74784.5000",
+      closingCredit: "2325.0000",
       balanced: true,
     },
+  };
+}
+
+function profitAndLossReport() {
+  return {
+    from: "2026-05-01",
+    to: "2026-05-21",
+    revenue: "126500.0000",
+    costOfSales: "38750.0000",
+    grossProfit: "87750.0000",
+    expenses: "42125.2500",
+    netProfit: "45624.7500",
+    sections: [
+      {
+        type: "REVENUE",
+        total: "126500.0000",
+        accounts: [
+          { accountId: "account-4010", code: "4010", name: "Sales revenue - domestic product and service income", type: "REVENUE", amount: "125000.0000" },
+          { accountId: "account-4020", code: "4020", name: "Service revenue - implementation advisory with very long account name", type: "REVENUE", amount: "1500.0000" },
+          { accountId: "account-4090", code: "4090", name: "Sales discounts and negative adjustments", type: "REVENUE", amount: "-350.0000" },
+          { accountId: "account-4099", code: "4099", name: "Zero value revenue row retained for accountant review", type: "REVENUE", amount: "0.0000" },
+        ],
+      },
+      {
+        type: "COST_OF_SALES",
+        total: "38750.0000",
+        accounts: [
+          { accountId: "account-5010", code: "5010", name: "Cost of sales - inventory purchases", type: "EXPENSE", amount: "36750.0000" },
+          { accountId: "account-5090", code: "5090", name: "Supplier rebate negative cost adjustment", type: "EXPENSE", amount: "-2000.0000" },
+          { accountId: "account-5099", code: "5099", name: "Zero value cost row", type: "EXPENSE", amount: "0.0000" },
+        ],
+      },
+      {
+        type: "EXPENSE",
+        total: "42125.2500",
+        accounts: [
+          { accountId: "account-6010", code: "6010", name: "Rent and facilities", type: "EXPENSE", amount: "12000.0000" },
+          { accountId: "account-6020", code: "6020", name: "Professional fees for accountant review and bookkeeping support", type: "EXPENSE", amount: "8750.2500" },
+          { accountId: "account-6030", code: "6030", name: "Bank charges and statement import review", type: "EXPENSE", amount: "1375.0000" },
+          { accountId: "account-6099", code: "6099", name: "Long expense account name used to verify dense report wrapping on mobile", type: "EXPENSE", amount: "20000.0000" },
+        ],
+      },
+    ],
+  };
+}
+
+function balanceSheetReport() {
+  return {
+    asOf: "2026-05-21",
+    assets: {
+      total: "203500.0000",
+      accounts: [
+        { accountId: "account-1010", code: "1010", name: "Current assets - Main Bank operating account with long branch reference", type: "ASSET", amount: "72749.5000" },
+        { accountId: "account-1020", code: "1020", name: "Current assets - Savings Bank", type: "ASSET", amount: "40000.0000" },
+        { accountId: "account-1100", code: "1100", name: "Trade receivables - customer balances", type: "ASSET", amount: "90750.5000" },
+        { accountId: "account-1190", code: "1190", name: "Allowance for doubtful receivables negative balance", type: "ASSET", amount: "-5000.0000" },
+        { accountId: "account-1410", code: "1410", name: "VAT receivable - internal review only", type: "ASSET", amount: "5000.0000" },
+      ],
+    },
+    liabilities: {
+      total: "78250.0000",
+      accounts: [
+        { accountId: "account-2010", code: "2010", name: "Accounts payable - supplier logistics and regional shared services", type: "LIABILITY", amount: "53250.0000" },
+        { accountId: "account-2200", code: "2200", name: "VAT payable - internal review only", type: "LIABILITY", amount: "25000.0000" },
+      ],
+    },
+    equity: {
+      total: "79625.2500",
+      accounts: [
+        { accountId: "account-3010", code: "3010", name: "Owner capital", type: "EQUITY", amount: "80000.0000" },
+        { accountId: "account-3090", code: "3090", name: "Owner drawings negative equity row", type: "EQUITY", amount: "-374.7500" },
+        { accountId: "account-3099", code: "3099", name: "Zero value equity row for report layout review", type: "EQUITY", amount: "0.0000" },
+      ],
+    },
+    retainedEarnings: "45624.7500",
+    totalAssets: "203500.0000",
+    totalLiabilitiesAndEquity: "203500.0000",
+    difference: "0.0000",
+    balanced: true,
+  };
+}
+
+function vatSummaryReport() {
+  return {
+    from: "2026-05-01",
+    to: "2026-05-21",
+    salesVat: "18750.0000",
+    purchaseVat: "5812.5000",
+    netVatPayable: "12937.5000",
+    sections: [
+      { category: "TAXABLE_SALES", accountCode: "2200", amount: "125000.0000", taxAmount: "18750.0000" },
+      { category: "TAXABLE_PURCHASES", accountCode: "1410", amount: "38750.0000", taxAmount: "5812.5000" },
+      { category: "ZERO_VAT_REVIEW_ROW", accountCode: "1400", amount: "0.0000", taxAmount: "0.0000" },
+      { category: "MANUAL_ADJUSTMENT_REVIEW", accountCode: "2290", amount: "-500.0000", taxAmount: "-75.0000" },
+    ],
+    notes: [
+      "Local visual fixture for accountant review only. VAT Summary is not a filing workflow and does not submit to any authority.",
+    ],
+  };
+}
+
+function vatReturnReport() {
+  return {
+    from: "2026-05-01",
+    to: "2026-05-21",
+    basis: "FINALIZED_SOURCE_DOCUMENTS",
+    outputVat: "18750.0000",
+    inputVat: "5812.5000",
+    netVat: "12937.5000",
+    netVatPayable: "12937.5000",
+    netVatRefundable: "0.0000",
+    sales: {
+      documentCount: 3,
+      taxableAmount: "125000.0000",
+      taxAmount: "18750.0000",
+      grossAmount: "143750.0000",
+      documents: [
+        { id: invoice.id, number: invoice.invoiceNumber, documentDate: invoice.issueDate, taxableAmount: "1000.0000", taxAmount: "150.0000", grossAmount: "1150.0000" },
+        { id: "invoice-large-vat", number: "INV-VAT-LARGE-001", documentDate: "2026-05-18T00:00:00.000Z", taxableAmount: "124000.0000", taxAmount: "18600.0000", grossAmount: "142600.0000" },
+      ],
+    },
+    purchases: {
+      documentCount: 3,
+      taxableAmount: "38750.0000",
+      taxAmount: "5812.5000",
+      grossAmount: "44562.5000",
+      documents: [
+        { id: purchaseBill.id, number: purchaseBill.billNumber, documentDate: purchaseBill.billDate, taxableAmount: "800.0000", taxAmount: "120.0000", grossAmount: "920.0000" },
+        { id: "bill-large-vat", number: "BILL-VAT-LARGE-001", documentDate: "2026-05-19T00:00:00.000Z", taxableAmount: "37950.0000", taxAmount: "5692.5000", grossAmount: "43642.5000" },
+      ],
+    },
+    notes: [
+      "Internal accountant review only. This local fixture does not create a filing record or authority exchange.",
+      "Zero VAT and adjustment review rows remain in VAT Summary for layout coverage.",
+    ],
   };
 }
 
@@ -3421,6 +3754,179 @@ function restoreDrillPlan() {
     warnings: ["Visual QA does not execute restore commands."],
     recommendedNextSteps: ["Run an approved metadata-only restore proof later."],
   };
+}
+
+function auditLogList() {
+  const data = auditLogs();
+  return {
+    data,
+    pagination: {
+      page: 1,
+      limit: 100,
+      total: data.length,
+      hasMore: false,
+    },
+  };
+}
+
+function auditLogById(id: string) {
+  return auditLogs().find((entry) => entry.id === id) ?? auditLogs()[0];
+}
+
+function auditLogs() {
+  const actor = {
+    id: "user-accountant-long",
+    name: "Aisha LedgerByte Accountant With Extended Review Name",
+    email: "aisha.accountant.long@example.test",
+  };
+  return [
+    auditLogEntry(
+      "audit-log-1",
+      actor,
+      "SALES_INVOICE_FINALIZED",
+      "SalesInvoice",
+      invoice.id,
+      "2026-05-21T08:15:00.000Z",
+      { status: "DRAFT", total: invoice.total },
+      { status: "FINALIZED", total: invoice.total, note: "Finalized from local visual fixture." },
+    ),
+    auditLogEntry(
+      "audit-log-2",
+      actor,
+      "CUSTOMER_PAYMENT_ALLOCATED_WITH_LONG_DESCRIPTION_FOR_DENSE_TABLE_VISUAL_REVIEW",
+      "CustomerPayment",
+      customerPayment.id,
+      "2026-05-21T09:30:00.000Z",
+      { unappliedAmount: "500.0000" },
+      { unappliedAmount: "0.0000", allocationCount: 2 },
+    ),
+    auditLogEntry(
+      "audit-log-3",
+      { ...actor, id: "user-owner-long", name: "Owner Visual Reviewer With Long Actor Display Name" },
+      "BANK_RECONCILIATION_CLOSED",
+      "BankReconciliation",
+      "rec-1",
+      "2026-05-21T10:45:00.000Z",
+      { status: "DRAFT" },
+      { status: "CLOSED", statementBalance: "72749.5000" },
+    ),
+    auditLogEntry(
+      "audit-log-4",
+      actor,
+      "DOCUMENT_GENERATED",
+      "GeneratedDocument",
+      "generated-document-1",
+      "2026-05-21T11:10:00.000Z",
+      { status: "QUEUED" },
+      { status: "READY", source: "Sales invoice PDF" },
+    ),
+  ];
+}
+
+function auditLogEntry(
+  id: string,
+  actor: { id: string; name: string; email: string },
+  action: string,
+  entityType: string,
+  entityId: string,
+  createdAt: string,
+  before: unknown,
+  after: unknown,
+) {
+  return {
+    id,
+    organizationId: org.id,
+    actorUserId: actor.id,
+    actorUser: actor,
+    action,
+    entityType,
+    entityId,
+    before,
+    after,
+    ipAddress: "127.0.0.1",
+    userAgent: "LedgerByte visual fixture",
+    createdAt,
+  };
+}
+
+function auditLogRetentionSettings() {
+  return {
+    id: "audit-retention-1",
+    organizationId: org.id,
+    retentionDays: 2555,
+    autoPurgeEnabled: false,
+    exportBeforePurgeRequired: true,
+    updatedById: "user-owner-long",
+    updatedBy: { id: "user-owner-long", name: "Owner Visual Reviewer With Long Actor Display Name", email: "owner.visual@example.test" },
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    warnings: ["Local visual fixture only. No audit logs are deleted by this route."],
+  };
+}
+
+function auditLogRetentionPreview() {
+  return {
+    retentionDays: 2555,
+    cutoffDate: "2019-05-21T00:00:00.000Z",
+    totalAuditLogs: auditLogs().length,
+    logsOlderThanCutoff: 0,
+    oldestLogDate: "2026-05-21T08:15:00.000Z",
+    newestLogDate: "2026-05-21T11:10:00.000Z",
+    autoPurgeEnabled: false,
+    exportBeforePurgeRequired: true,
+    dryRunOnly: true,
+    warnings: ["Preview is metadata-only in local visual QA. No purge or export is executed."],
+  };
+}
+
+function journalEntries() {
+  return [
+    {
+      id: "journal-entry-draft-long",
+      organizationId: org.id,
+      entryNumber: "JE-DRAFT-DENSE-0001",
+      entryDate: "2026-05-21T00:00:00.000Z",
+      description: "Draft manual journal with long description for dense accounting-entry visual QA",
+      status: "DRAFT",
+      totalDebit: "25000.0000",
+      totalCredit: "25000.0000",
+      postedAt: null,
+      reversedAt: null,
+      createdAt: fixedVisualDate,
+      updatedAt: fixedVisualDate,
+      lines: [],
+    },
+    {
+      id: "journal-entry-posted-large",
+      organizationId: org.id,
+      entryNumber: "JE-POSTED-LARGE-0002",
+      entryDate: "2026-05-20T00:00:00.000Z",
+      description: "Posted accrual reclassification with large debit and credit totals",
+      status: "POSTED",
+      totalDebit: "987654.3200",
+      totalCredit: "987654.3200",
+      postedAt: "2026-05-20T08:00:00.000Z",
+      reversedAt: null,
+      createdAt: fixedVisualDate,
+      updatedAt: fixedVisualDate,
+      lines: [],
+    },
+    {
+      id: "journal-entry-reversed-zero",
+      organizationId: org.id,
+      entryNumber: "JE-REVERSED-ZERO-0003",
+      entryDate: "2026-05-19T00:00:00.000Z",
+      description: "Reversed zero-balance visual journal row",
+      status: "REVERSED",
+      totalDebit: "0.0000",
+      totalCredit: "0.0000",
+      postedAt: "2026-05-19T08:00:00.000Z",
+      reversedAt: "2026-05-19T09:00:00.000Z",
+      createdAt: fixedVisualDate,
+      updatedAt: fixedVisualDate,
+      lines: [],
+    },
+  ];
 }
 
 function numberSequences() {

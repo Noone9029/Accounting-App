@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-refund-collections-banking-detail-polish`.
-- Base: fresh `origin/main` at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2` after PR `#57` (`Add detail-state accountant mobile visual QA`) was merged.
+- Branch: `feature/ui-report-drilldown-dense-entry-visual-qa`.
+- Base: fresh `origin/main` at `643cc62dacb764d61e4f0acd7b99e51c4a43c502` after PR `#58` (`Add refund collections banking visual polish`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,24 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends authenticated local visual QA with refund, collections, banking, reconciliation, cheque, report, and document detail polish.
+- This branch extends authenticated local visual QA with report drilldowns, dense accounting tables, ledger-style entry screens, statement routes, document archive, and audit-log table coverage.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Report Drilldown Dense Entry Visual QA Summary
+
+- PR `#58` (`Add refund collections banking visual polish`) was reverified green and merged into `main` with merge commit `643cc62dacb764d61e4f0acd7b99e51c4a43c502` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` with local/test-only report, statement, manual journal, VAT review, and audit-log data. The fixture remains read-only and does not call real auth, database, hosted data, provider, ASP, email, UAE PINT-AE, ZATCA, bank-feed, report export, or reconciliation automation services.
+- Added `tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts`, a Playwright visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Report states checked: Profit & Loss hierarchy with zero rows, negative adjustments, long account names, and large totals; Balance Sheet assets/liabilities/equity, negative balances, retained earnings, and totals; Trial Balance debit/credit columns, zero-balance account, long names, and balanced totals; General Ledger opening/closing balances, many rows, long descriptions, source references, debit/credit/running balance columns; VAT Summary and VAT Return internal-review states with taxable sales, taxable purchases, input/output VAT, adjustments, and zero rows; aged receivables/payables across current, `1-30`, `31-60`, `61-90`, `90+`, large overdue, long party, and zero-balance rows.
+- Dense-entry states checked: manual journals with draft, posted, reversed, large amount, and zero-balance rows; bank statement transaction review rows; customer and supplier statements; customer and supplier transaction workspaces; invoice and bill line-item/payment-allocation tables; document archive and audit-log dense tables.
+- Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed report actions; Accountant coverage checks accounting-heavy readability and absence of owner-only admin affordances; Viewer coverage checks mutation/create/export/configuration actions are hidden, disabled, or blocked according to existing behavior.
+- Routes checked include `/reports`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/trial-balance`, `/reports/general-ledger`, `/reports/vat-summary`, `/reports/vat-return`, `/reports/aged-receivables`, `/reports/aged-payables`, `/journal-entries`, `/bank-accounts/bank-1/statement-transactions`, `/customers/customer-long/statement`, `/suppliers/supplier-long/statement`, `/customers/customer-long`, `/suppliers/supplier-long`, `/sales/invoices/invoice-partially-paid`, `/purchases/bills/bill-partially-paid`, `/documents`, and `/settings/audit-logs`.
+- Skipped routes because they do not exist: `/reports/vat`, `/reports/cash-flow`, `/reports/customer-statement`, `/reports/supplier-statement`, and `/reports/audit-log`. Existing `/reports/vat-summary`, `/reports/vat-return`, party statement routes, and `/settings/audit-logs` were covered instead.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/report-drilldown-dense-entry-visual-qa/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed: report export controls now require `reports.export` instead of document-download permission, and report guide create links now respect invoice, bill, and payment create permissions. Fixture/test harness findings were also corrected for audit-log retention endpoints, statement-load assertions, and mixed table/empty-state expectations.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, fake provider connectivity, fake report export success, report certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: secondary operational route polish, dense entry-form ergonomics beyond the checked screens, report export implementation review if/when real exports exist, and accountant sign-off on final report wording.
 
 ## Refund Collections Banking Detail Polish Summary
 
