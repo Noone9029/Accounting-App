@@ -60,7 +60,7 @@ export function SettingsImpactGuidance({ className = "" }: GuidanceProps) {
 export function ComplianceNote({ className = "" }: GuidanceProps) {
   return (
     <p className={`text-xs leading-5 text-amber-800 ${className}`}>
-      ZATCA status here is local/readiness only. Standard beta PDFs are available for review. PDF/A-3 embedding, real
+      ZATCA status here is local/readiness only. Standard beta PDFs are available for review. PDF/A-3 embedding,
       ZATCA network submission, CSID execution, clearance/reporting, and production compliance are not enabled.
     </p>
   );

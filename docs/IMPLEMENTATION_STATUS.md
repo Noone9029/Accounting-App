@@ -26,6 +26,23 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte Owner settings generated-document storage evidence visual QA:
+
+- PR `#60` (`Add secondary operational route visual QA`) was merged into `main` at `85813f7217d32babebf71412f43ea8034f0c0d07` before this branch was created from fresh `origin/main`.
+- Extended the local-only visual fixture with generated-document archive rows for invoice, credit note, purchase bill, purchase debit note, failed, superseded, and local-ready database-storage states. The fixture remains read-only and local/test-only.
+- Added metadata-only storage evidence fixture rows for database backup, generated-document backup, and RPO/RTO review. No backup, restore, provider, or storage migration operation runs.
+- Added authenticated visual QA across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for Owner settings, generated-document archive, storage evidence, document settings, setup, accounts, tax rates, and source transaction document evidence routes.
+- Checked Owner settings states for team/users, roles, storage, compliance, audit logs, number sequences, document settings, setup checklist, accounts, and tax rates with long names/emails, role chips, evidence notes, inactive rows, controlled-beta wording, disabled provider states, and owner/settings action restrictions.
+- Checked generated-document/storage evidence states for generated/failed/superseded archive rows, long filenames, local database-storage metadata, source transaction PDF archive guidance, storage-readiness warnings, backup evidence rows, and filtered empty states.
+- Checked `Owner`, `Accountant`, and `Viewer` profiles. Owner settings actions remain visible where existing permissions allow; Accountant follows existing accounting-adjacent permissions; Viewer mutation/create/delete/finalize/settings actions are hidden, disabled, or blocked through existing behavior.
+- Covered `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/settings/documents`, `/setup`, `/accounts`, `/tax-rates`, `/documents`, `/sales/invoices/invoice-1`, `/purchases/bills/bill-1`, `/sales/credit-notes/credit-note-1`, and `/purchases/debit-notes/debit-note-1`.
+- Skipped `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, and `/generated-documents` because those exact routes do not exist. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally skipped.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/owner-settings-generated-document-storage-evidence/` and intentionally left uncommitted because `artifacts/` is ignored.
+- Fixed only frontend/test issues found by visual QA: generated-document and storage evidence fixture realism was added, document guidance/debit note unsupported-network copy was tightened, and visual assertions were calibrated to existing Accountant and Viewer permission behavior.
+- No backend API, Prisma schema, migration, production auth behavior, payment/accounting/business logic, report calculation logic, generated-document business logic, storage provider logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake provider/storage/archive claim, certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Owner security and organization settings visual QA`.
+
 2026-06-16 LedgerByte secondary operational route polish visual QA:
 
 - PR `#59` (`Add report drilldown dense entry visual QA`) was merged into `main` at `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` before this branch was created from fresh `origin/main`.

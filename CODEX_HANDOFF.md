@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-secondary-operational-route-polish-visual-qa`.
-- Base: fresh `origin/main` at `b36ffe56f83a79edbe04f148f4e1a86ecf38b5d9` after PR `#59` (`Add report drilldown dense entry visual QA`) was merged.
+- Branch: `feature/ui-owner-settings-generated-document-storage-evidence-qa`.
+- Base: fresh `origin/main` at `85813f7217d32babebf71412f43ea8034f0c0d07` after PR `#60` (`Add secondary operational route visual QA`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,24 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends authenticated local visual QA with secondary operational route coverage for contacts, settings, setup, documents, chart of accounts, tax rates, and banking-adjacent routes.
+- This branch extends authenticated local visual QA with Owner settings, generated-document archive, storage evidence, document settings, setup, accounts, tax rates, and source transaction document evidence coverage.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Owner Settings Generated Document Storage Evidence Visual QA Summary
+
+- PR `#60` (`Add secondary operational route visual QA`) was reverified green and merged into `main` with merge commit `85813f7217d32babebf71412f43ea8034f0c0d07` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` with local/test-only generated-document archive rows for invoice, credit note, purchase bill, purchase debit note, failed, superseded, and local-ready database-storage states. The fixture also now exposes metadata-only storage evidence rows for database backup, generated-document backup, and RPO/RTO review without running backup, restore, provider, or storage migration work.
+- Added `tests/visual/owner-settings-generated-document-storage-evidence.visual.spec.ts`, a Playwright visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Owner settings states checked: team/users, roles, storage, compliance, audit logs, number sequences, document settings, setup checklist, accounts, and tax rates with long names/emails, role chips, evidence notes, inactive rows, controlled-beta wording, disabled provider states, and owner/settings action restrictions.
+- Generated-document/storage evidence states checked: document archive generated/failed/superseded rows, long filenames, local database-storage metadata, filtered empty states, storage-readiness warnings, backup evidence rows, and source transaction PDF archive guidance.
+- Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed admin/settings/storage actions; Accountant coverage follows existing accounting-adjacent permissions; Viewer coverage accepts hidden or disabled restricted actions according to existing route behavior.
+- Routes checked include `/settings`, `/settings/team`, `/settings/roles`, `/settings/storage`, `/settings/compliance`, `/settings/audit-logs`, `/settings/number-sequences`, `/settings/documents`, `/setup`, `/accounts`, `/tax-rates`, `/documents`, `/sales/invoices/invoice-1`, `/purchases/bills/bill-1`, `/sales/credit-notes/credit-note-1`, and `/purchases/debit-notes/debit-note-1`.
+- Skipped routes because they do not exist: `/settings/users`, `/settings/organization`, `/settings/taxes`, `/settings/numbering`, `/settings/chart-of-accounts`, `/settings/security`, `/settings/api`, `/settings/uae-einvoicing`, `/onboarding`, `/documents/document-1`, and `/generated-documents`. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally avoided.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/owner-settings-generated-document-storage-evidence/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed: generated-document and storage evidence fixture realism was added; purchase debit note and document guidance copy now uses conservative unsupported-network wording; visual assertions now match existing Accountant account/tax management permissions and Viewer disabled settings states.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, generated-document business logic, storage provider logic, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake provider/storage/archive/certification claim, fake bank automation claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: owner/security settings depth, generated-document detail route if added later, storage execution proof after real provider evidence, and accountant wording review.
 
 ## Secondary Operational Route Polish Visual QA Summary
 
