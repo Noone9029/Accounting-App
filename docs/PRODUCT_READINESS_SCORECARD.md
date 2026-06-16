@@ -4,6 +4,16 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 Detail-State Accountant Mobile Visual QA Update
+
+- Controlled beta UI confidence improves because realistic transaction detail states and accountant-heavy mobile/table surfaces now have local Playwright visual coverage.
+- The fixture remains local/test-only and read-only. It models existing app statuses, balances, due dates, allocation records, party states, and long-field content without adding production statuses or touching backend behavior.
+- The detail-state matrix checks sales invoice, purchase bill, customer payment, supplier payment, credit note, debit note, customer, and supplier detail pages across desktop, tablet, and mobile.
+- The accountant mobile/table matrix checks line items, payment allocations, party transactions, aged reports, General Ledger, Trial Balance, bank transactions, and documents across tablet and mobile.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/detail-states-accountant-mobile-table-review/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, or production compliance readiness.
+- Remaining UI readiness gaps are refund/collections/banking detail polish, report drilldowns, dense entry-form ergonomics, and staged secondary-route migration.
+
 ## 2026-06-16 Role-Filtered UI Visual QA Route Polish Update
 
 - Controlled beta UI confidence improves because role-filtered app-shell, route, and create-menu behavior now has local Playwright visual coverage.

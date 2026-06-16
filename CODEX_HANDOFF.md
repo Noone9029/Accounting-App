@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-role-filtered-visual-qa-route-polish`.
-- Base: fresh `origin/main` at `311ef752bf692c16f17cafa361c8b1522cb686e8` after PR `#55` (`Add authenticated UI visual QA route hardening`) was merged.
+- Branch: `feature/ui-detail-states-accountant-mobile-table-review`.
+- Base: fresh `origin/main` at `2467a195951a351db0c5b238eab5880ff8da2971` after PR `#56` (`Add role-filtered UI visual QA route polish`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,23 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends the authenticated local visual QA fixture with role-filtered route and create-menu checks.
+- This branch extends the authenticated local visual QA fixture with realistic detail-page states and accountant-focused mobile/table checks.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Detail-State Accountant Mobile Visual QA Summary
+
+- PR `#56` (`Add role-filtered UI visual QA route polish`) was reverified green and merged into `main` with merge commit `2467a195951a351db0c5b238eab5880ff8da2971` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` with local/test-only detail variants for sales invoices, purchase bills, customer payments, supplier payments, credit notes, debit notes, customer detail, and supplier detail routes. The fixture remains read-only and does not call real auth, database, hosted data, provider, ASP, email, UAE PINT-AE, or ZATCA services.
+- Added `tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts`, a Playwright visual matrix for detail states across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`; accountant table and role checks run across tablet and mobile.
+- Detail states checked: invoice and bill draft, awaiting payment, partially paid, paid, overdue, and voided; customer and supplier payments allocated, partially allocated, and unallocated/overpayment; credit and debit notes draft, finalized, applied, and unapplied; customer and supplier detail active with open balance, active with no transactions, inactive/archived, and long-field records.
+- Unsupported-state notes: separate `cancelled` invoice/bill status was skipped because the current app status vocabulary exposes `VOIDED`; no new production status was invented. Paid, overdue, awaiting-payment, and partial states are modeled through existing status, balance, date, and allocation fields.
+- Accountant review covered `/dashboard`, `/sales/invoices`, `/sales/invoices/new`, `/purchases/bills`, `/purchases/bills/new`, `/customers/customer-1`, `/suppliers/supplier-1`, `/sales/customer-payments`, `/purchases/supplier-payments`, `/sales/credit-notes`, `/purchases/debit-notes`, `/reports`, `/bank-accounts`, and `/documents`.
+- Dense table/card surfaces checked on mobile and tablet: invoice line items, bill line items, customer payment allocation, supplier payment allocation, customer transactions, supplier transactions, aged receivables, aged payables, general ledger, trial balance, bank transactions, and documents.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/detail-states-accountant-mobile-table-review/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed were local fixture/test-harness issues only: detail route IDs now return matching local records, open-list endpoints have precedence over detail matchers, aged report buckets match frontend enum keys, General Ledger and Trial Balance report fixtures exist, duplicate payment fixture IDs were removed, and table readability assertions match the current mixed table/empty-state UI. No app source layout defect required a frontend source change.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, fake provider connectivity, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: refund/collections/banking detail polish, deeper report drilldowns, accountant review of dense entry forms, and staged migration of secondary operational routes.
 
 ## Role-Filtered UI Visual QA Route Polish Summary
 
