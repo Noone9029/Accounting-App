@@ -26,6 +26,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte UI shadcn transaction workflows:
+
+- PR `#51` was merged into `main` at `c19d69eba23eb01519ab70ece0bdaff960e2a223` before this branch was created from fresh `origin/main`.
+- The beta deployment/Supabase gate evidence observed before this branch is preserved in `CODEX_HANDOFF.md`: Vercel beta API/web deployments were verified, the missing already-merged PR `#49` migration was applied to Supabase project `xynelbjqcmbgtscfmmzv`, Edge Functions were confirmed empty, and the stray Vercel CLI project was removed.
+- Added `LineItemsTable` and `TransactionSummaryCard` wrappers under `apps/web/src/components/ui-ledger`.
+- Migrated sales invoice creation, purchase bill creation, and the shared customer/supplier detail workspace to the shadcn/LedgerByte transaction workflow pattern.
+- Existing accounting behavior is unchanged: invoice numbering, tax calculations, finalization/posting behavior, AP state logic, inventory posting mode, payment allocations, permissions, and real route links are preserved.
+- No backend API, Prisma schema, migration, UAE PINT-AE, ZATCA, provider integration, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, or production compliance/readiness claim was added.
+- Payment workflow screen migration was skipped for this branch and remains a follow-up scope item.
+- Recommended next prompt: `Shadcn payment workflow migration`.
+
 2026-06-16 LedgerByte UI shadcn shell/dashboard refresh:
 
 - PR `#49` was already merged into `main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c`; this branch was created fresh from updated `origin/main`.

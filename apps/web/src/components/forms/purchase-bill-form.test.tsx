@@ -120,6 +120,17 @@ describe("PurchaseBillForm", () => {
     );
   });
 
+  it("renders the AP transaction workflow sections without fake automation or posting claims", async () => {
+    render(<PurchaseBillForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Supplier")).toBeInTheDocument());
+    expect(screen.getByText("Bill details")).toBeInTheDocument();
+    expect(screen.getByText("Bill line items")).toBeInTheDocument();
+    expect(screen.getByText("Transaction summary")).toBeInTheDocument();
+    expect(screen.getByText("VAT / Tax")).toBeInTheDocument();
+    expect(screen.queryByText(/auto-post|supplier paid|payment scheduled|journal posted|VAT filed|ZATCA cleared/i)).not.toBeInTheDocument();
+  });
+
   it("submits selected branch, account, and tax IDs instead of visible labels", async () => {
     render(<PurchaseBillForm />);
 

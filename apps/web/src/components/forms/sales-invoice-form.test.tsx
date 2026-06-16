@@ -95,6 +95,18 @@ describe("SalesInvoiceForm", () => {
     expect(screen.getByText(/assigned from the invoice number sequence/i)).toBeInTheDocument();
   });
 
+  it("renders the transaction workflow sections without fake automation or compliance claims", async () => {
+    render(<SalesInvoiceForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Customer")).toBeInTheDocument());
+    expect(screen.getByText("Invoice details")).toBeInTheDocument();
+    expect(screen.getByText("Invoice line items")).toBeInTheDocument();
+    expect(screen.getByText("Transaction summary")).toBeInTheDocument();
+    expect(screen.getByText("Subtotal")).toBeInTheDocument();
+    expect(screen.getAllByText("Total").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/auto-post|auto-finalize|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
+  });
+
   it("points the first invoice empty state to the dedicated customers page", async () => {
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/contacts") {
