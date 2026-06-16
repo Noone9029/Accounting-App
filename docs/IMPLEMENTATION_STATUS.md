@@ -26,6 +26,21 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte refund collections banking detail polish:
+
+- PR `#57` (`Add detail-state accountant mobile visual QA`) was merged into `main` at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2` before this branch was created from fresh `origin/main`.
+- Extended the local-only visual fixture with refund, collections, banking, bank statement, reconciliation, and cheque edge cases. The fixture remains read-only and local/test-only.
+- Added authenticated visual QA across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for refund/collections/banking routes.
+- Checked credit/debit note draft, finalized, applied, unapplied, partially applied, voided, long-field, large-amount, and zero-balance-after-application contexts; customer/supplier refund and collection/payable contexts; bank account, statement transaction, reconciliation, and cheque detail contexts.
+- Checked `Owner`, `Accountant`, and `Viewer` profiles. Viewer mutation/refund/reconcile actions are hidden or blocked through existing behavior; Accountant checks focus on accounting-heavy readability and absence of owner-only admin affordances.
+- Covered existing routes for credit notes, debit notes, customer refunds, supplier refunds, collections, customer/supplier detail, bank accounts, bank statement transactions, bank reconciliations, cheques, aged receivables, aged payables, General Ledger, and documents.
+- Skipped `/banking`, `/reconciliation`, `/cheques`, `/customers/customer-collections`, and `/suppliers/supplier-payables` because those top-level/dedicated routes do not exist. Existing nested routes were covered instead.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/refund-collections-banking-detail-polish/` and intentionally left uncommitted because `artifacts/` is ignored.
+- Fixed only frontend/test issues found by visual QA: debit-note mobile destructive action width, supplier long-detail AP summary fixture coverage, banking label expectations, and restricted Viewer banking assertions.
+- No backend API, Prisma schema, migration, production auth behavior, payment/accounting/business logic, AR/AP state-machine behavior, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, bank-feed claim, reconciliation automation claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Report drilldown dense entry visual QA`.
+
 2026-06-16 LedgerByte detail-state accountant mobile visual QA:
 
 - PR `#56` (`Add role-filtered UI visual QA route polish`) was merged into `main` at `2467a195951a351db0c5b238eab5880ff8da2971` before this branch was created from fresh `origin/main`.

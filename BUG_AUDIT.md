@@ -4485,3 +4485,16 @@ Recommended next step:
 - Status is `NO_NETWORK_CONTRACT_PASSED_WITH_BLOCKERS`.
 - No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB connection/write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
 - Remaining blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+# Refund collections banking detail visual polish - 2026-06-16
+
+- PR `#57` was merged first at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2`; this branch was created from the updated `origin/main`.
+- Added local-only visual QA fixtures and a Playwright route matrix for refund, collections, banking, bank statement, reconciliation, cheque, report, and document detail surfaces.
+- Visual QA found one real frontend layout issue: the debit note detail mobile `Void` action stretched to full width. It was fixed by preventing the mobile action stack from stretching destructive actions.
+- Test-harness issues fixed: supplier long-detail AP summary endpoint coverage, banking route label expectations, and restricted Viewer banking routes that correctly render access-denied states.
+- States covered include credit/debit note draft, finalized, applied, unapplied, partially applied, voided, long-field, large-amount, and zero-balance contexts; customer/supplier refund and collections/payable contexts; bank accounts with negative/inactive/long-name cases; unmatched/matched/ignored statement rows; reconciliation summary/list/detail states; and received/issued/cleared/voided cheques.
+- Role coverage includes `Owner`, `Accountant`, and `Viewer` across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Screenshots and `visual-results.json` are local evidence under `artifacts/visual-qa/refund-collections-banking-detail-polish/` and are not committed.
+- No backend API, schema, migration, seed/reset/delete, hosted/customer-data mutation, payment/accounting/business logic, AR/AP state-machine behavior, UAE PINT-AE behavior, ZATCA behavior, provider integration, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, bank-feed claim, reconciliation automation claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining risk: this is local visual/readability evidence only. Refund, collections, banking, reconciliation, reports, and documents still need accountant review, hosted/customer-data proof, broader E2E/smoke/full-test coverage, and production-foundation work before paid SaaS readiness.
