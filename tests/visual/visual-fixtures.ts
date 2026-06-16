@@ -19,9 +19,20 @@ const customer = {
   name: "Visual Customer",
   displayName: "Visual Customer",
   type: "CUSTOMER",
+  isActive: true,
   email: "customer@example.test",
   phone: null,
   taxNumber: "300000000000001",
+  legalName: "Visual Customer LLC",
+  uaeTrn: "100000000000001",
+  uaeTin: "TIN-CUSTOMER-1",
+  uaeVatRegistrationStatus: "REGISTERED",
+  uaeAddressLine1: "King Fahd Road",
+  uaeAddressLine2: "Al Olaya",
+  uaeEmirate: null,
+  peppolParticipantId: "0235:300000000000001",
+  peppolEndpointStatus: "NOT_CONNECTED",
+  preferredEinvoiceDeliveryMethod: "EMAIL",
   identificationType: "CRN",
   identificationNumber: "1010000001",
   addressLine1: "King Fahd Road",
@@ -40,9 +51,20 @@ const supplier = {
   name: "Visual Supplier",
   displayName: "Visual Supplier",
   type: "SUPPLIER",
+  isActive: true,
   email: "supplier@example.test",
   phone: null,
   taxNumber: "300000000000002",
+  legalName: "Visual Supplier LLC",
+  uaeTrn: "100000000000002",
+  uaeTin: "TIN-SUPPLIER-1",
+  uaeVatRegistrationStatus: "REGISTERED",
+  uaeAddressLine1: "Prince Sultan Road",
+  uaeAddressLine2: "Al Muhammadiyah",
+  uaeEmirate: null,
+  peppolParticipantId: "0235:300000000000002",
+  peppolEndpointStatus: "NOT_CONNECTED",
+  preferredEinvoiceDeliveryMethod: "EMAIL",
   identificationType: "CRN",
   identificationNumber: "1010000002",
   addressLine1: "Prince Sultan Road",
@@ -400,6 +422,67 @@ const debitNote = {
   ],
 };
 
+const creditNote = {
+  id: "credit-note-1",
+  organizationId: org.id,
+  creditNoteNumber: "CN-VIS-001",
+  customerId: customer.id,
+  originalInvoiceId: invoice.id,
+  invoiceId: invoice.id,
+  issueDate: "2026-05-20T00:00:00.000Z",
+  currency: "SAR",
+  status: "FINALIZED",
+  subtotal: "100.0000",
+  discountTotal: "0.0000",
+  taxableTotal: "100.0000",
+  taxTotal: "15.0000",
+  total: "115.0000",
+  unappliedAmount: "0.0000",
+  reason: "Customer allowance",
+  notes: "Visual credit note.",
+  finalizedAt: fixedVisualDate,
+  journalEntryId: "journal-credit-note-1",
+  reversalJournalEntryId: null,
+  customer,
+  invoice: { id: invoice.id, invoiceNumber: invoice.invoiceNumber, issueDate: invoice.issueDate, total: invoice.total, balanceDue: invoice.balanceDue, status: invoice.status },
+  originalInvoice: { id: invoice.id, invoiceNumber: invoice.invoiceNumber },
+  journalEntry: { id: "journal-credit-note-1", entryNumber: "JE-CN-001", status: "POSTED" },
+  reversalJournalEntry: null,
+  lines: [
+    {
+      id: "credit-note-line-1",
+      creditNoteId: "credit-note-1",
+      itemId: item.id,
+      description: "Customer price adjustment",
+      quantity: "1.0000",
+      unitPrice: "100.0000",
+      discountAmount: "0.0000",
+      taxRateId: "tax-1",
+      accountId: "sales-account-1",
+      lineSubtotal: "100.0000",
+      lineTax: "15.0000",
+      lineGrossAmount: "100.0000",
+      taxableAmount: "100.0000",
+      taxAmount: "15.0000",
+      lineTotal: "115.0000",
+      item,
+      taxRate: { id: "tax-1", name: "VAT 15%", rate: "15.0000", scope: "BOTH", category: "STANDARD" },
+      account: { id: "sales-account-1", code: "4010", name: "Sales", type: "REVENUE" },
+    },
+  ],
+  allocations: [
+    {
+      id: "credit-note-allocation-1",
+      creditNoteId: "credit-note-1",
+      invoiceId: invoice.id,
+      amountApplied: "115.0000",
+      status: "ACTIVE",
+      createdAt: fixedVisualDate,
+      invoice: { id: invoice.id, invoiceNumber: invoice.invoiceNumber, issueDate: invoice.issueDate, total: invoice.total, balanceDue: invoice.balanceDue, status: invoice.status },
+    },
+  ],
+};
+
 const stockMovement = {
   id: "stock-movement-1",
   organizationId: org.id,
@@ -659,6 +742,27 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   if (pathname === "/dashboard/summary") {
     return json(dashboardSummary());
   }
+  if (pathname === "/organizations/org-visual") {
+    return json(organizationProfile());
+  }
+  if (pathname === "/contacts") {
+    return json([customer, supplier]);
+  }
+  if (pathname === "/contacts/customers") {
+    return json([customerPartySummary()]);
+  }
+  if (pathname === "/contacts/customers/customer-1") {
+    return json(customerPartyDetail());
+  }
+  if (pathname === "/contacts/suppliers") {
+    return json([supplierPartySummary()]);
+  }
+  if (pathname === "/contacts/suppliers/supplier-1") {
+    return json(supplierPartyDetail());
+  }
+  if (pathname === "/contacts/suppliers/supplier-1/ap-summary") {
+    return json(supplierApSummary());
+  }
   if (pathname === "/contacts/customer-1") {
     return json(customer);
   }
@@ -680,6 +784,17 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   if (pathname === "/sales-invoices/invoice-1") {
     return json(invoice);
   }
+  if (pathname === "/sales-invoices") {
+    return json([invoice]);
+  }
+  if (pathname === "/sales-invoices/next-number") {
+    return json({
+      invoiceNumber: "INV-VIS-002",
+      editable: false,
+      overrideAllowed: false,
+      helperText: "Preview only. The invoice number is assigned from the local visual sequence when the draft is saved.",
+    });
+  }
   if (pathname === "/sales-invoices/invoice-1/stock-issue-status") {
     return json({ sourceId: "invoice-1", sourceNumber: invoice.invoiceNumber, sourceStatus: "FINALIZED", issueStatus: "PARTIAL", issuedQuantity: "1.0000", remainingQuantity: "0.0000", lines: [] });
   }
@@ -688,6 +803,9 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   }
   if (pathname === "/customer-payments/payment-1") {
     return json(customerPayment);
+  }
+  if (pathname === "/customer-payments") {
+    return json([customerPayment]);
   }
   if (pathname === "/customer-payments/payment-1/receipt-data") {
     return json(customerPaymentReceiptData());
@@ -701,8 +819,17 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   if (pathname === "/reports/aged-payables") {
     return json(agingReport("payables"));
   }
+  if (pathname === "/credit-notes") {
+    return json([creditNote]);
+  }
+  if (pathname === "/credit-notes/credit-note-1") {
+    return json(creditNote);
+  }
   if (pathname === "/purchase-bills/bill-1") {
     return json(purchaseBill);
+  }
+  if (pathname === "/purchase-bills") {
+    return json([purchaseBill]);
   }
   if (pathname === "/purchase-bills/bill-1/receiving-status") {
     return json({
@@ -737,11 +864,20 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   if (pathname === "/supplier-payments/supplier-payment-1") {
     return json(supplierPayment);
   }
+  if (pathname === "/supplier-payments") {
+    return json([supplierPayment]);
+  }
   if (pathname === "/supplier-payments/supplier-payment-1/receipt-data") {
     return json(supplierPaymentReceiptData());
   }
+  if (pathname === "/purchase-debit-notes") {
+    return json([debitNote]);
+  }
   if (pathname === "/purchase-debit-notes/debit-note-1") {
     return json(debitNote);
+  }
+  if (pathname === "/collections/customer/customer-1") {
+    return json([]);
   }
   if (pathname === "/bank-accounts") {
     return json([bankAccount, secondBankAccount]);
@@ -765,10 +901,19 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
     return json([item]);
   }
   if (pathname === "/accounts") {
-    return json([bankAccount.account, { id: "sales-account-1", code: "4010", name: "Sales", type: "REVENUE", allowPosting: true, isActive: true }]);
+    return json([
+      bankAccount.account,
+      { id: "sales-account-1", code: "4010", name: "Sales", type: "REVENUE", allowPosting: true, isActive: true },
+      { id: "purchase-account-1", code: "5010", name: "Purchases", type: "EXPENSE", allowPosting: true, isActive: true },
+      { id: "ap-account-1", code: "2010", name: "Accounts payable", type: "LIABILITY", allowPosting: true, isActive: true },
+      { id: "vat-receivable-1", code: "1410", name: "VAT receivable", type: "ASSET", allowPosting: true, isActive: true },
+    ]);
   }
   if (pathname === "/tax-rates") {
     return json([{ id: "tax-1", name: "VAT 15%", rate: "15.0000", scope: "BOTH", category: "STANDARD", isActive: true }]);
+  }
+  if (pathname === "/branches") {
+    return json([]);
   }
   if (pathname === "/inventory/balances") {
     return json([inventoryBalance()]);
@@ -818,8 +963,165 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams): Moc
   if (pathname === "/number-sequences") {
     return json(numberSequences());
   }
+  if (pathname === "/compliance/readiness") {
+    return json(complianceReadiness());
+  }
+  if (pathname === "/storage/readiness") {
+    return json(storageReadiness());
+  }
+  if (pathname === "/storage/migration-plan") {
+    return json(storageMigrationPlan());
+  }
+  if (pathname === "/system/backup-readiness") {
+    return json(backupReadiness());
+  }
+  if (pathname === "/system/restore-drill-plan") {
+    return json(restoreDrillPlan());
+  }
+  if (pathname === "/system/backup-evidence") {
+    return json({
+      metadataOnly: true,
+      noBackupExecuted: true,
+      noRestoreExecuted: true,
+      noSecretsReturned: true,
+      evidence: [],
+    });
+  }
 
   return null;
+}
+
+function organizationProfile() {
+  return {
+    ...org,
+    tradeLicenseNumber: "VISUAL-LICENSE-1",
+    uaeTrn: "100000000000003",
+    uaeTin: "TIN-ORG-1",
+    uaeVatRegistrationStatus: "REGISTERED",
+    uaeAddressLine1: "Visual local readiness office",
+    uaeAddressLine2: "Local fixture district",
+    uaeEmirate: "Dubai",
+    uaeBusinessActivity: "Accounting software testing",
+    peppolParticipantId: "0235:300000000000003",
+    uaeAspSelected: "Not selected",
+    uaeAspOnboardingStatus: "ASP validation not connected",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+  };
+}
+
+function customerPartySummary() {
+  return {
+    contact: customer,
+    openReceivableBalance: "650.0000",
+    overdueReceivableBalance: "0.0000",
+    lastTransactionDate: customerPayment.paymentDate,
+  };
+}
+
+function supplierPartySummary() {
+  return {
+    contact: supplier,
+    openPayableBalance: "405.0000",
+    overduePayableBalance: "0.0000",
+    lastTransactionDate: supplierPayment.paymentDate,
+  };
+}
+
+function customerPartyDetail() {
+  return {
+    ...customerPartySummary(),
+    notes: "Local authenticated visual fixture. No hosted/customer data is used.",
+    transactions: [
+      partyTransaction("party-invoice-1", "SalesInvoice", invoice.id, invoice.issueDate, invoice.dueDate, "Sales invoice", invoice.invoiceNumber, invoice.subtotal, invoice.taxTotal, invoice.total, invoice.balanceDue, invoice.status),
+      partyTransaction("party-payment-1", "CustomerPayment", customerPayment.id, customerPayment.paymentDate, null, "Customer payment", customerPayment.paymentNumber, "0.0000", "0.0000", customerPayment.amountReceived, "0.0000", customerPayment.status),
+      partyTransaction("party-credit-note-1", "CreditNote", creditNote.id, creditNote.issueDate, null, "Credit note", creditNote.creditNoteNumber, creditNote.subtotal, creditNote.taxTotal, creditNote.total, creditNote.unappliedAmount, creditNote.status),
+    ],
+  };
+}
+
+function supplierPartyDetail() {
+  return {
+    ...supplierPartySummary(),
+    paymentNotes: "Local authenticated visual fixture. Supplier payment details are mocked read-only.",
+    transactions: [
+      partyTransaction("party-bill-1", "PurchaseBill", purchaseBill.id, purchaseBill.billDate, purchaseBill.dueDate, "Purchase bill", purchaseBill.billNumber, purchaseBill.subtotal, purchaseBill.taxTotal, purchaseBill.total, purchaseBill.balanceDue, purchaseBill.status),
+      partyTransaction("party-supplier-payment-1", "SupplierPayment", supplierPayment.id, supplierPayment.paymentDate, null, "Supplier payment", supplierPayment.paymentNumber, "0.0000", "0.0000", supplierPayment.amountPaid, "0.0000", supplierPayment.status),
+      partyTransaction("party-debit-note-1", "PurchaseDebitNote", debitNote.id, debitNote.issueDate, null, "Debit note", debitNote.debitNoteNumber, debitNote.subtotal, debitNote.taxTotal, debitNote.total, debitNote.unappliedAmount, debitNote.status),
+    ],
+  };
+}
+
+function partyTransaction(
+  id: string,
+  sourceType: string,
+  sourceId: string,
+  date: string,
+  dueDate: string | null,
+  type: string,
+  transactionNumber: string,
+  subtotal: string,
+  taxAmount: string,
+  total: string,
+  balanceDue: string,
+  status: string,
+) {
+  return {
+    id,
+    sourceType,
+    sourceId,
+    date,
+    dueDate,
+    type,
+    transactionNumber,
+    currency: "SAR",
+    subtotal,
+    taxAmount,
+    total,
+    balanceDue,
+    status,
+  };
+}
+
+function supplierApSummary() {
+  return {
+    supplier,
+    outstandingPayableBalance: "405.0000",
+    overdueBillsTotal: "0.0000",
+    overdueBillCount: 0,
+    openPurchaseOrders: 0,
+    purchaseReceiptsPendingBill: 0,
+    purchaseBillsPendingReceipt: 0,
+    openPurchaseReturns: 0,
+    openMatchingReviews: 0,
+    valuationVariancePreviews: 0,
+    recentApActivity: [
+      {
+        id: "supplier-ap-bill-1",
+        label: "Purchase bill finalized",
+        sourceType: "PurchaseBill",
+        sourceId: purchaseBill.id,
+        sourceNumber: purchaseBill.billNumber,
+        href: `/purchases/bills/${purchaseBill.id}`,
+        date: purchaseBill.billDate,
+        amount: purchaseBill.total,
+        status: purchaseBill.status,
+        nonPosting: false,
+      },
+      {
+        id: "supplier-ap-payment-1",
+        label: "Supplier payment posted",
+        sourceType: "SupplierPayment",
+        sourceId: supplierPayment.id,
+        sourceNumber: supplierPayment.paymentNumber,
+        href: `/purchases/supplier-payments/${supplierPayment.id}`,
+        date: supplierPayment.paymentDate,
+        amount: supplierPayment.amountPaid,
+        status: supplierPayment.status,
+        nonPosting: false,
+      },
+    ],
+  };
 }
 
 function checklist() {
@@ -875,6 +1177,68 @@ function dashboardSummary() {
       salesThisMonth: "1150.0000",
       customerPaymentThisMonth: "500.0000",
     },
+    salesAttention: {
+      readOnly: true,
+      noMutation: true,
+      helperText:
+        "Dashboard attention items are read-only workflow signals. They do not send emails, collect payments, post journals, file VAT, call ZATCA, or move inventory.",
+      overdueInvoices: {
+        count: 1,
+        total: "650.0000",
+        topItems: [
+          {
+            id: invoice.id,
+            number: invoice.invoiceNumber,
+            customerName: customer.displayName,
+            amount: invoice.balanceDue,
+            issueDate: invoice.issueDate,
+            dueDate: invoice.dueDate,
+            status: invoice.status,
+            href: `/sales/invoices/${invoice.id}`,
+          },
+        ],
+      },
+      collections: {
+        openCount: 0,
+        dueTodayCount: 0,
+        overdueFollowUpCount: 0,
+        promisedToPayTotal: "0.0000",
+        disputedCount: 0,
+        topItems: [],
+      },
+      quotes: {
+        awaitingAcceptanceCount: 0,
+        expiringSoonCount: 0,
+        acceptedNotConvertedCount: 0,
+        topItems: [],
+      },
+      recurringInvoices: {
+        activeCount: 0,
+        dueSoonCount: 0,
+        overdueForGenerationCount: 0,
+        recentlyGeneratedDraftInvoiceCount: 0,
+        topItems: [],
+        recentDraftInvoices: [],
+      },
+      deliveryNotes: {
+        draftCount: 0,
+        issuedNotDeliveredCount: 0,
+        overdueDeliveryCount: 0,
+        topItems: [],
+      },
+      customers: {
+        topOutstanding: [
+          {
+            id: customer.id,
+            customerName: customer.displayName,
+            outstandingBalance: invoice.balanceDue,
+            overdueAmount: "0.0000",
+            openCollectionCaseCount: 0,
+            href: `/customers/${customer.id}`,
+          },
+        ],
+      },
+    },
     purchases: {
       unpaidBillCount: 1,
       unpaidBillBalance: "520.0000",
@@ -919,7 +1283,13 @@ function dashboardSummary() {
       auditLogCountThisMonth: 24,
     },
     attentionItems: [
-      { id: "zatca-readiness", severity: "warning", label: "ZATCA readiness", message: "Local readiness only; production submission is not enabled.", href: "/settings/zatca" },
+      {
+        type: "ZATCA_NOT_READY",
+        severity: "warning",
+        title: "ZATCA readiness",
+        description: "Local readiness only; production submission is not enabled.",
+        href: "/settings/zatca",
+      },
     ],
   };
 }
@@ -1416,6 +1786,141 @@ function documentSettings() {
     showQrPlaceholder: true,
     createdAt: fixedVisualDate,
     updatedAt: fixedVisualDate,
+  };
+}
+
+function complianceReadiness() {
+  return {
+    posture: "CONTROLLED_BETA_USER_TESTING_ONLY",
+    claim: "Controlled beta. Local readiness validation only; ASP validation is not connected and FTA reporting is not enabled.",
+    prohibitedClaims: [
+      "Do not claim tax authority certification.",
+      "Do not claim Peppol certification.",
+      "Do not claim ASP accreditation.",
+      "Do not claim official provider status.",
+      "Do not claim production compliance.",
+      "Do not claim connected ASP validation.",
+      "Do not claim enabled FTA reporting.",
+    ],
+    noNetworkByDefault: true,
+    countries: [
+      { code: "AE", module: "UAE Peppol/PINT-AE", status: "LOCAL_READINESS_ONLY" },
+      { code: "SA", module: "ZATCA", status: "LOCAL_READINESS_ONLY" },
+    ],
+    uae: {
+      framework: "UAE Peppol/PINT-AE local readiness validation. ASP validation not connected.",
+      deadlines: [{ segment: "Controlled beta tenants", appointAspBy: "Not scheduled", implementBy: "Not scheduled" }],
+      sources: [
+        "https://mof.gov.ae/einvoicing/",
+        "https://docs.peppol.eu/poac/ae/pint-ae/",
+      ],
+      expectedParticipantId: org.taxNumber,
+      readiness: {
+        status: "WARNING",
+        checks: [
+          { key: "controlled-beta", label: "Controlled beta", status: "PASS", detail: "Local readiness validation is available for visual QA only." },
+          { key: "asp-not-connected", label: "ASP validation not connected", status: "WARNING", detail: "No ASP sandbox credentials, endpoint, or provider response is configured." },
+          { key: "fta-reporting-disabled", label: "No FTA reporting yet", status: "WARNING", detail: "FTA reporting remains disabled in this local fixture." },
+        ],
+        warnings: ["Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms."],
+      },
+      buyerEndpointCoverage: {
+        activeBuyerCount: 1,
+        buyerPeppolParticipantCount: 0,
+      },
+    },
+    documentStatusCounts: {
+      DRAFT: 0,
+      READY: 0,
+      BLOCKED: 1,
+    },
+  };
+}
+
+function storageReadiness() {
+  return {
+    attachmentStorage: {
+      activeProvider: "database",
+      ready: false,
+      maxSizeMb: 10,
+      blockingReasons: ["Object storage proof is not connected in the local visual fixture."],
+      warnings: ["Local readiness validation only; no content migration or backup action runs."],
+    },
+    generatedDocumentStorage: {
+      activeProvider: "database",
+      ready: false,
+      blockingReasons: ["Generated documents remain in database storage for the local fixture."],
+      warnings: ["No hosted storage provider validation is performed."],
+    },
+    s3Config: {
+      endpointConfigured: false,
+      regionConfigured: false,
+      bucketConfigured: false,
+      accessKeyConfigured: false,
+      secretConfigured: false,
+      forcePathStyle: false,
+      publicBaseUrlConfigured: false,
+    },
+    warnings: ["Read-only local visual QA fixture. No storage, backup, restore, or provider operation is executed."],
+  };
+}
+
+function storageMigrationPlan() {
+  return {
+    attachmentCount: 0,
+    attachmentTotalBytes: 0,
+    generatedDocumentCount: generatedDocuments.length,
+    generatedDocumentTotalBytes: generatedDocuments.reduce((sum, document) => sum + document.sizeBytes, 0),
+    databaseStorageCount: generatedDocuments.length,
+    s3StorageCount: 0,
+    migrationRequired: false,
+    targetProvider: "database",
+    estimatedMigrationRequired: false,
+    dryRunOnly: true,
+    notes: ["Local visual fixture only. No migration command or content move is available."],
+  };
+}
+
+function backupReadiness() {
+  return {
+    readOnly: true,
+    noMutation: true,
+    noBackupExecuted: true,
+    noRestoreExecuted: true,
+    noSecretsReturned: true,
+    productionReady: false,
+    databaseBackupConfigured: false,
+    pointInTimeRecoveryConfigured: false,
+    migrationHistoryAvailable: true,
+    objectStorageBackupConfigured: false,
+    generatedDocumentBackupConfigured: false,
+    attachmentBackupConfigured: false,
+    restoreDrillVerified: false,
+    restoreVerificationVerified: false,
+    rpoRtoReviewed: false,
+    evidenceRequired: true,
+    requiredEvidenceTypes: ["DATABASE_BACKUP", "POINT_IN_TIME_RECOVERY", "RESTORE_DRILL", "RPO_RTO_REVIEW"],
+    verifiedEvidenceTypes: [],
+    missingEvidenceTypes: ["DATABASE_BACKUP", "POINT_IN_TIME_RECOVERY", "RESTORE_DRILL", "RPO_RTO_REVIEW"],
+    blockers: ["No hosted backup provider evidence is available in the local visual fixture."],
+    warnings: ["Metadata-only display. No backup or restore command is executed."],
+    recommendedNextSteps: ["Collect non-production backup and restore evidence in a separate approved proof lane."],
+    redactionGuarantees: ["No secrets, URLs, keys, document bodies, or attachment contents are returned."],
+  };
+}
+
+function restoreDrillPlan() {
+  return {
+    readOnly: true,
+    noMutation: true,
+    noRestoreExecuted: true,
+    noCustomerDataExported: true,
+    noSecretsReturned: true,
+    productionReady: false,
+    plannedSteps: ["Plan restore drill in an isolated non-production environment."],
+    blockers: ["No restore-drill evidence is attached to the local visual fixture."],
+    warnings: ["Visual QA does not execute restore commands."],
+    recommendedNextSteps: ["Run an approved metadata-only restore proof later."],
   };
 }
 

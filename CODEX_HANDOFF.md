@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-stitch-frontend-foundation-hardening`.
-- Base: fresh `origin/main` at `90d617697a94aa34f7d6c20bb6d3b0b738d816ee` after PR `#53` payment workflow shadcn migration was merged.
+- Branch: `feature/ui-authenticated-visual-qa-route-hardening`.
+- Base: fresh `origin/main` at `0a6c5ddde244b5298933e88e4393516ff9996982` after PR `#54` (`Harden Stitch frontend foundation`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,21 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch reconciles the Stitch/MCP frontend foundation pass with the merged shadcn shell, transaction, and payment workflow migrations.
+- This branch adds an authenticated local visual QA route-hardening fixture on top of the merged Stitch/shadcn frontend foundation.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Authenticated UI Visual QA Route Hardening Summary
+
+- PR `#54` (`Harden Stitch frontend foundation`) was reverified green and merged into `main` with merge commit `0a6c5ddde244b5298933e88e4393516ff9996982` before this branch began.
+- Added `tests/visual/authenticated-route-hardening.visual.spec.ts`, a local Playwright visual route matrix that primes the existing `visual-token`/`org-visual` session and uses the read-only visual API fixture instead of real auth, database mutation, hosted data, or external provider calls.
+- Expanded `tests/visual/visual-fixtures.ts` with conservative read-only fixture data for organization, user/session, permissions, dashboard summary, customers, suppliers, invoices, purchase bills, customer payments, supplier payments, credit notes, debit notes, compliance readiness, storage readiness, and backup planning endpoints.
+- Covered desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for `/dashboard`, `/sales/invoices`, `/sales/invoices/new`, `/purchases/bills`, `/purchases/bills/new`, `/customers/customer-1`, `/suppliers/supplier-1`, `/sales/customer-payments`, `/sales/customer-payments/new?customerId=customer-1`, `/sales/customer-payments/payment-1`, `/purchases/supplier-payments`, `/purchases/supplier-payments/new?supplierId=supplier-1`, `/purchases/supplier-payments/supplier-payment-1`, `/sales/credit-notes`, `/purchases/debit-notes`, `/documents`, `/reports`, `/settings/compliance`, `/settings/storage`, and `/bank-accounts`.
+- The matrix verifies authenticated shell visibility, route headings/actions, document-level horizontal overflow, topbar/content overlap, conservative visible wording, dashboard KPI/readiness content, and the reduced-motion `FinancialFlowScene` fallback.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/authenticated-route-hardening/`; `artifacts/` is intentionally ignored, so screenshots are local evidence and are not committed.
+- Layout hardening from findings was limited to the test harness and fixture coverage: scoped assertions to `main`/`banner`, aligned expected labels with the real app, added missing read-only `/branches` data, and kept visual checks from relying on hidden sidebar text.
+- No backend API, Prisma schema, migration, production auth provider behavior, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: route-specific form polish beyond the checked shell/layout states, refund/collections/banking detail surfaces, report depth, and role-filtered visual QA.
 
 ## UI Stitch Frontend Foundation Hardening Summary
 
