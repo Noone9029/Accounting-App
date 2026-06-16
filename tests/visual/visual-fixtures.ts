@@ -1799,6 +1799,10 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/roles") {
     return json(roles());
   }
+  const roleDetailMatch = pathname.match(/^\/roles\/([^/]+)$/);
+  if (roleDetailMatch) {
+    return json(roleDetail(roleDetailMatch[1]));
+  }
   if (pathname === "/contacts") {
     return json([customer, supplier]);
   }
@@ -2345,6 +2349,11 @@ function roles() {
       updatedAt: fixedVisualDate,
     },
   ];
+}
+
+function roleDetail(id: string) {
+  const allRoles = roles();
+  return allRoles.find((role) => role.id === id) ?? allRoles[0]!;
 }
 
 function organizationMembers() {

@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `85813f7217d32babebf71412f43ea8034f0c0d07` (`origin/main` after PR #60 secondary operational route visual QA merge) plus the current Owner settings/generated-document storage evidence visual QA branch.
+Latest commit audited: `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` (`origin/main` after PR #61 Owner settings/generated-document visual QA merge) plus the current Owner security/organization settings visual QA branch.
+
+## 2026-06-17 LedgerByte Owner security organization settings visual QA
+
+Merged PR `#61` into `main` at `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde`, then added Owner security/organization settings local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Added read-only `/roles/:id` visual fixture coverage for the existing `/settings/roles/[id]` route.
+- Added a Playwright Owner security/organization settings visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Covered `/settings`, `/settings/team`, `/settings/roles`, `/settings/roles/role-owner`, `/settings/roles/role-custom-long`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup`.
+- Verified `Owner`, `Accountant`, and `Viewer` behavior for team invite controls, role creation/editing controls, role detail read-only states, audit retention actions, compliance readiness actions, setup states, app shell variants, route/action consistency, no horizontal overflow, and forbidden security/compliance claims.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/owner-security-organization-settings-visual-qa/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed: role-detail fixture coverage was added; visual assertions now match the existing app shell account-menu/sign-out and organization-loading variants.
+- Skipped `/settings/security`, `/settings/sessions`, `/settings/api`, `/settings/integrations`, `/settings/organization`, `/organization`, and `/settings/users` because those exact app routes do not exist. `/settings/zatca` exists but was intentionally skipped to avoid ZATCA-specific visual expansion.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, report calculation logic, generated-document business logic, storage provider logic, journal posting logic, production auth provider behavior, auth/session/security business logic, UAE PINT-AE, ZATCA behavior, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake security, SSO, MFA, API key, provider, storage, archive permanence, bank automation, email delivery, certification, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is real security/session/API settings depth if those product routes are added later, organization profile editing beyond setup, generated-document detail route breadth if added later, and accountant/legal sign-off on final settings/compliance wording.
 
 ## 2026-06-16 LedgerByte Owner settings generated-document storage evidence visual QA
 

@@ -26,6 +26,21 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-17 LedgerByte Owner security organization settings visual QA:
+
+- PR `#61` (`Add owner settings generated-document visual QA`) was merged into `main` at `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` before this branch was created from fresh `origin/main`.
+- Added read-only visual fixture coverage for `/roles/:id`, enabling the existing `/settings/roles/[id]` route to be checked without real API calls.
+- Added authenticated visual QA across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for real Owner organization/security-adjacent settings surfaces only.
+- Checked Owner organization/security states for settings redirect, team/users, roles, role detail, system role protection, long custom role, permission matrix, audit retention, compliance readiness, guided setup, and organization setup form layout.
+- Checked `Owner`, `Accountant`, and `Viewer` profiles. Owner admin/settings actions remain visible where existing permissions allow; Accountant and Viewer restricted actions are hidden, disabled, or blocked through existing behavior.
+- Covered `/settings`, `/settings/team`, `/settings/roles`, `/settings/roles/role-owner`, `/settings/roles/role-custom-long`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup`.
+- Skipped `/settings/security`, `/settings/sessions`, `/settings/api`, `/settings/integrations`, `/settings/organization`, `/organization`, and `/settings/users` because those exact routes do not exist. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally skipped.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/owner-security-organization-settings-visual-qa/` and intentionally left uncommitted because `artifacts/` is ignored.
+- Fixed only visual fixture/test-harness issues found by QA: role-detail fixture coverage and shell assertion calibration for existing account-menu/sign-out and organization-loading variants.
+- No backend API, Prisma schema, migration, production auth behavior, auth/session/security business logic, payment/accounting/business logic, report calculation logic, generated-document business logic, storage provider logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake security/SSO/MFA/API/provider claim, certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Real security settings route implementation plan`.
+
 2026-06-16 LedgerByte Owner settings generated-document storage evidence visual QA:
 
 - PR `#60` (`Add secondary operational route visual QA`) was merged into `main` at `85813f7217d32babebf71412f43ea8034f0c0d07` before this branch was created from fresh `origin/main`.
