@@ -4,6 +4,15 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 Authenticated UI Visual QA Route Hardening Update
+
+- Controlled beta UI confidence improves because 20 authenticated app routes now have local Playwright visual checks across desktop, tablet, and mobile viewports.
+- The fixture is local/test-only and read-only. It primes the existing visual session and mocks API responses for app-shell/dashboard/routes without real auth provider behavior, hosted data, database mutation, or external provider calls.
+- The route matrix checks authenticated shell visibility, primary route headings/actions, no document-level horizontal overflow, no severe topbar/content overlap, conservative visible wording, dashboard KPI/readiness content, and reduced-motion dashboard scene fallback.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/authenticated-route-hardening/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, or production compliance readiness.
+- Remaining UI readiness gaps are deeper role-filtered route states, route-specific form polish, refund/collections/banking detail surfaces, and accountant review of dense operational screens.
+
 ## 2026-06-16 UI Stitch Frontend Foundation Hardening Update
 
 - Controlled beta usability improves because the Stitch/MCP shell, dashboard, readiness, and form polish was reconciled with the merged shadcn shell, transaction, and payment workflow branches.

@@ -26,6 +26,18 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte authenticated UI visual QA route hardening:
+
+- PR `#54` (`Harden Stitch frontend foundation`) was merged into `main` at `0a6c5ddde244b5298933e88e4393516ff9996982` before this branch was created from fresh `origin/main`.
+- Added a local-only authenticated Playwright visual QA matrix that primes the existing visual session and mocks read-only API responses; it does not use real auth provider behavior, hosted data, database mutation, or external provider calls.
+- Expanded visual fixture responses for organization, user, permissions, dashboard, contacts, invoices, bills, AR/AP payments, credit/debit notes, compliance readiness, storage readiness, and backup planning.
+- Checked 20 authenticated routes across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`: dashboard, invoice/bill list and creation routes, customer/supplier detail routes, customer/supplier payment list/create/detail routes, credit/debit note lists, documents, reports, compliance settings, storage settings, and bank accounts.
+- Visual QA asserts authenticated shell visibility, primary route headings/actions, no document-level horizontal overflow, no severe topbar/content overlap, readable dashboard KPI/readiness content, and reduced-motion dashboard scene fallback.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/authenticated-route-hardening/` and intentionally left uncommitted because `artifacts/` is ignored.
+- No backend API, Prisma schema, migration, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Role-filtered UI visual QA and remaining route polish`.
+
 2026-06-16 LedgerByte UI Stitch frontend foundation hardening:
 
 - PR `#53` was merged into `main` at `90d617697a94aa34f7d6c20bb6d3b0b738d816ee` before this branch was created from fresh `origin/main`.

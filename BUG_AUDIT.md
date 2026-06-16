@@ -4,6 +4,26 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 LedgerByte authenticated UI visual QA route hardening
+
+Merged PR `#54` into `main` at `0a6c5ddde244b5298933e88e4393516ff9996982`, then added a local authenticated visual QA matrix from fresh `origin/main`.
+
+### What changed
+
+- Added a Playwright authenticated visual route matrix for 20 high-priority routes across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Reused the existing local visual session pattern and expanded the read-only visual API fixture with organization, user, permissions, dashboard, customer/supplier, AR/AP payment, credit/debit note, compliance-readiness, storage-readiness, and backup-planning data.
+- Verified the authenticated shell, topbar/sidebar visibility, primary route headings/actions, document-level horizontal overflow, topbar/content overlap, dashboard KPI/readiness content, reduced-motion financial-flow fallback, and blocked visible wording.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/authenticated-route-hardening/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed in this branch were test-fixture and visual-harness issues only: hidden sidebar text no longer drives route assertions, `/branches` now has a read-only visual response, and route expectations match the current UI labels.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, tax math, accounting posting, finalization, payment allocation, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, production auth provider behavior, or production compliance behavior changed.
+- No fake automation, fake bank feed, fake AI, provider connectivity, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is deeper route-specific visual polish and role-filtered visual QA beyond this authenticated shell/layout matrix.
+
 ## 2026-06-16 LedgerByte UI Stitch frontend foundation hardening
 
 Reconciled the Stitch/MCP frontend foundation pass after PR `#53` was merged into `main` at `90d617697a94aa34f7d6c20bb6d3b0b738d816ee`.
