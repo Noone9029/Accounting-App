@@ -4,10 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AllocationTable } from "@/components/ui-ledger/allocation-table";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { PanelSection } from "@/components/ui-ledger/panel-section";
+import { PaymentSummaryCard } from "@/components/ui-ledger/payment-summary-card";
+import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
-import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
+import { customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
@@ -17,6 +24,16 @@ interface AllocationState {
   invoiceId: string;
   amountApplied: string;
 }
+
+const customerAllocationColumns = [
+  { key: "invoice", label: "Invoice", className: "min-w-32" },
+  { key: "issueDate", label: "Issue date" },
+  { key: "dueDate", label: "Due date" },
+  { key: "total", label: "Total" },
+  { key: "balanceDue", label: "Balance due" },
+  { key: "amountApplied", label: "Amount to apply" },
+  { key: "action", label: "Action" },
+] as const;
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -213,22 +230,20 @@ export default function NewCustomerPaymentPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Record customer payment</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <PageHeader
+        title="Record customer payment"
+        description="Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop."
+        actions={
+          <>
+          <Link href="/setup" className={buttonVariants({ variant: "outline" })}>
             Guided setup
           </Link>
-          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
             Back
           </Link>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to record payments.</StatusMessage> : null}
@@ -255,12 +270,12 @@ export default function NewCustomerPaymentPage() {
         ) : null}
       </div>
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-5">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-5">
+        <PanelSection title="Payment details" description="Choose the customer, payment date, amount, and paid-through account.">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Customer</span>
-              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <span className="text-sm font-medium text-foreground">Customer</span>
+              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
                 <option value="">Select customer</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
@@ -270,16 +285,16 @@ export default function NewCustomerPaymentPage() {
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">Payment date</span>
-              <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <span className="text-sm font-medium text-foreground">Payment date</span>
+              <Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1" />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-slate-700">Amount received</span>
-              <input inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <span className="text-sm font-medium text-foreground">Amount received</span>
+              <Input inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="mt-1 font-mono tabular-nums" />
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Paid-through account</span>
-              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <span className="text-sm font-medium text-foreground">Paid-through account</span>
+              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
                 <option value="">Select cash or bank account</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -289,86 +304,87 @@ export default function NewCustomerPaymentPage() {
               </select>
             </label>
             <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Description</span>
-              <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              <span className="text-sm font-medium text-foreground">Description</span>
+              <Input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1" />
             </label>
           </div>
-        </div>
+        </PanelSection>
 
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[880px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Invoice</th>
-                <th className="px-4 py-3">Issue date</th>
-                <th className="px-4 py-3">Due date</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Balance due</th>
-                <th className="px-4 py-3">Amount to apply</th>
-                <th className="px-4 py-3">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {openInvoices.map((invoice) => {
+        <PanelSection title="Invoice allocation" description="Apply this payment only to finalized open invoices for the selected customer." contentClassName="p-0">
+          <AllocationTable
+            columns={customerAllocationColumns}
+            rows={openInvoices}
+            rowKey={(invoice) => invoice.id}
+            minWidth="min-w-[880px]"
+            framed={false}
+            renderCell={(invoice, columnKey) => {
                 const allocation = allocations.find((candidate) => candidate.invoiceId === invoice.id);
-                return (
-                  <tr key={invoice.id}>
-                    <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-steel">{new Date(invoice.issueDate).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-steel">{formatOptionalDate(invoice.dueDate)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.total, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</td>
-                    <td className="px-4 py-3">
-                      <input
+                switch (columnKey) {
+                  case "invoice":
+                    return <span className="font-mono text-xs">{invoice.invoiceNumber}</span>;
+                  case "issueDate":
+                    return <span className="text-muted-foreground">{new Date(invoice.issueDate).toLocaleDateString()}</span>;
+                  case "dueDate":
+                    return <span className="text-muted-foreground">{formatOptionalDate(invoice.dueDate)}</span>;
+                  case "total":
+                    return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(invoice.total, invoice.currency)}</span>;
+                  case "balanceDue":
+                    return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</span>;
+                  case "amountApplied":
+                    return (
+                      <Input
                         inputMode="decimal"
                         value={allocation?.amountApplied ?? "0.0000"}
                         onChange={(event) => updateAllocation(invoice.id, event.target.value)}
-                        className="w-36 rounded-md border border-slate-300 px-2 py-2 font-mono text-xs outline-none focus:border-palm"
+                        className="w-36 font-mono text-xs tabular-nums"
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <button type="button" onClick={() => applyFullBalance(invoice)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    );
+                  case "action":
+                    return (
+                      <Button type="button" variant="outline" size="xs" onClick={() => applyFullBalance(invoice)}>
                         Apply balance
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </Button>
+                    );
+                  default:
+                    return null;
+                }
+              }}
+          />
           {!loadingInvoices && customerId && openInvoices.length === 0 ? (
             <div className="px-4 py-5">
               <StatusMessage type="empty">
                 No finalized open invoices found for this customer.{" "}
-                <Link href={createInvoiceHref} className="font-semibold text-palm hover:underline">
+                <Link href={createInvoiceHref} className="font-semibold text-primary hover:underline">
                   Create and finalize an invoice
                 </Link>
                 {" "}before recording payment.
               </StatusMessage>
             </div>
           ) : null}
-        </div>
+        </PanelSection>
 
-        <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ml-auto">
-          <span className="text-steel">Amount received</span>
-          <span className="text-right font-mono">{formatMoneyAmount(preview.amountReceived)}</span>
-          <span className="text-steel">Allocated</span>
-          <span className="text-right font-mono">{formatMoneyAmount(preview.totalAllocated)}</span>
-          <span className="font-semibold text-ink">Unapplied</span>
-          <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(preview.unappliedAmount)}</span>
-          <span className="text-steel">Allocation state</span>
-          <span className="text-right">
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(previewAllocationState)}`}>
-              {customerPaymentAllocationStateLabel(previewAllocationState)}
-            </span>
-          </span>
-        </div>
+        <PaymentSummaryCard
+          className="w-full sm:ml-auto sm:max-w-sm"
+          rows={[
+            { label: "Amount received", value: formatMoneyAmount(preview.amountReceived) },
+            { label: "Allocated", value: formatMoneyAmount(preview.totalAllocated) },
+            { label: "Unapplied", value: formatMoneyAmount(preview.unappliedAmount), emphasized: true },
+            {
+              label: "Allocation state",
+              value: (
+                <StatusBadge tone={previewAllocationState === "FULLY_APPLIED" ? "success" : previewAllocationState === "PARTIALLY_UNAPPLIED" ? "warning" : "muted"}>
+                  {customerPaymentAllocationStateLabel(previewAllocationState)}
+                </StatusBadge>
+              ),
+            },
+          ]}
+        />
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <Button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid}>
             {submitting ? "Recording..." : "Record payment"}
-          </button>
-          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          </Button>
+          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
             Cancel
           </Link>
         </div>

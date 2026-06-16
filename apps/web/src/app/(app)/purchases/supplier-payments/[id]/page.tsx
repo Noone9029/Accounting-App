@@ -7,6 +7,10 @@ import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
+import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -237,40 +241,40 @@ export default function SupplierPaymentDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{payment ? payment.paymentNumber : "Supplier payment"}</h1>
-          <p className="mt-1 text-sm text-steel">Supplier payment posting, bill matching, and downloadable payment PDF.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <PageHeader
+        title={payment ? payment.paymentNumber : "Supplier payment"}
+        description="Supplier payment posting, bill matching, and downloadable payment PDF."
+        actions={
+          <>
+          <Link href={returnTo || "/purchases/supplier-payments"} className={buttonVariants({ variant: "outline" })}>
             Back
           </Link>
           {payment?.supplierId ? (
-            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className={buttonVariants({ variant: "outline" })}>
               Supplier workspace
             </Link>
           ) : null}
           {payment && canDownloadGeneratedDocuments ? (
-            <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <Button type="button" variant="outline" onClick={() => void downloadReceiptPdf()} disabled={actionLoading}>
               Download payment PDF
-            </button>
+            </Button>
           ) : null}
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
             <Link
               href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(payment.supplierId)}&sourceType=SUPPLIER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
-              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+              className={buttonVariants()}
             >
               Record supplier refund
             </Link>
           ) : null}
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <Button type="button" variant="destructive" onClick={() => void voidPayment()} disabled={actionLoading}>
               Void
-            </button>
+            </Button>
           ) : null}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load supplier payments.</StatusMessage> : null}
@@ -524,11 +528,9 @@ export function SupplierPaymentWorkflowGuidance({
               <p className="mt-1 text-sm leading-6 text-steel">{supplierPaymentOutcomeDescription(payment, hasUnapplied)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${supplierPaymentStatusBadgeClass(payment.status)}`}>
-                {supplierPaymentStatusLabel(payment.status)}
-              </span>
+              <PaymentStatusBadge status={payment.status} />
               {hasUnapplied ? (
-                <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Unapplied supplier credit</span>
+                <StatusBadge tone="warning">Unapplied supplier credit</StatusBadge>
               ) : null}
             </div>
           </div>
@@ -546,32 +548,32 @@ export function SupplierPaymentWorkflowGuidance({
             {firstAllocatedBill ? (
               <Link
                 href={`/purchases/bills/${firstAllocatedBill.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+                className={buttonVariants()}
               >
                 View bill
               </Link>
             ) : null}
             {canDownloadGeneratedDocuments ? (
-              <button
+              <Button
                 type="button"
                 onClick={onDownloadReceiptPdf}
                 disabled={actionLoading}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                variant="outline"
               >
                 Download payment PDF
-              </button>
+              </Button>
             ) : null}
-            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className={buttonVariants({ variant: "outline" })}>
               Open supplier workspace
             </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Link
                 href={`/reports/aged-payables${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className={buttonVariants({ variant: "outline" })}
               >
                 AP report
               </Link>
-              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
                 Dashboard
               </Link>
             </div>

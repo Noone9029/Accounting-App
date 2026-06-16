@@ -1316,6 +1316,13 @@ LedgerByte now has a non-executing CSID custody provider configuration planner. 
 
 The provider configuration endpoint and custody plan report `providerEnabled=false`, `bodyStorageAllowed=false`, `tokenStorageReady=false`, `secretStorageReady=false`, `certificateStorageReady=false`, and `productionCompliance=false`. `ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE` is intentionally ignored in this phase.
 
+## 2026-06-16 shadcn payment workflow migration
+
+- Payment workflow UI consistency improved for controlled beta/user-testing: customer payments and supplier payments now use the same LedgerByte/shadcn page headers, buttons, table wrappers, status badges, allocation tables, and summary cards as the newer transaction workflows.
+- No readiness score increase is taken from this frontend-only migration. It improves usability and reviewability, but it does not add provider evidence, backend capability, compliance capability, hosted proof, or production hardening.
+- No backend/API/schema/payment posting/allocation/provider/UAE PINT-AE/ZATCA behavior changed.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+
 No real secrets-manager/KMS call, real ZATCA network call, real CSID request, token/secret/certificate/private-key/OTP/CSR/signed-XML/QR body persistence, clearance/reporting, PDF/A-3, production credential use, or production compliance claim is implemented.
 
 Recommended next step: add mocked secrets-manager/KMS provider client contract tests that still never store real CSID material.

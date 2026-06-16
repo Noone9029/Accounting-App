@@ -64,6 +64,18 @@ describe("CustomerPaymentsPage", () => {
       "href",
       "/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1",
     );
+    expect(screen.queryByText(/auto.?match|auto.?reconcile|autopay|bank feed|payment provider|certified/i)).not.toBeInTheDocument();
+  });
+
+  it("filters create and void actions by permissions", async () => {
+    canMock.mockReturnValue(false);
+
+    render(<CustomerPaymentsPage />);
+
+    expect(await screen.findByText("CP-001")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Void" })).not.toBeInTheDocument();
   });
 });
 

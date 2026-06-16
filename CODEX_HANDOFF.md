@@ -116,6 +116,22 @@
 - Added read-only API readiness endpoints for sales invoices and credit notes plus explicit prepare/validate actions that reuse compliance-core document, validation result, event, and archive metadata.
 - The local validation path stores status, hashes, warnings/errors, and metadata only; PDFs are not treated as UAE compliance artifacts.
 
+## UI shadcn payment workflows handoff - 2026-06-16
+
+- PR `#52` (`feature/ui-shadcn-transaction-workflows`) was reverified green and merged into `main` with merge commit `25cb9ef9a0ef3225cde03dcfa935703743601762` before this branch began.
+- Current branch: `feature/ui-shadcn-payment-workflows`, created fresh from updated `origin/main`.
+- Completed frontend-only shadcn/LedgerByte migration for the real payment workflow routes:
+  - `/sales/customer-payments`
+  - `/sales/customer-payments/new`
+  - `/sales/customer-payments/[id]`
+  - `/purchases/supplier-payments`
+  - `/purchases/supplier-payments/new`
+  - `/purchases/supplier-payments/[id]`
+- Added shared UI wrappers for payment allocation tables, payment summaries, and payment status badges under `apps/web/src/components/ui-ledger/`.
+- Safety boundaries held: no backend, API, Prisma schema, migration, seed/reset/delete, payment posting/allocation logic, AR/AP state machine, UAE PINT-AE, ZATCA, provider integration, hosted data, Vercel, Supabase, production infrastructure, or production compliance claim changed.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: deeper generated-document/archive detail surfaces, refund workflows, bank/reconciliation review screens, reports/settings tables, and any remaining legacy table/form surfaces.
+
 ## Current Safety Boundaries
 
 - Controlled beta/user-testing only.
