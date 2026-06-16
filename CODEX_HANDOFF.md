@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-detail-states-accountant-mobile-table-review`.
-- Base: fresh `origin/main` at `2467a195951a351db0c5b238eab5880ff8da2971` after PR `#56` (`Add role-filtered UI visual QA route polish`) was merged.
+- Branch: `feature/ui-refund-collections-banking-detail-polish`.
+- Base: fresh `origin/main` at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2` after PR `#57` (`Add detail-state accountant mobile visual QA`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,25 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends the authenticated local visual QA fixture with realistic detail-page states and accountant-focused mobile/table checks.
+- This branch extends authenticated local visual QA with refund, collections, banking, reconciliation, cheque, report, and document detail polish.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Refund Collections Banking Detail Polish Summary
+
+- PR `#57` (`Add detail-state accountant mobile visual QA`) was reverified green and merged into `main` with merge commit `c62a1a0f2232aca7fbffcf0400fed66f67d392b2` before this branch began.
+- Extended `tests/visual/visual-fixtures.ts` with local/test-only refund, collections, banking, bank statement, reconciliation, and cheque fixtures. The fixture remains read-only and does not call real auth, database, hosted data, provider, ASP, email, UAE PINT-AE, ZATCA, bank-feed, or reconciliation automation services.
+- Added `tests/visual/refund-collections-banking-detail-polish.visual.spec.ts`, a Playwright visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Refund/collections states checked: credit and debit note draft, finalized, applied, unapplied, partially applied, voided, long party/reason content, large amount, zero-balance-after-application context, customer refund, supplier refund, overdue collection case, partial payment, unallocated payment, available credit/debit note application context, long legal names/addresses, and no-open-balance party detail.
+- Banking/reconciliation states checked: multiple bank accounts, negative balance, inactive account, long account name, currency display, empty/list behavior, unmatched statement row, matched statement row, ignored/manual row context, long description, large amount, debit/credit display, reconciliation summary/list/detail, unmatched and matched row snapshots, review events, issued/received/cleared/voided cheques, long payee, and large cheque amount.
+- Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed actions; Accountant coverage checks accounting-heavy readability and absence of owner-only admin affordances; Viewer coverage checks mutation/refund/reconcile actions are hidden or blocked according to existing behavior.
+- Routes checked include `/sales/credit-notes`, `/sales/credit-notes/new`, mocked credit-note details, `/sales/customer-refunds`, `/sales/customer-refunds/new`, `/sales/customer-refunds/customer-refund-1`, `/sales/collections`, `/sales/collections/collection-case-visual`, `/customers/customer-long`, `/purchases/debit-notes`, `/purchases/debit-notes/new`, mocked debit-note details, `/purchases/supplier-refunds`, `/purchases/supplier-refunds/new`, `/purchases/supplier-refunds/supplier-refund-1`, `/suppliers/supplier-long`, `/bank-accounts`, `/bank-accounts/bank-1`, `/bank-accounts/bank-1/statement-transactions`, `/bank-statement-transactions/statement-row-unmatched`, `/bank-accounts/bank-1/reconciliation`, `/bank-accounts/bank-1/reconciliations`, `/bank-reconciliations/rec-1`, `/bank-accounts/bank-1/cheques`, `/reports/aged-receivables`, `/reports/aged-payables`, `/reports/general-ledger`, and `/documents`.
+- Skipped routes because they do not exist: `/banking`, `/reconciliation`, `/cheques`, `/customers/customer-collections`, and `/suppliers/supplier-payables`. Existing nested banking/reconciliation/cheque routes were covered instead.
+- Unsupported states documented as skipped: cancelled credit/debit note state, stale cheque state, split bank transaction display, and supplier collections route. Existing app statuses and labels were used; no production status was invented.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/refund-collections-banking-detail-polish/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed: debit note detail mobile destructive action no longer stretches full-width, supplier long-detail AP summary fixture now resolves, banking route expectations match actual app labels, and access-denied Viewer banking states are accepted as restricted views.
+- No backend API, Prisma schema, migration, production auth provider behavior, payment/accounting/business logic, AR/AP state-machine behavior, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, fake provider connectivity, bank-feed claim, reconciliation automation claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: report drilldown depth, dense entry-form ergonomics, secondary operational routes, and accountant review of final refund/banking wording.
 
 ## Detail-State Accountant Mobile Visual QA Summary
 

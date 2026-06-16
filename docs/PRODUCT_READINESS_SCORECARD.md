@@ -4,6 +4,16 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 Refund Collections Banking Detail Polish Update
+
+- Controlled beta UI confidence improves because refund, collections, banking, reconciliation, cheque, report, and document detail surfaces now have local Playwright visual coverage.
+- The fixture remains local/test-only and read-only. It models existing app statuses, balances, manual banking records, statement rows, reconciliation snapshots, cheques, long-field content, and restricted-role behavior without changing backend behavior.
+- The route matrix checks existing refund/collections/banking/detail routes across desktop, tablet, and mobile. It uses nested banking/reconciliation/cheque routes where those features actually live.
+- The role matrix checks `Owner`, `Accountant`, and `Viewer`, including restricted-action behavior for Viewer and accounting-heavy readability for Accountant.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/refund-collections-banking-detail-polish/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, banking provider, or production compliance readiness.
+- Remaining UI readiness gaps are report drilldown depth, dense entry-form ergonomics, secondary operational route migration, and accountant review of final refund/banking wording.
+
 ## 2026-06-16 Detail-State Accountant Mobile Visual QA Update
 
 - Controlled beta UI confidence improves because realistic transaction detail states and accountant-heavy mobile/table surfaces now have local Playwright visual coverage.

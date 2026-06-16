@@ -191,6 +191,34 @@ const secondBankAccount = {
   ledgerBalance: "400.0000",
 };
 
+const negativeBankAccount = {
+  ...bankAccount,
+  id: "bank-negative",
+  accountId: "bank-account-asset-negative",
+  displayName: "Operations overdraft account with long branch reference",
+  accountNumberMasked: "**** 9001",
+  ibanMasked: "SA**9001",
+  notes: "Manual statement import testing only. Negative balance fixture.",
+  account: { ...bankAccount.account, id: "bank-account-asset-negative", code: "1030", name: "Operations Overdraft" },
+  ledgerBalance: "-2450.7500",
+  latestTransactionDate: "2026-05-20T00:00:00.000Z",
+  transactionCount: 3,
+};
+
+const inactiveBankAccount = {
+  ...bankAccount,
+  id: "bank-inactive",
+  accountId: "bank-account-asset-inactive",
+  status: "INACTIVE",
+  displayName: "Archived manual bank profile",
+  accountNumberMasked: "**** 0000",
+  ibanMasked: "SA**0000",
+  account: { ...bankAccount.account, id: "bank-account-asset-inactive", code: "1040", name: "Archived Bank", isActive: false },
+  ledgerBalance: "0.0000",
+  latestTransactionDate: null,
+  transactionCount: 0,
+};
+
 const invoice = {
   id: "invoice-1",
   organizationId: org.id,
@@ -712,6 +740,11 @@ const creditNoteVariants = {
     unappliedAmount: "50.0000",
     allocations: [creditNoteAllocation("credit-note-final-partial-allocation", "credit-note-finalized", "65.0000", "585.0000")],
   }),
+  "credit-note-partially-applied": creditNoteVariant("credit-note-partially-applied", "CN-STATE-PARTIAL", {
+    status: "FINALIZED",
+    unappliedAmount: "50.0000",
+    allocations: [creditNoteAllocation("credit-note-partial-allocation", "credit-note-partially-applied", "65.0000", "585.0000")],
+  }),
   "credit-note-applied": creditNoteVariant("credit-note-applied", "CN-STATE-APPLIED", {
     status: "FINALIZED",
     unappliedAmount: "0.0000",
@@ -720,6 +753,25 @@ const creditNoteVariants = {
   "credit-note-unapplied": creditNoteVariant("credit-note-unapplied", "CN-STATE-UNAPPLIED", {
     status: "FINALIZED",
     unappliedAmount: "115.0000",
+    allocations: [],
+  }),
+  "credit-note-voided": creditNoteVariant("credit-note-voided", "CN-STATE-VOIDED", {
+    status: "VOIDED",
+    unappliedAmount: "0.0000",
+    allocations: [],
+    reversalJournalEntryId: "journal-credit-note-voided-reversal",
+    reversalJournalEntry: { id: "journal-credit-note-voided-reversal", entryNumber: "JE-CN-VOID", status: "POSTED" },
+  }),
+  "credit-note-long-large": creditNoteVariant("credit-note-long-large", "CN-STATE-LONG-LARGE", {
+    customer: visualCustomers["customer-long"],
+    customerId: "customer-long",
+    subtotal: "987654.3200",
+    taxableTotal: "987654.3200",
+    taxTotal: "148148.1500",
+    total: "1135802.4700",
+    unappliedAmount: "1135802.4700",
+    reason: "Extended commercial credit reason covering returned materials, disputed delivery windows, and board-approved customer allowance",
+    notes: "Long local visual note for refund and collections layout review. This does not imply provider automation, bank sync, or production compliance.",
     allocations: [],
   }),
 } as const;
@@ -739,6 +791,11 @@ const debitNoteVariants = {
     unappliedAmount: "50.0000",
     allocations: [debitNoteAllocation("debit-note-final-partial-allocation", "debit-note-finalized", "65.0000", "455.0000")],
   }),
+  "debit-note-partially-applied": debitNoteVariant("debit-note-partially-applied", "DN-STATE-PARTIAL", {
+    status: "FINALIZED",
+    unappliedAmount: "50.0000",
+    allocations: [debitNoteAllocation("debit-note-partial-allocation", "debit-note-partially-applied", "65.0000", "455.0000")],
+  }),
   "debit-note-applied": debitNoteVariant("debit-note-applied", "DN-STATE-APPLIED", {
     status: "FINALIZED",
     unappliedAmount: "0.0000",
@@ -747,6 +804,25 @@ const debitNoteVariants = {
   "debit-note-unapplied": debitNoteVariant("debit-note-unapplied", "DN-STATE-UNAPPLIED", {
     status: "FINALIZED",
     unappliedAmount: "115.0000",
+    allocations: [],
+  }),
+  "debit-note-voided": debitNoteVariant("debit-note-voided", "DN-STATE-VOIDED", {
+    status: "VOIDED",
+    unappliedAmount: "0.0000",
+    allocations: [],
+    reversalJournalEntryId: "journal-debit-note-voided-reversal",
+    reversalJournalEntry: { id: "journal-debit-note-voided-reversal", entryNumber: "JE-DN-VOID", status: "POSTED" },
+  }),
+  "debit-note-long-large": debitNoteVariant("debit-note-long-large", "DN-STATE-LONG-LARGE", {
+    supplier: visualSuppliers["supplier-long"],
+    supplierId: "supplier-long",
+    subtotal: "876543.2100",
+    taxableTotal: "876543.2100",
+    taxTotal: "131481.4800",
+    total: "1008024.6900",
+    unappliedAmount: "1008024.6900",
+    reason: "Extended supplier debit reason covering price protection, returned stock, and manual AP adjustment review",
+    notes: "Long local visual note for payables and refund layout review. This does not imply provider automation, bank sync, or production compliance.",
     allocations: [],
   }),
 } as const;
@@ -1069,6 +1145,386 @@ const bankTransfer = {
   voidReversalJournalEntry: null,
 };
 
+const customerRefund = {
+  id: "customer-refund-1",
+  organizationId: org.id,
+  refundNumber: "CRF-VIS-001",
+  customerId: customer.id,
+  sourceType: "CREDIT_NOTE",
+  sourcePaymentId: null,
+  sourceCreditNoteId: "credit-note-unapplied",
+  refundDate: "2026-05-21T00:00:00.000Z",
+  currency: "SAR",
+  status: "POSTED",
+  amountRefunded: "75.0000",
+  accountId: bankAccount.accountId,
+  description: "Manual customer refund against unapplied credit note. Local visual fixture only.",
+  journalEntryId: "journal-customer-refund-1",
+  voidReversalJournalEntryId: null,
+  postedAt: fixedVisualDate,
+  voidedAt: null,
+  customer,
+  account: bankAccount.account,
+  sourcePayment: null,
+  sourceCreditNote: {
+    id: "credit-note-unapplied",
+    creditNoteNumber: "CN-STATE-UNAPPLIED",
+    issueDate: creditNote.issueDate,
+    status: "FINALIZED",
+    total: "115.0000",
+    unappliedAmount: "40.0000",
+    currency: "SAR",
+  },
+  journalEntry: { id: "journal-customer-refund-1", entryNumber: "JE-CRF-001", status: "POSTED", totalDebit: "75.0000", totalCredit: "75.0000" },
+  voidReversalJournalEntry: null,
+};
+
+const supplierRefund = {
+  id: "supplier-refund-1",
+  organizationId: org.id,
+  refundNumber: "SRF-VIS-001",
+  supplierId: supplier.id,
+  sourceType: "PURCHASE_DEBIT_NOTE",
+  sourcePaymentId: null,
+  sourceDebitNoteId: "debit-note-unapplied",
+  refundDate: "2026-05-21T00:00:00.000Z",
+  currency: "SAR",
+  status: "POSTED",
+  amountRefunded: "85.0000",
+  accountId: bankAccount.accountId,
+  description: "Manual supplier refund against unapplied debit note. Local visual fixture only.",
+  journalEntryId: "journal-supplier-refund-1",
+  voidReversalJournalEntryId: null,
+  postedAt: fixedVisualDate,
+  voidedAt: null,
+  supplier,
+  account: bankAccount.account,
+  sourcePayment: null,
+  sourceDebitNote: {
+    id: "debit-note-unapplied",
+    debitNoteNumber: "DN-STATE-UNAPPLIED",
+    issueDate: debitNote.issueDate,
+    status: "FINALIZED",
+    total: "115.0000",
+    unappliedAmount: "30.0000",
+    currency: "SAR",
+  },
+  journalEntry: { id: "journal-supplier-refund-1", entryNumber: "JE-SRF-001", status: "POSTED", totalDebit: "85.0000", totalCredit: "85.0000" },
+  voidReversalJournalEntry: null,
+};
+
+const customerRefundVoided = {
+  ...customerRefund,
+  id: "customer-refund-voided",
+  refundNumber: "CRF-VIS-VOID",
+  status: "VOIDED",
+  voidReversalJournalEntryId: "journal-customer-refund-void",
+  voidedAt: fixedVisualDate,
+  voidReversalJournalEntry: { id: "journal-customer-refund-void", entryNumber: "JE-CRF-VOID", status: "POSTED" },
+};
+
+const supplierRefundVoided = {
+  ...supplierRefund,
+  id: "supplier-refund-voided",
+  refundNumber: "SRF-VIS-VOID",
+  status: "VOIDED",
+  voidReversalJournalEntryId: "journal-supplier-refund-void",
+  voidedAt: fixedVisualDate,
+  voidReversalJournalEntry: { id: "journal-supplier-refund-void", entryNumber: "JE-SRF-VOID", status: "POSTED" },
+};
+
+const collectionCase = {
+  id: "collection-case-visual",
+  organizationId: org.id,
+  caseNumber: "COL-VIS-001",
+  customerId: "customer-long",
+  salesInvoiceId: "invoice-overdue",
+  status: "PROMISED_TO_PAY",
+  priority: "HIGH",
+  followUpDate: "2026-05-22T00:00:00.000Z",
+  promisedPaymentDate: "2026-05-27T00:00:00.000Z",
+  promisedAmount: "500.0000",
+  assignedToUserId: null,
+  lastActivityAt: fixedVisualDate,
+  nextActionAt: "2026-05-22T00:00:00.000Z",
+  summary: "Follow up on overdue invoice across multiple aging buckets with customer finance team.",
+  notes: "Local collection case fixture. It tracks follow-up only and does not send email, create payment links, allocate payments, or post journals.",
+  createdById: "user-1",
+  updatedById: "user-1",
+  createdAt: fixedVisualDate,
+  updatedAt: fixedVisualDate,
+  customer: visualCustomers["customer-long"],
+  salesInvoice: {
+    id: "invoice-overdue",
+    invoiceNumber: "INV-STATE-OVERDUE",
+    customerId: "customer-long",
+    issueDate: "2026-04-01T00:00:00.000Z",
+    dueDate: "2026-04-15T00:00:00.000Z",
+    currency: "SAR",
+    status: "FINALIZED",
+    total: "1150.0000",
+    balanceDue: "1150.0000",
+  },
+  assignedTo: null,
+  createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+  updatedBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+  activities: [
+    {
+      id: "collection-activity-1",
+      organizationId: org.id,
+      collectionCaseId: "collection-case-visual",
+      customerId: "customer-long",
+      salesInvoiceId: "invoice-overdue",
+      activityType: "PROMISE_TO_PAY",
+      activityDate: fixedVisualDate,
+      note: "Customer promised partial payment after internal approval.",
+      nextFollowUpDate: "2026-05-22T00:00:00.000Z",
+      promisedPaymentDate: "2026-05-27T00:00:00.000Z",
+      promisedAmount: "500.0000",
+      createdById: "user-1",
+      createdAt: fixedVisualDate,
+      createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    },
+  ],
+  invoiceSettled: false,
+  nonPostingNotice: "Collections records help track follow-up work. They do not post journals, allocate payments, send emails, create payment links, file VAT, call ZATCA, or change invoice balances.",
+};
+
+const statementTransactions = [
+  {
+    id: "statement-row-unmatched",
+    organizationId: org.id,
+    importId: "statement-import-1",
+    bankAccountProfileId: bankAccount.id,
+    transactionDate: "2026-05-21T00:00:00.000Z",
+    description: "Manual imported customer receipt with long remittance description for visual QA",
+    reference: "STM-LONG-001",
+    type: "CREDIT",
+    amount: "1250.0000",
+    status: "UNMATCHED",
+    matchedJournalLineId: null,
+    matchedJournalEntryId: null,
+    matchType: null,
+    categorizedAccountId: null,
+    createdJournalEntryId: null,
+    ignoredReason: null,
+    rawData: { bankReference: "BNK-REF-LONG-001", counterparty: "Visual Customer International Holdings and Construction Services Company Limited", currency: "SAR" },
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    import: { id: "statement-import-1", filename: "manual-statement.csv", status: "IMPORTED", importedAt: fixedVisualDate },
+    bankAccountProfile: bankAccount,
+    reconciliationItems: [],
+  },
+  {
+    id: "statement-row-matched",
+    organizationId: org.id,
+    importId: "statement-import-1",
+    bankAccountProfileId: bankAccount.id,
+    transactionDate: "2026-05-20T00:00:00.000Z",
+    description: "Matched supplier payment clearing row",
+    reference: "STM-MATCH-001",
+    type: "DEBIT",
+    amount: "250.0000",
+    status: "MATCHED",
+    matchedJournalLineId: "journal-line-bank-transfer",
+    matchedJournalEntryId: "journal-bank-transfer-1",
+    matchType: "MANUAL",
+    categorizedAccountId: null,
+    createdJournalEntryId: null,
+    ignoredReason: null,
+    rawData: { bankReference: "BNK-REF-MATCH-001", counterparty: "Visual Supplier", currency: "SAR" },
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    import: { id: "statement-import-1", filename: "manual-statement.csv", status: "IMPORTED", importedAt: fixedVisualDate },
+    bankAccountProfile: bankAccount,
+    matchedJournalEntry: { id: "journal-bank-transfer-1", entryNumber: "JE-BTR-001", entryDate: bankTransfer.transferDate, description: bankTransfer.description, reference: bankTransfer.transferNumber },
+    reconciliationItems: [],
+  },
+  {
+    id: "statement-row-ignored",
+    organizationId: org.id,
+    importId: "statement-import-1",
+    bankAccountProfileId: bankAccount.id,
+    transactionDate: "2026-05-19T00:00:00.000Z",
+    description: "Duplicate manual statement export row",
+    reference: "STM-IGNORE-001",
+    type: "DEBIT",
+    amount: "25.0000",
+    status: "IGNORED",
+    matchedJournalLineId: null,
+    matchedJournalEntryId: null,
+    matchType: null,
+    categorizedAccountId: null,
+    createdJournalEntryId: null,
+    ignoredReason: "Duplicate row from manual CSV export.",
+    rawData: { bankReference: "BNK-REF-IGNORE-001", counterparty: "Visual Bank", currency: "SAR" },
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    import: { id: "statement-import-1", filename: "manual-statement.csv", status: "IMPORTED", importedAt: fixedVisualDate },
+    bankAccountProfile: bankAccount,
+    reconciliationItems: [],
+  },
+];
+
+const reconciliation = {
+  id: "rec-1",
+  organizationId: org.id,
+  bankAccountProfileId: bankAccount.id,
+  reconciliationNumber: "REC-VIS-001",
+  periodStart: "2026-05-01T00:00:00.000Z",
+  periodEnd: "2026-05-21T00:00:00.000Z",
+  statementOpeningBalance: "1000.0000",
+  statementClosingBalance: "1250.0000",
+  ledgerClosingBalance: "1250.0000",
+  difference: "0.0000",
+  status: "DRAFT",
+  notes: "Manual reconciliation review fixture. No automatic reconciliation is enabled.",
+  createdById: "user-1",
+  submittedById: null,
+  approvedById: null,
+  reopenedById: null,
+  closedById: null,
+  voidedById: null,
+  submittedAt: null,
+  approvedAt: null,
+  reopenedAt: null,
+  closedAt: null,
+  voidedAt: null,
+  approvalNotes: null,
+  reopenReason: null,
+  createdAt: fixedVisualDate,
+  updatedAt: fixedVisualDate,
+  unmatchedTransactionCount: 1,
+  bankAccountProfile: bankAccount,
+  createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+  submittedBy: null,
+  approvedBy: null,
+  reopenedBy: null,
+  closedBy: null,
+  voidedBy: null,
+  _count: { items: 2 },
+};
+
+const cheques = [
+  {
+    id: "cheque-received",
+    organizationId: org.id,
+    chequeType: "RECEIVED",
+    status: "RECEIVED",
+    bankAccountProfileId: bankAccount.id,
+    depositBatchId: null,
+    statementTransactionId: null,
+    counterpartyType: "CUSTOMER",
+    counterpartyId: "customer-long",
+    counterpartyName: "Visual Customer International Holdings and Construction Services Company Limited",
+    chequeNumber: "CHQ-REC-LONG-001",
+    drawerBankName: "Visual Drawer Bank",
+    payeeName: "LedgerByte Visual Co LLC",
+    issueDate: "2026-05-18T00:00:00.000Z",
+    receivedDate: "2026-05-19T00:00:00.000Z",
+    dueDate: "2026-05-25T00:00:00.000Z",
+    depositDate: null,
+    clearedDate: null,
+    bouncedDate: null,
+    voidedDate: null,
+    amount: "120000.0000",
+    currency: "SAR",
+    reference: "Manual cheque fixture",
+    memo: "Long payee and amount layout check. Operational-only fixture.",
+    bounceReason: null,
+    voidReason: null,
+    postedJournalEntryId: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    bankAccountProfile: bankAccount,
+    depositBatch: null,
+    statementTransaction: null,
+    createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    updatedBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    postedJournalEntry: null,
+  },
+  {
+    id: "cheque-cleared",
+    organizationId: org.id,
+    chequeType: "ISSUED",
+    status: "CLEARED",
+    bankAccountProfileId: bankAccount.id,
+    depositBatchId: null,
+    statementTransactionId: "statement-row-matched",
+    counterpartyType: "SUPPLIER",
+    counterpartyId: supplier.id,
+    counterpartyName: supplier.displayName,
+    chequeNumber: "CHQ-ISS-001",
+    drawerBankName: "Visual Bank",
+    payeeName: supplier.displayName,
+    issueDate: "2026-05-10T00:00:00.000Z",
+    receivedDate: null,
+    dueDate: "2026-05-20T00:00:00.000Z",
+    depositDate: null,
+    clearedDate: "2026-05-20T00:00:00.000Z",
+    bouncedDate: null,
+    voidedDate: null,
+    amount: "250.0000",
+    currency: "SAR",
+    reference: "Cleared manual cheque",
+    memo: "Matched to manual statement row.",
+    bounceReason: null,
+    voidReason: null,
+    postedJournalEntryId: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    bankAccountProfile: bankAccount,
+    depositBatch: null,
+    statementTransaction: statementTransactions[1],
+    createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    updatedBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    postedJournalEntry: null,
+  },
+  {
+    id: "cheque-voided",
+    organizationId: org.id,
+    chequeType: "ISSUED",
+    status: "VOIDED",
+    bankAccountProfileId: bankAccount.id,
+    depositBatchId: null,
+    statementTransactionId: null,
+    counterpartyType: "OTHER",
+    counterpartyId: null,
+    counterpartyName: "Voided Payee",
+    chequeNumber: "CHQ-VOID-001",
+    drawerBankName: "Visual Bank",
+    payeeName: "Voided Payee",
+    issueDate: "2026-05-08T00:00:00.000Z",
+    receivedDate: null,
+    dueDate: "2026-05-18T00:00:00.000Z",
+    depositDate: null,
+    clearedDate: null,
+    bouncedDate: null,
+    voidedDate: "2026-05-19T00:00:00.000Z",
+    amount: "300.0000",
+    currency: "SAR",
+    reference: "Voided manual cheque",
+    memo: "Voided status visual fixture.",
+    bounceReason: null,
+    voidReason: "Incorrect payee.",
+    postedJournalEntryId: null,
+    createdById: "user-1",
+    updatedById: "user-1",
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    bankAccountProfile: bankAccount,
+    depositBatch: null,
+    statementTransaction: null,
+    createdBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    updatedBy: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    postedJournalEntry: null,
+  },
+];
+
 const generatedDocuments = [
   {
     id: "generated-document-1",
@@ -1204,7 +1660,7 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (supplierDetailMatch) {
     return json(supplierPartyDetail(supplierDetailMatch[1] as keyof typeof visualSuppliers));
   }
-  if (pathname === "/contacts/suppliers/supplier-1/ap-summary") {
+  if (pathname.match(/^\/contacts\/suppliers\/supplier-[^/]+\/ap-summary$/)) {
     return json(supplierApSummary());
   }
   const contactCustomerMatch = pathname.match(/^\/contacts\/(customer-[^/]+)$/);
@@ -1287,6 +1743,44 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (creditNoteDetailMatch) {
     return json(creditNoteById(creditNoteDetailMatch[1]));
   }
+  if (pathname === "/customer-refunds") {
+    return json(customerRefunds());
+  }
+  if (pathname === "/customer-refunds/refundable-sources") {
+    return json({
+      customer: visualCustomers["customer-long"],
+      payments: [
+        {
+          id: "payment-unallocated",
+          paymentNumber: "PAY-STATE-UNAPPLIED",
+          paymentDate: customerPayment.paymentDate,
+          currency: "SAR",
+          status: "POSTED",
+          amountReceived: "300.0000",
+          unappliedAmount: "300.0000",
+        },
+      ],
+      creditNotes: [
+        {
+          id: "credit-note-unapplied",
+          creditNoteNumber: "CN-STATE-UNAPPLIED",
+          issueDate: creditNote.issueDate,
+          currency: "SAR",
+          status: "FINALIZED",
+          total: "115.0000",
+          unappliedAmount: "115.0000",
+        },
+      ],
+    });
+  }
+  const customerRefundPdfMatch = pathname.match(/^\/customer-refunds\/([^/]+)\/pdf-data$/);
+  if (customerRefundPdfMatch) {
+    return json(customerRefundPdfData(customerRefundById(customerRefundPdfMatch[1])));
+  }
+  const customerRefundDetailMatch = pathname.match(/^\/customer-refunds\/([^/]+)$/);
+  if (customerRefundDetailMatch) {
+    return json(customerRefundById(customerRefundDetailMatch[1]));
+  }
   if (pathname === "/purchase-bills") {
     return json(Object.values(purchaseBillVariants));
   }
@@ -1346,26 +1840,111 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (debitNoteDetailMatch) {
     return json(debitNoteById(debitNoteDetailMatch[1]));
   }
-  if (pathname === "/collections/customer/customer-1") {
-    return json([]);
+  if (pathname === "/supplier-refunds") {
+    return json(supplierRefunds());
+  }
+  if (pathname === "/supplier-refunds/refundable-sources") {
+    return json({
+      supplier: visualSuppliers["supplier-long"],
+      payments: [
+        {
+          id: "supplier-payment-unallocated",
+          paymentNumber: "SPAY-STATE-UNAPPLIED",
+          paymentDate: supplierPayment.paymentDate,
+          currency: "SAR",
+          status: "POSTED",
+          amountPaid: "300.0000",
+          unappliedAmount: "300.0000",
+        },
+      ],
+      debitNotes: [
+        {
+          id: "debit-note-unapplied",
+          debitNoteNumber: "DN-STATE-UNAPPLIED",
+          issueDate: debitNote.issueDate,
+          currency: "SAR",
+          status: "FINALIZED",
+          total: "115.0000",
+          unappliedAmount: "115.0000",
+        },
+      ],
+    });
+  }
+  const supplierRefundPdfMatch = pathname.match(/^\/supplier-refunds\/([^/]+)\/pdf-data$/);
+  if (supplierRefundPdfMatch) {
+    return json(supplierRefundPdfData(supplierRefundById(supplierRefundPdfMatch[1])));
+  }
+  const supplierRefundDetailMatch = pathname.match(/^\/supplier-refunds\/([^/]+)$/);
+  if (supplierRefundDetailMatch) {
+    return json(supplierRefundById(supplierRefundDetailMatch[1]));
+  }
+  if (pathname === "/collections/summary") {
+    return json(collectionSummary());
+  }
+  if (pathname === "/collections") {
+    return json([collectionCase]);
+  }
+  const collectionDetailMatch = pathname.match(/^\/collections\/([^/]+)$/);
+  if (collectionDetailMatch) {
+    return json(collectionCase);
+  }
+  if (pathname.match(/^\/collections\/customer\/[^/]+$/)) {
+    return json([collectionCase]);
   }
   if (pathname === "/bank-accounts") {
-    return json([bankAccount, secondBankAccount]);
+    return json([bankAccount, secondBankAccount, negativeBankAccount, inactiveBankAccount]);
   }
-  if (pathname === "/bank-accounts/bank-1") {
-    return json(bankAccount);
+  const bankAccountDetailMatch = pathname.match(/^\/bank-accounts\/([^/]+)$/);
+  if (bankAccountDetailMatch) {
+    return json(bankAccountById(bankAccountDetailMatch[1]));
   }
   if (pathname === "/bank-accounts/bank-1/transactions") {
     return json(bankAccountTransactions());
   }
+  if (pathname === "/bank-accounts/bank-1/statement-transactions") {
+    return json(statementTransactions);
+  }
   if (pathname === "/bank-accounts/bank-1/statement-imports") {
     return json([statementImport()]);
   }
-  if (pathname === "/bank-accounts/bank-1/reconciliation") {
+  if (pathname === "/bank-accounts/bank-1/reconciliation-summary") {
     return json(reconciliationSummary());
+  }
+  if (pathname === "/bank-accounts/bank-1/reconciliations") {
+    return json([reconciliation, { ...reconciliation, id: "rec-closed", reconciliationNumber: "REC-VIS-CLOSED", status: "CLOSED", closedAt: fixedVisualDate, unmatchedTransactionCount: 0 }]);
+  }
+  const bankReconciliationItemsMatch = pathname.match(/^\/bank-reconciliations\/([^/]+)\/items$/);
+  if (bankReconciliationItemsMatch) {
+    return json(reconciliationItems());
+  }
+  const bankReconciliationEventsMatch = pathname.match(/^\/bank-reconciliations\/([^/]+)\/review-events$/);
+  if (bankReconciliationEventsMatch) {
+    return json(reconciliationReviewEvents());
+  }
+  const bankReconciliationReportMatch = pathname.match(/^\/bank-reconciliations\/([^/]+)\/report-data$/);
+  if (bankReconciliationReportMatch) {
+    return json(reconciliationReportData());
+  }
+  const bankReconciliationDetailMatch = pathname.match(/^\/bank-reconciliations\/([^/]+)$/);
+  if (bankReconciliationDetailMatch) {
+    return json(reconciliation);
+  }
+  const statementTransactionCandidatesMatch = pathname.match(/^\/bank-statement-transactions\/([^/]+)\/match-candidates$/);
+  if (statementTransactionCandidatesMatch) {
+    return json(statementMatchCandidates());
+  }
+  const statementTransactionDetailMatch = pathname.match(/^\/bank-statement-transactions\/([^/]+)$/);
+  if (statementTransactionDetailMatch) {
+    return json(statementTransactionById(statementTransactionDetailMatch[1]));
+  }
+  if (pathname === "/cheques") {
+    return json(cheques);
   }
   if (pathname === "/bank-transfers/transfer-1") {
     return json(bankTransfer);
+  }
+  if (pathname === "/attachments") {
+    return json([]);
   }
   if (pathname === "/items") {
     return json([item]);
@@ -1483,6 +2062,26 @@ function creditNoteById(id: string) {
 
 function debitNoteById(id: string) {
   return debitNoteVariants[id as keyof typeof debitNoteVariants] ?? debitNote;
+}
+
+function customerRefunds() {
+  return [customerRefund, customerRefundVoided];
+}
+
+function customerRefundById(id: string) {
+  return customerRefunds().find((refund) => refund.id === id) ?? customerRefund;
+}
+
+function supplierRefunds() {
+  return [supplierRefund, supplierRefundVoided];
+}
+
+function supplierRefundById(id: string) {
+  return supplierRefunds().find((refund) => refund.id === id) ?? supplierRefund;
+}
+
+function bankAccountById(id: string) {
+  return [bankAccount, secondBankAccount, negativeBankAccount, inactiveBankAccount].find((profile) => profile.id === id) ?? bankAccount;
 }
 
 function openInvoiceSummary(candidate: (typeof salesInvoiceVariants)[keyof typeof salesInvoiceVariants]) {
@@ -2069,6 +2668,206 @@ function zatcaReadinessSection(scope: string, message: string, severity: "ERROR"
   };
 }
 
+function customerRefundPdfData(refund = customerRefund) {
+  return {
+    organization: org,
+    customer,
+    refund: {
+      id: refund.id,
+      refundNumber: refund.refundNumber,
+      refundDate: refund.refundDate,
+      status: refund.status,
+      currency: refund.currency,
+      amountRefunded: refund.amountRefunded,
+      description: refund.description,
+    },
+    source: {
+      type: refund.sourceType,
+      id: refund.sourceCreditNoteId ?? "refund-source",
+      number: refund.sourceCreditNote?.creditNoteNumber ?? "Refund source",
+      date: refund.sourceCreditNote?.issueDate ?? refund.refundDate,
+      status: refund.sourceCreditNote?.status ?? "FINALIZED",
+      originalAmount: refund.sourceCreditNote?.total ?? refund.amountRefunded,
+      remainingUnappliedAmount: refund.sourceCreditNote?.unappliedAmount ?? "0.0000",
+    },
+    paidFromAccount: bankAccount.account,
+    journalEntry: refund.journalEntry,
+    voidReversalJournalEntry: refund.voidReversalJournalEntry,
+    generatedAt: fixedVisualDate,
+  };
+}
+
+function supplierRefundPdfData(refund = supplierRefund) {
+  return {
+    organization: org,
+    supplier,
+    refund: {
+      id: refund.id,
+      refundNumber: refund.refundNumber,
+      refundDate: refund.refundDate,
+      status: refund.status,
+      currency: refund.currency,
+      amountRefunded: refund.amountRefunded,
+      description: refund.description,
+    },
+    source: {
+      type: refund.sourceType,
+      id: refund.sourceDebitNoteId ?? "refund-source",
+      number: refund.sourceDebitNote?.debitNoteNumber ?? "Refund source",
+      date: refund.sourceDebitNote?.issueDate ?? refund.refundDate,
+      status: refund.sourceDebitNote?.status ?? "FINALIZED",
+      originalAmount: refund.sourceDebitNote?.total ?? refund.amountRefunded,
+      remainingUnappliedAmount: refund.sourceDebitNote?.unappliedAmount ?? "0.0000",
+    },
+    receivedIntoAccount: bankAccount.account,
+    journalEntry: refund.journalEntry,
+    voidReversalJournalEntry: refund.voidReversalJournalEntry,
+    generatedAt: fixedVisualDate,
+  };
+}
+
+function collectionSummary() {
+  return {
+    totalOverdueAmount: "2750.0000",
+    overdueInvoiceCount: 4,
+    openCollectionCaseCount: 1,
+    casesDueToday: 1,
+    casesOverdueForFollowUp: 1,
+    promisedToPayTotal: "500.0000",
+    disputedTotal: "250.0000",
+    topCustomersByOverdueAmount: [
+      { customerId: "customer-long", customerName: visualCustomers["customer-long"].displayName, overdueAmount: "1600.0000", overdueInvoiceCount: 2 },
+      { customerId: customer.id, customerName: customer.displayName, overdueAmount: "1150.0000", overdueInvoiceCount: 2 },
+    ],
+    agingBuckets: [
+      { bucket: "CURRENT", amount: "0.0000" },
+      { bucket: "1_30", amount: "650.0000" },
+      { bucket: "31_60", amount: "850.0000" },
+      { bucket: "61_90", amount: "500.0000" },
+      { bucket: "90_PLUS", amount: "750.0000" },
+    ],
+    safeWording: "Collections records track follow-up work only.",
+  };
+}
+
+function statementTransactionById(id: string) {
+  return statementTransactions.find((transaction) => transaction.id === id) ?? statementTransactions[0];
+}
+
+function statementMatchCandidates() {
+  return [
+    {
+      journalLineId: "journal-line-candidate-1",
+      journalEntryId: "journal-payment-1",
+      date: customerPayment.paymentDate,
+      entryNumber: "JE-PAY-001",
+      description: "Customer payment received",
+      reference: customerPayment.paymentNumber,
+      debit: "1250.0000",
+      credit: "0.0000",
+      score: 91,
+      reason: "Same direction and amount, nearby date. Manual review required.",
+    },
+  ];
+}
+
+function reconciliationItems() {
+  return statementTransactions.slice(0, 2).map((transaction, index) => ({
+    id: `rec-item-${index + 1}`,
+    organizationId: org.id,
+    reconciliationId: reconciliation.id,
+    statementTransactionId: transaction.id,
+    statusAtClose: transaction.status,
+    amount: transaction.amount,
+    type: transaction.type,
+    createdAt: fixedVisualDate,
+    statementTransaction: transaction,
+  }));
+}
+
+function reconciliationReviewEvents() {
+  return [
+    {
+      id: "rec-event-1",
+      organizationId: org.id,
+      reconciliationId: reconciliation.id,
+      actorUserId: "user-1",
+      action: "CREATED",
+      fromStatus: null,
+      toStatus: "DRAFT",
+      notes: "Draft created for local visual review.",
+      createdAt: fixedVisualDate,
+      actorUser: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+    },
+  ];
+}
+
+function reconciliationReportData() {
+  return {
+    organization: org,
+    currency: "SAR",
+    reconciliation,
+    bankAccount: { id: bankAccount.id, displayName: bankAccount.displayName, currency: bankAccount.currency, account: bankAccount.account },
+    items: reconciliationItems().map((item) => ({
+      id: item.id,
+      statementTransactionId: item.statementTransactionId,
+      transactionDate: item.statementTransaction.transactionDate,
+      description: item.statementTransaction.description,
+      reference: item.statementTransaction.reference,
+      type: item.type,
+      amount: item.amount,
+      statusAtClose: item.statusAtClose,
+    })),
+    summary: {
+      itemCount: 2,
+      debitTotal: "250.0000",
+      creditTotal: "1250.0000",
+      matchedCount: 1,
+      categorizedCount: 0,
+      ignoredCount: 0,
+      totalRowsCount: 3,
+      matchedRowsCount: 1,
+      categorizedRowsCount: 0,
+      ignoredRowsCount: 1,
+      unmatchedRowsCount: 1,
+      unreconciledRowsCount: 1,
+      ruleAppliedRowsCount: 0,
+      creditRowsCount: 1,
+      debitRowsCount: 2,
+      creditRowsTotal: "1250.0000",
+      debitRowsTotal: "275.0000",
+      exceptionRowsCount: 1,
+    },
+    linkedTreasurySummary: {
+      depositBatches: { count: 1, matchedCount: 1, journalPostedCount: 1, operationalOnlyCount: 0, totalAmount: "1250.0000" },
+      cardSettlements: { count: 0, matchedCount: 0, journalPostedCount: 0, operationalOnlyCount: 0, totalAmount: "0.0000" },
+      cheques: { count: 2, matchedCount: 1, journalPostedCount: 0, operationalOnlyCount: 2, totalAmount: "120250.0000" },
+    },
+    accountingStatusSummary: {
+      clearingConfigEnabled: false,
+      configuredAccountCount: 0,
+      journalPostedCount: 1,
+      operationalOnlyCount: 2,
+      missingClearingConfig: true,
+    },
+    auditTimeline: [
+      {
+        id: "audit-rec-1",
+        occurredAt: fixedVisualDate,
+        type: "RECONCILIATION_EVENT",
+        label: "Statement row matched",
+        entityType: "BANK_STATEMENT_TRANSACTION",
+        entityId: "statement-row-matched",
+        status: "MATCHED",
+        actor: { id: "user-1", name: "Visual User", email: "visual@example.test" },
+        amount: "250.0000",
+        reference: "STM-MATCH-001",
+      },
+    ],
+    generatedAt: fixedVisualDate,
+  };
+}
+
 function customerPaymentReceiptData(payment = customerPayment) {
   return {
     receiptNumber: payment.paymentNumber,
@@ -2306,27 +3105,26 @@ function statementImport() {
 
 function reconciliationSummary() {
   return {
-    bankAccount,
-    asOf: "2026-05-21",
-    unreconciledStatementBalance: "1250.0000",
-    unmatchedTransactionCount: 1,
-    matchedTransactionCount: 1,
-    latestReconciliation: {
-      id: "rec-1",
-      reconciliationNumber: "REC-VIS-001",
-      status: "DRAFT",
-      statementDate: "2026-05-21T00:00:00.000Z",
-      statementClosingBalance: "1250.0000",
-      ledgerClosingBalance: "1250.0000",
-      difference: "0.0000",
+    profile: bankAccount,
+    from: "2026-05-01",
+    to: "2026-05-21",
+    imports: [statementImport()],
+    totals: {
+      credits: { count: 1, total: "1250.0000" },
+      debits: { count: 2, total: "275.0000" },
+      unmatched: { count: 1, total: "1250.0000" },
+      matched: { count: 1, total: "250.0000" },
+      categorized: { count: 0, total: "0.0000" },
+      ignored: { count: 1, total: "25.0000" },
     },
-    importedTransactionSummary: {
-      unmatched: 1,
-      matched: 1,
-      categorized: 0,
-      ignored: 0,
-    },
-    lockedPeriodWarning: null,
+    ledgerBalance: "1250.0000",
+    statementClosingBalance: "1250.0000",
+    difference: "0.0000",
+    statusSuggestion: "NEEDS_REVIEW",
+    latestClosedReconciliation: { ...reconciliation, status: "CLOSED", closedAt: "2026-05-20T00:00:00.000Z", unmatchedTransactionCount: 0 },
+    hasOpenDraftReconciliation: true,
+    unreconciledTransactionCount: 1,
+    closedThroughDate: "2026-05-20T00:00:00.000Z",
   };
 }
 
