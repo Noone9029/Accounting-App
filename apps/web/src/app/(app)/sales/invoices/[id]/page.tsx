@@ -9,6 +9,9 @@ import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-d
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PanelSection } from "@/components/ui-ledger/panel-section";
+import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
@@ -1382,20 +1385,13 @@ export function InvoiceWorkflowGuidance({
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <PanelSection title="What happened?" description={invoiceOutcomeDescription(invoice, paymentState)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">{invoiceOutcomeDescription(invoice, paymentState)}</p>
-          </div>
+          <div className="text-sm leading-6 text-muted-foreground">Invoice workflow summary</div>
           <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${salesInvoiceStatusBadgeClass(invoice.status)}`}>
-              {statusLabel}
-            </span>
+            <StatusBadge tone={invoice.status === "FINALIZED" ? "success" : invoice.status === "VOIDED" ? "danger" : "muted"}>{statusLabel}</StatusBadge>
             {invoice.status === "FINALIZED" ? (
-              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${invoicePaymentStateBadgeClass(paymentState)}`}>
-                {paymentState}
-              </span>
+              <StatusBadge tone={paymentState === "Paid" ? "success" : paymentState === "Partially paid" ? "warning" : "muted"}>{paymentState}</StatusBadge>
             ) : null}
           </div>
         </div>
@@ -1404,63 +1400,57 @@ export function InvoiceWorkflowGuidance({
           <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
           <Summary label="Journal" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} posted` : "Not posted yet"} />
         </div>
-      </div>
+      </PanelSection>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Next actions</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">{invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}</p>
+      <PanelSection title="Next actions" description={invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}>
         <div className="mt-4 flex flex-col gap-2">
           {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-            <button
+            <Button
               type="button"
               onClick={onFinalize}
               disabled={actionLoading}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               Finalize invoice
-            </button>
+            </Button>
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
-            <Link
-              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
-            >
+            <Link href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`} className={buttonVariants()}>
               Record payment
             </Link>
           ) : null}
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onDownloadPdf}
             disabled={actionLoading}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
             Download invoice PDF
-          </button>
+          </Button>
           {invoice.customerId ? (
-            <Link href={`/customers/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={`/customers/${invoice.customerId}`} className={buttonVariants({ variant: "outline" })}>
               View customer ledger
             </Link>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link href="/reports/profit-and-loss" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href="/reports/profit-and-loss" className={buttonVariants({ variant: "outline" })}>
               View report
             </Link>
-            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
               Dashboard
             </Link>
           </div>
         </div>
         {invoice.status === "DRAFT" && !canFinalizeInvoice ? (
-          <p className="mt-3 text-xs leading-5 text-steel">You need invoice finalization permission before this draft can be posted.</p>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">You need invoice finalization permission before this draft can be posted.</p>
         ) : null}
         {invoice.status === "FINALIZED" && hasBalanceDue && !canCreateCustomerPayment ? (
-          <p className="mt-3 text-xs leading-5 text-steel">You need customer payment permission to record money against this invoice.</p>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">You need customer payment permission to record money against this invoice.</p>
         ) : null}
         {invoice.status === "VOIDED" ? (
-          <p className="mt-3 text-xs leading-5 text-steel">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
         ) : null}
         <SourceDocumentGuidance className="mt-4" />
-      </div>
+      </PanelSection>
     </div>
   );
 }

@@ -2,9 +2,17 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `363ee49a80737796a6f15ec606b7b7d99d9afdb1` (`origin/main` after PR #48 UAE PINT-AE official-code TODO review merge) plus the current UAE PINT-AE scenario fixture validation QA branch.
+Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
 Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
+
+## 2026-06-16 UI Shadcn Shell/Dashboard Refresh Update
+
+- Overall controlled beta usability improves because the core web shell, dashboard, sales invoice list, purchase bill list, and sales invoice workflow guidance now share a shadcn/ui-based component foundation.
+- This is a frontend experience/readability improvement only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, or production compliance readiness.
+- Three.js is limited to one subtle dashboard financial-flow visual with reduced-motion and no-WebGL fallbacks.
+- No backend API, schema, migration, accounting logic, tax logic, payment behavior, compliance behavior, provider adapter, Vercel/Supabase setting, or production infrastructure changed.
+- Remaining UI readiness gaps are route coverage and visual QA breadth: secondary workspaces, dense forms, report pages, mobile edge states, and role-filtered authenticated states still need gradual migration and browser review.
 
 ## 2026-06-16 UAE PINT-AE Scenario Fixture Validation QA Update
 

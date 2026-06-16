@@ -2,17 +2,27 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/uae-pint-ae-scenario-fixtures-validation-qa`.
-- Base: fresh `origin/main` at `363ee49a80737796a6f15ec606b7b7d99d9afdb1` after PR `#48` UAE PINT-AE official-code TODO review was merged.
+- Branch: `feature/ui-shadcn-shell-dashboard-refresh`.
+- Base: fresh `origin/main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` after PR `#49` UAE PINT-AE scenario fixture validation QA was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: UAE PINT-AE scenario fixture expansion and validation QA.
+- Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch expands local-only UAE PINT-AE golden fixtures, fixture validation, and QA summary coverage for the existing serializer/rule pack.
-- It keeps all real ASP calls, ASP validation, FTA reporting, Peppol transmission, provider-specific adapters, and production compliance claims disabled.
+- This branch introduces shadcn/ui as the frontend component foundation, adds LedgerByte wrapper components, refreshes the app shell/dashboard/list surfaces, and uses Three.js only for a subtle dashboard financial-flow visual.
+- It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## UI Shadcn Shell Dashboard Refresh Summary
+
+- PR `#49` was already merged into `main` on 2026-06-15 with merge commit `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c`; it was not re-merged.
+- Created `feature/ui-shadcn-shell-dashboard-refresh` from updated `origin/main`.
+- Initialized shadcn/ui in `apps/web`, added the requested primitives, and added LedgerByte wrapper components for page headers, KPI cards, data tables, filters, status badges, empty states, action grids, and panel sections.
+- Reworked the app shell with a dark grouped sidebar, polished topbar, shadcn sheet mobile navigation, existing organization switcher/search/create-menu contracts, existing route links, and existing permission filtering.
+- Redesigned `/dashboard` using existing dashboard data only, with KPI cards, P&L/Cash Flow tabs, read-only attention panels, onboarding progress, quick actions, and the single restrained Three.js financial-flow background.
+- Migrated the sales invoices list, purchase bills list, and the sales invoice workflow guidance/detail surface to the new shadcn/LedgerByte pattern without changing accounting, finalization, payment, tax, or compliance behavior.
+- Remaining UI migration scope: broader route-by-route adoption, deeper form modernization, visual QA across more authenticated states, and design-system consolidation after this first shell/dashboard/list pass.
 
 ## UAE PINT-AE Scenario Fixture Validation QA Summary
 

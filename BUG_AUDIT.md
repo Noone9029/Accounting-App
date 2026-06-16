@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `363ee49a80737796a6f15ec606b7b7d99d9afdb1` (`origin/main` after PR #48 UAE PINT-AE official-code TODO review merge) plus the current UAE PINT-AE scenario fixture validation QA branch.
+Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
+
+## 2026-06-16 LedgerByte UI shadcn shell/dashboard refresh
+
+Modernized the web UI foundation and core operational surfaces without changing backend, accounting, compliance, provider, or infrastructure behavior.
+
+### What changed
+
+- Introduced shadcn/ui in `apps/web` as the frontend component foundation.
+- Added LedgerByte wrapper components for page headers, KPI cards, data tables, filters, status badges, empty states, action grids, and panel sections.
+- Reworked the app shell with a dark grouped sidebar, cleaner topbar, existing organization switcher, existing search/create-menu behavior, permission-filtered navigation, and mobile sheet navigation.
+- Redesigned `/dashboard` around existing dashboard data only, including KPI cards, P&L/Cash Flow tabs, read-only attention panels, onboarding progress, quick actions, and one restrained Three.js financial-flow background.
+- Migrated the sales invoices list, purchase bills list, and sales invoice workflow guidance/detail surface to the new shadcn/LedgerByte pattern.
+
+### Boundaries
+
+- Frontend-only modernization.
+- No backend API, Prisma schema, migration, UAE PINT-AE, ZATCA, provider adapter, Vercel/Supabase, production infrastructure, hosted/customer-data mutation, or production compliance behavior changed.
+- No fake financial numbers, fake compliance claims, fake automation, or non-functional dashboard controls were added.
+- Three.js is limited to the dashboard visual layer and includes reduced-motion, WebGL-unavailable, and jsdom fallback behavior.
+- Remaining UI risk is migration breadth: many secondary app routes still use legacy local styling and should move gradually to the new wrappers.
 
 ## 2026-06-16 UAE PINT-AE scenario fixture validation QA
 

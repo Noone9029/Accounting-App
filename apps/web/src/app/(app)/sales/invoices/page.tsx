@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui-ledger/data-table";
+import { EmptyState } from "@/components/ui-ledger/empty-state";
+import { FilterBar } from "@/components/ui-ledger/filter-bar";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -86,17 +94,17 @@ export default function SalesInvoicesPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Sales invoices</h1>
-          <p className="mt-1 text-sm text-steel">Draft and finalized customer invoices from the live API.</p>
-        </div>
-        {canCreateInvoice ? (
-          <Link href="/sales/invoices/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Create invoice
-          </Link>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Sales invoices"
+        description="Draft and finalized customer invoices from the live API."
+        actions={
+          canCreateInvoice ? (
+            <Link href="/sales/invoices/new" className={buttonVariants()}>
+              Create invoice
+            </Link>
+          ) : null
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load invoices.</StatusMessage> : null}
@@ -104,17 +112,19 @@ export default function SalesInvoicesPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && invoices.length === 0 ? (
-          <StatusMessage type="empty">
-            No sales invoices found. Create the first draft invoice, then finalize it when the customer and totals are ready.
-          </StatusMessage>
+          <EmptyState
+            title="No sales invoices found"
+            description="Create the first draft invoice, then finalize it when the customer and totals are ready."
+            action={canCreateInvoice ? <Link href="/sales/invoices/new" className={buttonVariants()}>Create invoice</Link> : null}
+          />
         ) : null}
       </div>
 
       {invoices.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+        <FilterBar>
           <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 h-8 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20">
               <option value="ALL">All</option>
               <option value="DRAFT">Draft</option>
               <option value="FINALIZED">Finalized</option>
@@ -122,81 +132,74 @@ export default function SalesInvoicesPage() {
             </select>
           </label>
           <label className="block min-w-64">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer</span>
-            <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <span className="text-xs font-medium uppercase text-muted-foreground">Customer</span>
+            <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 w-full" />
           </label>
-        </div>
+        </FilterBar>
       ) : null}
 
       {invoices.length > 0 && filteredInvoices.length === 0 ? (
         <div className="mt-5">
-          <StatusMessage type="empty">No invoices match the current filters.</StatusMessage>
+          <EmptyState title="No invoices match the current filters" />
         </div>
       ) : null}
 
       {filteredInvoices.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1280px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Issue</th>
-                <th className="px-4 py-3">Due</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Subtotal</th>
-                <th className="px-4 py-3">Tax</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Balance due</th>
-                <th className="px-4 py-3">Journal</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <DataTable minWidth="min-w-[1280px]">
+            <TableHeader className="bg-muted/60 text-xs uppercase text-muted-foreground">
+              <TableRow>
+                <TableHead>Number</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Issue</TableHead>
+                <TableHead>Due</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Subtotal</TableHead>
+                <TableHead>Tax</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Balance due</TableHead>
+                <TableHead>Journal</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredInvoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
-                  <td className="px-4 py-3 font-medium text-ink">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{new Date(invoice.issueDate).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(invoice.dueDate)}</td>
-                  <td className="px-4 py-3">
+                <TableRow key={invoice.id}>
+                  <TableCell className="font-mono text-xs">{invoice.invoiceNumber}</TableCell>
+                  <TableCell className="font-medium text-foreground">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatOptionalDate(invoice.dueDate)}</TableCell>
+                  <TableCell>
                     <InvoiceStatusPill status={invoice.status} />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.total, invoice.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</td>
-                  <td className="px-4 py-3 text-steel">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.total, invoice.currency)}</TableCell>
+                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</TableCell>
+                  <TableCell className="text-muted-foreground">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</TableCell>
+                  <TableCell>
                     <div className="flex gap-2">
-                      <Link href={`/sales/invoices/${invoice.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <Link href={`/sales/invoices/${invoice.id}`} className={buttonVariants({ variant: "outline", size: "xs" })}>
                         View
                       </Link>
                       {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-                        <button type="button" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <Button type="button" variant="outline" size="xs" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id}>
                           Finalize
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+        </DataTable>
       ) : null}
     </section>
   );
 }
 
 function InvoiceStatusPill({ status }: { status: SalesInvoiceStatus }) {
-  const className =
-    status === "FINALIZED"
-      ? "bg-emerald-50 text-emerald-700"
-      : status === "VOIDED"
-        ? "bg-rose-50 text-rosewood"
-        : "bg-slate-100 text-slate-700";
   const label = status === "FINALIZED" ? "Finalized/posted" : status === "VOIDED" ? "Voided" : "Draft";
+  const tone = status === "FINALIZED" ? "success" : status === "VOIDED" ? "danger" : "muted";
 
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{label}</span>;
+  return <StatusBadge tone={tone}>{label}</StatusBadge>;
 }

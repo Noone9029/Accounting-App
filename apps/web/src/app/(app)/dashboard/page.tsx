@@ -14,9 +14,14 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { FinancialFlowScene } from "@/components/dashboard/financial-flow-scene";
 import { StatusMessage } from "@/components/common/status-message";
 import { DashboardFirstWorkflowPrompt, DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { buttonVariants } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KpiCard } from "@/components/ui-ledger/kpi-card";
+import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -145,28 +150,27 @@ export default function DashboardPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
-          <p className="mt-1 text-sm text-steel">
-            Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}.
-          </p>
-          {summary ? <p className="mt-1 text-xs text-steel">Last updated {new Date(summary.asOf).toLocaleString()}.</p> : null}
-        </div>
-        {quickActions.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {quickActions.slice(0, 3).map((action) => (
-              <Link
-                key={action.href}
-                href={action.href}
-                className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                {action.label}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            ))}
+      <div className="relative mb-6 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
+        <FinancialFlowScene />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}.
+            </p>
+            {summary ? <p className="mt-1 text-xs text-muted-foreground">Last updated {new Date(summary.asOf).toLocaleString()}.</p> : null}
           </div>
-        ) : null}
+          {quickActions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {quickActions.slice(0, 3).map((action) => (
+                <Link key={action.href} href={action.href} className={buttonVariants({ variant: "outline" })}>
+                  {action.label}
+                  <ArrowRight data-icon="inline-end" aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -220,33 +224,82 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-            <div className="space-y-5">
-              <Section title="Sales & purchases" action={drilldownLinks.profitAndLoss ? <SectionLink link={drilldownLinks.profitAndLoss} /> : null}>
-                <MetricGrid
-                  items={[
-                    { label: "Sales this month", value: formatDashboardMoney(summary.sales.salesThisMonth, summary.currency), href: drilldownLinks.unpaidInvoices?.href },
-                    {
-                      label: "Customer payments",
-                      value: formatDashboardMoney(summary.sales.customerPaymentThisMonth, summary.currency),
-                      href: drilldownLinks.customerPayments?.href,
-                    },
-                    { label: "Purchases this month", value: formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency), href: drilldownLinks.unpaidBills?.href },
-                    {
-                      label: "Supplier payments",
-                      value: formatDashboardMoney(summary.purchases.supplierPaymentThisMonth, summary.currency),
-                      href: drilldownLinks.supplierPayments?.href,
-                    },
-                  ]}
-                />
-                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <SalesPurchasesTrend
-                    sales={summary.trends.monthlySales}
-                    purchases={summary.trends.monthlyPurchases}
-                    currency={summary.currency}
-                  />
-                  <NetProfitTrend points={summary.trends.monthlyNetProfit} currency={summary.currency} />
-                </div>
-              </Section>
+            <div className="min-w-0 space-y-5">
+              <Tabs defaultValue="profit-loss">
+                <TabsList className="mb-3" variant="line" aria-label="Dashboard views">
+                  <TabsTrigger value="profit-loss">Profit & Loss</TabsTrigger>
+                  <TabsTrigger value="cash-flow">Cash Flow</TabsTrigger>
+                </TabsList>
+                <TabsContent value="profit-loss" className="space-y-5">
+                  <Section title="Sales & purchases" action={drilldownLinks.profitAndLoss ? <SectionLink link={drilldownLinks.profitAndLoss} /> : null}>
+                    <MetricGrid
+                      items={[
+                        { label: "Sales this month", value: formatDashboardMoney(summary.sales.salesThisMonth, summary.currency), href: drilldownLinks.unpaidInvoices?.href },
+                        {
+                          label: "Customer payments",
+                          value: formatDashboardMoney(summary.sales.customerPaymentThisMonth, summary.currency),
+                          href: drilldownLinks.customerPayments?.href,
+                        },
+                        { label: "Purchases this month", value: formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency), href: drilldownLinks.unpaidBills?.href },
+                        {
+                          label: "Supplier payments",
+                          value: formatDashboardMoney(summary.purchases.supplierPaymentThisMonth, summary.currency),
+                          href: drilldownLinks.supplierPayments?.href,
+                        },
+                      ]}
+                    />
+                    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                      <SalesPurchasesTrend
+                        sales={summary.trends.monthlySales}
+                        purchases={summary.trends.monthlyPurchases}
+                        currency={summary.currency}
+                      />
+                      <NetProfitTrend points={summary.trends.monthlyNetProfit} currency={summary.currency} />
+                    </div>
+                  </Section>
+                </TabsContent>
+                <TabsContent value="cash-flow" className="space-y-5">
+                  <Section title="Banking and inventory" action={drilldownLinks.bankBalance ? <SectionLink link={drilldownLinks.bankBalance} /> : null}>
+                    <MetricGrid
+                      items={[
+                        {
+                          label: "Unreconciled bank rows",
+                          value: String(summary.banking.unreconciledTransactionCount),
+                          href: drilldownLinks.unreconciledTransactions?.href,
+                        },
+                        {
+                          label: "Latest reconciliation",
+                          value: summary.banking.latestReconciliationDate ? formatOptionalDate(summary.banking.latestReconciliationDate, "-") : "-",
+                          href: drilldownLinks.bankReconciliations?.href,
+                        },
+                        { label: "Low-stock items", value: String(summary.inventory.lowStockCount), href: drilldownLinks.lowStock?.href },
+                        { label: "Clearing variances", value: String(summary.inventory.clearingVarianceCount), href: drilldownLinks.clearingVariances?.href },
+                        { label: "Negative-stock items", value: String(summary.inventory.negativeStockCount), href: drilldownLinks.negativeStock?.href },
+                      ]}
+                    />
+                    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                      <CashBalanceTrend points={summary.trends.cashBalanceTrend} currency={summary.currency} />
+                      <LowStockMiniList items={summary.inventory.lowStockItems} />
+                    </div>
+                  </Section>
+
+                  <Section title="Compliance and controls" action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
+                    <MetricGrid
+                      items={[
+                        {
+                          label: "ZATCA production compliance",
+                          value: summary.compliance.zatcaProductionReady ? "Ready" : "Not enabled",
+                          href: drilldownLinks.zatcaReadiness?.href,
+                        },
+                        { label: "ZATCA blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.zatcaReadiness?.href },
+                        { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
+                        { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
+                        { label: "Balance sheet", value: dashboardHealthLabel(summary.reports.balanceSheetBalanced), href: drilldownLinks.balanceSheet?.href },
+                      ]}
+                    />
+                  </Section>
+                </TabsContent>
+              </Tabs>
 
               {canSeeSalesAttention ? (
                 <SalesArAttentionSection
@@ -261,46 +314,6 @@ export default function DashboardPage() {
                   <AgingBars title="AR aging" buckets={summary.aging.receivablesBuckets} currency={summary.currency} />
                   <AgingBars title="AP aging" buckets={summary.aging.payablesBuckets} currency={summary.currency} />
                 </div>
-              </Section>
-
-              <Section title="Banking and inventory" action={drilldownLinks.bankBalance ? <SectionLink link={drilldownLinks.bankBalance} /> : null}>
-                <MetricGrid
-                  items={[
-                    {
-                      label: "Unreconciled bank rows",
-                      value: String(summary.banking.unreconciledTransactionCount),
-                      href: drilldownLinks.unreconciledTransactions?.href,
-                    },
-                    {
-                      label: "Latest reconciliation",
-                      value: summary.banking.latestReconciliationDate ? formatOptionalDate(summary.banking.latestReconciliationDate, "-") : "-",
-                      href: drilldownLinks.bankReconciliations?.href,
-                    },
-                    { label: "Low-stock items", value: String(summary.inventory.lowStockCount), href: drilldownLinks.lowStock?.href },
-                    { label: "Clearing variances", value: String(summary.inventory.clearingVarianceCount), href: drilldownLinks.clearingVariances?.href },
-                    { label: "Negative-stock items", value: String(summary.inventory.negativeStockCount), href: drilldownLinks.negativeStock?.href },
-                  ]}
-                />
-                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <CashBalanceTrend points={summary.trends.cashBalanceTrend} currency={summary.currency} />
-                  <LowStockMiniList items={summary.inventory.lowStockItems} />
-                </div>
-              </Section>
-
-              <Section title="Compliance and controls" action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
-                <MetricGrid
-                  items={[
-                    {
-                      label: "ZATCA production compliance",
-                      value: summary.compliance.zatcaProductionReady ? "Ready" : "Not enabled",
-                      href: drilldownLinks.zatcaReadiness?.href,
-                    },
-                    { label: "ZATCA blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.zatcaReadiness?.href },
-                    { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
-                    { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
-                    { label: "Balance sheet", value: dashboardHealthLabel(summary.reports.balanceSheetBalanced), href: drilldownLinks.balanceSheet?.href },
-                  ]}
-                />
               </Section>
             </div>
 
@@ -367,37 +380,11 @@ export default function DashboardPage() {
 }
 
 function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: ReactNode; label: string; value: string; detail: string; href?: string }>) {
-  const content = (
-    <>
-      <div className="flex items-center gap-2 text-xs font-medium uppercase text-steel">
-        <span className="text-palm">{icon}</span>
-        {label}
-      </div>
-      <div className="mt-3 text-xl font-semibold text-ink">{value}</div>
-      <div className="mt-2 text-xs text-steel">{detail}</div>
-    </>
-  );
-
-  const className = "block rounded-md border border-slate-200 bg-white p-4 shadow-panel";
-  return href ? (
-    <Link href={href} className={`${className} transition hover:border-palm/40 hover:shadow-sm`}>
-      {content}
-    </Link>
-  ) : (
-    <div className={className}>{content}</div>
-  );
+  return <KpiCard icon={icon} label={label} value={value} detail={detail} href={href} />;
 }
 
 function Section({ title, action, children }: Readonly<{ title: string; action?: ReactNode; children: ReactNode }>) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {action}
-      </div>
-      <div className="mt-4">{children}</div>
-    </div>
-  );
+  return <PanelSection title={title} action={action}>{children}</PanelSection>;
 }
 
 function SectionLink({ link }: Readonly<{ link: DashboardDrilldownLink }>) {
