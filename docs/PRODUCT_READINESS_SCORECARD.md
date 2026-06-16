@@ -2,7 +2,17 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
+Latest commit audited: `643cc62dacb764d61e4f0acd7b99e51c4a43c502` (`origin/main` after PR #58 refund collections banking visual polish merge) plus the current report drilldown dense entry visual QA branch.
+
+## 2026-06-16 Report Drilldown Dense Entry Visual QA Update
+
+- Controlled beta UI confidence improves because report drilldowns, dense accounting tables, ledger-style entry screens, statements, documents, and audit logs now have local Playwright visual coverage.
+- The fixture remains local/test-only and read-only. It models existing report routes, VAT review wording, aged buckets, journal rows, statement rows, document archive rows, audit-log rows, long-field content, and restricted-role behavior without changing backend behavior.
+- The route matrix checks existing report and dense-entry routes across desktop, tablet, and mobile. It uses `/reports/vat-summary`, `/reports/vat-return`, party statement routes, and `/settings/audit-logs` where those features actually live.
+- The role matrix checks `Owner`, `Accountant`, and `Viewer`, including restricted export/create behavior for Viewer and accounting-heavy readability for Accountant.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/report-drilldown-dense-entry-visual-qa/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, banking provider, report calculation, report export, or production compliance readiness.
+- Remaining UI readiness gaps are secondary operational route migration, dense entry-form ergonomics beyond the checked screens, and accountant sign-off on final report wording.
 
 ## 2026-06-16 Refund Collections Banking Detail Polish Update
 

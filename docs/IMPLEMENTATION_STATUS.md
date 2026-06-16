@@ -26,6 +26,22 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-16 LedgerByte report drilldown dense entry visual QA:
+
+- PR `#58` (`Add refund collections banking visual polish`) was merged into `main` at `643cc62dacb764d61e4f0acd7b99e51c4a43c502` before this branch was created from fresh `origin/main`.
+- Extended the local-only visual fixture with report drilldown, VAT review, aged report, manual journal, customer/supplier statement, bank statement, document archive, and audit-log dense table data. The fixture remains read-only and local/test-only.
+- Added authenticated visual QA across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844` for report drilldowns and dense accounting routes.
+- Checked Profit & Loss hierarchy, Balance Sheet hierarchy, Trial Balance debit/credit columns, General Ledger opening/closing/running balances, VAT Summary/Return internal-review rows, aged receivables/payables buckets, long account/party names, zero rows, negative adjustments, large amounts, and totals rows.
+- Checked dense-entry states for manual journals, bank statement transaction review, customer/supplier statements, customer/supplier transaction workspaces, invoice/bill line items and payment allocations, documents, and audit logs.
+- Checked `Owner`, `Accountant`, and `Viewer` profiles. Viewer mutation/create/export/configuration actions are hidden, disabled, or blocked through existing behavior; Accountant checks focus on report readability and absence of owner-only admin affordances.
+- Covered existing routes for report index, Profit & Loss, Balance Sheet, Trial Balance, General Ledger, VAT Summary, VAT Return, aged receivables, aged payables, manual journals, bank statement transactions, customer/supplier statements and details, invoice/bill detail tables, documents, and audit logs.
+- Skipped `/reports/vat`, `/reports/cash-flow`, `/reports/customer-statement`, `/reports/supplier-statement`, and `/reports/audit-log` because those exact routes do not exist. Existing VAT summary/return, party statement, and audit-log routes were covered instead.
+- Screenshots and `visual-results.json` are generated under `artifacts/visual-qa/report-drilldown-dense-entry-visual-qa/` and intentionally left uncommitted because `artifacts/` is ignored.
+- Fixed only frontend/test issues found by visual QA: report export controls now require report-export permission, aging/VAT report guide create links respect create/payment permissions, audit-log fixture routing matches existing endpoints, and visual assertions match statement-load and mixed table/empty-state behavior.
+- No backend API, Prisma schema, migration, production auth behavior, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider adapter behavior, hosted/customer-data mutation, Vercel/Supabase command, infrastructure command, fake automation, fake bank feed, fake AI, fake report export success, report certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Recommended next prompt: `Secondary operational route polish visual QA`.
+
 2026-06-16 LedgerByte refund collections banking detail polish:
 
 - PR `#57` (`Add detail-state accountant mobile visual QA`) was merged into `main` at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2` before this branch was created from fresh `origin/main`.

@@ -31,6 +31,7 @@ jest.mock("@/hooks/use-active-organization", () => ({
 
 jest.mock("@/components/permissions/permission-provider", () => ({
   usePermissions: () => ({
+    can: () => true,
     canAny: () => true,
   }),
 }));

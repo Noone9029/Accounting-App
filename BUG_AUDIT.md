@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
+Latest commit audited: `643cc62dacb764d61e4f0acd7b99e51c4a43c502` (`origin/main` after PR #58 refund collections banking visual polish merge) plus the current report drilldown dense entry visual QA branch.
+
+## 2026-06-16 LedgerByte report drilldown dense entry visual QA
+
+Merged PR `#58` into `main` at `643cc62dacb764d61e4f0acd7b99e51c4a43c502`, then added report drilldown and dense accounting table local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Extended the local visual fixture with read-only Profit & Loss, Balance Sheet, Trial Balance, General Ledger, VAT Summary, VAT Return, aged receivables/payables, manual journal, customer/supplier statement, and audit-log data.
+- Added a Playwright report and dense-entry matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Covered `/reports`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/trial-balance`, `/reports/general-ledger`, `/reports/vat-summary`, `/reports/vat-return`, `/reports/aged-receivables`, `/reports/aged-payables`, `/journal-entries`, `/bank-accounts/bank-1/statement-transactions`, `/customers/customer-long/statement`, `/suppliers/supplier-long/statement`, `/customers/customer-long`, `/suppliers/supplier-long`, `/sales/invoices/invoice-partially-paid`, `/purchases/bills/bill-partially-paid`, `/documents`, and `/settings/audit-logs`.
+- Verified `Owner`, `Accountant`, and `Viewer` behavior for report visibility, dense accounting readability, export/action gating, and existing access-denied behavior.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/report-drilldown-dense-entry-visual-qa/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed: Viewer no longer sees report export controls through document-download permission, and report guide create links now respect invoice, bill, and payment create permissions. Test fixture ordering and visual assertions were calibrated for audit retention, statement loading, and mixed table states.
+- Skipped `/reports/vat`, `/reports/cash-flow`, `/reports/customer-statement`, `/reports/supplier-statement`, and `/reports/audit-log` because those exact routes do not exist.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, report calculation logic, journal posting logic, production auth behavior, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake automation, fake bank feed, fake AI, provider connectivity, fake report export success, report certification, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is secondary operational route polish, dense entry-form ergonomics beyond the checked screens, and accountant sign-off on final report wording.
 
 ## 2026-06-16 LedgerByte detail-state accountant mobile visual QA
 
