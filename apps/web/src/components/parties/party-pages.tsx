@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeftIcon, DownloadIcon, EditIcon, PrinterIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable } from "@/components/ui-ledger/data-table";
+import { KpiCard } from "@/components/ui-ledger/kpi-card";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { PanelSection } from "@/components/ui-ledger/panel-section";
+import { StatusBadge as LedgerStatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
@@ -19,7 +29,6 @@ import {
   listCustomers,
   listSuppliers,
   buildPartyTransactionHref,
-  partyStatusBadgeClass,
   partyDetailHref,
   partyStatementHref,
   partyTransactionActionHref,
@@ -337,53 +346,62 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{detail ? displayName(detail.contact) : copy.singularTitle}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{copy.detailDescription}</p>
-        </div>
-        <Link href={`/${copy.routeSegment}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back to {copy.pluralLower}
-        </Link>
-      </div>
+      <PageHeader
+        title={detail ? displayName(detail.contact) : copy.singularTitle}
+        description={copy.detailDescription}
+        actions={
+          <Link href={`/${copy.routeSegment}`} className={buttonVariants({ variant: "outline" })}>
+            <ArrowLeftIcon data-icon="inline-start" />
+            Back to {copy.pluralLower}
+          </Link>
+        }
+      />
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this {copy.singularLower}.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading {copy.singularLower}...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
       {detail ? (
-        <div className="mt-5 space-y-5">
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_0.7fr]">
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-ink">{displayName(detail.contact)}</h2>
-                    <StatusBadge isActive={detail.contact.isActive} />
-                  </div>
-                  <div className="mt-2 text-sm leading-6 text-steel">{contactReach(detail.contact)}</div>
-                  <div className="mt-2 text-sm leading-6 text-steel">{billingAddress(detail.contact)}</div>
-                </div>
-                <div className="flex flex-wrap gap-2 md:justify-end">
+        <div className="mt-5 flex flex-col gap-5">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+            <PanelSection
+              title={
+                <span className="flex flex-wrap items-center gap-2">
+                  {displayName(detail.contact)}
+                  <ActiveStatusBadge isActive={detail.contact.isActive} />
+                </span>
+              }
+              description={
+                <>
+                  <span className="block">{contactReach(detail.contact)}</span>
+                  <span className="block">{billingAddress(detail.contact)}</span>
+                </>
+              }
+              action={
+                <div className="flex flex-wrap gap-2">
                   <PartyNewTransactionMenu partyId={detail.contact.id} partyType={kind} userPermissions={activeMembership} />
                   {can(PERMISSIONS.contacts.manage) ? (
-                    <Link href={`/contacts/${detail.contact.id}`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    <Link href={`/contacts/${detail.contact.id}`} className={buttonVariants({ variant: "outline" })}>
+                      <EditIcon data-icon="inline-start" />
                       Edit {copy.singularLower}
                     </Link>
                   ) : null}
                 </div>
+              }
+            >
+              <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                <Summary label="Email / phone" value={contactReach(detail.contact)} />
+                <Summary label="Billing address" value={billingAddress(detail.contact)} />
+                <Summary label="VAT / TRN" value={[detail.contact.taxNumber, detail.contact.uaeTrn, detail.contact.uaeTin].filter(Boolean).join(" / ") || "-"} />
               </div>
-            </div>
+            </PanelSection>
 
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <div className="text-xs font-semibold uppercase tracking-wide text-steel">{copy.balanceTitle}</div>
-              <div className="mt-3 space-y-4">
-                <BalanceLine label={copy.openLabel} value={formatMoneyAmount(openBalance(detail), "SAR")} emphasized />
-                <BalanceLine label={copy.overdueLabel} value={formatMoneyAmount(overdueBalance(detail), "SAR")} />
-                <BalanceLine label="Last transaction" value={formatOptionalDate(detail.lastTransactionDate, "No transactions")} />
-              </div>
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <KpiCard label={copy.openLabel} value={formatMoneyAmount(openBalance(detail), "SAR")} detail={copy.balanceTitle} />
+              <KpiCard label={copy.overdueLabel} value={formatMoneyAmount(overdueBalance(detail), "SAR")} detail="Overdue balance from existing records" tone="warning" />
+              <KpiCard label="Last transaction" value={formatOptionalDate(detail.lastTransactionDate, "No transactions")} detail="Most recent activity date" tone="info" />
             </div>
           </div>
 
@@ -403,72 +421,65 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
             />
           ) : null}
 
-          <div className="flex flex-wrap gap-2 border-b border-slate-200">
-            {([
-              ["transactions", "Transaction List"],
-              ["details", `${copy.singularTitle} Details`],
-              ["notes", "Notes"],
-            ] as Array<[PartyTab, string]>).map(([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`border-b-2 px-3 py-2 text-sm font-medium ${activeTab === tab ? "border-palm text-ink" : "border-transparent text-steel hover:text-ink"}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PartyTab)} className="min-w-0">
+            <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="transactions">Transaction List</TabsTrigger>
+              <TabsTrigger value="details">{copy.singularTitle} Details</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+            </TabsList>
 
-          {activeTab === "transactions" ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-                  <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value as PartyTransactionStatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                    <option value="ALL">All transactions</option>
-                    <option value="OPEN">Open transactions</option>
-                    <option value="OVERDUE">Overdue transactions</option>
-                    <option value="PAID">Paid transactions</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Type</span>
-                  <select value={filters.type} onChange={(event) => updateFilter("type", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                    <option value="ALL">All types</option>
-                    {transactionTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-                  <input type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-                  <input type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={exportTransactions} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Export
-                  </button>
-                  <button type="button" onClick={() => window.print()} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Print
-                  </button>
+            <TabsContent value="transactions" className="min-w-0 flex flex-col gap-4 overflow-hidden">
+              <PanelSection title="Transaction filters" description="Filters apply only to the loaded transaction rows on this workspace.">
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
+                    <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value as PartyTransactionStatusFilter)} className="mt-1 h-8 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                      <option value="ALL">All transactions</option>
+                      <option value="OPEN">Open transactions</option>
+                      <option value="OVERDUE">Overdue transactions</option>
+                      <option value="PAID">Paid transactions</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">Type</span>
+                    <select value={filters.type} onChange={(event) => updateFilter("type", event.target.value)} className="mt-1 h-8 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                      <option value="ALL">All types</option>
+                      {transactionTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">From</span>
+                    <Input type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} className="mt-1" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase text-muted-foreground">To</span>
+                    <Input type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} className="mt-1" />
+                  </label>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" onClick={exportTransactions}>
+                      <DownloadIcon data-icon="inline-start" />
+                      Export
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => window.print()}>
+                      <PrinterIcon data-icon="inline-start" />
+                      Print
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </PanelSection>
 
               {kind === "supplier" ? (
                 <SupplierGroupedActivityTables transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
               ) : (
                 <PartyTransactionsTable transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
               )}
-            </div>
-          ) : null}
+            </TabsContent>
 
-          {activeTab === "details" ? <PartyDetails contact={detail.contact} kind={kind} /> : null}
-          {activeTab === "notes" ? <PartyNotes detail={detail} kind={kind} /> : null}
+            <TabsContent value="details">{activeTab === "details" ? <PartyDetails contact={detail.contact} kind={kind} /> : null}</TabsContent>
+            <TabsContent value="notes">{activeTab === "notes" ? <PartyNotes detail={detail} kind={kind} /> : null}</TabsContent>
+          </Tabs>
         </div>
       ) : null}
     </section>
@@ -489,56 +500,52 @@ function PartyTransactionsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[1180px] text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-          <tr>
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Type</th>
-            <th className="px-4 py-3">Transaction number</th>
-            <th className="px-4 py-3">Total before tax</th>
-            <th className="px-4 py-3">Tax amount</th>
-            <th className="px-4 py-3">Total</th>
-            <th className="px-4 py-3">Balance due</th>
-            <th className="px-4 py-3">Status</th>
-            {showPostingEffect ? <th className="px-4 py-3">Effect</th> : null}
-            <th className="px-4 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
+    <DataTable minWidth="min-w-[1180px]" className="mt-0">
+      <TableHeader className="bg-muted/50 text-xs uppercase text-muted-foreground">
+        <TableRow>
+          <TableHead>Date</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Transaction number</TableHead>
+          <TableHead>Total before tax</TableHead>
+          <TableHead>Tax amount</TableHead>
+          <TableHead>Total</TableHead>
+          <TableHead>Balance due</TableHead>
+          <TableHead>Status</TableHead>
+          {showPostingEffect ? <TableHead>Effect</TableHead> : null}
+          <TableHead>Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
           {transactions.map((transaction) => (
-            <tr key={transaction.id}>
-              <td className="px-4 py-3 text-steel">{formatOptionalDate(transaction.date, "-")}</td>
-              <td className="px-4 py-3 text-steel">{transaction.type}</td>
-              <td className="px-4 py-3 font-mono text-xs">{transaction.transactionNumber}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.subtotal, transaction.currency)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.taxAmount, transaction.currency)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.total, transaction.currency)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(transaction.balanceDue, transaction.currency)}</td>
-              <td className="px-4 py-3">
-                <span className={`rounded-md px-2 py-1 text-xs font-medium ${transactionStatusBadgeClass(transaction.status)}`}>
-                  {formatStatusLabel(transaction.status)}
-                </span>
-              </td>
+            <TableRow key={transaction.id}>
+              <TableCell className="text-muted-foreground">{formatOptionalDate(transaction.date, "-")}</TableCell>
+              <TableCell className="text-muted-foreground">{transaction.type}</TableCell>
+              <TableCell className="font-mono text-xs">{transaction.transactionNumber}</TableCell>
+              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.subtotal, transaction.currency)}</TableCell>
+              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.taxAmount, transaction.currency)}</TableCell>
+              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.total, transaction.currency)}</TableCell>
+              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.balanceDue, transaction.currency)}</TableCell>
+              <TableCell>
+                <LedgerStatusBadge tone={transactionStatusTone(transaction.status)}>{formatStatusLabel(transaction.status)}</LedgerStatusBadge>
+              </TableCell>
               {showPostingEffect ? (
-                <td className="px-4 py-3">
+                <TableCell>
                   {isOperationalNonPostingTransaction(transaction) ? (
-                    <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Non-posting</span>
+                    <LedgerStatusBadge tone="info">Non-posting</LedgerStatusBadge>
                   ) : (
-                    <span className="text-xs font-medium text-slate-700">Financial posting</span>
+                    <LedgerStatusBadge tone="muted">Financial posting</LedgerStatusBadge>
                   )}
-                </td>
+                </TableCell>
               ) : null}
-              <td className="px-4 py-3">
-                <Link href={partyTransactionActionHref(transaction)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <TableCell>
+                <Link href={partyTransactionActionHref(transaction)} className={buttonVariants({ variant: "outline", size: "xs" })}>
                   View
                 </Link>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+      </TableBody>
+    </DataTable>
   );
 }
 
@@ -840,7 +847,11 @@ function BalanceLine({ label, value, emphasized = false }: { label: string; valu
 }
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${partyStatusBadgeClass(isActive)}`}>{isActive ? "Active" : "Inactive"}</span>;
+  return <ActiveStatusBadge isActive={isActive} />;
+}
+
+function ActiveStatusBadge({ isActive }: { isActive: boolean }) {
+  return <LedgerStatusBadge tone={isActive ? "success" : "muted"}>{isActive ? "Active" : "Inactive"}</LedgerStatusBadge>;
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
@@ -885,18 +896,18 @@ function isOperationalNonPostingTransaction(transaction: PartyTransaction): bool
   return transaction.sourceType === "PurchaseOrder" || transaction.sourceType === "PurchaseReturn";
 }
 
-function transactionStatusBadgeClass(status: string): string {
+function transactionStatusTone(status: string): "success" | "warning" | "danger" | "muted" {
   const normalized = status.toUpperCase();
   if (normalized.includes("VOID") || normalized.includes("REVERSE") || normalized.includes("CANCEL")) {
-    return "bg-rose-50 text-rosewood";
+    return "danger";
   }
   if (normalized.includes("DRAFT") || normalized.includes("PENDING") || normalized.includes("PARTIAL")) {
-    return "bg-amber-50 text-amber-800";
+    return "warning";
   }
   if (normalized.includes("POST") || normalized.includes("FINAL") || normalized.includes("PAID") || normalized.includes("APPROVED")) {
-    return "bg-emerald-50 text-emerald-700";
+    return "success";
   }
-  return "bg-slate-100 text-slate-700";
+  return "muted";
 }
 
 function formatStatusLabel(status: string): string {

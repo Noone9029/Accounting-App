@@ -4,6 +4,26 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 LedgerByte UI shadcn transaction workflows
+
+Continued the frontend-only shadcn migration into daily transaction workspaces after PR `#51` was merged into `main` at `c19d69eba23eb01519ab70ece0bdaff960e2a223`.
+
+### What changed
+
+- Added small LedgerByte wrappers for transaction line-item framing and totals summary cards.
+- Migrated sales invoice creation to shadcn/LedgerByte page, details, line-items, action, and totals structure while preserving invoice numbering, tax-mode behavior, validation, submit payload, and redirect behavior.
+- Migrated purchase bill creation to the same transaction workflow structure while preserving AP draft behavior, inventory posting mode, warning copy, validation, submit payload, and redirect behavior.
+- Migrated the shared customer/supplier detail workspace with `PageHeader`, KPI cards, tabs, `DataTable`, and shared status badges while preserving real route links, permission-filtered actions, collections visibility, supplier AP summary loading, CSV export, and print behavior.
+- Added focused assertions for the migrated transaction sections, real customer/supplier payment links with return context, and absence of fake automation/compliance claims.
+
+### Boundaries
+
+- Frontend-only modernization.
+- No backend API, Prisma schema, migration, tax math, accounting posting, finalization, payment allocation, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- PR `#51` beta Vercel/Supabase gate evidence is preserved in `CODEX_HANDOFF.md`; it is beta/non-production evidence only.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope includes customer/supplier payment forms/details, additional dense transaction detail pages, reports, settings, and broader authenticated browser QA.
+
 ## 2026-06-16 LedgerByte UI shadcn shell/dashboard refresh
 
 Modernized the web UI foundation and core operational surfaces without changing backend, accounting, compliance, provider, or infrastructure behavior.

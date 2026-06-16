@@ -80,6 +80,26 @@ describe("Party activity summary statement entry points", () => {
     );
     expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
   });
+
+  it("keeps customer and supplier workspace cards tied to real routes without automation or compliance claims", () => {
+    const { rerender } = render(<PartyActivitySummary detail={customerDetail()} kind="customer" />);
+
+    expect(screen.getByText("Customer ledger visibility")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Payments 1" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+    expect(screen.queryByText(/auto-collect|email sent|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
+
+    rerender(<PartyActivitySummary detail={supplierDetail()} kind="supplier" />);
+
+    expect(screen.getByText("Supplier ledger visibility")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Supplier payments 1" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
+    );
+    expect(screen.queryByText(/auto-pay|supplier paid|payment scheduled|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
+  });
 });
 
 function supplierApSummary(): SupplierApDetailSummary {

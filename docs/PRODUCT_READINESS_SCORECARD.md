@@ -4,6 +4,14 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 UI Shadcn Transaction Workflows Update
+
+- Controlled beta usability improves for daily AR/AP entry and party review because sales invoice creation, purchase bill creation, and customer/supplier detail workspaces now use the shadcn/LedgerByte transaction layout.
+- This is a frontend experience/readability improvement only. It does not increase UAE eInvoicing, ZATCA, provider, legal, hosted/customer-data, or production compliance readiness.
+- Existing accounting, tax, finalization, AP state, payment allocation, permission, and route-link behavior is preserved.
+- PR `#51` beta deployment/Supabase gate evidence was observed before this branch and is documented in the handoff trail, but it remains beta/non-production evidence only.
+- Remaining UI readiness gaps include customer/supplier payment forms/details, other transaction details, reports, settings, mobile edge states, and broader role-filtered browser verification.
+
 Scoring uses a 0-100 practical readiness scale for the current codebase. A high score means the area is usable in the current MVP; it does not imply production legal/compliance readiness.
 
 ## 2026-06-16 UI Shadcn Shell/Dashboard Refresh Update

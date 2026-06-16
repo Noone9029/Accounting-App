@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-shadcn-shell-dashboard-refresh`.
-- Base: fresh `origin/main` at `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` after PR `#49` UAE PINT-AE scenario fixture validation QA was merged.
+- Branch: `feature/ui-shadcn-transaction-workflows`.
+- Base: fresh `origin/main` at `c19d69eba23eb01519ab70ece0bdaff960e2a223` after PR `#51` UI shell/dashboard shadcn refresh was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,22 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch introduces shadcn/ui as the frontend component foundation, adds LedgerByte wrapper components, refreshes the app shell/dashboard/list surfaces, and uses Three.js only for a subtle dashboard financial-flow visual.
+- This branch continues the shadcn/ui migration into dense transaction workflows: sales invoice creation, purchase bill creation, and the shared customer/supplier detail workspace.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## UI Shadcn Transaction Workflows Summary
+
+- PR `#51` (`Refresh LedgerByte UI shell and dashboard with shadcn`) was merged into `main` with merge commit `c19d69eba23eb01519ab70ece0bdaff960e2a223` before this branch began.
+- Before this branch, the PR `#51` beta deployment evidence was observed:
+  - API project `ledgerbyte-api-test`, deployment `dpl_3CZzo2Xm5DYXwG5MdDyKibnjnJde`, URL `https://ledgerbyte-api-test.vercel.app`.
+  - API `/health` returned `200` with `status: ok`; API `/readiness` returned `200` with database `ok`.
+  - Web project `ledgerbyte-web-test`, deployment `dpl_GY1hpGmEzkpMiMKxHrEpUQZKb2Mb`, URL `https://ledgerbyte-web-test.vercel.app`.
+  - Web root returned `200` and served the login app shell.
+- Before this branch, the Supabase gate evidence was observed for project `xynelbjqcmbgtscfmmzv`: already-merged PR `#49` migration `prisma_20260614100000_compliance_core_uae_readiness` was applied and recorded remotely as version `20260616000212`; migrations were verified afterward; Edge Functions list was empty, so no functions were deployed.
+- The stray Vercel CLI project `ui-shadcn-shell-dashboard-refresh` had already been removed and confirmed `404`.
+- This branch adds `LineItemsTable` and `TransactionSummaryCard` LedgerByte wrappers, migrates sales invoice and purchase bill creation forms to the shadcn/LedgerByte transaction layout, and modernizes the shared customer/supplier detail workspace with `PageHeader`, KPI cards, tabs, data tables, and status badges.
+- Customer/supplier payment screens were not migrated in this branch; they remain follow-up scope.
+- No backend API, Prisma schema, migration, UAE PINT-AE logic, ZATCA behavior, provider integration, Vercel/Supabase configuration, hosted/customer-data mutation, production infrastructure command, or production compliance/readiness claim was added.
 
 ## UI Shadcn Shell Dashboard Refresh Summary
 

@@ -2,8 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PlusIcon, SaveIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LineItemsTable } from "@/components/ui-ledger/line-items-table";
+import { PanelSection } from "@/components/ui-ledger/panel-section";
+import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
@@ -251,9 +258,9 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
   if (initialInvoice && initialInvoice.status !== "DRAFT") {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <StatusMessage type="error">Only draft invoices can be edited.</StatusMessage>
-        <Link href={`/sales/invoices/${initialInvoice.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <Link href={`/sales/invoices/${initialInvoice.id}`} className={buttonVariants({ variant: "outline", className: "self-start" })}>
           Back to invoice
         </Link>
       </div>
@@ -261,12 +268,15 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <PanelSection
+        title="Invoice details"
+        description="Draft header fields are saved before finalization; invoice numbering and posting behavior stay unchanged."
+      >
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Customer</span>
-            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <span className="text-sm font-medium text-foreground">Customer</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">Select customer</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
@@ -276,39 +286,39 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             </select>
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Invoice number</span>
-            <input
+            <span className="text-sm font-medium text-foreground">Invoice number</span>
+            <Input
               value={initialInvoice?.invoiceNumber ?? invoiceNumberPreview?.invoiceNumber ?? "From sequence"}
               readOnly
               aria-label="Invoice number"
-              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
+              className="mt-1 bg-muted text-muted-foreground"
             />
-            <span className="mt-1 block text-xs leading-5 text-steel">
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
               {initialInvoice ? "Draft invoice number assigned from the sequence." : (invoiceNumberPreview?.helperText ?? "Assigned from the invoice sequence when saved.")}
             </span>
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Tax mode</span>
-            <select value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <span className="text-sm font-medium text-foreground">Tax mode</span>
+            <select value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)} className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="TAX_EXCLUSIVE">Tax exclusive</option>
               <option value="TAX_INCLUSIVE">Tax inclusive</option>
               <option value="NO_TAX">No tax</option>
             </select>
-            <span className="mt-1 block text-xs leading-5 text-steel">
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
               {taxMode === "TAX_INCLUSIVE" ? "Entered line prices include VAT; LedgerByte extracts the tax portion." : taxMode === "NO_TAX" ? "Line tax rates are ignored and invoice tax is zero." : "Line prices exclude VAT; tax is added to the total."}
             </span>
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Issue date</span>
-            <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <span className="text-sm font-medium text-foreground">Issue date</span>
+            <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1" />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Due date</span>
-            <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <span className="text-sm font-medium text-foreground">Due date</span>
+            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1" />
           </label>
           <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Branch</span>
-            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <span className="text-sm font-medium text-foreground">Branch</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">No branch</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
@@ -318,17 +328,17 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             </select>
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Notes</span>
-            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <span className="text-sm font-medium text-foreground">Notes</span>
+            <Input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1" />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Terms</span>
-            <input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <span className="text-sm font-medium text-foreground">Terms</span>
+            <Input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-1" />
           </label>
         </div>
-      </div>
+      </PanelSection>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating invoices.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading invoice setup data...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
@@ -361,76 +371,105 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <div className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
-          <div>Item</div>
-          <div>Description</div>
-          <div>Revenue account</div>
-          <div>Qty</div>
-          <div>Price</div>
-          <div>Discount %</div>
-          <div>Tax</div>
-          <div>Total</div>
-          <div></div>
-        </div>
-        {lines.map((line, index) => {
-          const previewLine = preview.lines[index];
-          return (
-            <div key={line.id} className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
-              <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">No item</option>
-                {activeItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.sku ? `${item.sku} - ${item.name}` : item.name}
-                  </option>
-                ))}
-              </select>
-              <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
-              <input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <select value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"} className="rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400">
-                <option value="">{taxMode === "NO_TAX" ? "No tax mode" : "No tax"}</option>
-                {taxMode === "NO_TAX"
-                  ? null
-                  : activeSalesTaxRates.map((taxRate) => (
-                      <option key={taxRate.id} value={taxRate.id}>
-                        {taxRate.name}
-                      </option>
-                    ))}
-              </select>
-              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</div>
-              <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
-                Remove
-              </button>
-            </div>
-          );
-        })}
-        <div className="flex min-w-[1240px] items-center justify-between px-4 py-3 text-sm">
-          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
-            Add line
-          </button>
-          <div className="grid min-w-72 grid-cols-2 gap-2 text-right">
-            <span className="text-steel">Subtotal</span>
-            <span className="font-mono">{formatMoneyAmount(preview.subtotal)}</span>
-            <span className="text-steel">Discount</span>
-            <span className="font-mono">{formatMoneyAmount(preview.discountTotal)}</span>
-            <span className="text-steel">Taxable</span>
-            <span className="font-mono">{formatMoneyAmount(preview.taxableTotal)}</span>
-            <span className="text-steel">VAT</span>
-            <span className="font-mono">{formatMoneyAmount(preview.taxTotal)}</span>
-            <span className="font-semibold text-ink">Total</span>
-            <span className="font-mono font-semibold text-ink">{formatMoneyAmount(preview.total)}</span>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <LineItemsTable
+          title="Invoice line items"
+          description="Line entries keep the existing item, account, discount, tax, and total preview behavior."
+        >
+          <div className="overflow-x-auto">
+            <Table className="min-w-[1240px]">
+              <TableHeader className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Revenue account</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Discount %</TableHead>
+                  <TableHead>Tax</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line, index) => {
+                  const previewLine = preview.lines[index];
+                  return (
+                    <TableRow key={line.id}>
+                      <TableCell>
+                        <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm">
+                          <option value="">No item</option>
+                          {activeItems.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.sku ? `${item.sku} - ${item.name}` : item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </TableCell>
+                      <TableCell>
+                        <Input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required />
+                      </TableCell>
+                      <TableCell>
+                        <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
+                      </TableCell>
+                      <TableCell>
+                        <Input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="w-28" />
+                      </TableCell>
+                      <TableCell>
+                        <Input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <select value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"} className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm disabled:bg-muted disabled:text-muted-foreground">
+                          <option value="">{taxMode === "NO_TAX" ? "No tax mode" : "No tax"}</option>
+                          {taxMode === "NO_TAX"
+                            ? null
+                            : activeSalesTaxRates.map((taxRate) => (
+                                <option key={taxRate.id} value={taxRate.id}>
+                                  {taxRate.name}
+                                </option>
+                              ))}
+                        </select>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</TableCell>
+                      <TableCell>
+                        <Button type="button" variant="outline" size="xs" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
-        </div>
+          <div className="border-t px-4 py-3">
+            <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, makeLine()])}>
+              <PlusIcon data-icon="inline-start" />
+              Add line
+            </Button>
+          </div>
+        </LineItemsTable>
+
+        <TransactionSummaryCard
+          rows={[
+            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal) },
+            { label: "Discount", value: formatMoneyAmount(preview.discountTotal) },
+            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal) },
+            { label: "VAT", value: formatMoneyAmount(preview.taxTotal) },
+            { label: "Total", value: formatMoneyAmount(preview.total), emphasized: true },
+          ]}
+        />
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <Button type="submit" disabled={!organizationId || loading || submitting || !preview.valid}>
+          <SaveIcon data-icon="inline-start" />
           {submitting ? "Saving..." : initialInvoice ? "Save changes" : "Create draft invoice"}
-        </button>
-        <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+        </Button>
+        <Link href={returnTo || "/sales/invoices"} className={buttonVariants({ variant: "outline" })}>
           Cancel
         </Link>
       </div>
@@ -460,21 +499,21 @@ function AccountPicker({
   const grouped = groupAccountsByType(filteredAccounts);
 
   return (
-    <div className="space-y-1">
-      <input
+    <div className="flex flex-col gap-1">
+      <Input
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label={`Search posting account for line ${lineNumber}`}
         placeholder="Search accounts"
-        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-palm"
+        className="h-7 text-xs"
       />
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required
         aria-label={`Posting account for line ${lineNumber}`}
-        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+        className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm"
       >
         <option value="">Select account</option>
         {Object.entries(grouped).map(([type, group]) => (
