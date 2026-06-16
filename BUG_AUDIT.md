@@ -4274,6 +4274,15 @@ Recommended next step:
 
 # DEV-08J AP repeated idempotency/blocker closure - 2026-05-28
 
+# UI shadcn payment workflows audit note - 2026-06-16
+
+- PR `#52` was safely merged before this branch; latest `main` after merge was `25cb9ef9a0ef3225cde03dcfa935703743601762`.
+- Customer and supplier payment list/create/detail routes were migrated to existing shadcn/LedgerByte UI primitives without changing payment behavior.
+- Added focused tests for payment summary rendering, allocation table rendering, status badge mapping, permission-filtered list actions, and absence of fake payment automation/provider claims.
+- No backend/API/schema/migration/payment posting/allocation/AR/AP/UAE PINT-AE/ZATCA/provider behavior changed.
+- No new production compliance, certification, fake bank-feed, fake auto-match, fake autopay, or fake provider claim was added.
+- Remaining risk is UI-only: more legacy surfaces still need migration, and browser verification relies on local mocked/read-only responses unless authenticated local API state is available.
+
 - Local-only DEV-08J evidence created marker-scoped AP fixtures, verified repeated/idempotency behavior, and checked expected blocker paths for purchase orders, purchase bills, supplier payments, supplier refunds, purchase debit notes, cash expenses, and purchase receipts.
 - Repeated AP output generation for purchase bill, supplier payment receipt, supplier refund, purchase debit note, and cash expense created additional archive rows. Duplicate output behavior remains an open product decision: preserve versioned duplicates, reuse existing rows, or supersede older rows.
 - Source PDF output was hardened: AP source PDF stream/generate routes now require the source view permission plus `generatedDocuments.download`, and AP detail source PDF buttons are hidden without archive-download permission. Source `pdf-data` remains source-view read-only.

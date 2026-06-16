@@ -64,6 +64,18 @@ describe("SupplierPaymentsPage", () => {
       "href",
       "/purchases/supplier-payments/payment-1?returnTo=%2Fpurchases%2Fsupplier-payments%3FsupplierId%3Dsupplier-1%26returnTo%3D%252Fsuppliers%252Fsupplier-1",
     );
+    expect(screen.queryByText(/auto.?match|auto.?reconcile|autopay|bank feed|payment provider|certified/i)).not.toBeInTheDocument();
+  });
+
+  it("filters create and void actions by permissions", async () => {
+    canMock.mockReturnValue(false);
+
+    render(<SupplierPaymentsPage />);
+
+    expect(await screen.findByText("SP-001")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Void" })).not.toBeInTheDocument();
   });
 });
 

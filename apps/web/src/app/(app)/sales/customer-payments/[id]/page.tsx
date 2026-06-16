@@ -7,6 +7,11 @@ import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
+import { PaymentSummaryCard } from "@/components/ui-ledger/payment-summary-card";
+import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
@@ -391,30 +396,30 @@ export default function CustomerPaymentDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{payment ? payment.paymentNumber : "Customer payment"}</h1>
-          <p className="mt-1 text-sm text-steel">Payment posting, allocations, and reversal reference.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <PageHeader
+        title={payment ? payment.paymentNumber : "Customer payment"}
+        description="Payment posting, allocations, and reversal reference."
+        actions={
+          <>
+          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
             Back
           </Link>
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <Button type="button" variant="destructive" onClick={() => void voidPayment()} disabled={actionLoading}>
               Void
-            </button>
+            </Button>
           ) : null}
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
             <Link
               href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(payment.customerId)}&sourceType=CUSTOMER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
-              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+              className={buttonVariants()}
             >
               Refund unapplied amount
             </Link>
           ) : null}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load payments.</StatusMessage> : null}
@@ -948,11 +953,9 @@ export function CustomerPaymentWorkflowGuidance({
               <p className="mt-1 text-sm leading-6 text-steel">{paymentOutcomeDescription(payment, hasUnapplied)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentStatusBadgeClass(payment.status)}`}>
-                {customerPaymentStatusLabel(payment.status)}
-              </span>
+              <PaymentStatusBadge status={payment.status} />
               {hasUnapplied ? (
-                <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Unapplied credit</span>
+                <StatusBadge tone="warning">Unapplied credit</StatusBadge>
               ) : null}
             </div>
           </div>
@@ -970,41 +973,41 @@ export function CustomerPaymentWorkflowGuidance({
             {firstAllocatedInvoice ? (
               <Link
                 href={`/sales/invoices/${firstAllocatedInvoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+                className={buttonVariants()}
               >
                 View invoice
               </Link>
             ) : null}
-            <button
+            <Button
               type="button"
               onClick={onPreviewReceiptData}
               disabled={actionLoading || loadingReceiptData}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              variant="outline"
             >
               Preview receipt
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={onDownloadReceiptPdf}
               disabled={actionLoading || loadingReceiptData}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              variant="outline"
             >
               Download receipt PDF
-            </button>
+            </Button>
             <p className="text-xs leading-5 text-steel">
               Downloading the PDF uses the explicit receipt PDF route and may archive a generated receipt record. Payment posting and allocation actions do not create receipts automatically.
             </p>
-            <Link href={partyDetailHref("customer", payment.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={partyDetailHref("customer", payment.customerId)} className={buttonVariants({ variant: "outline" })}>
               Open customer workspace
             </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Link
                 href={`/reports/aged-receivables${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className={buttonVariants({ variant: "outline" })}
               >
                 AR report
               </Link>
-              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
                 Dashboard
               </Link>
             </div>

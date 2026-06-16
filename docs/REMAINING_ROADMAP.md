@@ -1666,6 +1666,13 @@ Recommended next step:
 
 # Accountant review packet roadmap update - 2026-05-22
 
+# shadcn payment workflow migration roadmap update - 2026-06-16
+
+- Completed current payment UI migration scope for customer/supplier payment list, create, and detail routes.
+- Remaining UI migration scope: customer/supplier refunds, generated-document archive/detail surfaces, bank/reconciliation review routes, reports/settings tables, and any remaining legacy AP/AR guidance panels that still use hand-built cards or tables.
+- Remaining product/compliance blockers are unchanged: provider evidence is unavailable, production compliance claims remain prohibited, real provider integrations remain blocked, and UAE PINT-AE/ZATCA behavior remains out of scope for this frontend-only branch.
+- Future payment workflow work should stay behavior-preserving unless a separate accounting/product prompt explicitly authorizes backend or posting/allocation changes.
+
 - Added a text-only accountant review packet under `docs/accountant-review/` for document, statement, report, inventory, banking, and VAT/ZATCA wording review.
 - The packet includes an area-by-area checklist, a findings template, and a sample-output index that points to safe visual snapshots, local renderer tests, UI routes, and authenticated beta endpoint patterns without committing real PDFs.
 - This does not mean accountant approval has happened. A qualified accountant still needs to review terminology, layout, statement readability, report labels, and any accounting correctness concerns.

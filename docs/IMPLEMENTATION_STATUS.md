@@ -1583,6 +1583,18 @@ Recommended next step:
 
 ## Guided setup wizard update - 2026-05-18
 
+## 2026-06-16 - shadcn payment workflow migration
+
+- PR `#52` (`Continue shadcn migration for transaction workflows`) was reverified and merged into `main` at merge commit `25cb9ef9a0ef3225cde03dcfa935703743601762`.
+- Completed frontend-only shadcn/LedgerByte migration for customer and supplier payment list, creation, and detail workflows.
+- Added shared payment UI wrappers:
+  - `apps/web/src/components/ui-ledger/allocation-table.tsx`
+  - `apps/web/src/components/ui-ledger/payment-method-badge.tsx`
+  - `apps/web/src/components/ui-ledger/payment-summary-card.tsx`
+- Preserved existing routes, API calls, payment payloads, permission behavior, allocation behavior, invoice/bill links, receipt/PDF explicit actions, void actions, and unapplied apply/reverse behavior.
+- No backend/API/schema/migration/payment provider/UAE PINT-AE/ZATCA behavior changed, and no production compliance claim was added.
+- Closure doc: `docs/development/UI_SHADCN_PAYMENT_WORKFLOWS_SPRINT_CLOSURE.md`.
+
 - Added `/setup`, a read-only wizard sourced from `GET /dashboard/onboarding-checklist`.
 - The wizard maps checklist items to existing setup routes and shows status, evidence, blockers, warnings, safe explanations, and action links.
 - Dashboard onboarding now links to `/setup` and shows progress percentage, next incomplete step, and concise blocker summary.

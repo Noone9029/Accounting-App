@@ -5,6 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/ui-ledger/data-table";
+import { EmptyState } from "@/components/ui-ledger/empty-state";
+import { PageHeader } from "@/components/ui-ledger/page-header";
+import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -95,26 +101,28 @@ export default function SupplierPaymentsPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Supplier payments</h1>
-          <p className="mt-1 text-sm text-steel">
-            {supplierId ? "Recorded supplier payments for this workspace. Payment PDFs remain explicit output actions." : "Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions."}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <PageHeader
+        title="Supplier payments"
+        description={
+          supplierId
+            ? "Recorded supplier payments for this workspace. Payment PDFs remain explicit output actions."
+            : "Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions."
+        }
+        actions={
+          <>
           {returnTo ? (
-            <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <Link href={returnTo} className={buttonVariants({ variant: "outline" })}>
               Back to workspace
             </Link>
           ) : null}
           {canCreatePayment ? (
-            <Link href={recordPaymentHref} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            <Link href={recordPaymentHref} className={buttonVariants()}>
               Record payment
             </Link>
           ) : null}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load supplier payments.</StatusMessage> : null}
@@ -122,61 +130,65 @@ export default function SupplierPaymentsPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && visiblePayments.length === 0 ? (
-          <StatusMessage type="empty">
-            {supplierId
-              ? "No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance."
-              : "No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance."}
-          </StatusMessage>
+          <EmptyState
+            title="No supplier payments found"
+            description={
+              supplierId
+                ? "No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance."
+                : "No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance."
+            }
+            action={canCreatePayment ? <Link href={recordPaymentHref} className={buttonVariants()}>Record payment</Link> : null}
+          />
         ) : null}
       </div>
 
       {visiblePayments.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1080px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Supplier</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Unapplied</th>
-                <th className="px-4 py-3">Paid through</th>
-                <th className="px-4 py-3">Journal</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <DataTable minWidth="min-w-[1080px]">
+          <TableHeader>
+              <TableRow>
+                <TableHead>Number</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Unapplied</TableHead>
+                <TableHead>Paid through</TableHead>
+                <TableHead>Journal</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {visiblePayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
-                  <td className="px-4 py-3 font-medium text-ink">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(payment.paymentDate, "-")}</td>
-                  <td className="px-4 py-3 text-steel">{payment.status}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.amountPaid, payment.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</td>
-                  <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
-                  <td className="px-4 py-3">
+                <TableRow key={payment.id}>
+                  <TableCell className="font-mono text-xs">{payment.paymentNumber}</TableCell>
+                  <TableCell className="font-medium text-foreground">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatOptionalDate(payment.paymentDate, "-")}</TableCell>
+                  <TableCell>
+                    <PaymentStatusBadge status={payment.status} />
+                  </TableCell>
+                  <TableCell className="font-mono text-xs tabular-nums">{formatMoneyAmount(payment.amountPaid, payment.currency)}</TableCell>
+                  <TableCell className="font-mono text-xs tabular-nums">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</TableCell>
+                  <TableCell className="text-muted-foreground">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</TableCell>
+                  <TableCell className="font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</TableCell>
+                  <TableCell>
                     <div className="flex gap-2">
                       <Link
                         href={detailReturnTo ? `/purchases/supplier-payments/${payment.id}?returnTo=${encodeURIComponent(detailReturnTo)}` : `/purchases/supplier-payments/${payment.id}`}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        className={buttonVariants({ variant: "outline", size: "xs" })}
                       >
                         View
                       </Link>
                       {payment.status === "POSTED" && canVoidPayment ? (
-                        <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <Button type="button" variant="destructive" size="xs" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id}>
                           Void
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+        </DataTable>
       ) : null}
     </section>
   );
