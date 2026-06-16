@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/ui-owner-settings-generated-document-storage-evidence-qa`.
-- Base: fresh `origin/main` at `85813f7217d32babebf71412f43ea8034f0c0d07` after PR `#60` (`Add secondary operational route visual QA`) was merged.
+- Branch: `feature/ui-owner-security-organization-settings-visual-qa`.
+- Base: fresh `origin/main` at `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` after PR `#61` (`Add owner settings generated-document visual QA`) was merged.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -11,8 +11,23 @@
 
 - Current lane: frontend-only LedgerByte UI/UX modernization.
 - Product posture remains controlled beta/user-testing only.
-- This branch extends authenticated local visual QA with Owner settings, generated-document archive, storage evidence, document settings, setup, accounts, tax rates, and source transaction document evidence coverage.
+- This branch extends authenticated local visual QA with real Owner organization, team, roles, role detail, audit-log, compliance, setup, and organization setup surfaces. It does not create fake `/settings/security`, `/settings/api`, `/settings/sessions`, or `/settings/organization` routes.
 - It keeps backend APIs, Prisma schema, migrations, UAE PINT-AE behavior, ZATCA behavior, provider adapters, Vercel/Supabase, infrastructure, hosted/customer-data mutation, and production compliance claims unchanged.
+
+## Owner Security Organization Settings Visual QA Summary
+
+- PR `#61` (`Add owner settings generated-document visual QA`) was reverified green and merged into `main` with merge commit `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` before this branch began.
+- Added read-only visual fixture coverage for `/roles/:id` so the real `/settings/roles/[id]` route can be exercised without a real API call.
+- Added `tests/visual/owner-security-organization-settings-visual-qa.visual.spec.ts`, a Playwright visual matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Owner organization/security states checked: settings redirect to team management, team members with Owner/Accountant/Sales/Purchases/Viewer/pending/suspended users, long names/emails, role controls, role list, system role protection, long custom role detail, permission matrix, audit retention, compliance readiness, guided setup, and organization setup form layout.
+- Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed admin/settings controls; Accountant/Viewer coverage checks restricted actions are hidden, disabled, or blocked according to existing behavior.
+- Routes checked include `/settings`, `/settings/team`, `/settings/roles`, `/settings/roles/role-owner`, `/settings/roles/role-custom-long`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup`.
+- Skipped routes because they do not exist: `/settings/security`, `/settings/sessions`, `/settings/api`, `/settings/integrations`, `/settings/organization`, `/organization`, and `/settings/users`. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally avoided.
+- Generated screenshots and `visual-results.json` under `artifacts/visual-qa/owner-security-organization-settings-visual-qa/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
+- Findings fixed: role-detail fixture coverage was added; visual assertions were calibrated to the real app shell account-menu/sign-out and organization-loading variants. No frontend product layout, permission, link, or copy defect required a source UI change.
+- No backend API, Prisma schema, migration, production auth provider behavior, auth/session/security business logic, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake security/SSO/MFA/API/provider claim, fake automation, fake bank feed, fake storage/archive claim, certification claim, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI migration scope: deeper real security/session/API settings only if product routes are implemented later, organization profile editing beyond setup, generated-document detail route if added later, storage execution evidence after real provider proof, and accountant/legal review of settings/compliance wording.
 
 ## Owner Settings Generated Document Storage Evidence Visual QA Summary
 

@@ -2,7 +2,17 @@
 
 Audit date: 2026-06-13
 
-Latest commit audited: `85813f7217d32babebf71412f43ea8034f0c0d07` (`origin/main` after PR #60 secondary operational route visual QA merge) plus the current Owner settings/generated-document storage evidence visual QA branch.
+Latest commit audited: `b8799c8f4e77c7be87f8a4a5fde0aaec33bc3fde` (`origin/main` after PR #61 Owner settings/generated-document visual QA merge) plus the current Owner security/organization settings visual QA branch.
+
+## 2026-06-17 Owner Security Organization Settings Visual QA Update
+
+- Controlled beta UI confidence improves because real Owner organization/security-adjacent settings surfaces now have local Playwright visual coverage.
+- The fixture remains local/test-only and read-only. It models existing route contracts, role permissions, long-field content, team members, roles, role detail, audit retention, compliance readiness, setup states, and hidden/disabled restricted actions without changing backend behavior.
+- The route matrix checks existing routes across desktop, tablet, and mobile. It uses `/settings/team`, `/settings/roles`, `/settings/roles/[id]`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup` because separate `/settings/security`, `/settings/api`, `/settings/sessions`, and `/settings/organization` routes do not exist.
+- The role matrix checks `Owner`, `Accountant`, and `Viewer`, including Owner team/role/admin affordances and restricted Accountant/Viewer behavior according to existing permissions.
+- Screenshots and report output are generated under ignored `artifacts/visual-qa/owner-security-organization-settings-visual-qa/` and are not committed.
+- This is frontend test/readability evidence only. It does not increase auth/session/security business-logic readiness, provider readiness, legal readiness, hosted/customer-data readiness, storage-provider readiness, UAE eInvoicing readiness, ZATCA readiness, or production compliance readiness.
+- Remaining UI readiness gaps are real security/session/API settings depth if product routes are added later, organization profile editing beyond setup, generated-document detail route breadth if added later, and accountant/legal sign-off on final settings/compliance wording.
 
 ## 2026-06-16 Owner Settings Generated-Document Storage Evidence Visual QA Update
 
