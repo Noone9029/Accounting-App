@@ -25,7 +25,7 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
             Follow the first accounting loop: profile, VAT, customer, invoice, payment, and report. This read-only
             guide checks live workspace data and links to the right screens without creating records, finalizing
-            invoices, submitting ZATCA data, or changing setup for you.
+            invoices, submitting UAE eInvoicing data, or changing setup for you.
           </p>
           <p className="mt-1 text-xs text-steel">Checklist generated {new Date(checklist.generatedAt).toLocaleString()}.</p>
         </div>
@@ -75,8 +75,8 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
               </div>
             ) : (
               <p className="mt-3 text-sm leading-6 text-steel">
-                Ready for controlled beta review. ZATCA production compliance remains false until official OTP/CSID,
-                clearance/reporting, PDF/A-3, production credentials, and compliance review are complete.
+                Ready for controlled beta review. UAE eInvoicing stays local readiness validation until ASP validation,
+                FTA reporting, production credentials, and compliance review are connected.
               </p>
             )}
           </div>
@@ -96,8 +96,8 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           ) : null}
 
           <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
-            ZATCA remains local-only. Real ZATCA network calls, CSID requests, clearance/reporting, PDF/A-3, signed
-            XML/QR body persistence, production credentials, and production compliance claims stay disabled.
+            UAE eInvoicing remains local-readiness only. ASP validation is not connected, no FTA reporting is enabled,
+            and production compliance claims stay disabled.
           </div>
         </aside>
 
@@ -166,7 +166,7 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
         </Link>
       ) : null}
       <div className="mt-3 text-xs leading-5 text-steel">
-        Read-only checklist guidance. ZATCA production compliance remains false and real ZATCA network behavior is not enabled.
+        Read-only checklist guidance. UAE eInvoicing is local readiness validation only; ASP validation is not connected and no FTA reporting is enabled.
       </div>
     </div>
   );

@@ -104,7 +104,7 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   profitAndLoss: { label: "View P&L", href: "/reports/profit-and-loss", permissions: [PERMISSIONS.reports.view] },
   balanceSheet: { label: "View balance sheet", href: "/reports/balance-sheet", permissions: [PERMISSIONS.reports.view] },
   fiscalPeriods: { label: "View fiscal periods", href: "/fiscal-periods", permissions: [PERMISSIONS.fiscalPeriods.view] },
-  zatcaReadiness: { label: "View ZATCA", href: "/settings/zatca", permissions: [PERMISSIONS.zatca.view] },
+  zatcaReadiness: { label: "View UAE readiness", href: "/settings/zatca", permissions: [PERMISSIONS.zatca.view] },
   auditLogs: { label: "View audit logs", href: "/settings/audit-logs", permissions: [PERMISSIONS.auditLogs.view] },
   storage: {
     label: "View storage",
@@ -113,7 +113,7 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   },
 };
 
-export function formatDashboardMoney(value: string | number, currency = "SAR"): string {
+export function formatDashboardMoney(value: string | number, currency = "AED"): string {
   return formatMoneyAmount(value, currency);
 }
 
@@ -298,11 +298,11 @@ const SETUP_STEP_COPY: Record<
     safeExplanation: "Open Profit & Loss after posted activity exists. The wizard does not generate or export reports automatically.",
   },
   zatca_local_readiness_visible: {
-    title: "ZATCA local readiness visibility",
+    title: "UAE eInvoicing local readiness visibility",
     actionHref: "/settings/zatca",
-    actionLabel: "Review local ZATCA readiness",
+    actionLabel: "Review UAE readiness",
     safeExplanation:
-      "ZATCA status shown here is local readiness only: real ZATCA network is disabled, production compliance remains false, OTP and CSID are still required, and clearance, reporting, and PDF/A-3 are not implemented.",
+      "UAE eInvoicing status shown here is local readiness validation only: ASP validation is not connected, no FTA reporting is enabled, and controlled-beta evidence does not prove production compliance.",
   },
   contact_vat_id_validation: {
     title: "Contact VAT/ID validation",

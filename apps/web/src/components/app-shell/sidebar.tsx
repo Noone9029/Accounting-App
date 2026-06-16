@@ -11,6 +11,7 @@ import {
   Receipt,
   Settings2,
   ShoppingCart,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,6 +26,8 @@ import { GlobalCreateMenu } from "./global-create-menu";
 
 const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/dashboard": BarChart3,
+  "/customers": Users,
+  "/suppliers": Users,
   "/sales/invoices": Receipt,
   "/purchases/bills": ShoppingCart,
   "/bank-accounts": Landmark,
@@ -33,6 +36,7 @@ const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/tax": Calculator,
   "/reports": BarChart3,
   "/documents": Archive,
+  "/settings/compliance": Calculator,
   "/settings/team": Settings2,
 };
 
@@ -47,7 +51,7 @@ const mobileWorkflowLinks: readonly {
   { label: "Supplier", href: "/suppliers", requiredAny: [PERMISSIONS.contacts.view] },
   { label: "Invoice", href: "/sales/invoices/new", requiredAny: [PERMISSIONS.salesInvoices.create] },
   { label: "Payment", href: "/sales/customer-payments/new", requiredAny: [PERMISSIONS.customerPayments.create] },
-  { label: "Tax", href: "/tax", requiredAny: [PERMISSIONS.reports.view] },
+  { label: "VAT", href: "/tax", requiredAny: [PERMISSIONS.reports.view] },
   { label: "Reports", href: "/reports", requiredAny: [PERMISSIONS.reports.view] },
 ];
 
@@ -61,16 +65,21 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
   const visibleItems = filterSidebarNavItems(activeMembership);
 
   return (
-    <aside className={`${compact ? "h-full w-full" : "h-screen w-72"} flex shrink-0 flex-col bg-[#061a2f] text-white`}>
-      <div className="border-b border-white/10 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-lg bg-sky-500/15 text-sm font-bold text-sky-200 ring-1 ring-sky-300/20">
-            LB
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">LedgerByte</div>
-            <div className="mt-0.5 truncate text-xs text-slate-300">Saudi-first accounting workspace</div>
+    <aside className={`${compact ? "h-full w-full" : "h-screen w-72"} flex shrink-0 flex-col bg-sidebar text-slate-100`}>
+      <div className="border-b border-white/10 px-5 py-5">
+        <Link href="/dashboard" className="ledger-focus block rounded-md">
+          <div className="flex items-center gap-3">
+            <span className="grid size-9 place-items-center rounded-md bg-white text-sm font-bold text-sidebar">
+              LB
+            </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-white">LedgerByte</div>
+              <div className="mt-0.5 truncate text-xs text-slate-300">UAE accounting workspace</div>
+            </div>
           </div>
+        </Link>
+        <div className="mt-4 inline-flex items-center rounded-md border border-blue-300/30 bg-blue-400/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-blue-100">
+          Controlled beta
         </div>
       </div>
       <div className="border-b border-white/10 px-3 py-3">
@@ -82,13 +91,14 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
           {visibleItems.map((item) => {
             const Icon = iconsByHref[item.href];
             const activeBase = item.activePrefix ?? item.href;
-            const active = pathname === item.href || pathname.startsWith(`${activeBase}/`);
+            const childActive = Boolean(item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)));
+            const active = pathname === item.href || pathname.startsWith(`${activeBase}/`) || childActive;
             return (
               <div key={item.href}>
                 <Link
                   href={item.href}
-                  className={`flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    active ? "bg-sky-500/18 text-white ring-1 ring-sky-300/20" : "text-slate-300 hover:bg-white/7 hover:text-white"
+                  className={`ledger-focus flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    active ? "bg-blue-400/15 text-white ring-1 ring-blue-300/20" : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
                   }`}
                 >
                   {Icon ? <Icon className="size-4" aria-hidden="true" /> : null}
@@ -97,14 +107,14 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
                 {item.children && item.children.length > 0 ? (
                   <div className="mb-2 ml-5 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3">
                     {item.children.map((child, index) => (
-                      <div key={child.href}>
+                      <div key={`${child.href}-${child.label}`}>
                         {child.group && child.group !== item.children?.[index - 1]?.group ? (
-                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase text-slate-500">{child.group}</div>
+                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{child.group}</div>
                         ) : null}
                         <Link
                           href={child.href}
-                          className={`block rounded-md px-2 py-1.5 text-xs transition ${
-                            pathname === child.href ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/7 hover:text-white"
+                          className={`ledger-focus block rounded-md px-2 py-1.5 text-xs transition-colors ${
+                            pathname === child.href ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/[0.08] hover:text-white"
                           }`}
                         >
                           {child.label}
@@ -119,6 +129,9 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
           </div>
         </nav>
       </ScrollArea>
+      <div className="border-t border-white/10 px-5 py-4 text-xs leading-5 text-slate-400">
+        UAE eInvoicing-ready. Local readiness validation only.
+      </div>
     </aside>
   );
 }
@@ -133,13 +146,13 @@ export function MobileWorkflowNav() {
   }
 
   return (
-    <nav className="border-b border-border bg-card px-4 py-2 lg:hidden" aria-label="First workflow navigation">
+    <nav className="border-b border-line bg-white px-4 py-2 lg:hidden" aria-label="First workflow navigation">
       <div className="flex items-center gap-2">
         <Sheet>
           <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open navigation" />}>
             <Menu />
           </SheetTrigger>
-          <SheetContent side="left" className="w-[20rem] max-w-[86vw] border-0 bg-[#061a2f] p-0 text-white" showCloseButton={false}>
+          <SheetContent side="left" className="w-[20rem] max-w-[86vw] border-0 bg-sidebar p-0 text-white" showCloseButton={false}>
             <SheetHeader className="sr-only">
               <SheetTitle>Navigation</SheetTitle>
             </SheetHeader>
@@ -155,8 +168,8 @@ export function MobileWorkflowNav() {
               href={item.href}
               className={`whitespace-nowrap rounded-md border px-3 py-2 text-xs font-semibold transition ${
                 active
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "border-accent bg-blue-50 text-accent"
+                  : "border-line bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               {item.label}

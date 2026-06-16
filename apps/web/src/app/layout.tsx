@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LedgerByte",
-  description: "Accounting SaaS foundation for Saudi and GCC businesses",
+  description: "Controlled-beta UAE accounting and bookkeeping workspace",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

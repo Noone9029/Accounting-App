@@ -103,7 +103,7 @@ describe("dashboard helpers", () => {
       "Bank/payment method",
       "First payment",
       "First report",
-      "ZATCA local readiness visibility",
+      "UAE eInvoicing local readiness visibility",
       "Contact VAT/ID validation",
       "Storage readiness",
     ]);
@@ -139,15 +139,14 @@ describe("dashboard helpers", () => {
     ]);
   });
 
-  it("keeps ZATCA wizard messaging local-only and non-production", () => {
+  it("keeps UAE eInvoicing wizard messaging local-only and controlled-beta", () => {
     const zatcaStep = setupWizardSteps(sampleChecklist()).find((step) => step.id === "zatca_local_readiness_visible");
 
-    expect(zatcaStep?.safeExplanation).toContain("local readiness only");
-    expect(zatcaStep?.safeExplanation).toContain("real ZATCA network is disabled");
-    expect(zatcaStep?.safeExplanation).toContain("production compliance remains false");
-    expect(zatcaStep?.safeExplanation).toContain("OTP and CSID are still required");
-    expect(zatcaStep?.safeExplanation).toContain("clearance, reporting, and PDF/A-3 are not implemented");
-    expect(zatcaStep?.actionLabel).toBe("Review local ZATCA readiness");
+    expect(zatcaStep?.safeExplanation).toContain("local readiness validation only");
+    expect(zatcaStep?.safeExplanation).toContain("ASP validation is not connected");
+    expect(zatcaStep?.safeExplanation).toContain("no FTA reporting is enabled");
+    expect(zatcaStep?.safeExplanation).toContain("does not prove production compliance");
+    expect(zatcaStep?.actionLabel).toBe("Review UAE readiness");
   });
 
   it("returns a safe fallback message when setup checklist loading fails", () => {

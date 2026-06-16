@@ -172,14 +172,14 @@ describe("sidebar nav filtering", () => {
       subject([PERMISSIONS.dashboard.view, PERMISSIONS.organization.view, PERMISSIONS.reports.view, PERMISSIONS.salesInvoices.view]),
     );
 
-    expect(nav.map((item) => item.label)).toEqual(["Dashboard", "Sales", "Tax", "Reports", "Settings"]);
+    expect(nav.map((item) => item.label)).toEqual(["Dashboard", "Sales", "Compliance", "Reports", "Settings"]);
     expect(nav.find((item) => item.label === "Sales")?.children?.map((item) => item.label)).toEqual([
       "Invoices",
       "Quotes",
       "Recurring invoices",
       "Delivery notes",
-      "Inventory returns",
       "Collections",
+      "Inventory returns",
     ]);
     expect(nav.some((item) => item.label === "Purchases")).toBe(false);
   });
@@ -189,12 +189,15 @@ describe("sidebar nav filtering", () => {
 
     expect(nav.map((item) => item.label)).toEqual([
       "Dashboard",
+      "Customers",
+      "Suppliers",
       "Sales",
       "Purchases",
       "Banking",
       "Accounting",
       "Inventory",
-      "Tax",
+      "Documents",
+      "Compliance",
       "Reports",
       "Settings",
     ]);
@@ -204,14 +207,14 @@ describe("sidebar nav filtering", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.users.view, PERMISSIONS.roles.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Team Members", "Roles & Permissions"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Users and roles", "Security / sessions", "Roles & Permissions"]);
   });
 
   it("shows storage settings when the user can view document settings", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.documentSettings.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage settings"]);
   });
 
   it("shows email outbox when the user has email outbox permission", () => {
@@ -232,6 +235,6 @@ describe("sidebar nav filtering", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.numberSequences.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Number sequences"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Numbering"]);
   });
 });

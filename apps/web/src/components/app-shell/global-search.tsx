@@ -182,7 +182,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
           aria-autocomplete="list"
           aria-activedescendant={visibleResults[activeIndex] ? resultOptionId(listboxId, visibleResults[activeIndex]) : undefined}
           placeholder="Search transactions, contacts, reports, and pages"
-          className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-20 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/20"
+          className="h-10 w-full rounded-md border border-line bg-white pl-9 pr-20 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/15"
         />
         <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 sm:inline-flex">
           Ctrl K
@@ -194,7 +194,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
           id={listboxId}
           role="listbox"
           aria-label="Global search results"
-          className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-y border-slate-200 bg-white p-3 shadow-2xl sm:absolute sm:inset-x-0 sm:top-full sm:mt-2 sm:max-h-[min(28rem,calc(100vh-8rem))] sm:rounded-md sm:border sm:p-2"
+          className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-y border-line bg-white p-3 shadow-2xl sm:absolute sm:inset-x-0 sm:top-full sm:mt-2 sm:max-h-[min(28rem,calc(100vh-8rem))] sm:rounded-md sm:border sm:p-2"
         >
           <SearchPanelState loading={loading} error={error} hasQuery={query.trim().length > 0} hasResults={visibleResults.length > 0} />
 
