@@ -4,6 +4,27 @@ Audit date: 2026-06-13
 
 Latest commit audited: `2d99e42be0ab2d6d2f45fd36091bb9f3f0bece6c` (`origin/main` after PR #49 UAE PINT-AE scenario fixture validation QA merge) plus the current UI shadcn shell/dashboard refresh branch.
 
+## 2026-06-16 LedgerByte detail-state accountant mobile visual QA
+
+Merged PR `#56` into `main` at `2467a195951a351db0c5b238eab5880ff8da2971`, then added detail-state and accountant mobile/table local visual QA from fresh `origin/main`.
+
+### What changed
+
+- Extended the local visual fixture with read-only detail variants for invoice, bill, payment, credit note, debit note, customer, and supplier states.
+- Added a Playwright detail-state matrix across desktop `1440x1000`, tablet `1024x768`, and mobile `390x844`.
+- Added accountant-focused mobile/table checks across tablet and mobile for transaction line items, allocation tables, customer/supplier transactions, aged reports, General Ledger, Trial Balance, bank transactions, and documents.
+- Added accountant role route checks for dashboard, AR/AP lists and create routes, party detail, payments, credit/debit notes, reports, bank accounts, and documents.
+- Generated local screenshots and `visual-results.json` under `artifacts/visual-qa/detail-states-accountant-mobile-table-review/`; the artifacts path is ignored and screenshots were intentionally left uncommitted.
+- Findings fixed in this branch were local fixture/test harness issues only: detail endpoint routing, open-list handler precedence, aged report bucket keys, report fixtures, duplicate visual payment IDs, and table-readability assertions.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, payment/accounting/business logic, production auth behavior, UAE PINT-AE, ZATCA, provider adapter, hosted/customer-data mutation, Vercel/Supabase setting, production infrastructure, or production compliance behavior changed.
+- No fake automation, fake bank feed, fake AI, provider connectivity, or production compliance claim was added.
+- Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
+- Remaining UI risk is refund/collections/banking detail polish, report drilldowns, and accountant review of dense entry forms beyond this local visual matrix.
+
 ## 2026-06-16 LedgerByte role-filtered UI visual QA route polish
 
 Merged PR `#55` into `main` at `311ef752bf692c16f17cafa361c8b1522cb686e8`, then added role-filtered local visual QA from fresh `origin/main`.

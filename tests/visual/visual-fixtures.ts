@@ -24,6 +24,9 @@ export interface VisualFixtureOptions {
   roleProfile?: VisualRoleProfileName;
 }
 
+type CustomerDetailState = "open" | "empty" | "inactive" | "long";
+type SupplierDetailState = "open" | "empty" | "inactive" | "long";
+
 const org = {
   id: "org-visual",
   name: "LedgerByte Visual Co",
@@ -504,6 +507,414 @@ const creditNote = {
   ],
 };
 
+const visualCustomers = {
+  "customer-1": customer,
+  "customer-empty": {
+    ...customer,
+    id: "customer-empty",
+    name: "Visual Customer No Activity",
+    displayName: "Visual Customer No Activity",
+    email: "no-activity-customer@example.test",
+    taxNumber: "300000000000011",
+  },
+  "customer-inactive": {
+    ...customer,
+    id: "customer-inactive",
+    name: "Archived Visual Customer",
+    displayName: "Archived Visual Customer",
+    isActive: false,
+    email: "archived-customer@example.test",
+    taxNumber: "300000000000012",
+  },
+  "customer-long": {
+    ...customer,
+    id: "customer-long",
+    name: "Visual Customer International Holdings and Construction Services Company Limited",
+    displayName: "Visual Customer International Holdings and Construction Services Company Limited",
+    legalName: "Visual Customer International Holdings and Construction Services Company Limited LLC",
+    email: "accounts-receivable-team-with-long-mailbox@example.test",
+    phone: "+966 11 555 0199 ext 2044",
+    taxNumber: "300000000000013",
+    addressLine1: "Tower 14, Financial District, King Fahd Road, Suite 2204",
+    addressLine2: "Accounts receivable correspondence and billing operations floor",
+    city: "Riyadh",
+  },
+} as const;
+
+const visualSuppliers = {
+  "supplier-1": supplier,
+  "supplier-empty": {
+    ...supplier,
+    id: "supplier-empty",
+    name: "Visual Supplier No Activity",
+    displayName: "Visual Supplier No Activity",
+    email: "no-activity-supplier@example.test",
+    taxNumber: "300000000000021",
+  },
+  "supplier-inactive": {
+    ...supplier,
+    id: "supplier-inactive",
+    name: "Archived Visual Supplier",
+    displayName: "Archived Visual Supplier",
+    isActive: false,
+    email: "archived-supplier@example.test",
+    taxNumber: "300000000000022",
+  },
+  "supplier-long": {
+    ...supplier,
+    id: "supplier-long",
+    name: "Visual Supplier Regional Logistics Manufacturing and Maintenance Services Company",
+    displayName: "Visual Supplier Regional Logistics Manufacturing and Maintenance Services Company",
+    legalName: "Visual Supplier Regional Logistics Manufacturing and Maintenance Services Company LLC",
+    email: "accounts-payable-regional-shared-services@example.test",
+    phone: "+966 12 555 0198 ext 4410",
+    taxNumber: "300000000000023",
+    addressLine1: "Industrial Area Gate 5, Prince Sultan Road, Building 88",
+    addressLine2: "Long supplier remittance address for mobile wrapping review",
+    city: "Jeddah",
+  },
+} as const;
+
+const salesInvoiceVariants = {
+  "invoice-1": invoice,
+  "invoice-draft": salesInvoiceVariant("invoice-draft", "INV-STATE-DRAFT", {
+    status: "DRAFT",
+    dueDate: "2026-06-15T00:00:00.000Z",
+    balanceDue: "1150.0000",
+    finalizedAt: null,
+    journalEntryId: null,
+    journalEntry: null,
+    paymentAllocations: [],
+  }),
+  "invoice-awaiting-payment": salesInvoiceVariant("invoice-awaiting-payment", "INV-STATE-AWAIT", {
+    status: "FINALIZED",
+    dueDate: "2026-06-15T00:00:00.000Z",
+    balanceDue: "1150.0000",
+    paymentAllocations: [],
+  }),
+  "invoice-partially-paid": salesInvoiceVariant("invoice-partially-paid", "INV-STATE-PARTIAL", {
+    status: "FINALIZED",
+    balanceDue: "650.0000",
+    paymentAllocations: [invoicePaymentAllocation("invoice-partial-allocation", "invoice-partially-paid", "500.0000", "650.0000")],
+  }),
+  "invoice-paid": salesInvoiceVariant("invoice-paid", "INV-STATE-PAID", {
+    status: "FINALIZED",
+    balanceDue: "0.0000",
+    paymentAllocations: [invoicePaymentAllocation("invoice-paid-allocation", "invoice-paid", "1150.0000", "0.0000")],
+  }),
+  "invoice-overdue": salesInvoiceVariant("invoice-overdue", "INV-STATE-OVERDUE", {
+    status: "FINALIZED",
+    dueDate: "2026-04-15T00:00:00.000Z",
+    balanceDue: "1150.0000",
+    paymentAllocations: [],
+  }),
+  "invoice-voided": salesInvoiceVariant("invoice-voided", "INV-STATE-VOIDED", {
+    status: "VOIDED",
+    balanceDue: "1150.0000",
+    reversalJournalEntryId: "journal-invoice-voided-reversal",
+    reversalJournalEntry: { id: "journal-invoice-voided-reversal", entryNumber: "JE-INV-VOID", status: "POSTED" },
+    paymentAllocations: [],
+  }),
+} as const;
+
+const purchaseBillVariants = {
+  "bill-1": purchaseBill,
+  "bill-draft": purchaseBillVariant("bill-draft", "BILL-STATE-DRAFT", {
+    status: "DRAFT",
+    dueDate: "2026-06-15T00:00:00.000Z",
+    balanceDue: "920.0000",
+    finalizedAt: null,
+    journalEntryId: null,
+    journalEntry: null,
+    paymentAllocations: [],
+  }),
+  "bill-awaiting-payment": purchaseBillVariant("bill-awaiting-payment", "BILL-STATE-AWAIT", {
+    status: "FINALIZED",
+    dueDate: "2026-06-15T00:00:00.000Z",
+    balanceDue: "920.0000",
+    paymentAllocations: [],
+  }),
+  "bill-partially-paid": purchaseBillVariant("bill-partially-paid", "BILL-STATE-PARTIAL", {
+    status: "FINALIZED",
+    balanceDue: "520.0000",
+    paymentAllocations: [billPaymentAllocation("bill-partial-allocation", "bill-partially-paid", "400.0000", "520.0000")],
+  }),
+  "bill-paid": purchaseBillVariant("bill-paid", "BILL-STATE-PAID", {
+    status: "FINALIZED",
+    balanceDue: "0.0000",
+    paymentAllocations: [billPaymentAllocation("bill-paid-allocation", "bill-paid", "920.0000", "0.0000")],
+  }),
+  "bill-overdue": purchaseBillVariant("bill-overdue", "BILL-STATE-OVERDUE", {
+    status: "FINALIZED",
+    dueDate: "2026-04-15T00:00:00.000Z",
+    balanceDue: "920.0000",
+    paymentAllocations: [],
+  }),
+  "bill-voided": purchaseBillVariant("bill-voided", "BILL-STATE-VOIDED", {
+    status: "VOIDED",
+    balanceDue: "920.0000",
+    reversalJournalEntryId: "journal-bill-voided-reversal",
+    reversalJournalEntry: { id: "journal-bill-voided-reversal", entryNumber: "JE-BILL-VOID", status: "POSTED" },
+    paymentAllocations: [],
+  }),
+} as const;
+
+const customerPaymentVariants = {
+  "payment-1": customerPayment,
+  "payment-allocated": customerPaymentVariant("payment-allocated", "PAY-VIS-001", {
+    allocations: [customerPaymentAllocation("payment-allocated-direct", "payment-allocated", invoice.id, "500.0000", invoice.balanceDue)],
+  }),
+  "payment-partially-allocated": customerPaymentVariant("payment-partially-allocated", "PAY-STATE-PARTIAL", {
+    amount: "900.0000",
+    amountReceived: "900.0000",
+    unappliedAmount: "400.0000",
+    allocations: [customerPaymentAllocation("payment-partial-direct", "payment-partially-allocated", invoice.id, "500.0000", invoice.balanceDue)],
+  }),
+  "payment-unallocated": customerPaymentVariant("payment-unallocated", "PAY-STATE-UNAPPLIED", {
+    amount: "300.0000",
+    amountReceived: "300.0000",
+    unappliedAmount: "300.0000",
+    allocations: [],
+  }),
+} as const;
+
+const supplierPaymentVariants = {
+  "supplier-payment-1": supplierPayment,
+  "supplier-payment-allocated": supplierPaymentVariant("supplier-payment-allocated", "SPAY-VIS-001", {
+    allocations: [supplierPaymentAllocation("supplier-payment-allocated-direct", "supplier-payment-allocated", purchaseBill.id, "400.0000", purchaseBill.balanceDue)],
+  }),
+  "supplier-payment-partially-allocated": supplierPaymentVariant("supplier-payment-partially-allocated", "SPAY-STATE-PARTIAL", {
+    amount: "700.0000",
+    amountPaid: "700.0000",
+    unappliedAmount: "300.0000",
+    allocations: [supplierPaymentAllocation("supplier-payment-partial-direct", "supplier-payment-partially-allocated", purchaseBill.id, "400.0000", purchaseBill.balanceDue)],
+  }),
+  "supplier-payment-unallocated": supplierPaymentVariant("supplier-payment-unallocated", "SPAY-STATE-UNAPPLIED", {
+    amount: "300.0000",
+    amountPaid: "300.0000",
+    unappliedAmount: "300.0000",
+    allocations: [],
+  }),
+} as const;
+
+const creditNoteVariants = {
+  "credit-note-1": creditNote,
+  "credit-note-draft": creditNoteVariant("credit-note-draft", "CN-STATE-DRAFT", {
+    status: "DRAFT",
+    unappliedAmount: "115.0000",
+    finalizedAt: null,
+    journalEntryId: null,
+    journalEntry: null,
+    allocations: [],
+  }),
+  "credit-note-finalized": creditNoteVariant("credit-note-finalized", "CN-STATE-FINAL", {
+    status: "FINALIZED",
+    unappliedAmount: "50.0000",
+    allocations: [creditNoteAllocation("credit-note-final-partial-allocation", "credit-note-finalized", "65.0000", "585.0000")],
+  }),
+  "credit-note-applied": creditNoteVariant("credit-note-applied", "CN-STATE-APPLIED", {
+    status: "FINALIZED",
+    unappliedAmount: "0.0000",
+    allocations: [creditNoteAllocation("credit-note-applied-allocation", "credit-note-applied", "115.0000", "535.0000")],
+  }),
+  "credit-note-unapplied": creditNoteVariant("credit-note-unapplied", "CN-STATE-UNAPPLIED", {
+    status: "FINALIZED",
+    unappliedAmount: "115.0000",
+    allocations: [],
+  }),
+} as const;
+
+const debitNoteVariants = {
+  "debit-note-1": debitNote,
+  "debit-note-draft": debitNoteVariant("debit-note-draft", "DN-STATE-DRAFT", {
+    status: "DRAFT",
+    unappliedAmount: "115.0000",
+    finalizedAt: null,
+    journalEntryId: null,
+    journalEntry: null,
+    allocations: [],
+  }),
+  "debit-note-finalized": debitNoteVariant("debit-note-finalized", "DN-STATE-FINAL", {
+    status: "FINALIZED",
+    unappliedAmount: "50.0000",
+    allocations: [debitNoteAllocation("debit-note-final-partial-allocation", "debit-note-finalized", "65.0000", "455.0000")],
+  }),
+  "debit-note-applied": debitNoteVariant("debit-note-applied", "DN-STATE-APPLIED", {
+    status: "FINALIZED",
+    unappliedAmount: "0.0000",
+    allocations: [debitNoteAllocation("debit-note-applied-allocation", "debit-note-applied", "115.0000", "405.0000")],
+  }),
+  "debit-note-unapplied": debitNoteVariant("debit-note-unapplied", "DN-STATE-UNAPPLIED", {
+    status: "FINALIZED",
+    unappliedAmount: "115.0000",
+    allocations: [],
+  }),
+} as const;
+
+function salesInvoiceVariant(id: string, invoiceNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...invoice,
+    id,
+    invoiceNumber,
+    paymentAllocations: [],
+    paymentUnappliedAllocations: [],
+    creditNoteAllocations: [],
+    creditNotes: [],
+    lines: invoice.lines.map((line) => ({ ...line, id: `${id}-line-1`, invoiceId: id })),
+    ...overrides,
+  };
+}
+
+function invoicePaymentAllocation(id: string, invoiceId: string, amountApplied: string, balanceDue: string) {
+  return {
+    id,
+    paymentId: customerPayment.id,
+    invoiceId,
+    amountApplied,
+    createdAt: fixedVisualDate,
+    payment: {
+      id: customerPayment.id,
+      paymentNumber: customerPayment.paymentNumber,
+      paymentDate: customerPayment.paymentDate,
+      status: customerPayment.status,
+      amountReceived: amountApplied,
+      unappliedAmount: "0.0000",
+    },
+    invoice: { id: invoiceId, invoiceNumber: `INV-${invoiceId.toUpperCase()}`, issueDate: invoice.issueDate, total: invoice.total, balanceDue, status: "FINALIZED" },
+  };
+}
+
+function purchaseBillVariant(id: string, billNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...purchaseBill,
+    id,
+    billNumber,
+    paymentAllocations: [],
+    supplierPaymentUnappliedAllocations: [],
+    debitNotes: [],
+    debitNoteAllocations: [],
+    lines: purchaseBill.lines.map((line) => ({ ...line, id: `${id}-line-1`, billId: id })),
+    ...overrides,
+  };
+}
+
+function billPaymentAllocation(id: string, billId: string, amountApplied: string, balanceDue: string) {
+  return {
+    id,
+    paymentId: supplierPayment.id,
+    billId,
+    amountApplied,
+    createdAt: fixedVisualDate,
+    payment: {
+      id: supplierPayment.id,
+      paymentNumber: supplierPayment.paymentNumber,
+      paymentDate: supplierPayment.paymentDate,
+      status: supplierPayment.status,
+      amountPaid: amountApplied,
+      unappliedAmount: "0.0000",
+    },
+    bill: { id: billId, billNumber: `BILL-${billId.toUpperCase()}`, billDate: purchaseBill.billDate, total: purchaseBill.total, balanceDue, status: "FINALIZED" },
+  };
+}
+
+function customerPaymentVariant(id: string, paymentNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...customerPayment,
+    id,
+    paymentNumber,
+    allocations: [],
+    unappliedAllocations: [],
+    ...overrides,
+  };
+}
+
+function customerPaymentAllocation(id: string, paymentId: string, invoiceId: string, amountApplied: string, balanceDue: string) {
+  return {
+    id,
+    paymentId,
+    invoiceId,
+    amountApplied,
+    createdAt: fixedVisualDate,
+    invoice: { id: invoiceId, invoiceNumber: invoice.invoiceNumber, issueDate: invoice.issueDate, total: invoice.total, balanceDue, status: invoice.status },
+  };
+}
+
+function supplierPaymentVariant(id: string, paymentNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...supplierPayment,
+    id,
+    paymentNumber,
+    allocations: [],
+    unappliedAllocations: [],
+    ...overrides,
+  };
+}
+
+function supplierPaymentAllocation(id: string, paymentId: string, billId: string, amountApplied: string, balanceDue: string) {
+  return {
+    id,
+    paymentId,
+    billId,
+    amountApplied,
+    createdAt: fixedVisualDate,
+    bill: { id: billId, billNumber: purchaseBill.billNumber, billDate: purchaseBill.billDate, total: purchaseBill.total, balanceDue, status: purchaseBill.status },
+  };
+}
+
+function creditNoteVariant(id: string, creditNoteNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...creditNote,
+    id,
+    creditNoteNumber,
+    lines: creditNote.lines.map((line) => ({ ...line, id: `${id}-line-1`, creditNoteId: id })),
+    allocations: [],
+    ...overrides,
+  };
+}
+
+function creditNoteAllocation(id: string, creditNoteId: string, amountApplied: string, invoiceBalanceDue: string) {
+  return {
+    id,
+    creditNoteId,
+    invoiceId: invoice.id,
+    amountApplied,
+    status: "ACTIVE",
+    reversedAt: null,
+    reversedById: null,
+    reversalReason: null,
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    invoice: { id: invoice.id, invoiceNumber: invoice.invoiceNumber, issueDate: invoice.issueDate, total: invoice.total, balanceDue: invoiceBalanceDue, status: invoice.status },
+  };
+}
+
+function debitNoteVariant(id: string, debitNoteNumber: string, overrides: Record<string, unknown>) {
+  return {
+    ...debitNote,
+    id,
+    debitNoteNumber,
+    lines: debitNote.lines.map((line) => ({ ...line, id: `${id}-line-1`, debitNoteId: id })),
+    allocations: [],
+    ...overrides,
+  };
+}
+
+function debitNoteAllocation(id: string, debitNoteId: string, amountApplied: string, billBalanceDue: string) {
+  return {
+    id,
+    debitNoteId,
+    billId: purchaseBill.id,
+    amountApplied,
+    status: "ACTIVE",
+    reversedAt: null,
+    reversedById: null,
+    reversalReason: null,
+    createdAt: fixedVisualDate,
+    updatedAt: fixedVisualDate,
+    bill: { id: purchaseBill.id, billNumber: purchaseBill.billNumber, billDate: purchaseBill.billDate, total: purchaseBill.total, balanceDue: billBalanceDue, status: purchaseBill.status },
+  };
+}
+
 const stockMovement = {
   id: "stock-movement-1",
   organizationId: org.id,
@@ -782,41 +1193,46 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/contacts/customers") {
     return json([customerPartySummary()]);
   }
-  if (pathname === "/contacts/customers/customer-1") {
-    return json(customerPartyDetail());
+  const customerDetailMatch = pathname.match(/^\/contacts\/customers\/([^/]+)$/);
+  if (customerDetailMatch) {
+    return json(customerPartyDetail(customerDetailMatch[1] as keyof typeof visualCustomers));
   }
   if (pathname === "/contacts/suppliers") {
     return json([supplierPartySummary()]);
   }
-  if (pathname === "/contacts/suppliers/supplier-1") {
-    return json(supplierPartyDetail());
+  const supplierDetailMatch = pathname.match(/^\/contacts\/suppliers\/([^/]+)$/);
+  if (supplierDetailMatch) {
+    return json(supplierPartyDetail(supplierDetailMatch[1] as keyof typeof visualSuppliers));
   }
   if (pathname === "/contacts/suppliers/supplier-1/ap-summary") {
     return json(supplierApSummary());
   }
-  if (pathname === "/contacts/customer-1") {
-    return json(customer);
+  const contactCustomerMatch = pathname.match(/^\/contacts\/(customer-[^/]+)$/);
+  if (contactCustomerMatch) {
+    return json(visualCustomers[contactCustomerMatch[1] as keyof typeof visualCustomers] ?? customer);
   }
-  if (pathname === "/contacts/supplier-1") {
-    return json(supplier);
+  const contactSupplierMatch = pathname.match(/^\/contacts\/(supplier-[^/]+)$/);
+  if (contactSupplierMatch) {
+    return json(visualSuppliers[contactSupplierMatch[1] as keyof typeof visualSuppliers] ?? supplier);
   }
-  if (pathname === "/contacts/customer-1/ledger") {
-    return json(customerLedger());
+  const customerLedgerMatch = pathname.match(/^\/contacts\/(customer-[^/]+)\/ledger$/);
+  if (customerLedgerMatch) {
+    return json(customerLedger(customerLedgerMatch[1] as keyof typeof visualCustomers));
   }
-  if (pathname === "/contacts/supplier-1/supplier-ledger") {
-    return json(supplierLedger());
+  const supplierLedgerMatch = pathname.match(/^\/contacts\/(supplier-[^/]+)\/supplier-ledger$/);
+  if (supplierLedgerMatch) {
+    return json(supplierLedger(supplierLedgerMatch[1] as keyof typeof visualSuppliers));
   }
-  if (pathname === "/contacts/customer-1/statement") {
-    return json({ ...customerLedger(), periodFrom: searchParams.get("from"), periodTo: searchParams.get("to") });
+  const customerStatementMatch = pathname.match(/^\/contacts\/(customer-[^/]+)\/statement$/);
+  if (customerStatementMatch) {
+    return json({ ...customerLedger(customerStatementMatch[1] as keyof typeof visualCustomers), periodFrom: searchParams.get("from"), periodTo: searchParams.get("to") });
   }
-  if (pathname === "/contacts/supplier-1/supplier-statement") {
-    return json({ ...supplierLedger(), periodFrom: searchParams.get("from"), periodTo: searchParams.get("to") });
-  }
-  if (pathname === "/sales-invoices/invoice-1") {
-    return json(invoice);
+  const supplierStatementMatch = pathname.match(/^\/contacts\/(supplier-[^/]+)\/supplier-statement$/);
+  if (supplierStatementMatch) {
+    return json({ ...supplierLedger(supplierStatementMatch[1] as keyof typeof visualSuppliers), periodFrom: searchParams.get("from"), periodTo: searchParams.get("to") });
   }
   if (pathname === "/sales-invoices") {
-    return json([invoice]);
+    return json(Object.values(salesInvoiceVariants));
   }
   if (pathname === "/sales-invoices/next-number") {
     return json({
@@ -826,23 +1242,31 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
       helperText: "Preview only. The invoice number is assigned from the local visual sequence when the draft is saved.",
     });
   }
-  if (pathname === "/sales-invoices/invoice-1/stock-issue-status") {
-    return json({ sourceId: "invoice-1", sourceNumber: invoice.invoiceNumber, sourceStatus: "FINALIZED", issueStatus: "PARTIAL", issuedQuantity: "1.0000", remainingQuantity: "0.0000", lines: [] });
+  if (pathname === "/sales-invoices/open") {
+    return json(Object.values(salesInvoiceVariants).filter((candidate) => candidate.status === "FINALIZED" && Number(candidate.balanceDue) > 0).map(openInvoiceSummary));
   }
-  if (pathname.startsWith("/sales-invoices/invoice-1/zatca")) {
+  const salesInvoiceStockMatch = pathname.match(/^\/sales-invoices\/([^/]+)\/stock-issue-status$/);
+  if (salesInvoiceStockMatch) {
+    const detail = salesInvoiceById(salesInvoiceStockMatch[1]);
+    return json({ sourceId: detail.id, sourceNumber: detail.invoiceNumber, sourceStatus: detail.status, issueStatus: "PARTIAL", issuedQuantity: "1.0000", remainingQuantity: "0.0000", lines: [] });
+  }
+  if (pathname.match(/^\/sales-invoices\/[^/]+\/zatca/)) {
     return json(zatcaSafeFixture(pathname));
   }
-  if (pathname === "/customer-payments/payment-1") {
-    return json(customerPayment);
+  const salesInvoiceDetailMatch = pathname.match(/^\/sales-invoices\/([^/]+)$/);
+  if (salesInvoiceDetailMatch) {
+    return json(salesInvoiceById(salesInvoiceDetailMatch[1]));
   }
   if (pathname === "/customer-payments") {
-    return json([customerPayment]);
+    return json(Object.values(customerPaymentVariants));
   }
-  if (pathname === "/customer-payments/payment-1/receipt-data") {
-    return json(customerPaymentReceiptData());
+  const customerPaymentReceiptMatch = pathname.match(/^\/customer-payments\/([^/]+)\/receipt-data$/);
+  if (customerPaymentReceiptMatch) {
+    return json(customerPaymentReceiptData(customerPaymentById(customerPaymentReceiptMatch[1])));
   }
-  if (pathname === "/sales-invoices/open") {
-    return json([{ id: invoice.id, invoiceNumber: invoice.invoiceNumber, customerId: customer.id, issueDate: invoice.issueDate, dueDate: invoice.dueDate, currency: invoice.currency, total: invoice.total, balanceDue: invoice.balanceDue, status: invoice.status }]);
+  const customerPaymentDetailMatch = pathname.match(/^\/customer-payments\/([^/]+)$/);
+  if (customerPaymentDetailMatch) {
+    return json(customerPaymentById(customerPaymentDetailMatch[1]));
   }
   if (pathname === "/reports/aged-receivables") {
     return json(agingReport("receivables"));
@@ -850,62 +1274,77 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/reports/aged-payables") {
     return json(agingReport("payables"));
   }
+  if (pathname === "/reports/general-ledger") {
+    return json(generalLedgerReport());
+  }
+  if (pathname === "/reports/trial-balance") {
+    return json(trialBalanceReport());
+  }
   if (pathname === "/credit-notes") {
-    return json([creditNote]);
+    return json(Object.values(creditNoteVariants));
   }
-  if (pathname === "/credit-notes/credit-note-1") {
-    return json(creditNote);
-  }
-  if (pathname === "/purchase-bills/bill-1") {
-    return json(purchaseBill);
+  const creditNoteDetailMatch = pathname.match(/^\/credit-notes\/([^/]+)$/);
+  if (creditNoteDetailMatch) {
+    return json(creditNoteById(creditNoteDetailMatch[1]));
   }
   if (pathname === "/purchase-bills") {
-    return json([purchaseBill]);
+    return json(Object.values(purchaseBillVariants));
   }
-  if (pathname === "/purchase-bills/bill-1/receiving-status") {
+  if (pathname === "/purchase-bills/open") {
+    return json(Object.values(purchaseBillVariants).filter((candidate) => candidate.status === "FINALIZED" && Number(candidate.balanceDue) > 0).map(openBillSummary));
+  }
+  const purchaseBillReceivingMatch = pathname.match(/^\/purchase-bills\/([^/]+)\/receiving-status$/);
+  if (purchaseBillReceivingMatch) {
+    const detail = purchaseBillById(purchaseBillReceivingMatch[1]);
     return json({
-      sourceId: "bill-1",
-      sourceNumber: purchaseBill.billNumber,
-      sourceStatus: "FINALIZED",
+      sourceId: detail.id,
+      sourceNumber: detail.billNumber,
+      sourceStatus: detail.status,
       status: "PARTIALLY_RECEIVED",
       receivedQuantity: "12.0000",
       remainingQuantity: "0.0000",
       lines: [],
     });
   }
-  if (pathname === "/purchase-bills/bill-1/receipt-matching-status") {
+  const purchaseBillMatchingMatch = pathname.match(/^\/purchase-bills\/([^/]+)\/receipt-matching-status$/);
+  if (purchaseBillMatchingMatch) {
+    const detail = purchaseBillById(purchaseBillMatchingMatch[1]);
     return json({
-      sourceId: "bill-1",
-      sourceNumber: purchaseBill.billNumber,
+      sourceId: detail.id,
+      sourceNumber: detail.billNumber,
       status: "PARTIALLY_RECEIVED",
-      bill: { status: purchaseBill.status, inventoryPostingMode: purchaseBill.inventoryPostingMode },
+      bill: { status: detail.status, inventoryPostingMode: detail.inventoryPostingMode },
       receiptCount: 1,
       receiptValue: "480.0000",
-      billTotal: purchaseBill.total,
+      billTotal: detail.total,
       warnings: [],
       lines: [],
     });
   }
-  if (pathname === "/purchase-bills/bill-1/accounting-preview") {
+  if (pathname.match(/^\/purchase-bills\/[^/]+\/accounting-preview$/)) {
     return json(accountingPreview("PurchaseBill"));
   }
-  if (pathname === "/purchase-bills/open") {
-    return json([{ id: purchaseBill.id, billNumber: purchaseBill.billNumber, supplierId: supplier.id, billDate: purchaseBill.billDate, dueDate: purchaseBill.dueDate, currency: purchaseBill.currency, total: purchaseBill.total, balanceDue: purchaseBill.balanceDue, status: purchaseBill.status }]);
-  }
-  if (pathname === "/supplier-payments/supplier-payment-1") {
-    return json(supplierPayment);
+  const purchaseBillDetailMatch = pathname.match(/^\/purchase-bills\/([^/]+)$/);
+  if (purchaseBillDetailMatch) {
+    return json(purchaseBillById(purchaseBillDetailMatch[1]));
   }
   if (pathname === "/supplier-payments") {
-    return json([supplierPayment]);
+    return json(Object.values(supplierPaymentVariants));
   }
-  if (pathname === "/supplier-payments/supplier-payment-1/receipt-data") {
-    return json(supplierPaymentReceiptData());
+  const supplierPaymentReceiptMatch = pathname.match(/^\/supplier-payments\/([^/]+)\/receipt-data$/);
+  if (supplierPaymentReceiptMatch) {
+    return json(supplierPaymentReceiptData(supplierPaymentById(supplierPaymentReceiptMatch[1])));
+  }
+  const supplierPaymentDetailMatch = pathname.match(/^\/supplier-payments\/([^/]+)$/);
+  if (supplierPaymentDetailMatch) {
+    return json(supplierPaymentById(supplierPaymentDetailMatch[1]));
   }
   if (pathname === "/purchase-debit-notes") {
-    return json([debitNote]);
+    return json(Object.values(debitNoteVariants));
   }
-  if (pathname === "/purchase-debit-notes/debit-note-1") {
-    return json(debitNote);
+  const debitNoteDetailMatch = pathname.match(/^\/purchase-debit-notes\/([^/]+)$/);
+  if (debitNoteDetailMatch) {
+    return json(debitNoteById(debitNoteDetailMatch[1]));
   }
   if (pathname === "/collections/customer/customer-1") {
     return json([]);
@@ -1022,6 +1461,58 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   return null;
 }
 
+function salesInvoiceById(id: string) {
+  return salesInvoiceVariants[id as keyof typeof salesInvoiceVariants] ?? invoice;
+}
+
+function purchaseBillById(id: string) {
+  return purchaseBillVariants[id as keyof typeof purchaseBillVariants] ?? purchaseBill;
+}
+
+function customerPaymentById(id: string) {
+  return customerPaymentVariants[id as keyof typeof customerPaymentVariants] ?? customerPayment;
+}
+
+function supplierPaymentById(id: string) {
+  return supplierPaymentVariants[id as keyof typeof supplierPaymentVariants] ?? supplierPayment;
+}
+
+function creditNoteById(id: string) {
+  return creditNoteVariants[id as keyof typeof creditNoteVariants] ?? creditNote;
+}
+
+function debitNoteById(id: string) {
+  return debitNoteVariants[id as keyof typeof debitNoteVariants] ?? debitNote;
+}
+
+function openInvoiceSummary(candidate: (typeof salesInvoiceVariants)[keyof typeof salesInvoiceVariants]) {
+  return {
+    id: candidate.id,
+    invoiceNumber: candidate.invoiceNumber,
+    customerId: candidate.customerId,
+    issueDate: candidate.issueDate,
+    dueDate: candidate.dueDate,
+    currency: candidate.currency,
+    total: candidate.total,
+    balanceDue: candidate.balanceDue,
+    status: candidate.status,
+  };
+}
+
+function openBillSummary(candidate: (typeof purchaseBillVariants)[keyof typeof purchaseBillVariants]) {
+  return {
+    id: candidate.id,
+    billNumber: candidate.billNumber,
+    supplierId: candidate.supplierId,
+    billDate: candidate.billDate,
+    dueDate: candidate.dueDate,
+    currency: candidate.currency,
+    total: candidate.total,
+    balanceDue: candidate.balanceDue,
+    status: candidate.status,
+  };
+}
+
 function organizationProfile() {
   return {
     ...org,
@@ -1098,28 +1589,61 @@ function supplierPartySummary() {
   };
 }
 
-function customerPartyDetail() {
+function customerPartyDetail(id: keyof typeof visualCustomers = "customer-1") {
+  const detailCustomer = visualCustomers[id] ?? customer;
+  const state = contactStateFromId(id);
+  const transactions =
+    state === "empty" || state === "inactive"
+      ? []
+      : [
+          partyTransaction("party-invoice-1", "SalesInvoice", invoice.id, invoice.issueDate, invoice.dueDate, "Sales invoice", invoice.invoiceNumber, invoice.subtotal, invoice.taxTotal, invoice.total, invoice.balanceDue, invoice.status),
+          partyTransaction("party-payment-1", "CustomerPayment", customerPayment.id, customerPayment.paymentDate, null, "Customer payment", customerPayment.paymentNumber, "0.0000", "0.0000", customerPayment.amountReceived, "0.0000", customerPayment.status),
+          partyTransaction("party-credit-note-1", "CreditNote", creditNote.id, creditNote.issueDate, null, "Credit note", creditNote.creditNoteNumber, creditNote.subtotal, creditNote.taxTotal, creditNote.total, creditNote.unappliedAmount, creditNote.status),
+        ];
+
   return {
-    ...customerPartySummary(),
+    contact: detailCustomer,
+    openReceivableBalance: transactions.length > 0 ? "650.0000" : "0.0000",
+    overdueReceivableBalance: "0.0000",
+    lastTransactionDate: transactions.length > 0 ? customerPayment.paymentDate : null,
     notes: "Local authenticated visual fixture. No hosted/customer data is used.",
-    transactions: [
-      partyTransaction("party-invoice-1", "SalesInvoice", invoice.id, invoice.issueDate, invoice.dueDate, "Sales invoice", invoice.invoiceNumber, invoice.subtotal, invoice.taxTotal, invoice.total, invoice.balanceDue, invoice.status),
-      partyTransaction("party-payment-1", "CustomerPayment", customerPayment.id, customerPayment.paymentDate, null, "Customer payment", customerPayment.paymentNumber, "0.0000", "0.0000", customerPayment.amountReceived, "0.0000", customerPayment.status),
-      partyTransaction("party-credit-note-1", "CreditNote", creditNote.id, creditNote.issueDate, null, "Credit note", creditNote.creditNoteNumber, creditNote.subtotal, creditNote.taxTotal, creditNote.total, creditNote.unappliedAmount, creditNote.status),
-    ],
+    transactions,
   };
 }
 
-function supplierPartyDetail() {
+function supplierPartyDetail(id: keyof typeof visualSuppliers = "supplier-1") {
+  const detailSupplier = visualSuppliers[id] ?? supplier;
+  const state = contactStateFromId(id);
+  const transactions =
+    state === "empty" || state === "inactive"
+      ? []
+      : [
+          partyTransaction("party-bill-1", "PurchaseBill", purchaseBill.id, purchaseBill.billDate, purchaseBill.dueDate, "Purchase bill", purchaseBill.billNumber, purchaseBill.subtotal, purchaseBill.taxTotal, purchaseBill.total, purchaseBill.balanceDue, purchaseBill.status),
+          partyTransaction("party-supplier-payment-1", "SupplierPayment", supplierPayment.id, supplierPayment.paymentDate, null, "Supplier payment", supplierPayment.paymentNumber, "0.0000", "0.0000", supplierPayment.amountPaid, "0.0000", supplierPayment.status),
+          partyTransaction("party-debit-note-1", "PurchaseDebitNote", debitNote.id, debitNote.issueDate, null, "Debit note", debitNote.debitNoteNumber, debitNote.subtotal, debitNote.taxTotal, debitNote.total, debitNote.unappliedAmount, debitNote.status),
+        ];
+
   return {
-    ...supplierPartySummary(),
+    contact: detailSupplier,
+    openPayableBalance: transactions.length > 0 ? "405.0000" : "0.0000",
+    overduePayableBalance: "0.0000",
+    lastTransactionDate: transactions.length > 0 ? supplierPayment.paymentDate : null,
     paymentNotes: "Local authenticated visual fixture. Supplier payment details are mocked read-only.",
-    transactions: [
-      partyTransaction("party-bill-1", "PurchaseBill", purchaseBill.id, purchaseBill.billDate, purchaseBill.dueDate, "Purchase bill", purchaseBill.billNumber, purchaseBill.subtotal, purchaseBill.taxTotal, purchaseBill.total, purchaseBill.balanceDue, purchaseBill.status),
-      partyTransaction("party-supplier-payment-1", "SupplierPayment", supplierPayment.id, supplierPayment.paymentDate, null, "Supplier payment", supplierPayment.paymentNumber, "0.0000", "0.0000", supplierPayment.amountPaid, "0.0000", supplierPayment.status),
-      partyTransaction("party-debit-note-1", "PurchaseDebitNote", debitNote.id, debitNote.issueDate, null, "Debit note", debitNote.debitNoteNumber, debitNote.subtotal, debitNote.taxTotal, debitNote.total, debitNote.unappliedAmount, debitNote.status),
-    ],
+    transactions,
   };
+}
+
+function contactStateFromId(id: string): CustomerDetailState | SupplierDetailState {
+  if (id.includes("empty")) {
+    return "empty";
+  }
+  if (id.includes("inactive")) {
+    return "inactive";
+  }
+  if (id.includes("long")) {
+    return "long";
+  }
+  return "open";
 }
 
 function partyTransaction(
@@ -1364,28 +1888,42 @@ function dashboardSummary() {
   };
 }
 
-function customerLedger() {
+function customerLedger(id: keyof typeof visualCustomers = "customer-1") {
+  const detailCustomer = visualCustomers[id] ?? customer;
+  const state = contactStateFromId(id);
+  const rows =
+    state === "empty" || state === "inactive"
+      ? []
+      : [
+          ledgerRow("ledger-customer-invoice", "INVOICE", "2026-05-15T00:00:00.000Z", "Invoice finalized", invoice.invoiceNumber, invoice.id, "1150.0000", "0.0000", "1150.0000"),
+          ledgerRow("ledger-customer-payment", "PAYMENT", "2026-05-18T00:00:00.000Z", "Customer payment allocated", customerPayment.paymentNumber, customerPayment.id, "0.0000", "500.0000", "650.0000"),
+        ];
+
   return {
-    contact: customer,
+    contact: detailCustomer,
     openingBalance: "0.0000",
-    closingBalance: "650.0000",
-    rows: [
-      ledgerRow("ledger-customer-invoice", "INVOICE", "2026-05-15T00:00:00.000Z", "Invoice finalized", invoice.invoiceNumber, invoice.id, "1150.0000", "0.0000", "1150.0000"),
-      ledgerRow("ledger-customer-payment", "PAYMENT", "2026-05-18T00:00:00.000Z", "Customer payment allocated", customerPayment.paymentNumber, customerPayment.id, "0.0000", "500.0000", "650.0000"),
-    ],
+    closingBalance: rows.length > 0 ? "650.0000" : "0.0000",
+    rows,
   };
 }
 
-function supplierLedger() {
+function supplierLedger(id: keyof typeof visualSuppliers = "supplier-1") {
+  const detailSupplier = visualSuppliers[id] ?? supplier;
+  const state = contactStateFromId(id);
+  const rows =
+    state === "empty" || state === "inactive"
+      ? []
+      : [
+          ledgerRow("ledger-supplier-bill", "PURCHASE_BILL", "2026-05-12T00:00:00.000Z", "Purchase bill finalized", purchaseBill.billNumber, purchaseBill.id, "0.0000", "920.0000", "920.0000"),
+          ledgerRow("ledger-supplier-payment", "SUPPLIER_PAYMENT", "2026-05-19T00:00:00.000Z", "Supplier payment allocated", supplierPayment.paymentNumber, supplierPayment.id, "400.0000", "0.0000", "520.0000"),
+          ledgerRow("ledger-supplier-debit-note", "PURCHASE_DEBIT_NOTE", "2026-05-20T00:00:00.000Z", "Debit note applied", debitNote.debitNoteNumber, debitNote.id, "115.0000", "0.0000", "405.0000"),
+        ];
+
   return {
-    contact: supplier,
+    contact: detailSupplier,
     openingBalance: "0.0000",
-    closingBalance: "405.0000",
-    rows: [
-      ledgerRow("ledger-supplier-bill", "PURCHASE_BILL", "2026-05-12T00:00:00.000Z", "Purchase bill finalized", purchaseBill.billNumber, purchaseBill.id, "0.0000", "920.0000", "920.0000"),
-      ledgerRow("ledger-supplier-payment", "SUPPLIER_PAYMENT", "2026-05-19T00:00:00.000Z", "Supplier payment allocated", supplierPayment.paymentNumber, supplierPayment.id, "400.0000", "0.0000", "520.0000"),
-      ledgerRow("ledger-supplier-debit-note", "PURCHASE_DEBIT_NOTE", "2026-05-20T00:00:00.000Z", "Debit note applied", debitNote.debitNoteNumber, debitNote.id, "115.0000", "0.0000", "405.0000"),
-    ],
+    closingBalance: rows.length > 0 ? "405.0000" : "0.0000",
+    rows,
   };
 }
 
@@ -1531,17 +2069,17 @@ function zatcaReadinessSection(scope: string, message: string, severity: "ERROR"
   };
 }
 
-function customerPaymentReceiptData() {
+function customerPaymentReceiptData(payment = customerPayment) {
   return {
-    receiptNumber: customerPayment.paymentNumber,
-    paymentDate: customerPayment.paymentDate,
+    receiptNumber: payment.paymentNumber,
+    paymentDate: payment.paymentDate,
     customer,
     organization: org,
-    amountReceived: customerPayment.amountReceived,
-    unappliedAmount: customerPayment.unappliedAmount,
-    currency: customerPayment.currency,
-    paidThroughAccount: customerPayment.account,
-    allocations: customerPayment.allocations.map((allocation) => ({
+    amountReceived: payment.amountReceived,
+    unappliedAmount: payment.unappliedAmount,
+    currency: payment.currency,
+    paidThroughAccount: payment.account,
+    allocations: payment.allocations.map((allocation) => ({
       invoiceId: allocation.invoiceId,
       invoiceNumber: allocation.invoice.invoiceNumber,
       invoiceDate: allocation.invoice.issueDate,
@@ -1550,22 +2088,22 @@ function customerPaymentReceiptData() {
       invoiceBalanceDue: allocation.invoice.balanceDue,
     })),
     unappliedAllocations: [],
-    journalEntry: customerPayment.journalEntry,
-    status: customerPayment.status,
+    journalEntry: payment.journalEntry,
+    status: payment.status,
   };
 }
 
-function supplierPaymentReceiptData() {
+function supplierPaymentReceiptData(payment = supplierPayment) {
   return {
-    receiptNumber: supplierPayment.paymentNumber,
-    paymentDate: supplierPayment.paymentDate,
+    receiptNumber: payment.paymentNumber,
+    paymentDate: payment.paymentDate,
     supplier,
     organization: org,
-    amountPaid: supplierPayment.amountPaid,
-    unappliedAmount: supplierPayment.unappliedAmount,
-    currency: supplierPayment.currency,
-    paidThroughAccount: supplierPayment.account,
-    allocations: supplierPayment.allocations.map((allocation) => ({
+    amountPaid: payment.amountPaid,
+    unappliedAmount: payment.unappliedAmount,
+    currency: payment.currency,
+    paidThroughAccount: payment.account,
+    allocations: payment.allocations.map((allocation) => ({
       billId: allocation.billId,
       billNumber: allocation.bill.billNumber,
       billDate: allocation.bill.billDate,
@@ -1575,36 +2113,129 @@ function supplierPaymentReceiptData() {
       billBalanceDue: allocation.bill.balanceDue,
     })),
     unappliedAllocations: [],
-    journalEntry: supplierPayment.journalEntry,
-    status: supplierPayment.status,
+    journalEntry: payment.journalEntry,
+    status: payment.status,
   };
 }
 
 function agingReport(kind: "receivables" | "payables") {
   const isReceivables = kind === "receivables";
+  const row = isReceivables ? salesInvoiceById("invoice-overdue") : purchaseBillById("bill-overdue");
   return {
     asOf: "2026-05-21",
     bucketTotals: {
-      current: isReceivables ? "650.0000" : "405.0000",
+      CURRENT: "0.0000",
       "1_30": "0.0000",
-      "31_60": "0.0000",
+      "31_60": isReceivables ? row.balanceDue : row.balanceDue,
       "61_90": "0.0000",
-      "90_plus": "0.0000",
+      "90_PLUS": "0.0000",
     },
-    grandTotal: isReceivables ? "650.0000" : "405.0000",
+    grandTotal: row.balanceDue,
     rows: [
       {
-        id: isReceivables ? invoice.id : purchaseBill.id,
+        id: row.id,
         contact: isReceivables ? customer : supplier,
-        number: isReceivables ? invoice.invoiceNumber : purchaseBill.billNumber,
-        issueDate: isReceivables ? invoice.issueDate : purchaseBill.billDate,
-        dueDate: isReceivables ? invoice.dueDate : purchaseBill.dueDate,
-        total: isReceivables ? invoice.total : purchaseBill.total,
-        balanceDue: isReceivables ? invoice.balanceDue : "405.0000",
-        daysOverdue: 0,
-        bucket: "current",
+        number: isReceivables ? row.invoiceNumber : row.billNumber,
+        issueDate: isReceivables ? row.issueDate : row.billDate,
+        dueDate: row.dueDate,
+        total: row.total,
+        balanceDue: row.balanceDue,
+        daysOverdue: 36,
+        bucket: "31_60",
       },
     ],
+  };
+}
+
+function generalLedgerReport() {
+  return {
+    from: "2026-05-01",
+    to: "2026-05-21",
+    accounts: [
+      reportAccount("1010", "Main Bank", "ASSET", "0.0000", "0.0000", "500.0000", "250.0000", "250.0000", "0.0000", [
+        {
+          date: customerPayment.paymentDate,
+          journalEntryId: customerPayment.journalEntryId,
+          entryNumber: customerPayment.journalEntry.entryNumber,
+          description: "Customer payment received",
+          reference: customerPayment.paymentNumber,
+          debit: "500.0000",
+          credit: "0.0000",
+          runningBalance: "500.0000",
+        },
+        {
+          date: "2026-05-20T00:00:00.000Z",
+          journalEntryId: "journal-bank-transfer-1",
+          entryNumber: "JE-BTR-001",
+          description: "Transfer to savings bank",
+          reference: bankTransfer.transferNumber,
+          debit: "0.0000",
+          credit: "250.0000",
+          runningBalance: "250.0000",
+        },
+      ]),
+      reportAccount("4010", "Sales", "REVENUE", "0.0000", "0.0000", "0.0000", "1000.0000", "0.0000", "1000.0000", [
+        {
+          date: invoice.issueDate,
+          journalEntryId: invoice.journalEntryId,
+          entryNumber: invoice.journalEntry.entryNumber,
+          description: "Sales invoice finalized",
+          reference: invoice.invoiceNumber,
+          debit: "0.0000",
+          credit: "1000.0000",
+          runningBalance: "1000.0000",
+        },
+      ]),
+    ],
+  };
+}
+
+function trialBalanceReport() {
+  const accounts = generalLedgerReport().accounts.map(({ lines: _lines, ...account }) => account);
+  return {
+    from: "2026-05-01",
+    to: "2026-05-21",
+    accounts,
+    totals: {
+      accountId: "totals",
+      code: "",
+      name: "Totals",
+      type: "ASSET",
+      openingDebit: "0.0000",
+      openingCredit: "0.0000",
+      periodDebit: "1250.0000",
+      periodCredit: "1250.0000",
+      closingDebit: "250.0000",
+      closingCredit: "1000.0000",
+      balanced: true,
+    },
+  };
+}
+
+function reportAccount(
+  code: string,
+  name: string,
+  type: string,
+  openingDebit: string,
+  openingCredit: string,
+  periodDebit: string,
+  periodCredit: string,
+  closingDebit: string,
+  closingCredit: string,
+  lines: unknown[],
+) {
+  return {
+    accountId: `account-${code}`,
+    code,
+    name,
+    type,
+    openingDebit,
+    openingCredit,
+    periodDebit,
+    periodCredit,
+    closingDebit,
+    closingCredit,
+    lines,
   };
 }
 
