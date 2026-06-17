@@ -1,3 +1,4 @@
+import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { canViewNavItem, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
 
 export interface SidebarNavChild {
@@ -148,10 +149,8 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
     href: "/settings/compliance",
     activePrefix: "/settings",
     children: [
-      { label: "UAE eInvoicing readiness", href: "/settings/zatca", requiredAny: [PERMISSIONS.zatca.view] },
       { label: "VAT readiness", href: "/reports/vat-return", requiredAny: [PERMISSIONS.reports.view] },
       { label: "Generated documents", href: "/documents", requiredAny: [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view] },
-      { label: "Local PINT-AE QA", href: "/settings/compliance", requiredAny: [PERMISSIONS.compliance.view] },
     ],
   },
   {
@@ -193,9 +192,33 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
   },
 ];
 
+export function sidebarNavItemsForMarket(market?: LedgerByteMarket): SidebarNavItem[] {
+  const edition = getLedgerByteEdition(market);
+
+  return SIDEBAR_NAV_ITEMS.map((item) => {
+    if (item.href !== "/settings/compliance") {
+      return item;
+    }
+
+    const countryChildren: SidebarNavChild[] = [];
+    if (edition.showZatca) {
+      countryChildren.push({ label: edition.complianceNavLabel, href: edition.complianceNavHref, requiredAny: [PERMISSIONS.zatca.view] });
+    }
+    if (edition.showUaeEinvoicing) {
+      countryChildren.push({ label: edition.complianceNavLabel, href: edition.complianceNavHref, requiredAny: [PERMISSIONS.compliance.view] });
+      countryChildren.push({ label: "Local PINT-AE QA", href: "/settings/compliance", requiredAny: [PERMISSIONS.compliance.view] });
+    }
+
+    return {
+      ...item,
+      children: [...countryChildren, ...(item.children ?? [])],
+    };
+  });
+}
+
 export function filterSidebarNavItems(
   subject: PermissionSubject,
-  items: readonly SidebarNavItem[] = SIDEBAR_NAV_ITEMS,
+  items: readonly SidebarNavItem[] = sidebarNavItemsForMarket(),
 ): SidebarNavItem[] {
   return items.flatMap((item) => {
     const children = item.children?.filter((child) => canViewNavItem(subject, child.requiredAny));

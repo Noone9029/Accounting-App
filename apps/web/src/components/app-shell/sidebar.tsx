@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { filterSidebarNavItems } from "@/lib/sidebar-nav";
 import { canViewNavItem, PERMISSIONS, type Permission } from "@/lib/permissions";
 import { GlobalCreateMenu } from "./global-create-menu";
@@ -62,6 +63,7 @@ export function Sidebar() {
 function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
   const pathname = usePathname();
   const { activeMembership } = usePermissions();
+  const edition = getLedgerByteEdition();
   const visibleItems = filterSidebarNavItems(activeMembership);
 
   return (
@@ -74,7 +76,7 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
             </span>
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-white">LedgerByte</div>
-              <div className="mt-0.5 truncate text-xs text-slate-300">UAE accounting workspace</div>
+              <div className="mt-0.5 truncate text-xs text-slate-300">{edition.brandSubline}</div>
             </div>
           </div>
         </Link>
@@ -130,7 +132,7 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
         </nav>
       </ScrollArea>
       <div className="border-t border-white/10 px-5 py-4 text-xs leading-5 text-slate-400">
-        UAE eInvoicing-ready. Local readiness validation only.
+        {edition.shellFooter}
       </div>
     </aside>
   );

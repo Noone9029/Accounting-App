@@ -24,7 +24,10 @@ jest.mock("@/lib/compliance", () => ({
 }));
 
 describe("ComplianceSettingsPage", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "UAE";
     getComplianceReadinessMock.mockReset();
     getOrganizationMock.mockReset();
     updateOrganizationMock.mockReset();
@@ -71,6 +74,21 @@ describe("ComplianceSettingsPage", () => {
       uaeAspSelected: "Disabled ASP",
       uaeAspOnboardingStatus: "NOT_STARTED",
     });
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+  });
+
+  it("renders neutral generic readiness without loading UAE details by default", () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "GENERIC";
+
+    render(<ComplianceSettingsPage />);
+
+    expect(screen.getAllByRole("heading", { name: "Compliance readiness" }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Country-specific compliance modules are hidden/i)).toBeInTheDocument();
+    expect(screen.queryByText(/UAE eInvoicing readiness fields/i)).not.toBeInTheDocument();
+    expect(getComplianceReadinessMock).not.toHaveBeenCalled();
   });
 
   it("renders controlled-beta UAE readiness and editable organization fields without accreditation claims", async () => {

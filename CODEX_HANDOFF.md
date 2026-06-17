@@ -9,10 +9,25 @@
 
 ## Current Development Objective
 
-- Current lane: frontend-only LedgerByte UI/UX modernization.
+- Current lane: frontend-only country-edition split reconciliation.
 - Product posture remains controlled beta/user-testing only.
-- This branch is docs/planning only. It inventories existing auth/session/security-adjacent capabilities and plans a future real `/settings/security` route without implementing that route.
-- It keeps backend APIs, frontend route implementation, Prisma schema, migrations, auth/session/security business logic, UAE PINT-AE behavior, ZATCA behavior, provider adapters, hosted/customer-data mutation, and production security/compliance claims unchanged.
+- This branch cleanly ports only the generic/KSA/UAE edition split from the preserved dirty branch into fresh `origin/main`.
+- It keeps backend APIs, Prisma schema, migrations, auth/session/security business logic, accounting/business logic, UAE PINT-AE serializer/rules, ZATCA core behavior, provider adapters, hosted/customer-data mutation, Vercel/Supabase commands, and production compliance claims unchanged.
+
+## Country Edition Clean Reconciliation Summary
+
+- PR `#63` was already merged during repo hygiene; this branch started from `origin/main` at `137f808d978e7afa0cce0dcc82fa6f06ffcc35a5`.
+- Dirty country-edition work remains preserved on `feature/edition-split-preserve-current-changes` and in `E:\Repo-Hygiene-Safety\Accounting-App-20260617-192644\primary-country-edition-repo-hygiene-safety-20260617-192644.patch`.
+- Added `apps/web/src/lib/edition.ts` for `GENERIC`, `KSA`, and `UAE`, reading `NEXT_PUBLIC_LEDGERBYTE_MARKET` or `LEDGERBYTE_MARKET` and falling back to `GENERIC`.
+- Generic shell, dashboard, onboarding, marketing, document guidance, compliance settings, forms, and invoice details are neutral by default.
+- KSA-only UI exposes ZATCA readiness labels/actions and SAR defaults through edition config.
+- UAE-only UI exposes UAE eInvoicing/PINT-AE readiness labels/actions and AED defaults through edition config.
+- Country panels and invoice actions are hidden outside the matching edition; routes are guarded rather than deleted.
+- Existing Vercel project URLs are prior deployment evidence only: `https://ledgerbyte-ksa.vercel.app`, `https://ledgerbyte-uae.vercel.app`, and `https://ledgerbyte-web-test.vercel.app`. No Vercel command ran in this branch.
+- Excluded dirty UI churn: broad shell/dashboard visual redesign hunks, `apps/web/src/components/ui-ledger.tsx`, `apps/web/src/app/globals.css`, `apps/web/tailwind.config.ts`, app-shell create/search/switcher churn, and `stitch-frontend-pass-safety.patch`.
+- ZATCA stash remains parked at `stash@{0}`. `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` were not touched.
+- Provider evidence remains unavailable: no sandbox credentials, provider response, ASP validation, FTA reporting, ZATCA production response, or commercial terms.
+- Recommended next prompt: `Review country edition split PR`.
 
 ## Security Settings Route Implementation Plan Summary
 

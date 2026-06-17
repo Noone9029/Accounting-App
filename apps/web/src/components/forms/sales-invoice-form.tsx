@@ -14,6 +14,7 @@ import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, AccountType, Branch, Contact, Item, SalesInvoice, SalesInvoiceTaxMode, TaxRate } from "@/lib/types";
@@ -72,6 +73,7 @@ function optionalDateInputValue(value?: string | null): string {
 
 export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: SalesInvoiceFormProps) {
   const router = useRouter();
+  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -229,7 +231,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
-        currency: "AED",
+        currency: edition.defaultCurrency,
         taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
@@ -311,8 +313,8 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
           </label>
           <label className="block">
             <span className="text-sm font-medium text-foreground">Currency</span>
-            <Input value="AED" readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default UAE workspace currency.</span>
+            <Input value={edition.defaultCurrency} readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default {edition.marketLabel} workspace currency.</span>
           </label>
           <label className="block">
             <span className="text-sm font-medium text-foreground">Issue date</span>
@@ -345,6 +347,8 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       </PanelSection>
 
       <ComplianceReadinessPanel
+        title={edition.invoiceComplianceTitle}
+        description={edition.invoiceComplianceDescription}
         checks={[
           {
             label: "Invoice fields",
@@ -352,9 +356,9 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             detail: "Customer, issue date, due date, VAT mode, and line-item fields stay in the normal draft invoice workflow.",
           },
           {
-            label: "Local readiness only",
+            label: edition.invoiceComplianceChecks.disconnectedLabel,
             status: "warning",
-            detail: "This form does not connect to an ASP, report to the FTA, or claim production compliance.",
+            detail: edition.invoiceComplianceChecks.disconnectedDetail,
           },
           {
             label: "Attachments and finalization",
@@ -459,7 +463,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
                               ))}
                         </select>
                       </TableCell>
-                      <TableCell className="font-mono text-xs tabular-nums">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits, "AED") : "AED 0.00"}</TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits, edition.defaultCurrency) : `${edition.defaultCurrency} 0.00`}</TableCell>
                       <TableCell>
                         <Button type="button" variant="outline" size="xs" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
                           Remove
@@ -481,11 +485,11 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
         <TransactionSummaryCard
           rows={[
-            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, "AED") },
-            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, "AED") },
-            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, "AED") },
-            { label: "VAT", value: formatMoneyAmount(preview.taxTotal, "AED") },
-            { label: "Total", value: formatMoneyAmount(preview.total, "AED"), emphasized: true },
+            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, edition.defaultCurrency) },
+            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, edition.defaultCurrency) },
+            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, edition.defaultCurrency) },
+            { label: "VAT", value: formatMoneyAmount(preview.taxTotal, edition.defaultCurrency) },
+            { label: "Total", value: formatMoneyAmount(preview.total, edition.defaultCurrency), emphasized: true },
           ]}
         />
       </div>

@@ -17,14 +17,28 @@ jest.mock("next/link", () => ({
 }));
 
 describe("document guidance", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+  });
+
   it("explains source PDF archive behavior without claiming production compliance", () => {
     render(<SourceDocumentGuidance />);
 
     expect(screen.getByText(/PDF downloads from source records are archived automatically/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "Document settings" })).toHaveAttribute("href", "/settings/documents");
-    expect(screen.getByText(/PDF\/A-3 embedding,\s+ZATCA network submission/)).toBeInTheDocument();
+    expect(screen.getByText(/Tax-authority submission, provider reporting, and production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps ZATCA document wording in the KSA edition only", () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "KSA";
+
+    render(<SourceDocumentGuidance />);
+
+    expect(screen.getByText(/PDF\/A-3 embedding,\s+ZATCA network submission/)).toBeInTheDocument();
   });
 
   it("explains archived downloads are non-posting document retrievals", () => {

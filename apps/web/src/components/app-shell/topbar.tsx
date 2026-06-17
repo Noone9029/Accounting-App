@@ -4,6 +4,7 @@ import { Bell, CircleHelp, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { PERMISSIONS } from "@/lib/permissions";
 import { GlobalCreateMenu } from "./global-create-menu";
 import { GlobalSearch } from "./global-search";
@@ -11,14 +12,20 @@ import { OrganizationSwitcher } from "./organization-switcher";
 
 export function Topbar() {
   const { activeMembership, can } = usePermissions();
+  const edition = getLedgerByteEdition();
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-3 border-b border-line bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between lg:px-6">
       <div className="min-w-0 lg:w-60">
         <div className="text-sm font-semibold text-ink">Accounting workspace</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-steel">
-          <span>UAE controlled beta</span>
-          <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">No FTA reporting yet</span>
+          <span>{edition.topbarSubtitle}</span>
+          {edition.showUaeEinvoicing ? (
+            <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">No FTA reporting yet</span>
+          ) : null}
+          {edition.showZatca ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">ZATCA network disabled</span>
+          ) : null}
         </div>
       </div>
       <GlobalSearch className="w-full lg:min-w-[22rem] lg:flex-1 lg:max-w-2xl" />

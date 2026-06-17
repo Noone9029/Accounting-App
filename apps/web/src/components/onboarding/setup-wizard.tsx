@@ -9,13 +9,15 @@ import {
   setupWizardSteps,
   setupWizardSummary,
 } from "@/lib/dashboard";
+import { getLedgerByteEdition } from "@/lib/edition";
 import type { DashboardOnboardingChecklist, DashboardOnboardingChecklistItemStatus } from "@/lib/types";
 
 export function SetupWizardContent({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
-  const summary = setupWizardSummary(checklist);
-  const steps = setupWizardSteps(checklist);
-  const workflowSummary = firstAccountingWorkflowSummary(checklist);
-  const workflowSteps = firstAccountingWorkflowSteps(checklist);
+  const edition = getLedgerByteEdition();
+  const summary = setupWizardSummary(checklist, edition.market);
+  const steps = setupWizardSteps(checklist, edition.market);
+  const workflowSummary = firstAccountingWorkflowSummary(checklist, edition.market);
+  const workflowSteps = firstAccountingWorkflowSteps(checklist, edition.market);
 
   return (
     <section>
@@ -25,7 +27,7 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
             Follow the first accounting loop: profile, VAT, customer, invoice, payment, and report. This read-only
             guide checks live workspace data and links to the right screens without creating records, finalizing
-            invoices, submitting UAE eInvoicing data, or changing setup for you.
+            invoices, submitting tax-authority data, or changing setup for you.
           </p>
           <p className="mt-1 text-xs text-steel">Checklist generated {new Date(checklist.generatedAt).toLocaleString()}.</p>
         </div>
@@ -75,8 +77,8 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
               </div>
             ) : (
               <p className="mt-3 text-sm leading-6 text-steel">
-                Ready for controlled beta review. UAE eInvoicing stays local readiness validation until ASP validation,
-                FTA reporting, production credentials, and compliance review are connected.
+                Ready for controlled beta review. Country-specific compliance modules stay local-readiness only until
+                provider credentials, production review, and compliance review are connected.
               </p>
             )}
           </div>
@@ -96,8 +98,7 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
           ) : null}
 
           <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
-            UAE eInvoicing remains local-readiness only. ASP validation is not connected, no FTA reporting is enabled,
-            and production compliance claims stay disabled.
+            {edition.complianceDashboardNote}
           </div>
         </aside>
 
@@ -128,7 +129,8 @@ export function SetupWizardFallback({ message }: Readonly<{ message: string }>) 
 }
 
 export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
-  const summary = setupWizardDashboardSummary(checklist);
+  const edition = getLedgerByteEdition();
+  const summary = setupWizardDashboardSummary(checklist, edition.market);
 
   return (
     <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
@@ -166,14 +168,15 @@ export function DashboardOnboardingCard({ checklist }: Readonly<{ checklist: Das
         </Link>
       ) : null}
       <div className="mt-3 text-xs leading-5 text-steel">
-        Read-only checklist guidance. UAE eInvoicing is local readiness validation only; ASP validation is not connected and no FTA reporting is enabled.
+        Read-only checklist guidance. {edition.complianceDashboardNote}
       </div>
     </div>
   );
 }
 
 export function DashboardFirstWorkflowPrompt({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist | null }>) {
-  const summary = checklist ? setupWizardDashboardSummary(checklist) : null;
+  const edition = getLedgerByteEdition();
+  const summary = checklist ? setupWizardDashboardSummary(checklist, edition.market) : null;
   const nextStep = summary?.nextWorkflowStep;
 
   return (

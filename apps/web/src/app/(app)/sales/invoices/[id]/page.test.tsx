@@ -50,10 +50,17 @@ jest.mock("@/lib/pdf-download", () => {
 });
 
 describe("invoice workflow guidance", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
     apiRequestMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
     searchParamsMock = new URLSearchParams();
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
   });
 
   it("explains draft invoice state and shows the finalize action", () => {
@@ -96,7 +103,7 @@ describe("invoice workflow guidance", () => {
     expect(screen.getByRole("link", { name: "View report" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("button", { name: "Download invoice PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
-    expect(screen.getByText(/ZATCA status here is local\/readiness only/)).toBeInTheDocument();
+    expect(screen.getByText(/Compliance status here is local\/readiness only/)).toBeInTheDocument();
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
@@ -122,9 +129,16 @@ describe("invoice workflow guidance", () => {
 });
 
 describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
     apiRequestMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
   });
 
   it("shows linked delivery notes from the invoice without mutating the invoice", async () => {
@@ -153,9 +167,11 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
     expect(screen.getByText(/do not post journals, allocate payments, send email or reminders, create payment links, file VAT, call ZATCA, or change invoice balances/i)).toBeInTheDocument();
     expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/finalize|void/), expect.anything());
+    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/zatca|compliance\/sales-invoices/));
   });
 
   it("keeps ZATCA invoice actions framed as local readiness rather than production clearance or reporting", async () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "KSA";
     mockAllowedPermissions = new Set([
       "salesInvoices.view",
       "salesInvoices.create",
@@ -192,6 +208,7 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
   });
 
   it("renders UAE Peppol/PINT-AE readiness panel for finalized invoices", async () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "UAE";
     mockAllowedPermissions = new Set([
       "salesInvoices.view",
       "compliance.view",

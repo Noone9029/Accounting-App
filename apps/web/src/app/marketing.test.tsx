@@ -1,4 +1,4 @@
-import { marketingContent, marketingDetails, marketingMetadata, marketingPath } from "@/components/marketing/marketing-site";
+import { marketingContent, marketingContentForMarket, marketingDetails, marketingMetadata, marketingPath } from "@/components/marketing/marketing-site";
 
 const serializedMarketing = JSON.stringify({ marketingContent, marketingDetails });
 
@@ -15,14 +15,27 @@ describe("marketing public claim safety", () => {
     expect(serializedMarketing).toMatch(/No self-serve signup push/i);
   });
 
-  it("keeps ZATCA positioned as readiness groundwork, not certification or production compliance", () => {
-    expect(serializedMarketing).toMatch(/ZATCA readiness groundwork/i);
-    expect(serializedMarketing).toMatch(/groundwork only/i);
+  it("keeps the generic marketing bundle neutral by default", () => {
+    expect(serializedMarketing).toMatch(/Compliance readiness groundwork/i);
     expect(serializedMarketing).toMatch(/No certification claim/i);
 
+    expect(serializedMarketing).not.toMatch(/Saudi-first|ZATCA readiness groundwork|UAE eInvoicing readiness|PINT-AE|FTA reporting/i);
     expect(serializedMarketing).not.toMatch(/certified ZATCA/i);
     expect(serializedMarketing).not.toMatch(/production ZATCA compliance/i);
     expect(serializedMarketing).not.toMatch(/ZATCA compliant/i);
+  });
+
+  it("keeps KSA and UAE marketing wording behind explicit market selection", () => {
+    const ksa = JSON.stringify(marketingContentForMarket("en", "KSA"));
+    const uae = JSON.stringify(marketingContentForMarket("en", "UAE"));
+
+    expect(ksa).toMatch(/KSA accounting workspace/i);
+    expect(ksa).toMatch(/ZATCA readiness groundwork/i);
+    expect(ksa).not.toMatch(/UAE eInvoicing|PINT-AE|FTA reporting/i);
+
+    expect(uae).toMatch(/UAE accounting workspace/i);
+    expect(uae).toMatch(/UAE eInvoicing\/PINT-AE readiness/i);
+    expect(uae).not.toMatch(/ZATCA|Saudi|KSA/i);
   });
 
   it("keeps provider, email, backup, and storage claims review-gated", () => {

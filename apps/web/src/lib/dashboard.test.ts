@@ -71,6 +71,18 @@ describe("dashboard helpers", () => {
     expect(canViewSalesAttention({ role: { permissions: [PERMISSIONS.dashboard.view] } })).toBe(false);
   });
 
+  it("gates country compliance drill-downs by edition", () => {
+    expect(dashboardDrilldownLink("zatcaReadiness", { role: { permissions: [PERMISSIONS.zatca.view, PERMISSIONS.compliance.view] } }, "GENERIC")).toBeNull();
+    expect(dashboardDrilldownLink("zatcaReadiness", { role: { permissions: [PERMISSIONS.zatca.view] } }, "KSA")).toMatchObject({
+      label: "Review ZATCA readiness",
+      href: "/settings/zatca",
+    });
+    expect(dashboardDrilldownLink("zatcaReadiness", { role: { permissions: [PERMISSIONS.compliance.view] } }, "UAE")).toMatchObject({
+      label: "Review UAE readiness",
+      href: "/settings/compliance",
+    });
+  });
+
   it("formats chart helpers and aging labels", () => {
     expect(chartMaxAmount(["0.0000", "-40.0000", "20.0000"])).toBe(40);
     expect(chartBarPercent("20.0000", 40)).toBe("50.0%");
@@ -103,7 +115,7 @@ describe("dashboard helpers", () => {
       "Bank/payment method",
       "First payment",
       "First report",
-      "UAE eInvoicing local readiness visibility",
+      "Compliance readiness visibility",
       "Contact VAT/ID validation",
       "Storage readiness",
     ]);
@@ -139,14 +151,27 @@ describe("dashboard helpers", () => {
     ]);
   });
 
-  it("keeps UAE eInvoicing wizard messaging local-only and controlled-beta", () => {
+  it("keeps generic wizard messaging neutral by default", () => {
     const zatcaStep = setupWizardSteps(sampleChecklist()).find((step) => step.id === "zatca_local_readiness_visible");
 
-    expect(zatcaStep?.safeExplanation).toContain("local readiness validation only");
-    expect(zatcaStep?.safeExplanation).toContain("ASP validation is not connected");
-    expect(zatcaStep?.safeExplanation).toContain("no FTA reporting is enabled");
-    expect(zatcaStep?.safeExplanation).toContain("does not prove production compliance");
-    expect(zatcaStep?.actionLabel).toBe("Review UAE readiness");
+    expect(zatcaStep?.title).toBe("Compliance readiness visibility");
+    expect(zatcaStep?.safeExplanation).toContain("Country-specific compliance modules are hidden");
+    expect(zatcaStep?.safeExplanation).not.toMatch(/UAE|FTA|PINT-AE|Peppol|ZATCA|Saudi|KSA/i);
+    expect(zatcaStep?.actionLabel).toBe("Review compliance readiness");
+  });
+
+  it("keeps KSA and UAE wizard messaging behind explicit edition config", () => {
+    const ksaStep = setupWizardSteps(sampleChecklist(), "KSA").find((step) => step.id === "zatca_local_readiness_visible");
+    const uaeStep = setupWizardSteps(sampleChecklist(), "UAE").find((step) => step.id === "zatca_local_readiness_visible");
+
+    expect(ksaStep?.title).toBe("ZATCA local readiness visibility");
+    expect(ksaStep?.actionLabel).toBe("Review ZATCA readiness");
+    expect(ksaStep?.safeExplanation).not.toMatch(/FTA|PINT-AE|Peppol|ASP validation/i);
+
+    expect(uaeStep?.title).toBe("UAE eInvoicing local readiness visibility");
+    expect(uaeStep?.actionLabel).toBe("Review UAE readiness");
+    expect(uaeStep?.safeExplanation).toContain("no FTA reporting is enabled");
+    expect(uaeStep?.safeExplanation).not.toMatch(/ZATCA|Saudi|KSA/i);
   });
 
   it("returns a safe fallback message when setup checklist loading fails", () => {

@@ -14,6 +14,7 @@ import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import { purchaseBillAccountantReviewWarning, purchaseBillInventoryClearingModeWarning, purchaseBillInventoryPostingModeLabel } from "@/lib/purchase-bills";
@@ -58,6 +59,7 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
 
 export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: PurchaseBillFormProps) {
   const router = useRouter();
+  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -211,7 +213,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         branchId: branchId || null,
         billDate: `${billDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
-        currency: "AED",
+        currency: edition.defaultCurrency,
         notes: notes || undefined,
         terms: terms || undefined,
         inventoryPostingMode,
@@ -278,8 +280,8 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
           </label>
           <label className="block">
             <span className="text-sm font-medium text-foreground">Currency</span>
-            <Input value="AED" readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default UAE workspace currency.</span>
+            <Input value={edition.defaultCurrency} readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default {edition.marketLabel} workspace currency.</span>
           </label>
           <label className="block md:col-span-2">
             <span className="text-sm font-medium text-foreground">Branch</span>
@@ -324,6 +326,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
 
       <ComplianceReadinessPanel
         title="VAT readiness"
+        description="Local VAT and accounting review only. No tax-authority submission or provider reporting is enabled."
         checks={[
           {
             label: "Supplier bill coding",
@@ -338,7 +341,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
           {
             label: "Local readiness only",
             status: "warning",
-            detail: "No ASP validation, FTA reporting, provider integration, or production compliance claim is made here.",
+            detail: "No provider integration, tax-authority reporting, or certification claim is made here.",
           },
         ]}
       />
@@ -427,11 +430,11 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
 
         <TransactionSummaryCard
           rows={[
-            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, "AED") },
-            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, "AED") },
-            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, "AED") },
-            { label: "VAT / Tax", value: formatMoneyAmount(preview.taxTotal, "AED") },
-            { label: "Total", value: formatMoneyAmount(preview.total, "AED"), emphasized: true },
+            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, edition.defaultCurrency) },
+            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, edition.defaultCurrency) },
+            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, edition.defaultCurrency) },
+            { label: "VAT / Tax", value: formatMoneyAmount(preview.taxTotal, edition.defaultCurrency) },
+            { label: "Total", value: formatMoneyAmount(preview.total, edition.defaultCurrency), emphasized: true },
           ]}
         />
       </div>
