@@ -6,10 +6,12 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { complianceStatusLabel, getComplianceReadiness, getOrganization, updateOrganization } from "@/lib/compliance";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { ComplianceReadinessCheck, ComplianceReadinessResponse, Organization } from "@/lib/types";
 
 export default function ComplianceSettingsPage() {
+  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [readiness, setReadiness] = useState<ComplianceReadinessResponse | null>(null);
@@ -21,7 +23,7 @@ export default function ComplianceSettingsPage() {
   const canUpdateOrganization = can(PERMISSIONS.organization.update);
 
   useEffect(() => {
-    if (!organizationId) {
+    if (!organizationId || !edition.showUaeEinvoicing) {
       return;
     }
     let cancelled = false;
@@ -47,7 +49,7 @@ export default function ComplianceSettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [edition.showUaeEinvoicing, organizationId]);
 
   async function saveOrganizationReadiness(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,6 +99,26 @@ export default function ComplianceSettingsPage() {
       fail: checks.filter((check) => check.status === "FAIL").length,
     };
   }, [readiness]);
+
+  if (!edition.showUaeEinvoicing) {
+    return (
+      <section className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold text-ink">Compliance readiness</h1>
+          <p className="mt-1 text-sm text-steel">{edition.complianceReadinessExplanation}</p>
+        </header>
+        <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-palm" aria-hidden="true" />
+            <div>
+              <h2 className="text-base font-semibold text-ink">{edition.complianceReadinessLabel}</h2>
+              <p className="mt-1 text-sm leading-6 text-steel">{edition.complianceDashboardNote}</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-6">

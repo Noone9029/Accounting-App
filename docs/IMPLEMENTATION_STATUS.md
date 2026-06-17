@@ -26,6 +26,20 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-17 LedgerByte country edition clean reconciliation:
+
+- PR `#63` was already merged during repo hygiene before this branch started from `origin/main` at `137f808d978e7afa0cce0dcc82fa6f06ffcc35a5`.
+- Dirty country-edition work remains preserved on `feature/edition-split-preserve-current-changes` and through `E:\Repo-Hygiene-Safety\Accounting-App-20260617-192644\primary-country-edition-repo-hygiene-safety-20260617-192644.patch`.
+- Added a frontend edition config for `GENERIC`, `KSA`, and `UAE`, with invalid or missing env values falling back to `GENERIC`.
+- Generic/base surfaces are neutral by default: shell, topbar, dashboard, onboarding, marketing, document guidance, compliance settings, invoice detail, and invoice/bill forms.
+- KSA surfaces expose ZATCA readiness, ZATCA actions, and SAR defaults only when `LEDGERBYTE_MARKET`/`NEXT_PUBLIC_LEDGERBYTE_MARKET` is `KSA`.
+- UAE surfaces expose UAE eInvoicing/PINT-AE readiness, UAE actions, and AED defaults only when the market is `UAE`.
+- Country routes are guarded and country links/panels are hidden outside the matching edition; shared accounting, reports, documents, inventory, banking, roles, permissions, and shell behavior remains shared.
+- No backend API, Prisma schema, migration, accounting/business logic, provider integration, ZATCA core behavior, UAE PINT-AE logic, Vercel command, Supabase command, or production infrastructure changed.
+- Existing Vercel URLs are prior deployment evidence only and were not touched in this branch.
+- Provider evidence remains unavailable. ZATCA stash remains preserved.
+- Recommended next prompt: `Review country edition split PR`.
+
 2026-06-17 LedgerByte security settings route implementation plan:
 
 - PR `#62` (`Owner security and organization settings visual QA`) was merged into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this branch was created from fresh `origin/main`.

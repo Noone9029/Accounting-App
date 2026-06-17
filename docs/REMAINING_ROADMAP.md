@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-17 Country Edition Clean Reconciliation Update
+
+- Clean branch `feature/edition-split-clean-reconciliation` ports only edition-split changes from the preserved dirty country-edition work.
+- Dirty preservation branch remains `feature/edition-split-preserve-current-changes`; safety patch remains under `E:\Repo-Hygiene-Safety\Accounting-App-20260617-192644\`.
+- Next edition arc: review and merge the clean PR, then configure environment variables in Vercel projects outside this branch when deployment work is explicitly requested.
+- Do not add custom domains yet. Existing prior URLs remain `https://ledgerbyte-ksa.vercel.app`, `https://ledgerbyte-uae.vercel.app`, and `https://ledgerbyte-web-test.vercel.app`.
+- Keep provider evidence and certification/accreditation claims blocked until real provider responses exist.
+- ZATCA stash remains parked and preserved.
+
 ## 2026-06-17 Security Settings Route Planning Update
 
 - PR `#62` was merged into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this docs-only planning branch began.

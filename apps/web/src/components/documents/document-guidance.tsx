@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { getLedgerByteEdition } from "@/lib/edition";
 
 interface GuidanceProps {
   className?: string;
@@ -58,10 +59,15 @@ export function SettingsImpactGuidance({ className = "" }: GuidanceProps) {
 }
 
 export function ComplianceNote({ className = "" }: GuidanceProps) {
+  const edition = getLedgerByteEdition();
+
   return (
     <p className={`text-xs leading-5 text-amber-800 ${className}`}>
-      ZATCA status here is local/readiness only. Standard beta PDFs are available for review. PDF/A-3 embedding,
-      ZATCA network submission, CSID execution, clearance/reporting, and production compliance are not enabled.
+      {edition.showZatca
+        ? "ZATCA status here is local/readiness only. Standard beta PDFs are available for review. PDF/A-3 embedding, ZATCA network submission, CSID execution, clearance/reporting, and production compliance are not enabled."
+        : edition.showUaeEinvoicing
+          ? "UAE eInvoicing status here is local/readiness only. Standard beta PDFs are available for review. ASP validation, FTA reporting, provider submission, and production compliance are not enabled."
+          : "Compliance status here is local/readiness only. Standard beta PDFs are available for review. Tax-authority submission, provider reporting, and production compliance are not enabled."}
     </p>
   );
 }

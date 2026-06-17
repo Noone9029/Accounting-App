@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
+import { getLedgerByteEdition, type LedgerByteMarket } from "@/lib/edition";
 
 export type MarketingLocale = "en" | "ar";
 export type MarketingPageKey = "home" | "product" | "workflows" | "readiness" | "pricing" | "resources";
@@ -37,6 +38,7 @@ type MarketingContent = {
   locale: MarketingLocale;
   dir: "ltr" | "rtl";
   brandSubline: string;
+  defaultCurrency: string;
   nav: MarketingNavItem[];
   languageLabel: string;
   languageHref: string;
@@ -103,7 +105,8 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
   en: {
     locale: "en",
     dir: "ltr",
-    brandSubline: "Saudi-first accounting workspace",
+    brandSubline: "Accounting workspace",
+    defaultCurrency: "USD",
     nav: [
       { key: "product", label: "Product" },
       { key: "workflows", label: "Workflows" },
@@ -115,7 +118,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     languageHref: "/ar",
     betaLogin: "Beta login",
     secondaryCta: "View product preview",
-    heroTitle: "Accounting built for Saudi workflows.",
+    heroTitle: "Accounting built for controlled workspaces.",
     heroBody:
       "LedgerByte is a coming-soon accounting workspace for teams that need invoices, payments, purchases, inventory, documents, roles, and readiness evidence in one controlled place.",
     heroFootnote: "Private beta access only. Public plans open after product, accountant, and operations review.",
@@ -126,7 +129,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
       { label: "Invoice INV-1042", value: "Ready for payment", tone: "good" },
       { label: "VAT summary", value: "Review period", tone: "watch" },
       { label: "Bank import", value: "Manual preview", tone: "quiet" },
-      { label: "ZATCA readiness", value: "Groundwork visible", tone: "watch" },
+      { label: "Compliance readiness", value: "Groundwork visible", tone: "watch" },
     ],
     dashboardPanels: [
       { title: "Receivables", body: "Invoice, credit note, receipt, and customer statement paths.", icon: ReceiptText },
@@ -140,7 +143,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     workflowBody: "Move from customer invoice to payment, from purchase bill to supplier statement, and from import review to reporting without losing the audit trail.",
     readinessTitle: "Readiness without overclaiming",
     readinessBody:
-      "LedgerByte shows operational readiness evidence for accounting workflows, documents, storage, email, and ZATCA groundwork while keeping production-only claims out of the public site.",
+      "LedgerByte shows operational readiness evidence for accounting workflows, documents, storage, email, and compliance groundwork while keeping production-only claims out of the public site.",
     pricingTitle: "Private beta access, public plans later",
     pricingBody:
       "Public pricing is intentionally held until beta review, accountant feedback, hosting operations, and support workflows are ready.",
@@ -149,8 +152,8 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
       "Use the public resources area to understand beta boundaries, sample workflows, accountant review material, and readiness notes before entering the product.",
     cards: [
       {
-        title: "Saudi and GCC accounting structure",
-        description: "Designed around VAT-aware invoices, customer and supplier ledgers, purchase flows, and Arabic-ready presentation.",
+        title: "Accounting workspace structure",
+        description: "Designed around VAT-aware invoices, customer and supplier ledgers, purchase flows, and review-ready presentation.",
         meta: "Regional fit",
         icon: Globe2,
       },
@@ -175,7 +178,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     ],
     readiness: [
       { title: "Accounting MVP", description: "Core AR, AP, banking, inventory, reports, and document flows are visible for beta review.", meta: "Beta visible", icon: CheckCircle2 },
-      { title: "ZATCA readiness groundwork", description: "Local XML, QR, hash, CSR, and SDK readiness surfaces are presented as groundwork only.", meta: "No certification claim", icon: ShieldCheck },
+      { title: "Compliance readiness groundwork", description: "Local readiness surfaces are presented as groundwork only, without provider or certification claims.", meta: "No certification claim", icon: ShieldCheck },
       { title: "Operations gate", description: "Hosted backup, object storage, monitoring, email delivery, and support evidence remain review gates.", meta: "Coming soon", icon: Sparkles },
     ],
     resources: [
@@ -188,7 +191,8 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
   ar: {
     locale: "ar",
     dir: "rtl",
-    brandSubline: "مساحة محاسبية مهيأة للسعودية والخليج",
+    brandSubline: "مساحة عمل محاسبية",
+    defaultCurrency: "USD",
     nav: [
       { key: "product", label: "المنتج" },
       { key: "workflows", label: "مسارات العمل" },
@@ -211,7 +215,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
       { label: "فاتورة INV-1042", value: "جاهزة للدفع", tone: "good" },
       { label: "ملخص الضريبة", value: "مراجعة الفترة", tone: "watch" },
       { label: "استيراد بنكي", value: "معاينة يدوية", tone: "quiet" },
-      { label: "جاهزية زاتكا", value: "أساسيات ظاهرة", tone: "watch" },
+      { label: "جاهزية الامتثال", value: "أساسيات ظاهرة", tone: "watch" },
     ],
     dashboardPanels: [
       { title: "المدينون", body: "الفواتير، الإشعارات، الإيصالات، وكشوف العملاء.", icon: ReceiptText },
@@ -223,15 +227,15 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     workflowTitle: "مساحة واحدة للدورة المحاسبية اليومية",
     workflowBody: "من فاتورة العميل إلى الدفع، ومن فاتورة المورد إلى الكشف، ومن مراجعة الاستيراد إلى التقارير مع أثر تدقيق واضح.",
     readinessTitle: "جاهزية بلا مبالغة",
-    readinessBody: "يعرض ليدجر بايت مؤشرات جاهزية لمسارات المحاسبة والمستندات والتخزين والبريد وأساسيات زاتكا مع إبقاء وعود الإنتاج خارج الموقع العام.",
+    readinessBody: "يعرض ليدجر بايت مؤشرات جاهزية لمسارات المحاسبة والمستندات والتخزين والبريد وأساسيات الامتثال مع إبقاء وعود الإنتاج خارج الموقع العام.",
     pricingTitle: "دخول بيتا خاص، والخطط العامة لاحقا",
     pricingBody: "يتم تأجيل الأسعار العامة حتى تنتهي مراجعة البيتا، وملاحظات المحاسب، وجاهزية التشغيل والاستضافة والدعم.",
     resourcesTitle: "موارد لمراجعة بيتا دقيقة",
     resourcesBody: "منطقة الموارد تشرح حدود البيتا، ومسارات العمل، ومواد مراجعة المحاسب، وملاحظات الجاهزية قبل الدخول إلى المنتج.",
     cards: [
       {
-        title: "هيكل محاسبي للسعودية والخليج",
-        description: "فواتير واعية بالضريبة، دفاتر عملاء وموردين، مشتريات، وعرض جاهز للعربية.",
+        title: "هيكل مساحة محاسبية",
+        description: "فواتير واعية بالضريبة، دفاتر عملاء وموردين، مشتريات، وعرض جاهز للمراجعة.",
         meta: "ملاءمة محلية",
         icon: Globe2,
       },
@@ -256,7 +260,7 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     ],
     readiness: [
       { title: "أساس محاسبي للبيتا", description: "مسارات المدينين والدائنين والبنوك والمخزون والتقارير والمستندات ظاهرة للمراجعة.", meta: "ظاهر في البيتا", icon: CheckCircle2 },
-      { title: "أساسيات جاهزية زاتكا", description: "مسارات XML و QR والهاش و CSR وجاهزية SDK تعرض كأساس تقني فقط.", meta: "بلا ادعاء اعتماد", icon: ShieldCheck },
+      { title: "أساسيات جاهزية الامتثال", description: "مسارات الجاهزية المحلية تعرض كأساس تقني فقط.", meta: "بلا ادعاء اعتماد", icon: ShieldCheck },
       { title: "بوابة التشغيل", description: "النسخ الاحتياطي والاستضافة والتخزين والمراقبة وتسليم البريد والدعم تبقى ضمن بوابات المراجعة.", meta: "قريبا", icon: Sparkles },
     ],
     resources: [
@@ -267,6 +271,73 @@ export const marketingContent: Record<MarketingLocale, MarketingContent> = {
     footerNote: "ليدجر بايت في بيتا خاص. الإطلاق العام والتشغيل وادعاءات الامتثال الرسمية تبقى مرتبطة بالمراجعة.",
   },
 };
+
+export function marketingContentForMarket(
+  locale: MarketingLocale,
+  market: LedgerByteMarket = getLedgerByteEdition().market,
+): MarketingContent {
+  const base = marketingContent[locale];
+  const edition = getLedgerByteEdition(market);
+
+  if (market === "KSA") {
+    return {
+      ...base,
+      brandSubline: locale === "en" ? "KSA accounting workspace" : "مساحة محاسبية للسعودية",
+      defaultCurrency: edition.defaultCurrency,
+      heroTitle: locale === "en" ? "Accounting built for Saudi workflows." : base.heroTitle,
+      readinessBody:
+        locale === "en"
+          ? "LedgerByte shows operational readiness evidence for accounting workflows, documents, storage, email, and ZATCA groundwork while keeping production-only claims out of the public site."
+          : base.readinessBody,
+      dashboardRows: base.dashboardRows.map((row) =>
+        row.label === "Compliance readiness" || row.label === "جاهزية الامتثال"
+          ? { ...row, label: locale === "en" ? "ZATCA readiness" : "جاهزية زاتكا" }
+          : row,
+      ),
+      readiness: base.readiness.map((card) =>
+        card.title === "Compliance readiness groundwork"
+          ? {
+              ...card,
+              title: "ZATCA readiness groundwork",
+              description: "Local XML, QR, hash, CSR, and SDK readiness surfaces are presented as groundwork only.",
+            }
+          : card,
+      ),
+    };
+  }
+
+  if (market === "UAE") {
+    return {
+      ...base,
+      brandSubline: locale === "en" ? "UAE accounting workspace" : "مساحة محاسبية للإمارات",
+      defaultCurrency: edition.defaultCurrency,
+      heroTitle: locale === "en" ? "Accounting built for UAE workflows." : base.heroTitle,
+      readinessBody:
+        locale === "en"
+          ? "LedgerByte shows operational readiness evidence for accounting workflows, documents, storage, email, and UAE eInvoicing/PINT-AE groundwork while keeping production-only claims out of the public site."
+          : base.readinessBody,
+      dashboardRows: base.dashboardRows.map((row) =>
+        row.label === "Compliance readiness" || row.label === "جاهزية الامتثال"
+          ? { ...row, label: locale === "en" ? "UAE eInvoicing readiness" : "جاهزية الفوترة الإلكترونية الإماراتية" }
+          : row,
+      ),
+      readiness: base.readiness.map((card) =>
+        card.title === "Compliance readiness groundwork"
+          ? {
+              ...card,
+              title: "UAE eInvoicing/PINT-AE readiness",
+              description: "Local readiness surfaces are framed around UAE eInvoicing and PINT-AE preparation without provider or accreditation claims.",
+            }
+          : card,
+      ),
+    };
+  }
+
+  return {
+    ...base,
+    defaultCurrency: edition.defaultCurrency,
+  };
+}
 
 export const marketingDetails: Record<MarketingLocale, Record<Exclude<MarketingPageKey, "home">, DetailContent>> = {
   en: {
@@ -307,7 +378,7 @@ export const marketingDetails: Record<MarketingLocale, Record<Exclude<MarketingP
       detailCards: [
         { title: "Documents and archive", description: "Generated PDFs, archive rows, attachment groundwork, and storage readiness are visible.", icon: FileArchive },
         { title: "Security controls", description: "Role-based navigation, permission guards, audit logs, and beta access management shape the trust model.", icon: LockKeyhole },
-        { title: "ZATCA groundwork", description: "Local readiness surfaces remain carefully named as groundwork until later official steps are complete.", icon: ShieldCheck },
+        { title: "Compliance groundwork", description: "Local readiness surfaces remain carefully named as groundwork until later official steps are complete.", icon: ShieldCheck },
       ],
       closingTitle: "Public wording stays aligned with the product",
       closingBody: "The page avoids claims that would outrun the current implementation or review status.",
@@ -432,7 +503,7 @@ export function alternateMarketingPath(locale: MarketingLocale, key: MarketingPa
 }
 
 export function marketingMetadata(locale: MarketingLocale, key: MarketingPageKey) {
-  const content = marketingContent[locale];
+  const content = marketingContentForMarket(locale);
   const title = key === "home" ? content.heroTitle : marketingDetails[locale][key].title;
   const description = key === "home" ? content.heroBody : marketingDetails[locale][key].body;
   const path = marketingPath(locale, key);
@@ -449,7 +520,7 @@ export function marketingMetadata(locale: MarketingLocale, key: MarketingPageKey
 }
 
 export function MarketingHomePage({ locale }: { locale: MarketingLocale }) {
-  const content = marketingContent[locale];
+  const content = marketingContentForMarket(locale);
 
   assertNoForbiddenClaims(content);
 
@@ -517,7 +588,7 @@ export function MarketingHomePage({ locale }: { locale: MarketingLocale }) {
 }
 
 export function MarketingDetailPage({ locale, pageKey }: { locale: MarketingLocale; pageKey: Exclude<MarketingPageKey, "home"> }) {
-  const content = marketingContent[locale];
+  const content = marketingContentForMarket(locale);
   const detail = marketingDetails[locale][pageKey];
 
   assertNoForbiddenClaims({ content, detail });
@@ -581,7 +652,7 @@ function MarketingShell({
   pageKey: MarketingPageKey;
   children: ReactNode;
 }) {
-  const content = marketingContent[locale];
+  const content = marketingContentForMarket(locale);
 
   return (
     <main
@@ -688,7 +759,7 @@ function ProductPreview({ content }: { content: MarketingContent }) {
             <div className="rounded-xl border border-emerald-900/10 bg-emerald-50 p-4">
               <div className="flex items-center justify-between text-sm font-semibold text-emerald-950">
                 <span>Cash movement</span>
-                <span>SAR</span>
+                <span>{content.defaultCurrency}</span>
               </div>
               <div className="mt-4 flex h-28 items-end gap-2" aria-hidden="true">
                 {[38, 62, 48, 74, 55, 86, 68, 92].map((height, index) => (

@@ -4,6 +4,27 @@ Audit date: 2026-06-13
 
 Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main` after PR #62 Owner security/organization settings visual QA merge) plus the current security settings route implementation plan branch.
 
+## 2026-06-17 LedgerByte country edition clean reconciliation
+
+PR `#63` was already merged during repo hygiene. This branch was created from fresh `origin/main` at `137f808d978e7afa0cce0dcc82fa6f06ffcc35a5` to reconcile only the preserved dirty country-edition split.
+
+### What changed
+
+- Added a frontend edition config for `GENERIC`, `KSA`, and `UAE`.
+- Made generic shell, dashboard, onboarding, marketing, document guidance, compliance settings, invoice detail, and draft invoice/bill forms neutral by default.
+- Gated ZATCA navigation, settings, invoice fetches, invoice actions, and wording to KSA.
+- Gated UAE eInvoicing/PINT-AE navigation, settings, invoice fetches, invoice actions, and wording to UAE.
+- Added focused unit tests for edition config, navigation, dashboard/onboarding, marketing, settings guards, document guidance, and invoice detail behavior.
+
+### Boundaries
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, seed/reset/delete, hosted/customer-data mutation, auth/session/security business logic, accounting/business logic, payment/report/journal logic, UAE PINT-AE serializer/rules, ZATCA core behavior, provider integration, real ASP call, real ZATCA call, real email, Vercel command, Supabase command, or production infrastructure command was run.
+- Existing Vercel URLs are documented as prior evidence only.
+- Provider evidence remains unavailable.
+- Dirty country-edition work remains preserved on `feature/edition-split-preserve-current-changes` and in the repo hygiene safety patch.
+- ZATCA stash remains parked and preserved.
+
 ## 2026-06-17 LedgerByte security settings route implementation plan
 
 Merged PR `#62` into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1`, then added a docs-only implementation plan for a future real `/settings/security` route from fresh `origin/main`.

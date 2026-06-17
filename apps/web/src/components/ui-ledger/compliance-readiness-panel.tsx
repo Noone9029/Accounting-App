@@ -12,19 +12,21 @@ interface ComplianceReadinessCheck {
 
 interface ComplianceReadinessPanelProps {
   title?: string;
+  description?: string;
   status?: string;
   checks: readonly ComplianceReadinessCheck[];
 }
 
 export function ComplianceReadinessPanel({
-  title = "UAE eInvoicing-ready",
+  title = "Accounting readiness",
+  description = "Local readiness validation only. No tax-authority submission or provider reporting is enabled.",
   status = "Controlled beta",
   checks,
 }: ComplianceReadinessPanelProps) {
   return (
     <PanelSection
       title={title}
-      description="Local readiness validation only. ASP validation not connected. No FTA reporting yet."
+      description={description}
       action={<StatusBadge tone="info">{status}</StatusBadge>}
     >
       <div className="space-y-3">

@@ -39,6 +39,7 @@ import {
   visibleDashboardQuickActions,
   type DashboardDrilldownLink,
 } from "@/lib/dashboard";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import type {
   DashboardAgingBucket,
@@ -56,6 +57,7 @@ import type {
 type DashboardLinks = Partial<Record<string, DashboardDrilldownLink | null>>;
 
 export default function DashboardPage() {
+  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const { activeMembership } = usePermissions();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -88,11 +90,11 @@ export default function DashboardPage() {
       profitAndLoss: dashboardDrilldownLink("profitAndLoss", activeMembership),
       balanceSheet: dashboardDrilldownLink("balanceSheet", activeMembership),
       fiscalPeriods: dashboardDrilldownLink("fiscalPeriods", activeMembership),
-      uaeReadiness: dashboardDrilldownLink("zatcaReadiness", activeMembership),
+      countryReadiness: dashboardDrilldownLink("zatcaReadiness", activeMembership, edition.market),
       auditLogs: dashboardDrilldownLink("auditLogs", activeMembership),
       storage: dashboardDrilldownLink("storage", activeMembership),
     }),
-    [activeMembership],
+    [activeMembership, edition.market],
   );
   const canSeeSalesAttention = useMemo(() => canViewSalesAttention(activeMembership), [activeMembership]);
   const attentionGroups = useMemo(() => (summary ? groupAttentionBySeverity(summary.attentionItems) : null), [summary]);
@@ -159,7 +161,7 @@ export default function DashboardPage() {
               <span className="rounded-md border border-blue-300/30 bg-blue-400/10 px-2 py-1 text-xs font-semibold text-blue-100">Controlled beta</span>
             </div>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-200">
-              Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}. UAE eInvoicing-ready surfaces are local readiness validation only.
+              Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}. Accounting workspace surfaces remain controlled-beta review only.
             </p>
             {summary ? <p className="mt-1 text-xs text-slate-300">Last updated {new Date(summary.asOf).toLocaleString()}.</p> : null}
           </div>
@@ -176,8 +178,8 @@ export default function DashboardPage() {
         </div>
         <div className="relative mt-4 grid grid-cols-1 gap-3 text-xs text-slate-300 md:grid-cols-3">
           <span>Manual/imported bank transactions only</span>
-          <span>ASP validation not connected</span>
-          <span>No FTA reporting yet</span>
+          <span>{edition.showCountryCompliance ? edition.complianceReadinessLabel : "Neutral compliance review"}</span>
+          <span>{edition.complianceDashboardNote}</span>
         </div>
       </div>
 
@@ -301,12 +303,23 @@ export default function DashboardPage() {
                   <Section title="Compliance and controls" action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
                     <MetricGrid
                       items={[
-                        {
-                          label: "UAE eInvoicing-ready",
-                          value: summary.compliance.zatcaProductionReady ? "Local checks ready" : "Controlled beta",
-                          href: drilldownLinks.uaeReadiness?.href,
-                        },
-                        { label: "Local readiness blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.uaeReadiness?.href },
+                        ...(edition.showCountryCompliance
+                          ? [
+                              {
+                                label: edition.complianceReadinessLabel,
+                                value: summary.compliance.zatcaProductionReady ? "Local checks ready" : "Controlled beta",
+                                href: drilldownLinks.countryReadiness?.href,
+                              },
+                              { label: "Local readiness blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.countryReadiness?.href },
+                            ]
+                          : [
+                              {
+                                label: "Compliance review",
+                                value: "Controlled beta",
+                                href: undefined,
+                              },
+                              { label: "Review blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: undefined },
+                            ]),
                         { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
                         { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
                         { label: "Balance sheet", value: dashboardHealthLabel(summary.reports.balanceSheetBalanced), href: drilldownLinks.balanceSheet?.href },

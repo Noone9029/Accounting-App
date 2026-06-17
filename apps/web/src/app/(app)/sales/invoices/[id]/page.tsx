@@ -18,6 +18,7 @@ import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStat
 import { getSalesInvoiceComplianceReadiness, prepareSalesInvoiceCompliance, validateComplianceDocument } from "@/lib/compliance";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
+import { getLedgerByteEdition } from "@/lib/edition";
 import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
 import { formatMoneyAmount } from "@/lib/money";
@@ -76,6 +77,7 @@ export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
@@ -113,13 +115,13 @@ export default function SalesInvoiceDetailPage() {
     Promise.all([
       apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`),
       apiRequest<SalesInvoiceStockIssueStatus>(`/sales-invoices/${params.id}/stock-issue-status`).catch(() => null),
-      apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null),
-      apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null),
-      apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null),
-      apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null),
-      apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null),
-      apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null),
-      getSalesInvoiceComplianceReadiness(params.id).catch(() => null),
+      edition.showZatca ? apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null) : Promise.resolve(null),
+      edition.showZatca ? apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null) : Promise.resolve(null),
+      edition.showZatca ? apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null) : Promise.resolve(null),
+      edition.showZatca ? apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null) : Promise.resolve(null),
+      edition.showZatca ? apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null) : Promise.resolve(null),
+      edition.showZatca ? apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null) : Promise.resolve(null),
+      edition.showUaeEinvoicing ? getSalesInvoiceComplianceReadiness(params.id).catch(() => null) : Promise.resolve(null),
     ])
       .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, draftListResult, storagePlanResult, validationResult, uaeReadinessResult]) => {
         if (!cancelled) {
@@ -148,7 +150,7 @@ export default function SalesInvoiceDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [edition.showUaeEinvoicing, edition.showZatca, organizationId, params.id]);
 
   useEffect(() => {
     if (!organizationId || !invoice?.id || !invoice.customerId) {
@@ -308,7 +310,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function validateUaeReadiness() {
-    if (!invoice) {
+    if (!invoice || !edition.showUaeEinvoicing) {
       return;
     }
     setActionLoading(true);
@@ -340,7 +342,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function createSignedArtifactDraft() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
     setActionLoading(true);
@@ -360,7 +362,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function runLocalSigningDryRun() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
     setActionLoading(true);
@@ -384,7 +386,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function generateZatca() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -412,7 +414,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function downloadZatcaXml() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -430,7 +432,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function loadQrPayload() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -449,7 +451,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function refreshXmlValidation() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -470,7 +472,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function runSdkValidationDryRun() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -493,7 +495,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function runLocalSdkValidation() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -513,7 +515,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function runHashComparison() {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -533,7 +535,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function runZatcaSubmission(action: "compliance-check" | "clearance" | "reporting") {
-    if (!invoice) {
+    if (!invoice || !edition.showZatca) {
       return;
     }
 
@@ -695,7 +697,7 @@ export default function SalesInvoiceDetailPage() {
 
           {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
 
-          {canViewCompliance ? (
+          {edition.showUaeEinvoicing && canViewCompliance ? (
             <UaeEinvoiceReadinessPanel
               title="UAE eInvoicing/PINT-AE readiness"
               response={uaeReadiness}
@@ -703,9 +705,9 @@ export default function SalesInvoiceDetailPage() {
               canValidate={canValidateCompliance}
               onValidate={() => void validateUaeReadiness()}
             />
-          ) : (
+          ) : edition.showUaeEinvoicing ? (
             <StatusMessage type="info">UAE eInvoicing readiness requires compliance view permission.</StatusMessage>
-          )}
+          ) : null}
 
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[1040px] text-left text-sm">
@@ -978,7 +980,7 @@ export default function SalesInvoiceDetailPage() {
             )}
           </div>
 
-          {canViewZatca ? (
+          {canViewZatca && edition.showZatca ? (
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
               <div>

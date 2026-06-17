@@ -1,3 +1,4 @@
+import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
 import type {
@@ -104,7 +105,7 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   profitAndLoss: { label: "View P&L", href: "/reports/profit-and-loss", permissions: [PERMISSIONS.reports.view] },
   balanceSheet: { label: "View balance sheet", href: "/reports/balance-sheet", permissions: [PERMISSIONS.reports.view] },
   fiscalPeriods: { label: "View fiscal periods", href: "/fiscal-periods", permissions: [PERMISSIONS.fiscalPeriods.view] },
-  zatcaReadiness: { label: "View UAE readiness", href: "/settings/zatca", permissions: [PERMISSIONS.zatca.view] },
+  zatcaReadiness: { label: "View compliance readiness", href: "/settings/compliance", permissions: [PERMISSIONS.compliance.view, PERMISSIONS.zatca.view] },
   auditLogs: { label: "View audit logs", href: "/settings/audit-logs", permissions: [PERMISSIONS.auditLogs.view] },
   storage: {
     label: "View storage",
@@ -113,7 +114,7 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   },
 };
 
-export function formatDashboardMoney(value: string | number, currency = "AED"): string {
+export function formatDashboardMoney(value: string | number, currency = getLedgerByteEdition().defaultCurrency): string {
   return formatMoneyAmount(value, currency);
 }
 
@@ -298,11 +299,11 @@ const SETUP_STEP_COPY: Record<
     safeExplanation: "Open Profit & Loss after posted activity exists. The wizard does not generate or export reports automatically.",
   },
   zatca_local_readiness_visible: {
-    title: "UAE eInvoicing local readiness visibility",
-    actionHref: "/settings/zatca",
-    actionLabel: "Review UAE readiness",
+    title: "Compliance readiness visibility",
+    actionHref: "/settings/compliance",
+    actionLabel: "Review compliance readiness",
     safeExplanation:
-      "UAE eInvoicing status shown here is local readiness validation only: ASP validation is not connected, no FTA reporting is enabled, and controlled-beta evidence does not prove production compliance.",
+      "Country-specific compliance status is hidden in the generic workspace. VAT and accounting review stays local-only and does not enable tax-authority submission workflows.",
   },
   contact_vat_id_validation: {
     title: "Contact VAT/ID validation",
@@ -318,28 +319,30 @@ const SETUP_STEP_COPY: Record<
   },
 };
 
-export function setupWizardSteps(checklist: DashboardOnboardingChecklist): SetupWizardStep[] {
+export function setupWizardSteps(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardStep[] {
+  const edition = getLedgerByteEdition(market);
   return checklist.items.map((item) => {
-    const copy = SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
+    const copy = item.id === "zatca_local_readiness_visible" ? editionSetupStepCopy(edition) : SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
+    const countryComplianceFields = countryComplianceChecklistFields(item, edition);
     return {
       id: item.id,
       title: copy.title,
       status: item.status,
       statusLabel: onboardingChecklistItemStatusLabel(item.status),
       statusClassName: onboardingChecklistItemStatusClass(item.status),
-      description: item.description,
+      description: countryComplianceFields.description,
       actionHref: copy.actionHref,
       actionLabel: copy.actionLabel,
-      evidence: item.evidence,
-      blockers: item.blockers,
-      warnings: item.warnings,
+      evidence: countryComplianceFields.evidence,
+      blockers: countryComplianceFields.blockers,
+      warnings: countryComplianceFields.warnings,
       safeExplanation: copy.safeExplanation,
     };
   });
 }
 
-export function setupWizardSummary(checklist: DashboardOnboardingChecklist): SetupWizardSummary {
-  const steps = setupWizardSteps(checklist);
+export function setupWizardSummary(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardSummary {
+  const steps = setupWizardSteps(checklist, market);
   const totalSteps = steps.length;
   const completedSteps = steps.filter((step) => step.status === "COMPLETE").length;
   const progressPercent = setupWizardProgressPercent(completedSteps, totalSteps);
@@ -356,9 +359,9 @@ export function setupWizardSummary(checklist: DashboardOnboardingChecklist): Set
   };
 }
 
-export function setupWizardDashboardSummary(checklist: DashboardOnboardingChecklist): SetupWizardDashboardSummary {
-  const summary = setupWizardSummary(checklist);
-  const workflow = firstAccountingWorkflowSummary(checklist);
+export function setupWizardDashboardSummary(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardDashboardSummary {
+  const summary = setupWizardSummary(checklist, market);
+  const workflow = firstAccountingWorkflowSummary(checklist, market);
   return {
     setupHref: SETUP_WIZARD_ROUTE,
     progressPercent: summary.progressPercent,
@@ -370,19 +373,19 @@ export function setupWizardDashboardSummary(checklist: DashboardOnboardingCheckl
   };
 }
 
-export function firstAccountingWorkflowSteps(checklist: DashboardOnboardingChecklist): SetupWizardStep[] {
-  const stepsById = new Map(setupWizardSteps(checklist).map((step) => [step.id, step]));
+export function firstAccountingWorkflowSteps(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardStep[] {
+  const stepsById = new Map(setupWizardSteps(checklist, market).map((step) => [step.id, step]));
   return FIRST_ACCOUNTING_WORKFLOW_STEP_IDS.flatMap((id) => {
     const step = stepsById.get(id);
     return step ? [step] : [];
   });
 }
 
-export function firstAccountingWorkflowSummary(checklist: DashboardOnboardingChecklist): Pick<
+export function firstAccountingWorkflowSummary(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): Pick<
   SetupWizardSummary,
   "completedSteps" | "totalSteps" | "progressPercent" | "progressWidth" | "nextStep"
 > {
-  const steps = firstAccountingWorkflowSteps(checklist);
+  const steps = firstAccountingWorkflowSteps(checklist, market);
   const totalSteps = steps.length;
   const completedSteps = steps.filter((step) => step.status === "COMPLETE").length;
   return {
@@ -425,11 +428,63 @@ function fallbackSetupStepCopy(item: DashboardOnboardingChecklistItem): (typeof 
   };
 }
 
+function editionSetupStepCopy(edition: ReturnType<typeof getLedgerByteEdition>): (typeof SETUP_STEP_COPY)[string] {
+  return {
+    title: edition.complianceReadinessTitle,
+    actionHref: edition.complianceReadinessHref,
+    actionLabel: edition.complianceReadinessActionLabel,
+    safeExplanation: edition.complianceReadinessExplanation,
+  };
+}
+
+function countryComplianceChecklistFields(
+  item: DashboardOnboardingChecklistItem,
+  edition: ReturnType<typeof getLedgerByteEdition>,
+): Pick<DashboardOnboardingChecklistItem, "description" | "evidence" | "blockers" | "warnings"> {
+  if (item.id !== "zatca_local_readiness_visible" || edition.showZatca) {
+    return {
+      description: item.description,
+      evidence: item.evidence,
+      blockers: item.blockers,
+      warnings: item.warnings,
+    };
+  }
+
+  if (edition.showUaeEinvoicing) {
+    return {
+      description: "UAE eInvoicing readiness is visible for local controlled-beta review.",
+      evidence: ["UAE eInvoicing readiness remains local-only.", "Provider validation and tax-authority reporting remain disabled."],
+      blockers: item.blockers,
+      warnings: item.warnings.filter((warning) => !/ZATCA|CSID|OTP/i.test(warning)),
+    };
+  }
+
+  return {
+    description: "Country-specific compliance modules are hidden in the generic workspace.",
+    evidence: ["Country-specific compliance module disabled in generic edition."],
+    blockers: [],
+    warnings: [],
+  };
+}
+
 export function visibleDashboardQuickActions(subject: PermissionSubject): DashboardQuickAction[] {
   return DASHBOARD_QUICK_ACTIONS.filter((action) => hasPermission(subject, action.permission));
 }
 
-export function dashboardDrilldownLink(key: DashboardDrilldownKey, subject: PermissionSubject): DashboardDrilldownLink | null {
+export function dashboardDrilldownLink(key: DashboardDrilldownKey, subject: PermissionSubject, market?: LedgerByteMarket): DashboardDrilldownLink | null {
+  if (key === "zatcaReadiness") {
+    const edition = getLedgerByteEdition(market);
+    if (!edition.showCountryCompliance) {
+      return null;
+    }
+    const link: DashboardDrilldownLink = {
+      label: edition.complianceReadinessActionLabel,
+      href: edition.complianceReadinessHref,
+      permissions: edition.showZatca ? [PERMISSIONS.zatca.view] : [PERMISSIONS.compliance.view],
+    };
+    return link.permissions.some((permission) => hasPermission(subject, permission)) ? link : null;
+  }
+
   const link = DASHBOARD_DRILLDOWN_LINKS[key];
   return link.permissions.some((permission) => hasPermission(subject, permission)) ? link : null;
 }

@@ -19,6 +19,12 @@ jest.mock("next/link", () => ({
 }));
 
 describe("setup wizard components", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+  });
+
   it("renders checklist-backed wizard steps with evidence, blockers, warnings, and actions", () => {
     render(<SetupWizardContent checklist={sampleChecklist()} />);
 
@@ -32,7 +38,7 @@ describe("setup wizard components", () => {
     expect(screen.getByRole("heading", { name: "Bank/payment method" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First payment" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "First report" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "UAE eInvoicing local readiness visibility" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Compliance readiness visibility" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contact VAT/ID validation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
     expect(screen.getByText("Active tax rates: 0")).toBeInTheDocument();
@@ -53,22 +59,32 @@ describe("setup wizard components", () => {
     expect(screen.queryByText(/stack trace/)).not.toBeInTheDocument();
   });
 
-  it("keeps the UAE eInvoicing step explicit about local-only controlled-beta readiness", () => {
+  it("keeps the generic compliance step neutral by default", () => {
+    render(<SetupWizardContent checklist={sampleChecklist()} />);
+
+    const zatcaStep = screen.getByTestId("setup-step-zatca_local_readiness_visible");
+    expect(within(zatcaStep).getAllByText(/Country-specific compliance modules are hidden/).length).toBeGreaterThan(0);
+    expect(within(zatcaStep).queryByText(/UAE|FTA|PINT-AE|Peppol|ZATCA|Saudi|KSA/i)).not.toBeInTheDocument();
+    expect(within(zatcaStep).queryByRole("button", { name: /ASP|FTA|clearance|reporting/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the UAE eInvoicing step explicit only for the UAE edition", () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "UAE";
+
     render(<SetupWizardContent checklist={sampleChecklist()} />);
 
     const zatcaStep = screen.getByTestId("setup-step-zatca_local_readiness_visible");
     expect(within(zatcaStep).getByText(/local readiness validation only/)).toBeInTheDocument();
     expect(within(zatcaStep).getByText(/ASP validation is not connected/)).toBeInTheDocument();
     expect(within(zatcaStep).getByText(/no FTA reporting is enabled/)).toBeInTheDocument();
-    expect(within(zatcaStep).getByText(/does not prove production compliance/)).toBeInTheDocument();
-    expect(within(zatcaStep).queryByRole("button", { name: /ASP|FTA|clearance|reporting/i })).not.toBeInTheDocument();
+    expect(within(zatcaStep).queryByText(/ZATCA|Saudi|KSA/i)).not.toBeInTheDocument();
   });
 
   it("shows controlled beta review readiness without implying production compliance", () => {
     render(<SetupWizardContent checklist={readyChecklist()} />);
 
     expect(screen.getByText("Ready for controlled beta review")).toBeInTheDocument();
-    expect(screen.getByText(/UAE eInvoicing stays local readiness validation/)).toBeInTheDocument();
+    expect(screen.getByText(/Country-specific compliance modules stay local-readiness only/)).toBeInTheDocument();
   });
 
   it("links the dashboard onboarding card to the setup wizard", () => {

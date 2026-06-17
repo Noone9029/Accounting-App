@@ -24,7 +24,10 @@ jest.mock("@/lib/pdf-download", () => ({
 }));
 
 describe("ZATCA settings preparation gates", () => {
+  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "KSA";
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/zatca/profile") return Promise.resolve(profile());
@@ -38,6 +41,19 @@ describe("ZATCA settings preparation gates", () => {
       if (path === "/zatca/submissions") return Promise.resolve([]);
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
+  });
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+  });
+
+  it("guards ZATCA readiness outside the KSA edition", () => {
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "GENERIC";
+
+    render(<ZatcaSettingsPage />);
+
+    expect(screen.getByText("ZATCA readiness is only visible in the KSA edition.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
   it("shows preparation-only ZATCA gates without production compliance wording", async () => {
