@@ -1,8 +1,8 @@
 # LedgerByte Product Readiness Scorecard
 
-Audit date: 2026-06-13
+Audit date: 2026-06-18
 
-Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main` after PR #62 Owner security/organization settings visual QA merge) plus the current security settings route implementation plan branch.
+Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
 ## 2026-06-17 Country Edition Clean Reconciliation Update
 
@@ -15,9 +15,9 @@ Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main`
 
 ## 2026-06-17 Security Settings Route Implementation Plan Update
 
-- Controlled beta planning clarity improves because existing auth, token, member, role, organization, permission, and audit-log capabilities are now inventoried from source for a future real `/settings/security` route.
-- This is documentation/planning evidence only. It does not add a route, backend endpoint, schema, migration, auth/session/security business logic, security control, provider integration, or production security claim.
-- The recommended first route is a read-only overview: account identity, password reset guidance, team access summary, roles/permissions summary, audit-log shortcut, and organization setup posture.
+- Controlled beta planning clarity improved and was implemented as a read-only `/settings/security` route using existing auth, token, member, role, organization, permission, and audit-log capabilities.
+- The route now provides account identity, password reset guidance, team access summary, roles/permissions summary, audit-log shortcut, and organization setup posture without adding backend/auth/session/security control logic.
+- Missing backend-backed capabilities (sessions, MFA, SSO, API-token controls, logged-in password change, logout-all, email verification, and security notifications) are explicitly callouted as not available.
 - Explicitly out of scope until backend support exists: persisted sessions, refresh tokens, session revoke, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, and configurable security notifications.
 - This does not increase production security readiness. It reduces the risk of future UI overclaiming by defining what the route may truthfully show first.
 
@@ -25,7 +25,7 @@ Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main`
 
 - Controlled beta UI confidence improves because real Owner organization/security-adjacent settings surfaces now have local Playwright visual coverage.
 - The fixture remains local/test-only and read-only. It models existing route contracts, role permissions, long-field content, team members, roles, role detail, audit retention, compliance readiness, setup states, and hidden/disabled restricted actions without changing backend behavior.
-- The route matrix checks existing routes across desktop, tablet, and mobile. It uses `/settings/team`, `/settings/roles`, `/settings/roles/[id]`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup` because separate `/settings/security`, `/settings/api`, `/settings/sessions`, and `/settings/organization` routes do not exist.
+- The route matrix checks existing routes across desktop, tablet, and mobile, including the now-implemented `/settings/security` route, plus `/settings/team`, `/settings/roles`, `/settings/roles/[id]`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup`.
 - The role matrix checks `Owner`, `Accountant`, and `Viewer`, including Owner team/role/admin affordances and restricted Accountant/Viewer behavior according to existing permissions.
 - Screenshots and report output are generated under ignored `artifacts/visual-qa/owner-security-organization-settings-visual-qa/` and are not committed.
 - This is frontend test/readability evidence only. It does not increase auth/session/security business-logic readiness, provider readiness, legal readiness, hosted/customer-data readiness, storage-provider readiness, UAE eInvoicing readiness, ZATCA readiness, or production compliance readiness.

@@ -21,11 +21,12 @@ const viewports = [
 const coveredRoutes = [
   { slug: "settings", path: "/settings", heading: /Team Members/i, expectedText: /Beta access guidance|mock invites/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant With Extended Review Name|pending\.invite\.long\.external|Suspended Former Beta Reviewer/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
+  { slug: "settings-security", path: "/settings/security", heading: /Security settings/i, expectedText: /Read-only security overview|Team and role controls|Not available yet/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Team settings/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer With Long Role Name|Beta role guidance|permissions/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
   { slug: "settings-role-owner", path: "/settings/roles/role-owner", heading: /Owner/i, expectedText: /System role|protected from editing and deletion|Permission matrix/i, requiredAny: [PERMISSIONS.roles.view] },
   { slug: "settings-role-custom", path: "/settings/roles/role-custom-long", heading: /Regional Operations Readonly Reviewer With Long Role Name/i, expectedText: /Permission matrix|members assigned|testing script/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Save changes/i },
   { slug: "settings-audit-logs", path: "/settings/audit-logs", heading: /Audit logs/i, expectedText: /Aisha LedgerByte Accountant|Retention|CUSTOMER PAYMENT ALLOCATED/i, requiredAny: [PERMISSIONS.auditLogs.view], ownerOnlyAction: /Save retention settings/i },
-  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Controlled beta|ASP validation not connected|No FTA reporting yet/i, requiredAny: [PERMISSIONS.compliance.view], ownerOnlyAction: /Save UAE readiness fields/i },
+  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Compliance readiness|No ASP|Controlled beta|No network/i, requiredAny: [PERMISSIONS.compliance.view] },
   { slug: "setup", path: "/setup", heading: /Guided setup/i, expectedText: /Complete business profile|Provider evidence is unavailable|Top blockers/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "organization-setup", path: "/organization/setup", heading: /Organization setup/i, expectedText: /Organization name|Legal name|VAT number/i, requiredAny: [] },
 ] as const;
@@ -33,7 +34,6 @@ const coveredRoutes = [
 const roleProfiles = ["Owner", "Accountant", "Viewer"] as const satisfies readonly VisualRoleProfileName[];
 
 const skippedRoutes = [
-  "/settings/security: no separate route exists; current access guidance is grouped under /settings/team and /settings/roles.",
   "/settings/sessions: no route exists; session-like guidance is limited to existing team suspension copy.",
   "/settings/api: no route exists; provider/API readiness guidance is grouped under /settings/compliance.",
   "/settings/integrations: no route exists; no integration settings route is implemented.",
@@ -116,7 +116,7 @@ for (const viewport of viewports) {
 
     const settingsHrefs = registeredHrefs.filter((href) => href.startsWith("/settings") || href.startsWith("/organization"));
     expect(settingsHrefs).toEqual(expect.arrayContaining(["/settings/team", "/settings/roles", "/organization/setup"]));
-    expect(settingsHrefs).not.toContain("/settings/security");
+    expect(settingsHrefs).toContain("/settings/security");
     expect(settingsHrefs).not.toContain("/settings/api");
 
     await page.getByRole("button", { name: "Create" }).first().click();

@@ -2,7 +2,7 @@
 
 Date: 2026-06-17
 
-Objective: plan a real `/settings/security` route using only existing LedgerByte auth, member, role, organization, permission, and audit capabilities. This branch does not implement the route.
+Objective: plan and track implementation of a real `/settings/security` route using only existing LedgerByte auth, member, role, organization, permission, and audit capabilities.
 
 ## Recommended First Route Scope
 
@@ -152,7 +152,7 @@ Real first-version route:
 
 ### Phase A: Read-Only Security Overview
 
-- Build `/settings/security` as a read-only route.
+- Build `/settings/security` as a read-only route. ✅ Implemented.
 - Use existing team, role, organization, and audit data.
 - Add conservative cards and real links only.
 - Gate the route with existing permissions.
@@ -217,7 +217,7 @@ Real first-version route:
 ## Known Limitations
 
 - The first route should be a truth-first overview, not a security control center.
-- There is no real `/settings/security` route yet.
+- `/settings/security` route is now implemented as the read-only phase A version.
 - There is no real `/settings/sessions`, `/settings/api`, `/settings/integrations`, or `/settings/organization` route today.
 - The existing `/settings` route redirects to `/settings/team`.
 - Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.

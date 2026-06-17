@@ -114,6 +114,7 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/settings/number-sequences")).toEqual([PERMISSIONS.numberSequences.view]);
     expect(getRequiredPermissionsForPathname("/settings/zatca")).toEqual([PERMISSIONS.zatca.view]);
     expect(getRequiredPermissionsForPathname("/settings/team")).toEqual([PERMISSIONS.users.view]);
+    expect(getRequiredPermissionsForPathname("/settings/security")).toEqual([PERMISSIONS.users.view]);
     expect(getRequiredPermissionsForPathname("/settings/roles/role-1")).toEqual([PERMISSIONS.roles.view]);
     expect(getRequiredPermissionsForPathname("/sales/quotes")).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices")).toEqual([PERMISSIONS.salesInvoices.view]);
@@ -207,7 +208,7 @@ describe("sidebar nav filtering", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.users.view, PERMISSIONS.roles.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Users and roles", "Security / sessions", "Roles & Permissions"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Users and roles", "Security", "Roles & Permissions"]);
   });
 
   it("shows storage settings when the user can view document settings", () => {

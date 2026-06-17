@@ -1,6 +1,6 @@
 # Implementation Status
 
-Audit date: 2026-06-13
+Audit date: 2026-06-18
 
 Product Audit v2:
 
@@ -45,13 +45,22 @@ Current production posture:
 - PR `#62` (`Owner security and organization settings visual QA`) was merged into `main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this branch was created from fresh `origin/main`.
 - Added a docs-only capability inventory for existing LedgerByte auth/session/security-adjacent source files.
 - Added a docs-only implementation plan for a future real `/settings/security` route.
-- No `/settings/security` route was implemented yet.
+- `feature/security-settings-read-only-route` added a read-only `/settings/security` route.
 - Existing implemented capabilities documented from source: login, registration, `/auth/me`, JWT bearer auth, password reset tokens, invite tokens, invite acceptance, token cleanup, token-delivery rate-limit events, team member listing, member invite, member role/status updates, roles and permissions, organization setup/update, audit logs, audit export, and audit retention preview/settings.
 - Missing capabilities documented instead of invented: persisted active sessions, refresh tokens, session revoke, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, configurable security notifications, and dedicated security overview endpoint.
 - Recommended first route scope: read-only account identity, password reset guidance, team access summary, role/permission summary, security activity/audit shortcut, organization setup posture, and links to existing real settings/setup routes.
 - No backend API, frontend route implementation, Prisma schema, migration, auth/session/security business logic, accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, fake security claim, certification claim, or production security/compliance claim was added.
 - Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
 - Recommended next prompt: `Implement read-only security settings route`.
+
+2026-06-18 LedgerByte read-only security settings route:
+
+- Implemented `feature/security-settings-read-only-route` with `apps/web/src/app/(app)/settings/security/page.tsx`, route permission mapping in `apps/web/src/lib/permissions.ts`, route wiring in `apps/web/src/lib/sidebar-nav.ts`, and settings security tests.
+- Added visual QA coverage for `/settings/security` in `tests/visual/owner-security-organization-settings-visual-qa.visual.spec.ts`.
+- Added `docs/development/SECURITY_SETTINGS_READ_ONLY_ROUTE_SPRINT_CLOSURE.md` and updated `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md` to mark Phase A as implemented.
+- Scope stays frontend/test/docs only: no backend API, Prisma schema, migration, auth/session/security business logic, accounting/business logic, UAE PINT-AE, ZATCA behavior, provider integration, real ASP/email/ZATCA calls, Vercel/Supabase commands, or production infrastructure changes.
+- Capabilities shown are existing and read-only: account identity, password-reset guidance, team/roles shortcuts, audit logs shortcut, setup posture.
+- Capabilities still explicitly not implemented: active session list, session/device revocation, refresh tokens, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, configurable security notifications.
 
 2026-06-17 LedgerByte Owner security organization settings visual QA:
 

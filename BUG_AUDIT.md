@@ -1,8 +1,26 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-06-13
+Audit date: 2026-06-18
 
-Latest commit audited: `1fcbdce4da80341a58098070e34e2e37ef616fa1` (`origin/main` after PR #62 Owner security/organization settings visual QA merge) plus the current security settings route implementation plan branch.
+Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
+
+## 2026-06-18 LedgerByte read-only security settings route
+
+Implemented `feature/security-settings-read-only-route` from `origin/main` after PR `#64`, adding:
+
+- `apps/web/src/app/(app)/settings/security/page.tsx` as a read-only `Security settings` route.
+- Navigation permission wiring for `/settings/security` in `apps/web/src/lib/permissions.ts` and `apps/web/src/lib/sidebar-nav.ts`.
+- Route-level permission unit coverage in `apps/web/src/lib/permissions.test.ts`.
+- New route tests in `apps/web/src/app/(app)/settings/security/page.test.tsx`.
+- Visual QA coverage in `tests/visual/owner-security-organization-settings-visual-qa.visual.spec.ts` for `/settings/security` across desktop/tablet/mobile.
+- `docs/development/SECURITY_SETTINGS_READ_ONLY_ROUTE_SPRINT_CLOSURE.md`.
+
+Scope and boundaries:
+
+- Frontend/test/docs only.
+- No backend API, Prisma schema, migration, hosted/customer-data mutation, auth/session/security business logic, accounting/business logic, UAE PINT-AE, ZATCA behavior, provider integration, real ASP call, real email, Vercel command, Supabase command, or production infrastructure command was run.
+- PR scope is read-only /settings/security only: no session list, session revoke/logout-all, API tokens, MFA, SSO, logged-in password change, or email verification controls were added.
+- Provider evidence remains unavailable; ZATCA stash and prior safety patch remain preserved.
 
 ## 2026-06-17 LedgerByte country edition clean reconciliation
 
