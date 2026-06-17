@@ -467,5 +467,9 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.roles.view];
   }
 
+  if (pathname.startsWith("/settings/security")) {
+    return [PERMISSIONS.users.view];
+  }
+
   return [PERMISSIONS.dashboard.view];
 }

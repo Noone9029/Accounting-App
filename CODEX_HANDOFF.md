@@ -2,8 +2,8 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/security-settings-route-implementation-plan`.
-- Base: fresh `origin/main` at `1fcbdce4da80341a58098070e34e2e37ef616fa1` after PR `#62` (`Owner security and organization settings visual QA`) was merged.
+- Branch: `feature/security-settings-read-only-route`.
+- Base: fresh `origin/main` at `26dae02483745d39c9133f44f5674f60e9e0d23d` after PR `#64` (`Reconcile country edition split`) merge.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
@@ -31,16 +31,16 @@
 
 ## Security Settings Route Implementation Plan Summary
 
-- PR `#62` (`Owner security and organization settings visual QA`) was reverified green and merged into `main` with merge commit `1fcbdce4da80341a58098070e34e2e37ef616fa1` before this branch began.
+- PR `#64` (`Reconcile country edition split`) was merged into `main` before this branch and preserved the edition baseline.
 - Added `docs/security/SECURITY_SETTINGS_CAPABILITY_INVENTORY.md` with source-backed classifications for login/logout, JWT token handling, password reset, invites, team members, roles/permissions, organization profile, audit logs, audit retention, rate-limit events, session gaps, MFA/SSO/API-token gaps, and password-change gaps.
-- Added `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md` defining a truthful Phase A `/settings/security` route as a read-only overview using existing `/auth/me`, team, role, organization, setup, and audit-log capabilities.
-- Added `docs/development/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
-- No `/settings/security` route was implemented yet. No session list, session revoke, logout-all, MFA, SSO, API-token, logged-in password-change, security notification, provider, or certification feature was added.
-- Recommended first route scope: account identity, password reset guidance, team access overview, roles/permissions shortcut, security activity/audit shortcut, organization setup posture, and real links to `/settings/team`, `/settings/roles`, `/settings/audit-logs`, `/setup`, and `/organization/setup`.
-- Capabilities explicitly not implemented: persisted active sessions, refresh tokens, session/device revocation, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, configurable security notifications, and production security guarantees.
-- No backend API, frontend route implementation, Prisma schema, migration, auth/session/security business logic, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, fake security/SSO/MFA/API-provider claim, security certification claim, or production compliance/security claim was added.
+- Added `docs/security/SECURITY_SETTINGS_ROUTE_IMPLEMENTATION_PLAN.md` and updated it to note Phase A read-only completion.
+- Added `docs/development/SECURITY_SETTINGS_READ_ONLY_ROUTE_SPRINT_CLOSURE.md`.
+- Implemented a truthful read-only `/settings/security` route (no persisted sessions, no password-change, no session revoke, no MFA, no SSO, no API-token management, and no production security guarantee claims).
+- Route scope includes account identity, password reset guidance, team/roles summary links, audit shortcut, organization setup posture, and explicit missing-capability callouts.
+- Capabilities explicitly not implemented: persisted active sessions, refresh tokens, session/device revocation, logout-all, MFA, SSO, API-token management, logged-in password change, email verification, configurable security notifications, production security guarantees.
+- No backend API, frontend behavior changes outside the route, Prisma schema, migration, auth/session/security business logic, payment/accounting/business logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, fake security/SSO/MFA/API-provider claim, security certification claim, or production compliance/security claim was added.
 - Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
-- Remaining security route scope: implement Phase A read-only route, add route permission mapping and visual QA, then design any real session/password/MFA/SSO/API-token backend in separate reviewed phases.
+- Remaining security route scope: design backend phases for sessions, MFA, SSO, API-token controls, and logged-in password change only after explicit review; keep read-only implementation and existing scope boundaries as-is.
 
 ## Owner Security Organization Settings Visual QA Summary
 
@@ -50,7 +50,7 @@
 - Owner organization/security states checked: settings redirect to team management, team members with Owner/Accountant/Sales/Purchases/Viewer/pending/suspended users, long names/emails, role controls, role list, system role protection, long custom role detail, permission matrix, audit retention, compliance readiness, guided setup, and organization setup form layout.
 - Role profiles checked: `Owner`, `Accountant`, and `Viewer`. Owner coverage checks allowed admin/settings controls; Accountant/Viewer coverage checks restricted actions are hidden, disabled, or blocked according to existing behavior.
 - Routes checked include `/settings`, `/settings/team`, `/settings/roles`, `/settings/roles/role-owner`, `/settings/roles/role-custom-long`, `/settings/audit-logs`, `/settings/compliance`, `/setup`, and `/organization/setup`.
-- Skipped routes because they do not exist: `/settings/security`, `/settings/sessions`, `/settings/api`, `/settings/integrations`, `/settings/organization`, `/organization`, and `/settings/users`. `/settings/zatca` exists but ZATCA-specific visual expansion was intentionally avoided.
+- Covered route checks now include `/settings/security`; route checks for `/settings/sessions`, `/settings/api`, `/settings/integrations`, `/settings/organization`, `/organization`, and `/settings/users` are retained as skipped only while non-existent.
 - Generated screenshots and `visual-results.json` under `artifacts/visual-qa/owner-security-organization-settings-visual-qa/`; `artifacts/` remains ignored, so screenshots are local evidence and are not committed.
 - Findings fixed: role-detail fixture coverage was added; visual assertions were calibrated to the real app shell account-menu/sign-out and organization-loading variants. No frontend product layout, permission, link, or copy defect required a source UI change.
 - No backend API, Prisma schema, migration, production auth provider behavior, auth/session/security business logic, payment/accounting/business logic, report calculation logic, journal posting logic, UAE PINT-AE behavior, ZATCA behavior, provider behavior, hosted/customer-data mutation, Vercel/Supabase command, production infrastructure command, fake security/SSO/MFA/API/provider claim, fake automation, fake bank feed, fake storage/archive claim, certification claim, or production compliance claim was added.

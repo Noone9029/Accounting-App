@@ -181,7 +181,7 @@ export const SIDEBAR_NAV_ITEMS: readonly SidebarNavItem[] = [
       { label: "Document settings", href: "/settings/documents", requiredAny: [PERMISSIONS.documentSettings.view] },
       { label: "Storage settings", href: "/settings/storage", requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage] },
       { label: "Compliance settings", href: "/settings/compliance", requiredAny: [PERMISSIONS.compliance.view] },
-      { label: "Security / sessions", href: "/settings/team", requiredAny: [PERMISSIONS.users.view] },
+      { label: "Security", href: "/settings/security", requiredAny: [PERMISSIONS.users.view] },
       { label: "API / provider setup", href: "/settings/compliance", requiredAny: [PERMISSIONS.compliance.view] },
       { label: "Branches", href: "/branches", requiredAny: [PERMISSIONS.organization.view] },
       { label: "Roles & Permissions", href: "/settings/roles", requiredAny: [PERMISSIONS.roles.view] },
