@@ -1,5 +1,17 @@
 # LedgerByte Codex Handoff
 
+## Hosted Tenant Isolation Proof Readiness Summary (2026-06-18)
+
+- Current branch: `feature/hosted-tenant-isolation-proof-readiness`, from clean `origin/main` at `b8fda1f8be96d9f8beeb6688feafdd3d9c377e22` after PR #68 merged.
+- Added a disabled-by-default harness shell: `apps/api/scripts/hosted-tenant-isolation-proof.ts`, backed by `apps/api/src/hosted-tenant-isolation-proof.ts` and `apps/api/src/hosted-tenant-isolation-proof.spec.ts`.
+- Added commands: `corepack pnpm tenant-isolation:proof` and `corepack pnpm test:tenant-isolation-proof`.
+- The harness is dry-run/plan-only today: it performs no network calls, DB connections, Supabase/Vercel calls, provider calls, email, bank-feed calls, payment calls, or hosted/customer-data mutations.
+- Guardrails require `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1` and a proof-run ID, refuse production-looking URLs, refuse local mode against hosted targets, refuse destructive/external operation flags, and redact secret-like URL values.
+- Added `docs/development/HOSTED_TENANT_ISOLATION_PROOF_READINESS_SPRINT_CLOSURE.md` and updated `docs/security/HOSTED_TENANT_ISOLATION_PROOF_PLAN.md`.
+- Verification so far: `corepack pnpm install --frozen-lockfile`, `corepack pnpm --filter @ledgerbyte/api db:generate`, and `corepack pnpm test:tenant-isolation-proof` passed after correcting the scoped test script.
+- Hosted/customer-data proof is still not complete; staging proof, RLS/runtime-role proof, storage/signed URL proof, concurrency/race proof, observability evidence, and owner sign-off remain blockers.
+- Recommended next prompt: `Implement staging-only tenant isolation proof execution`.
+
 ## Hosted Tenant Isolation Proof Plan Summary (2026-06-18)
 
 - Current branch: `feature/hosted-tenant-isolation-proof-plan`, from clean `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223` after PR #67 merged.

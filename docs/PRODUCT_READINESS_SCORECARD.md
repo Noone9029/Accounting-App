@@ -4,6 +4,13 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Hosted Tenant Isolation Proof Readiness Update
+
+- Production-readiness process improves because the hosted tenant isolation proof plan now has a disabled-by-default harness shell with fail-closed target classification.
+- The harness is safety/readiness infrastructure only. It does not run hosted checks, connect to databases, call Supabase/Vercel, call providers, send email, connect bank feeds, create payment objects, or mutate hosted/customer data.
+- Guard coverage now proves missing allow gate, missing proof-run ID, production-looking URL, hosted target in local mode, destructive/external flags, and secret-like URL values are handled conservatively.
+- No score increase is taken for production launch readiness. Hosted/customer-data proof, staging synthetic tenant execution, RLS/runtime-role proof, storage/signed URL proof, concurrency proof, observability evidence, provider evidence, and accountant/legal/security sign-off remain blockers.
+
 ## 2026-06-18 Hosted Tenant Isolation Proof Plan Update
 
 - Production-readiness clarity improves because hosted tenant isolation proof is now planned explicitly instead of being implied by local API tests.

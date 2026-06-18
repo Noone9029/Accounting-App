@@ -4,6 +4,26 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Hosted tenant isolation proof readiness
+
+### Scope and boundaries
+
+- Scope: proof-readiness guardrails after PR #68's hosted tenant isolation proof plan.
+- Boundaries remained in place: no hosted command, no Supabase command, no Vercel command, no production database command, no seed/reset/delete, no Prisma schema change, no migration, no hosted/customer-data mutation, no provider integration call, no real bank feed, no payment processor integration, no real email, no ZATCA production work, and no UAE Peppol/ASP production work.
+
+### Findings
+
+- The hosted proof plan from PR #68 was already present on `origin/main`.
+- A live hosted proof still requires a staging/dedicated proof environment, synthetic tenants, safe auth, read-only-first checks, and sanitized evidence capture.
+- Database-enforced application-table RLS remains absent/pending in repo migrations.
+- Generated document object-storage and signed URL tenant proof remain unimplemented.
+
+### Outcome
+
+- Added a disabled-by-default proof harness shell that classifies targets and refuses unsafe/prod-looking/destructive inputs while performing no network calls or writes.
+- Added focused safety tests for the allow gate, proof-run ID, dry-run default, production-looking URL refusal, local-target refusal, redaction, and destructive flag refusal.
+- Updated readiness docs and handoff to keep hosted proof explicitly not complete.
+
 ## 2026-06-18 Hosted tenant isolation proof plan
 
 ### Scope and boundaries
