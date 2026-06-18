@@ -1,5 +1,17 @@
 # LedgerByte Codex Handoff
 
+## Accounting Tenant Isolation Regression Summary (2026-06-18)
+
+- Current branch: `feature/accounting-tenant-isolation-regression`, from clean `origin/main` at `9bd65e4e3dceb34a8b38862ce880877e0e9fd8d1`.
+- Added API-level tenant isolation and permission regression coverage in `apps/api/src/accounting-tenant-isolation-regression.spec.ts` for real controller metadata and real default role constants.
+- Coverage includes sales invoices, purchase bills, customer payments, supplier payments, credit notes, purchase debit notes, bank accounts, bank-account reconciliation, bank reconciliations, compliance readiness, audit logs, attachments, generated documents, and reports.
+- Added a focused bank-account transaction regression proving opening balances stay scoped to the active organization even if a cross-tenant journal line would otherwise match the account/date/status filters.
+- Fixed one real bug: `BankAccountService.transactions()` now passes `organizationId` into `ledgerBalance`, and `ledgerBalance` includes `organizationId` in its `journalLine.findMany` query.
+- Verification passed: full API test suite, API typecheck, requested web accounting/security slices, web typecheck, web build, `verify:diff`, and post-commit `verify:ci:local` with the API-scoped plan.
+- Scope stayed local API/test/docs. No Prisma schema, migration, hosted/customer-data mutation, provider call, ZATCA production work, UAE Peppol/ASP production work, Vercel command, Supabase command, frontend redesign, or country-edition behavior change was performed.
+- Provider evidence remains unavailable: no UAE ASP sandbox credentials/docs/provider response/commercial terms and no ZATCA production credentials/response.
+- Recommended next prompt: `Review accounting tenant isolation regression PR`.
+
 ## Latest Commit Inspected
 
 - Branch: `feature/accounting-workflow-regression-baseline`.

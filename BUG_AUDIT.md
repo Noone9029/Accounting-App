@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Accounting tenant isolation regression
+
+### Scope and boundaries
+
+- Scope: API-level tenant isolation and RBAC regression for accounting and accounting-adjacent controllers.
+- Boundaries remained in place: no Prisma schema change, no migration, no hosted/customer-data mutation, no provider integration call, no ZATCA/UAE production implementation, no deployment, no Supabase command, no Vercel command, and no frontend redesign.
+
+### Changes and fixes
+
+- Added `apps/api/src/accounting-tenant-isolation-regression.spec.ts` for real controller permission metadata and default-role regression checks.
+- Added a bank-account transaction opening-balance tenant-isolation regression in `apps/api/src/bank-accounts/bank-account.service.spec.ts`.
+- Found and fixed one isolation bug: `BankAccountService.transactions()` previously calculated opening balances through `ledgerBalance` without carrying `organizationId` into the `journalLine.findMany` query.
+- No additional tenant-filter or RBAC metadata defect was found in the reviewed surfaces.
+
+### Verification and outcomes
+
+- Passed full API test suite and API typecheck.
+- Passed requested web slices for invoices, bills, customer payments, supplier payments, dashboard, reports, sidebar, and security.
+- Passed web typecheck, web build, `verify:diff`, and post-commit `verify:ci:local` with the API-scoped plan.
+- Remaining gaps: hosted/customer-data behavior, database-enforced RLS, concurrency/race behavior, production provider proof, accountant/legal sign-off, and full production readiness remain unproven.
+
 ## 2026-06-18 Accounting workflow regression baseline
 
 ### Scope and boundaries
