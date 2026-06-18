@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Accounting Tenant Isolation Regression Update
+
+- Controlled beta API confidence improves because tenant-isolation and RBAC metadata regressions now cover real accounting and accounting-adjacent controllers.
+- Coverage includes sales invoices, purchase bills, customer payments, supplier payments, credit notes, purchase debit notes, bank accounts/reconciliation, compliance readiness, audit logs, attachments, generated documents, and reports.
+- One real tenant-isolation bug was fixed: bank-account transaction opening balances now include `organizationId` in the journal-line balance query.
+- Verification passed locally, including full API tests/typecheck, requested web slices, web typecheck/build, `verify:diff`, and post-commit `verify:ci:local`.
+- This does not increase provider, hosted/customer-data, database RLS, legal/accountant, ZATCA production, UAE production, or launch readiness. It is local API/test evidence only.
+- Provider evidence remains unavailable and no provider/certification/production compliance claim was added.
+
 ## 2026-06-18 Accounting Workflow Regression Baseline Update
 
 - Completed a full baseline verification run for shared API + web accounting workflow coverage with no feature/code changes, from clean `origin/main` (`e089690dd56cfb86911ecdfe3bcf5620227b9529d`).

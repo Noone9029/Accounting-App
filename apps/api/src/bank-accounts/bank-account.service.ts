@@ -303,7 +303,7 @@ export class BankAccountService {
     const profile = await this.findExisting(organizationId, id);
     const { from, to } = this.parseDateRange(query);
 
-    const openingBalance = from ? await this.ledgerBalance(profile.accountId, { lt: from }) : new Prisma.Decimal(0);
+    const openingBalance = from ? await this.ledgerBalance(organizationId, profile.accountId, { lt: from }) : new Prisma.Decimal(0);
     const lines = await this.prisma.journalLine.findMany({
       where: {
         organizationId,
@@ -410,9 +410,10 @@ export class BankAccountService {
     };
   }
 
-  private async ledgerBalance(accountId: string, dateFilter?: Prisma.DateTimeFilter<"JournalEntry">): Promise<Prisma.Decimal> {
+  private async ledgerBalance(organizationId: string, accountId: string, dateFilter?: Prisma.DateTimeFilter<"JournalEntry">): Promise<Prisma.Decimal> {
     const lines = await this.prisma.journalLine.findMany({
       where: {
+        organizationId,
         accountId,
         journalEntry: {
           status: { in: POSTED_LEDGER_STATUSES },

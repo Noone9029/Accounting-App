@@ -226,6 +226,39 @@ describe("BankAccountService", () => {
     );
   });
 
+  it("keeps transaction opening balances scoped to the active organization", async () => {
+    const { service, prisma } = makeService();
+    prisma.bankAccountProfile.findFirst.mockResolvedValue(profile);
+    prisma.journalLine.findMany.mockImplementation(({ where }: { where: { organizationId?: string; accountId: string } }) => {
+      if (where.organizationId !== "org-1") {
+        return Promise.resolve([
+          {
+            debit: new Prisma.Decimal("999.0000"),
+            credit: new Prisma.Decimal("0.0000"),
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(service.transactions("org-1", "profile-1", { from: "2026-05-01" })).resolves.toMatchObject({
+      openingBalance: "0.0000",
+      closingBalance: "0.0000",
+      transactions: [],
+    });
+
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          accountId: "account-1",
+          journalEntry: expect.objectContaining({ status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] } }),
+        }),
+      }),
+    );
+  });
+
   it("archives and reactivates without changing the linked account", async () => {
     const { service, prisma } = makeService();
     prisma.bankAccountProfile.findFirst.mockResolvedValue(profile);

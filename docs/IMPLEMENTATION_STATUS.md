@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Accounting tenant isolation regression:
+
+- Added `feature/accounting-tenant-isolation-regression` from clean `origin/main` at `9bd65e4e3dceb34a8b38862ce880877e0e9fd8d1`.
+- Added API-level regression coverage for tenant isolation and RBAC metadata across accounting and accounting-adjacent controllers.
+- Confirmed the default Viewer role lacks accounting mutation permissions, controller mutation methods require non-view permissions, and controller read methods require view permissions.
+- Found and fixed one tenant-isolation defect in bank-account transaction opening balances: `ledgerBalance` now requires `organizationId` and filters journal lines by organization.
+- Verified with full API tests/typecheck, requested web slices, web typecheck, web build, `verify:diff`, and post-commit `verify:ci:local`.
+- This improves local API regression confidence only. It does not prove hosted/customer-data behavior, database RLS, concurrency, live provider behavior, ZATCA/UAE production readiness, or production launch readiness.
+- Added closure note: `docs/development/ACCOUNTING_TENANT_ISOLATION_REGRESSION_SPRINT_CLOSURE.md`.
+
 2026-06-18 Accounting workflow regression baseline:
 
 - Ran accounting workflow regression verification on `feature/accounting-workflow-regression-baseline` from clean `origin/main` at `e089690dd56cfb86911ecdfe3bcf5620227b9529d` (after PR #65 merge).

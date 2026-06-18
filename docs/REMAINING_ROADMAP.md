@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-18 Accounting Tenant Isolation Regression Update
+
+- Branch `feature/accounting-tenant-isolation-regression` added API regression coverage for tenant isolation and RBAC metadata over accounting and accounting-adjacent controllers.
+- Fixed the bank-account transaction opening-balance organization filter so cross-tenant journal lines cannot influence the active organization's transaction balances.
+- Local verification passed, including post-commit `verify:ci:local`; hosted/customer-data and provider proof were intentionally not exercised.
+- Remaining roadmap focus: hosted/customer-data proof, database-enforced RLS review, concurrency/race auditing, accountant/legal sign-off, provider evidence, and production foundation tickets.
+- Keep ZATCA/UAE provider work blocked until explicit scope and real provider credentials/docs/responses exist.
+- Recommended next prompt: `Review accounting tenant isolation regression PR`.
+
 ## 2026-06-17 Country Edition Clean Reconciliation Update
 
 - Clean branch `feature/edition-split-clean-reconciliation` ports only edition-split changes from the preserved dirty country-edition work.
