@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-18 Staging Tenant Isolation Proof Execution Contract
+
+- Branch `feature/staging-tenant-isolation-proof-execution` extends the PR #69 harness into a fail-closed staging execution contract.
+- New harness modes: `dry-run`, `read-only-plan`, `staging-read-only-probe`, `staging-synthetic-proof`, and `production-read-only-posture`.
+- Staging read-only probe requires `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID`, `LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN`, `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID`, and `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID`.
+- Staging synthetic proof also requires `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1`; synthetic records and cleanup must stay labeled to `LB-TENANT-PROOF:<proofRunId>`.
+- The CLI now prints a sanitized human-readable summary and JSON output, with no auth token or secret-like URL values exposed.
+- Actual staging proof was not executed because the required staging URL/auth/synthetic tenant IDs/allow gates were not present.
+- Remaining next arc: add or run a real staging read-only probe adapter only after approved staging credentials exist; then add synthetic proof execution only after read-only evidence passes and mutation approval is explicit.
+- Recommended next prompt: `Execute staging tenant isolation proof with approved staging credentials`.
+
 ## 2026-06-18 Hosted Tenant Isolation Proof Readiness
 
 - Branch `feature/hosted-tenant-isolation-proof-readiness` adds a disabled-by-default proof harness shell on top of the merged hosted proof plan.

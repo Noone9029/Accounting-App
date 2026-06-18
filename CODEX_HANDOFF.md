@@ -1,5 +1,20 @@
 # LedgerByte Codex Handoff
 
+## Staging Tenant Isolation Proof Execution Contract Summary (2026-06-18)
+
+- Current branch: `feature/staging-tenant-isolation-proof-execution`, from clean `origin/main` at `afb32f4ad2e3a9b853ad7a2a1bdcc5f5d3521f14` after PR #69 merged.
+- Extended the PR #69 harness contract in `apps/api/src/hosted-tenant-isolation-proof.ts` and `apps/api/scripts/hosted-tenant-isolation-proof.ts`.
+- Added guarded modes: `dry-run`, `read-only-plan`, `staging-read-only-probe`, `staging-synthetic-proof`, and `production-read-only-posture`.
+- Dry-run classification remains local and non-mutating, can run without hosted credentials, and reports missing execution requirements instead of touching hosted systems.
+- Staging read-only probe mode requires `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID`, `LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN`, `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID`, and `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID`.
+- Staging synthetic proof mode also requires `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1` and remains proof-run-ID scoped with synthetic labels such as `LB-TENANT-PROOF:<proofRunId>`.
+- The CLI now prints a human-readable sanitized safety summary to stderr and a machine-readable JSON summary to stdout.
+- The harness still does not run network calls or hosted mutations in this branch; it exposes the fail-closed execution contract and adapter readiness status only.
+- Actual staging proof was not executed because no staging URL/auth token/synthetic tenant IDs/read-only allow/mutation allow were present in the environment.
+- No hosted command, Supabase command, Vercel deploy command, production database command, customer-data mutation, schema change, migration, seed/reset/delete, provider call, ZATCA call, UAE Peppol/ASP call, real email, bank-feed call, or payment processor integration was run.
+- Hosted tenant isolation is still not proven. Database-enforced RLS/runtime-role proof, staging synthetic execution, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, and owner sign-off remain blockers.
+- Recommended next prompt: `Execute staging tenant isolation proof with approved staging credentials`.
+
 ## Hosted Tenant Isolation Proof Readiness Summary (2026-06-18)
 
 - Current branch: `feature/hosted-tenant-isolation-proof-readiness`, from clean `origin/main` at `b8fda1f8be96d9f8beeb6688feafdd3d9c377e22` after PR #68 merged.

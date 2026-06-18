@@ -4,6 +4,26 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Staging tenant isolation proof execution contract
+
+### Scope and boundaries
+
+- Scope: extend the PR #69 hosted tenant isolation proof harness from readiness-only classification to a fail-closed staging execution contract.
+- Boundaries remained in place: no hosted command, no Supabase command, no Vercel deploy command, no production database command, no schema change, no migration, no seed/reset/delete, no broad cleanup, no hosted/customer-data mutation, no provider integration call, no real bank feed, no payment processor integration, no real email, no ZATCA production work, and no UAE Peppol/ASP production work.
+
+### Findings
+
+- PR #69's harness was still plan-only and supported only `dry-run` and `read-only-plan`.
+- Staging execution needed explicit mode separation, read-only and mutation gates, proof-run-ID-scoped synthetic labels, synthetic tenant requirements, production-like environment refusal, and sanitized summaries.
+- No staging proof credentials or synthetic tenant identifiers were present, so actual staging execution remained blocked.
+
+### Outcome
+
+- Added `staging-read-only-probe`, `staging-synthetic-proof`, and `production-read-only-posture` modes to the harness contract.
+- Added missing-variable reporting, proof-run-ID-scoped synthetic labels, proof-run-only cleanup scope, staging target classification, production-like environment refusal, secret-free auth presence reporting, and a sanitized human-readable CLI summary.
+- Added focused safety tests for dry-run default behavior, missing execution proof-run IDs, staging mutation gates, production-like environment names, secret redaction, proof-run cleanup scope, and explicit staging readiness gates.
+- Actual network and mutation execution remains disabled in this branch; hosted tenant isolation is still not proven.
+
 ## 2026-06-18 Hosted tenant isolation proof readiness
 
 ### Scope and boundaries
