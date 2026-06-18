@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Staging tenant isolation proof run blocker:
+
+- Added `feature/execute-staging-tenant-isolation-proof` from clean `origin/main` at `55c44407bceffe838ddf90502023afca1f28252c` after PR #70 merged.
+- Inspected the PR #70 harness contract and confirmed the actual script is `corepack pnpm tenant-isolation:proof`, backed by `apps/api/src/hosted-tenant-isolation-proof.ts` and `apps/api/scripts/hosted-tenant-isolation-proof.ts`.
+- Staging proof was not executed because the current environment is missing the staging/proof target and execution inputs: `LEDGERBYTE_HOSTED_TENANT_PROOF_ENVIRONMENT=staging` or CLI equivalent, `LEDGERBYTE_HOSTED_TENANT_PROOF_BASE_URL` or CLI equivalent, `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID`, `LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN`, `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID`, and `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID`.
+- Local harness dry-run returned `safety=ready`, `environment=local`, `networkEnabled=false`, and `mutationEnabled=false`; local read-only plan with `proof-20260618-local` also returned `networkEnabled=false`, `mutationEnabled=false`, and `cleanupScope=proofRunId-only`.
+- Verification passed: `corepack pnpm install --frozen-lockfile`, `corepack pnpm --filter @ledgerbyte/api db:generate`, harness tests, accounting tenant isolation regression, bank account service slice, API typecheck, web typecheck, `corepack pnpm verify:diff`, `git diff --check`, and `git diff --cached --check`.
+- No staging read-only probe, staging synthetic proof, hosted/customer-data mutation, production target, Supabase command, Vercel deploy command, production database command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE Peppol/ASP work, real email, real bank feed, or payment processor integration was performed.
+- Remaining blockers: approved staging/proof URL, approved auth token, synthetic tenant A/B IDs, proof-run ID, explicit allow gates, staging target classification, network-capable read-only probe adapter, synthetic proof adapter, database-level row policy/runtime-role evidence, storage/signed URL proof, backup/restore proof, concurrency/race proof, observability evidence, provider evidence, and accountant/legal/security sign-off.
+
 2026-06-18 Staging tenant isolation proof execution contract:
 
 - Added `feature/staging-tenant-isolation-proof-execution` from clean `origin/main` at `afb32f4ad2e3a9b853ad7a2a1bdcc5f5d3521f14` after PR #69 merged.
