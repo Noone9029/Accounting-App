@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Signed URL object-storage proof harness:
+
+- Added `feature/signed-url-object-storage-proof-harness` from clean `origin/main` at `3bb84480b37b531af1fe36bf98526ae2387f9fa5` after PR #75 merged.
+- Added `docs/security/SIGNED_URL_OBJECT_STORAGE_PROOF_PLAN.md`, `docs/development/SIGNED_URL_OBJECT_STORAGE_PROOF_HARNESS_SPRINT_CLOSURE.md`, and `docs/storage/SIGNED_URL_OBJECT_STORAGE_RISK_REGISTER.md`.
+- Extended the local object-storage proof validator with signed URL proof-plan output, authorization-before-URL contract, object-key policy validation, staging allow/proofRunId gates, and production-looking target refusal.
+- Fixed one local proof-harness path-safety gap: proof-validator object-key helpers now remove traversal markers before constructing planned keys.
+- Signed URLs remain not implemented. Generated documents remain database-backed. Hosted object-storage proof, bucket policy proof, generated-document object storage, backup/restore, retention/legal-hold/malware-scan evidence, and production archive guarantees remain blockers.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Storage generated-document isolation proof:
 
 - Added `feature/storage-generated-document-isolation-proof` from clean `origin/main` at `796784b34a40c0900cce8e403bef70ffb60ca521` after PR #74 merged.

@@ -15,8 +15,10 @@ const {
   buildAttachmentObjectKey,
   buildGeneratedDocumentObjectKey,
   buildObjectStorageProof,
+  buildSignedUrlProofPlan,
   parseArgs,
   sanitizeFilename,
+  validateObjectKeyPolicy,
 } = require("./object-storage-proof-validate.cjs");
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -145,6 +147,7 @@ test("package script works for dry-run validation", () => {
 
 test("helpers keep tenant-scoped keys sanitized", () => {
   assert.equal(sanitizeFilename("Invoice Copy (proof).pdf"), "Invoice-Copy-proof-.pdf");
+  assert.equal(sanitizeFilename("../../tenant-b/secret.pdf"), "tenant-b-secret.pdf");
   assert.equal(
     buildAttachmentObjectKey({
       organizationId: "org 1",
@@ -163,6 +166,84 @@ test("helpers keep tenant-scoped keys sanitized", () => {
     }),
     "org/org-1/generated-documents/sales-invoice/source-1/sales-invoice/Invoice-Copy-proof-.pdf",
   );
+});
+
+test("object-key policy rejects traversal, flat keys, and wrong tenant prefixes", () => {
+  assert.deepEqual(validateObjectKeyPolicy("org/org-1/attachments/attachment-1/invoice.pdf", "org-1"), {
+    valid: true,
+    reasons: [],
+  });
+  assert.deepEqual(validateObjectKeyPolicy("org/org-2/attachments/attachment-1/invoice.pdf", "org-1"), {
+    valid: false,
+    reasons: ["Object key does not start with the authorized tenant prefix."],
+  });
+  assert.deepEqual(validateObjectKeyPolicy("attachments/attachment-1/invoice.pdf", "org-1"), {
+    valid: false,
+    reasons: ["Object key does not start with the authorized tenant prefix.", "Object key is missing a supported object type prefix."],
+  });
+  assert.deepEqual(validateObjectKeyPolicy("org/org-1/attachments/../secret.pdf", "org-1"), {
+    valid: false,
+    reasons: ["Object key contains a path traversal segment."],
+  });
+});
+
+test("signed URL proof plan is dry-run only and requires authorization before any URL shape", () => {
+  const result = buildObjectStorageProof({
+    repoRoot,
+    env: {},
+    dryRun: true,
+  });
+
+  assert.equal(result.signedUrlCapability.implemented, false);
+  assert.equal(result.signedUrlCapability.realSignedUrlsGenerated, false);
+  assert.equal(result.signedUrlProofPlan.networkEnabled, false);
+  assert.equal(result.signedUrlProofPlan.mutationEnabled, false);
+  assert.equal(result.signedUrlProofPlan.authorizationContract.authorizeBeforeUrl, true);
+  assert.equal(result.signedUrlProofPlan.authorizationContract.acceptDirectObjectKeyInput, false);
+  assert.equal(result.signedUrlProofPlan.proofScenarios.length >= 6, true);
+});
+
+test("signed URL staging proof plan blocks without allow flags, proofRunId, or safe target classification", () => {
+  const missingGates = buildSignedUrlProofPlan({
+    environment: "staging",
+    proofRunId: "",
+    allow: undefined,
+    stagingAllow: undefined,
+    bucket: "ledgerbyte-proof",
+    endpoint: "https://objects.staging.example.test",
+  });
+
+  assert.equal(missingGates.safety, "refused");
+  assert.match(missingGates.refusedReasons.join("\n"), /LEDGERBYTE_STORAGE_PROOF_ALLOW=1/);
+  assert.match(missingGates.refusedReasons.join("\n"), /proofRunId/);
+  assert.equal(missingGates.networkEnabled, false);
+  assert.equal(missingGates.mutationEnabled, false);
+
+  const productionLooking = buildSignedUrlProofPlan({
+    environment: "staging",
+    proofRunId: "proof-20260619",
+    allow: "1",
+    stagingAllow: "1",
+    bucket: "ledgerbyte-production",
+    endpoint: "https://objects.ledgerbyte.com",
+  });
+
+  assert.equal(productionLooking.safety, "refused");
+  assert.match(productionLooking.refusedReasons.join("\n"), /production-looking/);
+
+  const readyPlan = buildSignedUrlProofPlan({
+    environment: "staging",
+    proofRunId: "proof-20260619",
+    allow: "1",
+    stagingAllow: "1",
+    bucket: "ledgerbyte-staging-proof",
+    endpoint: "https://objects.staging.example.test",
+  });
+
+  assert.equal(readyPlan.safety, "ready-for-plan");
+  assert.equal(readyPlan.executionMode, "staging-plan");
+  assert.equal(readyPlan.cleanupScope, "proofRunId-only");
+  assert.equal(readyPlan.realSignedUrlsGenerated, false);
 });
 
 test("argument parsing supports the required proof flags", () => {
