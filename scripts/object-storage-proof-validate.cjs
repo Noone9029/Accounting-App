@@ -358,6 +358,104 @@ function buildGeneratedDocumentObjectStorageContract() {
       futureUaeArtifactsEditionGated: true,
       providerNeutralArtifactsRequired: true,
     },
+    implementationPlan: buildGeneratedDocumentObjectStorageImplementationPlan(),
+  };
+}
+
+function buildGeneratedDocumentObjectStorageImplementationPlan() {
+  return {
+    currentBehaviorPreserved: true,
+    objectStorageDisabledByDefault: true,
+    dbBackedFallbackRequired: true,
+    signedUrlsRequiredForInitialImplementation: false,
+    objectKeyAnchor: "generatedDocumentId",
+    objectKeyExample: buildGeneratedDocumentObjectKey({
+      organizationId: SAMPLE_ORGANIZATION_ID,
+      generatedDocumentId: SAMPLE_GENERATED_DOCUMENT_ID,
+      sourceType: "sales-invoice",
+      sourceId: SAMPLE_GENERATED_DOCUMENT_SOURCE_ID,
+      documentType: "SALES_INVOICE",
+      filename: SAMPLE_GENERATED_DOCUMENT_FILENAME,
+    }),
+    featureFlags: [
+      {
+        name: "LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_STORAGE_ENABLED",
+        default: "disabled",
+        purpose: "Allow object-backed writes only after local and staging proof.",
+      },
+      {
+        name: "LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_STORAGE_DRY_RUN",
+        default: "enabled for planning/proof only",
+        purpose: "Exercise key and metadata decisions without writing hosted objects.",
+      },
+      {
+        name: "LEDGERBYTE_GENERATED_DOCUMENT_DUAL_WRITE_ENABLED",
+        default: "disabled",
+        purpose: "Allow staging dual-write rehearsal while keeping database content.",
+      },
+      {
+        name: "LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_READ_ENABLED",
+        default: "disabled",
+        purpose: "Allow staged object reads only after write/hash proof.",
+      },
+    ],
+    metadataDecision: {
+      existingFields: ["organizationId", "id", "sourceType", "sourceId", "documentType", "filename", "mimeType", "storageProvider", "storageKey", "contentHash", "sizeBytes", "contentBase64", "status", "generatedById", "generatedAt"],
+      futureMigrationFields: [
+        "bucket or logicalBucket",
+        "retentionClass",
+        "archiveState",
+        "legalHold",
+        "generationVersion",
+        "sourceSnapshotHash",
+        "objectUploadedAt",
+        "objectVerifiedAt",
+      ],
+      migrationImplementationIncluded: false,
+      explicitApprovalRequiredForMigration: true,
+    },
+    phases: [
+      "Phase A: local interface and adapter design only.",
+      "Phase B: generated-document storage interface with database adapter as default.",
+      "Phase C: fake local object-storage adapter for tests only.",
+      "Phase D: object-storage adapter behind disabled feature flag.",
+      "Phase E: metadata migration decision and explicit approval if fields are required.",
+      "Phase F: staging proof with synthetic tenants and dedicated bucket.",
+      "Phase G: backfill rehearsal from database content to object storage.",
+      "Phase H: signed URLs only if required and after proof.",
+      "Phase I: production rollout after backup/restore, retention, legal hold, malware scan, and owner approval.",
+    ],
+    adapterContract: {
+      requiredMethods: [
+        "writeGeneratedDocument",
+        "readGeneratedDocument",
+        "verifyGeneratedDocumentHash",
+        "deriveGeneratedDocumentObjectKey",
+        "getGeneratedDocumentMetadata",
+        "migrateGeneratedDocumentToObjectStorage",
+        "restoreGeneratedDocumentFromObjectStorage",
+      ],
+      deleteMethodAllowedOnlyAfterRetentionReview: true,
+      databaseAdapterDefault: true,
+      fakeAdapterLocalTestsOnly: true,
+      s3AdapterFutureDisabledByDefault: true,
+    },
+    rollbackRequirements: {
+      keepDatabaseContentThroughProof: true,
+      dualWriteStagingOnly: true,
+      objectReadStagingOnly: true,
+      hashMismatchBlocksCutover: true,
+      fallbackToDatabaseRequired: true,
+      cleanupProofRunScopedOnly: true,
+    },
+    stagingProofRequirements: {
+      syntheticTenantsRequired: true,
+      dedicatedBucketRequired: true,
+      customerDataAllowed: false,
+      hostedStorageMutationAllowedByThisValidator: false,
+      bucketPolicyProofRequired: true,
+      backupRestoreProofRequired: true,
+    },
   };
 }
 
@@ -504,6 +602,7 @@ function runLocalMockCycle() {
   });
   const generatedDocumentKey = buildGeneratedDocumentObjectKey({
     organizationId: SAMPLE_ORGANIZATION_ID,
+    generatedDocumentId: SAMPLE_GENERATED_DOCUMENT_ID,
     sourceType: "sales-invoice",
     sourceId: SAMPLE_GENERATED_DOCUMENT_SOURCE_ID,
     documentType: "SALES_INVOICE",
@@ -891,6 +990,7 @@ module.exports = {
   buildGeneratedDocumentObjectKey,
   buildArchiveObjectKey,
   buildGeneratedDocumentObjectStorageContract,
+  buildGeneratedDocumentObjectStorageImplementationPlan,
   buildSignedUrlProofPlan,
   validateObjectKeyPolicy,
   sanitizeFilename,

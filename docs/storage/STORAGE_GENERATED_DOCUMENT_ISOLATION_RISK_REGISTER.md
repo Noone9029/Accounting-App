@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Scope: local-only uploaded attachment and generated-document tenant isolation.
 
+2026-06-19 implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` now defines the generated-document object-storage implementation path. The path is DB-fallback-first, disabled by default, generated-document-id anchored, and staging-proof-gated. Generated-document object storage and signed URLs are still not enabled.
+
 | Risk | Current status | Local mitigation | Remaining blocker |
 | --- | --- | --- | --- |
 | Cross-tenant attachment metadata access | Locally tested through organization-scoped queries | Attachment list/get/download use `organizationId`; detail metadata excludes `contentBase64` | Hosted proof with synthetic tenants |
@@ -21,3 +23,5 @@ Scope: local-only uploaded attachment and generated-document tenant isolation.
 | Compliance archive body storage | Metadata-only in current local compliance path | Metadata rows are organization-scoped; no body persisted here | Future artifact body storage and retention design |
 | Backup/restore tenant boundary | Not proven | None in this local pass beyond metadata scoping | Approved backup/restore proof |
 | Retention/legal hold/malware scanning | Not implemented/proven | Explicitly blocked in docs | Legal/security/accounting review and implementation |
+| Generated-document object-read cutover | Not implemented | Implementation plan requires object reads disabled until write/hash proof passes and DB fallback is proven | Future local fake-adapter tests and staging proof |
+| Generated-document metadata migration | Not implemented | Current schema can support minimal object metadata, but richer lifecycle/proof fields are future-only | Explicit schema/migration approval if missing metadata is required |

@@ -8,6 +8,8 @@ Move uploaded attachments and generated documents from database/base64 storage t
 
 The S3 attachment upload adapter now exists behind `ATTACHMENT_STORAGE_PROVIDER=s3`, but this migration plan is still not implemented. The current API only exposes readiness and dry-run counts.
 
+2026-06-19 generated-document implementation-plan update: generated-document object storage remains planned, not enabled. `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` requires a DB-fallback-first adapter rollout before any generated-document migration. No generated-document migration executor, schema migration, hosted bucket mutation, or signed URL implementation is included in this planning pass.
+
 ## Required Preconditions
 
 - S3-compatible provider selected for the target domain after accountant/admin review.
@@ -55,6 +57,7 @@ Keys must not include untrusted path segments without sanitization. Tenant id an
 4. Cutover:
    - New uploads write to S3 only after the adapter has passed testing.
    - Generated documents can be switched separately from uploaded attachments.
+   - Generated-document object reads remain disabled until DB fallback, hash verification, and staging proof pass.
 
 5. Cleanup:
    - Remove database base64 content only after backup, hash verification, and rollback window.
@@ -70,6 +73,7 @@ Generated PDFs are system-created archives and should remain separate from uploa
 - Whether to retain base64 content permanently for small files.
 - Whether generated documents need immutable retention.
 - Whether attachment deletion should delete object content immediately or only mark metadata deleted.
+- Whether generated documents need future metadata fields such as logical bucket, retention class, archive state, legal hold, generation version, source snapshot hash, object uploaded timestamp, and object verified timestamp.
 
 ## Not Implemented Yet
 
@@ -78,4 +82,7 @@ Generated PDFs are system-created archives and should remain separate from uploa
 - Object deletion.
 - Virus scanning.
 - Retention policy enforcement.
+- Generated-document object-storage adapter implementation.
+- Generated-document metadata/schema migration.
+- Hosted generated-document bucket proof.
 - OCR or file parsing.

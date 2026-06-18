@@ -54,6 +54,8 @@ Generated documents are not migrated to this abstraction yet. They remain in `Ge
 
 2026-06-19 generated-document object-storage contract update: future generated-document object storage must use a tenant-prefixed and generated-document-id anchored key shape such as `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}`. Object keys must be server-derived after authorization and must not include provider secrets, customer-sensitive path data, global flat paths, or direct user-controlled key input. This is a contract only; no generated-document object storage was enabled.
 
+2026-06-19 generated-document object-storage implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` defines the future adapter path. The default remains DB-backed. A future implementation should add a generated-document-specific storage interface with a database adapter first, a fake local object adapter for tests, and a future object adapter behind disabled feature flags. Signed URLs are not required for the initial object-storage phase and remain separately proof-gated.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`
@@ -74,6 +76,7 @@ Before production-scale file usage:
 - Add virus scanning and retention policy hooks.
 - Add migration batches with hash verification and rollback checkpoints.
 - Keep generated documents and uploaded attachments logically separate even if they share a bucket.
+- Implement generated-document object storage only after DB fallback, metadata, adapter, staging proof, bucket policy, backup/restore, retention/legal-hold, malware-scan, and owner approval gates are satisfied.
 
 ## Non-Goals In This Groundwork
 
@@ -85,3 +88,6 @@ Before production-scale file usage:
 - No virus scanning.
 - No email sending.
 - No generated document archive refactor.
+- No generated document object-storage implementation.
+- No generated document signed URL implementation.
+- No generated document schema migration.

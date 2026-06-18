@@ -10,6 +10,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Uploaded attachments are database/base64-backed by default. The S3-compatible attachment adapter is feature-flagged groundwork for new uploaded attachments and writes keys under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` when configured.
 - Generated documents remain database-backed through `GeneratedDocumentService.archivePdf()` and `contentBase64`. Generated-document S3 writes are not implemented.
 - The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
+- The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 
@@ -39,7 +40,8 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Object keys must start with `org/{organizationId}/`.
 - Object keys must include an object type prefix: `attachments`, `generated-documents`, or future `archives`.
 - Attachment keys must include an attachment id prefix.
-- Generated-document keys must include source type, source id, document type, and normalized filename.
+- Generated-document keys must include generated document id and normalized filename, for example `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}`.
+- Source type, source id, and document type should remain authorized metadata unless a future reviewed design deliberately includes them without leaking sensitive path data.
 - Future archive keys must include an archive id prefix.
 - Filenames and path segments must remove traversal markers and unsafe slash shapes.
 - User input must never be accepted as an object key.
@@ -106,3 +108,4 @@ Signed URL and object-storage access are not production-ready until:
 - This plan does not prove hosted object-storage tenant boundaries.
 - This plan does not make generated-document object storage active.
 - This plan does not change production readiness scores.
+- This plan does not remove the DB-backed fallback requirement for generated documents.

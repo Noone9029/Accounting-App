@@ -2,7 +2,30 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` (`origin/main` after PR #76 merge) plus this generated-document object-storage contract branch.
+Latest commit audited: `757daf8bd83e351c3c14a349e2fc38f520d4933c` (`origin/main` after PR #77 merge) plus this generated-document object-storage implementation-plan branch.
+
+## 2026-06-19 Generated document object-storage implementation plan
+
+### Scope and boundaries
+
+- Scope: local-only generated-document object-storage implementation planning after PR #77.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Generated documents remain database-backed with `storageProvider = "database"` and `contentBase64`.
+- Current schema can support a minimal object-backed row through `storageProvider`, nullable `storageKey`, `contentHash`, `sizeBytes`, and `contentBase64` fallback, but richer lifecycle/proof metadata remains missing.
+- Generated-document object storage should be centralized behind `GeneratedDocumentService` and a generated-document-specific adapter boundary instead of being scattered across each archive caller.
+- Signed URLs are not required for the first object-storage implementation and should remain a later proof-gated phase.
+- The local mock-cycle proof helper still built generated-document object keys from source fields when no `generatedDocumentId` was supplied.
+
+### Outcome
+
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- Updated storage/security/risk/status docs to point to the implementation plan and keep generated-document object storage planned, disabled, and proof-gated.
+- Extended the object-storage proof validator with generated-document implementation-plan guardrails.
+- Fixed the local proof-helper generated-document mock-cycle key to use `generated-document-proof` as the generated-document-id anchor.
+- No readiness score increase should be taken until runtime implementation, staging bucket proof, bucket policy proof, signed URL proof if used, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
 
 ## 2026-06-19 Generated document object-storage contract
 
