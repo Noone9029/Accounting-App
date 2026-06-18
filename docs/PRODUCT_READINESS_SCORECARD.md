@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Hosted Tenant Isolation Proof Plan Update
+
+- Production-readiness clarity improves because hosted tenant isolation proof is now planned explicitly instead of being implied by local API tests.
+- PR #67 remains local/API evidence only: it added accounting tenant isolation/RBAC metadata regressions and fixed the bank-account transaction opening-balance organization filter bug.
+- This pass documents the hosted proof still needed across staging/dedicated proof environments, synthetic tenants, cross-tenant API checks, database row-policy/runtime-role review, storage/signed URL checks, concurrency/race checks, observability, and acceptance criteria.
+- Schema review found important production-domain models carry `organizationId`; app-source raw SQL is limited to the health `SELECT 1`; no repo migration was found that enables application-table RLS policies.
+- No score increase is taken for production launch readiness. Hosted/customer-data proof, storage proof, backup/restore proof, concurrency proof, runtime-role/RLS strategy, provider evidence, and accountant/legal/security sign-off remain blockers.
+- No hosted command, Supabase command, Vercel command, production database command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, or customer-data mutation occurred.
+
 ## 2026-06-18 Accounting Tenant Isolation Regression Update
 
 - Controlled beta API confidence improves because tenant-isolation and RBAC metadata regressions now cover real accounting and accounting-adjacent controllers.

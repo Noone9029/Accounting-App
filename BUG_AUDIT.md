@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Hosted tenant isolation proof plan
+
+### Scope and boundaries
+
+- Scope: production-readiness planning and audit for hosted tenant isolation proof after PR #67.
+- Boundaries remained in place: no hosted command, no Supabase command, no Vercel command, no production database command, no seed/reset/delete, no Prisma schema change, no migration, no hosted/customer-data mutation, no provider integration call, no real bank feed, no payment processor integration, no real email, no ZATCA production work, and no UAE Peppol/ASP production work.
+
+### Findings
+
+- PR #67 is the current local/API tenant-isolation baseline and fixed the bank-account transaction opening-balance organization filter defect.
+- Important production-domain Prisma models carry an `organizationId` tenant path and indexes or composite unique constraints around it.
+- `User` and `Organization` are root/global models without an `organizationId` field.
+- App-source raw SQL remains limited to the health check `SELECT 1`.
+- No Prisma migration in the repo was found enabling application-table RLS policies or creating row policies.
+- Hosted object-storage key, signed URL, generated-document, attachment, archive, backup/restore, and concurrency/race tenant-boundary behavior remain unproven.
+
+### Outcome
+
+- Added a hosted proof plan and sprint closure under `docs/security/` and `docs/development/`.
+- Remaining blockers are now explicitly tracked: hosted/customer-data proof, RLS/runtime-role strategy, storage tenant proof, backup/restore tenant proof, concurrency/race proof, observability evidence, provider evidence, and accountant/legal/security sign-off.
+
 ## 2026-06-18 Accounting tenant isolation regression
 
 ### Scope and boundaries
