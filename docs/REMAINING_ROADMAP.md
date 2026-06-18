@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-18 Database RLS And Storage Isolation Decision
+
+- Branch `feature/database-rls-storage-isolation-decision` documents the database/RLS/runtime-role decision and storage tenant-isolation proof plan after PR #71.
+- New docs: `docs/security/DATABASE_RLS_RUNTIME_ROLE_DECISION.md`, `docs/security/STORAGE_TENANT_ISOLATION_PROOF_PLAN.md`, and `docs/development/DATABASE_RLS_STORAGE_ISOLATION_DECISION_SPRINT_CLOSURE.md`.
+- RLS status: database-enforced application-table RLS is absent/pending in repo evidence. Current tenant isolation is application-enforced through guards, permissions, service-level `organizationId` predicates, PR #67 local regression coverage, and the PR #69/#70/#71 hosted proof harness path.
+- Recommended production path: hybrid approach with application-level scoping, least-privilege non-admin API runtime database role, and staged RLS proof for critical tenant tables before production.
+- Storage status: uploaded attachments are database/base64-backed by default with feature-flagged S3-compatible uploads; generated documents remain database-backed; storage/signed URL proof is pending.
+- Do not implement RLS, migrations, schema changes, hosted Supabase/Vercel changes, or storage mutations without a later explicit approval.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, read-only and synthetic proof adapters, runtime-role evidence, RLS or accepted compensating control, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Implement least-privilege runtime role and RLS staging design`.
+
 ## 2026-06-18 Staging Tenant Isolation Proof Run Blocker
 
 - Branch `feature/execute-staging-tenant-isolation-proof` started from `origin/main` at PR #70 merge commit `55c44407bceffe838ddf90502023afca1f28252c`.

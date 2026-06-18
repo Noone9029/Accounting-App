@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Database RLS and storage isolation decision
+
+### Scope and boundaries
+
+- Scope: database/RLS/runtime-role decision and storage tenant-isolation proof planning after PR #71.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, RLS implementation, object-storage mutation, signed URL generation, real customer document access, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, provider integration, real bank feed, payment processor integration, real email, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Database-enforced application-table RLS remains absent/pending in repo evidence.
+- Current tenant isolation is application-enforced through authenticated organization context, active membership checks, permission guards, service-level `organizationId` predicates, PR #67 regression coverage, and the PR #69/#70/#71 hosted proof harness path.
+- Most production-domain Prisma models have direct `organizationId` tenant paths; `User` and `Organization` are root/global models; token/rate-limit/email/backup evidence rows with nullable `organizationId` need special policy treatment.
+- Uploaded attachments are database/base64-backed by default, with a feature-flagged S3-compatible adapter for new uploads. Generated documents remain database-backed.
+- No hosted storage proof, signed URL proof, generated-document object-storage proof, backup/restore proof, or production archive guarantee exists yet.
+
+### Outcome
+
+- Added the database/RLS/runtime-role decision doc and storage tenant-isolation proof plan.
+- Recommended a hybrid production posture: preserve application-level scoping, add a least-privilege non-admin API runtime database role, then prove critical-table RLS in a separate staged rollout.
+- No readiness score increase should be taken until staging proof, runtime-role evidence, storage proof, backup/restore, concurrency, observability, and owner sign-off are complete.
+
 ## 2026-06-18 Staging tenant isolation proof run blocker
 
 ### Scope and boundaries
