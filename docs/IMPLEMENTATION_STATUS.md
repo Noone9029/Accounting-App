@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Hosted tenant isolation proof readiness:
+
+- Added `feature/hosted-tenant-isolation-proof-readiness` from clean `origin/main` at `b8fda1f8be96d9f8beeb6688feafdd3d9c377e22` after PR #68 merged.
+- Added a disabled-by-default, dry-run proof harness shell under `apps/api/scripts/hosted-tenant-isolation-proof.ts` with pure safety classification in `apps/api/src/hosted-tenant-isolation-proof.ts`.
+- Added focused harness safety tests in `apps/api/src/hosted-tenant-isolation-proof.spec.ts`.
+- The harness refuses missing allow gate, missing proof-run ID, production-looking URLs, hosted targets in local mode, and destructive/external operation flags. It redacts secret-like URL values and always reports no network and no mutation.
+- Updated the hosted proof plan and added `docs/development/HOSTED_TENANT_ISOLATION_PROOF_READINESS_SPRINT_CLOSURE.md`.
+- This is proof-readiness only. No hosted command, Supabase command, Vercel command, production DB command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE Peppol/ASP work, real email, real bank feed, payment processor integration, or hosted/customer-data mutation was performed.
+- Hosted/customer-data proof, database-level row policy implementation, least-privilege runtime-role proof, object-storage/signed URL proof, backup/restore proof, concurrency/race proof, observability evidence, provider evidence, and accountant/legal/security sign-off remain blockers.
+
 2026-06-18 Hosted tenant isolation proof plan:
 
 - Added `feature/hosted-tenant-isolation-proof-plan` from clean `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223` after PR #67 merged.

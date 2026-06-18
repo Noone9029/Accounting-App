@@ -219,22 +219,31 @@ Hosted proof should capture sanitized metadata for:
 
 Do not log customer data, document bodies, attachment bodies, database URLs, service-role keys, provider credentials, signed XML, QR payloads, private keys, auth headers, or cookies.
 
-## Optional Local Harness Design
+## Disabled-By-Default Harness Status
 
-Prefer documentation over code for this phase.
+`apps/api/scripts/hosted-tenant-isolation-proof.ts` now provides the first harness shell. It is a safety classifier and plan printer only. It does not make API calls, open database connections, call Supabase, call Vercel, call storage providers, call ZATCA, call Peppol, call ASPs, send email, connect bank feeds, create payment processor objects, or mutate hosted/customer data.
 
-If a future local-only harness is implemented, it must:
+The harness:
 
-- Be disabled by default.
-- Refuse production-looking URLs.
-- Require `TENANT_ISOLATION_PROOF_ALLOW_LOCAL=1`.
-- Require `TENANT_ISOLATION_PROOF_TARGET=local`.
-- Require an explicit `TENANT_ISOLATION_PROOF_RUN_ID`.
-- Print target classification and proof-run ID before doing anything.
-- Never run against `supabase.co`, `vercel.app`, production domains, or non-local database hosts unless a later prompt explicitly authorizes a staging-only variant.
-- Never call seed/reset/delete on hosted data.
-- Use only synthetic data and targeted proof-run IDs.
-- Support a dry-run inventory mode before any write-capable local execution.
+- Is disabled by default.
+- Requires `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`.
+- Requires an explicit `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID` or `--proof-run-id`.
+- Defaults to dry-run mode.
+- Prints target environment, proof-run ID, redacted target URL, and safety classification.
+- Refuses production-looking URLs unless a later explicitly approved read-only production override is supplied.
+- Refuses local mode when the target is not localhost-style.
+- Refuses destructive or external operation flags such as seed, reset, delete, truncate, drop, migrate, deploy, provider, ZATCA, Peppol, ASP, email, bank-feed, or payment-processor calls.
+- Always reports `networkEnabled: false` and `mutationEnabled: false`.
+- Redacts secret-like URL userinfo and query parameters before output.
+
+Current harness commands:
+
+```text
+corepack pnpm tenant-isolation:proof
+corepack pnpm test:tenant-isolation-proof
+```
+
+This harness does not complete hosted proof. The next arc still needs a staging/dedicated proof-environment auth strategy, synthetic tenant provisioning strategy, read-only check design, evidence archive format, and explicit approval before any networked staging run.
 
 ## Acceptance Criteria
 

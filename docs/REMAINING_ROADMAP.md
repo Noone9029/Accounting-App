@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-18 Hosted Tenant Isolation Proof Readiness
+
+- Branch `feature/hosted-tenant-isolation-proof-readiness` adds a disabled-by-default proof harness shell on top of the merged hosted proof plan.
+- New harness: `apps/api/scripts/hosted-tenant-isolation-proof.ts`.
+- Guard/test logic: `apps/api/src/hosted-tenant-isolation-proof.ts` and `apps/api/src/hosted-tenant-isolation-proof.spec.ts`.
+- New closure: `docs/development/HOSTED_TENANT_ISOLATION_PROOF_READINESS_SPRINT_CLOSURE.md`.
+- The harness currently classifies targets and refuses unsafe inputs only. It does not run hosted checks, connect to databases, call Supabase/Vercel, call providers, send email, connect bank feeds, create payment objects, or mutate hosted/customer data.
+- Next implementation arc should design staging-only execution with two synthetic tenants, safe auth strategy, proof-run IDs, read-only-first denial checks, sanitized evidence capture, and explicit stop gates for any write-capable step.
+- Recommended next prompt: `Implement staging-only tenant isolation proof execution`.
+
 ## 2026-06-18 Hosted Tenant Isolation Proof Plan
 
 - Branch `feature/hosted-tenant-isolation-proof-plan` adds a docs-only hosted tenant isolation proof plan after PR #67 merged.
