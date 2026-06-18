@@ -52,6 +52,8 @@ Implemented providers:
 
 Generated documents are not migrated to this abstraction yet. They remain in `GeneratedDocument` database/base64 storage, with readiness and migration counts exposed for planning.
 
+2026-06-19 generated-document object-storage contract update: future generated-document object storage must use a tenant-prefixed and generated-document-id anchored key shape such as `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}`. Object keys must be server-derived after authorization and must not include provider secrets, customer-sensitive path data, global flat paths, or direct user-controlled key input. This is a contract only; no generated-document object storage was enabled.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`

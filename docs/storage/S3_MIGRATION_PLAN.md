@@ -25,13 +25,13 @@ Uploaded attachment key used by the S3 adapter:
 org/{organizationId}/attachments/{attachmentId}/{safeFilename}
 ```
 
-Suggested generated document key:
+Generated document contract key:
 
 ```text
-organizations/{organizationId}/generated-documents/{generatedDocumentId}/{contentHash}-{filename}
+org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}
 ```
 
-Keys must not include untrusted path segments without sanitization. Tenant id and record id should remain part of the key for operational tracing.
+Keys must not include untrusted path segments without sanitization. Tenant id and generated-document id must remain part of the key for operational tracing. Source type, source id, document type, and content hash should remain metadata unless a future reviewed implementation deliberately includes them without leaking customer-sensitive path data.
 
 ## Migration Phases
 

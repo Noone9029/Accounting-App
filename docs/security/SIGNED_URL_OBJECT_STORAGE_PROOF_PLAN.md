@@ -9,6 +9,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Signed URLs are not implemented in the current runtime path. `StorageProvider.getReadUrl` exists as an optional interface hook, but no provider implements signed URL issuance.
 - Uploaded attachments are database/base64-backed by default. The S3-compatible attachment adapter is feature-flagged groundwork for new uploaded attachments and writes keys under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` when configured.
 - Generated documents remain database-backed through `GeneratedDocumentService.archivePdf()` and `contentBase64`. Generated-document S3 writes are not implemented.
+- The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 

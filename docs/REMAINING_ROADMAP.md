@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Storage Contract
+
+- Branch `feature/generated-document-object-storage-contract` adds a local-only generated-document object-storage implementation contract after PR #76.
+- New docs: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT.md`, `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_RISK_REGISTER.md`, and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT_SPRINT_CLOSURE.md`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports generated-document metadata, object-key, authorization, hash/integrity, migration/rollback, and edition-safety contract requirements.
+- Future generated-document object keys must use `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}` or an equivalent generated-document-id anchored shape.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, or production commands without later explicit approval.
+- Next arc should implement or further design generated-document object storage only after deciding metadata/schema needs, staging bucket proof, bucket policy proof, migration/rollback strategy, backup/restore proof, retention/legal-hold policy, and signed URL preconditions.
+- Recommended next prompt: `Design generated-document object storage implementation plan`.
+
 ## 2026-06-19 Signed URL Object Storage Proof Harness
 
 - Branch `feature/signed-url-object-storage-proof-harness` adds local signed URL/object-storage proof-plan scaffolding and docs after PR #75.
