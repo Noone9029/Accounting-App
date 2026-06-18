@@ -26,6 +26,15 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Accounting workflow regression baseline:
+
+- Ran accounting workflow regression verification on `feature/accounting-workflow-regression-baseline` from clean `origin/main` at `e089690dd56cfb86911ecdfe3bcf5620227b9529d` (after PR #65 merge).
+- Verified accounting command surfaces, tenant-aware invariants, and role/permission behavior with no functional code changes.
+- Required environment step: `corepack pnpm --filter @ledgerbyte/api db:generate` (for `@prisma/client` typing resolution) before API test/typecheck success.
+- Full command pass recorded: API + web suite/invoice/bills/customer-payments/supplier-payments/dashboard/reports/sidebar tests, web typecheck, web build, `verify:diff`, and diff whitespace checks.
+- Frontend-only warning remains non-blocking: `@base-ui/react` ScrollArea `act(...)` warning under sidebar tests.
+- No backend feature work, migrations, provider integration, hosted/customer-data mutation, or infrastructure/runtime change was performed in this pass.
+
 2026-06-17 LedgerByte country edition clean reconciliation:
 
 - PR `#63` was already merged during repo hygiene before this branch started from `origin/main` at `137f808d978e7afa0cce0dcc82fa6f06ffcc35a5`.

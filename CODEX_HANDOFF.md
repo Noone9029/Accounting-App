@@ -2,17 +2,25 @@
 
 ## Latest Commit Inspected
 
-- Branch: `feature/security-settings-read-only-route`.
-- Base: fresh `origin/main` at `26dae02483745d39c9133f44f5674f60e9e0d23d` after PR `#64` (`Reconcile country edition split`) merge.
+- Branch: `feature/accounting-workflow-regression-baseline`.
+- Base: `origin/main` at `e089690dd56cfb86911ecdfe3bcf5620227b9529d` after PR `#65` (`Implement read-only security settings route`) merge.
 - Original ZATCA request-body stash remains preserved in `stash@{0}` and was not restored, dropped, overwritten, or mixed into this branch.
 - `codex/purchase-bill-seeded-uuid-validation` remains untouched except for existence reporting.
 
 ## Current Development Objective
 
-- Current lane: frontend-only country-edition split reconciliation.
+- Current lane: accounting workflow regression baseline verification with no feature changes.
 - Product posture remains controlled beta/user-testing only.
-- This branch cleanly ports only the generic/KSA/UAE edition split from the preserved dirty branch into fresh `origin/main`.
+- This branch runs the accounting workflow baseline verification on fresh `origin/main` and records evidence without changing backend APIs, Prisma schema, migrations, accounting/business logic, provider integrations, hosted/customer data, payment/session/security behavior, or infrastructure.
 - It keeps backend APIs, Prisma schema, migrations, auth/session/security business logic, accounting/business logic, UAE PINT-AE serializer/rules, ZATCA core behavior, provider adapters, hosted/customer-data mutation, Vercel/Supabase commands, and production compliance claims unchanged.
+
+## Accounting Workflow Regression Baseline (2026-06-18)
+
+- Implemented a full regression baseline verification pass on `feature/accounting-workflow-regression-baseline` without functional code changes.
+- Ran and passed: `corepack pnpm --filter @ledgerbyte/api test`, `corepack pnpm --filter @ledgerbyte/api typecheck`, `corepack pnpm --filter @ledgerbyte/web test -- invoices`, `bills`, `customer-payments`, `supplier-payments`, `dashboard`, `reports`, `sidebar`, `corepack pnpm --filter @ledgerbyte/web typecheck`, `corepack pnpm --filter @ledgerbyte/web build`, and `corepack pnpm verify:diff`.
+- Noted an environment prerequisite issue on first API test/typecheck run (`@prisma/client` enum/member type errors) caused by stale generated Prisma client artifacts; resolved with `corepack pnpm --filter @ledgerbyte/api db:generate`, after which API suite passed cleanly.
+- Known frontend test warning remains non-blocking: React `ScrollArea` `act(...)` warning from `@base-ui/react` during sidebar route checks.
+- No product code/logic changes were introduced in this baseline baseline pass.
 
 ## Country Edition Clean Reconciliation Summary
 

@@ -4,6 +4,40 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Accounting workflow regression baseline
+
+### Scope and boundaries
+
+- Scope: accounting workflow verification over existing API and web accounting/permission/reporting routes; no code changes to business logic or schemas.
+- Boundaries remained in place: no backend schema changes, no Prisma migration, no hosted/customer-data mutation, no auth/session/security feature change, no provider integration calls, no ASP/ZATCA calls, no Vercel or Supabase commands, no infrastructure changes.
+
+### Changes and fixes
+
+- No feature changes were applied for this baseline pass.
+- Initial `@ledgerbyte/api` test/typecheck runs failed with generated Prisma typings errors.
+- Fix applied: `corepack pnpm --filter @ledgerbyte/api db:generate` (tooling/generation step, no tracked source changes).
+- After generation, all API + web verification commands passed.
+
+### Verification and outcomes
+
+- Passed:
+  - `corepack pnpm --filter @ledgerbyte/api test`
+  - `corepack pnpm --filter @ledgerbyte/api typecheck`
+  - `corepack pnpm --filter @ledgerbyte/web test -- invoices`
+  - `corepack pnpm --filter @ledgerbyte/web test -- bills`
+  - `corepack pnpm --filter @ledgerbyte/web test -- customer-payments`
+  - `corepack pnpm --filter @ledgerbyte/web test -- supplier-payments`
+  - `corepack pnpm --filter @ledgerbyte/web test -- dashboard`
+  - `corepack pnpm --filter @ledgerbyte/web test -- reports`
+  - `corepack pnpm --filter @ledgerbyte/web test -- sidebar`
+  - `corepack pnpm --filter @ledgerbyte/web typecheck`
+  - `corepack pnpm --filter @ledgerbyte/web build`
+  - `corepack pnpm verify:diff`
+  - `git diff --check`
+  - `git diff --cached --check`
+- Non-blocking warning: React `ScrollArea` `act(...)` warning in sidebar tests from `@base-ui/react`.
+- No bugs remained in accounting invariants requiring fixes during this pass.
+
 ## 2026-06-18 LedgerByte read-only security settings route
 
 Implemented `feature/security-settings-read-only-route` from `origin/main` after PR `#64`, adding:
