@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Database RLS And Storage Isolation Decision Update
+
+- Production-readiness clarity improves because database/RLS/runtime-role and storage tenant-isolation blockers are now documented as explicit production decisions instead of being implied by local API tests.
+- No readiness score increase is taken. Database-enforced application-table RLS remains absent/pending, staging tenant isolation proof remains blocked by missing credentials, and storage/signed URL proof remains pending.
+- Recommended production direction is hybrid: keep application-level `organizationId` scoping, add a least-privilege non-admin API runtime database role, then prove critical-table RLS in staging before production.
+- Storage remains not production-proven: uploaded attachments are database/base64-backed by default with feature-flagged S3-compatible uploads, generated documents remain database-backed, and no hosted object-storage, signed URL, backup/restore, or archive immutability proof exists yet.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, RLS implementation, object-storage mutation, signed URL generation, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenant IDs, read-only and synthetic proof adapters, runtime-role evidence, RLS or accepted compensating control, storage/signed URL proof, backup/restore, concurrency, observability, owner sign-off, and provider evidence.
+
 ## 2026-06-18 Staging Tenant Isolation Proof Run Blocker Update
 
 - Production-readiness tracking improves because the PR #70 staging proof execution path was attempted only up to the safe local classification boundary and the missing staging inputs are now recorded explicitly.

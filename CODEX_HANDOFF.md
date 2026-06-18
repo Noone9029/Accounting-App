@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Database RLS And Storage Isolation Decision Summary (2026-06-18)
+
+- Current branch: `feature/database-rls-storage-isolation-decision`, from clean `origin/main` at `3368904464891d99977698e2258a20ae1a34e776` after PR #71 merged.
+- Added `docs/security/DATABASE_RLS_RUNTIME_ROLE_DECISION.md`, `docs/security/STORAGE_TENANT_ISOLATION_PROOF_PLAN.md`, and `docs/development/DATABASE_RLS_STORAGE_ISOLATION_DECISION_SPRINT_CLOSURE.md`.
+- Reviewed database/RLS/runtime-role posture and storage tenant-isolation proof needs after PR #71 recorded staging proof blockers.
+- Database-enforced application-table RLS remains absent/pending in repo evidence; current tenant protection is application-level `organizationId` scoping through guards, permissions, service predicates, PR #67 local regressions, and the PR #69/#70/#71 hosted proof harness path.
+- Recommended production decision: hybrid approach. Keep application-level tenant scoping, add a least-privilege non-admin API runtime database role, then design and prove RLS for critical tenant tables in a separate staged rollout.
+- Storage posture: attachments are database/base64-backed by default with feature-flagged S3-compatible uploads under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}`; generated documents remain database-backed; no signed URL proof or hosted object-storage proof exists yet.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, object-storage mutation, real signed URL generation, schema change, migration, RLS implementation, ZATCA production work, UAE Peppol/ASP production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, read-only and synthetic proof adapters, least-privilege runtime role, RLS or accepted compensating control, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, owner sign-off, and provider evidence.
+- Recommended next prompt: `Implement least-privilege runtime role and RLS staging design`.
+
 ## Staging Tenant Isolation Proof Run Blocker Record (2026-06-18)
 
 - Current branch: `feature/execute-staging-tenant-isolation-proof`, from clean `origin/main` at `55c44407bceffe838ddf90502023afca1f28252c` after PR #70 merged.

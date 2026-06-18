@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Database RLS and storage isolation decision:
+
+- Added `feature/database-rls-storage-isolation-decision` from clean `origin/main` at `3368904464891d99977698e2258a20ae1a34e776` after PR #71 merged.
+- Added `docs/security/DATABASE_RLS_RUNTIME_ROLE_DECISION.md`, `docs/security/STORAGE_TENANT_ISOLATION_PROOF_PLAN.md`, and `docs/development/DATABASE_RLS_STORAGE_ISOLATION_DECISION_SPRINT_CLOSURE.md`.
+- Database-enforced application-table RLS remains absent/pending in repo evidence. Current tenant isolation is application-enforced through organization membership guards, permission guards, service-level `organizationId` predicates, PR #67 local regression coverage, and the PR #69/#70/#71 hosted proof harness path.
+- Recommended production decision is a hybrid approach: keep app-level scoping, add a least-privilege non-admin API runtime database role, and prove RLS for critical tenant tables in a separate staged rollout.
+- Storage proof remains pending: attachments are database/base64-backed by default with feature-flagged S3-compatible uploads; generated documents are database-backed; no hosted object-storage proof, signed URL proof, generated-document object-storage proof, backup/restore proof, or production archive guarantee exists yet.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, RLS implementation, object-storage mutation, signed URL generation, ZATCA production work, UAE Peppol/ASP production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable and staging tenant isolation proof remains blocked by missing staging/proof credentials and synthetic tenant IDs.
+
 2026-06-18 Staging tenant isolation proof run blocker:
 
 - Added `feature/execute-staging-tenant-isolation-proof` from clean `origin/main` at `55c44407bceffe838ddf90502023afca1f28252c` after PR #70 merged.
