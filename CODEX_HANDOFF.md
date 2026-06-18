@@ -1,5 +1,19 @@
 # LedgerByte Codex Handoff
 
+## Least-Privilege Runtime Role And RLS Staging Design Summary (2026-06-18)
+
+- Current branch: `feature/least-privilege-runtime-role-rls-staging-design`, from clean `origin/main` at `40a6c66d2e09e264f26ce50e0930851328abba94` after PR #72 merged.
+- Added `docs/security/LEAST_PRIVILEGE_RUNTIME_DB_ROLE_DESIGN.md`, `docs/security/RLS_STAGING_DESIGN.md`, `docs/security/sql/least_privilege_runtime_role_template.sql`, `docs/security/sql/rls_staging_policy_template.sql`, and `docs/development/LEAST_PRIVILEGE_RUNTIME_ROLE_RLS_STAGING_DESIGN_SPRINT_CLOSURE.md`.
+- PR #72 documented that database-enforced application-table RLS is absent/pending and that storage proof remains pending. This pass designs the next runtime-role and RLS staging rollout without applying it.
+- Runtime DB role design: keep migrations/admin maintenance on a separate migration/admin role, use a non-admin API runtime role for ordinary Prisma traffic, deny ordinary runtime DDL/schema ownership/RLS bypass/service-role behavior, and prove the role in staging before production.
+- RLS staging design: start with critical actual Prisma model names such as `Organization`, `OrganizationMember`, `Role`, `SalesInvoice`, `PurchaseBill`, `CustomerPayment`, `SupplierPayment`, `JournalEntry`, `JournalLine`, `BankAccountProfile`, `BankStatementTransaction`, `Attachment`, `GeneratedDocument`, compliance metadata, and `AuditLog`; use transaction-scoped tenant context such as `SET LOCAL app.current_organization_id` and `SET LOCAL app.current_user_id` only inside a reviewed Prisma transaction helper.
+- SQL files are templates only, not Prisma migrations, not auto-run, and not production-ready execution scripts.
+- No runtime role was applied to a hosted DB, no RLS policy was applied, no schema or migration changed, no hosted command/Supabase command/Vercel deploy command ran, and no hosted/customer data was mutated.
+- No ZATCA production work, UAE Peppol/ASP production work, provider integration, real ASP call, real Peppol call, real ZATCA call, real bank feed, payment processor integration, real email, production compliance claim, or SOC 2/security certification claim was added.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof credentials and synthetic tenant IDs, network-capable read-only probe adapter, approved staging synthetic proof adapter and cleanup path, runtime role staging proof, RLS or accepted compensating control, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Implement staging-only runtime role and RLS proof helper`.
+
 ## Database RLS And Storage Isolation Decision Summary (2026-06-18)
 
 - Current branch: `feature/database-rls-storage-isolation-decision`, from clean `origin/main` at `3368904464891d99977698e2258a20ae1a34e776` after PR #71 merged.

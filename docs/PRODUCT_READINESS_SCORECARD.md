@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Least-Privilege Runtime Role And RLS Staging Design Update
+
+- Production-readiness clarity improves because the runtime DB role split and RLS staging rollout are now designed as explicit next steps after PR #72.
+- No readiness score increase is taken. No runtime role was applied to hosted DB, no RLS policy was applied, no SQL template was run, no schema or migration changed, and no hosted/customer data was touched.
+- The target runtime-role direction is a separate non-admin API runtime role for ordinary Prisma traffic, with migrations/admin maintenance kept on a separate migration/admin role.
+- The target RLS staging direction is transaction-scoped tenant context in a reviewed Prisma helper, starting with critical actual model names and two synthetic tenants in an isolated staging/proof database.
+- SQL templates under `docs/security/sql/` are planning artifacts only and require review before any staging use.
+- Remaining blockers are approved staging/proof credentials, synthetic tenant IDs, read-only and synthetic proof adapters, runtime-role staging proof, RLS or accepted compensating control, storage/signed URL proof, backup/restore, concurrency, observability, owner sign-off, and provider evidence.
+
 ## 2026-06-18 Database RLS And Storage Isolation Decision Update
 
 - Production-readiness clarity improves because database/RLS/runtime-role and storage tenant-isolation blockers are now documented as explicit production decisions instead of being implied by local API tests.

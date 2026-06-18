@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-18 Least-Privilege Runtime Role And RLS Staging Design
+
+- Branch `feature/least-privilege-runtime-role-rls-staging-design` designs the next runtime DB role and RLS staging rollout after PR #72.
+- New docs: `docs/security/LEAST_PRIVILEGE_RUNTIME_DB_ROLE_DESIGN.md`, `docs/security/RLS_STAGING_DESIGN.md`, `docs/security/sql/least_privilege_runtime_role_template.sql`, `docs/security/sql/rls_staging_policy_template.sql`, and `docs/development/LEAST_PRIVILEGE_RUNTIME_ROLE_RLS_STAGING_DESIGN_SPRINT_CLOSURE.md`.
+- Runtime-role design: separate ordinary API Prisma traffic from migration/admin privileges; do not use a schema owner, service role, superuser, or RLS-bypass credential for normal API runtime.
+- RLS staging design: use actual Prisma model names, transaction-scoped tenant context, critical-table staging first, synthetic tenants, cross-tenant reads/mutations/aggregates/report/document checks, and staging rollback rehearsal.
+- SQL templates are not Prisma migrations and must not be applied to production.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, RLS implementation, runtime role application, SQL template application, storage mutation, signed URL generation, ZATCA production work, UAE Peppol/ASP work, provider integration, email, bank feed, or payment processor integration happened in this branch.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, network-capable read-only probe adapter, staging synthetic proof adapter and cleanup path, runtime-role staging proof, RLS or accepted private-app-only compensating control, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Implement staging-only runtime role and RLS proof helper`.
+
 ## 2026-06-18 Database RLS And Storage Isolation Decision
 
 - Branch `feature/database-rls-storage-isolation-decision` documents the database/RLS/runtime-role decision and storage tenant-isolation proof plan after PR #71.

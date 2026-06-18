@@ -26,6 +26,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Least-privilege runtime role and RLS staging design:
+
+- Added `feature/least-privilege-runtime-role-rls-staging-design` from clean `origin/main` at `40a6c66d2e09e264f26ce50e0930851328abba94` after PR #72 merged.
+- Added `docs/security/LEAST_PRIVILEGE_RUNTIME_DB_ROLE_DESIGN.md`, `docs/security/RLS_STAGING_DESIGN.md`, `docs/security/sql/least_privilege_runtime_role_template.sql`, `docs/security/sql/rls_staging_policy_template.sql`, and `docs/development/LEAST_PRIVILEGE_RUNTIME_ROLE_RLS_STAGING_DESIGN_SPRINT_CLOSURE.md`.
+- PR #72 remains the baseline: database-enforced application-table RLS is absent/pending and storage proof remains pending.
+- This pass designs, but does not apply, a runtime DB role split: ordinary API Prisma traffic should use a non-admin runtime role while migrations and maintenance stay on a migration/admin role.
+- This pass designs, but does not apply, an RLS staging approach that uses transaction-scoped tenant context in a reviewed Prisma transaction helper and starts with critical actual model names such as `Organization`, `OrganizationMember`, sales/AP/payment/journal/bank/document/compliance/audit tables.
+- SQL files are templates only, not Prisma migrations, not auto-run, and not production-ready execution scripts.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, RLS implementation, runtime role application, SQL template application, object-storage mutation, signed URL generation, ZATCA production work, UAE Peppol/ASP production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable; remaining blockers include approved staging/proof credentials, synthetic tenant IDs, read-only and synthetic proof adapters, runtime-role staging proof, RLS or accepted compensating control, storage/signed URL proof, backup/restore proof, concurrency proof, observability evidence, and owner sign-off.
+
 2026-06-18 Database RLS and storage isolation decision:
 
 - Added `feature/database-rls-storage-isolation-decision` from clean `origin/main` at `3368904464891d99977698e2258a20ae1a34e776` after PR #71 merged.
