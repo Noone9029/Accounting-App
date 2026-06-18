@@ -191,7 +191,12 @@ function objectKey(organizationId: string, attachmentId: string, filename: strin
 }
 
 function sanitizeObjectKeyFilename(value: string): string {
-  const cleaned = value.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
+  const cleaned = value
+    .trim()
+    .replace(/\.\.+/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return cleaned || "attachment";
 }
 

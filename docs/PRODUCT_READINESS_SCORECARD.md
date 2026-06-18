@@ -4,6 +4,14 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-19 Storage Generated Document Isolation Proof Update
+
+- Controlled beta API confidence improves because local storage/generated-document tenant-isolation tests now cover uploaded attachment metadata/content denial, generated-document metadata/content denial, supported source ownership before archive creation, S3 object-key filename normalization, and storage migration-plan organization scoping.
+- Two local defects were fixed: generated-document archive creation now verifies supported source records by `{ id, organizationId }`, and S3 attachment object-key filenames remove path traversal markers before key construction.
+- No readiness score increase is taken for production launch readiness. Generated documents remain database-backed, signed URLs are not implemented, generated-document object storage is not implemented, and hosted bucket/storage proof was not run.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, hosted object-storage proof, bucket policy proof, signed URL design/proof, generated-document object-storage design/proof, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner sign-off, and provider evidence.
+
 ## 2026-06-18 Accounting Concurrency Idempotency Regression Update
 
 - Controlled beta API confidence improves because representative duplicate/race accounting mutations now have focused local regression coverage.

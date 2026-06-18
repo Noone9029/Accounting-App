@@ -4,6 +4,29 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-19 Storage and generated-document isolation proof
+
+### Scope and boundaries
+
+- Scope: local-only API storage/generated-document tenant-isolation proof and safe fixes after PR #74.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Attachment list/get/download/update/delete paths are API-mediated and use `organizationId` predicates before returning metadata or content.
+- Attachment upload verifies supported linked entities through organization-scoped source queries before storing metadata or body content.
+- Generated-document list/get/download paths are API-mediated and use `organizationId` predicates before returning metadata or content.
+- `GeneratedDocumentService.archivePdf()` did not independently verify supported source records by organization before creating archive rows; this was a defense-in-depth tenant-isolation gap.
+- S3 attachment object keys included organization and attachment identifiers, but object-key filename normalization preserved `..` traversal markers from hostile filenames.
+- Signed URLs, generated-document object storage, hosted bucket policy proof, backup/restore proof, and production archive guarantees remain unimplemented or unproven.
+
+### Outcome
+
+- Added local tests for cross-tenant attachment content denial, update/delete denial, generated-document guessed-ID denial, generated-document source ownership checks, and S3 object-key traversal normalization.
+- Fixed generated-document archive source ownership checks for supported source types without schema or migration changes.
+- Fixed S3 object-key filename normalization without touching hosted storage.
+- No readiness score increase should be taken for production storage readiness until hosted bucket policy, signed URL, generated-document object storage, backup/restore, retention, observability, and owner sign-off evidence exist.
+
 ## 2026-06-18 Accounting concurrency idempotency regression
 
 ### Scope and boundaries

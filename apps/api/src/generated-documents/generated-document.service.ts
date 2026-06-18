@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { DocumentType, GeneratedDocumentStatus, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -128,6 +128,7 @@ export class GeneratedDocumentService {
   }
 
   async archivePdf(input: ArchivePdfInput) {
+    await this.assertSourceRecordBelongsToOrganization(input.organizationId, input.sourceType, input.sourceId);
     const document = await this.prisma.generatedDocument.create({
       data: {
         organizationId: input.organizationId,
@@ -166,7 +167,44 @@ export class GeneratedDocumentService {
       zatcaPdfA3Archive: buildZatcaPdfA3ArchiveBoundary(input.zatca ?? null),
     };
   }
+
+  private async assertSourceRecordBelongsToOrganization(organizationId: string, sourceType: string, sourceId: string): Promise<void> {
+    const delegateName = generatedDocumentSourceDelegates[sourceType];
+    if (!delegateName) {
+      return;
+    }
+    const delegate = (this.prisma as unknown as Record<string, { findFirst?: (args: unknown) => Promise<unknown> }>)[delegateName];
+    if (typeof delegate?.findFirst !== "function") {
+      return;
+    }
+    const found = await delegate.findFirst({
+      where: { id: sourceId, organizationId },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new BadRequestException("Source record was not found in this organization or is not supported for generated documents.");
+    }
+  }
 }
+
+const generatedDocumentSourceDelegates: Record<string, string> = {
+  BankReconciliation: "bankReconciliation",
+  CashExpense: "cashExpense",
+  CreditNote: "creditNote",
+  CustomerPayment: "customerPayment",
+  CustomerRefund: "customerRefund",
+  DeliveryNote: "deliveryNote",
+  InventoryVarianceProposal: "inventoryVarianceProposal",
+  PurchaseBill: "purchaseBill",
+  PurchaseDebitNote: "purchaseDebitNote",
+  PurchaseOrder: "purchaseOrder",
+  PurchaseReceipt: "purchaseReceipt",
+  SalesInvoice: "salesInvoice",
+  SalesQuote: "salesQuote",
+  SalesStockIssue: "salesStockIssue",
+  SupplierPayment: "supplierPayment",
+  SupplierRefund: "supplierRefund",
+};
 
 export function buildZatcaPdfA3ArchiveBoundary(metadata: ZatcaPdfA3ArchiveMetadataInput | null | undefined): ZatcaPdfA3ArchiveBoundary {
   const safeMetadata = metadata

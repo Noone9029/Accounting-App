@@ -18,6 +18,7 @@ describe("generated document rules", () => {
           status: GeneratedDocumentStatus.GENERATED,
         }),
       },
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue({ id: "invoice-1" }) },
     };
     const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
     const service = new GeneratedDocumentService(prisma as never, auditLogService as never);
@@ -47,6 +48,10 @@ describe("generated document rules", () => {
         }),
       }),
     );
+    expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith({
+      where: { id: "invoice-1", organizationId: "org-1" },
+      select: { id: true },
+    });
     expect(auditLogService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: "org-1",
@@ -55,6 +60,35 @@ describe("generated document rules", () => {
         entityType: "GeneratedDocument",
       }),
     );
+  });
+
+  it("blocks generated-document archiving for a supported source record outside the organization", async () => {
+    const prisma = {
+      generatedDocument: {
+        create: jest.fn(),
+      },
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    const service = new GeneratedDocumentService(prisma as never);
+
+    await expect(
+      service.archivePdf({
+        organizationId: "org-2",
+        documentType: DocumentType.SALES_INVOICE,
+        sourceType: "SalesInvoice",
+        sourceId: "invoice-1",
+        documentNumber: "INV-000001",
+        filename: "invoice-INV-000001.pdf",
+        buffer: Buffer.from("%PDF archive"),
+        generatedById: "user-2",
+      }),
+    ).rejects.toThrow("Source record was not found in this organization or is not supported for generated documents.");
+
+    expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith({
+      where: { id: "invoice-1", organizationId: "org-2" },
+      select: { id: true },
+    });
+    expect(prisma.generatedDocument.create).not.toHaveBeenCalled();
   });
 
   it("archives invoice PDFs through a metadata-only ZATCA PDF/A-3 boundary", async () => {
@@ -73,6 +107,7 @@ describe("generated document rules", () => {
           status: GeneratedDocumentStatus.GENERATED,
         }),
       },
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue({ id: "invoice-1" }) },
     };
     const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
     const service = new GeneratedDocumentService(prisma as never, auditLogService as never);
@@ -177,6 +212,24 @@ describe("generated document rules", () => {
       buffer: expect.any(Buffer),
     });
     expect(prisma.generatedDocument.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "doc-1", organizationId: "org-1" } }));
+  });
+
+  it("does not return generated document metadata or content for guessed cross-tenant ids", async () => {
+    const prisma = {
+      generatedDocument: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+    const service = new GeneratedDocumentService(prisma as never);
+
+    await expect(service.get("org-2", "doc-1")).rejects.toThrow("Generated document not found.");
+    await expect(service.download("org-2", "doc-1")).rejects.toThrow("Generated document not found.");
+
+    expect(prisma.generatedDocument.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "doc-1", organizationId: "org-2" } }),
+    );
+    expect(prisma.generatedDocument.findFirst.mock.calls[0][0].select).not.toHaveProperty("contentBase64");
+    expect(prisma.generatedDocument.findFirst.mock.calls[1][0].select).toHaveProperty("contentBase64");
   });
 
   it("sanitizes filenames", () => {

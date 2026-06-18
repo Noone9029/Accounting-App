@@ -1,5 +1,17 @@
 # LedgerByte Codex Handoff
 
+## Storage Generated Document Isolation Proof Summary (2026-06-19)
+
+- Current branch: `feature/storage-generated-document-isolation-proof`, from clean `origin/main` at `796784b34a40c0900cce8e403bef70ffb60ca521` after PR #74 merged.
+- Added local API proof coverage for uploaded attachment metadata/content denial, generated-document metadata/content denial, generated-document source ownership checks, S3 attachment object-key filename normalization, and storage readiness/migration-plan organization scoping.
+- Fixed two local defects: S3 attachment object-key filenames now remove path traversal markers before key construction, and `GeneratedDocumentService.archivePdf()` now checks supported source records by `{ id, organizationId }` before creating an archive row.
+- Storage paths inventoried: uploaded attachments are database/base64-backed by default with feature-flagged S3-compatible uploads under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}`; generated documents remain database-backed; storage readiness and migration planning are API-mediated and organization-scoped.
+- Generated-document paths inventoried: source PDF archive rows, generated-document list/get/download, source-record PDF generation callers, metadata-only ZATCA PDF/A-3 boundary, and compliance archive metadata remain local/API-mediated. Generated-document S3 writes and signed URLs are not implemented.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, object-storage mutation, signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, hosted storage proof, bucket policy proof, signed URL design/proof, generated-document object-storage design/proof, backup/restore proof, retention/legal-hold/malware-scan evidence, runtime-role/RLS proof, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design signed URL and object storage proof harness`.
+
 ## Accounting Concurrency Idempotency Regression Summary (2026-06-18)
 
 - Current branch: `feature/accounting-concurrency-idempotency-regression`, from clean `origin/main` at `5d6a084635cca7080977920fa236173055804e3f` after PR #73 merged.
