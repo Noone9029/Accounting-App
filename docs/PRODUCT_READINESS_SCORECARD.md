@@ -2,7 +2,15 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `3bb84480b37b531af1fe36bf98526ae2387f9fa5` (`origin/main` after PR #75 merge) plus the signed URL/object-storage proof harness branch.
+Latest commit audited: `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` (`origin/main` after PR #76 merge) plus the generated-document object-storage contract branch.
+
+## 2026-06-19 Generated Document Object Storage Contract Update
+
+- Production-readiness clarity improves because generated-document object-storage metadata, object-key, authorization, hash/integrity, write/read, migration/rollback, failure, and acceptance contracts are now documented explicitly.
+- Local harness confidence improves because `scripts/object-storage-proof-validate.cjs` now reports generated-document object-storage contract posture and tests require generated-document-id anchored future object keys.
+- No readiness score increase is taken for production launch readiness. Generated documents remain database-backed, generated-document object storage is not implemented, signed URLs are not implemented, hosted bucket/storage proof was not run, and no real hosted signed URL was generated.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real signed URL implementation/proof if URLs are used, generated-document object-storage implementation/proof, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner sign-off, and provider evidence.
 
 ## 2026-06-19 Signed URL Object Storage Proof Harness Update
 

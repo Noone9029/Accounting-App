@@ -21,6 +21,7 @@ const SUPPORTED_PROVIDERS = ["local", "s3-compatible"];
 const REQUIRED_S3_KEYS = ["S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"];
 const SAMPLE_ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 const SAMPLE_ATTACHMENT_ID = "attachment-proof";
+const SAMPLE_GENERATED_DOCUMENT_ID = "generated-document-proof";
 const SAMPLE_GENERATED_DOCUMENT_SOURCE_ID = "sales-invoice-proof";
 const SAMPLE_ATTACHMENT_FILENAME = "Quarterly Attachment (proof).txt";
 const SAMPLE_GENERATED_DOCUMENT_FILENAME = "Sales Invoice 1001 (proof).pdf";
@@ -171,6 +172,7 @@ function buildObjectStorageProof(options = {}) {
       note: "The current storage groundwork does not implement signed URL generation.",
     },
     signedUrlProofPlan,
+    generatedDocumentObjectStorageContract: buildGeneratedDocumentObjectStorageContract(),
     lifecycleRetention: {
       implemented: false,
       status: "not_proven",
@@ -256,6 +258,7 @@ function buildPathPolicy() {
     sanitizedFilename: sanitizeFilename(SAMPLE_GENERATED_DOCUMENT_FILENAME),
     objectKey: buildGeneratedDocumentObjectKey({
       organizationId: SAMPLE_ORGANIZATION_ID,
+      generatedDocumentId: SAMPLE_GENERATED_DOCUMENT_ID,
       sourceType: "sales-invoice",
       sourceId: SAMPLE_GENERATED_DOCUMENT_SOURCE_ID,
       documentType: "SALES_INVOICE",
@@ -283,6 +286,78 @@ function buildPathPolicy() {
       validateObjectKeyPolicy(attachment.objectKey, SAMPLE_ORGANIZATION_ID),
       validateObjectKeyPolicy(generatedDocument.objectKey, SAMPLE_ORGANIZATION_ID),
     ],
+  };
+}
+
+function buildGeneratedDocumentObjectStorageContract() {
+  return {
+    currentRuntimeStorage: "database",
+    objectStorageEnabled: false,
+    hostedObjectStorageTouched: false,
+    realSignedUrlsGenerated: false,
+    schemaMigrationRequired: false,
+    metadataRequired: [
+      "organizationId",
+      "generatedDocumentId",
+      "sourceType",
+      "sourceId",
+      "documentType",
+      "mimeType",
+      "fileName",
+      "storageBackend",
+      "objectKey",
+      "sha256",
+      "contentLength",
+    ],
+    objectKey: {
+      example: buildGeneratedDocumentObjectKey({
+        organizationId: SAMPLE_ORGANIZATION_ID,
+        generatedDocumentId: SAMPLE_GENERATED_DOCUMENT_ID,
+        sourceType: "sales-invoice",
+        sourceId: SAMPLE_GENERATED_DOCUMENT_SOURCE_ID,
+        documentType: "SALES_INVOICE",
+        filename: SAMPLE_GENERATED_DOCUMENT_FILENAME,
+      }),
+      requiresTenantPrefix: true,
+      requiresObjectTypePrefix: true,
+      requiresGeneratedDocumentId: true,
+      normalizedFilenameRequired: true,
+      acceptsUserControlledKey: false,
+      globalFlatPathAllowed: false,
+      customerSensitiveDataInKeyAllowed: false,
+      providerSecretInKeyAllowed: false,
+    },
+    authorization: {
+      requestByGeneratedDocumentIdOnly: true,
+      authorizeBeforeObjectKeyResolution: true,
+      authorizeBeforeSignedUrlGeneration: true,
+      requireOrganizationMembership: true,
+      requirePermissionCheck: true,
+      requireSourceRecordOwnership: true,
+      directObjectKeyInputAllowed: false,
+      unauthorizedErrorsMayExposeObjectKey: false,
+    },
+    hashIntegrity: {
+      sha256Required: true,
+      contentLengthRequired: true,
+      mimeTypeRequired: true,
+      generationTimestampRequired: true,
+      restoreVerificationRequired: true,
+    },
+    migration: {
+      stagingFirstRequired: true,
+      hashEquivalenceRequired: true,
+      dualReadOrFeatureFlagRequired: true,
+      rollbackToDatabaseContentRequired: true,
+      deleteDatabaseContentBeforeRestoreProofAllowed: false,
+      backupRestoreProofRequired: true,
+    },
+    editionSafety: {
+      genericActiveComplianceClaimsAllowed: false,
+      futureKsaArtifactsEditionGated: true,
+      futureUaeArtifactsEditionGated: true,
+      providerNeutralArtifactsRequired: true,
+    },
   };
 }
 
@@ -544,8 +619,9 @@ function buildAttachmentObjectKey({ organizationId, attachmentId, filename }) {
   return `org/${safeSegment(organizationId)}/attachments/${safeSegment(attachmentId)}/${sanitizeFilename(filename)}`;
 }
 
-function buildGeneratedDocumentObjectKey({ organizationId, sourceType, sourceId, documentType, filename }) {
-  return `org/${safeSegment(organizationId)}/generated-documents/${safeSegment(sourceType)}/${safeSegment(sourceId)}/${safeSegment(documentType.toLowerCase())}/${sanitizeFilename(filename)}`;
+function buildGeneratedDocumentObjectKey({ organizationId, generatedDocumentId, sourceType, sourceId, documentType, filename }) {
+  const documentId = generatedDocumentId || `${sourceType}-${sourceId}-${documentType}`;
+  return `org/${safeSegment(organizationId)}/generated-documents/${safeSegment(documentId)}/${sanitizeFilename(filename)}`;
 }
 
 function buildArchiveObjectKey({ organizationId, archiveId, filename }) {
@@ -814,6 +890,7 @@ module.exports = {
   buildAttachmentObjectKey,
   buildGeneratedDocumentObjectKey,
   buildArchiveObjectKey,
+  buildGeneratedDocumentObjectStorageContract,
   buildSignedUrlProofPlan,
   validateObjectKeyPolicy,
   sanitizeFilename,

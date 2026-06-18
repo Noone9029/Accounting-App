@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Storage Contract Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-storage-contract`, from clean `origin/main` at `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` after PR #76 merged.
+- Added a generated-document object-storage implementation contract and risk register without enabling object storage, migrating generated documents, creating signed URLs, changing schema, adding migrations, or touching hosted buckets.
+- Current generated-document storage state: DB-backed through `GeneratedDocumentService.archivePdf()` with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, organization scope, and API-mediated downloads by generated-document id.
+- Current object-storage state: attachments have separate S3-compatible groundwork; generated-document S3 writes remain not implemented; signed URLs remain not implemented.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run output includes generated-document object-storage contract metadata, object-key, authorization, hash/integrity, migration/rollback, and edition-safety requirements.
+- Updated validator generated-document key examples to require `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}` and added local contract tests for that shape.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, real hosted signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real signed URL implementation/proof if used, generated-document object-storage implementation/proof, backup/restore proof, retention/legal-hold/malware-scan evidence, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design generated-document object storage implementation plan`.
+
 ## Signed URL Object Storage Proof Harness Summary (2026-06-19)
 
 - Current branch: `feature/signed-url-object-storage-proof-harness`, from clean `origin/main` at `3bb84480b37b531af1fe36bf98526ae2387f9fa5` after PR #75 merged.

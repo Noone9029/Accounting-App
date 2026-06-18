@@ -38,7 +38,7 @@ test("default run stays dry-run, makes no writes, and reports path policy", () =
   assert.equal(result.pathPolicy.attachment.objectKey, "org/00000000-0000-0000-0000-000000000001/attachments/attachment-proof/Quarterly-Attachment-proof-.txt");
   assert.equal(
     result.pathPolicy.generatedDocument.objectKey,
-    "org/00000000-0000-0000-0000-000000000001/generated-documents/sales-invoice/sales-invoice-proof/sales_invoice/Sales-Invoice-1001-proof-.pdf",
+    "org/00000000-0000-0000-0000-000000000001/generated-documents/generated-document-proof/Sales-Invoice-1001-proof-.pdf",
   );
 });
 
@@ -159,12 +159,13 @@ test("helpers keep tenant-scoped keys sanitized", () => {
   assert.equal(
     buildGeneratedDocumentObjectKey({
       organizationId: "org 1",
+      generatedDocumentId: "generated document 1",
       sourceType: "sales invoice",
       sourceId: "source 1",
       documentType: "SALES INVOICE",
       filename: "Invoice Copy (proof).pdf",
     }),
-    "org/org-1/generated-documents/sales-invoice/source-1/sales-invoice/Invoice-Copy-proof-.pdf",
+    "org/org-1/generated-documents/generated-document-1/Invoice-Copy-proof-.pdf",
   );
 });
 
@@ -201,6 +202,40 @@ test("signed URL proof plan is dry-run only and requires authorization before an
   assert.equal(result.signedUrlProofPlan.authorizationContract.authorizeBeforeUrl, true);
   assert.equal(result.signedUrlProofPlan.authorizationContract.acceptDirectObjectKeyInput, false);
   assert.equal(result.signedUrlProofPlan.proofScenarios.length >= 6, true);
+});
+
+test("generated-document object-storage contract is local-only and complete enough for implementation planning", () => {
+  const result = buildObjectStorageProof({
+    repoRoot,
+    env: {},
+    dryRun: true,
+  });
+
+  assert.equal(result.generatedDocumentObjectStorageContract.currentRuntimeStorage, "database");
+  assert.equal(result.generatedDocumentObjectStorageContract.objectStorageEnabled, false);
+  assert.equal(result.generatedDocumentObjectStorageContract.hostedObjectStorageTouched, false);
+  assert.deepEqual(result.generatedDocumentObjectStorageContract.metadataRequired, [
+    "organizationId",
+    "generatedDocumentId",
+    "sourceType",
+    "sourceId",
+    "documentType",
+    "mimeType",
+    "fileName",
+    "storageBackend",
+    "objectKey",
+    "sha256",
+    "contentLength",
+  ]);
+  assert.equal(result.generatedDocumentObjectStorageContract.objectKey.requiresTenantPrefix, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.objectKey.requiresGeneratedDocumentId, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.objectKey.acceptsUserControlledKey, false);
+  assert.equal(result.generatedDocumentObjectStorageContract.authorization.authorizeBeforeObjectKeyResolution, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.hashIntegrity.sha256Required, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.migration.hashEquivalenceRequired, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.migration.rollbackToDatabaseContentRequired, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.editionSafety.futureKsaArtifactsEditionGated, true);
+  assert.equal(result.generatedDocumentObjectStorageContract.editionSafety.futureUaeArtifactsEditionGated, true);
 });
 
 test("signed URL staging proof plan blocks without allow flags, proofRunId, or safe target classification", () => {

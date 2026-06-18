@@ -8,6 +8,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 signed URL/object-storage proof harness update: a local-only follow-up added `docs/security/SIGNED_URL_OBJECT_STORAGE_PROOF_PLAN.md`, a signed URL/object-storage risk register, and dry-run proof-plan output in `scripts/object-storage-proof-validate.cjs`. The harness still does not generate real signed URLs or touch hosted storage. It records authorization-before-URL requirements, object-key policy checks, staging allow/proofRunId gates, and production-looking storage target refusal.
 
+2026-06-19 generated-document object-storage contract update: a local-only follow-up added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT.md`, `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_RISK_REGISTER.md`, and generated-document object-storage contract output in `scripts/object-storage-proof-validate.cjs`. Generated documents remain database-backed; generated-document object storage and signed URLs remain not implemented. Future generated-document object keys must be tenant-prefixed, generated-document-id anchored, normalized, server-derived, and authorized before object-key or signed URL resolution.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:

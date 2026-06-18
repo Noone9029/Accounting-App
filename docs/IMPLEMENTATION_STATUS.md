@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Generated document object-storage contract:
+
+- Added `feature/generated-document-object-storage-contract` from clean `origin/main` at `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` after PR #76 merged.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT.md`, `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_RISK_REGISTER.md`, and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT_SPRINT_CLOSURE.md`.
+- Extended `scripts/object-storage-proof-validate.cjs` with generated-document object-storage contract output covering metadata, object-key, authorization, hash/integrity, migration/rollback, and edition safety.
+- Generated documents remain database-backed. Generated-document object storage was not enabled, real signed URLs were not generated, hosted object storage was not touched, and no schema or migration changes were made.
+- Future generated-document object keys must be tenant-prefixed, generated-document-id anchored, server-derived, normalized, and never accepted directly from user input.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Signed URL object-storage proof harness:
 
 - Added `feature/signed-url-object-storage-proof-harness` from clean `origin/main` at `3bb84480b37b531af1fe36bf98526ae2387f9fa5` after PR #75 merged.
