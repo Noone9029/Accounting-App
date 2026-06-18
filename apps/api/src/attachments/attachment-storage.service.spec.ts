@@ -83,6 +83,24 @@ describe("S3AttachmentStorageService", () => {
     );
   });
 
+  it("normalizes path traversal markers out of object-key filenames", async () => {
+    const storage = makeStorage(completeEnv);
+    mockSend.mockResolvedValueOnce({});
+
+    const saved = await storage.save({
+      buffer: Buffer.from("hello"),
+      filename: "../../tenant-b/secret.pdf",
+      contentHash: "hash-1",
+      organizationId: "org-1",
+      attachmentId: "attachment-1",
+      mimeType: "application/pdf",
+    });
+
+    expect(saved.storageKey).toBe("org/org-1/attachments/attachment-1/tenant-b-secret.pdf");
+    expect(saved.storageKey).not.toContain("..");
+    expect(mockSend.mock.calls[0][0].input.Key).toBe("org/org-1/attachments/attachment-1/tenant-b-secret.pdf");
+  });
+
   it("downloads content from S3 storage", async () => {
     const storage = makeStorage(completeEnv);
     mockSend.mockResolvedValueOnce({ Body: Readable.from([Buffer.from("hello")]) });

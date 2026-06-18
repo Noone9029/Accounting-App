@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-19 Storage Generated Document Isolation Proof
+
+- Branch `feature/storage-generated-document-isolation-proof` adds local API proof coverage and safe fixes for uploaded attachment and generated-document tenant boundaries after PR #74.
+- Fixed defects: generated-document archive creation now checks supported source records by organization before archive rows are created; S3 attachment object-key filenames remove traversal markers before upload key construction.
+- New docs: `docs/development/STORAGE_GENERATED_DOCUMENT_ISOLATION_PROOF_SPRINT_CLOSURE.md` and `docs/storage/STORAGE_GENERATED_DOCUMENT_ISOLATION_RISK_REGISTER.md`.
+- Do not add schema changes, migrations, bucket policy changes, signed URL infrastructure, generated-document object storage, hosted storage probes, RLS rollout, runtime role application, or hosted commands without a later explicit approval.
+- Next arc should design a signed URL and object-storage proof harness for synthetic staging tenants, including bucket policy evidence, short-lived URL behavior, generated-document object-storage design, backup/restore proof, retention/legal-hold review, malware-scan posture, and sanitized observability.
+- Keep hosted/customer-data mutation, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, real bank feeds, payment processors, real email, SQL templates, and production compliance claims out of scope unless a later prompt explicitly changes that boundary.
+- Recommended next prompt: `Design signed URL and object storage proof harness`.
+
 ## 2026-06-18 Accounting Concurrency Idempotency Regression
 
 - Branch `feature/accounting-concurrency-idempotency-regression` adds local API regression coverage for representative duplicate/race accounting mutations after PR #73.

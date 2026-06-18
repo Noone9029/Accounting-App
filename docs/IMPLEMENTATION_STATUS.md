@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Storage generated-document isolation proof:
+
+- Added `feature/storage-generated-document-isolation-proof` from clean `origin/main` at `796784b34a40c0900cce8e403bef70ffb60ca521` after PR #74 merged.
+- Added `docs/development/STORAGE_GENERATED_DOCUMENT_ISOLATION_PROOF_SPRINT_CLOSURE.md` and `docs/storage/STORAGE_GENERATED_DOCUMENT_ISOLATION_RISK_REGISTER.md`.
+- Local API proof now covers attachment metadata/content organization scoping, generated-document metadata/content organization scoping, generated-document source ownership checks before archive creation, S3 attachment object-key filename traversal normalization, and storage readiness/migration-plan organization scoping.
+- Fixed two local storage/document tenant-isolation defects: generated-document archive creation now validates supported source records against `organizationId`, and S3 object-key filenames remove traversal markers before upload key construction.
+- Generated documents remain database-backed. Generated-document object storage, signed URLs, hosted bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production archive guarantees remain blockers.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-18 Accounting concurrency idempotency regression:
 
 - Added `feature/accounting-concurrency-idempotency-regression` from clean `origin/main` at `5d6a084635cca7080977920fa236173055804e3f` after PR #73 merged.

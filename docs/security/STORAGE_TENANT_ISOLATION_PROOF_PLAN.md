@@ -4,6 +4,8 @@ Date: 2026-06-18
 
 Scope: planning, audit, and documentation only. This pass did not run hosted commands, mutate hosted/customer data, generate real signed URLs, touch object storage, access real customer documents, change schemas, add migrations, deploy, or run Supabase commands.
 
+2026-06-19 local proof update: a follow-up local-only API pass added regression coverage for attachment metadata/content denial, generated-document metadata/content denial, generated-document source ownership checks before archive creation, S3 object-key filename normalization, and storage readiness/migration-plan organization scoping. The pass fixed generated-document archive source ownership checks and S3 object-key traversal marker normalization without hosted commands, object-storage mutation, schema changes, migrations, RLS rollout, runtime role application, signed URL work, or provider work.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:

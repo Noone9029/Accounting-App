@@ -263,6 +263,32 @@ describe("AttachmentService", () => {
     expect(storage.read).toHaveBeenCalled();
   });
 
+  it("does not read attachment content when a tenant guesses another tenant attachment id", async () => {
+    const { service, prisma, storage } = makeService();
+    prisma.attachment.findFirst.mockResolvedValue(null);
+
+    await expect(service.download("org-2", "attachment-1")).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "attachment-1", organizationId: "org-2" } }),
+    );
+    expect(storage.read).not.toHaveBeenCalled();
+  });
+
+  it("uses organization scope before updating or deleting guessed attachments", async () => {
+    const { service, prisma, audit } = makeService();
+    prisma.attachment.findFirst.mockResolvedValue(null);
+
+    await expect(service.update("org-2", "user-2", "attachment-1", { notes: "nope" })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.softDelete("org-2", "user-2", "attachment-1")).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "attachment-1", organizationId: "org-2" } }),
+    );
+    expect(prisma.attachment.update).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it("blocks download for deleted attachments", async () => {
     const { service, prisma } = makeService();
     prisma.attachment.findFirst.mockResolvedValue({ ...baseAttachment, status: AttachmentStatus.DELETED, contentBase64: "aGVsbG8=" });
