@@ -221,29 +221,38 @@ Do not log customer data, document bodies, attachment bodies, database URLs, ser
 
 ## Disabled-By-Default Harness Status
 
-`apps/api/scripts/hosted-tenant-isolation-proof.ts` now provides the first harness shell. It is a safety classifier and plan printer only. It does not make API calls, open database connections, call Supabase, call Vercel, call storage providers, call ZATCA, call Peppol, call ASPs, send email, connect bank feeds, create payment processor objects, or mutate hosted/customer data.
+`apps/api/scripts/hosted-tenant-isolation-proof.ts` now provides the first harness shell plus a fail-closed staging execution contract. It is still a safety classifier and contract printer only in this branch. It does not make API calls, open database connections, call Supabase, call Vercel, call storage providers, call ZATCA, call Peppol, call ASPs, send email, connect bank feeds, create payment processor objects, or mutate hosted/customer data.
 
 The harness:
 
 - Is disabled by default.
-- Requires `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`.
-- Requires an explicit `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID` or `--proof-run-id`.
+- Supports `dry-run`, `read-only-plan`, `staging-read-only-probe`, `staging-synthetic-proof`, and `production-read-only-posture` modes.
 - Defaults to dry-run mode.
+- Allows dry-run classification without hosted credentials while reporting missing execution requirements.
+- Requires `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1` and an explicit `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID` or `--proof-run-id` before non-dry-run modes.
+- Requires `LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1`, `LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN`, `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID`, and `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID` before staging read-only probe mode can be classified as ready.
+- Requires `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1` in addition to the read-only requirements before staging synthetic proof mode can be classified as ready.
+- Labels synthetic staging proof data as `LB-TENANT-PROOF:<proofRunId>` and reports cleanup scope as proof-run-ID-only.
 - Prints target environment, proof-run ID, redacted target URL, and safety classification.
+- Prints a human-readable sanitized safety summary to stderr and machine-readable JSON to stdout.
 - Refuses production-looking URLs unless a later explicitly approved read-only production override is supplied.
+- Refuses production-like environment names outside the explicitly named production read-only posture path.
 - Refuses local mode when the target is not localhost-style.
+- Refuses staging proof modes unless the target is clearly staging, sandbox, test, or dedicated proof.
 - Refuses destructive or external operation flags such as seed, reset, delete, truncate, drop, migrate, deploy, provider, ZATCA, Peppol, ASP, email, bank-feed, or payment-processor calls.
 - Always reports `networkEnabled: false` and `mutationEnabled: false`.
-- Redacts secret-like URL userinfo and query parameters before output.
+- Redacts secret-like URL userinfo and query parameters before output and never prints auth token values.
 
 Current harness commands:
 
 ```text
 corepack pnpm tenant-isolation:proof
 corepack pnpm test:tenant-isolation-proof
+corepack pnpm tenant-isolation:proof -- --mode staging-read-only-probe --environment staging --proof-run-id <proofRunId> --base-url <staging-proof-url>
+corepack pnpm tenant-isolation:proof -- --mode staging-synthetic-proof --environment staging --proof-run-id <proofRunId> --base-url <staging-proof-url>
 ```
 
-This harness does not complete hosted proof. The next arc still needs a staging/dedicated proof-environment auth strategy, synthetic tenant provisioning strategy, read-only check design, evidence archive format, and explicit approval before any networked staging run.
+This harness does not complete hosted proof. Actual staging proof was not executed in the staging execution contract branch because the required staging URL, auth token, synthetic proof tenant IDs, read-only allow gate, and staging mutation allow gate were not present. The next arc still needs an approved staging/dedicated proof environment, a read-only probe adapter, a synthetic proof execution adapter, evidence archive format, and explicit approval before any networked staging run.
 
 ## Acceptance Criteria
 

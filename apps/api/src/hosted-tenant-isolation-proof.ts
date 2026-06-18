@@ -1,15 +1,50 @@
 export type HostedTenantProofEnvironment = "local" | "staging" | "production";
-export type HostedTenantProofMode = "dry-run" | "read-only-plan";
+export type HostedTenantProofMode =
+  | "dry-run"
+  | "read-only-plan"
+  | "staging-read-only-probe"
+  | "staging-synthetic-proof"
+  | "production-read-only-posture";
 export type HostedTenantProofSafety = "ready" | "refused";
 
 export type HostedTenantProofOptions = {
   environment: HostedTenantProofEnvironment;
+  requestedEnvironmentName?: string | undefined;
   proofRunId: string;
   baseUrl: string;
   allow: string | undefined;
+  readonlyAllow?: string | undefined;
+  stagingMutationAllow?: string | undefined;
   productionOverride?: string | undefined;
+  authToken?: string | undefined;
+  tenantAId?: string | undefined;
+  tenantBId?: string | undefined;
   mode?: HostedTenantProofMode | undefined;
   requestedOperations?: string[] | undefined;
+};
+
+export type HostedTenantProofExecutionContract = {
+  stage: HostedTenantProofMode;
+  networkRequired: boolean;
+  mutationRequired: boolean;
+  networkEnabled: false;
+  mutationEnabled: false;
+  proofRunIdRequired: boolean;
+  syntheticDataLabel: string | null;
+  cleanupScope: "proofRunId-only" | "blocked";
+  requiredVariables: string[];
+  missingVariables: string[];
+  auth: {
+    tokenPresent: boolean;
+    tokenPrinted: false;
+    tenantAIdPresent: boolean;
+    tenantBIdPresent: boolean;
+  };
+  safeExecutionStatus:
+    | "classification-only"
+    | "ready-for-staging-read-only-probe-adapter"
+    | "ready-for-staging-synthetic-proof-adapter"
+    | "refused";
 };
 
 export type HostedTenantProofPlan = {
@@ -25,8 +60,11 @@ export type HostedTenantProofPlan = {
     host: string | null;
     local: boolean;
     productionLooking: boolean;
+    stagingLooking: boolean;
   };
   requiredGate: "LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1";
+  missingVariables: string[];
+  executionContract: HostedTenantProofExecutionContract;
   refusedReasons: string[];
   warnings: string[];
   allowedNextActions: string[];
@@ -48,6 +86,13 @@ const PRODUCTION_LOOKING_PATTERNS = [
   /accounting-app\.com$/i,
 ];
 
+const STAGING_LOOKING_PATTERNS = [
+  /(^|[.\-_/])stag(?:e|ing)?($|[.\-_/])/i,
+  /(^|[.\-_/])proof($|[.\-_/])/i,
+  /(^|[.\-_/])test($|[.\-_/])/i,
+  /(^|[.\-_/])sandbox($|[.\-_/])/i,
+];
+
 const DESTRUCTIVE_OPERATION_PATTERNS = [
   /^--?(?:seed|reset|delete|truncate|drop|purge|migrate|deploy)$/i,
   /^--?(?:call-zatca|call-peppol|call-asp|call-provider|send-email|connect-bank-feed|connect-payment-processor)$/i,
@@ -59,20 +104,51 @@ export function createHostedTenantIsolationProofPlan(options: HostedTenantProofO
   const mode = options.mode ?? "dry-run";
   const refusedReasons: string[] = [];
   const warnings: string[] = [];
+  const missingVariables: string[] = [];
   const target = classifyTarget(options.baseUrl);
   const proofRunId = options.proofRunId.trim() || null;
+  const validProofRunId = proofRunId ? isValidProofRunId(proofRunId) : false;
+  const environmentNameProductionLike = isProductionLikeEnvironmentName(options.requestedEnvironmentName ?? options.environment);
   const destructiveOperations = (options.requestedOperations ?? []).filter((operation) =>
     DESTRUCTIVE_OPERATION_PATTERNS.some((pattern) => pattern.test(operation.trim())),
   );
+  const requiredVariables = requiredVariablesFor(mode);
 
-  if (options.allow !== "1") {
+  for (const variable of requiredVariables) {
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW" && options.allow !== "1") {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW" && options.readonlyAllow !== "1") {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW" && options.stagingMutationAllow !== "1") {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID" && !validProofRunId) {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN" && !hasValue(options.authToken)) {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID" && !hasValue(options.tenantAId)) {
+      missingVariables.push(variable);
+    }
+    if (variable === "LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID" && !hasValue(options.tenantBId)) {
+      missingVariables.push(variable);
+    }
+  }
+
+  if (mode !== "dry-run" && options.allow !== "1") {
     refusedReasons.push("Set LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1 before even planning a proof run.");
   }
-  if (!proofRunId || !isValidProofRunId(proofRunId)) {
+  if (!validProofRunId && mode !== "dry-run") {
     refusedReasons.push("Provide a proofRunId of 8-128 characters using letters, numbers, dot, dash, underscore, or colon.");
   }
   if (!target.baseUrl) {
     refusedReasons.push("Provide a valid http or https base URL for classification.");
+  }
+  if (environmentNameProductionLike && mode !== "production-read-only-posture") {
+    refusedReasons.push("Requested environment name is production-like; only production-read-only-posture may classify it and it remains non-mutating.");
   }
   if (target.productionLooking && options.productionOverride !== PRODUCTION_OVERRIDE) {
     refusedReasons.push("Target URL is production-looking; production proof remains blocked without explicit read-only override approval.");
@@ -83,13 +159,37 @@ export function createHostedTenantIsolationProofPlan(options: HostedTenantProofO
   if (options.environment === "production" && options.productionOverride !== PRODUCTION_OVERRIDE) {
     refusedReasons.push("Production mode is blocked for this harness unless a later approved read-only run supplies the production override.");
   }
-  if (mode !== "dry-run" && mode !== "read-only-plan") {
-    refusedReasons.push("Unsupported mode. This harness only supports dry-run and read-only-plan.");
+  if (mode === "staging-read-only-probe" || mode === "staging-synthetic-proof") {
+    if (options.environment !== "staging") {
+      refusedReasons.push("Staging proof modes require LEDGERBYTE_HOSTED_TENANT_PROOF_ENVIRONMENT=staging.");
+    }
+    if (target.local) {
+      refusedReasons.push("Staging proof modes require a staging or dedicated proof URL, not a localhost target.");
+    }
+    if (target.baseUrl && !target.stagingLooking) {
+      refusedReasons.push("Staging proof modes require a target that is clearly staging, sandbox, test, or dedicated proof.");
+    }
+    if (options.readonlyAllow !== "1") {
+      refusedReasons.push("Set LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1 before staging read-only probes.");
+    }
+    if (!hasValue(options.authToken)) {
+      refusedReasons.push("Provide LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN for staging proof modes; it will not be printed.");
+    }
+    if (!hasValue(options.tenantAId) || !hasValue(options.tenantBId)) {
+      refusedReasons.push("Provide both synthetic proof tenant identifiers before staging proof modes.");
+    }
+  }
+  if (mode === "staging-synthetic-proof" && options.stagingMutationAllow !== "1") {
+    refusedReasons.push("Set LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1 before staging synthetic proof mutation.");
   }
   if (destructiveOperations.length > 0) {
     refusedReasons.push(`Destructive or external operations are not allowed: ${destructiveOperations.join(", ")}.`);
   }
 
+  if (!validProofRunId && mode === "dry-run") {
+    missingVariables.push("LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID");
+    warnings.push("Dry-run classification did not receive a proofRunId; execution modes remain blocked until one is supplied.");
+  }
   if (options.environment === "staging" && target.local) {
     warnings.push("Staging mode was requested with a local target; this can only validate guard wiring, not hosted behavior.");
   }
@@ -98,6 +198,17 @@ export function createHostedTenantIsolationProofPlan(options: HostedTenantProofO
   }
 
   const sanitizedUrl = target.baseUrl ? redactSecrets(target.baseUrl) : null;
+  const executionContract = createExecutionContract({
+    mode,
+    proofRunId,
+    validProofRunId,
+    requiredVariables,
+    missingVariables,
+    authToken: options.authToken,
+    tenantAId: options.tenantAId,
+    tenantBId: options.tenantBId,
+    refused: refusedReasons.length > 0,
+  });
 
   return {
     safety: refusedReasons.length > 0 ? "refused" : "ready",
@@ -112,14 +223,18 @@ export function createHostedTenantIsolationProofPlan(options: HostedTenantProofO
       host: target.host,
       local: target.local,
       productionLooking: target.productionLooking,
+      stagingLooking: target.stagingLooking,
     },
     requiredGate: "LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1",
+    missingVariables: Array.from(new Set(missingVariables)),
+    executionContract,
     refusedReasons,
     warnings,
     allowedNextActions: [
       "Print this safety classification.",
       "Archive the proofRunId and target classification as sanitized evidence.",
-      "Use the hosted proof plan to design future read-only checks before enabling any networked staging run.",
+      "Run staging-read-only-probe only after staging URL, auth, synthetic tenant IDs, and read-only allow gates are present.",
+      "Run staging-synthetic-proof only after the read-only probe passes and the explicit staging mutation gate is present.",
     ],
     prohibitedActions: [
       "No hosted/customer-data mutation.",
@@ -136,19 +251,44 @@ export function createHostedTenantIsolationProofPlan(options: HostedTenantProofO
 }
 
 export function createHostedTenantIsolationProofPlanFromCli(argv: string[], env: NodeJS.ProcessEnv): HostedTenantProofPlan {
-  const environment = parseEnvironment(valueFor(argv, "--environment") || env.LEDGERBYTE_HOSTED_TENANT_PROOF_ENVIRONMENT || "local");
+  const requestedEnvironmentName = valueFor(argv, "--environment") || env.LEDGERBYTE_HOSTED_TENANT_PROOF_ENVIRONMENT || "local";
+  const environment = parseEnvironment(requestedEnvironmentName);
   const mode = parseMode(valueFor(argv, "--mode") || "dry-run");
   const proofRunId = valueFor(argv, "--proof-run-id") || env.LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID || "";
   const baseUrl = valueFor(argv, "--base-url") || env.LEDGERBYTE_HOSTED_TENANT_PROOF_BASE_URL || "http://localhost:3001";
   return createHostedTenantIsolationProofPlan({
     environment,
+    requestedEnvironmentName,
     proofRunId,
     baseUrl,
     allow: env.LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW,
+    readonlyAllow: env.LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW,
+    stagingMutationAllow: env.LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW,
     productionOverride: env.LEDGERBYTE_HOSTED_TENANT_PROOF_PRODUCTION_OVERRIDE,
+    authToken: env.LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN,
+    tenantAId: env.LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID,
+    tenantBId: env.LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID,
     mode,
     requestedOperations: argv,
   });
+}
+
+export function formatHostedTenantIsolationProofSummary(plan: HostedTenantProofPlan): string {
+  const missing = plan.missingVariables.length > 0 ? plan.missingVariables.join(",") : "none";
+  const refused = plan.refusedReasons.length > 0 ? plan.refusedReasons.join(" | ") : "none";
+  return [
+    `safety=${plan.safety}`,
+    `environment=${plan.environment}`,
+    `mode=${plan.mode}`,
+    `proofRunId=${plan.proofRunId ?? "missing"}`,
+    `targetHost=${plan.target.host ?? "invalid"}`,
+    `productionLooking=${plan.target.productionLooking}`,
+    `stagingLooking=${plan.target.stagingLooking}`,
+    `networkEnabled=${plan.networkEnabled}`,
+    `mutationEnabled=${plan.mutationEnabled}`,
+    `missingVariables=${missing}`,
+    `refusedReasons=${refused}`,
+  ].join("\n");
 }
 
 export function redactSecrets(value: string): string {
@@ -157,32 +297,51 @@ export function redactSecrets(value: string): string {
   return redacted;
 }
 
-function classifyTarget(baseUrl: string): { baseUrl: string | null; host: string | null; local: boolean; productionLooking: boolean } {
+function classifyTarget(baseUrl: string): {
+  baseUrl: string | null;
+  host: string | null;
+  local: boolean;
+  productionLooking: boolean;
+  stagingLooking: boolean;
+} {
   try {
     const url = new URL(baseUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return { baseUrl: null, host: null, local: false, productionLooking: false };
+      return { baseUrl: null, host: null, local: false, productionLooking: false, stagingLooking: false };
     }
     const host = url.hostname.toLowerCase();
     const local = LOCAL_HOSTS.has(host);
     const targetText = `${host}${url.pathname}`;
     const productionLooking = PRODUCTION_LOOKING_PATTERNS.some((pattern) => pattern.test(targetText));
-    return { baseUrl: url.toString(), host, local, productionLooking };
+    const stagingLooking = STAGING_LOOKING_PATTERNS.some((pattern) => pattern.test(targetText));
+    return { baseUrl: url.toString(), host, local, productionLooking, stagingLooking };
   } catch {
-    return { baseUrl: null, host: null, local: false, productionLooking: false };
+    return { baseUrl: null, host: null, local: false, productionLooking: false, stagingLooking: false };
   }
 }
 
 function parseEnvironment(value: string): HostedTenantProofEnvironment {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "staging" || normalized === "production") {
-    return normalized;
+  if (normalized === "staging" || normalized === "stage" || normalized === "sandbox" || normalized === "test" || normalized === "proof") {
+    return "staging";
+  }
+  if (normalized === "production" || normalized === "prod" || normalized === "live" || normalized === "customer" || normalized === "customers") {
+    return "production";
   }
   return "local";
 }
 
 function parseMode(value: string): HostedTenantProofMode {
-  return value.trim().toLowerCase() === "read-only-plan" ? "read-only-plan" : "dry-run";
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "read-only-plan" ||
+    normalized === "staging-read-only-probe" ||
+    normalized === "staging-synthetic-proof" ||
+    normalized === "production-read-only-posture"
+  ) {
+    return normalized;
+  }
+  return "dry-run";
 }
 
 function valueFor(argv: string[], name: string): string {
@@ -196,4 +355,75 @@ function valueFor(argv: string[], name: string): string {
 
 function isValidProofRunId(value: string): boolean {
   return /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/.test(value);
+}
+
+function requiredVariablesFor(mode: HostedTenantProofMode): string[] {
+  if (mode === "dry-run") {
+    return [];
+  }
+  if (mode === "read-only-plan" || mode === "production-read-only-posture") {
+    return ["LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW", "LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID"];
+  }
+  const readOnlyVariables = [
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW",
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW",
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID",
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN",
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID",
+    "LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID",
+  ];
+  if (mode === "staging-synthetic-proof") {
+    return [...readOnlyVariables, "LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW"];
+  }
+  return readOnlyVariables;
+}
+
+function createExecutionContract(args: {
+  mode: HostedTenantProofMode;
+  proofRunId: string | null;
+  validProofRunId: boolean;
+  requiredVariables: string[];
+  missingVariables: string[];
+  authToken?: string | undefined;
+  tenantAId?: string | undefined;
+  tenantBId?: string | undefined;
+  refused: boolean;
+}): HostedTenantProofExecutionContract {
+  const networkRequired = args.mode === "staging-read-only-probe" || args.mode === "staging-synthetic-proof";
+  const mutationRequired = args.mode === "staging-synthetic-proof";
+  const syntheticDataLabel = args.validProofRunId && args.proofRunId ? `LB-TENANT-PROOF:${args.proofRunId}` : null;
+  return {
+    stage: args.mode,
+    networkRequired,
+    mutationRequired,
+    networkEnabled: false,
+    mutationEnabled: false,
+    proofRunIdRequired: args.mode !== "dry-run",
+    syntheticDataLabel,
+    cleanupScope: syntheticDataLabel ? "proofRunId-only" : "blocked",
+    requiredVariables: args.requiredVariables,
+    missingVariables: Array.from(new Set(args.missingVariables)),
+    auth: {
+      tokenPresent: hasValue(args.authToken),
+      tokenPrinted: false,
+      tenantAIdPresent: hasValue(args.tenantAId),
+      tenantBIdPresent: hasValue(args.tenantBId),
+    },
+    safeExecutionStatus: args.refused
+      ? "refused"
+      : args.mode === "staging-read-only-probe"
+        ? "ready-for-staging-read-only-probe-adapter"
+        : args.mode === "staging-synthetic-proof"
+          ? "ready-for-staging-synthetic-proof-adapter"
+          : "classification-only",
+  };
+}
+
+function hasValue(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+function isProductionLikeEnvironmentName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "production" || normalized === "prod" || normalized === "live" || normalized === "customer" || normalized === "customers";
 }

@@ -26,6 +26,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Staging tenant isolation proof execution contract:
+
+- Added `feature/staging-tenant-isolation-proof-execution` from clean `origin/main` at `afb32f4ad2e3a9b853ad7a2a1bdcc5f5d3521f14` after PR #69 merged.
+- Extended the hosted proof harness with explicit modes for `dry-run`, `read-only-plan`, `staging-read-only-probe`, `staging-synthetic-proof`, and `production-read-only-posture`.
+- Dry-run classification is still non-networked and non-mutating, but now reports missing execution requirements without requiring hosted credentials.
+- Staging read-only probe mode requires the base allow gate, read-only allow gate, proof-run ID, auth token presence, and two synthetic proof tenant IDs.
+- Staging synthetic proof mode additionally requires `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1` and reports proof-run-ID-scoped synthetic labels and cleanup scope.
+- Production-like environment names and production-looking URLs remain refused unless a later explicitly approved read-only production posture path is supplied.
+- The CLI emits a sanitized human-readable summary plus JSON output and never prints auth tokens or secret-like URL values.
+- Actual staging proof was not executed because no staging URL/auth token/synthetic tenant IDs/read-only allow/mutation allow were present in the environment.
+- This branch does not prove hosted tenant isolation and does not add database RLS. No hosted command, Supabase command, Vercel deploy command, production DB command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE Peppol/ASP work, real email, real bank feed, payment processor integration, or hosted/customer-data mutation was performed.
+- Remaining blockers: approved staging proof target and credentials, read-only probe execution adapter, synthetic proof execution adapter, database-level row policy/runtime-role proof, object-storage/signed URL proof, backup/restore proof, concurrency/race proof, observability evidence, provider evidence, and accountant/legal/security sign-off.
+
 2026-06-18 Hosted tenant isolation proof readiness:
 
 - Added `feature/hosted-tenant-isolation-proof-readiness` from clean `origin/main` at `b8fda1f8be96d9f8beeb6688feafdd3d9c377e22` after PR #68 merged.

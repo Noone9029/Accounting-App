@@ -4,6 +4,14 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Staging Tenant Isolation Proof Execution Contract Update
+
+- Production-readiness process improves because the hosted tenant isolation harness now separates dry-run classification, staging read-only probe readiness, staging synthetic proof readiness, and production read-only posture classification.
+- The new staging contract remains fail-closed: staging proof modes require explicit allow variables, a proof-run ID, auth token presence, two synthetic proof tenant IDs, a clearly staging/test/proof target, and proof-run-ID-scoped cleanup.
+- The harness now reports missing variables and sanitized human-readable/JSON summaries without printing auth tokens or secret-like URL values.
+- No score increase is taken for production launch readiness. No actual staging proof was executed, network execution remains disabled in this branch, database RLS is still not implemented, and hosted/customer-data isolation remains unproven.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, or customer-data mutation occurred.
+
 ## 2026-06-18 Hosted Tenant Isolation Proof Readiness Update
 
 - Production-readiness process improves because the hosted tenant isolation proof plan now has a disabled-by-default harness shell with fail-closed target classification.
