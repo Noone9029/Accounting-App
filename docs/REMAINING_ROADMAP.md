@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-18 Accounting Concurrency Idempotency Regression
+
+- Branch `feature/accounting-concurrency-idempotency-regression` adds local API regression coverage for representative duplicate/race accounting mutations after PR #73.
+- New test: `apps/api/src/accounting-concurrency-idempotency-regression.spec.ts`.
+- Fixed defect: manual bank statement matching now conditionally claims an `UNMATCHED` statement transaction before writing match fields, preventing stale duplicate match attempts from overwriting an already matched transaction.
+- New docs: `docs/development/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_REGRESSION_SPRINT_CLOSURE.md` and `docs/accounting/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_RISK_REGISTER.md`.
+- Do not add schema changes, migrations, unique constraints, explicit lock strategies, or idempotency-key tables without a later explicit approval.
+- Next arc should design the accounting idempotency-key and locking strategy across invoices, bills, payments, credit/debit notes, journals, bank statement matching, and reconciliation workflows, then decide which parts require schema changes.
+- Keep hosted/customer-data mutation, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, real bank feeds, payment processors, real email, RLS rollout, runtime role application, and SQL template application out of scope unless a later prompt explicitly changes that boundary.
+- Recommended next prompt: `Design accounting idempotency key and locking strategy`.
+
 ## 2026-06-18 Least-Privilege Runtime Role And RLS Staging Design
 
 - Branch `feature/least-privilege-runtime-role-rls-staging-design` designs the next runtime DB role and RLS staging rollout after PR #72.

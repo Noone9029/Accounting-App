@@ -428,14 +428,20 @@ export class BankStatementService {
     }
     this.assertLineMatchesStatement(existing, line);
 
-    const updated = await this.prisma.bankStatementTransaction.update({
-      where: { id },
+    const claim = await this.prisma.bankStatementTransaction.updateMany({
+      where: { id, organizationId, status: BankStatementTransactionStatus.UNMATCHED },
       data: {
         status: BankStatementTransactionStatus.MATCHED,
         matchedJournalLineId: line.id,
         matchedJournalEntryId: line.journalEntryId,
         matchType: BankStatementMatchType.JOURNAL_LINE,
       },
+    });
+    if (claim.count !== 1) {
+      throw new BadRequestException("Only unmatched bank statement transactions can be matched.");
+    }
+    const updated = await this.prisma.bankStatementTransaction.findUniqueOrThrow({
+      where: { id },
       include: bankStatementTransactionInclude,
     });
     await this.refreshImportStatus(organizationId, existing.importId);

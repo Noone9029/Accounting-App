@@ -4,6 +4,14 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Accounting Concurrency Idempotency Regression Update
+
+- Controlled beta API confidence improves because representative duplicate/race accounting mutations now have focused local regression coverage.
+- One real stale-write defect was fixed: manual bank statement matching now uses a conditional `UNMATCHED` claim before writing match fields.
+- Coverage added for duplicate sales invoice finalization, duplicate customer payment allocation, and stale bank statement match attempts; existing local specs cover many related payment, bill, credit/debit note, journal, and void/reversal guards.
+- No readiness score increase is taken for hosted/customer-data or production launch readiness. No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, or hosted/customer-data mutation occurred.
+- Remaining blockers are API idempotency-key design, schema/locking strategy review if required, approved staging/proof credentials, synthetic tenants, hosted multi-process accounting race evidence, runtime-role/RLS proof, storage/signed URL proof, backup/restore proof, observability, owner sign-off, and provider evidence.
+
 ## 2026-06-18 Least-Privilege Runtime Role And RLS Staging Design Update
 
 - Production-readiness clarity improves because the runtime DB role split and RLS staging rollout are now designed as explicit next steps after PR #72.

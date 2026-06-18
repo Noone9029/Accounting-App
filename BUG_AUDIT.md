@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Accounting concurrency idempotency regression
+
+### Scope and boundaries
+
+- Scope: local-only API accounting concurrency/idempotency regression coverage and safe fixes after PR #73.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, object-storage mutation, signed URL generation, real provider call, real bank feed, payment processor integration, real email, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Sales invoice finalization, purchase bill finalization, credit/debit note applications, customer/supplier payment allocations, and several void/reversal paths already use conditional status or balance claims in local service code.
+- Manual bank statement matching used a stale read followed by an unconditional update by `id`, leaving a duplicate stale match request able to overwrite a transaction that had already been matched after the first read.
+- First-class API idempotency keys are not implemented for accounting mutation retries.
+- Some deeper concurrency evidence still requires an approved staging/proof database and synthetic tenants; no hosted or customer data was used in this pass.
+
+### Outcome
+
+- Added `apps/api/src/accounting-concurrency-idempotency-regression.spec.ts`.
+- Fixed manual bank statement matching to use a conditional `UNMATCHED` claim with `id` and `organizationId` before writing match fields.
+- Added a local accounting concurrency/idempotency sprint closure and risk register.
+- No readiness score increase should be taken for hosted/customer-data or production launch readiness until staging/proof execution, database role/RLS decisions, storage/signed URL proof, backup/restore proof, observability evidence, and owner sign-off are complete.
+
 ## 2026-06-18 Least-privilege runtime role and RLS staging design
 
 ### Scope and boundaries
