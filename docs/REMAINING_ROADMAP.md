@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-18 Hosted Tenant Isolation Proof Plan
+
+- Branch `feature/hosted-tenant-isolation-proof-plan` adds a docs-only hosted tenant isolation proof plan after PR #67 merged.
+- New plan: `docs/security/HOSTED_TENANT_ISOLATION_PROOF_PLAN.md`.
+- Closure: `docs/development/HOSTED_TENANT_ISOLATION_PROOF_PLAN_SPRINT_CLOSURE.md`.
+- PR #67 remains the local/API regression baseline and fixed the bank-account transaction opening-balance organization filter defect.
+- Next implementation arc should be staging-only or dedicated proof-environment execution with two synthetic tenants, proof-run IDs, fail-closed target classification, API denial checks, storage/signed URL checks, concurrency checks, and sanitized observability evidence.
+- Do not run production writes for tenant proof without a later explicit approval. Do not use customer data. Do not run Supabase/Vercel mutations as part of the proof plan unless a later prompt explicitly scopes them.
+- Remaining blockers: hosted/customer-data proof, database-level row policy/runtime-role strategy, object-storage and signed URL tenant proof, backup/restore tenant-boundary proof, concurrency/race proof, observability alerts, accountant/legal/security sign-off, and provider evidence.
+- Recommended next prompt: `Implement staging-only hosted tenant isolation proof harness`.
+
 ## 2026-06-18 Accounting Tenant Isolation Regression Update
 
 - Branch `feature/accounting-tenant-isolation-regression` added API regression coverage for tenant isolation and RBAC metadata over accounting and accounting-adjacent controllers.

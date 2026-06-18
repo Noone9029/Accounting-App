@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Hosted tenant isolation proof plan:
+
+- Added `feature/hosted-tenant-isolation-proof-plan` from clean `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223` after PR #67 merged.
+- Added `docs/security/HOSTED_TENANT_ISOLATION_PROOF_PLAN.md` and `docs/development/HOSTED_TENANT_ISOLATION_PROOF_PLAN_SPRINT_CLOSURE.md`.
+- Confirmed PR #67 is the local/API baseline: it added tenant isolation/RBAC metadata regressions and fixed the bank-account opening-balance organization filter bug.
+- Audited the Prisma schema and source patterns for hosted proof planning. Important production-domain models carry `organizationId`; app-source raw SQL is limited to the health `SELECT 1`; no repo migration was found that enables application-table RLS policies.
+- The plan defines local/staging/production environment strategy, two synthetic proof tenants, synthetic data rules, read-only production posture, API proof checks, database/RLS review, storage proof checks, concurrency/race checks, observability checks, and production-grade acceptance criteria.
+- This was docs/planning only. No hosted command, Supabase command, Vercel command, production database command, schema change, migration, seed/reset/delete, provider call, ZATCA/UAE Peppol/ASP work, real email, real bank feed, payment processor integration, or hosted/customer-data mutation was performed.
+- Hosted/customer-data proof, database-level row policy implementation, least-privilege runtime-role proof, object-storage/signed URL tenant proof, backup/restore proof, concurrency/race proof, provider evidence, and accountant/legal/security sign-off remain blockers.
+
 2026-06-18 Accounting tenant isolation regression:
 
 - Added `feature/accounting-tenant-isolation-regression` from clean `origin/main` at `9bd65e4e3dceb34a8b38862ce880877e0e9fd8d1`.

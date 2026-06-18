@@ -1,5 +1,16 @@
 # LedgerByte Codex Handoff
 
+## Hosted Tenant Isolation Proof Plan Summary (2026-06-18)
+
+- Current branch: `feature/hosted-tenant-isolation-proof-plan`, from clean `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223` after PR #67 merged.
+- Added `docs/security/HOSTED_TENANT_ISOLATION_PROOF_PLAN.md` and `docs/development/HOSTED_TENANT_ISOLATION_PROOF_PLAN_SPRINT_CLOSURE.md`.
+- This branch is documentation/planning only. No hosted command, Supabase command, Vercel command, production database command, seed, reset, delete, migration, schema change, provider call, real bank feed, payment processor integration, real email, ZATCA call, UAE ASP call, Peppol call, or customer-data mutation was run.
+- PR #67 remains the local/API baseline: it added tenant isolation and RBAC metadata regressions and fixed the real `BankAccountService.transactions()` opening-balance organization filter bug.
+- Current audit finding: important production-domain Prisma models carry `organizationId`; `User` and `Organization` are global/root models; app-source raw SQL is limited to the health `SELECT 1`; no repo migration was found that enables application-table RLS policies.
+- Hosted/customer-data behavior, storage signed URL/key isolation, backup/restore tenant boundaries, concurrency/race behavior, least-privilege runtime-role proof, and database-level row policy implementation remain open production blockers.
+- Provider evidence remains unavailable: no UAE ASP sandbox docs, Peppol/ASP credentials, provider response, commercial terms, or ZATCA production credentials.
+- Recommended next prompt: `Implement staging-only hosted tenant isolation proof harness`.
+
 ## Accounting Tenant Isolation Regression Summary (2026-06-18)
 
 - Current branch: `feature/accounting-tenant-isolation-regression`, from clean `origin/main` at `9bd65e4e3dceb34a8b38862ce880877e0e9fd8d1`.
