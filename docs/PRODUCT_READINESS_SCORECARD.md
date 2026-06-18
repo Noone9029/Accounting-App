@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
 
+## 2026-06-18 Accounting Workflow Regression Baseline Update
+
+- Completed a full baseline verification run for shared API + web accounting workflow coverage with no feature/code changes, from clean `origin/main` (`e089690dd56cfb86911ecdfe3bcf5620227b9529d`).
+- Passed API regression validation (`test`, `typecheck`) and web coverage (`invoices`, `bills`, `customer-payments`, `supplier-payments`, `dashboard`, `reports`, `sidebar`) plus web typecheck, web build, and diff checks.
+- Initial API suite failed due stale/generated Prisma typing mismatch; resolved with `corepack pnpm --filter @ledgerbyte/api db:generate` and re-ran successfully.
+- No accounting-production claims were introduced; this run confirms frontend/API baseline confidence only.
+- Known accepted warning remains non-blocking: `@base-ui/react` `act(...)` warning in sidebar render tests.
+- Provider evidence remains unavailable and no UAE PINT-AE/ZATCA/security provider production claim was added.
+
 ## 2026-06-17 Country Edition Clean Reconciliation Update
 
 - Controlled beta positioning improves because the base LedgerByte frontend now defaults to neutral accounting workspace copy instead of implying UAE/KSA/ZATCA/FTA/PINT-AE globally.
