@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Least-privilege runtime role and RLS staging design
+
+### Scope and boundaries
+
+- Scope: design least-privilege API runtime DB role, RLS staging rollout, and reviewed SQL templates after PR #72.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, RLS implementation, object-storage mutation, signed URL generation, real customer document access, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, provider integration, real bank feed, payment processor integration, real email, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- The API runtime Prisma path uses `DATABASE_URL` through `PrismaService`; `DIRECT_URL` is present in the datasource for direct Prisma connectivity.
+- Repo evidence does not prove that staging or production already separates API runtime and migration/admin DB roles.
+- App-source raw SQL remains limited to the readiness `SELECT 1`.
+- The schema has no `@@map` table remaps, so quoted Prisma model names are the table names to use in staging policy design.
+- `Organization` and `User` need membership-derived RLS behavior; ordinary tenant-owned tables can start from `organizationId` policy shapes; nullable-organization evidence/token/email tables need special global-vs-tenant review.
+
+### Outcome
+
+- Added runtime-role design, RLS staging design, and SQL templates under `docs/security/`.
+- SQL templates are not migrations, do not contain credentials, and require review before any staging use.
+- No readiness score increase should be taken until staging proves the runtime role, RLS policy behavior, storage/signed URL boundaries, backup/restore, concurrency, observability, and owner sign-off.
+
 ## 2026-06-18 Database RLS and storage isolation decision
 
 ### Scope and boundaries
