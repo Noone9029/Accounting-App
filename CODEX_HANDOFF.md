@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Signed URL Object Storage Proof Harness Summary (2026-06-19)
+
+- Current branch: `feature/signed-url-object-storage-proof-harness`, from clean `origin/main` at `3bb84480b37b531af1fe36bf98526ae2387f9fa5` after PR #75 merged.
+- Added signed URL/object-storage proof design docs and local proof-harness tests without adding real signed URL infrastructure.
+- Current signed URL status: not implemented; `StorageProvider.getReadUrl` is only an optional interface hook and no provider issues signed URLs.
+- Current object-storage status: attachments are database/base64-backed by default with feature-flagged S3-compatible adapter groundwork; generated documents remain database-backed; downloads are API-mediated.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run output includes a signed URL proof plan, authorization contract, staging allow/proofRunId gates, production-looking target refusal, and object-key policy checks.
+- Fixed one local proof-harness path-safety gap: validator key helpers now remove `..` traversal markers before constructing planned object keys.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, real hosted signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, bucket policy proof, real signed URL implementation/proof, generated-document object-storage implementation/proof, archive object-storage model, backup/restore proof, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design generated-document object storage implementation contract`.
+
 ## Storage Generated Document Isolation Proof Summary (2026-06-19)
 
 - Current branch: `feature/storage-generated-document-isolation-proof`, from clean `origin/main` at `796784b34a40c0900cce8e403bef70ffb60ca521` after PR #74 merged.

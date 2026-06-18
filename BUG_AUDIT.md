@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
+Latest commit audited: `3bb84480b37b531af1fe36bf98526ae2387f9fa5` (`origin/main` after PR #75 merge) plus this signed URL/object-storage proof harness branch.
+
+## 2026-06-19 Signed URL object-storage proof harness
+
+### Scope and boundaries
+
+- Scope: local-only signed URL and object-storage proof design, proof-harness guard tests, and safe path-policy helper hardening after PR #75.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Signed URLs are not currently implemented; the optional `StorageProvider.getReadUrl` hook has no implementation.
+- Attachment and generated-document downloads are API-mediated and permission-guarded.
+- The existing proof validator modeled attachment and generated-document object keys but did not define a signed URL authorization contract or staging guard requirements.
+- The proof validator filename/key helpers preserved `..` traversal markers in planned object-key output.
+
+### Outcome
+
+- Added local proof-harness tests for signed URL authorization contract reporting, staging allow/proofRunId guards, production-looking storage target refusal, object-key policy validation, and traversal-safe helper output.
+- Extended the proof validator with dry-run signed URL proof-plan output and fail-closed staging plan metadata without real signing or network behavior.
+- Fixed proof-validator key helper traversal marker normalization.
+- No readiness score increase should be taken until real signed URL infrastructure, hosted bucket policy proof, generated-document object storage, backup/restore, retention, observability, and owner sign-off evidence exist.
 
 ## 2026-06-19 Storage and generated-document isolation proof
 

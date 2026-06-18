@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-19 Signed URL Object Storage Proof Harness
+
+- Branch `feature/signed-url-object-storage-proof-harness` adds local signed URL/object-storage proof-plan scaffolding and docs after PR #75.
+- New docs: `docs/security/SIGNED_URL_OBJECT_STORAGE_PROOF_PLAN.md`, `docs/development/SIGNED_URL_OBJECT_STORAGE_PROOF_HARNESS_SPRINT_CLOSURE.md`, and `docs/storage/SIGNED_URL_OBJECT_STORAGE_RISK_REGISTER.md`.
+- Harness update: `scripts/object-storage-proof-validate.cjs` now reports authorization-before-URL requirements, object-key policy checks, staging allow/proofRunId gates, production-looking target refusal, and no-network/no-mutation signed URL proof status.
+- Fixed local proof-helper path safety: planned object-key helpers remove traversal markers before constructing keys.
+- Do not add real signed URL infrastructure, schema changes, migrations, bucket policy changes, generated-document object storage, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, or production commands without later explicit approval.
+- Next arc should design the generated-document object-storage implementation contract, including metadata ownership, object-key construction, migration/rollback, backup/restore, retention/legal-hold, malware-scan posture, and signed URL route preconditions.
+- Recommended next prompt: `Design generated-document object storage implementation contract`.
+
 ## 2026-06-19 Storage Generated Document Isolation Proof
 
 - Branch `feature/storage-generated-document-isolation-proof` adds local API proof coverage and safe fixes for uploaded attachment and generated-document tenant boundaries after PR #74.

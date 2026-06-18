@@ -6,6 +6,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 local proof update: a follow-up local-only API pass added regression coverage for attachment metadata/content denial, generated-document metadata/content denial, generated-document source ownership checks before archive creation, S3 object-key filename normalization, and storage readiness/migration-plan organization scoping. The pass fixed generated-document archive source ownership checks and S3 object-key traversal marker normalization without hosted commands, object-storage mutation, schema changes, migrations, RLS rollout, runtime role application, signed URL work, or provider work.
 
+2026-06-19 signed URL/object-storage proof harness update: a local-only follow-up added `docs/security/SIGNED_URL_OBJECT_STORAGE_PROOF_PLAN.md`, a signed URL/object-storage risk register, and dry-run proof-plan output in `scripts/object-storage-proof-validate.cjs`. The harness still does not generate real signed URLs or touch hosted storage. It records authorization-before-URL requirements, object-key policy checks, staging allow/proofRunId gates, and production-looking storage target refusal.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:

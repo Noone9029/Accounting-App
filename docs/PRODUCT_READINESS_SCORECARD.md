@@ -2,7 +2,16 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus the read-only security settings route branch.
+Latest commit audited: `3bb84480b37b531af1fe36bf98526ae2387f9fa5` (`origin/main` after PR #75 merge) plus the signed URL/object-storage proof harness branch.
+
+## 2026-06-19 Signed URL Object Storage Proof Harness Update
+
+- Production-readiness clarity improves because signed URL/object-storage authorization rules, object-key requirements, staging proof requirements, and acceptance criteria are now documented explicitly.
+- Local harness confidence improves because `scripts/object-storage-proof-validate.cjs` now reports signed URL proof-plan posture, refuses production-looking storage targets, requires staging allow/proofRunId gates for staging planning, and validates object-key policy shapes.
+- One local proof-harness defect was fixed: planned object-key helpers now remove `..` traversal markers before constructing keys.
+- No readiness score increase is taken for production launch readiness. Signed URLs remain not implemented, generated documents remain database-backed, hosted bucket/storage proof was not run, and no real hosted signed URL was generated.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real signed URL implementation/proof, generated-document object-storage proof, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner sign-off, and provider evidence.
 
 ## 2026-06-19 Storage Generated Document Isolation Proof Update
 

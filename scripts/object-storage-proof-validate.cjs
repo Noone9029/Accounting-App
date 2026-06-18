@@ -28,6 +28,22 @@ const ATTACHMENT_SAMPLE_CONTENT_TYPE = "text/plain";
 const GENERATED_DOCUMENT_SAMPLE_CONTENT_TYPE = "application/pdf";
 const ATTACHMENT_SAMPLE_BUFFER = Buffer.from("LedgerByte object-storage proof attachment. Synthetic only.\n", "utf8");
 const GENERATED_DOCUMENT_SAMPLE_BUFFER = Buffer.from("%PDF-1.4\n% LedgerByte generated-document proof only.\n", "utf8");
+const SUPPORTED_OBJECT_KEY_TYPES = new Set(["attachments", "generated-documents", "archives"]);
+
+const PRODUCTION_LOOKING_PATTERNS = [
+  /(^|[.\-_/])prod(?:uction)?($|[.\-_/])/i,
+  /(^|[.\-_/])live($|[.\-_/])/i,
+  /(^|[.\-_/])customer($|[.\-_/])/i,
+  /(^|[.\-_/])customers($|[.\-_/])/i,
+  /ledgerbyte\.com$/i,
+];
+
+const STAGING_LOOKING_PATTERNS = [
+  /(^|[.\-_/])stag(?:e|ing)?($|[.\-_/])/i,
+  /(^|[.\-_/])proof($|[.\-_/])/i,
+  /(^|[.\-_/])test($|[.\-_/])/i,
+  /(^|[.\-_/])sandbox($|[.\-_/])/i,
+];
 
 function parseArgs(argv) {
   const parsed = {
@@ -115,6 +131,14 @@ function buildObjectStorageProof(options = {}) {
   const pathPolicy = buildPathPolicy();
   const sizeLimitValidation = buildSizeLimitValidation(environment);
   const s3ConfigValidation = buildS3ConfigValidation(environment);
+  const signedUrlProofPlan = buildSignedUrlProofPlan({
+    environment: environment.LEDGERBYTE_STORAGE_PROOF_ENVIRONMENT || "local",
+    proofRunId: environment.LEDGERBYTE_STORAGE_PROOF_RUN_ID || "",
+    allow: environment.LEDGERBYTE_STORAGE_PROOF_ALLOW,
+    stagingAllow: environment.LEDGERBYTE_STORAGE_PROOF_STAGING_ALLOW,
+    bucket: environment.S3_BUCKET || "",
+    endpoint: environment.S3_ENDPOINT || "",
+  });
   const networkGuard = installNetworkGuards();
 
   const baseResult = {
@@ -142,9 +166,11 @@ function buildObjectStorageProof(options = {}) {
     sizeLimitValidation,
     signedUrlCapability: {
       implemented: false,
+      realSignedUrlsGenerated: false,
       status: "not_proven",
       note: "The current storage groundwork does not implement signed URL generation.",
     },
+    signedUrlProofPlan,
     lifecycleRetention: {
       implemented: false,
       status: "not_proven",
@@ -244,7 +270,106 @@ function buildPathPolicy() {
   return {
     attachment,
     generatedDocument,
+    archive: {
+      exampleObjectKey: buildArchiveObjectKey({
+        organizationId: SAMPLE_ORGANIZATION_ID,
+        archiveId: "archive-proof",
+        filename: "Archive Export (proof).zip",
+      }),
+      futureProviderProofOnly: true,
+    },
     distinctDomains: attachment.domain !== generatedDocument.domain,
+    objectKeyPolicyChecks: [
+      validateObjectKeyPolicy(attachment.objectKey, SAMPLE_ORGANIZATION_ID),
+      validateObjectKeyPolicy(generatedDocument.objectKey, SAMPLE_ORGANIZATION_ID),
+    ],
+  };
+}
+
+function buildSignedUrlProofPlan(options = {}) {
+  const environment = normalizeProofEnvironment(options.environment);
+  const proofRunId = String(options.proofRunId || "").trim();
+  const bucket = String(options.bucket || "").trim();
+  const endpoint = String(options.endpoint || "").trim();
+  const refusedReasons = [];
+  const warnings = [];
+  const proofRunIdValid = isValidProofRunId(proofRunId);
+  const targetText = `${bucket} ${endpoint}`;
+  const productionLooking = PRODUCTION_LOOKING_PATTERNS.some((pattern) => pattern.test(targetText));
+  const stagingLooking = STAGING_LOOKING_PATTERNS.some((pattern) => pattern.test(targetText));
+  const executionMode = environment === "staging" ? "staging-plan" : environment === "production" ? "production-refused-plan" : "local-plan";
+
+  if (environment === "staging") {
+    if (options.allow !== "1") {
+      refusedReasons.push("Set LEDGERBYTE_STORAGE_PROOF_ALLOW=1 before staging signed URL/object-storage proof planning.");
+    }
+    if (options.stagingAllow !== "1") {
+      refusedReasons.push("Set LEDGERBYTE_STORAGE_PROOF_STAGING_ALLOW=1 before staging signed URL/object-storage proof planning.");
+    }
+    if (!proofRunIdValid) {
+      refusedReasons.push("Provide a proofRunId of 8-128 characters using letters, numbers, dot, dash, underscore, or colon.");
+    }
+    if (!stagingLooking) {
+      refusedReasons.push("Staging signed URL proof requires a staging, sandbox, test, or dedicated proof bucket/endpoint.");
+    }
+  }
+
+  if (environment === "production") {
+    refusedReasons.push("Production signed URL/object-storage proof is refused by this local harness.");
+  }
+  if (productionLooking) {
+    refusedReasons.push("Bucket or endpoint is production-looking; this harness refuses production-looking storage targets.");
+  }
+  if (environment === "local" && !proofRunIdValid) {
+    warnings.push("Local dry-run did not receive a proofRunId; staging proof modes remain blocked until one is supplied.");
+  }
+
+  return {
+    safety: refusedReasons.length > 0 ? "refused" : "ready-for-plan",
+    executionMode,
+    environment,
+    proofRunId: proofRunId || null,
+    networkRequired: environment === "staging",
+    mutationRequired: environment === "staging",
+    networkEnabled: false,
+    mutationEnabled: false,
+    cleanupScope: proofRunIdValid ? "proofRunId-only" : "blocked",
+    realSignedUrlsGenerated: false,
+    hostedObjectStorageTouched: false,
+    productionLooking,
+    stagingLooking,
+    refusedReasons,
+    warnings,
+    authorizationContract: {
+      authorizeBeforeUrl: true,
+      requireOrganizationMembership: true,
+      requirePermissionCheck: true,
+      requireSourceRecordOwnership: true,
+      attachmentOwnershipRequired: true,
+      generatedDocumentOwnershipRequired: true,
+      archiveOwnershipRequired: true,
+      acceptDirectObjectKeyInput: false,
+      resolveObjectKeyFromAuthorizedMetadata: true,
+    },
+    urlShapeRequirements: {
+      shortTtlRequired: true,
+      downloadOnlyPreferred: true,
+      publicBucketAssumptionAllowed: false,
+      secretsInLogsAllowed: false,
+      unauthorizedErrorsMayExposeObjectKey: false,
+      contentDispositionSafetyRequired: true,
+      auditContextRequired: ["organizationId", "userId", "proofRunId"],
+    },
+    proofScenarios: [
+      "Tenant A cannot request a signed URL for Tenant B attachment.",
+      "Tenant A cannot request a signed URL for Tenant B generated document.",
+      "Tenant A cannot request a signed URL for Tenant B archive object.",
+      "Tenant A cannot guess an object key and receive a signed URL.",
+      "Tenant A cannot use Tenant B source record ID to receive a signed URL.",
+      "Read-only users are constrained by permission rules before URL issuance.",
+      "Expired URL and stale-permission behavior is documented before hosted proof.",
+      "Signed URL issuance is audited before production use.",
+    ],
   };
 }
 
@@ -423,6 +548,33 @@ function buildGeneratedDocumentObjectKey({ organizationId, sourceType, sourceId,
   return `org/${safeSegment(organizationId)}/generated-documents/${safeSegment(sourceType)}/${safeSegment(sourceId)}/${safeSegment(documentType.toLowerCase())}/${sanitizeFilename(filename)}`;
 }
 
+function buildArchiveObjectKey({ organizationId, archiveId, filename }) {
+  return `org/${safeSegment(organizationId)}/archives/${safeSegment(archiveId)}/${sanitizeFilename(filename)}`;
+}
+
+function validateObjectKeyPolicy(objectKey, organizationId) {
+  const key = String(objectKey || "");
+  const authorizedPrefix = `org/${safeSegment(organizationId)}/`;
+  const parts = key.split("/");
+  const reasons = [];
+  if (!key.startsWith(authorizedPrefix)) {
+    reasons.push("Object key does not start with the authorized tenant prefix.");
+  }
+  if (parts.some((part) => part === ".." || part === ".")) {
+    reasons.push("Object key contains a path traversal segment.");
+  }
+  if (!SUPPORTED_OBJECT_KEY_TYPES.has(parts[2])) {
+    reasons.push("Object key is missing a supported object type prefix.");
+  }
+  if (key.includes("//") || key.startsWith("/") || key.endsWith("/")) {
+    reasons.push("Object key has an unsafe slash shape.");
+  }
+  return {
+    valid: reasons.length === 0,
+    reasons,
+  };
+}
+
 function normalizeProofProvider(value) {
   if (!value) {
     return value;
@@ -441,6 +593,21 @@ function normalizeConfiguredProvider(value) {
   return String(value || "").trim().toLowerCase() === "s3" ? "s3-compatible" : "database";
 }
 
+function normalizeProofEnvironment(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "staging" || normalized === "stage" || normalized === "sandbox" || normalized === "test" || normalized === "proof") {
+    return "staging";
+  }
+  if (normalized === "production" || normalized === "prod" || normalized === "live" || normalized === "customer" || normalized === "customers") {
+    return "production";
+  }
+  return "local";
+}
+
+function isValidProofRunId(value) {
+  return /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/.test(value);
+}
+
 function normalizeAttachmentMaxSizeMb(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_ATTACHMENT_MAX_SIZE_MB;
@@ -457,16 +624,20 @@ function hasConfiguredValue(value) {
 function sanitizeFilename(value) {
   const cleaned = String(value || "")
     .trim()
+    .replace(/\.\.+/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-");
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return cleaned || "object.bin";
 }
 
 function safeSegment(value) {
   return String(value || "")
     .trim()
+    .replace(/\.\.+/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-") || "segment";
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "") || "segment";
 }
 
 function sha256(buffer) {
@@ -642,6 +813,9 @@ module.exports = {
   buildObjectStorageProof,
   buildAttachmentObjectKey,
   buildGeneratedDocumentObjectKey,
+  buildArchiveObjectKey,
+  buildSignedUrlProofPlan,
+  validateObjectKeyPolicy,
   sanitizeFilename,
   normalizeProofProvider,
   normalizeConfiguredProvider,
