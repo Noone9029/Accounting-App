@@ -4,6 +4,26 @@ Audit date: 2026-06-18
 
 Latest commit audited: `26dae02483745d39c9133f44f5674f60e9e0d23d` (`origin/main` after PR #64 merge) plus this security route read-only implementation branch.
 
+## 2026-06-18 Staging tenant isolation proof run blocker
+
+### Scope and boundaries
+
+- Scope: execute the merged PR #70 proof harness only when approved staging/proof inputs are present and the target is classified as staging/proof.
+- Boundaries remained in place: no staging proof run without credentials, no hosted/customer-data mutation, no production target, no Supabase command, no Vercel deploy command, no production database command, no schema change, no migration, no seed/reset/delete, no broad cleanup, no provider integration call, no real bank feed, no payment processor integration, no real email, no ZATCA production work, and no UAE Peppol/ASP production work.
+
+### Findings
+
+- PR #70 is present on `origin/main` at `55c44407bceffe838ddf90502023afca1f28252c`.
+- The current environment is missing the staging/proof target and all execution credentials/gates: staging environment or CLI equivalent, base URL or CLI equivalent, base allow gate, read-only allow gate, staging mutation allow gate, proof-run ID, auth token, synthetic tenant A ID, and synthetic tenant B ID.
+- The harness contract still reports all modes with `networkEnabled=false` and `mutationEnabled=false`; staging modes are currently readiness classifications, not network adapters.
+
+### Outcome
+
+- Staging proof was not executed.
+- Local safety verification passed, including the harness tests, accounting tenant isolation regression, bank account service slice, API/web typechecks, `verify:diff`, and whitespace checks.
+- Local dry-run and local read-only-plan classifications remained non-networked and non-mutating.
+- Hosted/customer-data isolation evidence remains unavailable until approved staging inputs and a network-capable proof adapter are supplied.
+
 ## 2026-06-18 Staging tenant isolation proof execution contract
 
 ### Scope and boundaries

@@ -8,6 +8,46 @@ Purpose: define the hosted tenant isolation evidence LedgerByte needs before pro
 
 This plan is documentation-only. No hosted command, Supabase command, Vercel command, production database command, seed, reset, delete, migration, schema change, provider call, real bank feed, payment processor integration, real email, ZATCA call, UAE ASP call, Peppol call, or customer-data mutation is authorized by this document.
 
+## 2026-06-18 Staging Proof Run Blocker Record
+
+Branch `feature/execute-staging-tenant-isolation-proof` attempted to execute the PR #70 staging proof only up to the safe local classification boundary.
+
+The staging proof was not executed because these required staging/proof inputs were missing from the current process environment:
+
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_ENVIRONMENT=staging` or the equivalent `--environment staging` CLI flag.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_BASE_URL` or the equivalent `--base-url <staging-proof-url>` CLI flag.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_READONLY_ALLOW=1`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_STAGING_MUTATION_ALLOW=1`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_AUTH_TOKEN`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_A_ID`.
+- `LEDGERBYTE_HOSTED_TENANT_PROOF_TENANT_B_ID`.
+
+Local dry-run evidence:
+
+- Command: `corepack pnpm tenant-isolation:proof`.
+- Result: `safety=ready`, `environment=local`, `targetHost=localhost`, `productionLooking=false`, `networkEnabled=false`, `mutationEnabled=false`.
+- Missing variable reported: `LEDGERBYTE_HOSTED_TENANT_PROOF_RUN_ID`.
+
+Local read-only plan evidence:
+
+- Command: `LEDGERBYTE_HOSTED_TENANT_PROOF_ALLOW=1 corepack pnpm tenant-isolation:proof -- --mode read-only-plan --proof-run-id proof-20260618-local --base-url http://localhost:3001`.
+- Result: `safety=ready`, `networkEnabled=false`, `mutationEnabled=false`, `cleanupScope=proofRunId-only`, `syntheticDataLabel=LB-TENANT-PROOF:proof-20260618-local`.
+- No auth token, secret-like URL value, database URL, storage credential, document body, attachment body, signed XML, QR payload, private key, auth header, cookie, or customer data was printed.
+
+No staging read-only probe or staging synthetic proof was run. No hosted network call, hosted/customer-data mutation, production target, Supabase command, Vercel deploy command, production database command, schema change, migration, seed/reset/delete, broad cleanup, provider call, ZATCA call, UAE Peppol/ASP call, email, bank-feed call, or payment processor integration was run.
+
+Remaining prerequisites before staging execution:
+
+- Approved staging or dedicated proof URL that classifies as staging, sandbox, test, or proof.
+- Approved staging auth token.
+- Synthetic tenant A and tenant B IDs.
+- Unique proof-run ID.
+- Explicit base allow, read-only allow, and staging mutation allow gates.
+- Read-only probe result before any synthetic mutation mode.
+- Confirmation that all write-capable proof operations are proof-run-ID scoped and cleanup is not broad.
+
 ## Current Local Proof
 
 PR #67 merged into `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223`.

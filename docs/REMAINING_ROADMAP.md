@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-18 Staging Tenant Isolation Proof Run Blocker
+
+- Branch `feature/execute-staging-tenant-isolation-proof` started from `origin/main` at PR #70 merge commit `55c44407bceffe838ddf90502023afca1f28252c`.
+- Staging proof was not executed because the approved staging/proof URL, proof-run ID, auth token, synthetic tenant A/B IDs, base allow gate, read-only allow gate, and staging mutation allow gate were not present in the current environment.
+- Local verification and local harness classifications passed without network or mutation.
+- Next arc: provide approved staging/proof credentials and synthetic tenant IDs, then run `dry-run`, `read-only-plan`, `staging-read-only-probe`, and `staging-synthetic-proof` in order only if the harness classifies the target as staging/proof.
+- Do not proceed to production or customer data. Keep Supabase/Vercel mutation commands, schema changes, migrations, seeds/resets/deletes, provider calls, ZATCA calls, UAE Peppol/ASP calls, email, bank feeds, and payment processors out of scope unless a later prompt explicitly changes that boundary.
+- Recommended next prompt: `Provide approved staging tenant proof credentials and run staging isolation proof`.
+
 ## 2026-06-18 Staging Tenant Isolation Proof Execution Contract
 
 - Branch `feature/staging-tenant-isolation-proof-execution` extends the PR #69 harness into a fail-closed staging execution contract.
