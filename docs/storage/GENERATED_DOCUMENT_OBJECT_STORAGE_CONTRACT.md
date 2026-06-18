@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Scope: production-readiness implementation contract only. This contract does not enable generated-document object storage, migrate generated documents, create real signed URLs, touch hosted buckets, change schema, apply migrations, apply SQL templates, roll out RLS, apply a runtime DB role, or add ZATCA/UAE provider production behavior.
 
+2026-06-19 implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` consumes this contract and defines the future phased path. The implementation plan keeps current DB-backed reads as the default, object storage disabled by default, signed URLs optional/proof-gated, and schema/migration work blocked until explicit approval.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.

@@ -2,7 +2,16 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` (`origin/main` after PR #76 merge) plus the generated-document object-storage contract branch.
+Latest commit audited: `757daf8bd83e351c3c14a349e2fc38f520d4933c` (`origin/main` after PR #77 merge) plus the generated-document object-storage implementation-plan branch.
+
+## 2026-06-19 Generated Document Object Storage Implementation Plan Update
+
+- Production-readiness clarity improves because the generated-document object-storage path is now sequenced into DB-adapter, fake local adapter, disabled object adapter, metadata/schema approval, staging proof, backfill rehearsal, optional signed URLs, and production approval phases.
+- Local harness confidence improves because `scripts/object-storage-proof-validate.cjs` now reports generated-document implementation-plan guardrails and tests require disabled defaults, DB fallback, generated-document-id anchored keys, migration approval, local-only fake adapter posture, and hosted-mutation refusal.
+- One local proof-helper defect was fixed: mock-cycle generated-document object keys now use the generated document id anchor instead of source-field fallback.
+- No readiness score increase is taken for production launch readiness. Generated documents remain database-backed, generated-document object storage is not implemented, signed URLs are not implemented, hosted bucket/storage proof was not run, and no real hosted signed URL was generated.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, dedicated staging bucket, hosted object-storage proof, bucket policy proof, generated-document object-storage implementation/proof, real signed URL implementation/proof if URLs are used, schema/migration approval if required, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner/legal/accounting/security sign-off, and provider evidence.
 
 ## 2026-06-19 Generated Document Object Storage Contract Update
 

@@ -26,6 +26,17 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Generated document object-storage implementation plan:
+
+- Added `feature/generated-document-object-storage-implementation-plan` from clean `origin/main` at `757daf8bd83e351c3c14a349e2fc38f520d4933c` after PR #77 merged.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- Updated linked storage/security/risk docs to point to the implementation plan and keep generated-document object storage planned, disabled, and proof-gated.
+- Extended `scripts/object-storage-proof-validate.cjs` with generated-document object-storage implementation-plan guardrails covering disabled default, DB fallback, generated-document-id key anchor, adapter rollout, metadata/schema approval gate, dual-write rollback, staging proof, and optional signed URL posture.
+- Fixed one local proof-helper bug: mock-cycle generated-document object keys now include the generated-document id anchor.
+- Generated documents remain database-backed. Generated-document object storage was not implemented, signed URLs were not implemented, hosted object storage was not touched, and no schema or migration changes were made.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Generated document object-storage contract:
 
 - Added `feature/generated-document-object-storage-contract` from clean `origin/main` at `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` after PR #76 merged.

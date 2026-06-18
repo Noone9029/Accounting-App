@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Storage Implementation Plan Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-storage-implementation-plan`, from clean `origin/main` at `757daf8bd83e351c3c14a349e2fc38f520d4933c` after PR #77 merged.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- Current generated-document state remains DB-backed through `GeneratedDocumentService.archivePdf()` with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, organization scope, and API-mediated downloads by generated-document id.
+- The plan defines a DB-fallback-first implementation path: interface design, DB adapter default, fake local object adapter for tests, disabled object adapter, metadata/schema approval gate, staging proof, migration rehearsal, optional signed URLs after proof, and production rollout only after backup/restore, retention/legal-hold/malware-scan, observability, and owner approval.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run generated-document contract output includes implementation-plan guardrails: disabled default, DB fallback, generated-document-id key anchor, no migration implementation, optional signed URLs, local fake adapter, staging proof requirements, and hosted-mutation refusal.
+- Fixed one local proof-helper bug: mock-cycle generated-document object keys now include the generated document id anchor instead of falling back to source fields.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, real hosted signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, hosted object-storage proof, bucket policy proof, generated-document object-storage implementation/proof, real signed URL implementation/proof if used, schema/migration approval if required, backup/restore proof, retention/legal-hold/malware-scan evidence, observability evidence, owner/legal/accounting/security sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Approve generated-document object storage adapter interface implementation`.
+
 ## Generated Document Object Storage Contract Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-storage-contract`, from clean `origin/main` at `a118d0b7b9bd711d04dd74a5c1f6803417970fd3` after PR #76 merged.

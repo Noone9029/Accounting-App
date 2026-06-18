@@ -10,6 +10,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document object-storage contract update: a local-only follow-up added `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_CONTRACT.md`, `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_RISK_REGISTER.md`, and generated-document object-storage contract output in `scripts/object-storage-proof-validate.cjs`. Generated documents remain database-backed; generated-document object storage and signed URLs remain not implemented. Future generated-document object keys must be tenant-prefixed, generated-document-id anchored, normalized, server-derived, and authorized before object-key or signed URL resolution.
 
+2026-06-19 generated-document object-storage implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` now defines the implementation sequence. The plan keeps DB-backed reads as the default, requires generated-document storage adapters before provider rollout, uses fake local object storage only for tests, keeps object writes/reads disabled until explicit staging proof, and stops for explicit approval before any schema or migration work.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -123,6 +125,7 @@ Mutation checks only in staging/proof environment after explicit approval:
 - No hosted storage proof has been run.
 - No real signed URL proof exists.
 - Generated document object storage is not implemented.
+- Generated document object-storage implementation is planned but not enabled.
 - Database/base64 remains the default storage mode.
 - No database-to-object-storage migration executor exists.
 - No live bucket readiness probe has been run in this pass.
@@ -152,6 +155,7 @@ Storage tenant isolation is not production-grade until:
 - No real signed URL was generated.
 - No real customer document was accessed.
 - No schema or migration changes were made.
+- No generated-document object-storage implementation was added.
 - No ZATCA production work was added.
 - No UAE Peppol/PINT-AE/ASP production work was added.
 - Provider evidence remains unavailable.

@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Storage Implementation Plan
+
+- Branch `feature/generated-document-object-storage-implementation-plan` adds a local-only generated-document object-storage implementation plan after PR #77.
+- New docs: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` and `docs/development/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN_SPRINT_CLOSURE.md`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports generated-document implementation-plan guardrails for disabled defaults, DB fallback, generated-document-id anchored keys, metadata/schema approval, adapter rollout, dual-write rollback, staging proof, and optional signed URL posture.
+- Local proof-helper fix: mock-cycle generated-document object keys now include the generated document id anchor.
+- Generated documents remain database-backed. Generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Next arc should implement the generated-document storage adapter interface with the database adapter as the default only after approval, keeping object storage disabled and no schema migration unless separately approved.
+- Recommended next prompt: `Approve generated-document object storage adapter interface implementation`.
+
 ## 2026-06-19 Generated Document Object Storage Contract
 
 - Branch `feature/generated-document-object-storage-contract` adds a local-only generated-document object-storage implementation contract after PR #76.

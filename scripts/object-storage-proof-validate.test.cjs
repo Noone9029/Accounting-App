@@ -60,6 +60,10 @@ test("mock-cycle uses only a temp directory, verifies content, and cleans up", (
   assert.equal(fs.existsSync(result.mockCycle.tempRoot), false);
   assert.equal(result.mockCycle.attachment.contentType, "text/plain");
   assert.equal(result.mockCycle.generatedDocument.contentType, "application/pdf");
+  assert.equal(
+    result.mockCycle.generatedDocument.objectKey,
+    "org/00000000-0000-0000-0000-000000000001/generated-documents/generated-document-proof/Sales-Invoice-1001-proof-.pdf",
+  );
 });
 
 test("s3-compatible dry-run validates config by key name only and never prints secret values", () => {
@@ -236,6 +240,38 @@ test("generated-document object-storage contract is local-only and complete enou
   assert.equal(result.generatedDocumentObjectStorageContract.migration.rollbackToDatabaseContentRequired, true);
   assert.equal(result.generatedDocumentObjectStorageContract.editionSafety.futureKsaArtifactsEditionGated, true);
   assert.equal(result.generatedDocumentObjectStorageContract.editionSafety.futureUaeArtifactsEditionGated, true);
+});
+
+test("generated-document implementation plan remains disabled by default and fallback-first", () => {
+  const result = buildObjectStorageProof({
+    repoRoot,
+    env: {},
+    dryRun: true,
+  });
+
+  const plan = result.generatedDocumentObjectStorageContract.implementationPlan;
+  assert.equal(plan.currentBehaviorPreserved, true);
+  assert.equal(plan.objectStorageDisabledByDefault, true);
+  assert.equal(plan.dbBackedFallbackRequired, true);
+  assert.equal(plan.signedUrlsRequiredForInitialImplementation, false);
+  assert.equal(plan.objectKeyAnchor, "generatedDocumentId");
+  assert.equal(
+    plan.objectKeyExample,
+    "org/00000000-0000-0000-0000-000000000001/generated-documents/generated-document-proof/Sales-Invoice-1001-proof-.pdf",
+  );
+  assert.equal(plan.metadataDecision.migrationImplementationIncluded, false);
+  assert.equal(plan.metadataDecision.explicitApprovalRequiredForMigration, true);
+  assert.equal(plan.adapterContract.databaseAdapterDefault, true);
+  assert.equal(plan.adapterContract.fakeAdapterLocalTestsOnly, true);
+  assert.equal(plan.adapterContract.s3AdapterFutureDisabledByDefault, true);
+  assert.equal(plan.rollbackRequirements.fallbackToDatabaseRequired, true);
+  assert.equal(plan.rollbackRequirements.hashMismatchBlocksCutover, true);
+  assert.equal(plan.stagingProofRequirements.customerDataAllowed, false);
+  assert.equal(plan.stagingProofRequirements.hostedStorageMutationAllowedByThisValidator, false);
+  assert.equal(
+    plan.featureFlags.map((flag) => flag.name).includes("LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_STORAGE_ENABLED"),
+    true,
+  );
 });
 
 test("signed URL staging proof plan blocks without allow flags, proofRunId, or safe target classification", () => {

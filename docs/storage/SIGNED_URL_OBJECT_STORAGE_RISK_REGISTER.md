@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Scope: signed URL and object-storage tenant-boundary proof design.
 
+2026-06-19 implementation-plan update: generated-document object storage remains DB-backed and signed URLs remain not implemented. The implementation plan does not require signed URLs for initial generated-document object storage; signed URLs stay a later proof-gated phase if performance or provider constraints require them.
+
 | Risk | Current status | Local mitigation | Remaining blocker |
 | --- | --- | --- | --- |
 | Signed URL issued before tenant authorization | Not implemented | Proof plan requires authorization before URL shape | Implement signed URL path and prove in staging |
@@ -17,3 +19,4 @@ Scope: signed URL and object-storage tenant-boundary proof design.
 | Stale signed URL after permission removal | Not implemented | TTL/revocation behavior is an explicit acceptance item | Signed URL implementation and staging proof |
 | Secret or URL logging | Not implemented | Harness output records no real URLs, no secrets, no signed URL bodies | Logging tests when URL issuance exists |
 | Cleanup removes unrelated objects | Not run | Harness cleanup scope is proof-run-id-only when proofRunId is valid | Staging cleanup adapter and review |
+| Signed URLs added before object-read proof | Not implemented | Implementation plan keeps API-mediated DB fallback first and makes signed URLs optional | Add URL issuance only after generated-document object storage and staging proof pass |
