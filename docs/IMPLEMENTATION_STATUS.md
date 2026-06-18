@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-18 Accounting concurrency idempotency regression:
+
+- Added `feature/accounting-concurrency-idempotency-regression` from clean `origin/main` at `5d6a084635cca7080977920fa236173055804e3f` after PR #73 merged.
+- Added `apps/api/src/accounting-concurrency-idempotency-regression.spec.ts`, `docs/development/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_REGRESSION_SPRINT_CLOSURE.md`, and `docs/accounting/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_RISK_REGISTER.md`.
+- Fixed one real stale-write defect: manual bank statement matching now conditionally claims the statement transaction while it is still `UNMATCHED` before writing match fields.
+- Local regression coverage now includes duplicate sales invoice finalization, duplicate customer payment allocation, and stale bank statement match attempts.
+- This pass also inventoried existing local guards across sales invoices, customer payments, credit notes, purchase bills, supplier payments, purchase debit notes, journal entries, bank statements, bank reconciliations, generated documents, attachments, audit logs, permissions, and tenant context.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, object-storage mutation, signed URL generation, ZATCA production work, UAE Peppol/ASP work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Remaining blockers include API idempotency-key design, schema/locking strategy review if needed, staging/proof multi-process evidence, hosted/customer-data proof, storage/signed URL proof, backup/restore proof, observability evidence, owner sign-off, and provider/production credential evidence.
+
 2026-06-18 Least-privilege runtime role and RLS staging design:
 
 - Added `feature/least-privilege-runtime-role-rls-staging-design` from clean `origin/main` at `40a6c66d2e09e264f26ce50e0930851328abba94` after PR #72 merged.

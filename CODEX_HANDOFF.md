@@ -1,5 +1,17 @@
 # LedgerByte Codex Handoff
 
+## Accounting Concurrency Idempotency Regression Summary (2026-06-18)
+
+- Current branch: `feature/accounting-concurrency-idempotency-regression`, from clean `origin/main` at `5d6a084635cca7080977920fa236173055804e3f` after PR #73 merged.
+- Added local API regression coverage in `apps/api/src/accounting-concurrency-idempotency-regression.spec.ts`.
+- Fixed one real stale-write defect: manual bank statement matching now uses a conditional `UNMATCHED` claim before writing the match, so a stale duplicate match request rejects instead of overwriting an already matched statement transaction.
+- Updated existing bank statement service tests for the new conditional claim path.
+- Added `docs/development/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_REGRESSION_SPRINT_CLOSURE.md` and `docs/accounting/ACCOUNTING_CONCURRENCY_IDEMPOTENCY_RISK_REGISTER.md`.
+- Local tests now cover representative duplicate/race scenarios for sales invoice finalization, customer payment allocation, and bank statement matching; existing service specs already cover many payment, credit/debit note, bill, void/reversal, and stale claim guards.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, object-storage mutation, signed URL generation, provider call, ZATCA production work, UAE Peppol/ASP work, real email, real bank feed, or payment processor integration was performed.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, staging tenant isolation proof, runtime-role/RLS staging proof, storage/signed URL proof, backup/restore proof, hosted multi-process accounting race evidence, observability evidence, owner sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design accounting idempotency key and locking strategy`.
+
 ## Least-Privilege Runtime Role And RLS Staging Design Summary (2026-06-18)
 
 - Current branch: `feature/least-privilege-runtime-role-rls-staging-design`, from clean `origin/main` at `40a6c66d2e09e264f26ce50e0930851328abba94` after PR #72 merged.

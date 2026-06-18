@@ -68,7 +68,14 @@ describe("BankStatementService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         update: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
-        updateMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          ...statementTransaction,
+          status: BankStatementTransactionStatus.MATCHED,
+          matchedJournalLineId: "line-1",
+          matchedJournalEntryId: "journal-1",
+          matchType: BankStatementMatchType.JOURNAL_LINE,
+        }),
       },
       bankReconciliation: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -601,15 +608,20 @@ describe("BankStatementService", () => {
     await expect(
       service.matchTransaction("org-1", "user-1", "statement-transaction-1", { journalLineId: "line-1" }),
     ).resolves.toMatchObject({ status: BankStatementTransactionStatus.MATCHED, matchedJournalLineId: "line-1" });
-    expect(prisma.bankStatementTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: BankStatementTransactionStatus.MATCHED,
-          matchedJournalLineId: "line-1",
-          matchType: BankStatementMatchType.JOURNAL_LINE,
-        }),
-      }),
-    );
+    expect(prisma.bankStatementTransaction.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "statement-transaction-1",
+        organizationId: "org-1",
+        status: BankStatementTransactionStatus.UNMATCHED,
+      },
+      data: {
+        status: BankStatementTransactionStatus.MATCHED,
+        matchedJournalLineId: "line-1",
+        matchedJournalEntryId: "journal-1",
+        matchType: BankStatementMatchType.JOURNAL_LINE,
+      },
+    });
+    expect(prisma.bankStatementTransaction.update).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "MATCH", entityType: "BankStatementTransaction" }));
   });
 
