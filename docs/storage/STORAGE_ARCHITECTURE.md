@@ -66,6 +66,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 generated-document object adapter staging preflight update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now checks those future staging gates locally. It classifies staging/proof/local/production-looking target values, requires explicit allow and confirmation flags, redacts credential-like values, and reports `networkEnabled=false`, `mutationEnabled=false`, and `mutationAllowed=false`. This does not add a provider, adapter, bucket connection, signed URL path, schema change, migration, or runtime storage change.
 
+2026-06-19 generated-document object adapter staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future staging proof runner contract. `scripts/generated-document-object-adapter-staging-runner.cjs` is a local-only fail-closed skeleton with active `help`, `plan`, `preflight`, and `dry-run` modes only. Future hosted read/write/cleanup/evidence modes are blocked placeholders. This does not add a provider, adapter, bucket connection, signed URL path, schema change, migration, or runtime storage change.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`

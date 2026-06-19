@@ -1,5 +1,18 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Adapter Staging Runner Design
+
+- Branch `feature/generated-document-object-adapter-staging-runner-design` adds a local-only runner design and fail-closed skeleton after PR #83.
+- New design doc: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md`.
+- New helper: `scripts/generated-document-object-adapter-staging-runner.cjs`.
+- New tests: `scripts/generated-document-object-adapter-staging-runner.test.cjs`.
+- Package scripts: `proof:generated-documents:object-staging-runner-plan` and `test:generated-documents:object-staging-runner`.
+- Active modes are `help`, `plan`, `preflight`, and `dry-run`.
+- Future modes remain blocked: `read-only-check`, `synthetic-write-plan`, `synthetic-write-proof`, `cleanup-plan`, `cleanup-proof`, and `evidence-summary`.
+- No hosted proof was executed. No hosted object storage was touched. No hosted/customer data was mutated. No signed URLs were generated. No real object adapter was implemented. No schema or migration change was made.
+- Remaining blockers before production are unchanged: approved staging/proof credentials, synthetic tenants, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof or accepted compensating control, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if required, migration rehearsal, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, and owner/security/accounting/legal sign-off.
+- Next recommended arc: approve real generated-document object adapter staging implementation design.
+
 ## 2026-06-19 Generated Document Object Adapter Staging Preflight Helper
 
 - Branch `feature/generated-document-object-adapter-staging-preflight` adds a local-only preflight helper after PR #82.

@@ -1,6 +1,14 @@
 # Implementation Status
 
-Audit date: 2026-06-18
+Audit date: 2026-06-19
+
+Generated-document object adapter staging runner design (2026-06-19):
+
+- `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and future execution sequence.
+- `scripts/generated-document-object-adapter-staging-runner.cjs` is a local-only fail-closed skeleton. Active modes are `help`, `plan`, `preflight`, and `dry-run`; hosted proof modes are future-gated blocked placeholders.
+- `scripts/object-storage-proof-validate.cjs` detects the runner design/helper/tests but still reports generated-document object adapter staging proof readiness as false.
+- Runtime generated-document storage remains database-backed. Real object storage and signed URLs remain unimplemented and unproven.
+- No hosted proof, hosted storage connection, hosted/customer mutation, schema/migration change, SQL/RLS/runtime-role application, or ZATCA/UAE provider work is included.
 
 Product Audit v2:
 

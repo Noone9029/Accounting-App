@@ -21,6 +21,8 @@
     "test:storage-proof-validate": "node --test scripts/object-storage-proof-validate.test.cjs",
     "proof:generated-documents:object-staging-preflight": "node scripts/generated-document-object-adapter-staging-preflight.cjs --strict --dry-run",
     "test:generated-documents:object-staging-preflight": "node --test scripts/generated-document-object-adapter-staging-preflight.test.cjs",
+    "proof:generated-documents:object-staging-runner-plan": "node scripts/generated-document-object-adapter-staging-runner.cjs --mode plan --json",
+    "test:generated-documents:object-staging-runner": "node --test scripts/generated-document-object-adapter-staging-runner.test.cjs",
     "backup:restore-proof": "node scripts/backup-restore-proof-harness.cjs",
     "test:backup-restore-proof": "node --test scripts/backup-restore-proof-harness.test.cjs",
     "tenant-isolation:proof": "corepack pnpm --filter @ledgerbyte/api tenant-isolation:proof",

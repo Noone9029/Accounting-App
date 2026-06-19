@@ -12,13 +12,20 @@ The current runtime default remains `DatabaseGeneratedDocumentStorageAdapter`. E
 
 2026-06-19 preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now evaluates these gates locally before any future staging proof runner is allowed to proceed. The helper supports human-readable output, `--help`, `--json`, `--strict`, and `--dry-run`; it classifies environment/target values, requires explicit allow flags, requires distinct synthetic Tenant A/B ids, requires `proofRunId`, checks rollback/evidence/bucket-policy/credential-scope confirmations, and redacts secret-like values. It does not connect to hosted storage or databases, mutate hosted/customer data, write or delete objects, generate signed URLs, enable object storage, switch runtime defaults, or execute staging proof.
 
+2026-06-19 runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future proof runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and execution sequence. `scripts/generated-document-object-adapter-staging-runner.cjs` is a local-only fail-closed skeleton. Only `help`, `plan`, `preflight`, and `dry-run` are active now; hosted read/write/cleanup/evidence modes return future-gated statuses. The runner reports `networkEnabled=false`, `mutationEnabled=false`, `mutationAllowed=false`, `proofExecuted=false`, `hostedStorageTouched=false`, and `signedUrlsGenerated=false`.
+
 Local commands:
 
 ```bash
 node scripts/generated-document-object-adapter-staging-preflight.cjs --help
 node scripts/generated-document-object-adapter-staging-preflight.cjs --json --dry-run
 node scripts/generated-document-object-adapter-staging-preflight.cjs --json --strict --dry-run
+node scripts/generated-document-object-adapter-staging-runner.cjs --help
+node scripts/generated-document-object-adapter-staging-runner.cjs --mode plan --json
+node scripts/generated-document-object-adapter-staging-runner.cjs --mode dry-run --json --strict
+node scripts/generated-document-object-adapter-staging-runner.cjs --mode read-only-check --json
 corepack pnpm proof:generated-documents:object-staging-preflight
+corepack pnpm proof:generated-documents:object-staging-runner-plan
 ```
 
 Example staging-placeholder invocation for local validation only:
@@ -214,6 +221,8 @@ The current `scripts/object-storage-proof-validate.cjs` remains local/dry-run on
 
 The preflight helper is also local/dry-run only. Missing gates produce `stagingProofReady=false`; strict mode exits non-zero for missing or unsafe gates. When every local preflight input is satisfied, `executionAllowed=true` only means the preflight gate is clean for a separately approved future proof runner. `mutationAllowed=false`, `networkEnabled=false`, and `mutationEnabled=false` remain true for this helper in all cases.
 
+The runner skeleton is also local-only. `plan` and `dry-run` never connect to hosted services. `preflight` delegates to the helper and can report `PREFLIGHT_PASSED_RUNNER_STILL_NOT_READY` when fake staging placeholders satisfy local gates, but runner proof execution remains blocked. `read-only-check`, `synthetic-write-plan`, `synthetic-write-proof`, `cleanup-plan`, `cleanup-proof`, and `evidence-summary` are future-gated placeholders in this pass.
+
 ## Evidence Gates
 
 Evidence must be sanitized and complete:
@@ -290,6 +299,7 @@ A production generated-document object-adapter rollout remains blocked until all
 - Generated-document object storage is not enabled.
 - Staging generated-document object adapter proof has not been executed.
 - Hosted object storage is not touched or proven by this gate design.
+- Runner design and runner dry-run output do not prove hosted object storage.
 - Bucket policy is not proven by this gate design.
 - Signed URLs are not implemented or proven.
 - Backup/restore is not proven.

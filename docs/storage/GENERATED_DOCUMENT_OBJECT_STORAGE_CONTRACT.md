@@ -16,6 +16,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 staging preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now turns the staging-gate contract into a local-only preflight check. It evaluates required env vars and confirmations, rejects production-looking or ambiguous targets, requires distinct synthetic tenants, requires `proofRunId`, redacts credentials, and reports readiness without network or mutation. This helper is not a real adapter, not hosted object storage, not signed URL support, not proof execution, and not production enablement.
 
+2026-06-19 staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future staging proof runner contract and `scripts/generated-document-object-adapter-staging-runner.cjs` adds a local-only fail-closed skeleton. Active modes are limited to `help`, `plan`, `preflight`, and `dry-run`; future hosted modes are blocked. This runner is not a real adapter, not hosted object storage, not signed URL support, not proof execution, and not production enablement.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.
@@ -25,6 +27,8 @@ The service now delegates content write/read/hash behavior to a generated-docume
 The disabled object adapter is diagnostic/proof code only. It does not connect to hosted object storage, does not read or write objects, does not generate signed URLs, and must not be treated as object-storage readiness.
 
 The fake local object adapter is local/test proof code only. It does not connect to hosted object storage, does not use credentials, does not generate signed URLs, and must not be selected for production-looking environments.
+
+The staging runner skeleton is local planning/proof-readiness code only. It does not read or write generated-document bodies, does not list or touch buckets, does not connect to a database, and does not change the runtime adapter selection.
 
 Attachments have separate S3-compatible groundwork behind `ATTACHMENT_STORAGE_PROVIDER=s3`; generated documents do not use that adapter today. `StorageService` reports generated-document S3 as not implemented and keeps generated-document migration planning dry-run/count-only. Signed URLs are not implemented; `StorageProvider.getReadUrl` is only an optional interface hook and no provider issues URLs.
 
