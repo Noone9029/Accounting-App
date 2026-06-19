@@ -500,6 +500,19 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
   const environment = options.environment || process.env;
   const repoRoot = resolveRepoRoot(options.repoRoot || options.cwd || process.cwd());
   const gatesDocumentPath = path.join(repoRoot, "docs", "storage", "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md");
+  const approvalEvidencePackagePath = path.join(
+    repoRoot,
+    "docs",
+    "storage",
+    "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md",
+  );
+  const approvalSignoffTemplatePath = path.join(
+    repoRoot,
+    "docs",
+    "storage",
+    "templates",
+    "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_SIGNOFF_TEMPLATE.md",
+  );
   const gateApprovalRecordPath = path.join(
     repoRoot,
     "docs",
@@ -549,9 +562,13 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
     ...(allow === "1" && stagingAllow === "1" ? [] : ["Missing explicit generated-document object adapter staging allow flags."]),
     ...(hasConfiguredValue(tenantA) && hasConfiguredValue(tenantB) ? [] : ["Missing synthetic Tenant A/B identifiers."]),
   ];
+  const approvalEvidencePackage = readGeneratedDocumentObjectAdapterStagingApprovalEvidencePackage(approvalEvidencePackagePath);
 
   return {
     generatedDocumentObjectAdapterStagingGatesDocumented: fs.existsSync(gatesDocumentPath),
+    generatedDocumentObjectAdapterStagingApprovalEvidencePackageDetected: approvalEvidencePackage.detected,
+    generatedDocumentObjectAdapterStagingApprovalEvidencePackageTemplateOnly: approvalEvidencePackage.templateOnly,
+    generatedDocumentObjectAdapterStagingApprovalSignoffTemplateDetected: fs.existsSync(approvalSignoffTemplatePath),
     generatedDocumentObjectAdapterStagingGateApprovalRecordDetected: gateApprovalRecord.detected,
     generatedDocumentObjectAdapterStagingGateApprovalStatus: gateApprovalRecord.status,
     generatedDocumentObjectAdapterStagingGateApprovalApproved: gateApprovalRecord.approved,
@@ -627,11 +644,32 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
     blockers,
     notes: [
       "This local validator only reports staging gate status. It does not connect to hosted object storage.",
+      "The generated-document object adapter staging approval evidence package is a preparation artifact only and does not approve gates.",
       "The generated-document object adapter staging preflight helper is local-only and does not execute staging proof.",
       "Generated-document object adapter staging proof remains blocked until every required gate is satisfied.",
       "The generated-document object adapter staging runner skeleton is local-only and does not execute hosted proof.",
       "Production rollout remains blocked after staging proof until backup/restore, retention/legal-hold, observability, and owner approvals are complete.",
     ],
+  };
+}
+
+function readGeneratedDocumentObjectAdapterStagingApprovalEvidencePackage(packagePath) {
+  if (!fs.existsSync(packagePath)) {
+    return {
+      detected: false,
+      templateOnly: false,
+    };
+  }
+
+  const source = safeReadFile(packagePath);
+  const explicitlyNotApproval =
+    /does not approve/i.test(source) &&
+    /Do not treat this package as approval/i.test(source) &&
+    (/(Current status|Approval status)\s*[:|]\s*`?BLOCKED`?/i.test(source) || /Approval status\s*\|\s*`?BLOCKED`?/i.test(source));
+
+  return {
+    detected: true,
+    templateOnly: explicitlyNotApproval,
   };
 }
 

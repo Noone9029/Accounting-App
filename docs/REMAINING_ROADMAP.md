@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Adapter Staging Approval Evidence Package
+
+- Branch `feature/generated-document-object-adapter-staging-approval-evidence-package` prepares the approval evidence package after PR #85.
+- New package: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md`.
+- New template: `docs/storage/templates/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_SIGNOFF_TEMPLATE.md`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now detects the approval evidence package and sign-off template.
+- Current status remains `BLOCKED`; gates are not approved and runner proof execution remains `NOT_READY`.
+- Missing inputs remain owner/security/storage/accounting/legal-if-needed approvals, production/customer-data exclusions, staging environment name, dedicated non-production bucket, staging-only credential scope details, synthetic Tenant A/B ids, approved `proofRunId` pattern, rollback/evidence confirmations, bucket-policy review, credential-scope review, no-production-target confirmation, and final sign-offs.
+- No hosted proof was executed. No hosted object storage was touched. No hosted/customer data was mutated. No signed URLs were generated. No real object adapter was implemented. No schema or migration change was made.
+- Recommended next prompt: `Provide generated-document object adapter staging approval artifacts`.
+
 ## 2026-06-19 Generated Document Object Adapter Staging Gate Approval Record
 
 - Branch `feature/generated-document-object-adapter-staging-gate-approval` records gate approval status after PR #84.

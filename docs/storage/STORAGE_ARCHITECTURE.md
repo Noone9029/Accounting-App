@@ -70,6 +70,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 generated-document object adapter staging gate approval update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records gate approval status as `BLOCKED`. The architecture remains unchanged: the runner is `NOT_READY`, generated documents remain DB-backed, no hosted proof has run, no hosted object storage has been touched, and no signed URLs have been generated.
 
+2026-06-19 generated-document object adapter staging approval evidence package update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` prepares the future approval request packet and sign-off template. This is approval-package-only evidence. It does not approve gates, does not run proof, does not touch hosted object storage, does not mutate hosted/customer data, does not generate signed URLs, does not implement a real object adapter, and does not change the DB-backed runtime default.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`

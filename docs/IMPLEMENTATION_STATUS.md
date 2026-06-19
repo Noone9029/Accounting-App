@@ -2,6 +2,15 @@
 
 Audit date: 2026-06-19
 
+Generated-document object adapter staging approval evidence package (2026-06-19):
+
+- `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` prepares the future human approval packet for generated-document object adapter staging proof gates.
+- `docs/storage/templates/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_SIGNOFF_TEMPLATE.md` provides a placeholder-only sign-off template.
+- Approval package prepared: yes. Approval evidence complete: no. Gates approved: no. Current gate approval status remains `BLOCKED`; runner state remains `NOT_READY`; future proof execution remains blocked.
+- `scripts/object-storage-proof-validate.cjs` detects the package and template while keeping `generatedDocumentObjectAdapterStagingGateApprovalApproved=false` and `generatedDocumentObjectAdapterStagingProofReady=false`.
+- The package includes the missing-evidence list, approval request checklist, exact future approval phrase, staging artifact intake checklist, bucket policy review checklist, credential scope review checklist, rollback/evidence checklist, scope exclusions, expiry rules, and next human actions.
+- No hosted proof, hosted storage connection, hosted/customer mutation, signed URL generation, real object adapter implementation, schema/migration change, SQL/RLS/runtime-role application, or ZATCA/UAE provider work is included.
+
 Generated-document object adapter staging gate approval record (2026-06-19):
 
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records current gate approval status as `BLOCKED`.

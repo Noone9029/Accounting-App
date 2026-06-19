@@ -20,6 +20,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 staging gate approval record update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records gate approval status as `BLOCKED`. The contract remains unchanged: no hosted proof may run until explicit approval evidence and required staging inputs exist.
 
+2026-06-19 approval evidence package update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` prepares the future approval packet and sign-off placeholders. The contract remains unchanged: the package is not approval, gates remain `BLOCKED`, the runner remains `NOT_READY`, generated documents remain DB-backed, real object storage remains unimplemented, and signed URLs remain unimplemented.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.
