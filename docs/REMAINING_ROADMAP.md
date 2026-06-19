@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-19 OpenBooks Clean-Room Adoption Planning
+
+- Branch `feature/openbooks-clean-room-adoption-plan` records the first planning-only clean-room adoption pass.
+- OpenBooks adoption is `PLANNED` only. No OpenBooks runtime behavior, API module, web route, Prisma migration, provider integration, storage behavior, or production behavior is implemented in this PR.
+- No OpenBooks code, schema, comments, UI text, file structure, implementation detail, dependency, source import, translated source, ported source, or vendored source is copied into LedgerByte.
+- Future exception Inbox, deterministic bookkeeping pipeline, AI proposal boundary, report pack, typed onboarding, integration health, document review, evidence packs, and disposable test-business fixtures must be LedgerByte-native clean-room implementations.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native app shell route registry`.
+
 ## 2026-06-19 Complete Generated Document Object Adapter Staging Approval Artifact Intake
 
 - Branch `feature/generated-document-object-adapter-complete-staging-approval-artifacts` records the follow-up complete approval-artifact intake attempt after PR #87.

@@ -15,6 +15,7 @@
     "verify:local:guards": "node scripts/verify-gate.cjs verify:local:guards",
     "verify:repo": "node scripts/verify-gate.cjs verify:repo",
     "verify:ci:local": "node scripts/verify-gate.cjs verify:ci:local",
+    "verify:openbooks-clean-room": "node scripts/openbooks-clean-room-validate.cjs --strict",
     "production:trust-foundation-gate": "node scripts/production-trust-foundation-gate.cjs",
     "test:production-trust-foundation-gate": "node --test scripts/production-trust-foundation-gate.test.cjs",
     "storage:proof-validate": "node scripts/object-storage-proof-validate.cjs",
