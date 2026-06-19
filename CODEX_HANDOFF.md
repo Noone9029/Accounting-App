@@ -1,5 +1,19 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Adapter Staging Runner Design Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-adapter-staging-runner-design`, from clean `origin/main` at `9813bf202f88e418e82c17052dd3f81442cb3e00` after PR #83 merged.
+- PR #83 baseline: local-only generated-document object adapter staging preflight helper exists and reports staging gate status without hosted connections, hosted mutation, signed URLs, schema changes, or runtime storage changes.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defining future runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and future execution sequence.
+- Added `scripts/generated-document-object-adapter-staging-runner.cjs` and tests. Active modes are `help`, `plan`, `preflight`, and `dry-run`; `read-only-check`, `synthetic-write-plan`, `synthetic-write-proof`, `cleanup-plan`, `cleanup-proof`, and `evidence-summary` are future-gated blocked placeholders.
+- The runner reports `networkEnabled=false`, `mutationEnabled=false`, `mutationAllowed=false`, `proofExecuted=false`, `hostedStorageTouched=false`, and `signedUrlsGenerated=false`. It imports the PR #83 preflight helper but does not import S3 SDKs, Prisma clients, or network-call APIs.
+- Extended `scripts/object-storage-proof-validate.cjs` to detect the runner design/helper/tests while keeping `generatedDocumentObjectAdapterStagingProofReady=false` and `generatedDocumentObjectAdapterStagingRunnerProofExecutionReady=false`.
+- Added root package scripts `proof:generated-documents:object-staging-runner-plan` and `test:generated-documents:object-staging-runner`.
+- Runtime generated-document storage remains DB-backed through `DatabaseGeneratedDocumentStorageAdapter`. Explicit object/S3-compatible modes still fail closed through `DisabledGeneratedDocumentObjectStorageAdapter`. The fake local adapter remains local/test-only.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, no schema/migration changes were made, no SQL/RLS/runtime-role changes were applied, and no ZATCA/UAE provider work was started.
+- Remaining blockers: approved staging/proof credentials, synthetic Tenant A/B ids, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof or accepted compensating control, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if required, migration rehearsal, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, owner/security/accounting/legal sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Approve real generated-document object adapter staging implementation design`.
+
 ## Generated Document Object Adapter Staging Preflight Helper Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-adapter-staging-preflight`, from clean `origin/main` at `b7fa1133cbde18a88c0ff2c73bcc1a9c62ae0fbc` after PR #82 merged.

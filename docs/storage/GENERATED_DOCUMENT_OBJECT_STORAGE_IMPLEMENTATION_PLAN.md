@@ -34,6 +34,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 staging preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now performs local-only preflight validation for those future staging gates. It checks explicit environment variables, `proofRunId`, staging/proof target classification, bucket naming, distinct synthetic tenant ids, allow flags, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation. It redacts secret-like values, never validates credentials over the network, never connects to hosted storage or databases, and never mutates hosted/customer data. This does not change the phase plan: real object adapter implementation, staged proof execution, signed URLs, schema/migration changes, and production rollout remain separate blocked phases.
 
+2026-06-19 staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` now defines the future runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and future execution sequence. `scripts/generated-document-object-adapter-staging-runner.cjs` is a local-only fail-closed skeleton with active `help`, `plan`, `preflight`, and `dry-run` modes only. Future hosted read/write/cleanup/evidence modes are blocked placeholders. The skeleton does not connect to hosted storage or databases, does not mutate, does not generate signed URLs, does not implement a real object adapter, and does not change runtime generated-document storage from database-backed.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.
@@ -148,7 +150,7 @@ Likely files:
 
 Use a dedicated staging/proof bucket and synthetic tenants only. This plan does not execute that proof.
 
-Status: staging proof gate model documented on 2026-06-19. Future proof execution remains blocked until explicit approvals, dedicated staging bucket, staging-only credentials, synthetic Tenant A/B ids, `proofRunId`, allow flags, bucket policy review, rollback/cleanup plan, and sanitized evidence plan are all present.
+Status: staging proof gate model, local preflight helper, and local-only runner design/skeleton documented on 2026-06-19. Future proof execution remains blocked until explicit approvals, dedicated staging bucket, staging-only credentials, synthetic Tenant A/B ids, `proofRunId`, allow flags, bucket policy review, rollback/cleanup plan, sanitized evidence plan, and a real generated-document object adapter are all present.
 
 Acceptance criteria:
 

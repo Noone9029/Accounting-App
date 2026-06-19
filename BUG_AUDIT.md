@@ -1,8 +1,16 @@
 # LedgerByte Bug Audit
 
-Audit date: 2026-06-18
+Audit date: 2026-06-19
 
-Latest commit audited: `b7fa1133cbde18a88c0ff2c73bcc1a9c62ae0fbc` (`origin/main` after PR #82 merge) plus this generated-document object adapter staging-preflight branch.
+Latest commit audited: `9813bf202f88e418e82c17052dd3f81442cb3e00` (`origin/main` after PR #83 merge) plus this generated-document object adapter staging-runner-design branch.
+
+## 2026-06-19 Generated-document object adapter staging runner design
+
+- Added a local-only fail-closed runner skeleton and runner design document for future generated-document object adapter staging proof execution.
+- Active runner modes are `help`, `plan`, `preflight`, and `dry-run`; hosted proof modes remain blocked placeholders.
+- Validator output now detects runner design/helper/tests while keeping `generatedDocumentObjectAdapterStagingProofReady=false` and runner proof execution readiness false.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, no schema/migration changes were made, and no RLS/runtime-role/provider work was started.
+- Bug/risk status: no production-readiness bug is closed by this design alone. It reduces process risk for future staging execution but leaves hosted object-storage proof, bucket policy proof, real object adapter proof, signed URL proof if used, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, and approvals as blockers.
 
 ## 2026-06-19 Generated-document object adapter staging preflight helper
 

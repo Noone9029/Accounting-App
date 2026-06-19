@@ -16,6 +16,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required gates before any future generated-document object adapter can run against staging object storage. Signed URLs remain outside that proof unless a separate signed URL gate is approved.
 - `scripts/generated-document-object-adapter-staging-preflight.cjs` now evaluates those future generated-document object adapter staging gates locally. It does not generate signed URLs, does not validate credentials over the network, and does not connect to hosted object storage.
+- `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` now defines the future generated-document object adapter staging proof runner contract. `scripts/generated-document-object-adapter-staging-runner.cjs` is local-only; it does not generate signed URLs, validate credentials over the network, connect to hosted object storage, or execute hosted proof.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 
@@ -66,6 +67,8 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Cleanup scope is `proofRunId-only` only when the proof run id is valid.
 
 `scripts/generated-document-object-adapter-staging-preflight.cjs` is narrower: it is a generated-document object adapter staging preflight helper, not a signed URL helper. It always reports `signedUrlsGenerated=false`, `networkEnabled=false`, `mutationEnabled=false`, and `mutationAllowed=false`.
+
+`scripts/generated-document-object-adapter-staging-runner.cjs` is also narrower than signed URL proof. It coordinates only local plan/dry-run/preflight output for a future generated-document object adapter proof. It reports `signedUrlsGenerated=false`, `hostedStorageTouched=false`, and `proofExecuted=false`; future hosted modes are blocked placeholders in this pass.
 
 ## Proof Checklist
 
