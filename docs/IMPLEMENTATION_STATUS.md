@@ -26,6 +26,18 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Generated document storage adapter interface:
+
+- Added `feature/generated-document-storage-adapter-interface` from clean `origin/main` at `60feb4634a9cfddf33e995ba1514102551d832f9` after PR #78 merged.
+- Added `apps/api/src/generated-documents/generated-document-storage.ts` and `docs/development/GENERATED_DOCUMENT_STORAGE_ADAPTER_INTERFACE_SPRINT_CLOSURE.md`.
+- Generated-document archive writes and downloads now flow through `GeneratedDocumentStorageAdapter`.
+- `DatabaseGeneratedDocumentStorageAdapter` is registered as the runtime default and preserves DB-backed behavior: `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, and API-mediated organization-scoped downloads.
+- Added `FakeLocalGeneratedDocumentObjectStorageAdapter` for local tests only. It is not registered in the runtime module, does not use network or credentials, stores content in memory, uses generated-document-id anchored keys, and rejects traversal path segments.
+- Extended `scripts/object-storage-proof-validate.cjs` with adapter-interface guardrails covering DB default, fake adapter local-only posture, object storage disabled by default, no hosted storage touch, no signed URLs, and no schema migration.
+- Generated documents remain database-backed by default. Generated-document object storage was not enabled, signed URLs were not implemented, hosted object storage was not touched, and no schema or migration changes were made.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Generated document object-storage implementation plan:
 
 - Added `feature/generated-document-object-storage-implementation-plan` from clean `origin/main` at `757daf8bd83e351c3c14a349e2fc38f520d4933c` after PR #77 merged.

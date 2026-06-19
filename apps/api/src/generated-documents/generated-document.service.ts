@@ -1,9 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { createHash } from "node:crypto";
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { DocumentType, GeneratedDocumentStatus, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { GeneratedDocumentQueryDto } from "./dto/generated-document-query.dto";
+import {
+  DatabaseGeneratedDocumentStorageAdapter,
+  GeneratedDocumentStorageAdapter,
+} from "./generated-document-storage";
 
 const generatedDocumentSelect = {
   id: true,
@@ -73,10 +76,17 @@ export interface ZatcaPdfA3ArchiveBoundary {
 
 @Injectable()
 export class GeneratedDocumentService {
+  private readonly generatedDocumentStorage: GeneratedDocumentStorageAdapter;
+
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly auditLogService?: AuditLogService,
-  ) {}
+    @Optional()
+    @Inject(GeneratedDocumentStorageAdapter)
+    generatedDocumentStorage?: GeneratedDocumentStorageAdapter,
+  ) {
+    this.generatedDocumentStorage = generatedDocumentStorage ?? new DatabaseGeneratedDocumentStorageAdapter();
+  }
 
   list(organizationId: string, query: GeneratedDocumentQueryDto) {
     return this.prisma.generatedDocument.findMany({
@@ -112,23 +122,33 @@ export class GeneratedDocumentService {
         id: true,
         filename: true,
         mimeType: true,
+        storageProvider: true,
+        storageKey: true,
         contentBase64: true,
+        contentHash: true,
       },
     });
 
-    if (!document?.contentBase64) {
+    if (!document) {
       throw new NotFoundException("Generated document not found.");
     }
+    const buffer = await this.generatedDocumentStorage.readGeneratedDocumentContent(document);
 
     return {
       filename: document.filename,
       mimeType: document.mimeType,
-      buffer: Buffer.from(document.contentBase64, "base64"),
+      buffer,
     };
   }
 
   async archivePdf(input: ArchivePdfInput) {
     await this.assertSourceRecordBelongsToOrganization(input.organizationId, input.sourceType, input.sourceId);
+    const storedContent = await this.generatedDocumentStorage.writeGeneratedDocumentContent({
+      organizationId: input.organizationId,
+      filename: input.filename,
+      mimeType: "application/pdf",
+      buffer: input.buffer,
+    });
     const document = await this.prisma.generatedDocument.create({
       data: {
         organizationId: input.organizationId,
@@ -138,10 +158,11 @@ export class GeneratedDocumentService {
         documentNumber: input.documentNumber,
         filename: sanitizeFilename(input.filename),
         mimeType: "application/pdf",
-        storageProvider: "database",
-        contentBase64: input.buffer.toString("base64"),
-        contentHash: createHash("sha256").update(input.buffer).digest("hex"),
-        sizeBytes: input.buffer.byteLength,
+        storageProvider: storedContent.storageProvider,
+        storageKey: storedContent.storageKey,
+        contentBase64: storedContent.contentBase64,
+        contentHash: storedContent.contentHash,
+        sizeBytes: storedContent.sizeBytes,
         status: GeneratedDocumentStatus.GENERATED,
         generatedById: input.generatedById ?? null,
       },

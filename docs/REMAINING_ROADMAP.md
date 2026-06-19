@@ -1,5 +1,17 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Storage Adapter Interface
+
+- Branch `feature/generated-document-storage-adapter-interface` adds the first local-only generated-document storage adapter scaffold after PR #78.
+- New API file: `apps/api/src/generated-documents/generated-document-storage.ts`.
+- New docs: `docs/development/GENERATED_DOCUMENT_STORAGE_ADAPTER_INTERFACE_SPRINT_CLOSURE.md`.
+- Runtime default: `DatabaseGeneratedDocumentStorageAdapter`, preserving DB-backed generated-document content and API-mediated downloads.
+- Test-only fake: `FakeLocalGeneratedDocumentObjectStorageAdapter`, in-memory only, not runtime-registered, generated-document-id anchored, traversal-rejecting, and credential-free.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports generated-document adapter-interface guardrails for DB default, fake adapter local-only status, disabled object storage, no hosted storage touch, no signed URLs, and no schema migration.
+- Generated documents remain database-backed. Generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Recommended next prompt: `Design disabled generated-document object adapter proof`.
+
 ## 2026-06-19 Generated Document Object Storage Implementation Plan
 
 - Branch `feature/generated-document-object-storage-implementation-plan` adds a local-only generated-document object-storage implementation plan after PR #77.

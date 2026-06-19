@@ -50,11 +50,13 @@ Implemented providers:
 - `DatabaseAttachmentStorageService`: active default provider for uploaded attachments.
 - `S3AttachmentStorageService`: feature-flagged provider for uploaded attachments. It uses AWS SDK v3 against generic S3-compatible endpoints and stores objects at `org/{organizationId}/attachments/{attachmentId}/{safeFilename}`.
 
-Generated documents are not migrated to this abstraction yet. They remain in `GeneratedDocument` database/base64 storage, with readiness and migration counts exposed for planning.
+Generated documents now have a generated-document-specific adapter boundary, but they remain in `GeneratedDocument` database/base64 storage by default, with readiness and migration counts exposed for planning.
 
 2026-06-19 generated-document object-storage contract update: future generated-document object storage must use a tenant-prefixed and generated-document-id anchored key shape such as `org/{organizationId}/generated-documents/{generatedDocumentId}/{safeFileName}`. Object keys must be server-derived after authorization and must not include provider secrets, customer-sensitive path data, global flat paths, or direct user-controlled key input. This is a contract only; no generated-document object storage was enabled.
 
 2026-06-19 generated-document object-storage implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` defines the future adapter path. The default remains DB-backed. A future implementation should add a generated-document-specific storage interface with a database adapter first, a fake local object adapter for tests, and a future object adapter behind disabled feature flags. Signed URLs are not required for the initial object-storage phase and remain separately proof-gated.
+
+2026-06-19 generated-document adapter-interface update: `GeneratedDocumentStorageAdapter` and `DatabaseGeneratedDocumentStorageAdapter` now exist under `apps/api/src/generated-documents/generated-document-storage.ts`. `GeneratedDocumentModule` registers the database adapter as the runtime default. The fake local generated-document object adapter is test-only and not runtime-registered. No hosted object storage, real object adapter, signed URL path, schema migration, or generated-document migration was added.
 
 ## Readiness APIs
 
@@ -87,7 +89,7 @@ Before production-scale file usage:
 - No OCR.
 - No virus scanning.
 - No email sending.
-- No generated document archive refactor.
 - No generated document object-storage implementation.
+- No generated document hosted object adapter.
 - No generated document signed URL implementation.
 - No generated document schema migration.

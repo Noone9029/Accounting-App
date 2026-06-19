@@ -10,6 +10,8 @@ The S3 attachment upload adapter now exists behind `ATTACHMENT_STORAGE_PROVIDER=
 
 2026-06-19 generated-document implementation-plan update: generated-document object storage remains planned, not enabled. `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` requires a DB-fallback-first adapter rollout before any generated-document migration. No generated-document migration executor, schema migration, hosted bucket mutation, or signed URL implementation is included in this planning pass.
 
+2026-06-19 adapter-interface update: the first generated-document storage adapter scaffold now exists, with database storage as the runtime default and a fake local object adapter for tests only. This does not change the migration plan: no generated-document object migration, hosted bucket mutation, signed URL implementation, or schema migration has been added.
+
 ## Required Preconditions
 
 - S3-compatible provider selected for the target domain after accountant/admin review.
@@ -83,6 +85,7 @@ Generated PDFs are system-created archives and should remain separate from uploa
 - Virus scanning.
 - Retention policy enforcement.
 - Generated-document object-storage adapter implementation.
+- Generated-document hosted object-storage adapter implementation.
 - Generated-document metadata/schema migration.
 - Hosted generated-document bucket proof.
 - OCR or file parsing.

@@ -2,7 +2,29 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `757daf8bd83e351c3c14a349e2fc38f520d4933c` (`origin/main` after PR #77 merge) plus this generated-document object-storage implementation-plan branch.
+Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus this generated-document storage adapter interface branch.
+
+## 2026-06-19 Generated document storage adapter interface
+
+### Scope and boundaries
+
+- Scope: local-only generated-document storage adapter interface scaffold after PR #78.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Generated documents were already DB-backed with `storageProvider = "database"`, `contentBase64`, `contentHash`, and `sizeBytes`.
+- The prior implementation had no generated-document-specific storage adapter boundary; archive and download content handling lived directly in `GeneratedDocumentService`.
+- Current schema fields are sufficient for a DB adapter scaffold and test-only fake object adapter, so no schema or migration change was required.
+- A future real object adapter still needs explicit staging/proof credentials, bucket policy proof, rollback proof, and owner approval.
+
+### Outcome
+
+- Added `GeneratedDocumentStorageAdapter`, `DatabaseGeneratedDocumentStorageAdapter`, and a test-only `FakeLocalGeneratedDocumentObjectStorageAdapter`.
+- Routed archive writes and downloads through the adapter while preserving DB-backed default behavior and organization-scoped API access.
+- Added local adapter tests for DB default, missing-content failure, generated-document-id anchored fake keys, traversal rejection, and fake in-memory hash/read behavior.
+- Extended the object-storage validator with adapter-interface guardrails.
+- No readiness score increase should be taken until real object storage, signed URL behavior if used, hosted proof, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
 
 ## 2026-06-19 Generated document object-storage implementation plan
 

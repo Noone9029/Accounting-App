@@ -6,9 +6,13 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` consumes this contract and defines the future phased path. The implementation plan keeps current DB-backed reads as the default, object storage disabled by default, signed URLs optional/proof-gated, and schema/migration work blocked until explicit approval.
 
+2026-06-19 adapter-interface update: `apps/api/src/generated-documents/generated-document-storage.ts` now provides the first local generated-document storage adapter boundary. The runtime default is `DatabaseGeneratedDocumentStorageAdapter`. A fake local object adapter exists for tests only and is not runtime-registered. This does not enable generated-document object storage, signed URLs, hosted storage, schema changes, or migrations.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.
+
+The service now delegates content write/read/hash behavior to a generated-document storage adapter. The DB adapter preserves the same row fields and download behavior.
 
 Attachments have separate S3-compatible groundwork behind `ATTACHMENT_STORAGE_PROVIDER=s3`; generated documents do not use that adapter today. `StorageService` reports generated-document S3 as not implemented and keeps generated-document migration planning dry-run/count-only. Signed URLs are not implemented; `StorageProvider.getReadUrl` is only an optional interface hook and no provider issues URLs.
 

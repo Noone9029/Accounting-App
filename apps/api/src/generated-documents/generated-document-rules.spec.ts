@@ -197,7 +197,10 @@ describe("generated document rules", () => {
         findFirst: jest.fn().mockResolvedValue({
           filename: "invoice.pdf",
           mimeType: "application/pdf",
+          storageProvider: "database",
+          storageKey: null,
           contentBase64: Buffer.from("%PDF file").toString("base64"),
+          contentHash: "hash",
         }),
       },
     };
@@ -212,6 +215,14 @@ describe("generated document rules", () => {
       buffer: expect.any(Buffer),
     });
     expect(prisma.generatedDocument.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "doc-1", organizationId: "org-1" } }));
+    expect(prisma.generatedDocument.findFirst.mock.calls[0][0].select).toEqual(
+      expect.objectContaining({
+        storageProvider: true,
+        storageKey: true,
+        contentBase64: true,
+        contentHash: true,
+      }),
+    );
   });
 
   it("does not return generated document metadata or content for guessed cross-tenant ids", async () => {

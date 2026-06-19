@@ -35,6 +35,7 @@ test("default run stays dry-run, makes no writes, and reports path policy", () =
   assert.equal(result.mode, "dry-run");
   assert.equal(result.fileWritesAttempted, false);
   assert.equal(result.networkAccessAttempted, false);
+  assert.equal(result.repoSurface.generatedDocumentDatabaseDefaultDetected, true);
   assert.equal(result.pathPolicy.attachment.objectKey, "org/00000000-0000-0000-0000-000000000001/attachments/attachment-proof/Quarterly-Attachment-proof-.txt");
   assert.equal(
     result.pathPolicy.generatedDocument.objectKey,
@@ -272,6 +273,28 @@ test("generated-document implementation plan remains disabled by default and fal
     plan.featureFlags.map((flag) => flag.name).includes("LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_STORAGE_ENABLED"),
     true,
   );
+});
+
+test("generated-document storage adapter interface remains database-default and local-only", () => {
+  const result = buildObjectStorageProof({
+    repoRoot,
+    env: {},
+    dryRun: true,
+  });
+
+  const adapterInterface = result.generatedDocumentStorageAdapterInterface;
+  assert.equal(adapterInterface.interfaceDetected, true);
+  assert.equal(adapterInterface.databaseAdapterDetected, true);
+  assert.equal(adapterInterface.fakeLocalObjectAdapterDetected, true);
+  assert.equal(adapterInterface.serviceUsesAdapterBoundary, true);
+  assert.equal(adapterInterface.moduleRegistersDatabaseAdapterDefault, true);
+  assert.equal(adapterInterface.defaultRuntimeStorage, "database");
+  assert.equal(adapterInterface.objectStorageEnabledByDefault, false);
+  assert.equal(adapterInterface.hostedObjectStorageTouched, false);
+  assert.equal(adapterInterface.realSignedUrlsGenerated, false);
+  assert.equal(adapterInterface.fakeAdapterRuntimeRegistered, false);
+  assert.equal(adapterInterface.fakeAdapterLocalTestsOnly, true);
+  assert.equal(adapterInterface.schemaMigrationRequired, false);
 });
 
 test("signed URL staging proof plan blocks without allow flags, proofRunId, or safe target classification", () => {
