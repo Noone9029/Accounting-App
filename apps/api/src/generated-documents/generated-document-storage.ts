@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { createHash } from "node:crypto";
 
 export interface GeneratedDocumentContentWriteInput {
@@ -36,6 +36,11 @@ export abstract class GeneratedDocumentStorageAdapter {
   abstract readGeneratedDocumentContent(payload: StoredGeneratedDocumentContent): Promise<Buffer>;
   abstract verifyGeneratedDocumentContentHash(buffer: Buffer, expectedHash: string): boolean;
   abstract deriveGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string;
+}
+
+export interface GeneratedDocumentStorageAdapterSelectionOptions {
+  mode?: string | null;
+  allowLocalTestObjectAdapter?: boolean;
 }
 
 @Injectable()
@@ -120,6 +125,68 @@ export class FakeLocalGeneratedDocumentObjectStorageAdapter extends GeneratedDoc
   deriveGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string {
     return buildGeneratedDocumentObjectKey(input);
   }
+}
+
+export class DisabledGeneratedDocumentObjectStorageAdapter extends GeneratedDocumentStorageAdapter {
+  getStorageBackendName(): string {
+    return "object-storage-unavailable";
+  }
+
+  async writeGeneratedDocumentContent(_input: GeneratedDocumentContentWriteInput): Promise<GeneratedDocumentContentWriteResult> {
+    throw disabledGeneratedDocumentObjectStorageError();
+  }
+
+  async readGeneratedDocumentContent(_payload: StoredGeneratedDocumentContent): Promise<Buffer> {
+    throw disabledGeneratedDocumentObjectStorageError();
+  }
+
+  verifyGeneratedDocumentContentHash(_buffer: Buffer, _expectedHash: string): boolean {
+    return false;
+  }
+
+  deriveGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string {
+    return buildGeneratedDocumentObjectKey(input);
+  }
+}
+
+export function createGeneratedDocumentStorageAdapter(
+  options: GeneratedDocumentStorageAdapterSelectionOptions = {},
+): GeneratedDocumentStorageAdapter {
+  const mode = normalizeGeneratedDocumentStorageMode(options.mode);
+  if (!mode || mode === "database") {
+    return new DatabaseGeneratedDocumentStorageAdapter();
+  }
+  if (mode === "local-test-object") {
+    if (options.allowLocalTestObjectAdapter !== true) {
+      throw new ServiceUnavailableException("Fake generated-document object storage is available only for explicit local tests.");
+    }
+    return new FakeLocalGeneratedDocumentObjectStorageAdapter();
+  }
+  if (mode === "object" || mode === "object-storage" || mode === "s3" || mode === "s3-compatible" || mode === "disabled-object") {
+    return new DisabledGeneratedDocumentObjectStorageAdapter();
+  }
+  throw new ServiceUnavailableException(`Unsupported generated-document storage adapter mode: ${mode}`);
+}
+
+function normalizeGeneratedDocumentStorageMode(value: string | null | undefined): string {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "db") {
+    return "database";
+  }
+  if (normalized === "fake-local-object" || normalized === "test-object" || normalized === "local-object") {
+    return "local-test-object";
+  }
+  if (normalized === "s3_compatible") {
+    return "s3-compatible";
+  }
+  if (normalized === "object-storage-unavailable") {
+    return "disabled-object";
+  }
+  return normalized;
+}
+
+function disabledGeneratedDocumentObjectStorageError(): ServiceUnavailableException {
+  return new ServiceUnavailableException("Generated-document object storage is disabled and has no configured runtime adapter.");
 }
 
 function buildGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string {

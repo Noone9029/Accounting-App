@@ -464,10 +464,14 @@ function buildGeneratedDocumentStorageAdapterInterface(repoSurface) {
   return {
     interfaceDetected: repoSurface.generatedDocumentStorageAdapterInterfaceDetected,
     databaseAdapterDetected: repoSurface.generatedDocumentDatabaseStorageAdapterDetected,
+    disabledObjectAdapterDetected: repoSurface.generatedDocumentDisabledObjectAdapterDetected,
+    selectorDetected: repoSurface.generatedDocumentStorageAdapterSelectorDetected,
     fakeLocalObjectAdapterDetected: repoSurface.generatedDocumentFakeLocalObjectAdapterDetected,
     serviceUsesAdapterBoundary: repoSurface.generatedDocumentServiceUsesAdapterBoundary,
     moduleRegistersDatabaseAdapterDefault: repoSurface.generatedDocumentModuleRegistersDatabaseAdapterDefault,
     defaultRuntimeStorage: "database",
+    explicitObjectModeSelection: repoSurface.generatedDocumentDisabledObjectAdapterDetected ? "disabled-adapter" : "not-implemented",
+    unknownModeBehavior: repoSurface.generatedDocumentStorageAdapterSelectorDetected ? "fail-closed" : "not-implemented",
     objectStorageEnabledByDefault: false,
     hostedObjectStorageTouched: false,
     realSignedUrlsGenerated: false,
@@ -477,7 +481,9 @@ function buildGeneratedDocumentStorageAdapterInterface(repoSurface) {
     notes: [
       "Generated-document storage now has a local adapter boundary.",
       "The Nest module registers the database adapter as the generated-document runtime default.",
+      "Explicit object-storage selection resolves to a disabled generated-document adapter that throws before reads or writes.",
       "The fake local object adapter is exported for tests and is not registered for production runtime selection.",
+      "Unknown generated-document storage adapter modes fail closed.",
       "This validator does not enable generated-document object storage or signed URLs.",
     ],
   };
@@ -623,6 +629,10 @@ function detectRepoSurface(repoRoot) {
       generatedDocumentStorageSource.includes("writeGeneratedDocumentContent") &&
       generatedDocumentStorageSource.includes("readGeneratedDocumentContent"),
     generatedDocumentDatabaseStorageAdapterDetected: generatedDocumentStorageSource.includes("class DatabaseGeneratedDocumentStorageAdapter"),
+    generatedDocumentDisabledObjectAdapterDetected: generatedDocumentStorageSource.includes("class DisabledGeneratedDocumentObjectStorageAdapter"),
+    generatedDocumentStorageAdapterSelectorDetected:
+      generatedDocumentStorageSource.includes("function createGeneratedDocumentStorageAdapter") &&
+      generatedDocumentStorageSource.includes("Unsupported generated-document storage adapter mode"),
     generatedDocumentFakeLocalObjectAdapterDetected: generatedDocumentStorageSource.includes("class FakeLocalGeneratedDocumentObjectStorageAdapter"),
     generatedDocumentServiceUsesAdapterBoundary:
       generatedDocumentSource.includes("writeGeneratedDocumentContent") &&

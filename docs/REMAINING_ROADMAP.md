@@ -1,5 +1,17 @@
 # Remaining Roadmap
 
+## 2026-06-19 Disabled Generated Document Object Adapter Proof
+
+- Branch `feature/disabled-generated-document-object-adapter-proof` adds a local-only disabled generated-document object adapter proof after PR #79.
+- API update: `apps/api/src/generated-documents/generated-document-storage.ts` now includes `DisabledGeneratedDocumentObjectStorageAdapter` and `createGeneratedDocumentStorageAdapter()`.
+- Runtime default remains `DatabaseGeneratedDocumentStorageAdapter`; the Nest module still registers DB-backed generated-document storage.
+- Disabled object adapter status: explicit object/S3-compatible modes return a fail-closed adapter that throws disabled/not-configured errors for reads and writes, has no signed URL method, and does not connect to hosted storage.
+- Selector guardrails: database is the default, fake local object storage requires explicit local-test-only selection, and unknown modes fail closed.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports disabled adapter detection, selector detection, object-mode disabled selection, and unknown-mode fail-closed behavior.
+- Generated documents remain database-backed. Real generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Recommended next prompt: `Design generated-document object adapter staging proof gates`.
+
 ## 2026-06-19 Generated Document Storage Adapter Interface
 
 - Branch `feature/generated-document-storage-adapter-interface` adds the first local-only generated-document storage adapter scaffold after PR #78.

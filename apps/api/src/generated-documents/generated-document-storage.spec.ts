@@ -1,6 +1,8 @@
 import { NotFoundException } from "@nestjs/common";
 import {
+  createGeneratedDocumentStorageAdapter,
   DatabaseGeneratedDocumentStorageAdapter,
+  DisabledGeneratedDocumentObjectStorageAdapter,
   FakeLocalGeneratedDocumentObjectStorageAdapter,
 } from "./generated-document-storage";
 
@@ -89,5 +91,57 @@ describe("generated document storage adapters", () => {
     });
     await expect(adapter.readGeneratedDocumentContent(saved)).resolves.toEqual(buffer);
     expect(adapter.verifyGeneratedDocumentContentHash(buffer, saved.contentHash)).toBe(true);
+  });
+
+  it("keeps the generated-document adapter selector database-backed by default", () => {
+    const adapter = createGeneratedDocumentStorageAdapter();
+
+    expect(adapter).toBeInstanceOf(DatabaseGeneratedDocumentStorageAdapter);
+    expect(adapter.getStorageBackendName()).toBe("database");
+  });
+
+  it("selects the disabled object adapter for explicit object-storage modes", async () => {
+    const adapter = createGeneratedDocumentStorageAdapter({ mode: "object" });
+
+    expect(adapter).toBeInstanceOf(DisabledGeneratedDocumentObjectStorageAdapter);
+    expect(adapter.getStorageBackendName()).toBe("object-storage-unavailable");
+    await expect(
+      adapter.writeGeneratedDocumentContent({
+        organizationId: "org-1",
+        generatedDocumentId: "doc-1",
+        filename: "invoice.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF generated document"),
+      }),
+    ).rejects.toThrow("Generated-document object storage is disabled and has no configured runtime adapter.");
+    await expect(
+      adapter.readGeneratedDocumentContent({
+        storageProvider: "object-storage-unavailable",
+        storageKey: "org/org-1/generated-documents/doc-1/invoice.pdf",
+        contentBase64: null,
+        contentHash: "",
+      }),
+    ).rejects.toThrow("Generated-document object storage is disabled and has no configured runtime adapter.");
+    expect("getReadUrl" in adapter).toBe(false);
+  });
+
+  it("does not allow the fake local object adapter unless explicitly marked local-test-only", () => {
+    expect(() => createGeneratedDocumentStorageAdapter({ mode: "local-test-object" })).toThrow(
+      "Fake generated-document object storage is available only for explicit local tests.",
+    );
+
+    const adapter = createGeneratedDocumentStorageAdapter({
+      mode: "local-test-object",
+      allowLocalTestObjectAdapter: true,
+    });
+
+    expect(adapter).toBeInstanceOf(FakeLocalGeneratedDocumentObjectStorageAdapter);
+    expect(adapter.getStorageBackendName()).toBe("local-test-object");
+  });
+
+  it("fails closed for unknown generated-document storage modes", () => {
+    expect(() => createGeneratedDocumentStorageAdapter({ mode: "hosted-s3" })).toThrow(
+      "Unsupported generated-document storage adapter mode: hosted-s3",
+    );
   });
 });
