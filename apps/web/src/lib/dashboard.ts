@@ -1,6 +1,7 @@
 import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
+import { getSetupCompletionDestination, getSetupRoute, setupRouteForChecklistItem } from "./setup-onboarding-routes";
 import type {
   DashboardAttentionItem,
   DashboardAttentionSeverity,
@@ -17,8 +18,8 @@ export interface DashboardQuickAction {
   permission: Permission;
 }
 
-export const DASHBOARD_ROUTE = "/dashboard";
-export const SETUP_WIZARD_ROUTE = "/setup";
+export const DASHBOARD_ROUTE = getSetupCompletionDestination().href;
+export const SETUP_WIZARD_ROUTE = getSetupRoute("setup")?.href ?? "/setup";
 
 export const DASHBOARD_QUICK_ACTIONS: readonly DashboardQuickAction[] = [
   {
@@ -241,79 +242,69 @@ export const FIRST_ACCOUNTING_WORKFLOW_STEP_IDS = [
   "first_report",
 ] as const;
 
-const SETUP_STEP_COPY: Record<
-  string,
-  {
-    title: string;
-    actionHref: string;
-    actionLabel: string;
-    safeExplanation: string;
-  }
-> = {
+interface SetupStepCopy {
+  title: string;
+  actionHref: string;
+  actionLabel: string;
+  safeExplanation: string;
+}
+
+type SetupStepStaticCopy = Omit<SetupStepCopy, "actionHref">;
+
+const SETUP_STEP_COPY: Record<string, SetupStepStaticCopy> = {
   organization_profile: {
     title: "Organization profile",
-    actionHref: "/organization/setup",
     actionLabel: "Review organization",
     safeExplanation: "Review legal name, country, base currency, timezone, and VAT/tax identity. This wizard only links to setup screens.",
   },
   chart_of_accounts: {
     title: "Chart of accounts",
-    actionHref: "/accounts",
     actionLabel: "Open accounts",
     safeExplanation: "Posting workflows need active posting accounts. The wizard does not create, seed, or alter accounts.",
   },
   tax_profile: {
     title: "VAT/tax profile",
-    actionHref: "/tax-rates",
     actionLabel: "Open tax rates",
     safeExplanation: "Review VAT identity and active tax-rate setup before first invoices. Existing contact VAT/ID validation is not changed here.",
   },
   customer_created: {
     title: "First customer",
-    actionHref: "/customers",
     actionLabel: "Add first customer",
     safeExplanation: "Create or review customer records from the dedicated customer workspace. The wizard does not create contacts automatically.",
   },
   first_invoice: {
     title: "First invoice",
-    actionHref: `/sales/invoices/new?returnTo=${encodeURIComponent(SETUP_WIZARD_ROUTE)}`,
     actionLabel: "Create first invoice",
     safeExplanation: "Use the sales invoice workflow to create a draft invoice for review. The wizard does not finalize or submit invoices.",
   },
   bank_payment_method: {
     title: "Bank/payment method",
-    actionHref: "/bank-accounts",
     actionLabel: "Open bank accounts",
     safeExplanation: "Review bank, cash, card, wallet, or other payment profiles. The wizard does not post balances or payments.",
   },
   first_payment: {
     title: "First payment",
-    actionHref: `/sales/customer-payments/new?returnTo=${encodeURIComponent(SETUP_WIZARD_ROUTE)}`,
     actionLabel: "Record first payment",
     safeExplanation: "Record a customer payment against a finalized invoice. The wizard does not allocate or post payments automatically.",
   },
   first_report: {
     title: "First report",
-    actionHref: "/reports/profit-and-loss",
     actionLabel: "View first report",
     safeExplanation: "Open Profit & Loss after posted activity exists. The wizard does not generate or export reports automatically.",
   },
   zatca_local_readiness_visible: {
     title: "Compliance readiness visibility",
-    actionHref: "/settings/compliance",
     actionLabel: "Review compliance readiness",
     safeExplanation:
       "Country-specific compliance status is hidden in the generic workspace. VAT and accounting review stays local-only and does not enable tax-authority submission workflows.",
   },
   contact_vat_id_validation: {
     title: "Contact VAT/ID validation",
-    actionHref: "/customers",
     actionLabel: "Review contacts",
     safeExplanation: "Contact VAT and buyer identification validation stays in the existing contact workflows. This wizard only reports checklist evidence.",
   },
   storage_readiness_checked: {
     title: "Storage readiness",
-    actionHref: "/settings/storage",
     actionLabel: "Open storage settings",
     safeExplanation: "Review generated-document and attachment storage readiness. Signed XML and QR payload body persistence remain blocked.",
   },
@@ -322,7 +313,7 @@ const SETUP_STEP_COPY: Record<
 export function setupWizardSteps(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardStep[] {
   const edition = getLedgerByteEdition(market);
   return checklist.items.map((item) => {
-    const copy = item.id === "zatca_local_readiness_visible" ? editionSetupStepCopy(edition) : SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
+    const copy = item.id === "zatca_local_readiness_visible" ? editionSetupStepCopy(edition) : setupStepCopy(item);
     const countryComplianceFields = countryComplianceChecklistFields(item, edition);
     return {
       id: item.id,
@@ -419,19 +410,31 @@ function conciseSetupBlockerSummary(blockerCount: number): string {
   return blockerCount === 1 ? "1 blocker needs review." : `${blockerCount} blockers need review.`;
 }
 
-function fallbackSetupStepCopy(item: DashboardOnboardingChecklistItem): (typeof SETUP_STEP_COPY)[string] {
+function setupStepCopy(item: DashboardOnboardingChecklistItem): SetupStepCopy {
+  const route = setupRouteForChecklistItem(item.id);
+  const copy = SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
+
+  return {
+    title: copy.title,
+    actionHref: route?.href ?? item.href,
+    actionLabel: copy.actionLabel,
+    safeExplanation: copy.safeExplanation,
+  };
+}
+
+function fallbackSetupStepCopy(item: DashboardOnboardingChecklistItem): SetupStepStaticCopy {
   return {
     title: item.label,
-    actionHref: item.href,
     actionLabel: "Open",
     safeExplanation: "This wizard shows checklist evidence and links to the relevant page without mutating setup data.",
   };
 }
 
-function editionSetupStepCopy(edition: ReturnType<typeof getLedgerByteEdition>): (typeof SETUP_STEP_COPY)[string] {
+function editionSetupStepCopy(edition: ReturnType<typeof getLedgerByteEdition>): SetupStepCopy {
+  const route = getSetupRoute(edition.showZatca ? "settings.zatca" : "settings.compliance");
   return {
     title: edition.complianceReadinessTitle,
-    actionHref: edition.complianceReadinessHref,
+    actionHref: route?.href ?? edition.complianceReadinessHref,
     actionLabel: edition.complianceReadinessActionLabel,
     safeExplanation: edition.complianceReadinessExplanation,
   };

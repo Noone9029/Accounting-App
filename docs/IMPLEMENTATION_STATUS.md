@@ -2,6 +2,15 @@
 
 Audit date: 2026-06-19
 
+Setup/onboarding route registry consumers (2026-06-20):
+
+- Added LedgerByte-native setup/onboarding route helpers that consume the app route registry for setup navigation, breadcrumbs, checklist route mapping, and setup completion destination.
+- Setup wizard and dashboard setup helper destinations now use registry-backed route metadata while preserving existing setup labels, action labels, read-only checklist behavior, and local-readiness wording.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, setup checklist database tables, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, or document review.
+- No API runtime behavior, hosted behavior, provider adapter, Convex integration, external dependency, generated-document object storage, signed URL behavior, or production compliance behavior was added.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 LedgerByte app shell route registry (2026-06-20):
 
 - Added a LedgerByte-native frontend route registry for app-shell metadata, route keys, labels, hrefs, route sections, descriptions, active/planned status, shell/mobile visibility, permissions, and compliance/storage/provider sensitivity tags.

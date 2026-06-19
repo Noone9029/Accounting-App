@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-20 Setup/Onboarding Route Registry Consumers
+
+- Branch `feature/setup-onboarding-route-registry-consumers` adds a narrow LedgerByte-native setup/onboarding consumer of the app route registry.
+- Setup helper coverage includes setup navigation, breadcrumbs, setup checklist route mapping, missing-route fallback, planned-route exclusion, and dashboard completion destination.
+- Setup wizard and dashboard setup helper destinations now consume registry-backed route metadata while preserving existing setup copy and read-only checklist behavior.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native setup progress metadata refinements`.
+
 ## 2026-06-20 LedgerByte App Shell Route Registry
 
 - Branch `feature/ledgerbyte-app-shell-route-registry` adds the LedgerByte-native route registry and wires the sidebar/mobile workflow surfaces to consume it.

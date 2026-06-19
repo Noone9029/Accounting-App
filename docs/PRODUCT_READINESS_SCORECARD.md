@@ -4,6 +4,13 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-20 Setup/Onboarding Route Registry Consumers Update
+
+- Product clarity improves because setup/onboarding route helpers now consume the app route registry for setup navigation, breadcrumbs, checklist route mapping, missing-route fallback, and dashboard completion destination.
+- Focused web tests cover the setup/onboarding route-consumer slice and existing setup wizard behavior remains read-only.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, hosted behavior, API runtime behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-20 LedgerByte App Shell Route Registry Update
 
 - Product clarity improves because LedgerByte now has a typed frontend route registry for app-shell metadata, active/planned route status, shell/mobile visibility, permissions, and compliance/storage/provider sensitivity tags.
