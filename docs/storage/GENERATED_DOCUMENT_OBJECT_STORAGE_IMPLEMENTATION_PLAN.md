@@ -36,6 +36,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` now defines the future runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and future execution sequence. `scripts/generated-document-object-adapter-staging-runner.cjs` is a local-only fail-closed skeleton with active `help`, `plan`, `preflight`, and `dry-run` modes only. Future hosted read/write/cleanup/evidence modes are blocked placeholders. The skeleton does not connect to hosted storage or databases, does not mutate, does not generate signed URLs, does not implement a real object adapter, and does not change runtime generated-document storage from database-backed.
 
+2026-06-19 staging gate approval record update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records the current gate approval status as `BLOCKED`. No explicit approval evidence was found for the exact staging-only proof scope, so Phase F remains blocked before any future runner execution.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.

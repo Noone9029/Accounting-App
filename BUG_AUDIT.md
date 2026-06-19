@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `9813bf202f88e418e82c17052dd3f81442cb3e00` (`origin/main` after PR #83 merge) plus this generated-document object adapter staging-runner-design branch.
 
+## 2026-06-19 Generated-document object adapter staging gate approval record
+
+- Added a canonical approval record at `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md`.
+- Current approval decision status is `BLOCKED`, not approved.
+- Validator output now detects the approval record and reports `generatedDocumentObjectAdapterStagingGateApprovalStatus=BLOCKED`, `generatedDocumentObjectAdapterStagingGateApprovalApproved=false`, and `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Bug/risk status: no production-readiness bug is closed by this record. It reduces process ambiguity by preventing preflight/runner planning artifacts from being mistaken for approval. Hosted object-storage proof, bucket policy proof, real object adapter proof, signed URL proof if used, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, and owner/security/storage/accounting/legal approvals remain blockers.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, and no schema/migration/RLS/runtime-role/provider work was started.
+
 ## 2026-06-19 Generated-document object adapter staging runner design
 
 - Added a local-only fail-closed runner skeleton and runner design document for future generated-document object adapter staging proof execution.

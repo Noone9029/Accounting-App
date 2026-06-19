@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Scope: runner design plus local-only fail-closed skeleton. This does not execute hosted proof, connect to hosted object storage, connect to a hosted database, mutate hosted/customer data, write/list/delete hosted objects, generate signed URLs, enable object storage, change schema, create Prisma migrations, apply SQL templates, roll out RLS, apply runtime DB roles, or start ZATCA/UAE provider work.
 
+2026-06-19 gate approval record update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records approval status as `BLOCKED`. The runner remains `NOT_READY`; this pass does not approve hosted execution, does not execute staging proof, does not touch hosted object storage, and does not change the local-only runner modes.
+
 ## Purpose
 
 The generated-document object adapter staging proof runner coordinates a future approved staging-only proof for generated-document object storage. It must never run against production and must not be treated as proof execution until real staging credentials, synthetic tenants, a dedicated staging bucket, a real generated-document object adapter, rollback/evidence gates, and owner/security/accounting/legal approvals exist.

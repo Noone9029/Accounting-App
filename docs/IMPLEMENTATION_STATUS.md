@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+Generated-document object adapter staging gate approval record (2026-06-19):
+
+- `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records current gate approval status as `BLOCKED`.
+- `scripts/object-storage-proof-validate.cjs` reports the approval record status while keeping `generatedDocumentObjectAdapterStagingProofReady=false`.
+- The gates are not approved because explicit owner, security, storage owner, accounting/legal-if-needed approval evidence and required staging inputs are missing.
+- Runner proof execution remains `NOT_READY`. No hosted proof, hosted storage connection, hosted/customer mutation, signed URL generation, real object adapter implementation, schema/migration change, SQL/RLS/runtime-role application, or ZATCA/UAE provider work is included.
+
 Generated-document object adapter staging runner design (2026-06-19):
 
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future runner contract, modes, state machine, safety stops, evidence outputs, rollback flow, and future execution sequence.

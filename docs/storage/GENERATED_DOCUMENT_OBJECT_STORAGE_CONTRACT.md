@@ -18,6 +18,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` defines the future staging proof runner contract and `scripts/generated-document-object-adapter-staging-runner.cjs` adds a local-only fail-closed skeleton. Active modes are limited to `help`, `plan`, `preflight`, and `dry-run`; future hosted modes are blocked. This runner is not a real adapter, not hosted object storage, not signed URL support, not proof execution, and not production enablement.
 
+2026-06-19 staging gate approval record update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records gate approval status as `BLOCKED`. The contract remains unchanged: no hosted proof may run until explicit approval evidence and required staging inputs exist.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.

@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Adapter Staging Gate Approval Record
+
+- Branch `feature/generated-document-object-adapter-staging-gate-approval` records gate approval status after PR #84.
+- New doc: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports the gate approval record status.
+- Current status is `BLOCKED`; gates are not approved and runner proof execution remains `NOT_READY`.
+- Missing inputs remain owner/security/storage/accounting/legal-if-needed approvals, staging-only credentials, dedicated non-production bucket, synthetic Tenant A/B ids, approved `proofRunId` pattern, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation.
+- No hosted proof was executed. No hosted object storage was touched. No hosted/customer data was mutated. No signed URLs were generated. No real object adapter was implemented. No schema or migration change was made.
+- Recommended next prompt: `Provide generated-document object adapter staging gate approval artifacts`.
+
 ## 2026-06-19 Generated Document Object Adapter Staging Runner Design
 
 - Branch `feature/generated-document-object-adapter-staging-runner-design` adds a local-only runner design and fail-closed skeleton after PR #83.

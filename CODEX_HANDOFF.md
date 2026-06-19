@@ -1,5 +1,17 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Adapter Staging Gate Approval Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-adapter-staging-gate-approval`, from clean `origin/main` at `2d029ebb5ccd084cfe615e8b1e8a124deb0accc8` after PR #84 merged.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` with current status `BLOCKED`.
+- Approval evidence found: PR #84 local-only runner skeleton, PR #83 local-only preflight helper, PR #82 staging gate document, DB-backed runtime default, disabled object adapter fail-closed path, and fake local adapter local/test-only path.
+- Approval evidence missing: owner approval, security approval, storage owner approval, accounting/legal approval if compliance artifacts are included, production/customer-data exclusion sign-offs, staging environment name, dedicated staging bucket, synthetic Tenant A/B ids, `proofRunId` pattern, rollback/evidence confirmations, bucket-policy review, credential-scope review, no-production-target confirmation, and final sign-offs.
+- Updated `scripts/object-storage-proof-validate.cjs` so local validator output reports the gate approval record status and keeps `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Gates are not approved. Runner proof execution remains `NOT_READY`.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, no schema/migration changes were made, no SQL/RLS/runtime-role changes were applied, and no ZATCA/UAE provider work was started.
+- Remaining blockers: approved staging/proof credentials, synthetic Tenant A/B ids, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof or accepted compensating control, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if required, migration rehearsal, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, owner/security/storage/accounting/legal sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Provide generated-document object adapter staging gate approval artifacts`.
+
 ## Generated Document Object Adapter Staging Runner Design Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-adapter-staging-runner-design`, from clean `origin/main` at `9813bf202f88e418e82c17052dd3f81442cb3e00` after PR #83 merged.
