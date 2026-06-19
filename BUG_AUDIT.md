@@ -2,7 +2,15 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `1f3b2f89e840d302bfdd71ca9fd90f646883b843` (`origin/main` after PR #85 merge) plus this generated-document object adapter staging approval evidence package branch.
+Latest commit audited: `e98625bab16ff985cf06529bc09854e15ceb6137` (`origin/main` after PR #86 merge) plus this generated-document object adapter staging approval artifacts branch.
+
+## 2026-06-19 Generated-document object adapter staging approval artifact intake
+
+- Evaluated the current human-provided approval artifact prompt. Every required approval artifact was a placeholder or absent.
+- Approval artifact intake recorded: yes. Approval artifacts complete: no. Current gate approval status remains `BLOCKED`, gates are not approved, and runner proof execution remains `NOT_READY`.
+- Validator output now reports `generatedDocumentObjectAdapterStagingApprovalArtifactsIntakeRecorded=true` and `generatedDocumentObjectAdapterStagingApprovalArtifactsComplete=false` separately from gate approval.
+- Bug/risk status: no production-readiness bug is closed by this intake. It reduces ambiguity by recording the exact missing artifacts and preventing placeholder intake from being mistaken for approval.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, and no schema/migration/RLS/runtime-role/provider work was started.
 
 ## 2026-06-19 Generated-document object adapter staging approval evidence package
 

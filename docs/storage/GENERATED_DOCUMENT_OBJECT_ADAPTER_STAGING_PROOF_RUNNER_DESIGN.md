@@ -8,6 +8,8 @@ Scope: runner design plus local-only fail-closed skeleton. This does not execute
 
 2026-06-19 approval evidence package update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` is a human-facing packet for future approval evidence. It prepares placeholders and checklists only. The runner remains `NOT_READY`, gates remain blocked, no hosted proof is executed, no hosted object storage is touched, no hosted/customer data is mutated, no signed URLs are generated, and no real object adapter is implemented.
 
+2026-06-19 approval artifact intake update: the current prompt contained placeholders only, so approval artifacts are not complete. This intake does not approve runner execution, does not make hosted modes available, and does not change `networkEnabled=false`, `mutationEnabled=false`, `mutationAllowed=false`, `proofExecuted=false`, `hostedStorageTouched=false`, or `signedUrlsGenerated=false`.
+
 ## Purpose
 
 The generated-document object adapter staging proof runner coordinates a future approved staging-only proof for generated-document object storage. It must never run against production and must not be treated as proof execution until real staging credentials, synthetic tenants, a dedicated staging bucket, a real generated-document object adapter, rollback/evidence gates, and owner/security/accounting/legal approvals exist.

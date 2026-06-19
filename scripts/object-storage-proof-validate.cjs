@@ -568,6 +568,8 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
     generatedDocumentObjectAdapterStagingGatesDocumented: fs.existsSync(gatesDocumentPath),
     generatedDocumentObjectAdapterStagingApprovalEvidencePackageDetected: approvalEvidencePackage.detected,
     generatedDocumentObjectAdapterStagingApprovalEvidencePackageTemplateOnly: approvalEvidencePackage.templateOnly,
+    generatedDocumentObjectAdapterStagingApprovalArtifactsIntakeRecorded: approvalEvidencePackage.intakeRecorded,
+    generatedDocumentObjectAdapterStagingApprovalArtifactsComplete: approvalEvidencePackage.artifactsComplete,
     generatedDocumentObjectAdapterStagingApprovalSignoffTemplateDetected: fs.existsSync(approvalSignoffTemplatePath),
     generatedDocumentObjectAdapterStagingGateApprovalRecordDetected: gateApprovalRecord.detected,
     generatedDocumentObjectAdapterStagingGateApprovalStatus: gateApprovalRecord.status,
@@ -658,6 +660,8 @@ function readGeneratedDocumentObjectAdapterStagingApprovalEvidencePackage(packag
     return {
       detected: false,
       templateOnly: false,
+      intakeRecorded: false,
+      artifactsComplete: false,
     };
   }
 
@@ -670,6 +674,8 @@ function readGeneratedDocumentObjectAdapterStagingApprovalEvidencePackage(packag
   return {
     detected: true,
     templateOnly: explicitlyNotApproval,
+    intakeRecorded: /Approval Artifact Intake Attempt/i.test(source) || /Approval artifacts complete\s*\|\s*No/i.test(source),
+    artifactsComplete: /Approval artifacts complete\s*\|\s*Yes/i.test(source) && !/Approval status\s*\|\s*`?BLOCKED`?/i.test(source),
   };
 }
 
