@@ -19,6 +19,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` now defines the future generated-document object adapter staging proof runner contract. `scripts/generated-document-object-adapter-staging-runner.cjs` is local-only; it does not generate signed URLs, validate credentials over the network, connect to hosted object storage, or execute hosted proof.
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records the current generated-document object adapter staging gate approval status as `BLOCKED`. Signed URLs remain outside the object-adapter proof unless separately approved, and no signed URL support is added by the approval record.
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` prepares future approval evidence and sign-off placeholders only. It does not approve gates, does not run proof, does not connect to hosted storage, and does not add signed URL support.
+- The current approval artifact intake supplied placeholders only. Approval artifacts remain incomplete, gates remain `BLOCKED`, proof remains not executed, and no signed URL support is added.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 

@@ -316,6 +316,8 @@ test("generated-document object adapter staging gates stay local-only and blocke
   assert.equal(gates.generatedDocumentObjectAdapterStagingGatesDocumented, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingApprovalEvidencePackageDetected, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingApprovalEvidencePackageTemplateOnly, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingApprovalArtifactsIntakeRecorded, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingApprovalArtifactsComplete, false);
   assert.equal(gates.generatedDocumentObjectAdapterStagingApprovalSignoffTemplateDetected, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalRecordDetected, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalStatus, "BLOCKED");

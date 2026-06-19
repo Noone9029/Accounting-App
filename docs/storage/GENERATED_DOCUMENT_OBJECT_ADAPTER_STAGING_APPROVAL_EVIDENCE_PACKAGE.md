@@ -15,6 +15,8 @@ This is preparation only. It does not approve the proof, execute proof, enable o
 | Item | Current value |
 | --- | --- |
 | Approval status | `BLOCKED` |
+| Approval artifact intake recorded | Yes |
+| Approval artifacts complete | No |
 | Gates approved | No |
 | Runner state | `NOT_READY` |
 | Future proof execution | Blocked |
@@ -23,6 +25,38 @@ This is preparation only. It does not approve the proof, execute proof, enable o
 | Signed URLs | Not implemented |
 
 The current decision baseline comes from `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md`. This package does not change that decision.
+
+## 2A. Approval Artifact Intake Attempt
+
+The current approval prompt was reviewed as an approval-artifact intake attempt. It supplied placeholders only and did not provide completed approval evidence.
+
+| Required artifact | Intake result |
+| --- | --- |
+| Owner approval with exact approval phrase | MISSING |
+| Security approval or sign-off reference | MISSING |
+| Storage/platform owner approval or sign-off reference | MISSING |
+| Accounting/legal approval or explicit not-applicable reason | MISSING |
+| Production exclusion statement | MISSING |
+| Customer-data exclusion statement | MISSING |
+| Staging environment name | MISSING |
+| Dedicated non-production bucket name | MISSING |
+| Bucket provider and region if applicable | MISSING |
+| Staging-only credential scope reference | MISSING |
+| Synthetic Tenant A ID | MISSING |
+| Synthetic Tenant B ID | MISSING |
+| Distinct synthetic Tenant A/B IDs | MISSING |
+| `proofRunId` pattern | MISSING |
+| Rollback confirmation | MISSING |
+| Evidence capture confirmation | MISSING |
+| Bucket policy review confirmation | MISSING |
+| Credential scope review confirmation | MISSING |
+| No-production-target confirmation | MISSING |
+| Final sign-off reference | MISSING |
+| Exact approval phrase from an authorized approver | MISSING |
+
+Artifacts supplied: none.
+
+Intake decision: approval artifacts are incomplete. The approval status remains `BLOCKED`; gates are not approved; runner state remains `NOT_READY`; proof remains not executed.
 
 ## 3. Evidence Already Available
 
