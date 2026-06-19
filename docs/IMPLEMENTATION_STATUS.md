@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Generated document object adapter staging preflight helper:
+
+- Added `feature/generated-document-object-adapter-staging-preflight` from clean `origin/main` at `b7fa1133cbde18a88c0ff2c73bcc1a9c62ae0fbc` after PR #82 merged.
+- Added `scripts/generated-document-object-adapter-staging-preflight.cjs` and `scripts/generated-document-object-adapter-staging-preflight.test.cjs`.
+- The helper locally evaluates approval, environment, credential, bucket, application, data, migration, execution, evidence, and rollback preflight gates for a future generated-document object adapter staging proof.
+- It supports `--help`, `--json`, `--strict`, and `--dry-run`; reports missing, unsafe, and satisfied gates; classifies staging/proof/local/production-looking values; redacts secret-like values; and requires `proofRunId`, distinct synthetic tenants, allow flags, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation.
+- Runtime generated-document storage remains DB-backed by default. The disabled object adapter remains fail-closed. The fake local adapter remains local/test-only. Real object storage, hosted proof, and signed URLs remain unimplemented and unproven.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Generated document object adapter staging proof gates:
 
 - Added `feature/generated-document-object-adapter-staging-gates` from clean `origin/main` at `076addba73849fc414ec3addc97f4b5b47b32833` after PR #81 merged.

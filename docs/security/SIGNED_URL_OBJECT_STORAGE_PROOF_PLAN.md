@@ -15,6 +15,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
 - The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required gates before any future generated-document object adapter can run against staging object storage. Signed URLs remain outside that proof unless a separate signed URL gate is approved.
+- `scripts/generated-document-object-adapter-staging-preflight.cjs` now evaluates those future generated-document object adapter staging gates locally. It does not generate signed URLs, does not validate credentials over the network, and does not connect to hosted object storage.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 
@@ -63,6 +64,8 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Staging plan mode requires `LEDGERBYTE_STORAGE_PROOF_ALLOW=1`, `LEDGERBYTE_STORAGE_PROOF_STAGING_ALLOW=1`, a valid `LEDGERBYTE_STORAGE_PROOF_RUN_ID`, and staging/test/proof-looking storage target classification.
 - Production-looking buckets/endpoints are refused by the local harness.
 - Cleanup scope is `proofRunId-only` only when the proof run id is valid.
+
+`scripts/generated-document-object-adapter-staging-preflight.cjs` is narrower: it is a generated-document object adapter staging preflight helper, not a signed URL helper. It always reports `signedUrlsGenerated=false`, `networkEnabled=false`, `mutationEnabled=false`, and `mutationAllowed=false`.
 
 ## Proof Checklist
 

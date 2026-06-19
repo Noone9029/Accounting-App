@@ -10,6 +10,43 @@ This document defines the exact gates that must pass before LedgerByte may run a
 
 The current runtime default remains `DatabaseGeneratedDocumentStorageAdapter`. Explicit object/S3-compatible generated-document modes still fail closed through `DisabledGeneratedDocumentObjectStorageAdapter`. `FakeLocalGeneratedDocumentObjectStorageAdapter` remains local/test-only proof machinery and is not hosted storage.
 
+2026-06-19 preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now evaluates these gates locally before any future staging proof runner is allowed to proceed. The helper supports human-readable output, `--help`, `--json`, `--strict`, and `--dry-run`; it classifies environment/target values, requires explicit allow flags, requires distinct synthetic Tenant A/B ids, requires `proofRunId`, checks rollback/evidence/bucket-policy/credential-scope confirmations, and redacts secret-like values. It does not connect to hosted storage or databases, mutate hosted/customer data, write or delete objects, generate signed URLs, enable object storage, switch runtime defaults, or execute staging proof.
+
+Local commands:
+
+```bash
+node scripts/generated-document-object-adapter-staging-preflight.cjs --help
+node scripts/generated-document-object-adapter-staging-preflight.cjs --json --dry-run
+node scripts/generated-document-object-adapter-staging-preflight.cjs --json --strict --dry-run
+corepack pnpm proof:generated-documents:object-staging-preflight
+```
+
+Example staging-placeholder invocation for local validation only:
+
+```bash
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OWNER_APPROVED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENVIRONMENT=staging \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_BASE_URL=https://api.staging.example.test \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_BUCKET=ledgerbyte-staging-proof \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENDPOINT=https://objects.staging.example.test \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_RUN_ID=proof-20260619 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ALLOW=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_ALLOW=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OBJECT_STORAGE_ALLOW=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_A_ID=tenant-a-synthetic \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_B_ID=tenant-b-synthetic \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ROLLBACK_CONFIRMED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_EVIDENCE_CAPTURE_CONFIRMED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_BUCKET_POLICY_REVIEWED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_CREDENTIAL_SCOPE_REVIEWED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_NO_PRODUCTION_TARGET_CONFIRMED=1 \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ACCESS_KEY_ID=fake-access-key \
+LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_SECRET_ACCESS_KEY=fake-secret-key \
+node scripts/generated-document-object-adapter-staging-preflight.cjs --json --strict --dry-run
+```
+
+The example uses fake placeholder values only. Real credentials and real bucket names must not be committed or pasted into docs.
+
 ## Current Adapter Baseline
 
 Adapters that exist today:
@@ -174,6 +211,8 @@ Execution must be fail-closed and ordered:
 12. No hosted commands unless all approvals, staging credentials, target classification, and proof inputs are present.
 
 The current `scripts/object-storage-proof-validate.cjs` remains local/dry-run only. It must not connect to hosted services, require credentials, mutate object storage, or imply staging proof was executed.
+
+The preflight helper is also local/dry-run only. Missing gates produce `stagingProofReady=false`; strict mode exits non-zero for missing or unsafe gates. When every local preflight input is satisfied, `executionAllowed=true` only means the preflight gate is clean for a separately approved future proof runner. `mutationAllowed=false`, `networkEnabled=false`, and `mutationEnabled=false` remain true for this helper in all cases.
 
 ## Evidence Gates
 

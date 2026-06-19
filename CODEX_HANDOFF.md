@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Adapter Staging Preflight Helper Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-adapter-staging-preflight`, from clean `origin/main` at `b7fa1133cbde18a88c0ff2c73bcc1a9c62ae0fbc` after PR #82 merged.
+- PR #82 baseline: staging proof gates were documented and validator output reported gate status, while runtime generated-document storage remained DB-backed and real object storage/signed URLs remained unimplemented.
+- Added `scripts/generated-document-object-adapter-staging-preflight.cjs` and tests. The helper is local-only, dry-run/preflight by default, supports `--help`, `--json`, `--strict`, and `--dry-run`, classifies environment/target values, requires `proofRunId`, staging/proof-safe bucket and target values, explicit allow flags, distinct synthetic Tenant A/B ids, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation.
+- The helper redacts credential-like values and database URLs. It never connects to hosted storage or databases, never validates credentials over the network, never writes/deletes objects, never mutates hosted/customer data, never generates signed URLs, never enables object storage, and never switches the runtime default away from `DatabaseGeneratedDocumentStorageAdapter`.
+- Extended `scripts/object-storage-proof-validate.cjs` to detect the preflight helper and tests while keeping `generatedDocumentObjectAdapterStagingProofReady=false` in the validator.
+- Added root package scripts `proof:generated-documents:object-staging-preflight` and `test:generated-documents:object-staging-preflight`.
+- Updated storage/security/status/risk/handoff docs and added `docs/development/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PREFLIGHT_HELPER_SPRINT_CLOSURE.md`.
+- No hosted command was run, no hosted/customer data was mutated, no hosted object storage was touched, no signed URLs were generated, no schema/migration changes were made, no SQL templates were applied, no RLS/runtime role was applied, no ZATCA production work was added, no UAE Peppol/ASP provider work was added, and no production compliance claims were added.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant setup, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if future metadata is required, migration rehearsal, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, owner/security/accounting/legal sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design generated-document object adapter staging proof runner`.
+
 ## Generated Document Object Adapter Staging Proof Gates Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-adapter-staging-gates`, from clean `origin/main` at `076addba73849fc414ec3addc97f4b5b47b32833` after PR #81 merged.

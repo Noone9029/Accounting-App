@@ -20,6 +20,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document object adapter staging-gate update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates before any future generated-document object adapter may run against staging object storage. This is staging-gate design only; no hosted object storage was touched and no staging proof was executed.
 
+2026-06-19 generated-document object adapter staging preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now evaluates those gates locally before any future proof runner. It requires staging/proof-only target classification, distinct synthetic tenant ids, `proofRunId`, allow flags, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation. It does not connect to hosted storage, mutate hosted/customer data, generate signed URLs, change schema, apply RLS/runtime roles, or execute tenant-isolation proof.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -55,6 +57,7 @@ What appears local-only or planning-only:
 - Database/base64 storage remains the default.
 - Generated documents remain database-backed.
 - Generated-document object adapter staging proof gates are documented, but not satisfied or executed.
+- Generated-document object adapter staging preflight helper is implemented, local-only, and does not execute staging proof.
 - The disabled generated-document object adapter is a fail-closed proof only.
 - The fake local generated-document object adapter is local/test proof only and is not hosted storage.
 - Migration execution, retention, backup/restore, live bucket probes, and object-store restore proof remain planned.

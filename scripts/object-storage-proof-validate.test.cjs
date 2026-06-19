@@ -314,6 +314,9 @@ test("generated-document object adapter staging gates stay local-only and blocke
 
   const gates = result.generatedDocumentObjectAdapterStagingProofGates;
   assert.equal(gates.generatedDocumentObjectAdapterStagingGatesDocumented, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingPreflightHelperDetected, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingPreflightHelperTestsDetected, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingPreflightStillLocalOnly, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresDedicatedBucket, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresSyntheticTenants, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresProofRunId, true);

@@ -1,5 +1,17 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Adapter Staging Preflight Helper
+
+- Branch `feature/generated-document-object-adapter-staging-preflight` adds a local-only preflight helper after PR #82.
+- New helper: `scripts/generated-document-object-adapter-staging-preflight.cjs`.
+- New tests: `scripts/generated-document-object-adapter-staging-preflight.test.cjs`.
+- Package scripts: `proof:generated-documents:object-staging-preflight` and `test:generated-documents:object-staging-preflight`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now detects the preflight helper and tests while keeping generated-document object adapter staging proof unexecuted.
+- Runtime default remains `DatabaseGeneratedDocumentStorageAdapter`; explicit object/S3-compatible modes still resolve to the disabled adapter; fake local adapter remains local/test-only.
+- Generated documents remain database-backed. Real generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Recommended next prompt: `Design generated-document object adapter staging proof runner`.
+
 ## 2026-06-19 Generated Document Object Adapter Staging Proof Gates
 
 - Branch `feature/generated-document-object-adapter-staging-gates` designs the required gates before any future generated-document object adapter may run against staging object storage after PR #81.
