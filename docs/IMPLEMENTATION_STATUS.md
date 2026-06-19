@@ -2,6 +2,15 @@
 
 Audit date: 2026-06-19
 
+OpenBooks clean-room adoption planning (2026-06-19):
+
+- OpenBooks adoption is `PLANNED` only. This PR adds clean-room planning, legal policy, an evidence template, and a validator; no OpenBooks runtime behavior is implemented.
+- No OpenBooks code, schema, comments, UI text, file structure, implementation detail, dependency, source import, or source vendor artifact has been copied into LedgerByte.
+- Exception Inbox, deterministic bookkeeping pipeline, AI proposal boundary, report pack, typed onboarding, integration health, document review, evidence packs, and disposable test-business fixtures remain future LedgerByte-native work.
+- Production compliance status is unchanged. LedgerByte remains controlled beta/user-testing only, and Vercel remains beta/user-testing/staging only rather than final production hosting.
+- Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Complete generated-document object adapter staging approval artifact intake (2026-06-19):
 
 - The follow-up complete approval-artifact prompt was evaluated as a new approval-artifact intake attempt after PR #87.
