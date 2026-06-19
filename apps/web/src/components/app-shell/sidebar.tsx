@@ -22,7 +22,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { getLedgerByteEdition } from "@/lib/edition";
 import { filterSidebarNavItems } from "@/lib/sidebar-nav";
-import { canViewNavItem, PERMISSIONS, type Permission } from "@/lib/permissions";
+import { getMobileShellRoutes } from "@/lib/app-routes";
+import { canViewNavItem } from "@/lib/permissions";
 import { GlobalCreateMenu } from "./global-create-menu";
 
 const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -40,21 +41,6 @@ const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/settings/compliance": Calculator,
   "/settings/team": Settings2,
 };
-
-const mobileWorkflowLinks: readonly {
-  label: string;
-  href: string;
-  requiredAny: readonly Permission[];
-}[] = [
-  { label: "Dashboard", href: "/dashboard", requiredAny: [PERMISSIONS.dashboard.view] },
-  { label: "Setup", href: "/setup", requiredAny: [PERMISSIONS.dashboard.view] },
-  { label: "Customer", href: "/customers", requiredAny: [PERMISSIONS.contacts.view] },
-  { label: "Supplier", href: "/suppliers", requiredAny: [PERMISSIONS.contacts.view] },
-  { label: "Invoice", href: "/sales/invoices/new", requiredAny: [PERMISSIONS.salesInvoices.create] },
-  { label: "Payment", href: "/sales/customer-payments/new", requiredAny: [PERMISSIONS.customerPayments.create] },
-  { label: "VAT", href: "/tax", requiredAny: [PERMISSIONS.reports.view] },
-  { label: "Reports", href: "/reports", requiredAny: [PERMISSIONS.reports.view] },
-];
 
 export function Sidebar() {
   return <SidebarContent />;
@@ -141,7 +127,7 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
 export function MobileWorkflowNav() {
   const pathname = usePathname();
   const { activeMembership } = usePermissions();
-  const visibleLinks = mobileWorkflowLinks.filter((item) => canViewNavItem(activeMembership, item.requiredAny));
+  const visibleLinks = getMobileShellRoutes().filter((item) => canViewNavItem(activeMembership, item.requiredAny));
 
   if (visibleLinks.length === 0) {
     return null;
@@ -174,7 +160,7 @@ export function MobileWorkflowNav() {
                   : "border-line bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
-              {item.label}
+              {item.mobileLabel ?? item.label}
             </Link>
           );
         })}
