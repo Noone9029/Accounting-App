@@ -28,6 +28,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 disabled-object-adapter proof update: Phase D now has a disabled generated-document object adapter proof, not a real object adapter. `DisabledGeneratedDocumentObjectStorageAdapter` reports `object-storage-unavailable` and throws disabled/not-configured errors for generated-document reads and writes. `createGeneratedDocumentStorageAdapter()` defaults to the DB adapter, gates the fake local adapter behind an explicit local-test-only option, maps explicit object/S3-compatible modes to the disabled adapter, and fails closed on unknown modes. The Nest runtime module remains DB-backed and does not use this selector for production object storage.
 
+2026-06-19 fake-local-adapter proof update: Phase C now has completed local fake-object proof behavior. The fake adapter stores synthetic content in memory, returns exact content through the adapter boundary, derives tenant-prefixed/generated-document-id anchored keys, verifies SHA-256 and byte size metadata, rejects missing objects, rejects tenant-context mismatches when organization context is supplied, and handles duplicate writes deterministically. The selector refuses fake local adapter selection for production-looking environments. This is local/test-only proof machinery; it does not implement real object storage, hosted storage, signed URLs, schema changes, migrations, or production storage enablement.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.

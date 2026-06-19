@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { createHash } from "node:crypto";
 
 export interface GeneratedDocumentContentWriteInput {
@@ -18,10 +18,13 @@ export interface GeneratedDocumentContentWriteResult {
 }
 
 export interface StoredGeneratedDocumentContent {
+  organizationId?: string | null;
+  generatedDocumentId?: string | null;
   storageProvider: string;
   storageKey?: string | null;
   contentBase64?: string | null;
   contentHash: string;
+  sizeBytes?: number | null;
 }
 
 export interface GeneratedDocumentObjectKeyInput {
@@ -41,6 +44,14 @@ export abstract class GeneratedDocumentStorageAdapter {
 export interface GeneratedDocumentStorageAdapterSelectionOptions {
   mode?: string | null;
   allowLocalTestObjectAdapter?: boolean;
+  environment?: string | null;
+}
+
+interface FakeLocalGeneratedDocumentObjectMetadata {
+  organizationId: string;
+  generatedDocumentId: string;
+  contentHash: string;
+  sizeBytes: number;
 }
 
 @Injectable()
@@ -77,7 +88,7 @@ export class DatabaseGeneratedDocumentStorageAdapter extends GeneratedDocumentSt
 
 export class FakeLocalGeneratedDocumentObjectStorageAdapter extends GeneratedDocumentStorageAdapter {
   private readonly objects = new Map<string, Buffer>();
-  private readonly hashes = new Map<string, string>();
+  private readonly metadata = new Map<string, FakeLocalGeneratedDocumentObjectMetadata>();
 
   getStorageBackendName(): string {
     return "local-test-object";
@@ -93,15 +104,29 @@ export class FakeLocalGeneratedDocumentObjectStorageAdapter extends GeneratedDoc
       filename: input.filename,
     });
     const contentHash = sha256(input.buffer);
-    this.objects.set(storageKey, Buffer.from(input.buffer));
-    this.hashes.set(storageKey, contentHash);
-    return {
+    const sizeBytes = input.buffer.byteLength;
+    const existing = this.metadata.get(storageKey);
+    const result = {
       storageProvider: this.getStorageBackendName(),
       storageKey,
       contentBase64: null,
       contentHash,
-      sizeBytes: input.buffer.byteLength,
+      sizeBytes,
     };
+    if (existing) {
+      if (existing.contentHash !== contentHash || existing.sizeBytes !== sizeBytes) {
+        throw new ConflictException("Fake local generated-document object already exists with different content.");
+      }
+      return result;
+    }
+    this.objects.set(storageKey, Buffer.from(input.buffer));
+    this.metadata.set(storageKey, {
+      organizationId: input.organizationId,
+      generatedDocumentId: input.generatedDocumentId,
+      contentHash,
+      sizeBytes,
+    });
+    return result;
   }
 
   async readGeneratedDocumentContent(payload: StoredGeneratedDocumentContent): Promise<Buffer> {
@@ -109,8 +134,18 @@ export class FakeLocalGeneratedDocumentObjectStorageAdapter extends GeneratedDoc
       throw new NotFoundException("Generated document content is not available from the configured storage provider.");
     }
     const buffer = this.objects.get(payload.storageKey);
-    if (!buffer) {
+    const metadata = this.metadata.get(payload.storageKey);
+    if (!buffer || !metadata) {
       throw new NotFoundException("Generated document content is not available from the configured storage provider.");
+    }
+    if (payload.organizationId != null && payload.organizationId !== metadata.organizationId) {
+      throw new NotFoundException("Generated document content is not available from the configured storage provider.");
+    }
+    if (payload.generatedDocumentId != null && payload.generatedDocumentId !== metadata.generatedDocumentId) {
+      throw new NotFoundException("Generated document content is not available from the configured storage provider.");
+    }
+    if (payload.sizeBytes != null && payload.sizeBytes !== metadata.sizeBytes) {
+      throw new NotFoundException("Generated document content size verification failed.");
     }
     if (!this.verifyGeneratedDocumentContentHash(buffer, payload.contentHash)) {
       throw new NotFoundException("Generated document content hash verification failed.");
@@ -160,12 +195,20 @@ export function createGeneratedDocumentStorageAdapter(
     if (options.allowLocalTestObjectAdapter !== true) {
       throw new ServiceUnavailableException("Fake generated-document object storage is available only for explicit local tests.");
     }
+    if (!isLocalTestGeneratedDocumentStorageEnvironment(options.environment ?? process.env.NODE_ENV ?? "local")) {
+      throw new ServiceUnavailableException("Fake generated-document object storage is refused for production-looking environments.");
+    }
     return new FakeLocalGeneratedDocumentObjectStorageAdapter();
   }
   if (mode === "object" || mode === "object-storage" || mode === "s3" || mode === "s3-compatible" || mode === "disabled-object") {
     return new DisabledGeneratedDocumentObjectStorageAdapter();
   }
   throw new ServiceUnavailableException(`Unsupported generated-document storage adapter mode: ${mode}`);
+}
+
+function isLocalTestGeneratedDocumentStorageEnvironment(value: string | null | undefined): boolean {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "" || normalized === "local" || normalized === "test" || normalized === "development" || normalized === "dev" || normalized === "ci";
 }
 
 function normalizeGeneratedDocumentStorageMode(value: string | null | undefined): string {
