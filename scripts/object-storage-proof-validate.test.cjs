@@ -298,6 +298,9 @@ test("generated-document storage adapter interface remains database-default and 
   assert.equal(adapterInterface.realSignedUrlsGenerated, false);
   assert.equal(adapterInterface.fakeAdapterRuntimeRegistered, false);
   assert.equal(adapterInterface.fakeAdapterLocalTestsOnly, true);
+  assert.equal(adapterInterface.fakeLocalSelectionRequiresSafeEnvironment, true);
+  assert.equal(adapterInterface.fakeLocalProofStatus, "local-test-only");
+  assert.equal(adapterInterface.realObjectAdapterImplemented, false);
   assert.equal(adapterInterface.schemaMigrationRequired, false);
 });
 

@@ -10,6 +10,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 disabled-object-adapter proof update: `DisabledGeneratedDocumentObjectStorageAdapter` now exists as a local fail-closed proof. Explicit generated-document object/S3-compatible adapter modes resolve to this disabled adapter, which throws disabled/not-configured errors for reads and writes and has no signed URL capability. Unknown generated-document storage modes fail closed. Runtime module wiring remains database-backed.
 
+2026-06-19 fake-local-adapter proof update: `FakeLocalGeneratedDocumentObjectStorageAdapter` now proves local object-style adapter behavior with in-memory synthetic content only. It supports exact readback, generated-document-id anchored object keys, hash and size verification, missing-object failure, tenant-context mismatch rejection when org context is supplied, deterministic duplicate handling, and production-looking fake-adapter selection refusal. It is not a real object-storage adapter, not hosted storage, not signed URL support, and not production enablement.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.
@@ -17,6 +19,8 @@ Generated documents are currently database-backed unless a future code change pr
 The service now delegates content write/read/hash behavior to a generated-document storage adapter. The DB adapter preserves the same row fields and download behavior.
 
 The disabled object adapter is diagnostic/proof code only. It does not connect to hosted object storage, does not read or write objects, does not generate signed URLs, and must not be treated as object-storage readiness.
+
+The fake local object adapter is local/test proof code only. It does not connect to hosted object storage, does not use credentials, does not generate signed URLs, and must not be selected for production-looking environments.
 
 Attachments have separate S3-compatible groundwork behind `ATTACHMENT_STORAGE_PROVIDER=s3`; generated documents do not use that adapter today. `StorageService` reports generated-document S3 as not implemented and keeps generated-document migration planning dry-run/count-only. Signed URLs are not implemented; `StorageProvider.getReadUrl` is only an optional interface hook and no provider issues URLs.
 

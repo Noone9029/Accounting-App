@@ -1,5 +1,20 @@
 # LedgerByte Codex Handoff
 
+## Fake Local Generated Document Object Adapter Proof Summary (2026-06-19)
+
+- Current branch: `feature/fake-local-generated-document-object-adapter-proof`, from clean `origin/main` at `b434ebfe2d1a3f1dfa99f2a1f795db4341d9f59f` after PR #80 merged.
+- PR #80 baseline: disabled generated-document object adapter and fail-closed selector already existed; runtime wiring remained database-backed through `DatabaseGeneratedDocumentStorageAdapter`.
+- Completed the fake local generated-document object adapter proof in `apps/api/src/generated-documents/generated-document-storage.ts`: local in-memory writes/readback, generated-document-id anchored object keys, SHA-256 hash verification, size verification, deterministic duplicate handling, missing-object errors, tenant-context mismatch rejection when org context is supplied, and production-looking environment refusal for fake-adapter selection.
+- `GeneratedDocumentService.download()` now passes existing `organizationId`, generated-document id, and `sizeBytes` metadata through the adapter boundary for local proof checks while preserving API-mediated organization-scoped DB-backed downloads.
+- Runtime default remains DB-backed. `GeneratedDocumentModule` still registers `DatabaseGeneratedDocumentStorageAdapter`; generated-document rows continue to use `storageProvider = "database"`, `contentBase64`, `contentHash`, and `sizeBytes`.
+- Explicit object/S3-compatible modes still resolve to `DisabledGeneratedDocumentObjectStorageAdapter`. The fake local adapter remains explicit local/test-only and is not a real hosted object adapter.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run output distinguishes fake local proof status from real object storage: fake local proof is `local-test-only`, real object adapter implemented is `false`, hosted object storage touched is `false`, real signed URLs generated is `false`, and schema migration required is `false`.
+- Added `docs/development/FAKE_LOCAL_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_SPRINT_CLOSURE.md` and updated storage/security/status/risk docs.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, generated-document migration, real object adapter rollout, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, real signed URL implementation/proof if used, schema/migration approval if future metadata is required, backup/restore proof, retention/legal-hold/malware-scan evidence, observability evidence, owner/legal/accounting/security sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design generated-document object adapter staging proof gates`.
+
 ## Disabled Generated Document Object Adapter Proof Summary (2026-06-19)
 
 - Current branch: `feature/disabled-generated-document-object-adapter-proof`, from clean `origin/main` at `6abef3e58ed83403509a7b87f7408f4d93d14010` after PR #79 merged.

@@ -4,6 +4,27 @@ Audit date: 2026-06-18
 
 Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus this generated-document storage adapter interface branch.
 
+## 2026-06-19 Fake local generated-document object adapter proof
+
+### Scope and boundaries
+
+- Scope: local-only fake generated-document object adapter proof after PR #80.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- The fake local object adapter already existed, but its proof surface did not cover missing-object behavior, tenant-context mismatch, size verification, deterministic duplicate writes, or production-looking fake-adapter selection refusal.
+- `GeneratedDocumentService.download()` loaded DB-backed content through the adapter boundary but did not pass all existing organization/id/size metadata into the adapter payload.
+- No schema or migration change was required; existing fields are enough for local proof metadata.
+
+### Outcome
+
+- Completed fake local adapter proof behavior with in-memory storage, generated-document-id anchored keys, hash and size verification, safe missing-object errors, tenant-context mismatch rejection when context is supplied, and deterministic duplicate handling.
+- Added selector environment classification so fake local adapter selection requires explicit local/test mode and is refused for production-looking environments.
+- Preserved DB runtime default and disabled object adapter behavior.
+- Extended the local proof validator to report fake local proof status as local-test-only while keeping real object adapter implemented, hosted object storage touched, and real signed URLs generated as false.
+- No readiness score increase should be taken until real object storage, signed URL behavior if used, hosted proof, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
+
 ## 2026-06-19 Disabled generated-document object adapter proof
 
 ### Scope and boundaries

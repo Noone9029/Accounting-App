@@ -26,6 +26,19 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Fake local generated-document object adapter proof:
+
+- Added `feature/fake-local-generated-document-object-adapter-proof` from clean `origin/main` at `b434ebfe2d1a3f1dfa99f2a1f795db4341d9f59f` after PR #80 merged.
+- Completed fake local generated-document object adapter proof behavior in `apps/api/src/generated-documents/generated-document-storage.ts`.
+- The fake adapter remains local/test-only and in-memory. It stores and retrieves synthetic generated-document content, uses tenant-prefixed/generated-document-id anchored keys, verifies SHA-256 and `sizeBytes`, rejects missing objects, blocks tenant-context mismatches when context is supplied, rejects path traversal segments, and handles duplicate writes deterministically.
+- Selector guardrails now refuse fake local adapter selection for production-looking environments even when the explicit fake-adapter test option is present.
+- `GeneratedDocumentService.download()` passes existing organization/id/size metadata through the adapter boundary without changing the DB-backed runtime default.
+- `GeneratedDocumentModule` still registers `DatabaseGeneratedDocumentStorageAdapter`; explicit object/S3-compatible modes still resolve to the disabled adapter.
+- Extended `scripts/object-storage-proof-validate.cjs` with fake-local proof status while keeping real object adapter implementation, hosted object storage, signed URLs, and schema migrations reported as absent.
+- Generated-document object storage was not enabled, real object storage was not implemented, signed URLs were not implemented, hosted object storage was not touched, and no schema or migration changes were made.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Disabled generated-document object adapter proof:
 
 - Added `feature/disabled-generated-document-object-adapter-proof` from clean `origin/main` at `6abef3e58ed83403509a7b87f7408f4d93d14010` after PR #79 merged.

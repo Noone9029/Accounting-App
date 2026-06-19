@@ -120,19 +120,24 @@ export class GeneratedDocumentService {
       where: { id, organizationId },
       select: {
         id: true,
+        organizationId: true,
         filename: true,
         mimeType: true,
         storageProvider: true,
         storageKey: true,
         contentBase64: true,
         contentHash: true,
+        sizeBytes: true,
       },
     });
 
     if (!document) {
       throw new NotFoundException("Generated document not found.");
     }
-    const buffer = await this.generatedDocumentStorage.readGeneratedDocumentContent(document);
+    const buffer = await this.generatedDocumentStorage.readGeneratedDocumentContent({
+      ...document,
+      generatedDocumentId: document.id,
+    });
 
     return {
       filename: document.filename,

@@ -91,6 +91,77 @@ describe("generated document storage adapters", () => {
     });
     await expect(adapter.readGeneratedDocumentContent(saved)).resolves.toEqual(buffer);
     expect(adapter.verifyGeneratedDocumentContentHash(buffer, saved.contentHash)).toBe(true);
+    expect("getReadUrl" in adapter).toBe(false);
+  });
+
+  it("fails safely when fake local object content is missing", async () => {
+    const adapter = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+
+    await expect(
+      adapter.readGeneratedDocumentContent({
+        organizationId: "org-1",
+        storageProvider: "local-test-object",
+        storageKey: "org/org-1/generated-documents/missing/invoice.pdf",
+        contentBase64: null,
+        contentHash: "missing",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("blocks fake local object reads when the tenant context does not match the stored object", async () => {
+    const adapter = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+    const saved = await adapter.writeGeneratedDocumentContent({
+      organizationId: "org-1",
+      generatedDocumentId: "doc-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF generated document"),
+    });
+
+    await expect(
+      adapter.readGeneratedDocumentContent({
+        organizationId: "org-2",
+        ...saved,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("verifies fake local object size and hash metadata before returning content", async () => {
+    const adapter = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+    const buffer = Buffer.from("%PDF generated document");
+    const saved = await adapter.writeGeneratedDocumentContent({
+      organizationId: "org-1",
+      generatedDocumentId: "doc-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      buffer,
+    });
+
+    await expect(adapter.readGeneratedDocumentContent({ ...saved, sizeBytes: buffer.byteLength + 1 })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(adapter.readGeneratedDocumentContent({ ...saved, contentHash: "bad-hash" })).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("handles duplicate fake local object writes deterministically", async () => {
+    const adapter = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+    const buffer = Buffer.from("%PDF generated document");
+    const input = {
+      organizationId: "org-1",
+      generatedDocumentId: "doc-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      buffer,
+    };
+
+    const first = await adapter.writeGeneratedDocumentContent(input);
+    const second = await adapter.writeGeneratedDocumentContent(input);
+
+    expect(second).toEqual(first);
+    await expect(
+      adapter.writeGeneratedDocumentContent({
+        ...input,
+        buffer: Buffer.from("%PDF changed document"),
+      }),
+    ).rejects.toThrow("Fake local generated-document object already exists with different content.");
   });
 
   it("keeps the generated-document adapter selector database-backed by default", () => {
@@ -133,10 +204,21 @@ describe("generated document storage adapters", () => {
     const adapter = createGeneratedDocumentStorageAdapter({
       mode: "local-test-object",
       allowLocalTestObjectAdapter: true,
+      environment: "test",
     });
 
     expect(adapter).toBeInstanceOf(FakeLocalGeneratedDocumentObjectStorageAdapter);
     expect(adapter.getStorageBackendName()).toBe("local-test-object");
+  });
+
+  it("refuses fake local object adapter selection in production-looking environments", () => {
+    expect(() =>
+      createGeneratedDocumentStorageAdapter({
+        mode: "local-test-object",
+        allowLocalTestObjectAdapter: true,
+        environment: "production",
+      }),
+    ).toThrow("Fake generated-document object storage is refused for production-looking environments.");
   });
 
   it("fails closed for unknown generated-document storage modes", () => {

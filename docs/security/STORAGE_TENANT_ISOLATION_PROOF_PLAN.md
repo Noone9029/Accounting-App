@@ -16,6 +16,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 disabled generated-document object adapter proof update: a local-only follow-up added a disabled generated-document object adapter and selector guardrails. Database storage remains the default. Explicit object/S3-compatible generated-document modes resolve to a disabled adapter that throws before reads or writes, fake local object storage remains explicit local-test-only, and unknown modes fail closed. No hosted object storage, signed URL, schema migration, RLS/runtime role, generated-document migration, or provider work was added.
 
+2026-06-19 fake local generated-document object adapter proof update: a local-only follow-up completed fake adapter proof behavior for synthetic in-memory generated-document objects. The fake adapter now verifies tenant-prefixed/generated-document-id anchored keys, exact readback, hash and byte-size metadata, missing-object failure, tenant-context mismatch rejection when organization context is supplied, deterministic duplicate handling, and production-looking fake-adapter selection refusal. Runtime generated-document storage remains database-backed. No hosted object storage, signed URL, schema migration, RLS/runtime role, generated-document migration, or provider work was added.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -51,13 +53,14 @@ What appears local-only or planning-only:
 - Database/base64 storage remains the default.
 - Generated documents remain database-backed.
 - The disabled generated-document object adapter is a fail-closed proof only.
+- The fake local generated-document object adapter is local/test proof only and is not hosted storage.
 - Migration execution, retention, backup/restore, live bucket probes, and object-store restore proof remain planned.
 
 What is not yet proven:
 
 - Hosted object-storage tenant isolation.
 - Real signed URL behavior.
-- Generated-document object-storage behavior.
+- Real generated-document object-storage behavior.
 - Stale URL revocation after permission removal.
 - Backup/restore tenant boundary for object storage.
 - Production archive/retention guarantees.

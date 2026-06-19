@@ -1,5 +1,17 @@
 # Remaining Roadmap
 
+## 2026-06-19 Fake Local Generated Document Object Adapter Proof
+
+- Branch `feature/fake-local-generated-document-object-adapter-proof` completes the local-only fake generated-document object adapter proof after PR #80.
+- API update: `FakeLocalGeneratedDocumentObjectStorageAdapter` now proves local in-memory write/readback, generated-document-id anchored key construction, hash and size verification, missing-object failure, tenant-context mismatch rejection when org context is supplied, and deterministic duplicate writes.
+- Selector update: fake local adapter selection still requires explicit local/test selection and now refuses production-looking environments.
+- Service boundary update: generated-document downloads pass existing organization/id/size metadata into the adapter boundary while preserving API-mediated DB-backed runtime behavior.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now distinguishes fake local proof status from real object storage and signed URL status.
+- Runtime default remains `DatabaseGeneratedDocumentStorageAdapter`; explicit object/S3-compatible modes still resolve to the disabled adapter.
+- Generated documents remain database-backed. Real generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Recommended next prompt: `Design generated-document object adapter staging proof gates`.
+
 ## 2026-06-19 Disabled Generated Document Object Adapter Proof
 
 - Branch `feature/disabled-generated-document-object-adapter-proof` adds a local-only disabled generated-document object adapter proof after PR #79.

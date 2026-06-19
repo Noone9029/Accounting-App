@@ -477,12 +477,15 @@ function buildGeneratedDocumentStorageAdapterInterface(repoSurface) {
     realSignedUrlsGenerated: false,
     fakeAdapterRuntimeRegistered: false,
     fakeAdapterLocalTestsOnly: true,
+    fakeLocalSelectionRequiresSafeEnvironment: repoSurface.generatedDocumentFakeLocalSelectionRequiresSafeEnvironment,
+    fakeLocalProofStatus: repoSurface.generatedDocumentFakeLocalObjectAdapterDetected ? "local-test-only" : "not-implemented",
+    realObjectAdapterImplemented: false,
     schemaMigrationRequired: false,
     notes: [
       "Generated-document storage now has a local adapter boundary.",
       "The Nest module registers the database adapter as the generated-document runtime default.",
       "Explicit object-storage selection resolves to a disabled generated-document adapter that throws before reads or writes.",
-      "The fake local object adapter is exported for tests and is not registered for production runtime selection.",
+      "The fake local object adapter is exported for tests, requires explicit local/test selection, and is not registered for production runtime selection.",
       "Unknown generated-document storage adapter modes fail closed.",
       "This validator does not enable generated-document object storage or signed URLs.",
     ],
@@ -634,6 +637,9 @@ function detectRepoSurface(repoRoot) {
       generatedDocumentStorageSource.includes("function createGeneratedDocumentStorageAdapter") &&
       generatedDocumentStorageSource.includes("Unsupported generated-document storage adapter mode"),
     generatedDocumentFakeLocalObjectAdapterDetected: generatedDocumentStorageSource.includes("class FakeLocalGeneratedDocumentObjectStorageAdapter"),
+    generatedDocumentFakeLocalSelectionRequiresSafeEnvironment:
+      generatedDocumentStorageSource.includes("isLocalTestGeneratedDocumentStorageEnvironment") &&
+      generatedDocumentStorageSource.includes("refused for production-looking environments"),
     generatedDocumentServiceUsesAdapterBoundary:
       generatedDocumentSource.includes("writeGeneratedDocumentContent") &&
       generatedDocumentSource.includes("readGeneratedDocumentContent"),

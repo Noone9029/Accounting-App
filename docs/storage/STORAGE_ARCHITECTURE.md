@@ -60,6 +60,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 disabled generated-document object adapter proof update: `DisabledGeneratedDocumentObjectStorageAdapter` and `createGeneratedDocumentStorageAdapter()` now prove fail-closed selection behavior. The selector defaults to database storage, requires explicit local-test-only selection for the fake adapter, maps object/S3-compatible modes to a disabled adapter, and fails closed on unknown modes. `GeneratedDocumentModule` remains database-backed and does not register a real generated-document object adapter.
 
+2026-06-19 fake local generated-document object adapter proof update: the fake local adapter now proves object-style behavior with in-memory synthetic content only. It verifies tenant-prefixed/generated-document-id anchored key construction, exact readback, SHA-256, size metadata, missing-object failure, tenant-context mismatch rejection, duplicate write handling, and production-looking fake-adapter selection refusal. Runtime generated-document storage remains database-backed; no hosted object storage, real object adapter, signed URL path, schema migration, or generated-document migration was added.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`
