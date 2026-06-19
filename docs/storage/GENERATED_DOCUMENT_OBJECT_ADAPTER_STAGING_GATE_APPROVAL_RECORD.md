@@ -6,6 +6,8 @@ Scope: approval decision record only. This record does not execute staging proof
 
 Current status: `BLOCKED`
 
+2026-06-19 approval evidence package update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` now prepares the future approval request checklist, sign-off placeholders, staging artifact intake checklist, bucket policy review checklist, credential scope review checklist, rollback/evidence checklist, exact future approval phrase, expiry rules, and next human actions. This package is not approval and does not change the current decision.
+
 ## Decision
 
 The generated-document object adapter staging proof gates are not approved for execution.
@@ -13,6 +15,18 @@ The generated-document object adapter staging proof gates are not approved for e
 Approval evidence is missing or incomplete in the repository and in the current approval prompt. The safe decision is therefore `BLOCKED`, not `APPROVED`.
 
 Future proof execution remains `NOT_READY`.
+
+## Approval Package Status
+
+| Item | Status |
+| --- | --- |
+| Approval package prepared | Yes |
+| Approval evidence complete | No |
+| Gates approved | No |
+| Runner state | `NOT_READY` |
+| Future proof execution blocked | Yes |
+
+The approval package is a placeholder and intake packet only. It contains no real sign-offs, no real credentials, no real bucket names, no real tenant IDs, and no proof execution evidence.
 
 ## Status Values
 
@@ -47,12 +61,14 @@ These artifacts are readiness and safety controls only. They are not human appro
 - Explicit `proofRunId` pattern approval.
 - Explicit staging environment name.
 - Dedicated staging bucket name, or a signed record that the bucket is still pending.
+- Staging-only credential scope details.
 - Synthetic Tenant A and Tenant B IDs, or a signed record that they are still pending.
 - Rollback confirmation.
 - Evidence capture confirmation.
 - Bucket policy review confirmation.
 - Credential scope review confirmation.
 - No-production-target confirmation.
+- Final sign-offs.
 
 ## Required Future Approval Phrase
 

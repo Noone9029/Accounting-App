@@ -2,7 +2,15 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `9813bf202f88e418e82c17052dd3f81442cb3e00` (`origin/main` after PR #83 merge) plus this generated-document object adapter staging-runner-design branch.
+Latest commit audited: `1f3b2f89e840d302bfdd71ca9fd90f646883b843` (`origin/main` after PR #85 merge) plus this generated-document object adapter staging approval evidence package branch.
+
+## 2026-06-19 Generated-document object adapter staging approval evidence package
+
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_EVIDENCE_PACKAGE.md` and `docs/storage/templates/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_APPROVAL_SIGNOFF_TEMPLATE.md`.
+- Approval package prepared: yes. Approval evidence complete: no. Current gate approval status remains `BLOCKED`, gates are not approved, and runner proof execution remains `NOT_READY`.
+- Validator output now detects the approval package and sign-off template separately from approval status. It still reports `generatedDocumentObjectAdapterStagingGateApprovalStatus=BLOCKED`, `generatedDocumentObjectAdapterStagingGateApprovalApproved=false`, and `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Bug/risk status: no production-readiness bug is closed by this package. It reduces handoff ambiguity by listing required future evidence, sign-offs, staging artifacts, bucket policy review, credential scope review, rollback/evidence confirmations, the exact future approval phrase, and expiry rules.
+- No hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, no real object adapter was implemented, and no schema/migration/RLS/runtime-role/provider work was started.
 
 ## 2026-06-19 Generated-document object adapter staging gate approval record
 
