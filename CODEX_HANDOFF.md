@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Disabled Generated Document Object Adapter Proof Summary (2026-06-19)
+
+- Current branch: `feature/disabled-generated-document-object-adapter-proof`, from clean `origin/main` at `6abef3e58ed83403509a7b87f7408f4d93d14010` after PR #79 merged.
+- Added `DisabledGeneratedDocumentObjectStorageAdapter` as a local fail-closed generated-document object adapter. It never connects to hosted storage, never reads/writes objects, never generates signed URLs, and throws a disabled/not-configured error for generated-document content reads and writes.
+- Added `createGeneratedDocumentStorageAdapter()` selector guardrails: database remains the default, explicit object/S3-compatible modes return the disabled adapter, fake local object storage requires an explicit local-test-only option, and unknown modes fail closed.
+- Runtime wiring remains DB-backed: `GeneratedDocumentModule` still registers `DatabaseGeneratedDocumentStorageAdapter` as the Nest runtime default, and generated-document rows continue to use `storageProvider = "database"`, `contentBase64`, `contentHash`, and `sizeBytes`.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run output reports disabled object adapter detection, selector detection, explicit object-mode disabled selection, and unknown-mode fail-closed behavior.
+- Added `docs/development/DISABLED_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_SPRINT_CLOSURE.md` and updated storage/security/status/risk docs.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, real hosted signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, generated-document migration, real object adapter rollout, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, real signed URL implementation/proof if used, schema/migration approval if future metadata is required, backup/restore proof, retention/legal-hold/malware-scan evidence, observability evidence, owner/legal/accounting/security sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design generated-document object adapter staging proof gates`.
+
 ## Generated Document Storage Adapter Interface Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-storage-adapter-interface`, from clean `origin/main` at `60feb4634a9cfddf33e995ba1514102551d832f9` after PR #78 merged.

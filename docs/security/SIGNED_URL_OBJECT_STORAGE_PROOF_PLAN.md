@@ -10,6 +10,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - Uploaded attachments are database/base64-backed by default. The S3-compatible attachment adapter is feature-flagged groundwork for new uploaded attachments and writes keys under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` when configured.
 - Generated documents remain database-backed through `GeneratedDocumentService.archivePdf()` and `contentBase64`. Generated-document S3 writes are not implemented.
 - Generated-document content now flows through `GeneratedDocumentStorageAdapter` with `DatabaseGeneratedDocumentStorageAdapter` as the runtime default. The fake local object adapter is test-only and not runtime-registered.
+- Explicit generated-document object/S3-compatible adapter selection now resolves to a disabled fail-closed adapter. The disabled adapter has no signed URL method and throws disabled/not-configured errors before any generated-document object read or write.
 - The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
 - The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
@@ -109,5 +110,6 @@ Signed URL and object-storage access are not production-ready until:
 - This plan does not prove hosted object-storage tenant boundaries.
 - This plan does not make generated-document object storage active.
 - This plan does not make the test-only fake generated-document object adapter runtime-selectable.
+- This plan does not replace the disabled generated-document object adapter with a real object-storage adapter.
 - This plan does not change production readiness scores.
 - This plan does not remove the DB-backed fallback requirement for generated documents.

@@ -285,10 +285,14 @@ test("generated-document storage adapter interface remains database-default and 
   const adapterInterface = result.generatedDocumentStorageAdapterInterface;
   assert.equal(adapterInterface.interfaceDetected, true);
   assert.equal(adapterInterface.databaseAdapterDetected, true);
+  assert.equal(adapterInterface.disabledObjectAdapterDetected, true);
+  assert.equal(adapterInterface.selectorDetected, true);
   assert.equal(adapterInterface.fakeLocalObjectAdapterDetected, true);
   assert.equal(adapterInterface.serviceUsesAdapterBoundary, true);
   assert.equal(adapterInterface.moduleRegistersDatabaseAdapterDefault, true);
   assert.equal(adapterInterface.defaultRuntimeStorage, "database");
+  assert.equal(adapterInterface.explicitObjectModeSelection, "disabled-adapter");
+  assert.equal(adapterInterface.unknownModeBehavior, "fail-closed");
   assert.equal(adapterInterface.objectStorageEnabledByDefault, false);
   assert.equal(adapterInterface.hostedObjectStorageTouched, false);
   assert.equal(adapterInterface.realSignedUrlsGenerated, false);

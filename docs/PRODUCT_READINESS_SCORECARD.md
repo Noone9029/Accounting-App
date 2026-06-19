@@ -4,6 +4,15 @@ Audit date: 2026-06-18
 
 Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus the generated-document storage adapter interface branch.
 
+## 2026-06-19 Disabled Generated Document Object Adapter Proof Update
+
+- Controlled-beta API confidence improves because explicit generated-document object/S3-compatible adapter modes now resolve to a disabled fail-closed adapter instead of relying only on the absence of a real adapter.
+- Local test confidence improves because adapter tests cover DB default selection, disabled object adapter read/write refusal, absence of signed URL capability on the disabled adapter, fake local adapter local-test-only gating, and unknown-mode fail-closed behavior.
+- Local harness confidence improves because `scripts/object-storage-proof-validate.cjs` now reports disabled object adapter detection, selector detection, explicit object-mode disabled selection, and unknown-mode fail-closed behavior.
+- No readiness score increase is taken for production launch readiness. Generated documents remain database-backed by default, generated-document object storage is not enabled, signed URLs are not implemented, hosted bucket/storage proof was not run, and no real hosted signed URL was generated.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, real signed URL implementation/proof if URLs are used, schema/migration approval if future metadata is required, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner/legal/accounting/security sign-off, and provider evidence.
+
 ## 2026-06-19 Generated Document Storage Adapter Interface Update
 
 - Controlled-beta API confidence improves because generated-document archive writes and downloads now pass through a generated-document-specific adapter boundary while preserving the existing database-backed behavior.

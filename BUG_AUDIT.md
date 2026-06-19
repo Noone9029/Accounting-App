@@ -4,6 +4,26 @@ Audit date: 2026-06-18
 
 Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus this generated-document storage adapter interface branch.
 
+## 2026-06-19 Disabled generated-document object adapter proof
+
+### Scope and boundaries
+
+- Scope: local-only disabled generated-document object adapter proof after PR #79.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, real hosted signed URL generation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- Generated-document runtime wiring was already hardcoded to `DatabaseGeneratedDocumentStorageAdapter`.
+- The codebase had a DB adapter and a fake local object adapter, but no disabled object adapter or selector proof for explicit object-mode requests.
+- Adding the disabled adapter and selector did not require schema changes, migrations, storage credentials, signed URL infrastructure, or hosted storage access.
+
+### Outcome
+
+- Added `DisabledGeneratedDocumentObjectStorageAdapter`, which reports `object-storage-unavailable` and throws disabled/not-configured errors for reads and writes.
+- Added selector guardrails proving the default is database-backed, fake local object storage is local-test-only, explicit object/S3-compatible modes resolve to the disabled adapter, and unknown modes fail closed.
+- Extended the local proof validator with disabled-adapter and selector guardrail detection.
+- No readiness score increase should be taken until real object storage, signed URL behavior if used, hosted proof, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
+
 ## 2026-06-19 Generated document storage adapter interface
 
 ### Scope and boundaries

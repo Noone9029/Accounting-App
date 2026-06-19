@@ -26,6 +26,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 adapter-interface implementation update: Phase B now has an initial scaffold in `apps/api/src/generated-documents/generated-document-storage.ts`. The runtime module registers `DatabaseGeneratedDocumentStorageAdapter` as the generated-document default. `GeneratedDocumentService.archivePdf()` and `download()` use the adapter boundary while preserving DB-backed rows and API-mediated downloads. `FakeLocalGeneratedDocumentObjectStorageAdapter` exists for local tests only and is not runtime-registered. Generated-document object storage and signed URLs remain disabled/unimplemented.
 
+2026-06-19 disabled-object-adapter proof update: Phase D now has a disabled generated-document object adapter proof, not a real object adapter. `DisabledGeneratedDocumentObjectStorageAdapter` reports `object-storage-unavailable` and throws disabled/not-configured errors for generated-document reads and writes. `createGeneratedDocumentStorageAdapter()` defaults to the DB adapter, gates the fake local adapter behind an explicit local-test-only option, maps explicit object/S3-compatible modes to the disabled adapter, and fails closed on unknown modes. The Nest runtime module remains DB-backed and does not use this selector for production object storage.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.
@@ -102,12 +104,15 @@ Likely files:
 
 Add a future S3-compatible generated-document adapter only behind disabled flags and with no production default.
 
+Status: disabled proof only on 2026-06-19. A fail-closed disabled object adapter and selector guardrails exist, but no hosted provider, credentials, bucket calls, signed URLs, schema changes, migrations, generated-document migration, or runtime object-storage rollout exists.
+
 Acceptance criteria:
 
 - Default remains DB-backed.
 - Object writes require explicit non-production enablement.
 - No signed URL path is required for this phase.
 - API-mediated reads remain available.
+- Explicit object/S3-compatible selection fails closed until a real adapter is separately approved and implemented.
 
 Likely files:
 

@@ -58,6 +58,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 generated-document adapter-interface update: `GeneratedDocumentStorageAdapter` and `DatabaseGeneratedDocumentStorageAdapter` now exist under `apps/api/src/generated-documents/generated-document-storage.ts`. `GeneratedDocumentModule` registers the database adapter as the runtime default. The fake local generated-document object adapter is test-only and not runtime-registered. No hosted object storage, real object adapter, signed URL path, schema migration, or generated-document migration was added.
 
+2026-06-19 disabled generated-document object adapter proof update: `DisabledGeneratedDocumentObjectStorageAdapter` and `createGeneratedDocumentStorageAdapter()` now prove fail-closed selection behavior. The selector defaults to database storage, requires explicit local-test-only selection for the fake adapter, maps object/S3-compatible modes to a disabled adapter, and fails closed on unknown modes. `GeneratedDocumentModule` remains database-backed and does not register a real generated-document object adapter.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`
@@ -91,5 +93,6 @@ Before production-scale file usage:
 - No email sending.
 - No generated document object-storage implementation.
 - No generated document hosted object adapter.
+- No generated document real object adapter replacing the disabled proof adapter.
 - No generated document signed URL implementation.
 - No generated document schema migration.

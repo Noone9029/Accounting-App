@@ -14,6 +14,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document adapter-interface update: a local-only follow-up added `GeneratedDocumentStorageAdapter`, a database runtime default adapter, and a fake local object adapter for tests only. Generated-document archive/download behavior remains DB-backed and API-mediated. The fake adapter is not runtime-registered, and no hosted object storage, signed URL, schema migration, RLS/runtime role, or provider work was added.
 
+2026-06-19 disabled generated-document object adapter proof update: a local-only follow-up added a disabled generated-document object adapter and selector guardrails. Database storage remains the default. Explicit object/S3-compatible generated-document modes resolve to a disabled adapter that throws before reads or writes, fake local object storage remains explicit local-test-only, and unknown modes fail closed. No hosted object storage, signed URL, schema migration, RLS/runtime role, generated-document migration, or provider work was added.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -48,6 +50,7 @@ What appears local-only or planning-only:
 
 - Database/base64 storage remains the default.
 - Generated documents remain database-backed.
+- The disabled generated-document object adapter is a fail-closed proof only.
 - Migration execution, retention, backup/restore, live bucket probes, and object-store restore proof remain planned.
 
 What is not yet proven:
