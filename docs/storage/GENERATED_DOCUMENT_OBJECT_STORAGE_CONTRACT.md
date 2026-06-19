@@ -24,6 +24,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 approval artifact intake update: the current prompt supplied placeholders only, so approval artifacts are incomplete. The contract remains unchanged: gates remain `BLOCKED`, proof remains not executed, generated documents remain DB-backed, real object storage remains unimplemented, and signed URLs remain unimplemented.
 
+2026-06-19 complete approval artifact intake update: the follow-up prompt was evaluated, but it still supplied placeholders only. The contract remains unchanged: gates remain `BLOCKED`, runner state remains `NOT_READY`, proof remains not executed, generated documents remain DB-backed, real object storage remains unimplemented, and signed URLs remain unimplemented.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.

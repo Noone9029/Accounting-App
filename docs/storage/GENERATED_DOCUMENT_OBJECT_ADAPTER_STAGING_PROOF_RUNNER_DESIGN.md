@@ -10,6 +10,8 @@ Scope: runner design plus local-only fail-closed skeleton. This does not execute
 
 2026-06-19 approval artifact intake update: the current prompt contained placeholders only, so approval artifacts are not complete. This intake does not approve runner execution, does not make hosted modes available, and does not change `networkEnabled=false`, `mutationEnabled=false`, `mutationAllowed=false`, `proofExecuted=false`, `hostedStorageTouched=false`, or `signedUrlsGenerated=false`.
 
+2026-06-19 complete approval artifact intake update: the follow-up prompt still supplied placeholders only and no explicit safe approval evidence. Runner proof execution remains `NOT_READY`; hosted modes remain unavailable; `networkEnabled=false`, `mutationEnabled=false`, `mutationAllowed=false`, `proofExecuted=false`, `hostedStorageTouched=false`, `databaseTouched=false`, and `signedUrlsGenerated=false` remain the required posture.
+
 ## Purpose
 
 The generated-document object adapter staging proof runner coordinates a future approved staging-only proof for generated-document object storage. It must never run against production and must not be treated as proof execution until real staging credentials, synthetic tenants, a dedicated staging bucket, a real generated-document object adapter, rollback/evidence gates, and owner/security/accounting/legal approvals exist.
