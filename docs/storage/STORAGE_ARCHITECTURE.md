@@ -74,6 +74,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 generated-document object adapter staging approval artifact intake update: the current prompt was evaluated and supplied placeholders only. Approval artifacts remain incomplete, gates remain `BLOCKED`, the runner remains `NOT_READY`, no hosted proof was executed, no hosted object storage was touched, and runtime generated-document storage remains DB-backed.
 
+2026-06-19 generated-document object adapter complete staging approval artifact intake update: the follow-up prompt still supplied placeholders only and no explicit safe approval evidence. Approval artifacts remain incomplete, gates remain `BLOCKED`, the runner remains `NOT_READY`, no hosted proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, and runtime generated-document storage remains DB-backed.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`
