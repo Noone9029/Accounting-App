@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-20 Setup Checklist Template UI Consumption Update
+
+- Product clarity improves because the setup wizard now renders archetype-aware checklist previews from typed onboarding metadata.
+- The selector is client-side only and does not persist selected archetypes to an API, database, local storage, cookies, or hosted service.
+- Active preview items link only through active setup/onboarding route helpers and the app route registry. Planned and blocked items remain non-actionable and do not activate inactive future routes.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, hosted behavior, API runtime behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-20 Typed Onboarding Profile Metadata Foundation Update
 
 - Product clarity improves because business archetypes and setup checklist template metadata are centralized in a LedgerByte-native frontend/shared helper.
