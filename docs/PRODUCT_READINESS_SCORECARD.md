@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-20 Setup Progress Metadata Refinements Update
+
+- Product clarity improves because setup progress categories, labels, descriptions, statuses, route keys, hrefs, action labels, safe explanations, planned metadata, and unknown-item fallback are now centralized in a LedgerByte-native frontend helper.
+- Dashboard/setup wizard helpers now consume the setup progress metadata helper plus route-registry-backed setup/onboarding helpers while preserving existing labels, read-only checklist behavior, return-to links, and local-readiness wording.
+- Planned typed-onboarding metadata remains non-actionable and does not activate inactive future routes.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, hosted behavior, API runtime behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-20 Setup/Onboarding Route Registry Consumers Update
 
 - Product clarity improves because setup/onboarding route helpers now consume the app route registry for setup navigation, breadcrumbs, checklist route mapping, missing-route fallback, and dashboard completion destination.

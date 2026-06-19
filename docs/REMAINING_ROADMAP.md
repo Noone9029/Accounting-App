@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-20 Setup Progress Metadata Refinements
+
+- Branch `feature/setup-progress-metadata-refinements` adds a narrow LedgerByte-native setup progress metadata helper for frontend setup/dashboard helpers.
+- Setup progress metadata now centralizes categories, titles, descriptions, statuses, route keys, hrefs, action labels, safe explanations, planned metadata, and unknown-item fallback.
+- Dashboard/setup wizard helpers now consume setup progress metadata and the setup/onboarding route registry consumers while preserving existing labels, read-only checklist behavior, return-to links, and local-readiness wording.
+- Planned typed-onboarding metadata remains non-actionable and does not activate future inactive routes.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native setup dashboard progress grouping`.
+
 ## 2026-06-20 Setup/Onboarding Route Registry Consumers
 
 - Branch `feature/setup-onboarding-route-registry-consumers` adds a narrow LedgerByte-native setup/onboarding consumer of the app route registry.

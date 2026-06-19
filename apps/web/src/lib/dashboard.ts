@@ -1,7 +1,13 @@
 import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
-import { getSetupCompletionDestination, getSetupRoute, setupRouteForChecklistItem } from "./setup-onboarding-routes";
+import { getSetupCompletionDestination, getSetupRoute } from "./setup-onboarding-routes";
+import {
+  FIRST_ACCOUNTING_WORKFLOW_PROGRESS_KEYS,
+  getFirstAccountingWorkflowProgressItems,
+  getSetupProgressItems,
+  type SetupProgressItem,
+} from "./setup-progress";
 import type {
   DashboardAttentionItem,
   DashboardAttentionSeverity,
@@ -233,101 +239,28 @@ export interface SetupWizardDashboardSummary {
   conciseBlockerSummary: string;
 }
 
-export const FIRST_ACCOUNTING_WORKFLOW_STEP_IDS = [
-  "organization_profile",
-  "tax_profile",
-  "customer_created",
-  "first_invoice",
-  "first_payment",
-  "first_report",
-] as const;
-
-interface SetupStepCopy {
-  title: string;
-  actionHref: string;
-  actionLabel: string;
-  safeExplanation: string;
-}
-
-type SetupStepStaticCopy = Omit<SetupStepCopy, "actionHref">;
-
-const SETUP_STEP_COPY: Record<string, SetupStepStaticCopy> = {
-  organization_profile: {
-    title: "Organization profile",
-    actionLabel: "Review organization",
-    safeExplanation: "Review legal name, country, base currency, timezone, and VAT/tax identity. This wizard only links to setup screens.",
-  },
-  chart_of_accounts: {
-    title: "Chart of accounts",
-    actionLabel: "Open accounts",
-    safeExplanation: "Posting workflows need active posting accounts. The wizard does not create, seed, or alter accounts.",
-  },
-  tax_profile: {
-    title: "VAT/tax profile",
-    actionLabel: "Open tax rates",
-    safeExplanation: "Review VAT identity and active tax-rate setup before first invoices. Existing contact VAT/ID validation is not changed here.",
-  },
-  customer_created: {
-    title: "First customer",
-    actionLabel: "Add first customer",
-    safeExplanation: "Create or review customer records from the dedicated customer workspace. The wizard does not create contacts automatically.",
-  },
-  first_invoice: {
-    title: "First invoice",
-    actionLabel: "Create first invoice",
-    safeExplanation: "Use the sales invoice workflow to create a draft invoice for review. The wizard does not finalize or submit invoices.",
-  },
-  bank_payment_method: {
-    title: "Bank/payment method",
-    actionLabel: "Open bank accounts",
-    safeExplanation: "Review bank, cash, card, wallet, or other payment profiles. The wizard does not post balances or payments.",
-  },
-  first_payment: {
-    title: "First payment",
-    actionLabel: "Record first payment",
-    safeExplanation: "Record a customer payment against a finalized invoice. The wizard does not allocate or post payments automatically.",
-  },
-  first_report: {
-    title: "First report",
-    actionLabel: "View first report",
-    safeExplanation: "Open Profit & Loss after posted activity exists. The wizard does not generate or export reports automatically.",
-  },
-  zatca_local_readiness_visible: {
-    title: "Compliance readiness visibility",
-    actionLabel: "Review compliance readiness",
-    safeExplanation:
-      "Country-specific compliance status is hidden in the generic workspace. VAT and accounting review stays local-only and does not enable tax-authority submission workflows.",
-  },
-  contact_vat_id_validation: {
-    title: "Contact VAT/ID validation",
-    actionLabel: "Review contacts",
-    safeExplanation: "Contact VAT and buyer identification validation stays in the existing contact workflows. This wizard only reports checklist evidence.",
-  },
-  storage_readiness_checked: {
-    title: "Storage readiness",
-    actionLabel: "Open storage settings",
-    safeExplanation: "Review generated-document and attachment storage readiness. Signed XML and QR payload body persistence remain blocked.",
-  },
-};
+export const FIRST_ACCOUNTING_WORKFLOW_STEP_IDS = FIRST_ACCOUNTING_WORKFLOW_PROGRESS_KEYS;
 
 export function setupWizardSteps(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardStep[] {
   const edition = getLedgerByteEdition(market);
+  const progressItemsByKey = new Map(getSetupProgressItems(checklist, market).map((item) => [item.key, item]));
+
   return checklist.items.map((item) => {
-    const copy = item.id === "zatca_local_readiness_visible" ? editionSetupStepCopy(edition) : setupStepCopy(item);
+    const progressItem = progressItemsByKey.get(item.id) ?? fallbackSetupProgressItem(item);
     const countryComplianceFields = countryComplianceChecklistFields(item, edition);
     return {
       id: item.id,
-      title: copy.title,
+      title: progressItem.title,
       status: item.status,
       statusLabel: onboardingChecklistItemStatusLabel(item.status),
       statusClassName: onboardingChecklistItemStatusClass(item.status),
       description: countryComplianceFields.description,
-      actionHref: copy.actionHref,
-      actionLabel: copy.actionLabel,
+      actionHref: progressItem.href ?? SETUP_WIZARD_ROUTE,
+      actionLabel: progressItem.actionLabel,
       evidence: countryComplianceFields.evidence,
       blockers: countryComplianceFields.blockers,
       warnings: countryComplianceFields.warnings,
-      safeExplanation: copy.safeExplanation,
+      safeExplanation: progressItem.safeExplanation,
     };
   });
 }
@@ -366,8 +299,8 @@ export function setupWizardDashboardSummary(checklist: DashboardOnboardingCheckl
 
 export function firstAccountingWorkflowSteps(checklist: DashboardOnboardingChecklist, market?: LedgerByteMarket): SetupWizardStep[] {
   const stepsById = new Map(setupWizardSteps(checklist, market).map((step) => [step.id, step]));
-  return FIRST_ACCOUNTING_WORKFLOW_STEP_IDS.flatMap((id) => {
-    const step = stepsById.get(id);
+  return getFirstAccountingWorkflowProgressItems(checklist, market).flatMap((item) => {
+    const step = stepsById.get(item.key);
     return step ? [step] : [];
   });
 }
@@ -410,33 +343,17 @@ function conciseSetupBlockerSummary(blockerCount: number): string {
   return blockerCount === 1 ? "1 blocker needs review." : `${blockerCount} blockers need review.`;
 }
 
-function setupStepCopy(item: DashboardOnboardingChecklistItem): SetupStepCopy {
-  const route = setupRouteForChecklistItem(item.id);
-  const copy = SETUP_STEP_COPY[item.id] ?? fallbackSetupStepCopy(item);
-
+function fallbackSetupProgressItem(item: DashboardOnboardingChecklistItem): SetupProgressItem {
   return {
-    title: copy.title,
-    actionHref: route?.href ?? item.href,
-    actionLabel: copy.actionLabel,
-    safeExplanation: copy.safeExplanation,
-  };
-}
-
-function fallbackSetupStepCopy(item: DashboardOnboardingChecklistItem): SetupStepStaticCopy {
-  return {
+    key: item.id,
+    category: "business_profile",
     title: item.label,
+    description: item.description,
+    status: "blocked",
     actionLabel: "Open",
     safeExplanation: "This wizard shows checklist evidence and links to the relevant page without mutating setup data.",
-  };
-}
-
-function editionSetupStepCopy(edition: ReturnType<typeof getLedgerByteEdition>): SetupStepCopy {
-  const route = getSetupRoute(edition.showZatca ? "settings.zatca" : "settings.compliance");
-  return {
-    title: edition.complianceReadinessTitle,
-    actionHref: route?.href ?? edition.complianceReadinessHref,
-    actionLabel: edition.complianceReadinessActionLabel,
-    safeExplanation: edition.complianceReadinessExplanation,
+    actionable: false,
+    blockerCode: "SETUP_PROGRESS_ROUTE_UNAVAILABLE",
   };
 }
 
