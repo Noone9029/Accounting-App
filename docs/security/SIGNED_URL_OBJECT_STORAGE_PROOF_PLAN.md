@@ -14,6 +14,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - The fake local generated-document object adapter now proves in-memory object-style write/read/hash/size/key/missing-object/tenant-context/duplicate behavior for local tests only. It has no signed URL method and is refused for production-looking selection.
 - The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
 - The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
+- `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required gates before any future generated-document object adapter can run against staging object storage. Signed URLs remain outside that proof unless a separate signed URL gate is approved.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 
@@ -80,6 +81,7 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 ## Hosted Proof Requirements
 
 - Dedicated staging/proof bucket only.
+- Generated-document object adapter staging gates satisfied before any object-adapter execution.
 - Synthetic Tenant A and Tenant B records only.
 - Proof-run id labels on synthetic objects and metadata.
 - No customer data.

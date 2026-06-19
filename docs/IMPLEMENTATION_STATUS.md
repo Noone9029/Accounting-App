@@ -26,6 +26,16 @@ Current production posture:
 - DEV-11 is closed as local-only inventory valuation and COGS evidence. DEV-11 does not prove production readiness, beta readiness, customer-data behavior, accountant certification, FIFO/landed-cost completeness, automatic COGS, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 - DEV-12 is closed as local-only generated documents storage retention evidence. DEV-12 does not prove production readiness, beta readiness, customer-data behavior, object-storage readiness, retention/legal compliance, restore proof, malware scanning, broad E2E/smoke/full-test, hosted behavior, or load/concurrency.
 
+2026-06-19 Generated document object adapter staging proof gates:
+
+- Added `feature/generated-document-object-adapter-staging-gates` from clean `origin/main` at `076addba73849fc414ec3addc97f4b5b47b32833` after PR #81 merged.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md`.
+- The gate model requires explicit owner/security/storage approval, dedicated staging/proof environment and bucket, staging-only credentials, synthetic tenants, valid `proofRunId`, allow flags, bucket policy review, rollback/cleanup plan, and sanitized evidence capture before any future generated-document object adapter may run against staging object storage.
+- Extended `scripts/object-storage-proof-validate.cjs` so local dry-run output reports generated-document object adapter staging gate status and keeps `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Generated-document runtime storage remains DB-backed by default. The disabled object adapter remains fail-closed. The fake local adapter remains local/test-only. Real object storage and signed URLs remain unimplemented and unproven.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, provider call, ZATCA/UAE production work, real email, real bank feed, or payment processor integration was performed.
+- Provider evidence remains unavailable. This pass does not prove hosted/customer-data behavior or production storage readiness.
+
 2026-06-19 Fake local generated-document object adapter proof:
 
 - Added `feature/fake-local-generated-document-object-adapter-proof` from clean `origin/main` at `b434ebfe2d1a3f1dfa99f2a1f795db4341d9f59f` after PR #80 merged.

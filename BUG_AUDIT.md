@@ -2,7 +2,27 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus this generated-document storage adapter interface branch.
+Latest commit audited: `076addba73849fc414ec3addc97f4b5b47b32833` (`origin/main` after PR #81 merge) plus this generated-document object adapter staging-gate branch.
+
+## 2026-06-19 Generated-document object adapter staging proof gates
+
+### Scope and boundaries
+
+- Scope: planning/docs/local validator gate design after PR #81.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- PR #81 completed fake local generated-document object adapter proof behavior, but the repo did not yet have one canonical staging gate document for future hosted generated-document object adapter proof.
+- The validator distinguished DB default, disabled object adapter, fake local proof, and real object adapter absence, but did not expose generated-document object adapter staging gate readiness as a first-class local dry-run section.
+- No schema, migration, hosted credential, signed URL, or real object adapter work was required to design the gates.
+
+### Outcome
+
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md`.
+- Extended the local proof validator with generated-document object adapter staging gate status, including required dedicated bucket, synthetic tenants, proofRunId, explicit allow flags, no-production-targets, rollback plan, and `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Added validator tests for default blocked status, production-looking target refusal, no secret value output, and no-network/no-mutation posture.
+- No readiness score increase should be taken until approvals, dedicated staging bucket, staging-only credentials, synthetic tenants, hosted proof, bucket policy proof, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
 
 ## 2026-06-19 Fake local generated-document object adapter proof
 

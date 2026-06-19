@@ -174,6 +174,10 @@ function buildObjectStorageProof(options = {}) {
     signedUrlProofPlan,
     generatedDocumentObjectStorageContract: buildGeneratedDocumentObjectStorageContract(),
     generatedDocumentStorageAdapterInterface: buildGeneratedDocumentStorageAdapterInterface(repoSurface),
+    generatedDocumentObjectAdapterStagingProofGates: buildGeneratedDocumentObjectAdapterStagingProofGates({
+      repoRoot,
+      environment,
+    }),
     lifecycleRetention: {
       implemented: false,
       status: "not_proven",
@@ -488,6 +492,116 @@ function buildGeneratedDocumentStorageAdapterInterface(repoSurface) {
       "The fake local object adapter is exported for tests, requires explicit local/test selection, and is not registered for production runtime selection.",
       "Unknown generated-document storage adapter modes fail closed.",
       "This validator does not enable generated-document object storage or signed URLs.",
+    ],
+  };
+}
+
+function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
+  const environment = options.environment || process.env;
+  const repoRoot = resolveRepoRoot(options.repoRoot || options.cwd || process.cwd());
+  const gatesDocumentPath = path.join(repoRoot, "docs", "storage", "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md");
+  const proofRunId = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_RUN_ID || "").trim();
+  const targetEnvironment = normalizeProofEnvironment(
+    environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENVIRONMENT ||
+      environment.LEDGERBYTE_STORAGE_PROOF_ENVIRONMENT ||
+      "local",
+  );
+  const bucket = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_BUCKET || environment.S3_BUCKET || "").trim();
+  const endpoint = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENDPOINT || environment.S3_ENDPOINT || "").trim();
+  const databaseUrl = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_DATABASE_URL || environment.DATABASE_URL || "").trim();
+  const allow = environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ALLOW;
+  const stagingAllow = environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_ALLOW;
+  const tenantA = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_A_ID || "").trim();
+  const tenantB = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_B_ID || "").trim();
+  const bucketProductionLooking = isProductionLookingTarget(bucket) || isProductionLookingTarget(endpoint);
+  const databaseProductionLooking = isProductionLookingTarget(databaseUrl);
+  const environmentProductionLooking = targetEnvironment === "production";
+  const productionLooking = bucketProductionLooking || databaseProductionLooking || environmentProductionLooking;
+  const approvalProvided = environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OWNER_APPROVED === "1";
+  const credentialPresenceOnly =
+    hasConfiguredValue(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ACCESS_KEY_ID) &&
+    hasConfiguredValue(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_SECRET_ACCESS_KEY);
+
+  const blockers = [
+    ...(approvalProvided ? [] : ["Missing explicit owner/security/storage approval evidence."]),
+    ...(targetEnvironment === "staging" ? [] : ["Generated-document object adapter proof target is not classified as staging/proof."]),
+    ...(hasConfiguredValue(bucket) ? [] : ["Missing dedicated staging/proof bucket name."]),
+    ...(bucketProductionLooking ? ["Bucket or endpoint is production-looking and refused."] : []),
+    ...(databaseProductionLooking ? ["Database URL is production-looking and refused."] : []),
+    ...(environmentProductionLooking ? ["Production environment is refused for generated-document object adapter proof."] : []),
+    ...(credentialPresenceOnly ? [] : ["Missing staging-only object-storage credential presence."]),
+    ...(isValidProofRunId(proofRunId) ? [] : ["Missing or invalid proofRunId."]),
+    ...(allow === "1" && stagingAllow === "1" ? [] : ["Missing explicit generated-document object adapter staging allow flags."]),
+    ...(hasConfiguredValue(tenantA) && hasConfiguredValue(tenantB) ? [] : ["Missing synthetic Tenant A/B identifiers."]),
+  ];
+
+  return {
+    generatedDocumentObjectAdapterStagingGatesDocumented: fs.existsSync(gatesDocumentPath),
+    generatedDocumentObjectAdapterStagingProofRequiresDedicatedBucket: true,
+    generatedDocumentObjectAdapterStagingProofRequiresSyntheticTenants: true,
+    generatedDocumentObjectAdapterStagingProofRequiresProofRunId: true,
+    generatedDocumentObjectAdapterStagingProofRequiresExplicitAllowFlags: true,
+    generatedDocumentObjectAdapterStagingProofRequiresNoProductionTargets: true,
+    generatedDocumentObjectAdapterStagingProofRequiresRollbackPlan: true,
+    generatedDocumentObjectAdapterStagingProofReady: false,
+    status: "blocked_until_all_gates_pass",
+    networkEnabled: false,
+    mutationEnabled: false,
+    hostedObjectStorageTouched: false,
+    realObjectAdapterImplemented: false,
+    realSignedUrlsGenerated: false,
+    schemaMigrationRequired: false,
+    targetClassification: {
+      environment: targetEnvironment,
+      stagingLooking: targetEnvironment === "staging" || STAGING_LOOKING_PATTERNS.some((pattern) => pattern.test([bucket, endpoint].join(" "))),
+      productionLooking,
+      bucketProductionLooking,
+      databaseProductionLooking,
+      environmentProductionLooking,
+    },
+    requiredApprovals: {
+      ownerApprovalRequired: true,
+      securityApprovalRequired: true,
+      storageOwnerApprovalRequired: true,
+      accountingLegalReviewRequiredForComplianceArtifacts: true,
+      productionExcluded: true,
+    },
+    requiredInputs: {
+      proofRunIdRequired: true,
+      dedicatedStagingBucketRequired: true,
+      stagingOnlyCredentialsRequired: true,
+      syntheticTenantARequired: true,
+      syntheticTenantBRequired: true,
+      dryRunFirstRequired: true,
+      readOnlyValidationFirstRequired: true,
+      rollbackPlanRequired: true,
+    },
+    refusedOperations: {
+      hostedNetworkCallsByThisValidator: true,
+      hostedObjectMutationByThisValidator: true,
+      productionTargets: true,
+      customerData: true,
+      signedUrlGeneration: true,
+      schemaOrMigrationChanges: true,
+      broadCleanup: true,
+    },
+    evidenceRequirements: [
+      "approval evidence",
+      "proofRunId",
+      "dedicated staging bucket",
+      "synthetic Tenant A/B ids",
+      "redacted object keys",
+      "hash and size verification",
+      "tenant isolation result",
+      "proofRunId-scoped cleanup result",
+      "rollback confirmation",
+      "secret-free logs",
+    ],
+    blockers,
+    notes: [
+      "This local validator only reports staging gate status. It does not connect to hosted object storage.",
+      "Generated-document object adapter staging proof remains blocked until every required gate is satisfied.",
+      "Production rollout remains blocked after staging proof until backup/restore, retention/legal-hold, observability, and owner approvals are complete.",
     ],
   };
 }
@@ -840,6 +954,14 @@ function isValidProofRunId(value) {
   return /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/.test(value);
 }
 
+function isProductionLookingTarget(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return false;
+  }
+  return PRODUCTION_LOOKING_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function normalizeAttachmentMaxSizeMb(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_ATTACHMENT_MAX_SIZE_MB;
@@ -1049,6 +1171,7 @@ module.exports = {
   buildGeneratedDocumentObjectStorageContract,
   buildGeneratedDocumentObjectStorageImplementationPlan,
   buildGeneratedDocumentStorageAdapterInterface,
+  buildGeneratedDocumentObjectAdapterStagingProofGates,
   buildSignedUrlProofPlan,
   validateObjectKeyPolicy,
   sanitizeFilename,

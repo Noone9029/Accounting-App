@@ -1,5 +1,16 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Object Adapter Staging Proof Gates Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-object-adapter-staging-gates`, from clean `origin/main` at `076addba73849fc414ec3addc97f4b5b47b32833` after PR #81 merged.
+- PR #81 baseline: fake local generated-document object adapter proof exists for local tests only; runtime generated-document storage remains DB-backed through `DatabaseGeneratedDocumentStorageAdapter`; explicit object/S3-compatible modes still fail closed through `DisabledGeneratedDocumentObjectStorageAdapter`.
+- Added `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` defining required approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates before any future staging generated-document object adapter proof.
+- Extended `scripts/object-storage-proof-validate.cjs` with local dry-run generated-document object adapter staging gate status. The validator reports gate requirements and keeps `generatedDocumentObjectAdapterStagingProofReady=false`; it does not connect to hosted services, require credentials, mutate hosted storage, or imply staging proof was executed.
+- Updated storage/security/status/risk/handoff docs and added `docs/development/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES_SPRINT_CLOSURE.md`.
+- No real object adapter was implemented, no hosted object storage was touched, no signed URLs were generated, no hosted commands were run, no hosted/customer data was mutated, no schema/migration changes were made, no SQL templates were applied, no RLS/runtime role was applied, no ZATCA production work was added, no UAE Peppol/ASP production work was added, and no production compliance claims were added.
+- Remaining blockers: approved staging/proof credentials, synthetic tenant IDs, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if future metadata is required, migration rehearsal, backup/restore proof, retention/legal-hold/malware-scan evidence, observability, owner/security/accounting/legal sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Implement generated-document object adapter staging proof preflight helper`.
+
 ## Fake Local Generated Document Object Adapter Proof Summary (2026-06-19)
 
 - Current branch: `feature/fake-local-generated-document-object-adapter-proof`, from clean `origin/main` at `b434ebfe2d1a3f1dfa99f2a1f795db4341d9f59f` after PR #80 merged.

@@ -14,6 +14,7 @@ const {
   STATUS_S3_CONFIG_VALIDATED_NO_NETWORK,
   buildAttachmentObjectKey,
   buildGeneratedDocumentObjectKey,
+  buildGeneratedDocumentObjectAdapterStagingProofGates,
   buildObjectStorageProof,
   buildSignedUrlProofPlan,
   parseArgs,
@@ -302,6 +303,88 @@ test("generated-document storage adapter interface remains database-default and 
   assert.equal(adapterInterface.fakeLocalProofStatus, "local-test-only");
   assert.equal(adapterInterface.realObjectAdapterImplemented, false);
   assert.equal(adapterInterface.schemaMigrationRequired, false);
+});
+
+test("generated-document object adapter staging gates stay local-only and blocked by default", () => {
+  const result = buildObjectStorageProof({
+    repoRoot,
+    env: {},
+    dryRun: true,
+  });
+
+  const gates = result.generatedDocumentObjectAdapterStagingProofGates;
+  assert.equal(gates.generatedDocumentObjectAdapterStagingGatesDocumented, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresDedicatedBucket, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresSyntheticTenants, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresProofRunId, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresExplicitAllowFlags, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresNoProductionTargets, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofRequiresRollbackPlan, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofReady, false);
+  assert.equal(gates.networkEnabled, false);
+  assert.equal(gates.mutationEnabled, false);
+  assert.equal(gates.hostedObjectStorageTouched, false);
+  assert.equal(gates.realObjectAdapterImplemented, false);
+  assert.equal(gates.realSignedUrlsGenerated, false);
+  assert.equal(gates.schemaMigrationRequired, false);
+  assert.match(gates.blockers.join("\n"), /Missing explicit owner\/security\/storage approval evidence/);
+  assert.match(gates.blockers.join("\n"), /Missing dedicated staging\/proof bucket name/);
+});
+
+test("generated-document object adapter staging gates refuse production-looking targets", () => {
+  const gates = buildGeneratedDocumentObjectAdapterStagingProofGates({
+    repoRoot,
+    environment: {
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OWNER_APPROVED: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENVIRONMENT: "staging",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_BUCKET: "ledgerbyte-production",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENDPOINT: "https://objects.ledgerbyte.com",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_DATABASE_URL: "postgres://prod.example.test/db",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ACCESS_KEY_ID: "configured",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_SECRET_ACCESS_KEY: "configured",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_RUN_ID: "proof-20260619",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ALLOW: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_ALLOW: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_A_ID: "tenant-a",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_B_ID: "tenant-b",
+    },
+  });
+
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofReady, false);
+  assert.equal(gates.targetClassification.productionLooking, true);
+  assert.equal(gates.targetClassification.bucketProductionLooking, true);
+  assert.equal(gates.targetClassification.databaseProductionLooking, true);
+  assert.match(gates.blockers.join("\n"), /production-looking/);
+  assert.equal(JSON.stringify(gates).includes("configured"), false);
+});
+
+test("generated-document object adapter staging gates still require future evidence even when sample gates are present", () => {
+  const gates = buildGeneratedDocumentObjectAdapterStagingProofGates({
+    repoRoot,
+    environment: {
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OWNER_APPROVED: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENVIRONMENT: "staging",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_BUCKET: "ledgerbyte-staging-proof",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENDPOINT: "https://objects.staging.example.test",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_DATABASE_URL: "postgres://staging.example.test/db",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ACCESS_KEY_ID: "configured",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_SECRET_ACCESS_KEY: "configured",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_RUN_ID: "proof-20260619",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ALLOW: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_ALLOW: "1",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_A_ID: "tenant-a",
+      LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_TENANT_B_ID: "tenant-b",
+    },
+  });
+
+  assert.equal(gates.targetClassification.environment, "staging");
+  assert.equal(gates.targetClassification.productionLooking, false);
+  assert.equal(gates.blockers.length, 0);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingProofReady, false);
+  assert.equal(gates.networkEnabled, false);
+  assert.equal(gates.mutationEnabled, false);
+  assert.equal(gates.refusedOperations.hostedObjectMutationByThisValidator, true);
+  assert.equal(JSON.stringify(gates).includes("configured"), false);
 });
 
 test("signed URL staging proof plan blocks without allow flags, proofRunId, or safe target classification", () => {
