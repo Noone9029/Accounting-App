@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-20 Typed Onboarding Profile Metadata Foundation
+
+- Branch `feature/typed-onboarding-profile-metadata` adds a narrow LedgerByte-native typed onboarding metadata helper for business archetypes and setup checklist template metadata.
+- Archetype coverage includes general services, software/SaaS, agency, trading, ecommerce, contractor, multi-entity, KSA local-readiness, and UAE local-readiness profiles.
+- Active template items use route registry keys and setup/onboarding route helpers without duplicating route hrefs.
+- Planned and blocked template items remain non-actionable and do not activate future inactive routes.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native typed onboarding profile selector helpers`.
+
 ## 2026-06-20 Setup Progress Metadata Refinements
 
 - Branch `feature/setup-progress-metadata-refinements` adds a narrow LedgerByte-native setup progress metadata helper for frontend setup/dashboard helpers.

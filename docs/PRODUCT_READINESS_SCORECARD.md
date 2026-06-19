@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-20 Typed Onboarding Profile Metadata Foundation Update
+
+- Product clarity improves because business archetypes and setup checklist template metadata are centralized in a LedgerByte-native frontend/shared helper.
+- Active template items use route registry keys and setup/onboarding route helpers without duplicating route hrefs.
+- Planned and blocked template items remain non-actionable and do not activate inactive future routes.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, hosted behavior, UI runtime behavior, API runtime behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-20 Setup Progress Metadata Refinements Update
 
 - Product clarity improves because setup progress categories, labels, descriptions, statuses, route keys, hrefs, action labels, safe explanations, planned metadata, and unknown-item fallback are now centralized in a LedgerByte-native frontend helper.
