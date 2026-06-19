@@ -1,35 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Ban, CheckCircle2, Clock3 } from "lucide-react";
 import { getAppRouteByKey } from "@/lib/app-routes";
 import { getSetupRoute } from "@/lib/setup-onboarding-routes";
 import {
-  getDefaultTypedOnboardingChecklistTemplate,
-  getTypedOnboardingArchetype,
-  getTypedOnboardingArchetypes,
+  getDefaultTypedOnboardingSelectorValue,
+  getTypedOnboardingSelectorPreview,
+  resolveTypedOnboardingSelectorValue,
+} from "@/lib/typed-onboarding-selector";
+import {
   isTypedOnboardingTemplateItemActionable,
   type TypedOnboardingArchetype,
-  type TypedOnboardingArchetypeKey,
   type TypedOnboardingCapabilityStatus,
   type TypedOnboardingChecklistTemplateItem,
 } from "@/lib/typed-onboarding";
 
-const DEFAULT_ARCHETYPE_KEY = "general_services" satisfies TypedOnboardingArchetypeKey;
-
 export function TypedOnboardingChecklistPreview() {
-  const archetypes = useMemo(() => getTypedOnboardingArchetypes(), []);
-  const [selectedKey, setSelectedKey] = useState<TypedOnboardingArchetypeKey>(DEFAULT_ARCHETYPE_KEY);
-  const selectedArchetype = getTypedOnboardingArchetype(selectedKey) ?? archetypes[0] ?? null;
-  const previewItems = selectedArchetype ? getDefaultTypedOnboardingChecklistTemplate(selectedArchetype.key) : [];
-  const counts = previewItems.reduce(
-    (total, item) => ({
-      ...total,
-      [item.status]: total[item.status] + 1,
-    }),
-    { active: 0, planned: 0, blocked: 0 } satisfies Record<TypedOnboardingCapabilityStatus, number>,
-  );
+  const [selectedKey, setSelectedKey] = useState(getDefaultTypedOnboardingSelectorValue);
+  const preview = getTypedOnboardingSelectorPreview(selectedKey);
+  const counts = preview.summary;
 
   return (
     <section data-testid="typed-onboarding-preview" className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
@@ -49,33 +40,31 @@ export function TypedOnboardingChecklistPreview() {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Setup profile options">
-        {archetypes.map((archetype) => {
-          const selected = archetype.key === selectedKey;
+        {preview.options.map((option) => {
+          const selected = option.key === preview.selectedKey;
+          const selectable = option.status === "active";
           return (
             <button
-              key={archetype.key}
+              key={option.key}
               type="button"
               aria-pressed={selected}
-              onClick={() => setSelectedKey(archetype.key)}
+              disabled={!selectable}
+              onClick={() => setSelectedKey(resolveTypedOnboardingSelectorValue(option.key))}
               className={`rounded-md border px-3 py-2 text-sm font-medium ${
                 selected
                   ? "border-palm bg-emerald-50 text-emerald-900"
+                  : !selectable
+                    ? "border-slate-200 bg-slate-50 text-slate-400"
                   : "border-slate-200 bg-white text-slate-700 hover:border-palm/50 hover:bg-slate-50"
               }`}
             >
-              {archetype.title}
+              {option.title}
             </button>
           );
         })}
       </div>
 
-      {selectedArchetype ? (
-        <SelectedArchetypePreview archetype={selectedArchetype} previewItems={previewItems} />
-      ) : (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-          Setup profile preview metadata is unavailable.
-        </div>
-      )}
+      <SelectedArchetypePreview archetype={preview.archetype} previewItems={preview.items} />
     </section>
   );
 }

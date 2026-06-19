@@ -2,6 +2,17 @@
 
 Audit date: 2026-06-19
 
+Typed onboarding profile selector defaults (2026-06-20):
+
+- Added a LedgerByte-native typed onboarding selector helper for safe setup preview default selection, selector options, invalid-value fallback, preview metadata, and summary counts.
+- The setup checklist preview now consumes selector helpers while keeping selected archetype state ephemeral in React state only.
+- Selector options are generated from centralized typed onboarding metadata; invalid values resolve to `general_services`.
+- Planned and blocked checklist items remain non-actionable and do not activate future inactive routes.
+- This changes frontend selector/default helper behavior only. It does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, setup checklist database tables, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, or document review.
+- No localStorage, sessionStorage, indexedDB, cookies, URL query persistence, API runtime behavior, hosted behavior, provider adapter, Convex integration, external dependency, generated-document object storage, signed URL behavior, or production compliance behavior was added.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Setup checklist template UI consumption (2026-06-20):
 
 - Added a LedgerByte-native setup checklist template preview UI that consumes typed onboarding archetype and checklist template metadata.
