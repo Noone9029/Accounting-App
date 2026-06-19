@@ -500,6 +500,12 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
   const environment = options.environment || process.env;
   const repoRoot = resolveRepoRoot(options.repoRoot || options.cwd || process.cwd());
   const gatesDocumentPath = path.join(repoRoot, "docs", "storage", "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md");
+  const gateApprovalRecordPath = path.join(
+    repoRoot,
+    "docs",
+    "storage",
+    "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md",
+  );
   const runnerDesignDocumentPath = path.join(repoRoot, "docs", "storage", "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md");
   const preflightHelperPath = path.join(repoRoot, "scripts", "generated-document-object-adapter-staging-preflight.cjs");
   const preflightHelperTestPath = path.join(repoRoot, "scripts", "generated-document-object-adapter-staging-preflight.test.cjs");
@@ -523,11 +529,15 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
   const environmentProductionLooking = targetEnvironment === "production";
   const productionLooking = bucketProductionLooking || databaseProductionLooking || environmentProductionLooking;
   const approvalProvided = environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_OWNER_APPROVED === "1";
+  const gateApprovalRecord = readGeneratedDocumentObjectAdapterStagingGateApprovalRecord(gateApprovalRecordPath);
   const credentialPresenceOnly =
     hasConfiguredValue(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_ACCESS_KEY_ID) &&
     hasConfiguredValue(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_SECRET_ACCESS_KEY);
 
   const blockers = [
+    ...(gateApprovalRecord.approved
+      ? []
+      : [`Generated-document object adapter staging gate approval record is ${gateApprovalRecord.status}; approval is not recorded.`]),
     ...(approvalProvided ? [] : ["Missing explicit owner/security/storage approval evidence."]),
     ...(targetEnvironment === "staging" ? [] : ["Generated-document object adapter proof target is not classified as staging/proof."]),
     ...(hasConfiguredValue(bucket) ? [] : ["Missing dedicated staging/proof bucket name."]),
@@ -542,6 +552,10 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
 
   return {
     generatedDocumentObjectAdapterStagingGatesDocumented: fs.existsSync(gatesDocumentPath),
+    generatedDocumentObjectAdapterStagingGateApprovalRecordDetected: gateApprovalRecord.detected,
+    generatedDocumentObjectAdapterStagingGateApprovalStatus: gateApprovalRecord.status,
+    generatedDocumentObjectAdapterStagingGateApprovalApproved: gateApprovalRecord.approved,
+    generatedDocumentObjectAdapterStagingGateApprovalBlocked: gateApprovalRecord.blocked,
     generatedDocumentObjectAdapterStagingRunnerDesignDocumented: fs.existsSync(runnerDesignDocumentPath),
     generatedDocumentObjectAdapterStagingRunnerHelperDetected: fs.existsSync(runnerHelperPath),
     generatedDocumentObjectAdapterStagingRunnerTestsDetected: fs.existsSync(runnerHelperTestPath),
@@ -618,6 +632,30 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
       "The generated-document object adapter staging runner skeleton is local-only and does not execute hosted proof.",
       "Production rollout remains blocked after staging proof until backup/restore, retention/legal-hold, observability, and owner approvals are complete.",
     ],
+  };
+}
+
+function readGeneratedDocumentObjectAdapterStagingGateApprovalRecord(recordPath) {
+  if (!fs.existsSync(recordPath)) {
+    return {
+      detected: false,
+      status: "NOT_REQUESTED",
+      approved: false,
+      blocked: true,
+    };
+  }
+
+  const source = safeReadFile(recordPath);
+  const statusMatch =
+    source.match(/Current status:\s*`?(APPROVED|BLOCKED|NOT_REQUESTED|EXPIRED|SUPERSEDED)`?/i) ||
+    source.match(/\|\s*Current status\s*\|\s*`?(APPROVED|BLOCKED|NOT_REQUESTED|EXPIRED|SUPERSEDED)`?\s*\|/i);
+  const status = statusMatch ? statusMatch[1].toUpperCase() : "BLOCKED";
+
+  return {
+    detected: true,
+    status,
+    approved: status === "APPROVED",
+    blocked: status !== "APPROVED",
   };
 }
 

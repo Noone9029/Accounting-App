@@ -314,6 +314,10 @@ test("generated-document object adapter staging gates stay local-only and blocke
 
   const gates = result.generatedDocumentObjectAdapterStagingProofGates;
   assert.equal(gates.generatedDocumentObjectAdapterStagingGatesDocumented, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalRecordDetected, true);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalStatus, "BLOCKED");
+  assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalApproved, false);
+  assert.equal(gates.generatedDocumentObjectAdapterStagingGateApprovalBlocked, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingRunnerDesignDocumented, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingRunnerHelperDetected, true);
   assert.equal(gates.generatedDocumentObjectAdapterStagingRunnerTestsDetected, true);
@@ -335,6 +339,7 @@ test("generated-document object adapter staging gates stay local-only and blocke
   assert.equal(gates.realObjectAdapterImplemented, false);
   assert.equal(gates.realSignedUrlsGenerated, false);
   assert.equal(gates.schemaMigrationRequired, false);
+  assert.match(gates.blockers.join("\n"), /approval record is BLOCKED/);
   assert.match(gates.blockers.join("\n"), /Missing explicit owner\/security\/storage approval evidence/);
   assert.match(gates.blockers.join("\n"), /Missing dedicated staging\/proof bucket name/);
 });
@@ -387,7 +392,7 @@ test("generated-document object adapter staging gates still require future evide
 
   assert.equal(gates.targetClassification.environment, "staging");
   assert.equal(gates.targetClassification.productionLooking, false);
-  assert.equal(gates.blockers.length, 0);
+  assert.deepEqual(gates.blockers, ["Generated-document object adapter staging gate approval record is BLOCKED; approval is not recorded."]);
   assert.equal(gates.generatedDocumentObjectAdapterStagingProofReady, false);
   assert.equal(gates.networkEnabled, false);
   assert.equal(gates.mutationEnabled, false);

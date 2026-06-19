@@ -24,6 +24,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document object adapter staging runner design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_RUNNER_DESIGN.md` now defines the future runner contract, modes, state machine, safety stops, evidence, rollback, and future execution sequence. `scripts/generated-document-object-adapter-staging-runner.cjs` is local-only and fail-closed: active modes are `help`, `plan`, `preflight`, and `dry-run`; hosted read/write/cleanup/evidence modes remain blocked placeholders. It does not connect to hosted storage, mutate hosted/customer data, generate signed URLs, change schema, apply RLS/runtime roles, or execute tenant-isolation proof.
 
+2026-06-19 generated-document object adapter staging gate approval update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_GATE_APPROVAL_RECORD.md` records gate approval status as `BLOCKED`. Approval evidence and required staging inputs remain missing, so the runner is still `NOT_READY` and no storage tenant-isolation proof was executed.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
