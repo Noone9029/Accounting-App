@@ -14,6 +14,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 staging-gate design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` is now the required preflight contract before any future generated-document object adapter can run against staging object storage. It requires explicit approvals, dedicated staging bucket, staging-only credentials, synthetic tenants, `proofRunId`, dry-run/read-only-first ordering, rollback/cleanup plan, and sanitized evidence capture. It does not execute staging proof or implement object storage.
 
+2026-06-19 staging preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now turns the staging-gate contract into a local-only preflight check. It evaluates required env vars and confirmations, rejects production-looking or ambiguous targets, requires distinct synthetic tenants, requires `proofRunId`, redacts credentials, and reports readiness without network or mutation. This helper is not a real adapter, not hosted object storage, not signed URL support, not proof execution, and not production enablement.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.

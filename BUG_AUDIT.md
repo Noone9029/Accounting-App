@@ -2,7 +2,28 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `076addba73849fc414ec3addc97f4b5b47b32833` (`origin/main` after PR #81 merge) plus this generated-document object adapter staging-gate branch.
+Latest commit audited: `b7fa1133cbde18a88c0ff2c73bcc1a9c62ae0fbc` (`origin/main` after PR #82 merge) plus this generated-document object adapter staging-preflight branch.
+
+## 2026-06-19 Generated-document object adapter staging preflight helper
+
+### Scope and boundaries
+
+- Scope: local-only preflight helper, tests, validator detection, package script, and docs after PR #82.
+- Boundaries remained in place: no hosted command, hosted/customer-data mutation, hosted Supabase command, Vercel deploy command, production database command, seed/reset/delete, Prisma schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, signed URL generation, real object adapter implementation, generated-document migration, real customer document access, provider call, ZATCA production work, UAE Peppol/PINT-AE/ASP production work, real email, real bank feed, payment processor integration, production compliance claim, or SOC 2/security certification claim.
+
+### Findings
+
+- PR #82 documented staging proof gates, but the repo did not yet have a standalone local preflight CLI that fail-closed on missing or unsafe generated-document object adapter proof inputs.
+- The existing validator reported gate status, but it did not provide a focused helper for explicit environment variables, target classification, allow flags, tenant ids, rollback/evidence confirmations, or secret redaction.
+- No real object adapter, hosted connection, signed URL, schema change, migration, or credential validation was required to close this local preflight gap.
+
+### Outcome
+
+- Added `scripts/generated-document-object-adapter-staging-preflight.cjs` and tests.
+- The helper defaults to dry-run/preflight, supports human-readable and JSON output, redacts secret-like values, rejects production-looking and ambiguous targets, requires distinct synthetic Tenant A/B ids, and keeps `networkEnabled=false`, `mutationEnabled=false`, and `mutationAllowed=false`.
+- Extended `scripts/object-storage-proof-validate.cjs` to detect the helper and tests without changing proof readiness or runtime storage behavior.
+- Added local package scripts for running the helper and its tests.
+- No readiness score increase should be taken until a separately approved staging proof runner, real adapter, dedicated staging bucket, staging-only credentials, hosted proof, bucket policy proof, backup/restore, retention/legal-hold/malware-scan, observability, and owner sign-off evidence exist.
 
 ## 2026-06-19 Generated-document object adapter staging proof gates
 

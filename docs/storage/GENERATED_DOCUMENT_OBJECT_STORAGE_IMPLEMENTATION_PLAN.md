@@ -32,6 +32,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 staging-gate design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates required before any future generated-document object adapter may run against staging object storage. This is gate design only. It does not implement a real adapter, touch hosted storage, generate signed URLs, change schema, create migrations, or run staging proof.
 
+2026-06-19 staging preflight helper update: `scripts/generated-document-object-adapter-staging-preflight.cjs` now performs local-only preflight validation for those future staging gates. It checks explicit environment variables, `proofRunId`, staging/proof target classification, bucket naming, distinct synthetic tenant ids, allow flags, rollback/evidence confirmations, bucket-policy review, credential-scope review, and no-production-target confirmation. It redacts secret-like values, never validates credentials over the network, never connects to hosted storage or databases, and never mutates hosted/customer data. This does not change the phase plan: real object adapter implementation, staged proof execution, signed URLs, schema/migration changes, and production rollout remain separate blocked phases.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.
@@ -385,15 +387,16 @@ Future proof sequence:
 1. Run local dry-run.
 2. Run fake adapter proof with synthetic non-customer payloads.
 3. Satisfy `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md`.
-4. Configure a dedicated staging/proof bucket after approval.
-5. Create or seed synthetic Tenant A and Tenant B only after explicit staging mutation approval.
-6. Write synthetic generated documents.
-7. Attempt cross-tenant generated-document metadata and content access.
-8. Attempt object-key guessing.
-9. Verify hashes and content lengths.
-10. Rehearse DB fallback and rollback.
-11. Rehearse cleanup scoped to `proofRunId` only.
-12. Capture sanitized evidence without keys, signed URLs, credentials, or document bodies.
+4. Run `node scripts/generated-document-object-adapter-staging-preflight.cjs --json --strict --dry-run` with approved staging/proof-only inputs.
+5. Configure a dedicated staging/proof bucket after approval.
+6. Create or seed synthetic Tenant A and Tenant B only after explicit staging mutation approval.
+7. Write synthetic generated documents through a separately approved proof runner.
+8. Attempt cross-tenant generated-document metadata and content access.
+9. Attempt object-key guessing.
+10. Verify hashes and content lengths.
+11. Rehearse DB fallback and rollback.
+12. Rehearse cleanup scoped to `proofRunId` only.
+13. Capture sanitized evidence without keys, signed URLs, credentials, or document bodies.
 
 No customer data may be used in this proof without separate explicit approval.
 

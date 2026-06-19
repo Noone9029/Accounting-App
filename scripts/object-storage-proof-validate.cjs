@@ -500,6 +500,8 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
   const environment = options.environment || process.env;
   const repoRoot = resolveRepoRoot(options.repoRoot || options.cwd || process.cwd());
   const gatesDocumentPath = path.join(repoRoot, "docs", "storage", "GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md");
+  const preflightHelperPath = path.join(repoRoot, "scripts", "generated-document-object-adapter-staging-preflight.cjs");
+  const preflightHelperTestPath = path.join(repoRoot, "scripts", "generated-document-object-adapter-staging-preflight.test.cjs");
   const proofRunId = String(environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_RUN_ID || "").trim();
   const targetEnvironment = normalizeProofEnvironment(
     environment.LEDGERBYTE_GENERATED_DOCUMENT_OBJECT_ADAPTER_PROOF_ENVIRONMENT ||
@@ -537,6 +539,9 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
 
   return {
     generatedDocumentObjectAdapterStagingGatesDocumented: fs.existsSync(gatesDocumentPath),
+    generatedDocumentObjectAdapterStagingPreflightHelperDetected: fs.existsSync(preflightHelperPath),
+    generatedDocumentObjectAdapterStagingPreflightHelperTestsDetected: fs.existsSync(preflightHelperTestPath),
+    generatedDocumentObjectAdapterStagingPreflightStillLocalOnly: true,
     generatedDocumentObjectAdapterStagingProofRequiresDedicatedBucket: true,
     generatedDocumentObjectAdapterStagingProofRequiresSyntheticTenants: true,
     generatedDocumentObjectAdapterStagingProofRequiresProofRunId: true,
@@ -600,6 +605,7 @@ function buildGeneratedDocumentObjectAdapterStagingProofGates(options = {}) {
     blockers,
     notes: [
       "This local validator only reports staging gate status. It does not connect to hosted object storage.",
+      "The generated-document object adapter staging preflight helper is local-only and does not execute staging proof.",
       "Generated-document object adapter staging proof remains blocked until every required gate is satisfied.",
       "Production rollout remains blocked after staging proof until backup/restore, retention/legal-hold, observability, and owner approvals are complete.",
     ],
