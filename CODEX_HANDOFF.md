@@ -1,5 +1,18 @@
 # LedgerByte Codex Handoff
 
+## Generated Document Storage Adapter Interface Summary (2026-06-19)
+
+- Current branch: `feature/generated-document-storage-adapter-interface`, from clean `origin/main` at `60feb4634a9cfddf33e995ba1514102551d832f9` after PR #78 merged.
+- Added `apps/api/src/generated-documents/generated-document-storage.ts` with `GeneratedDocumentStorageAdapter`, `DatabaseGeneratedDocumentStorageAdapter`, and a test-only `FakeLocalGeneratedDocumentObjectStorageAdapter`.
+- Refactored `GeneratedDocumentService.archivePdf()` and `download()` so generated-document content flows through the adapter boundary while preserving database-backed default behavior, API-mediated download, organization scoping, source ownership checks, and existing response shape.
+- Registered `DatabaseGeneratedDocumentStorageAdapter` as the Nest runtime default. The fake local object adapter is not runtime-registered and is only used directly by local tests.
+- Extended `scripts/object-storage-proof-validate.cjs` so dry-run output reports adapter-interface guardrails: DB default, fake local adapter test-only status, object storage disabled by default, no hosted object storage touched, no real signed URLs generated, and no schema migration required.
+- Added `docs/development/GENERATED_DOCUMENT_STORAGE_ADAPTER_INTERFACE_SPRINT_CLOSURE.md` and updated storage/status/risk docs.
+- No hosted command, Supabase command, Vercel deploy command, production database command, hosted/customer-data mutation, hosted object-storage mutation, real hosted signed URL generation, schema change, migration, SQL template application, RLS rollout, runtime role application, ZATCA/UAE production work, provider call, real email, real bank feed, or payment processor integration was performed.
+- Preserved dirty worktree `E:\Accounting App` on `feature/edition-split-preserve-current-changes`, safety patch, ZATCA `stash@{0}`, and protected branches `codex/purchase-bill-seeded-uuid-validation` and `codex/wafeq-banking-reconciliation-audit-polish` remained untouched.
+- Remaining blockers: approved staging/proof storage credentials, synthetic tenant IDs, dedicated staging bucket, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, real signed URL implementation/proof if used, schema/migration approval if future metadata is required, backup/restore proof, retention/legal-hold/malware-scan evidence, observability evidence, owner/legal/accounting/security sign-off, UAE ASP/Peppol provider evidence, and ZATCA production credentials.
+- Recommended next prompt: `Design disabled generated-document object adapter proof`.
+
 ## Generated Document Object Storage Implementation Plan Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-storage-implementation-plan`, from clean `origin/main` at `757daf8bd83e351c3c14a349e2fc38f520d4933c` after PR #77 merged.

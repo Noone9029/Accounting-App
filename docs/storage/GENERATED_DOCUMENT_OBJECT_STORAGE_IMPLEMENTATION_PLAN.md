@@ -24,6 +24,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 `apps/api/src/documents` does not exist in this checkout. Current generated-document frontend archive behavior lives under `/documents`, backed by `/generated-documents` API routes.
 
+2026-06-19 adapter-interface implementation update: Phase B now has an initial scaffold in `apps/api/src/generated-documents/generated-document-storage.ts`. The runtime module registers `DatabaseGeneratedDocumentStorageAdapter` as the generated-document default. `GeneratedDocumentService.archivePdf()` and `download()` use the adapter boundary while preserving DB-backed rows and API-mediated downloads. `FakeLocalGeneratedDocumentObjectStorageAdapter` exists for local tests only and is not runtime-registered. Generated-document object storage and signed URLs remain disabled/unimplemented.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.
@@ -62,6 +64,8 @@ Likely files:
 
 Add a generated-document-specific storage boundary and a database adapter that preserves current behavior.
 
+Status: initial local scaffold implemented on 2026-06-19. The DB adapter is the runtime default; no object adapter is runtime-selectable.
+
 Acceptance criteria:
 
 - `archivePdf()` still stores DB/base64 by default.
@@ -78,6 +82,8 @@ Likely files:
 ### Phase C: Fake Local Object-Storage Adapter For Tests Only
 
 Add an in-memory or temp-directory fake adapter for local tests. It must not connect to hosted storage.
+
+Status: initial in-memory fake implemented on 2026-06-19 for direct local tests only. It is not registered as a runtime provider.
 
 Acceptance criteria:
 

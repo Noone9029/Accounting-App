@@ -12,6 +12,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document object-storage implementation-plan update: `docs/storage/GENERATED_DOCUMENT_OBJECT_STORAGE_IMPLEMENTATION_PLAN.md` now defines the implementation sequence. The plan keeps DB-backed reads as the default, requires generated-document storage adapters before provider rollout, uses fake local object storage only for tests, keeps object writes/reads disabled until explicit staging proof, and stops for explicit approval before any schema or migration work.
 
+2026-06-19 generated-document adapter-interface update: a local-only follow-up added `GeneratedDocumentStorageAdapter`, a database runtime default adapter, and a fake local object adapter for tests only. Generated-document archive/download behavior remains DB-backed and API-mediated. The fake adapter is not runtime-registered, and no hosted object storage, signed URL, schema migration, RLS/runtime role, or provider work was added.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:

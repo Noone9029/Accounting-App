@@ -173,6 +173,7 @@ function buildObjectStorageProof(options = {}) {
     },
     signedUrlProofPlan,
     generatedDocumentObjectStorageContract: buildGeneratedDocumentObjectStorageContract(),
+    generatedDocumentStorageAdapterInterface: buildGeneratedDocumentStorageAdapterInterface(repoSurface),
     lifecycleRetention: {
       implemented: false,
       status: "not_proven",
@@ -459,6 +460,29 @@ function buildGeneratedDocumentObjectStorageImplementationPlan() {
   };
 }
 
+function buildGeneratedDocumentStorageAdapterInterface(repoSurface) {
+  return {
+    interfaceDetected: repoSurface.generatedDocumentStorageAdapterInterfaceDetected,
+    databaseAdapterDetected: repoSurface.generatedDocumentDatabaseStorageAdapterDetected,
+    fakeLocalObjectAdapterDetected: repoSurface.generatedDocumentFakeLocalObjectAdapterDetected,
+    serviceUsesAdapterBoundary: repoSurface.generatedDocumentServiceUsesAdapterBoundary,
+    moduleRegistersDatabaseAdapterDefault: repoSurface.generatedDocumentModuleRegistersDatabaseAdapterDefault,
+    defaultRuntimeStorage: "database",
+    objectStorageEnabledByDefault: false,
+    hostedObjectStorageTouched: false,
+    realSignedUrlsGenerated: false,
+    fakeAdapterRuntimeRegistered: false,
+    fakeAdapterLocalTestsOnly: true,
+    schemaMigrationRequired: false,
+    notes: [
+      "Generated-document storage now has a local adapter boundary.",
+      "The Nest module registers the database adapter as the generated-document runtime default.",
+      "The fake local object adapter is exported for tests and is not registered for production runtime selection.",
+      "This validator does not enable generated-document object storage or signed URLs.",
+    ],
+  };
+}
+
 function buildSignedUrlProofPlan(options = {}) {
   const environment = normalizeProofEnvironment(options.environment);
   const proofRunId = String(options.proofRunId || "").trim();
@@ -574,10 +598,14 @@ function buildS3ConfigValidation(environment) {
 function detectRepoSurface(repoRoot) {
   const attachmentStoragePath = path.join(repoRoot, "apps", "api", "src", "attachments", "attachment-storage.service.ts");
   const generatedDocumentPath = path.join(repoRoot, "apps", "api", "src", "generated-documents", "generated-document.service.ts");
+  const generatedDocumentModulePath = path.join(repoRoot, "apps", "api", "src", "generated-documents", "generated-document.module.ts");
+  const generatedDocumentStoragePath = path.join(repoRoot, "apps", "api", "src", "generated-documents", "generated-document-storage.ts");
   const providerPath = path.join(repoRoot, "apps", "api", "src", "storage", "storage-provider.ts");
 
   const attachmentStorageSource = safeReadFile(attachmentStoragePath);
   const generatedDocumentSource = safeReadFile(generatedDocumentPath);
+  const generatedDocumentModuleSource = safeReadFile(generatedDocumentModulePath);
+  const generatedDocumentStorageSource = safeReadFile(generatedDocumentStoragePath);
 
   return {
     storageProviderInterfaceDetected: fs.existsSync(providerPath),
@@ -586,9 +614,22 @@ function detectRepoSurface(repoRoot) {
       attachmentStorageSource.includes("PutObjectCommand") &&
       attachmentStorageSource.includes("GetObjectCommand"),
     generatedDocumentDatabaseDefaultDetected:
-      generatedDocumentSource.includes('storageProvider: "database"') &&
-      generatedDocumentSource.includes("contentBase64"),
+      (generatedDocumentSource.includes('storageProvider: "database"') || generatedDocumentStorageSource.includes('storageProvider: "database"')) &&
+      generatedDocumentStorageSource.includes("contentBase64") &&
+      generatedDocumentModuleSource.includes("useExisting: DatabaseGeneratedDocumentStorageAdapter"),
     generatedDocumentS3WritesImplemented: generatedDocumentSource.includes('storageProvider: "s3"'),
+    generatedDocumentStorageAdapterInterfaceDetected:
+      generatedDocumentStorageSource.includes("abstract class GeneratedDocumentStorageAdapter") &&
+      generatedDocumentStorageSource.includes("writeGeneratedDocumentContent") &&
+      generatedDocumentStorageSource.includes("readGeneratedDocumentContent"),
+    generatedDocumentDatabaseStorageAdapterDetected: generatedDocumentStorageSource.includes("class DatabaseGeneratedDocumentStorageAdapter"),
+    generatedDocumentFakeLocalObjectAdapterDetected: generatedDocumentStorageSource.includes("class FakeLocalGeneratedDocumentObjectStorageAdapter"),
+    generatedDocumentServiceUsesAdapterBoundary:
+      generatedDocumentSource.includes("writeGeneratedDocumentContent") &&
+      generatedDocumentSource.includes("readGeneratedDocumentContent"),
+    generatedDocumentModuleRegistersDatabaseAdapterDefault:
+      generatedDocumentModuleSource.includes("DatabaseGeneratedDocumentStorageAdapter") &&
+      generatedDocumentModuleSource.includes("useExisting: DatabaseGeneratedDocumentStorageAdapter"),
   };
 }
 
@@ -991,6 +1032,7 @@ module.exports = {
   buildArchiveObjectKey,
   buildGeneratedDocumentObjectStorageContract,
   buildGeneratedDocumentObjectStorageImplementationPlan,
+  buildGeneratedDocumentStorageAdapterInterface,
   buildSignedUrlProofPlan,
   validateObjectKeyPolicy,
   sanitizeFilename,
