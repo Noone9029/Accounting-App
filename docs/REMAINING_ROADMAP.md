@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-19 Generated Document Object Adapter Staging Proof Gates
+
+- Branch `feature/generated-document-object-adapter-staging-gates` designs the required gates before any future generated-document object adapter may run against staging object storage after PR #81.
+- New doc: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md`.
+- Validator update: `scripts/object-storage-proof-validate.cjs` now reports generated-document object adapter staging gate status and keeps `generatedDocumentObjectAdapterStagingProofReady=false`.
+- Runtime default remains `DatabaseGeneratedDocumentStorageAdapter`; explicit object/S3-compatible modes still resolve to the disabled adapter; fake local adapter remains local/test-only.
+- Generated documents remain database-backed. Real generated-document object storage, signed URLs, hosted storage proof, bucket policy proof, backup/restore proof, retention/legal-hold/malware-scan evidence, and production storage claims remain pending.
+- Do not add real object-storage writes, schema changes, migrations, bucket policy changes, signed URL infrastructure, hosted storage probes, RLS rollout, runtime role application, Supabase/Vercel mutation commands, provider calls, ZATCA/UAE production work, or production commands without later explicit approval.
+- Recommended next prompt: `Implement generated-document object adapter staging proof preflight helper`.
+
 ## 2026-06-19 Fake Local Generated Document Object Adapter Proof
 
 - Branch `feature/fake-local-generated-document-object-adapter-proof` completes the local-only fake generated-document object adapter proof after PR #80.

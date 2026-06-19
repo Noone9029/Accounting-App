@@ -12,6 +12,8 @@ Scope: production-readiness implementation contract only. This contract does not
 
 2026-06-19 fake-local-adapter proof update: `FakeLocalGeneratedDocumentObjectStorageAdapter` now proves local object-style adapter behavior with in-memory synthetic content only. It supports exact readback, generated-document-id anchored object keys, hash and size verification, missing-object failure, tenant-context mismatch rejection when org context is supplied, deterministic duplicate handling, and production-looking fake-adapter selection refusal. It is not a real object-storage adapter, not hosted storage, not signed URL support, and not production enablement.
 
+2026-06-19 staging-gate design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` is now the required preflight contract before any future generated-document object adapter can run against staging object storage. It requires explicit approvals, dedicated staging bucket, staging-only credentials, synthetic tenants, `proofRunId`, dry-run/read-only-first ordering, rollback/cleanup plan, and sanitized evidence capture. It does not execute staging proof or implement object storage.
+
 ## Current State
 
 Generated documents are currently database-backed unless a future code change proves otherwise. `GeneratedDocumentService.archivePdf()` creates `GeneratedDocument` rows with `storageProvider = "database"`, `contentBase64`, `contentHash`, `sizeBytes`, source metadata, and organization scope. `GeneratedDocumentService.download()` reads content by `{ id, organizationId }` and returns the database/base64 payload through the API.
@@ -205,6 +207,7 @@ The implementation must handle:
 Generated-document object storage is not production-ready until:
 
 - Local contract tests pass.
+- Staging proof gates are satisfied before any hosted object adapter execution.
 - Staging bucket proof passes with synthetic tenants.
 - Tenant A/B cross-access fails before body or URL access.
 - Object key guessing fails.

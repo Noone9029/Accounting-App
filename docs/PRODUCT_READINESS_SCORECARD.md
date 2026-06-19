@@ -2,7 +2,15 @@
 
 Audit date: 2026-06-18
 
-Latest commit audited: `60feb4634a9cfddf33e995ba1514102551d832f9` (`origin/main` after PR #78 merge) plus the generated-document storage adapter interface branch.
+Latest commit audited: `076addba73849fc414ec3addc97f4b5b47b32833` (`origin/main` after PR #81 merge) plus the generated-document object adapter staging-gate branch.
+
+## 2026-06-19 Generated Document Object Adapter Staging Proof Gates Update
+
+- Production-readiness clarity improves because the required gates before a future staging generated-document object adapter proof are now documented explicitly.
+- Local harness confidence improves because `scripts/object-storage-proof-validate.cjs` now reports generated-document object adapter staging gate status, required approvals/inputs, production-looking target refusal, and no-network/no-mutation posture.
+- No readiness score increase is taken for production launch readiness. Runtime generated-document storage remains DB-backed by default, real object storage remains unimplemented, signed URLs remain unimplemented, hosted bucket/storage proof was not run, and no real hosted signed URL was generated.
+- No hosted command, Supabase command, Vercel deploy command, production database command, schema change, migration, SQL template application, RLS rollout, runtime role application, hosted object-storage mutation, provider call, ZATCA/UAE production work, real email, payment processor integration, real bank feed, hosted/customer-data mutation, or production target was touched.
+- Remaining blockers are approved staging/proof credentials, synthetic tenants, dedicated staging bucket, staging tenant isolation proof, runtime-role/RLS staging proof, hosted object-storage proof, bucket policy proof, real generated-document object adapter/proof, signed URL proof if used, schema/migration approval if future metadata is required, migration rehearsal, backup/restore, retention/legal-hold/malware-scan evidence, observability, owner/security/accounting/legal sign-off, and provider evidence.
 
 ## 2026-06-19 Fake Local Generated Document Object Adapter Proof Update
 

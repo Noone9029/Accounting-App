@@ -62,6 +62,8 @@ Generated documents now have a generated-document-specific adapter boundary, but
 
 2026-06-19 fake local generated-document object adapter proof update: the fake local adapter now proves object-style behavior with in-memory synthetic content only. It verifies tenant-prefixed/generated-document-id anchored key construction, exact readback, SHA-256, size metadata, missing-object failure, tenant-context mismatch rejection, duplicate write handling, and production-looking fake-adapter selection refusal. Runtime generated-document storage remains database-backed; no hosted object storage, real object adapter, signed URL path, schema migration, or generated-document migration was added.
 
+2026-06-19 generated-document object adapter staging-gate update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates required before any future staging object-adapter proof. The architecture remains unchanged: generated documents are DB-backed by default, explicit object modes fail closed, the fake adapter is local/test-only, and no hosted storage or signed URL path is active.
+
 ## Readiness APIs
 
 - `GET /storage/readiness`
@@ -83,6 +85,7 @@ Before production-scale file usage:
 - Add migration batches with hash verification and rollback checkpoints.
 - Keep generated documents and uploaded attachments logically separate even if they share a bucket.
 - Implement generated-document object storage only after DB fallback, metadata, adapter, staging proof, bucket policy, backup/restore, retention/legal-hold, malware-scan, and owner approval gates are satisfied.
+- Do not run a staging generated-document object adapter proof until `GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` is fully satisfied.
 
 ## Non-Goals In This Groundwork
 

@@ -30,6 +30,8 @@ No hosted generated-document object-storage proof exists. No bucket policy proof
 
 2026-06-19 fake-local-adapter proof update: Phase C now has completed local fake-object proof behavior. The fake adapter stores synthetic content in memory, returns exact content through the adapter boundary, derives tenant-prefixed/generated-document-id anchored keys, verifies SHA-256 and byte size metadata, rejects missing objects, rejects tenant-context mismatches when organization context is supplied, and handles duplicate writes deterministically. The selector refuses fake local adapter selection for production-looking environments. This is local/test-only proof machinery; it does not implement real object storage, hosted storage, signed URLs, schema changes, migrations, or production storage enablement.
 
+2026-06-19 staging-gate design update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates required before any future generated-document object adapter may run against staging object storage. This is gate design only. It does not implement a real adapter, touch hosted storage, generate signed URLs, change schema, create migrations, or run staging proof.
+
 ## Implementation Principles
 
 - Preserve DB-backed reads and downloads until object reads are proven.
@@ -143,6 +145,8 @@ Likely files:
 ### Phase F: Staging Object-Storage Proof With Synthetic Tenants
 
 Use a dedicated staging/proof bucket and synthetic tenants only. This plan does not execute that proof.
+
+Status: staging proof gate model documented on 2026-06-19. Future proof execution remains blocked until explicit approvals, dedicated staging bucket, staging-only credentials, synthetic Tenant A/B ids, `proofRunId`, allow flags, bucket policy review, rollback/cleanup plan, and sanitized evidence plan are all present.
 
 Acceptance criteria:
 
@@ -380,15 +384,16 @@ Future proof sequence:
 
 1. Run local dry-run.
 2. Run fake adapter proof with synthetic non-customer payloads.
-3. Configure a dedicated staging/proof bucket after approval.
-4. Create or seed synthetic Tenant A and Tenant B only after explicit staging mutation approval.
-5. Write synthetic generated documents.
-6. Attempt cross-tenant generated-document metadata and content access.
-7. Attempt object-key guessing.
-8. Verify hashes and content lengths.
-9. Rehearse DB fallback and rollback.
-10. Rehearse cleanup scoped to `proofRunId` only.
-11. Capture sanitized evidence without keys, signed URLs, credentials, or document bodies.
+3. Satisfy `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md`.
+4. Configure a dedicated staging/proof bucket after approval.
+5. Create or seed synthetic Tenant A and Tenant B only after explicit staging mutation approval.
+6. Write synthetic generated documents.
+7. Attempt cross-tenant generated-document metadata and content access.
+8. Attempt object-key guessing.
+9. Verify hashes and content lengths.
+10. Rehearse DB fallback and rollback.
+11. Rehearse cleanup scoped to `proofRunId` only.
+12. Capture sanitized evidence without keys, signed URLs, credentials, or document bodies.
 
 No customer data may be used in this proof without separate explicit approval.
 

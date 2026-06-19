@@ -18,6 +18,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 fake local generated-document object adapter proof update: a local-only follow-up completed fake adapter proof behavior for synthetic in-memory generated-document objects. The fake adapter now verifies tenant-prefixed/generated-document-id anchored keys, exact readback, hash and byte-size metadata, missing-object failure, tenant-context mismatch rejection when organization context is supplied, deterministic duplicate handling, and production-looking fake-adapter selection refusal. Runtime generated-document storage remains database-backed. No hosted object storage, signed URL, schema migration, RLS/runtime role, generated-document migration, or provider work was added.
 
+2026-06-19 generated-document object adapter staging-gate update: `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required approval, environment, credential, bucket policy, application, data, migration, execution, evidence, and rollback gates before any future generated-document object adapter may run against staging object storage. This is staging-gate design only; no hosted object storage was touched and no staging proof was executed.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -52,6 +54,7 @@ What appears local-only or planning-only:
 
 - Database/base64 storage remains the default.
 - Generated documents remain database-backed.
+- Generated-document object adapter staging proof gates are documented, but not satisfied or executed.
 - The disabled generated-document object adapter is a fail-closed proof only.
 - The fake local generated-document object adapter is local/test proof only and is not hosted storage.
 - Migration execution, retention, backup/restore, live bucket probes, and object-store restore proof remain planned.
@@ -164,6 +167,7 @@ Storage tenant isolation is not production-grade until:
 - No real customer document was accessed.
 - No schema or migration changes were made.
 - No generated-document object-storage implementation was added.
+- No generated-document object adapter staging proof was executed.
 - No ZATCA production work was added.
 - No UAE Peppol/PINT-AE/ASP production work was added.
 - Provider evidence remains unavailable.
