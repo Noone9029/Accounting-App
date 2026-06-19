@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-20 LedgerByte App Shell Route Registry
+
+- Branch `feature/ledgerbyte-app-shell-route-registry` adds the LedgerByte-native route registry and wires the sidebar/mobile workflow surfaces to consume it.
+- Active registry coverage includes dashboard, setup, contacts, sales, purchases, banking, accounting, inventory, documents, reports, settings, storage settings, compliance settings, ZATCA local-readiness settings, and route sensitivity tags.
+- Planned exception Inbox, AI proposal review, deterministic bookkeeping pipeline, report pack, integration health, document review, evidence packs, and disposable test-business fixtures remain inactive future work.
+- No API runtime module, Prisma migration, provider adapter, Convex integration, hosted deployment behavior, production compliance behavior, generated-document object storage, signed URL behavior, or external dependency is added.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native setup/onboarding route registry consumers`.
+
 ## 2026-06-19 OpenBooks Clean-Room Adoption Planning
 
 - Branch `feature/openbooks-clean-room-adoption-plan` records the first planning-only clean-room adoption pass.

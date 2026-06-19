@@ -2,6 +2,15 @@
 
 Audit date: 2026-06-19
 
+LedgerByte app shell route registry (2026-06-20):
+
+- Added a LedgerByte-native frontend route registry for app-shell metadata, route keys, labels, hrefs, route sections, descriptions, active/planned status, shell/mobile visibility, permissions, and compliance/storage/provider sensitivity tags.
+- Sidebar and mobile first-workflow navigation now consume registry-backed route metadata while preserving existing user-facing labels and edition-aware compliance navigation.
+- Planned exception Inbox, AI proposal review, deterministic bookkeeping pipeline, report pack, integration health, document review, evidence packs, and disposable test-business fixtures remain future LedgerByte-native work and are not returned by active shell/mobile helpers.
+- No API runtime module, Prisma migration, hosted behavior, provider adapter, Convex integration, external dependency, or production compliance behavior was added.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 OpenBooks clean-room adoption planning (2026-06-19):
 
 - OpenBooks adoption is `PLANNED` only. This PR adds clean-room planning, legal policy, an evidence template, and a validator; no OpenBooks runtime behavior is implemented.

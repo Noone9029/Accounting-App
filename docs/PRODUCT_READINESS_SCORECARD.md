@@ -4,6 +4,13 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-20 LedgerByte App Shell Route Registry Update
+
+- Product clarity improves because LedgerByte now has a typed frontend route registry for app-shell metadata, active/planned route status, shell/mobile visibility, permissions, and compliance/storage/provider sensitivity tags.
+- Sidebar and mobile first-workflow navigation now consume registry-backed metadata while preserving existing labels and edition-aware compliance navigation.
+- No readiness score increase is taken for production launch readiness. This does not implement Inbox, AI proposal review, deterministic bookkeeping pipeline, report packs, integration health, document review, evidence packs, hosted behavior, API modules, Prisma migrations, provider adapters, Convex, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-19 OpenBooks Clean-Room Adoption Planning Update
 
 - Product clarity improves because LedgerByte now has a clean-room implementation plan, legal policy, evidence template, and validator for future OpenBooks-inspired behaviors.
