@@ -30,17 +30,17 @@ describe("setup wizard components", () => {
 
     expect(screen.getByRole("heading", { name: "Guided setup" })).toBeInTheDocument();
     expect(screen.getByText("27%")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Organization profile" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Chart of accounts" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "VAT/tax profile" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "First customer" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "First invoice" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Bank/payment method" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "First payment" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "First report" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Compliance readiness visibility" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Contact VAT/ID validation" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-organization_profile")).getByRole("heading", { name: "Organization profile" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-chart_of_accounts")).getByRole("heading", { name: "Chart of accounts" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-tax_profile")).getByRole("heading", { name: "VAT/tax profile" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-customer_created")).getByRole("heading", { name: "First customer" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-first_invoice")).getByRole("heading", { name: "First invoice" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-bank_payment_method")).getByRole("heading", { name: "Bank/payment method" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-first_payment")).getByRole("heading", { name: "First payment" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-first_report")).getByRole("heading", { name: "First report" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-zatca_local_readiness_visible")).getByRole("heading", { name: "Compliance readiness visibility" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-contact_vat_id_validation")).getByRole("heading", { name: "Contact VAT/ID validation" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("setup-step-storage_readiness_checked")).getByRole("heading", { name: "Storage readiness" })).toBeInTheDocument();
     expect(screen.getByText("Active tax rates: 0")).toBeInTheDocument();
     expect(screen.getByText("Create at least one active tax rate.")).toBeInTheDocument();
     expect(screen.getByText("Create a first invoice before recording payment.")).toBeInTheDocument();

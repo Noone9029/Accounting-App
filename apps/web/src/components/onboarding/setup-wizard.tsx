@@ -11,6 +11,7 @@ import {
 } from "@/lib/dashboard";
 import { getLedgerByteEdition } from "@/lib/edition";
 import type { DashboardOnboardingChecklist, DashboardOnboardingChecklistItemStatus } from "@/lib/types";
+import { TypedOnboardingChecklistPreview } from "./typed-onboarding-checklist-preview";
 
 export function SetupWizardContent({ checklist }: Readonly<{ checklist: DashboardOnboardingChecklist }>) {
   const edition = getLedgerByteEdition();
@@ -41,6 +42,8 @@ export function SetupWizardContent({ checklist }: Readonly<{ checklist: Dashboar
       </div>
 
       <FirstWorkflowPanel summary={workflowSummary} steps={workflowSteps} />
+
+      <TypedOnboardingChecklistPreview />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.7fr_1.3fr]">
         <aside className="space-y-4">

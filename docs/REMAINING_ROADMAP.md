@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-20 Setup Checklist Template UI Consumption
+
+- Branch `feature/setup-checklist-template-ui-consumption` adds a narrow LedgerByte-native setup checklist preview UI that consumes typed onboarding archetype and checklist template metadata.
+- The setup wizard now renders archetype-aware checklist previews and lets users switch archetypes in client-side state only.
+- Active template items link only through active setup/onboarding route helpers and the app route registry; planned and blocked items remain non-actionable and do not activate future inactive routes.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement LedgerByte-native typed onboarding profile selector defaults`.
+
 ## 2026-06-20 Typed Onboarding Profile Metadata Foundation
 
 - Branch `feature/typed-onboarding-profile-metadata` adds a narrow LedgerByte-native typed onboarding metadata helper for business archetypes and setup checklist template metadata.
