@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -34,6 +34,7 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [actionId, setActionId] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const canManageItems = can(PERMISSIONS.items.manage);
@@ -41,6 +42,8 @@ export default function ItemsPage() {
 
   const revenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const salesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
+  const filteredItems = useMemo(() => filterItems(items, itemSearch), [itemSearch, items]);
+  const hasItemSearch = itemSearch.trim().length > 0;
 
   useEffect(() => {
     if (!organizationId) {
@@ -349,6 +352,41 @@ export default function ItemsPage() {
       </div>
 
       {items.length > 0 ? (
+        <div className="mt-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink">
+              Search products and services
+              <input
+                type="search"
+                aria-label="Search products and services"
+                value={itemSearch}
+                onChange={(event) => setItemSearch(event.target.value)}
+                placeholder="Name, SKU, description, type, or status"
+                className="h-10 rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-palm"
+              />
+            </label>
+            <div className="flex items-center gap-3 text-sm text-steel">
+              <span>
+                Showing {filteredItems.length} of {items.length}
+              </span>
+              {hasItemSearch ? (
+                <button type="button" onClick={() => setItemSearch("")} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {items.length > 0 && filteredItems.length === 0 ? (
+        <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
+          <h2 className="font-semibold text-ink">No matching products or services.</h2>
+          <p className="mt-2 text-steel">Clear the search or try a name, SKU, description, type, or status.</p>
+        </div>
+      ) : null}
+
+      {filteredItems.length > 0 ? (
         <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
           <table className="w-full min-w-[1360px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
@@ -369,7 +407,7 @@ export default function ItemsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {items.map((item) => (
+              {filteredItems.map((item) => (
                 <tr key={item.id}>
                   <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-steel">{item.sku ?? "-"}</td>
@@ -405,6 +443,30 @@ export default function ItemsPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function filterItems(items: readonly Item[], query: string): Item[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return [...items];
+  }
+
+  return items.filter((item) =>
+    [
+      item.name,
+      item.sku ?? "",
+      item.description ?? "",
+      item.type,
+      itemTypeLabel(item.type),
+      item.status,
+      itemStatusLabel(item.status),
+      item.inventoryTracking ? "tracked" : "not tracked",
+      itemTrackingModeLabel(item.trackingMode),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalized),
   );
 }
 

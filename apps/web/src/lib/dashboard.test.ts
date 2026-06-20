@@ -21,6 +21,7 @@ import {
   onboardingChecklistStatusClass,
   onboardingChecklistStatusLabel,
   visibleDashboardQuickActions,
+  visibleDashboardWorkspaceLinks,
 } from "./dashboard";
 import { PERMISSIONS } from "./permissions";
 import type { DashboardOnboardingChecklist, DashboardSummary } from "./types";
@@ -41,6 +42,23 @@ describe("dashboard helpers", () => {
 
     expect(actions.map((action) => action.label)).toEqual(["Create invoice", "View reports"]);
     expect(actions[0]?.href).toBe("/sales/invoices/new?returnTo=%2Fdashboard");
+  });
+
+  it("filters dashboard workspace links through the route registry and permissions", () => {
+    const links = visibleDashboardWorkspaceLinks({
+      role: {
+        permissions: [
+          PERMISSIONS.salesInvoices.view,
+          PERMISSIONS.items.view,
+          PERMISSIONS.reports.view,
+          PERMISSIONS.users.view,
+        ],
+      },
+    });
+
+    expect(links.map((link) => link.label)).toEqual(["Invoices", "Quotes", "Products & services", "Profit & Loss", "Users and roles"]);
+    expect(links.map((link) => link.href)).toEqual(["/sales/invoices", "/sales/quotes", "/items", "/reports/profit-and-loss", "/settings/team"]);
+    expect(links.every((link) => link.description.length > 0)).toBe(true);
   });
 
   it("resolves drill-down links by permission", () => {

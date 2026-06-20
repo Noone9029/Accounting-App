@@ -10,11 +10,12 @@ Goal 12 later merged and stabilized PR #96 through PR #98 into `main` at:
 
 `a2863e5fcf89b7894914f17be4e196a013eb65f0`
 
-The next work should continue as narrow LedgerByte-native clean-room slices. Provider, storage, and compliance work stays separate.
+The next work should continue as narrow LedgerByte-native slices. OpenBook is MIT-licensed and small attributed source chunks are allowed only under the controlled reuse policy in `docs/legal/OPENBOOKS_CLEAN_ROOM_POLICY.md`. Provider, storage, and compliance work stays separate.
 
 ## Guardrails
 
-- Do not copy OpenBooks code, schemas, comments, file structure, implementation details, dependencies, or production source text.
+- Do not copy OpenBook code without attribution in `docs/legal/OPENBOOK_MIT_ATTRIBUTION.md`.
+- Do not wholesale-port OpenBook schemas, server actions, provider/storage/compliance logic, accounting-posting logic, file structure, or dependencies.
 - Do not add OpenBooks references to production source.
 - Keep each slice LedgerByte-native.
 - Do not claim production compliance.

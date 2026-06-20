@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, FileText, Loader2, Navigation, Search, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, FileText, Loader2, Navigation, PackageSearch, Search, UserRound, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -337,6 +337,8 @@ function resultIcon(category: GlobalSearchCategory): LucideIcon {
       return UserRound;
     case "Transactions":
       return FileText;
+    case "Products / Services":
+      return PackageSearch;
     case "Reports":
       return BarChart3;
     case "Pages / Navigation":
