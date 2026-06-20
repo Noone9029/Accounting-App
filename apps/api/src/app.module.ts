@@ -4,6 +4,7 @@ import { AccountingModule } from "./accounting/accounting.module";
 import { AttachmentModule } from "./attachments/attachment.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
+import { AutomationModule } from "./automation/automation.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
 import { BankingAccountingModule } from "./banking-accounting/banking-accounting.module";
 import { BankDepositModule } from "./bank-deposits/bank-deposit.module";
@@ -69,6 +70,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     AttachmentModule,
     EmailModule,
     AuthModule,
+    AutomationModule,
     BankAccountModule,
     BankingAccountingModule,
     BankDepositModule,
