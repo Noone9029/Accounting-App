@@ -161,4 +161,55 @@ describe("OrganizationMemberService", () => {
       expect.objectContaining({ where: { id: "member-1", organizationId: "org-1" } }),
     );
   });
+
+  it("summarizes the team workspace from tenant-scoped memberships without mutating invites or roles", async () => {
+    const { service, prisma, auditLogService, emailService } = makeService();
+    prisma.organizationMember.findMany.mockResolvedValue([
+      member,
+      {
+        ...member,
+        id: "member-2",
+        userId: "user-2",
+        status: MembershipStatus.INVITED,
+        user: { id: "user-2", email: "viewer@example.com", name: "Viewer", createdAt: new Date("2026-01-02T00:00:00.000Z") },
+        role: { id: "role-2", name: "Viewer", permissions: [PERMISSIONS.dashboard.view], isSystem: true },
+      },
+      {
+        ...member,
+        id: "member-3",
+        userId: "user-3",
+        status: MembershipStatus.SUSPENDED,
+        user: { id: "user-3", email: "manager@example.com", name: "Manager", createdAt: new Date("2026-01-03T00:00:00.000Z") },
+        role: { id: "role-3", name: "User manager", permissions: [PERMISSIONS.users.manage], isSystem: false },
+      },
+    ]);
+
+    const summary = await service.workspaceSummary("org-1");
+
+    expect(summary).toMatchObject({
+      totalMemberCount: 3,
+      activeMemberCount: 1,
+      invitedMemberCount: 1,
+      suspendedMemberCount: 1,
+      safeguards: {
+        hasActiveFullAccessMember: true,
+        hasActiveUserManager: true,
+        lastFullAccessRemovalBlocked: true,
+        lastUserManagerRemovalBlocked: true,
+      },
+      reviewNotice: expect.stringContaining("read-only"),
+      roleDistribution: expect.arrayContaining([
+        expect.objectContaining({ roleId: "role-1", roleName: "Owner", totalMemberCount: 1, activeMemberCount: 1, hasFullAccess: true }),
+        expect.objectContaining({ roleId: "role-2", roleName: "Viewer", totalMemberCount: 1, invitedMemberCount: 1, permissionCount: 1 }),
+      ]),
+    });
+    expect(summary.blockedActions.some((action) => action.includes("No invite"))).toBe(true);
+    expect(summary.blockedActions.some((action) => action.includes("No role"))).toBe(true);
+    expect(summary.blockedActions.some((action) => action.includes("ownership"))).toBe(true);
+    expect(prisma.organizationMember.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
+    expect(prisma.organizationMember.create).not.toHaveBeenCalled();
+    expect(prisma.organizationMember.update).not.toHaveBeenCalled();
+    expect(emailService.sendOrganizationInvite).not.toHaveBeenCalled();
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
 });

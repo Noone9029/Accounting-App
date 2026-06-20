@@ -34,6 +34,42 @@ export class OrganizationMemberService {
     return members.map(toMemberResponse);
   }
 
+  async workspaceSummary(organizationId: string) {
+    const members = await this.prisma.organizationMember.findMany({
+      where: { organizationId },
+      orderBy: [{ status: "asc" }, { user: { name: "asc" } }],
+      select: MEMBER_SELECT,
+    });
+    const statusCounts = membershipStatusCounts(members);
+    const roleDistribution = summarizeRoles(members);
+    const activeMembers = members.filter((member) => member.status === MembershipStatus.ACTIVE);
+    const hasActiveFullAccessMember = activeMembers.some((member) => isFullAccessRole(member.role.permissions));
+    const hasActiveUserManager = activeMembers.some((member) => isUserManagerRole(member.role.permissions));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      totalMemberCount: members.length,
+      activeMemberCount: statusCounts.ACTIVE,
+      invitedMemberCount: statusCounts.INVITED,
+      suspendedMemberCount: statusCounts.SUSPENDED,
+      statusCounts,
+      roleDistribution,
+      safeguards: {
+        hasActiveFullAccessMember,
+        hasActiveUserManager,
+        lastFullAccessRemovalBlocked: true,
+        lastUserManagerRemovalBlocked: true,
+      },
+      reviewNotice:
+        "Team workspace summary is read-only. It reviews current organization memberships and roles without inviting users, changing roles, changing statuses, transferring ownership, switching organizations, or sending email.",
+      blockedActions: [
+        "No invite, join request, or email is created from this endpoint.",
+        "No role, membership status, ownership transfer, or organization switch is performed.",
+        "No provider, storage, VAT, ZATCA, UAE, Peppol, or production-readiness action or claim is made.",
+      ],
+    };
+  }
+
   async get(organizationId: string, id: string) {
     return toMemberResponse(await this.getMemberOrThrow(organizationId, id));
   }
@@ -318,6 +354,67 @@ function toMemberResponse(member: MemberSelectResult) {
       permissions: normalizePermissions(member.role.permissions),
     },
   };
+}
+
+function membershipStatusCounts(members: MemberSelectResult[]) {
+  return {
+    ACTIVE: members.filter((member) => member.status === MembershipStatus.ACTIVE).length,
+    INVITED: members.filter((member) => member.status === MembershipStatus.INVITED).length,
+    SUSPENDED: members.filter((member) => member.status === MembershipStatus.SUSPENDED).length,
+  };
+}
+
+function summarizeRoles(members: MemberSelectResult[]) {
+  const roles = new Map<
+    string,
+    {
+      roleId: string;
+      roleName: string;
+      isSystem: boolean;
+      permissionCount: number;
+      hasFullAccess: boolean;
+      hasUserManagement: boolean;
+      totalMemberCount: number;
+      activeMemberCount: number;
+      invitedMemberCount: number;
+      suspendedMemberCount: number;
+    }
+  >();
+
+  for (const member of members) {
+    const permissions = normalizePermissions(member.role.permissions);
+    const existing =
+      roles.get(member.role.id) ??
+      {
+        roleId: member.role.id,
+        roleName: member.role.name,
+        isSystem: member.role.isSystem,
+        permissionCount: permissions.length,
+        hasFullAccess: isFullAccessRole(member.role.permissions),
+        hasUserManagement: isUserManagerRole(member.role.permissions),
+        totalMemberCount: 0,
+        activeMemberCount: 0,
+        invitedMemberCount: 0,
+        suspendedMemberCount: 0,
+      };
+
+    existing.totalMemberCount += 1;
+    if (member.status === MembershipStatus.ACTIVE) {
+      existing.activeMemberCount += 1;
+    } else if (member.status === MembershipStatus.INVITED) {
+      existing.invitedMemberCount += 1;
+    } else if (member.status === MembershipStatus.SUSPENDED) {
+      existing.suspendedMemberCount += 1;
+    }
+    roles.set(member.role.id, existing);
+  }
+
+  return [...roles.values()].sort((left, right) => {
+    if (right.activeMemberCount !== left.activeMemberCount) {
+      return right.activeMemberCount - left.activeMemberCount;
+    }
+    return left.roleName.localeCompare(right.roleName);
+  });
 }
 
 function isFullAccessRole(permissions: unknown): boolean {
