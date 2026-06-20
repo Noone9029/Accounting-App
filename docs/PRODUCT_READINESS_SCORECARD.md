@@ -2,7 +2,17 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus the complete generated-document object adapter staging approval artifacts branch.
+Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main` after PR #95 merge) plus the post-merge OpenBooks adoption baseline audit branch.
+
+## 2026-06-20 OpenBooks Adoption Post-Merge Baseline Update
+
+- PR #89 through PR #95 are merged into `main`; the OpenBooks clean-room adoption frontend metadata stack is now part of the LedgerByte main baseline.
+- Baseline includes the clean-room validator, app shell route registry, setup/onboarding route registry consumers, setup progress metadata, typed onboarding profile metadata, setup checklist template UI consumption, and typed onboarding selector/default helpers.
+- Product clarity improves for setup and future clean-room adoption sequencing, but no readiness score increase is taken for production launch readiness.
+- Full typed onboarding backend remains planned; persistent setup checklist state remains unimplemented.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health/degraded mode runtime, and document/receipt review remain planned.
+- Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
 ## 2026-06-20 Typed Onboarding Profile Selector Defaults Update
 

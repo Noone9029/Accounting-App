@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-20 OpenBooks Adoption Post-Merge Baseline
+
+- PR #89 through PR #95 are merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`; the OpenBooks clean-room adoption frontend metadata stack is now a LedgerByte main baseline.
+- Baseline now includes the clean-room adoption validator, app shell route registry, setup/onboarding route registry consumers, setup progress metadata, typed onboarding profile metadata, setup checklist template UI consumption, and typed onboarding selector/default helpers.
+- Full typed onboarding backend remains planned; persistent setup checklist state remains unimplemented.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health/degraded mode runtime, and document/receipt review remain planned.
+- Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
+- Next sequence is captured in `docs/development/openbooks-adoption/OPENBOOKS_ADOPTION_NEXT_GOALS.md`.
+- Recommended next prompt: `Implement LedgerByte-native archetype-aware setup guidance copy`.
+
 ## 2026-06-20 Typed Onboarding Profile Selector Defaults
 
 - Branch `feature/typed-onboarding-profile-selector-defaults` adds a narrow LedgerByte-native typed onboarding selector helper for safe setup preview defaults.

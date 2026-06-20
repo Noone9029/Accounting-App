@@ -695,3 +695,78 @@
 ## Exact Next Recommended Prompt Title
 
 `UAE ASP first-provider outreach evidence and sandbox docs review`
+
+## Clean-Room Adoption Goal 9 Completed: Post-Merge Baseline Audit And Handoff Update
+
+### Status
+
+Goal 9 documents the post-merge clean-room adoption baseline after PR #89 through PR #95 landed on `main`.
+
+This is a docs/audit/handoff-only update. It does not add runtime behavior, UI features, API modules, Prisma migrations, provider behavior, storage behavior, hosted behavior, or production compliance claims.
+
+### Baseline
+
+Final merged `main` SHA:
+
+`a8ebc9e6d039c52675135fa77bc1eb838c00a70d`
+
+Merged stack:
+
+- PR #89: `7ad5f715fe9b89d888251944a0cfb575df831cb4`
+- PR #90: `89f4b274099fc303068073f6dd28b4547a8204c1`
+- PR #91: `54d9482ada970b1325bb3b5e8ed4b20a81154798`
+- PR #92: `f9d15382878ef1f1abaa190f59255c0b0e031572`
+- PR #93: `2b3ce7e15459f96a14e1c28fa61d7dab44f3d694`
+- PR #94: `a159c72a4cfc96452175a6b66e3a7a5380f9695a`
+- PR #95: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`
+
+### Docs Updated
+
+- `docs/development/openbooks-adoption/OPENBOOKS_ADOPTION_POST_MERGE_BASELINE_AUDIT.md`
+- `docs/development/openbooks-adoption/OPENBOOKS_ADOPTION_NEXT_GOALS.md`
+- `docs/IMPLEMENTATION_STATUS.md`
+- `docs/REMAINING_ROADMAP.md`
+- `docs/PROJECT_AUDIT.md`
+- `docs/PRODUCT_READINESS_SCORECARD.md`
+- `CODEX_HANDOFF.md`
+
+### Baseline Now Includes
+
+- Clean-room adoption plan and validator.
+- App shell route registry.
+- Setup/onboarding route registry consumers.
+- Setup progress metadata.
+- Typed onboarding profile metadata.
+- Setup checklist template UI consumption.
+- Typed onboarding selector/default helpers.
+
+### Non-Goals Preserved
+
+- No upstream application code was copied.
+- No upstream application references were added to production source.
+- No backend typed onboarding persistence was implemented.
+- No persistent setup checklist state was added.
+- No Prisma migrations were added for onboarding.
+- No Inbox runtime implementation was added.
+- No AI proposal runtime implementation was added.
+- No deterministic bookkeeping pipeline was added.
+- No report-pack runtime implementation was added.
+- No integration-health runtime implementation was added.
+- No document-review runtime implementation was added.
+- No provider/storage/compliance behavior changed.
+
+### Remaining Blockers
+
+- Generated-document object storage approval remains `BLOCKED`.
+- Runtime generated documents remain database-backed.
+- Real object storage remains unimplemented and unproven.
+- Signed URLs remain unimplemented and unproven.
+- UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
+- Full typed onboarding backend remains planned.
+- Persistent setup checklist state remains unimplemented.
+
+### Next Recommended Goal
+
+Goal 10: implement LedgerByte-native archetype-aware setup guidance copy.
+
+This should remain frontend-only and non-persistent. It should not add backend state, Prisma migrations, API modules, Inbox, AI proposals, report packs, integration health, provider behavior, object storage, signed URLs, or compliance readiness claims.
