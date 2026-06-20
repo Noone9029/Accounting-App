@@ -13,6 +13,7 @@ import {
   buildGeneralLedgerReport,
   buildProfitAndLossReport,
   buildTopCustomersReport,
+  buildTopProductsServicesReport,
   buildTrialBalanceReport,
   buildVatReturnReport,
   buildVatSummaryReport,
@@ -302,6 +303,118 @@ describe("reports service builders", () => {
           branchId: "branch-1",
           status: SalesInvoiceStatus.FINALIZED,
           issueDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+        }),
+      }),
+    );
+  });
+
+  it("ranks top products and services from finalized sales invoice lines", () => {
+    const report = buildTopProductsServicesReport(
+      [
+        topProductServiceLine({
+          id: "line-1",
+          item: { id: "item-2", name: "Advisory", sku: "ADV", type: "SERVICE" },
+          description: "Advisory retainer",
+          quantity: "1.0000",
+          taxableAmount: "100.0000",
+          taxAmount: "15.0000",
+          lineTotal: "115.0000",
+        }),
+        topProductServiceLine({
+          id: "line-2",
+          item: { id: "item-1", name: "Implementation", sku: "IMP", type: "SERVICE" },
+          description: "Implementation",
+          quantity: "2.0000",
+          taxableAmount: "220.0000",
+          taxAmount: "33.0000",
+          lineTotal: "253.0000",
+          invoice: { issueDate: new Date("2026-01-12T00:00:00.000Z"), invoiceNumber: "INV-2" },
+        }),
+        topProductServiceLine({
+          id: "line-3",
+          item: null,
+          description: "Custom setup",
+          quantity: "3.0000",
+          taxableAmount: "90.0000",
+          taxAmount: "13.5000",
+          lineTotal: "103.5000",
+          invoice: { issueDate: new Date("2026-01-13T00:00:00.000Z"), invoiceNumber: "INV-3" },
+        }),
+      ],
+      { from: "2026-01-01", to: "2026-01-31", limit: 2 },
+    );
+
+    expect(report).toMatchObject({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      basis: "FINALIZED_SALES_INVOICE_LINES",
+      limit: 2,
+      totals: {
+        lineCount: 3,
+        catalogItemCount: 2,
+        uncatalogedLineGroupCount: 1,
+        quantity: "6.0000",
+        taxableAmount: "410.0000",
+        taxAmount: "61.5000",
+        grossAmount: "471.5000",
+      },
+    });
+    expect(report.rows.map((row) => row.label)).toEqual(["Implementation", "Advisory"]);
+    expect(report.rows[0]).toMatchObject({
+      kind: "CATALOG_ITEM",
+      item: { id: "item-1", name: "Implementation", sku: "IMP", type: "SERVICE" },
+      lineCount: 1,
+      quantity: "2.0000",
+      grossAmount: "253.0000",
+      latestInvoiceDate: "2026-01-12T00:00:00.000Z",
+    });
+    expect(report.notes.join(" ")).toContain("finalized sales invoice lines");
+    expect(report.notes.join(" ")).toContain("does not net credit notes");
+  });
+
+  it("calculates top products and services from active-organization finalized invoice lines inside the date range", async () => {
+    const invoiceLines = [
+      topProductServiceLine({
+        id: "line-implementation",
+        organizationId: "org-1",
+        invoice: { organizationId: "org-1", branchId: "branch-1", status: SalesInvoiceStatus.FINALIZED, issueDate: new Date("2026-01-10T00:00:00.000Z"), invoiceNumber: "INV-1" },
+        item: { id: "item-implementation", name: "Implementation", sku: "IMP", type: "SERVICE" },
+        lineTotal: "230.0000",
+      }),
+      topProductServiceLine({
+        id: "line-setup",
+        organizationId: "org-1",
+        invoice: { organizationId: "org-1", branchId: "branch-1", status: SalesInvoiceStatus.FINALIZED, issueDate: new Date("2026-01-11T00:00:00.000Z"), invoiceNumber: "INV-2" },
+        item: null,
+        description: "Custom setup",
+        lineTotal: "115.0000",
+      }),
+      topProductServiceLine({ id: "line-draft", invoice: { status: SalesInvoiceStatus.DRAFT }, lineTotal: "999.0000" }),
+      topProductServiceLine({ id: "line-other-org", organizationId: "org-2", invoice: { organizationId: "org-2" }, lineTotal: "888.0000" }),
+      topProductServiceLine({ id: "line-other-branch", invoice: { branchId: "branch-2" }, lineTotal: "777.0000" }),
+      topProductServiceLine({ id: "line-outside-range", invoice: { issueDate: new Date("2026-02-01T00:00:00.000Z") }, lineTotal: "666.0000" }),
+    ];
+    const prisma = {
+      salesInvoiceLine: { findMany: jest.fn(async (args: any) => invoiceLines.filter((line) => matchesInvoiceLineWhere(line, args.where))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.topProductsServices("org-1", { from: "2026-01-01", to: "2026-01-31", branchId: " branch-1 ", limit: "5" });
+
+    expect(report.rows.map((row) => row.label)).toEqual(["Implementation", "Custom setup"]);
+    expect(report.totals).toMatchObject({ lineCount: 2, catalogItemCount: 1, uncatalogedLineGroupCount: 1, grossAmount: "345.0000" });
+    expect(prisma.salesInvoiceLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          invoice: {
+            is: expect.objectContaining({
+              organizationId: "org-1",
+              branchId: "branch-1",
+              status: SalesInvoiceStatus.FINALIZED,
+              issueDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+            }),
+          },
         }),
       }),
     );
@@ -642,6 +755,50 @@ function topCustomerInvoice(
   };
 }
 
+interface TopProductServiceLineFixture {
+  id: string;
+  organizationId: string;
+  description: string;
+  quantity: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+  item: { id: string; name: string; sku: string | null; type: string } | null;
+  invoice: {
+    organizationId: string;
+    branchId: string | null;
+    status: SalesInvoiceStatus;
+    issueDate: Date;
+    invoiceNumber: string;
+  };
+}
+
+type TopProductServiceLineOverrides = Partial<Omit<TopProductServiceLineFixture, "invoice">> & {
+  invoice?: Partial<TopProductServiceLineFixture["invoice"]>;
+};
+
+function topProductServiceLine(overrides: TopProductServiceLineOverrides): TopProductServiceLineFixture {
+  const baseInvoice = {
+    organizationId: "org-1",
+    branchId: "branch-1",
+    status: SalesInvoiceStatus.FINALIZED,
+    issueDate: new Date("2026-01-10T00:00:00.000Z"),
+    invoiceNumber: "INV-1",
+  };
+  return {
+    id: "line-1",
+    organizationId: "org-1",
+    description: "Consulting",
+    quantity: "1.0000",
+    taxableAmount: "100.0000",
+    taxAmount: "15.0000",
+    lineTotal: "115.0000",
+    item: { id: "item-1", name: "Consulting", sku: "CONSULT", type: "SERVICE" },
+    ...overrides,
+    invoice: { ...baseInvoice, ...overrides.invoice },
+  };
+}
+
 interface SalesInvoiceFixture {
   id: string;
   organizationId: string;
@@ -803,5 +960,31 @@ function matchesVatWhere<T extends { organizationId: string; branchId: string | 
     document.status === where.status &&
     (!dateRange?.gte || documentDate >= dateRange.gte) &&
     (!dateRange?.lte || documentDate <= dateRange.lte)
+  );
+}
+
+function matchesInvoiceLineWhere(
+  line: TopProductServiceLineFixture,
+  where: {
+    organizationId: string;
+    invoice?: {
+      is?: {
+        organizationId?: string;
+        branchId?: string;
+        status?: SalesInvoiceStatus;
+        issueDate?: { gte?: Date; lte?: Date };
+      };
+    };
+  },
+) {
+  const invoice = where.invoice?.is;
+  const issueDate = line.invoice.issueDate;
+  return (
+    line.organizationId === where.organizationId &&
+    (!invoice?.organizationId || line.invoice.organizationId === invoice.organizationId) &&
+    (!invoice?.branchId || line.invoice.branchId === invoice.branchId) &&
+    (!invoice?.status || line.invoice.status === invoice.status) &&
+    (!invoice?.issueDate?.gte || issueDate >= invoice.issueDate.gte) &&
+    (!invoice?.issueDate?.lte || issueDate <= invoice.issueDate.lte)
   );
 }
