@@ -23,6 +23,7 @@ import {
   monthStartDateInput,
   REPORT_BUCKETS,
   VAT_REPORT_LABELS,
+  reportIndexGroups,
   reportExportFilename,
   todayDateInput,
 } from "@/lib/reports";
@@ -38,25 +39,11 @@ import type {
   VatSummaryReport,
 } from "@/lib/types";
 
-const reportLinks = [
-  { group: "Financial statements", href: "/reports/general-ledger", label: "General Ledger", description: "Trace posted journal lines by account." },
-  { group: "Financial statements", href: "/reports/trial-balance", label: "Trial Balance", description: "Confirm debits and credits stay balanced." },
-  { group: "Financial statements", href: "/reports/profit-and-loss", label: "Profit & Loss", description: "Review revenue, costs, expenses, and net profit." },
-  { group: "Financial statements", href: "/reports/balance-sheet", label: "Balance Sheet", description: "Check assets, liabilities, equity, and retained earnings." },
-  { group: "Tax reports", href: "/reports/vat-summary", label: "VAT Summary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },
-  { group: "Tax reports", href: "/reports/vat-return", label: "VAT Return", description: "Draft source-document VAT review with internal CSV export only. It is not an official filing workflow." },
-  { group: "Aging", href: "/reports/aged-receivables", label: "Aged Receivables", description: "Outstanding sales invoice balances after posted payments and credits. Quotes, recurring templates, delivery notes, and collection cases are excluded." },
-  { group: "Aging", href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
-  { group: "Inventory", href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
-  { group: "Inventory", href: "/inventory/reports/stock-valuation", label: "Stock Valuation", description: "Review moving-average operational stock value estimates." },
-  { group: "Inventory", href: "/inventory/reports/low-stock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
-];
-
-const reportGroups = ["Financial statements", "Tax reports", "Aging", "Inventory"];
-
 type AgingReportKind = "receivables" | "payables";
 
 export function ReportsIndexPage() {
+  const groups = reportIndexGroups();
+
   return (
     <section>
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -85,19 +72,17 @@ export function ReportsIndexPage() {
         </div>
       </div>
       <div className="space-y-6">
-        {reportGroups.map((group) => (
-          <section key={group}>
-            <h2 className="mb-3 text-base font-semibold text-ink">{group}</h2>
+        {groups.map((group) => (
+          <section key={group.label}>
+            <h2 className="mb-3 text-base font-semibold text-ink">{group.label}</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {reportLinks
-                .filter((link) => link.group === group)
-                .map((link) => (
-                  <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
-                    <div className="text-base font-semibold text-ink">{link.label}</div>
-                    <div className="mt-2 text-sm leading-6 text-steel">{link.description}</div>
-                    <div className="mt-4 text-sm font-medium text-palm">Open report</div>
-                  </Link>
-                ))}
+              {group.links.map((link) => (
+                <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
+                  <div className="text-base font-semibold text-ink">{link.label}</div>
+                  <div className="mt-2 text-sm leading-6 text-steel">{link.description}</div>
+                  <div className="mt-4 text-sm font-medium text-palm">Open report</div>
+                </Link>
+              ))}
             </div>
           </section>
         ))}

@@ -37,6 +37,7 @@ import {
   formatDashboardMoney,
   groupAttentionBySeverity,
   visibleDashboardQuickActions,
+  visibleDashboardWorkspaceLinks,
   type DashboardDrilldownLink,
 } from "@/lib/dashboard";
 import { getLedgerByteEdition } from "@/lib/edition";
@@ -67,6 +68,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [onboardingError, setOnboardingError] = useState("");
   const quickActions = useMemo(() => visibleDashboardQuickActions(activeMembership), [activeMembership]);
+  const workspaceLinks = useMemo(() => visibleDashboardWorkspaceLinks(activeMembership), [activeMembership]);
   const drilldownLinks = useMemo(
     () => ({
       unpaidInvoices: dashboardDrilldownLink("unpaidInvoices", activeMembership),
@@ -382,6 +384,26 @@ export default function DashboardPage() {
                   </div>
                 )}
               </Section>
+
+              {workspaceLinks.length > 0 ? (
+                <Section title="Common workspaces">
+                  <div className="grid grid-cols-1 gap-2">
+                    {workspaceLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm transition hover:border-palm/40 hover:bg-slate-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-ink">{link.label}</span>
+                          <span className="mt-0.5 block text-xs leading-5 text-steel">{link.description}</span>
+                        </span>
+                        <ArrowRight className="mt-0.5 h-4 w-4 flex-none text-steel" aria-hidden="true" />
+                      </Link>
+                    ))}
+                  </div>
+                </Section>
+              ) : null}
 
               {quickActions.length > 0 ? (
                 <Section title="Quick actions">

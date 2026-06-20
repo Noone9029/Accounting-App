@@ -405,7 +405,7 @@ export interface Organization {
   uaeAspOnboardingStatus?: string | null;
 }
 
-export type GlobalSearchCategory = "Contacts" | "Transactions" | "Reports" | "Pages / Navigation";
+export type GlobalSearchCategory = "Contacts" | "Transactions" | "Products / Services" | "Reports" | "Pages / Navigation";
 
 export interface GlobalSearchResult {
   id: string;

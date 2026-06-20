@@ -5,6 +5,7 @@ import {
   buildReportExportPath,
   buildReportQuery,
   buildVatReturnReviewExportPath,
+  reportIndexGroups,
   REPORT_BUCKETS,
   VAT_REPORT_LABELS,
   reportExportFilename,
@@ -41,5 +42,29 @@ describe("report helpers", () => {
   it("keeps VAT labels aligned between summary and return surfaces", () => {
     expect(VAT_REPORT_LABELS.outputVat).toBe("Output VAT (sales)");
     expect(VAT_REPORT_LABELS.inputVat).toBe("Input VAT (purchases)");
+  });
+
+  it("builds the reports index from active route registry entries", () => {
+    const groups = reportIndexGroups();
+    const links = groups.flatMap((group) => group.links);
+
+    expect(groups.map((group) => group.label)).toEqual(["Financial statements", "Tax reports", "Aging", "Inventory"]);
+    expect(links.map((link) => link.href)).toEqual([
+      "/reports/general-ledger",
+      "/reports/trial-balance",
+      "/reports/profit-and-loss",
+      "/reports/balance-sheet",
+      "/reports/vat-summary",
+      "/reports/vat-return",
+      "/reports/aged-receivables",
+      "/reports/aged-payables",
+      "/inventory/reports/movement-summary",
+      "/inventory/reports/stock-valuation",
+      "/inventory/reports/low-stock",
+    ]);
+    expect(links.map((link) => link.routeKey)).not.toContain("reportPacks");
+    expect(links.every((link) => link.description.length > 20)).toBe(true);
+    expect(links.find((link) => link.routeKey === "reports.vatReturn")?.description).toContain("not an official filing workflow");
+    expect(JSON.stringify(groups)).not.toMatch(new RegExp("Open" + "Books", "i"));
   });
 });

@@ -47,11 +47,22 @@ const ALLOWED_OPENBOOKS_PATHS = [
   /^docs\/product\//,
   /^docs\/legal\//,
   /^docs\/development\//,
+  /^CODEX_HANDOFF\.md$/,
+  /^package\.json$/,
   /^scripts\/openbooks-clean-room-validate\.cjs$/,
+  /^scripts\/openbooks-clean-room-validate\.test\.cjs$/,
   /^docs\/IMPLEMENTATION_STATUS\.md$/,
   /^docs\/REMAINING_ROADMAP\.md$/,
   /^docs\/PROJECT_AUDIT\.md$/,
   /^docs\/PRODUCT_READINESS_SCORECARD\.md$/,
+];
+
+const MIT_REUSE_POLICY_PATHS = [
+  /^docs\/legal\/OPENBOOKS_CLEAN_ROOM_POLICY\.md$/,
+  /^docs\/legal\/OPENBOOK_MIT_ATTRIBUTION\.md$/,
+  /^docs\/development\/openbooks-adoption\/OPENBOOK_MIT_SOURCE_INTAKE\.md$/,
+  /^scripts\/openbooks-clean-room-validate\.cjs$/,
+  /^scripts\/openbooks-clean-room-validate\.test\.cjs$/,
 ];
 
 const PRODUCTION_SOURCE_PATHS = [
@@ -65,13 +76,13 @@ const PRODUCTION_SOURCE_PATHS = [
 ];
 
 const DIRECT_REUSE_PATTERNS = [
-  /\b(?:copied|copying|copy|ported|porting|port|vendored|vendoring|vendor|imported|importing|import|translated|translating|translate|reused|reusing|reuse)\b.{0,80}\bOpenBooks\b/i,
-  /\bOpenBooks\b.{0,80}\b(?:copied|copying|copy|ported|porting|port|vendored|vendoring|vendor|imported|importing|import|translated|translating|translate|reused|reusing|reuse)\b/i,
+  /\b(?:copied|copying|copy|ported|porting|port|vendored|vendoring|vendor|imported|importing|import|translated|translating|translate|reused|reusing|reuse)\b.{0,80}\bOpenBooks?\b/i,
+  /\bOpenBooks?\b.{0,80}\b(?:copied|copying|copy|ported|porting|port|vendored|vendoring|vendor|imported|importing|import|translated|translating|translate|reused|reusing|reuse)\b/i,
 ];
 
 const PRODUCTION_READY_PATTERNS = [
-  /\bOpenBooks\b.{0,120}\b(?:production[- ]ready|production readiness|ready for production|WORKING)\b/i,
-  /\b(?:production[- ]ready|production readiness|ready for production|WORKING)\b.{0,120}\bOpenBooks\b/i,
+  /\bOpenBooks?\b.{0,120}\b(?:production[- ]ready|production readiness|ready for production|WORKING)\b/i,
+  /\b(?:production[- ]ready|production readiness|ready for production|WORKING)\b.{0,120}\bOpenBooks?\b/i,
 ];
 
 const COMPLIANCE_READY_PATTERNS = [
@@ -146,12 +157,16 @@ function isAllowedOpenBooksPath(relativePath) {
   return ALLOWED_OPENBOOKS_PATHS.some((pattern) => pattern.test(relativePath));
 }
 
+function isMitReusePolicyPath(relativePath) {
+  return MIT_REUSE_POLICY_PATHS.some((pattern) => pattern.test(relativePath));
+}
+
 function isProductionSourcePath(relativePath) {
   return PRODUCTION_SOURCE_PATHS.some((pattern) => pattern.test(relativePath));
 }
 
 function isOpenBooksCleanRoomDoc(relativePath) {
-  return /^docs\/(?:product|legal|development)\/OPENBOOKS_/.test(relativePath);
+  return /^docs\/(?:product|legal|development)\/OPENBOOKS?_/.test(relativePath);
 }
 
 function hasPositiveClaim(line, patterns) {
@@ -191,7 +206,7 @@ function validateRepo(options = {}) {
     }
     result.checkedFilesCount += 1;
 
-    const fileMentionsOpenBooks = text.includes("OpenBooks");
+    const fileMentionsOpenBooks = /\bOpenBooks?\b/i.test(text);
     if (!fileMentionsOpenBooks && !/[Uu][Aa][Ee]|ZATCA|Peppol|object[- ]storage|signed[- ]URL|ASP/.test(text)) {
       continue;
     }
@@ -199,7 +214,7 @@ function validateRepo(options = {}) {
     const lines = text.split(/\r?\n/);
     lines.forEach((line, index) => {
       const lineNumber = index + 1;
-      if (line.includes("OpenBooks")) {
+      if (/\bOpenBooks?\b/i.test(line)) {
         const allowed = isAllowedOpenBooksPath(relativePath);
         if (allowed && !isProductionSourcePath(relativePath)) {
           result.allowedReferencesCount += 1;
@@ -215,12 +230,12 @@ function validateRepo(options = {}) {
         }
       }
 
-      if (hasPositiveClaim(line, DIRECT_REUSE_PATTERNS)) {
+      if (hasPositiveClaim(line, DIRECT_REUSE_PATTERNS) && !isMitReusePolicyPath(relativePath)) {
         result.forbiddenClaimCount += 1;
         result.forbiddenClaims.push({
           file: relativePath,
           line: lineNumber,
-          reason: "Forbidden direct reuse/copying claim",
+          reason: "Unattributed or unapproved OpenBook direct reuse/copying claim",
         });
       }
 
@@ -233,7 +248,7 @@ function validateRepo(options = {}) {
         });
       }
 
-      if ((line.includes("OpenBooks") || isOpenBooksCleanRoomDoc(relativePath)) && hasPositiveClaim(line, COMPLIANCE_READY_PATTERNS)) {
+      if ((/\bOpenBooks?\b/i.test(line) || isOpenBooksCleanRoomDoc(relativePath)) && hasPositiveClaim(line, COMPLIANCE_READY_PATTERNS)) {
         result.forbiddenClaimCount += 1;
         result.forbiddenClaims.push({
           file: relativePath,
@@ -306,5 +321,6 @@ module.exports = {
   validateRepo,
   formatResult,
   isAllowedOpenBooksPath,
+  isMitReusePolicyPath,
   isProductionSourcePath,
 };

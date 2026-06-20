@@ -84,6 +84,21 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/Account-basis VAT review/i)).toBeInTheDocument();
   });
 
+  it("renders route-backed report groups and conservative report copy", () => {
+    render(<ReportsIndexPage />);
+
+    expect(screen.getByRole("heading", { name: "Financial statements" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Tax reports" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aging" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Inventory" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Profit & Loss/ }).map((link) => link.getAttribute("href"))).toContain("/reports/profit-and-loss");
+    expect(screen.getByRole("link", { name: /VAT Return/ })).toHaveAttribute("href", "/reports/vat-return");
+    expect(screen.getByRole("link", { name: /Aged Receivables/ })).toHaveAttribute("href", "/reports/aged-receivables");
+    expect(screen.getByRole("link", { name: /Inventory Movement/ })).toHaveAttribute("href", "/inventory/reports/movement-summary");
+    expect(screen.getAllByText(/not an official filing workflow/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /Report packs/ })).not.toBeInTheDocument();
+  });
+
   it("explains aged receivables after payment without changing report math", () => {
     render(<AgingReportGuide kind="receivables" />);
 

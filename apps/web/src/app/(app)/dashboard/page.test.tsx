@@ -148,6 +148,31 @@ describe("DashboardPage Sales/AR attention", () => {
         .map((link) => link.getAttribute("href")),
     ).toContain("/purchases/bills/new?returnTo=%2Fdashboard");
   });
+
+  it("renders permission-filtered common workspace shortcuts from existing routes", async () => {
+    mockActiveMembership = {
+      role: {
+        permissions: [
+          "dashboard.view",
+          "salesInvoices.view",
+          "items.view",
+          "reports.view",
+          "users.view",
+        ],
+      },
+    };
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Common workspaces" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Invoices/ })).toHaveAttribute("href", "/sales/invoices");
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/quotes");
+    expect(screen.getByRole("link", { name: /Products & services/ })).toHaveAttribute("href", "/items");
+    expect(screen.getByRole("link", { name: /Profit & Loss/ })).toHaveAttribute("href", "/reports/profit-and-loss");
+    expect(screen.getByRole("link", { name: /Users and roles/ })).toHaveAttribute("href", "/settings/team");
+    expect(screen.queryByRole("link", { name: /Bills/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Bank accounts/ })).not.toBeInTheDocument();
+  });
 });
 
 function summaryFixture(): DashboardSummary {

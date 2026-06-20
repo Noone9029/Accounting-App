@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import ItemsPage from "./page";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -36,7 +36,37 @@ describe("ItemsPage traceability settings", () => {
     apiRequestMock.mockReset();
     currentPermissions = new Set([PERMISSIONS.items.manage, PERMISSIONS.inventory.view]);
     apiRequestMock.mockImplementation((path: string) => {
-      if (path === "/items") return Promise.resolve([item()]);
+      if (path === "/items") {
+        return Promise.resolve([
+          item(),
+          item({
+            id: "item-2",
+            name: "Implementation Package",
+            description: "Fixed-fee setup service",
+            sku: "SERV-SETUP",
+            type: "SERVICE",
+            status: "ACTIVE",
+            sellingPrice: "750.0000",
+            inventoryTracking: false,
+            trackingMode: "NONE",
+            expiryTrackingEnabled: false,
+            binTrackingEnabled: false,
+          }),
+          item({
+            id: "item-3",
+            name: "Legacy Support Retainer",
+            description: "Disabled support service",
+            sku: "SUP-LEGACY",
+            type: "SERVICE",
+            status: "DISABLED",
+            sellingPrice: "125.0000",
+            inventoryTracking: false,
+            trackingMode: "NONE",
+            expiryTrackingEnabled: false,
+            binTrackingEnabled: false,
+          }),
+        ]);
+      }
       if (path === "/accounts") return Promise.resolve([account()]);
       if (path === "/tax-rates") return Promise.resolve([taxRate()]);
       if (path === "/inventory/balances") return Promise.resolve([balance()]);
@@ -57,11 +87,50 @@ describe("ItemsPage traceability settings", () => {
     expect(screen.getByRole("checkbox", { name: "Bin tracking" })).toBeInTheDocument();
     expect(screen.getAllByText("Serial and batch").length).toBeGreaterThan(0);
     expect(screen.getByText("Expiry, Bin")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Traceability" })).toHaveAttribute("href", "/inventory/traceability/items/item-1");
+    expect(screen.getAllByRole("link", { name: "Traceability" })[0]).toHaveAttribute("href", "/inventory/traceability/items/item-1");
+  });
+
+  it("filters the catalog by SKU, description, type, and status without reloading items", async () => {
+    render(<ItemsPage />);
+
+    await waitFor(() => {
+      expect(apiRequestMock).toHaveBeenCalledWith("/items");
+    });
+    await screen.findByText("Tracked Item");
+
+    const search = screen.getByRole("searchbox", { name: "Search products and services" });
+
+    fireEvent.change(search, { target: { value: "SERV-SETUP" } });
+    expect(screen.getByText("Implementation Package")).toBeInTheDocument();
+    expect(screen.queryByText("Tracked Item")).not.toBeInTheDocument();
+    expect(screen.queryByText("Legacy Support Retainer")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "disabled" } });
+    expect(screen.getByText("Legacy Support Retainer")).toBeInTheDocument();
+    expect(screen.queryByText("Implementation Package")).not.toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "product" } });
+    expect(screen.getByText("Tracked Item")).toBeInTheDocument();
+    expect(screen.queryByText("Implementation Package")).not.toBeInTheDocument();
+
+    expect(apiRequestMock).toHaveBeenCalledWith("/items");
+    expect(apiRequestMock.mock.calls.filter(([path]) => path === "/items")).toHaveLength(1);
+  });
+
+  it("shows an empty filtered state while preserving the loaded catalog", async () => {
+    render(<ItemsPage />);
+
+    await screen.findByText("Tracked Item");
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search products and services" }), { target: { value: "does-not-exist" } });
+
+    expect(screen.getByText("No matching products or services.")).toBeInTheDocument();
+    expect(screen.getByText("Clear the search or try a name, SKU, description, type, or status.")).toBeInTheDocument();
+    expect(screen.queryByText("Tracked Item")).not.toBeInTheDocument();
   });
 });
 
-function item(): Item {
+function item(overrides: Partial<Item> = {}): Item {
   return {
     id: "item-1",
     organizationId: "org-1",
@@ -84,6 +153,7 @@ function item(): Item {
     reorderQuantity: null,
     revenueAccount: { id: "account-1", code: "4000", name: "Sales", type: "REVENUE" },
     salesTaxRate: { id: "tax-1", name: "VAT 15%", rate: "15.0000", scope: "SALES" },
+    ...overrides,
   };
 }
 

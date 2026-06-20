@@ -76,6 +76,7 @@ describe("SearchService", () => {
       purchaseOrder: { findMany: jest.fn() },
       deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
       collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
+      salesQuote: { findMany: jest.fn().mockResolvedValue([]) },
       journalEntry: { findMany: jest.fn() },
     };
     const service = new SearchService(prisma as never);
@@ -114,6 +115,7 @@ describe("SearchService", () => {
         ]),
       },
       collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
+      salesQuote: { findMany: jest.fn().mockResolvedValue([]) },
       journalEntry: { findMany: jest.fn() },
     };
     const service = new SearchService(prisma as never);
@@ -155,6 +157,7 @@ describe("SearchService", () => {
           },
         ]),
       },
+      salesQuote: { findMany: jest.fn().mockResolvedValue([]) },
       journalEntry: { findMany: jest.fn() },
     };
     const service = new SearchService(prisma as never);
@@ -171,6 +174,88 @@ describe("SearchService", () => {
       }),
     ]);
     expect(JSON.stringify(result.results)).not.toMatch(/payment link|tax invoice|ZATCA|email sent/i);
+  });
+
+  it("returns sales quote records as non-posting sales workflow results", async () => {
+    const prisma = {
+      contact: { findMany: jest.fn() },
+      salesInvoice: { findMany: jest.fn().mockResolvedValue([]) },
+      purchaseBill: { findMany: jest.fn() },
+      cashExpense: { findMany: jest.fn() },
+      customerPayment: { findMany: jest.fn() },
+      supplierPayment: { findMany: jest.fn() },
+      creditNote: { findMany: jest.fn() },
+      purchaseOrder: { findMany: jest.fn() },
+      deliveryNote: { findMany: jest.fn().mockResolvedValue([]) },
+      collectionCase: { findMany: jest.fn().mockResolvedValue([]) },
+      journalEntry: { findMany: jest.fn() },
+      salesQuote: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "quote-1",
+            quoteNumber: "QUO-000001",
+            issueDate: new Date("2026-06-01T00:00:00.000Z"),
+            expiryDate: new Date("2026-06-30T00:00:00.000Z"),
+            status: "SENT",
+            total: "450.0000",
+            customer: { id: "customer-1", name: "Alpha Customer", displayName: null },
+          },
+        ]),
+      },
+    };
+    const service = new SearchService(prisma as never);
+
+    const result = await service.search("org-1", "QUO-000001", [PERMISSIONS.salesInvoices.view]);
+
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        resultType: "Sales quote",
+        href: "/sales/quotes/quote-1",
+        label: "QUO-000001",
+        detail: "Alpha Customer",
+        amount: "450.0000",
+        status: "SENT",
+      }),
+    ]);
+    expect(JSON.stringify(result.results)).not.toMatch(/posted journal|invoice posted|ZATCA|tax invoice/i);
+  });
+
+  it("returns product and service catalog records only with item view permission", async () => {
+    const prisma = {
+      contact: { findMany: jest.fn() },
+      item: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "item-1",
+            name: "Implementation Package",
+            description: "Fixed-fee setup service",
+            sku: "SERV-SETUP",
+            type: "SERVICE",
+            status: "ACTIVE",
+            sellingPrice: "750.0000",
+            inventoryTracking: false,
+          },
+        ]),
+      },
+    };
+    const service = new SearchService(prisma as never);
+
+    const permitted = await service.search("org-1", "SERV-SETUP", [PERMISSIONS.items.view]);
+    const denied = await service.search("org-1", "SERV-SETUP", []);
+
+    expect(permitted.results).toEqual([
+      expect.objectContaining({
+        resultType: "Product/service",
+        category: "Products / Services",
+        href: "/items",
+        label: "Implementation Package",
+        detail: "SERV-SETUP / SERVICE",
+        amount: "750.0000",
+        status: "ACTIVE",
+      }),
+    ]);
+    expect(denied.results).toEqual([]);
+    expect(prisma.item.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("returns no results for blank queries", async () => {
