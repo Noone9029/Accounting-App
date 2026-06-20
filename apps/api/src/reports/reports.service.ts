@@ -102,7 +102,7 @@ interface DashboardOpenDocumentInput {
   balanceDue: unknown;
 }
 
-interface DashboardLedgerLineInput {
+export interface DashboardLedgerLineInput {
   debit: unknown;
   credit: unknown;
   account: {
@@ -429,6 +429,19 @@ export class ReportsService {
         periodToLabel: dateLabel(query.to ?? query.asOf, periodTo),
       },
     );
+  }
+
+  async revenueTrend(organizationId: string, query: ReportDateQuery) {
+    const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
+    const lines = await this.findDashboardJournalLines(organizationId, {
+      from: range.from,
+      to: range.to,
+      accountType: AccountType.REVENUE,
+      branchId,
+    });
+
+    return buildRevenueTrendReport(lines, { from: range.fromLabel, to: range.toLabel });
   }
 
   async agedReceivables(organizationId: string, query: ReportDateQuery) {
@@ -1274,6 +1287,39 @@ export function buildFinancialDashboardSummary(
   };
 }
 
+export function buildRevenueTrendReport(lines: DashboardLedgerLineInput[], options: { from: string | null; to: string | null }) {
+  const byPeriod = new Map<string, { revenue: Decimal; lineCount: number }>();
+  for (const line of lines) {
+    const period = monthPeriodKey(line.journalEntry?.entryDate);
+    const aggregate = byPeriod.get(period) ?? { revenue: ZERO, lineCount: 0 };
+    aggregate.revenue = aggregate.revenue.plus(money(line.credit)).minus(money(line.debit));
+    aggregate.lineCount += 1;
+    byPeriod.set(period, aggregate);
+  }
+
+  const rows = Array.from(byPeriod.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([period, aggregate]) => ({ period, revenue: fixed(aggregate.revenue), lineCount: aggregate.lineCount }));
+  const revenue = rows.reduce((sum, row) => sum.plus(row.revenue), ZERO);
+
+  return {
+    from: options.from,
+    to: options.to,
+    basis: "POSTED_AND_REVERSED_REVENUE_JOURNAL_LINES",
+    granularity: "month",
+    rows,
+    totals: {
+      revenue: fixed(revenue),
+      lineCount: rows.reduce((sum, row) => sum + row.lineCount, 0),
+    },
+    notes: [
+      "Revenue trend is derived from posted and reversed revenue-account journal lines.",
+      "Draft, voided, and source-document-only activity is excluded.",
+      "This internal management report does not create filings or provider submissions.",
+    ],
+  };
+}
+
 export function buildAgingReport(documents: AgingDocumentInput[], options: { asOf: string | null; kind: "receivables" | "payables" }) {
   const asOf = parseEndDate(options.asOf) ?? endOfToday();
   const rows = documents.map((document) => {
@@ -1407,6 +1453,11 @@ function aggregateNaturalAssetLines(lines: DashboardLedgerLineInput[]) {
     balances.set(line.account.id, (balances.get(line.account.id) ?? ZERO).plus(money(line.debit)).minus(money(line.credit)));
   }
   return balances;
+}
+
+function monthPeriodKey(value?: string | Date): string {
+  const date = value ? new Date(value) : new Date(0);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function debitCreditPair(net: Decimal) {

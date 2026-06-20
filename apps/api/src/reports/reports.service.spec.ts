@@ -12,6 +12,7 @@ import {
   buildBalanceSheetReport,
   buildGeneralLedgerReport,
   buildProfitAndLossReport,
+  buildRevenueTrendReport,
   buildTopCustomersReport,
   buildTopProductsServicesReport,
   buildTrialBalanceReport,
@@ -110,6 +111,30 @@ describe("reports service builders", () => {
       expenses: "25.0000",
       netProfit: "135.0000",
     });
+  });
+
+  it("builds monthly revenue trend from revenue journal lines", () => {
+    const report = buildRevenueTrendReport(
+      [
+        dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-10", JournalEntryStatus.POSTED, "0.0000", "120.0000"),
+        dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-25", JournalEntryStatus.REVERSED, "25.0000", "0.0000"),
+        dashboardLine("revenue", "411", AccountType.REVENUE, "2026-02-04", JournalEntryStatus.POSTED, "0.0000", "40.0000"),
+      ],
+      { from: "2026-01-01", to: "2026-02-28" },
+    );
+
+    expect(report).toMatchObject({
+      from: "2026-01-01",
+      to: "2026-02-28",
+      basis: "POSTED_AND_REVERSED_REVENUE_JOURNAL_LINES",
+      totals: { revenue: "135.0000", lineCount: 3 },
+      rows: [
+        { period: "2026-01", revenue: "95.0000", lineCount: 2 },
+        { period: "2026-02", revenue: "40.0000", lineCount: 1 },
+      ],
+    });
+    expect(report.notes.join(" ")).toContain("journal lines");
+    expect(report.notes.join(" ")).toContain("does not create filings");
   });
 
   it("reflects manually posted sales stock issue COGS through journal lines only after posting", () => {
@@ -620,6 +645,64 @@ describe("reports service builders", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           organizationId: "org-1",
+          journalEntry: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { salesInvoice: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+              { purchaseBill: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+            ]),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("calculates revenue trend from active-organization posted revenue lines inside the date range", async () => {
+    const journalLines = [
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-08", JournalEntryStatus.POSTED, "0.0000", "120.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-09", JournalEntryStatus.REVERSED, "25.0000", "0.0000"),
+      dashboardLine("expense", "511", AccountType.EXPENSE, "2026-01-10", JournalEntryStatus.POSTED, "0.0000", "999.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-11", JournalEntryStatus.VOIDED, "0.0000", "888.0000"),
+      dashboardLine("revenue", "411", AccountType.REVENUE, "2026-02-01", JournalEntryStatus.POSTED, "0.0000", "777.0000"),
+      { ...dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-12", JournalEntryStatus.POSTED, "0.0000", "666.0000"), organizationId: "org-2" },
+    ];
+    const prisma = {
+      journalLine: { findMany: jest.fn(async (args: any) => journalLines.filter((line) => matchesDashboardLineWhere(line, args.where))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.revenueTrend("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(report).toMatchObject({
+      totals: { revenue: "95.0000", lineCount: 2 },
+      rows: [{ period: "2026-01", revenue: "95.0000", lineCount: 2 }],
+    });
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          account: { is: { type: AccountType.REVENUE } },
+          journalEntry: expect.objectContaining({
+            status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
+            entryDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("passes optional branch filters into revenue trend journal reads", async () => {
+    const prisma = {
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    await service.revenueTrend("org-1", { branchId: " branch-1 ", from: "2026-01-01", to: "2026-01-31" });
+
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          account: { is: { type: AccountType.REVENUE } },
           journalEntry: expect.objectContaining({
             OR: expect.arrayContaining([
               { salesInvoice: { is: { organizationId: "org-1", branchId: "branch-1" } } },

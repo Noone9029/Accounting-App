@@ -11,6 +11,7 @@ describe("ReportsController exports", () => {
     vatReturn: jest.fn().mockResolvedValue({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" }),
     vatReturnCsvFile: jest.fn().mockResolvedValue({ filename: "vat-return-draft-review.csv", content: "Draft VAT Return Review Export\r\n" }),
     dashboardSummary: jest.fn().mockResolvedValue({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } }),
+    revenueTrend: jest.fn().mockResolvedValue({ rows: [{ period: "2026-01", revenue: "120.0000" }] }),
     topCustomers: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICES", rows: [] }),
     topProductsServices: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICE_LINES", rows: [] }),
   };
@@ -82,6 +83,13 @@ describe("ReportsController exports", () => {
 
     expect(result).toMatchObject({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } });
     expect(service.dashboardSummary).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
+  });
+
+  it("routes revenue trend requests to the journal-line report engine", async () => {
+    const result = await controller.revenueTrend("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(result).toMatchObject({ rows: [{ period: "2026-01", revenue: "120.0000" }] });
+    expect(service.revenueTrend).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
   });
 
   it("routes top customers requests to the finalized-invoice report engine", async () => {

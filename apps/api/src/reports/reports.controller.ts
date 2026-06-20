@@ -142,6 +142,11 @@ export class ReportsController {
     return this.reportsService.dashboardSummary(organizationId, query);
   }
 
+  @Get("revenue-trend")
+  revenueTrend(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    return this.reportsService.revenueTrend(organizationId, query);
+  }
+
   @Get("top-customers")
   topCustomers(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
     return this.reportsService.topCustomers(organizationId, query);
