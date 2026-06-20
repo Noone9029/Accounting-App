@@ -290,6 +290,12 @@ export const APP_ROUTES = [
   ], {
     sensitivity: ["storage"],
   }),
+  route("settings.dataManagement", "Data management", "/settings/data-management", "settings", "Data import, export, and backup planning route.", [
+    PERMISSIONS.documentSettings.view,
+    PERMISSIONS.auditLogs.view,
+  ], {
+    sensitivity: ["storage"],
+  }),
   route("settings.compliance", "Compliance settings", "/settings/compliance", "settings", "Compliance readiness and provider planning settings.", [
     PERMISSIONS.compliance.view,
   ], {

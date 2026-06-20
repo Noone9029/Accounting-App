@@ -108,6 +108,10 @@ describe("permission helpers", () => {
       PERMISSIONS.documentSettings.view,
       PERMISSIONS.attachments.manage,
     ]);
+    expect(getRequiredPermissionsForPathname("/settings/data-management")).toEqual([
+      PERMISSIONS.documentSettings.view,
+      PERMISSIONS.auditLogs.view,
+    ]);
     expect(getRequiredPermissionsForPathname("/settings/email-outbox")).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(getRequiredPermissionsForPathname("/settings/banking-accounting")).toEqual([PERMISSIONS.accounts.view]);
     expect(getRequiredPermissionsForPathname("/settings/audit-logs")).toEqual([PERMISSIONS.auditLogs.view]);
@@ -215,7 +219,7 @@ describe("sidebar nav filtering", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.documentSettings.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage settings"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Document settings", "Storage settings", "Data management"]);
   });
 
   it("shows email outbox when the user has email outbox permission", () => {
@@ -229,7 +233,7 @@ describe("sidebar nav filtering", () => {
     const nav = filterSidebarNavItems(subject([PERMISSIONS.auditLogs.view]));
     const settings = nav.find((item) => item.label === "Settings");
 
-    expect(settings?.children?.map((item) => item.label)).toEqual(["Audit logs"]);
+    expect(settings?.children?.map((item) => item.label)).toEqual(["Data management", "Audit logs"]);
   });
 
   it("shows number sequences when the user has number sequence permission", () => {

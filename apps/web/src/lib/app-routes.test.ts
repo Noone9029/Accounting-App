@@ -67,6 +67,7 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("documents")?.href).toBe("/documents");
     expect(getAppRouteByKey("reports")?.href).toBe("/reports");
     expect(getAppRouteByKey("settings.storage")?.href).toBe("/settings/storage");
+    expect(getAppRouteByKey("settings.dataManagement")?.href).toBe("/settings/data-management");
     expect(getAppRouteByKey("settings.compliance")?.href).toBe("/settings/compliance");
     expect(getAppRouteByKey("settings.zatca")?.href).toBe("/settings/zatca");
     expect(getAppRouteByKey("contacts")?.href).toBe("/contacts");
@@ -74,6 +75,7 @@ describe("app route registry", () => {
 
   it("tags compliance, storage, and provider-sensitive routes", () => {
     expect(getAppRouteByKey("settings.storage")?.sensitivity).toEqual(expect.arrayContaining(["storage"]));
+    expect(getAppRouteByKey("settings.dataManagement")?.sensitivity).toEqual(expect.arrayContaining(["storage"]));
     expect(getAppRouteByKey("settings.compliance")?.sensitivity).toEqual(expect.arrayContaining(["compliance", "provider"]));
     expect(getAppRouteByKey("settings.zatca")?.sensitivity).toEqual(expect.arrayContaining(["compliance", "provider"]));
     expect(getAppRouteByKey("documents")?.sensitivity).toEqual(expect.arrayContaining(["storage"]));
