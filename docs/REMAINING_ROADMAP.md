@@ -1,5 +1,13 @@
 # Remaining Roadmap
 
+## 2026-06-21 Typed Onboarding Status Contract
+
+- Branch `codex/typed-onboarding-status-contract` adds a docs-only typed onboarding status contract for real-environment migration strategy and `PARTIAL` to `WORKING` promotion criteria.
+- Feature status remains `PARTIAL`. The contract does not add runtime behavior, routes, persistence changes, public tokens, provider calls, storage mutation, hosted mutation, AI behavior, compliance submission, or production readiness claims.
+- `WORKING` requires approved migration evidence, focused API coverage, setup wizard loading/empty/error/save/recompute coverage, browser/E2E proof, safe no-profile/API-failure behavior, clean-room validation, and status-doc updates.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Add broader setup wizard typed onboarding browser coverage`.
+
 ## 2026-06-20 Setup Wizard Typed Onboarding API Consumption
 
 - Branch `feature/setup-wizard-typed-onboarding-api-consumption` adds the next LedgerByte-native typed onboarding persistence consumption slice after the API/service foundation.
