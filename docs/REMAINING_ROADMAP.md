@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-20 Typed Onboarding Persistence Schema Foundation
+
+- Branch `feature/typed-onboarding-persistence-schema-foundation` adds the first LedgerByte-native Prisma schema/migration foundation for future typed onboarding persistence.
+- The foundation covers onboarding profiles, generated checklist containers, checklist items, checklist events, template version metadata, state enums, organization scoping, optional branch scope, actor fields, indexes, and active-record uniqueness guards.
+- Feature status remains `PARTIAL`. The full typed onboarding backend remains planned, and setup wizard persistence remains unimplemented.
+- No setup wizard UI persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, public API behavior, hosted migration, Supabase mutation, provider/storage/compliance behavior, signed URLs, or production compliance claim was added.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement typed onboarding API service foundation`.
+
 ## 2026-06-20 OpenBooks Adoption Post-Merge Baseline
 
 - PR #89 through PR #95 are merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`; the OpenBooks clean-room adoption frontend metadata stack is now a LedgerByte main baseline.

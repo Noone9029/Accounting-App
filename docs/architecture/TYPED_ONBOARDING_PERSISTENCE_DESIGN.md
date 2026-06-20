@@ -17,6 +17,17 @@ LedgerByte currently has a frontend/helper baseline for typed onboarding:
 - Selected archetype state is ephemeral React state only.
 - No selected archetype, generated checklist, checklist completion state, skip state, dismissal state, or setup progress state is persisted.
 
+## Implementation Status
+
+As of the typed onboarding persistence schema foundation PR, LedgerByte has started the persistence implementation with additive Prisma schema and migration groundwork for onboarding profiles, checklists, checklist items, checklist events, and template version tracking.
+
+This remains a partial foundation only:
+
+- No public API endpoints, controllers, services, or setup wizard persistence are implemented yet.
+- No UI persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, or API writes from the setup wizard are implemented.
+- Full typed onboarding backend behavior, tenant-isolated mutations, permission enforcement, recompute behavior, and audit-event writes remain future implementation phases.
+- Compliance, provider, storage, generated-document object storage, signed URL, hosted, Supabase, and Vercel behavior remains unchanged.
+
 ## Goals
 
 Future typed onboarding persistence should support:
@@ -32,11 +43,8 @@ Future typed onboarding persistence should support:
 
 ## Non-Goals
 
-This PR does not implement any runtime behavior.
+The design-only PR did not implement runtime behavior. The later schema foundation PR starts additive database groundwork only and still does not implement public runtime behavior.
 
-- No Prisma schema changes.
-- No Prisma migrations.
-- No database tables.
 - No API modules, controllers, or services.
 - No setup wizard runtime changes.
 - No archetype selection persistence.

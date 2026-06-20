@@ -2,7 +2,16 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main` after PR #95 merge) plus the post-merge OpenBooks adoption baseline audit branch and stacked typed-onboarding guidance/design branches.
+Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema foundation branch.
+
+## 2026-06-20 Typed Onboarding Persistence Schema Foundation Update
+
+- Product implementation depth improves because LedgerByte now has additive Prisma schema and migration groundwork for future typed onboarding persistence.
+- The foundation covers onboarding profiles, generated checklist containers, checklist items, checklist events, template version metadata, state enums, organization scoping, optional branch scope, actor fields, indexes, and active-record uniqueness guards.
+- Feature status remains `PARTIAL`. No production readiness score increase is taken for production launch readiness because no public API behavior, setup wizard persistence, frontend persistence, hosted migration, Supabase mutation, provider behavior, storage behavior, signed URL behavior, or production compliance behavior was added.
+- Full typed onboarding backend behavior remains planned. Setup wizard persistence remains unimplemented.
+- Inbox, AI proposals, deterministic pipeline, report packs, integration health, document review, generated-document object storage, signed URLs, provider behavior, hosted behavior, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
 
 ## 2026-06-20 OpenBooks Adoption Post-Merge Baseline Update
 

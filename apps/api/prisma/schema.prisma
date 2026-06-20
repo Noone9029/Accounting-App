@@ -14,6 +14,49 @@ enum MembershipStatus {
   SUSPENDED
 }
 
+enum OnboardingProfileStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  RESET_REQUESTED
+  ARCHIVED
+}
+
+enum OnboardingChecklistStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  RESET_REQUESTED
+  ARCHIVED
+}
+
+enum OnboardingChecklistItemStatus {
+  NOT_STARTED
+  AVAILABLE
+  BLOCKED
+  COMPLETED
+  SKIPPED
+  REOPENED
+}
+
+enum OnboardingChecklistEventType {
+  PROFILE_SELECTED
+  PROFILE_CHANGED
+  CHECKLIST_GENERATED
+  CHECKLIST_RECOMPUTED
+  ITEM_COMPLETED
+  ITEM_SKIPPED
+  ITEM_REOPENED
+  ITEM_BLOCKED
+  ITEM_ARCHIVED
+}
+
+enum OnboardingTemplateVersionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
 enum EmailDeliveryStatus {
   QUEUED
   SENT_MOCK
@@ -1070,6 +1113,18 @@ model User {
   updatedBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigUpdatedBy")
   complianceEvents                                  ComplianceEventLog[]                        @relation("ComplianceEventActor")
   createdDocumentArchiveRecords                     DocumentArchiveRecord[]                      @relation("DocumentArchiveRecordCreatedBy")
+  createdOnboardingProfiles                         OnboardingProfile[]                         @relation("OnboardingProfileCreatedBy")
+  updatedOnboardingProfiles                         OnboardingProfile[]                         @relation("OnboardingProfileUpdatedBy")
+  createdOnboardingChecklists                       OnboardingChecklist[]                       @relation("OnboardingChecklistCreatedBy")
+  updatedOnboardingChecklists                       OnboardingChecklist[]                       @relation("OnboardingChecklistUpdatedBy")
+  createdOnboardingChecklistItems                   OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemCreatedBy")
+  updatedOnboardingChecklistItems                   OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemUpdatedBy")
+  completedOnboardingChecklistItems                 OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemCompletedBy")
+  skippedOnboardingChecklistItems                   OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemSkippedBy")
+  reopenedOnboardingChecklistItems                  OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemReopenedBy")
+  onboardingChecklistEvents                         OnboardingChecklistEvent[]                  @relation("OnboardingChecklistEventActor")
+  createdOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionCreatedBy")
+  updatedOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionUpdatedBy")
 }
 
 model Organization {
@@ -1198,6 +1253,10 @@ model Organization {
   complianceTransmissions                   ComplianceTransmission[]
   complianceEventLogs                       ComplianceEventLog[]
   documentArchiveRecords                    DocumentArchiveRecord[]
+  onboardingProfiles                        OnboardingProfile[]
+  onboardingChecklists                      OnboardingChecklist[]
+  onboardingChecklistItems                  OnboardingChecklistItem[]
+  onboardingChecklistEvents                 OnboardingChecklistEvent[]
 }
 
 model OrganizationDocumentSettings {
@@ -2141,6 +2200,10 @@ model Branch {
   purchaseBills      PurchaseBill[]
   purchaseDebitNotes PurchaseDebitNote[]
   cashExpenses       CashExpense[]
+  onboardingProfiles OnboardingProfile[]
+  onboardingChecklists OnboardingChecklist[]
+  onboardingChecklistItems OnboardingChecklistItem[]
+  onboardingChecklistEvents OnboardingChecklistEvent[]
 
   @@index([organizationId])
 }
@@ -4676,6 +4739,173 @@ model FiscalPeriod {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+}
+
+model OnboardingProfile {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  organizationId       String                  @db.Uuid
+  branchId             String?                 @db.Uuid
+  selectedArchetypeKey String
+  templateVersion      String
+  status               OnboardingProfileStatus @default(DRAFT)
+  createdById          String?                 @db.Uuid
+  updatedById          String?                 @db.Uuid
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  organization         Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch               Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy            User?                   @relation("OnboardingProfileCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy            User?                   @relation("OnboardingProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  checklists           OnboardingChecklist[]
+  events               OnboardingChecklistEvent[]
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([organizationId, branchId])
+  @@index([organizationId, status])
+  @@index([organizationId, branchId, status])
+  @@index([selectedArchetypeKey])
+  @@index([templateVersion])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model OnboardingChecklist {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  organizationId      String                    @db.Uuid
+  branchId            String?                   @db.Uuid
+  onboardingProfileId String                    @db.Uuid
+  templateVersion     String
+  status              OnboardingChecklistStatus @default(DRAFT)
+  generatedAt         DateTime                  @default(now())
+  completedAt         DateTime?
+  archivedAt          DateTime?
+  createdById         String?                   @db.Uuid
+  updatedById         String?                   @db.Uuid
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch              Branch?                   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  onboardingProfile   OnboardingProfile         @relation(fields: [onboardingProfileId], references: [id], onDelete: Cascade)
+  createdBy           User?                     @relation("OnboardingChecklistCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy           User?                     @relation("OnboardingChecklistUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items               OnboardingChecklistItem[]
+  events              OnboardingChecklistEvent[]
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([organizationId, branchId])
+  @@index([onboardingProfileId])
+  @@index([organizationId, status])
+  @@index([organizationId, branchId, status])
+  @@index([templateVersion])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model OnboardingChecklistItem {
+  id                    String                        @id @default(uuid()) @db.Uuid
+  organizationId        String                        @db.Uuid
+  branchId              String?                       @db.Uuid
+  onboardingChecklistId String                        @db.Uuid
+  itemKey               String
+  category              String
+  status                OnboardingChecklistItemStatus @default(NOT_STARTED)
+  routeKey              String?
+  setupProgressKey      String?
+  blockedReasonCode     String?
+  blockedReason         String?
+  completedAt           DateTime?
+  completedById         String?                       @db.Uuid
+  skippedAt             DateTime?
+  skippedById           String?                       @db.Uuid
+  reopenedAt            DateTime?
+  reopenedById          String?                       @db.Uuid
+  createdById           String?                       @db.Uuid
+  updatedById           String?                       @db.Uuid
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+  organization          Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch?                       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  onboardingChecklist   OnboardingChecklist           @relation(fields: [onboardingChecklistId], references: [id], onDelete: Cascade)
+  completedBy           User?                         @relation("OnboardingChecklistItemCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  skippedBy             User?                         @relation("OnboardingChecklistItemSkippedBy", fields: [skippedById], references: [id], onDelete: SetNull)
+  reopenedBy            User?                         @relation("OnboardingChecklistItemReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
+  createdBy             User?                         @relation("OnboardingChecklistItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy             User?                         @relation("OnboardingChecklistItemUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  events                OnboardingChecklistEvent[]
+
+  @@unique([onboardingChecklistId, itemKey])
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([organizationId, branchId])
+  @@index([onboardingChecklistId])
+  @@index([organizationId, status])
+  @@index([organizationId, branchId, status])
+  @@index([itemKey])
+  @@index([routeKey])
+  @@index([setupProgressKey])
+  @@index([completedById])
+  @@index([skippedById])
+  @@index([reopenedById])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model OnboardingChecklistEvent {
+  id                        String                       @id @default(uuid()) @db.Uuid
+  organizationId            String                       @db.Uuid
+  branchId                  String?                      @db.Uuid
+  onboardingProfileId       String?                      @db.Uuid
+  onboardingChecklistId     String?                      @db.Uuid
+  onboardingChecklistItemId String?                      @db.Uuid
+  eventType                 OnboardingChecklistEventType
+  actorUserId               String?                      @db.Uuid
+  previousValueJson         Json?
+  nextValueJson             Json?
+  payloadJson               Json?
+  reason                    String?
+  createdAt                 DateTime                     @default(now())
+  organization              Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                    Branch?                      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  onboardingProfile         OnboardingProfile?           @relation(fields: [onboardingProfileId], references: [id], onDelete: SetNull)
+  onboardingChecklist       OnboardingChecklist?         @relation(fields: [onboardingChecklistId], references: [id], onDelete: SetNull)
+  onboardingChecklistItem   OnboardingChecklistItem?     @relation(fields: [onboardingChecklistItemId], references: [id], onDelete: SetNull)
+  actorUser                 User?                        @relation("OnboardingChecklistEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([organizationId, branchId])
+  @@index([organizationId, eventType])
+  @@index([organizationId, createdAt])
+  @@index([onboardingProfileId])
+  @@index([onboardingChecklistId])
+  @@index([onboardingChecklistItemId])
+  @@index([actorUserId])
+}
+
+model OnboardingTemplateVersion {
+  id           String                          @id @default(uuid()) @db.Uuid
+  version      String
+  archetypeKey String
+  itemKeys     Json
+  status       OnboardingTemplateVersionStatus @default(DRAFT)
+  activatedAt  DateTime?
+  archivedAt   DateTime?
+  createdById  String?                         @db.Uuid
+  updatedById  String?                         @db.Uuid
+  createdAt    DateTime                        @default(now())
+  updatedAt    DateTime                        @updatedAt
+  createdBy    User?                           @relation("OnboardingTemplateVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                           @relation("OnboardingTemplateVersionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([version, archetypeKey])
+  @@index([version])
+  @@index([archetypeKey])
+  @@index([archetypeKey, status])
+  @@index([status])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model AuditLog {
