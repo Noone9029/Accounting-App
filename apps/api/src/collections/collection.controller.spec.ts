@@ -6,6 +6,7 @@ describe("CollectionController permissions", () => {
   it("uses the existing Sales/AR permission boundary for collection workflow access", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.list)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.summary)).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.reminderCandidates)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.nextNumberPreview)).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.byCustomer)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CollectionController.prototype.byInvoice)).toEqual([PERMISSIONS.salesInvoices.view]);
