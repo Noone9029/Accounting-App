@@ -10,7 +10,13 @@ Goal 12 later merged and stabilized PR #96 through PR #98 into `main` at:
 
 `a2863e5fcf89b7894914f17be4e196a013eb65f0`
 
+Goal 16 later merged and stabilized PR #99 through PR #101 into `main` at:
+
+`4ddc92846776ea7fe2b8a0382464e015a3bcaa26`
+
 The next work should continue as narrow LedgerByte-native clean-room slices. Provider, storage, and compliance work stays separate.
+
+Current next recommended slice: Goal 17, Exception Inbox design plan only.
 
 ## Guardrails
 
@@ -97,6 +103,8 @@ Recommended outcome:
 ## Goal 16: Merge And Stabilize Setup Wizard API Consumption
 
 Scope: merge/stabilization only, no new runtime behavior.
+
+Status: completed on `main` at `4ddc92846776ea7fe2b8a0382464e015a3bcaa26`; evidence in `SETUP_WIZARD_API_CONSUMPTION_MERGE_STABILIZATION_EVIDENCE.md`.
 
 Recommended outcome:
 

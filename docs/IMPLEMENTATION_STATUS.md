@@ -2,6 +2,14 @@
 
 Audit date: 2026-06-19
 
+OpenBooks setup wizard API consumption merge stabilization (2026-06-20):
+
+- PR #99 through PR #101 are now merged into `main` at `4ddc92846776ea7fe2b8a0382464e015a3bcaa26`.
+- This closes the Goal 16 merge/stabilization slice for typed onboarding schema foundation, API/service foundation, and setup wizard API consumption.
+- The setup wizard typed onboarding API consumption baseline remains `PARTIAL`: saved profile/checklist state can be loaded and updated through LedgerByte API paths, but broader setup checklist polish, audit UI visibility, and production onboarding readiness remain future work.
+- This status update is docs-only. No API, web runtime, database schema, Prisma migration, provider, storage, generated-document object storage, signed URL, hosted, Supabase, Vercel, UAE, ZATCA, Peppol, ASP, or production compliance behavior changed.
+- Next recommended OpenBooks adoption slice is Goal 17: Exception Inbox design plan only, with AI and runtime implementation out of scope.
+
 OpenBooks adoption post-merge baseline audit (2026-06-20):
 
 - PR #89 through PR #95 are now merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`.

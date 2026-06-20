@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-20 Setup Wizard API Consumption Merge Stabilization
+
+- PR #99 through PR #101 are merged into `main` at `4ddc92846776ea7fe2b8a0382464e015a3bcaa26`; the typed onboarding schema, API/service, and setup wizard API consumption stack is now a LedgerByte main baseline.
+- This stabilization slice is docs/status only. It adds no new runtime behavior, API behavior, database schema, migration, web behavior, hosted behavior, provider/storage/compliance behavior, signed URL behavior, or production compliance claim.
+- Feature status remains `PARTIAL`. Full typed onboarding remains incomplete, broader setup checklist polish and audit UI visibility remain planned, and production onboarding readiness is not claimed.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Design LedgerByte-native Exception Inbox`.
+
 ## 2026-06-20 Setup Wizard Typed Onboarding API Consumption
 
 - Branch `feature/setup-wizard-typed-onboarding-api-consumption` adds the next LedgerByte-native typed onboarding persistence consumption slice after the API/service foundation.
