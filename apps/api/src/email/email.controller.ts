@@ -224,6 +224,12 @@ export class EmailController {
     });
   }
 
+  @Get("notification-center-summary")
+  @RequirePermissions(PERMISSIONS.emailOutbox.view)
+  notificationCenterSummary(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.notificationCenterSummary(organizationId);
+  }
+
   @Post("ap-generated-documents/:generatedDocumentId/outbox")
   @RequirePermissions(PERMISSIONS.emailOutbox.view)
   createApGeneratedDocumentOutbox(
