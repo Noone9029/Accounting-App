@@ -11,6 +11,7 @@ describe("ReportsController exports", () => {
     vatReturn: jest.fn().mockResolvedValue({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" }),
     vatReturnCsvFile: jest.fn().mockResolvedValue({ filename: "vat-return-draft-review.csv", content: "Draft VAT Return Review Export\r\n" }),
     dashboardSummary: jest.fn().mockResolvedValue({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } }),
+    cashFlow: jest.fn().mockResolvedValue({ totals: { netCashFlow: "110.0000" } }),
   };
   const controller = new ReportsController(service as never);
 
@@ -80,6 +81,13 @@ describe("ReportsController exports", () => {
 
     expect(result).toMatchObject({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } });
     expect(service.dashboardSummary).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
+  });
+
+  it("routes cash flow requests to the journal-line report engine", async () => {
+    const result = await controller.cashFlow("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(result).toMatchObject({ totals: { netCashFlow: "110.0000" } });
+    expect(service.cashFlow).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
   });
 
   it("allows generated document download permission to export reports", async () => {
