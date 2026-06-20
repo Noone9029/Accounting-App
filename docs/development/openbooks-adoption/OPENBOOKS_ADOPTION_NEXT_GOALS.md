@@ -2,9 +2,13 @@
 
 Date: 2026-06-20
 
-This roadmap starts after PR #89 through PR #95 were merged into `main` at:
+This roadmap started after PR #89 through PR #95 were merged into `main` at:
 
 `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`
+
+Goal 12 later merged and stabilized PR #96 through PR #98 into `main` at:
+
+`a2863e5fcf89b7894914f17be4e196a013eb65f0`
 
 The next work should continue as narrow LedgerByte-native clean-room slices. Provider, storage, and compliance work stays separate.
 
@@ -41,17 +45,42 @@ Recommended outcome:
 - Define API boundaries, schema concepts, privacy/security concerns, audit events, and migration risks.
 - Do not implement Prisma schema changes, migrations, API routes, UI persistence, or runtime state.
 
-## Goal 12: Setup Checklist Persistence Implementation
+## Goal 12: Merge And Stabilize Typed Onboarding Design Stack
 
-Scope: implementation only after Goal 11 design approval.
+Scope: merge/stabilization only, no new runtime behavior.
+
+Status: completed on `main`.
 
 Recommended outcome:
 
-- Add local/test-safe persistence foundation and API behavior for setup checklist state after design approval.
-- Keep persistence auditable and tenant-scoped.
-- Do not include Inbox, AI, provider, storage, signed URL, or compliance production behavior.
+- Merge the post-merge baseline audit, archetype-aware setup guidance copy, and typed onboarding persistence design stack into `main`.
+- Verify from updated `main`.
+- Do not add feature work during the merge goal.
 
-## Goal 13: Exception Inbox Design Plan
+## Goal 13: Typed Onboarding Persistence Schema Foundation
+
+Scope: Prisma schema/migration foundation and local tests only.
+
+Status: current implementation in `feature/typed-onboarding-persistence-schema-foundation`.
+
+Recommended outcome:
+
+- Add additive Prisma schema and local migration groundwork for typed onboarding profiles, checklists, checklist items, checklist events, and template version tracking.
+- Keep feature status `PARTIAL`.
+- Do not add public API endpoints, controllers, setup wizard persistence, frontend persistence behavior, hosted migrations, Supabase mutations, provider/storage/compliance behavior, signed URLs, or production readiness claims.
+
+## Goal 14: Typed Onboarding API/Service Foundation
+
+Scope: API/service implementation only after schema foundation review.
+
+Recommended outcome:
+
+- Add local/test-safe service/controller behavior for typed onboarding profile and checklist state after schema foundation review.
+- Prove tenant scoping, permissions, state transitions, and audit events with focused local tests.
+- Do not wire setup wizard UI persistence yet.
+- Do not include Inbox, AI, report-pack, integration-health, provider, storage, signed URL, hosted, or compliance production behavior.
+
+## Goal 15: Exception Inbox Design Plan
 
 Scope: docs/API/schema design only.
 
@@ -61,7 +90,7 @@ Recommended outcome:
 - Keep AI out of scope.
 - Do not implement DB/API/UI runtime behavior in this design goal.
 
-## Goal 14: Inbox DB/API Foundation
+## Goal 16: Inbox DB/API Foundation
 
 Scope: local/test-safe DB/API foundation.
 
@@ -71,7 +100,7 @@ Recommended outcome:
 - Include tenant isolation, permissions, audit-safe mutations, and focused tests.
 - No AI proposal behavior yet.
 
-## Goal 15: Inbox UI And Audit-Safe Actions
+## Goal 17: Inbox UI And Audit-Safe Actions
 
 Scope: Inbox UI and explicit operator actions.
 
@@ -81,7 +110,7 @@ Recommended outcome:
 - Keep actions explicit, auditable, and deterministic.
 - No AI proposal behavior yet.
 
-## Goal 16: Deterministic Bookkeeping Pipeline Design
+## Goal 18: Deterministic Bookkeeping Pipeline Design
 
 Scope: docs/service design only.
 
@@ -90,7 +119,7 @@ Recommended outcome:
 - Design the deterministic bookkeeping pipeline service boundary, inputs, outputs, audit events, idempotency rules, and failure modes.
 - Do not implement runtime posting behavior in this design goal.
 
-## Goal 17: AI Proposal Boundary Design
+## Goal 19: AI Proposal Boundary Design
 
 Scope: docs/security/threat model only.
 

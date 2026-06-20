@@ -13,6 +13,17 @@ OpenBooks adoption post-merge baseline audit (2026-06-20):
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
+Typed onboarding persistence schema foundation (2026-06-20):
+
+- Added a LedgerByte-native additive Prisma schema and migration foundation for future typed onboarding profile/checklist persistence.
+- New schema groundwork covers onboarding profiles, generated checklist containers, checklist items, checklist events, template version tracking, profile/checklist/item states, organization scoping, optional branch scope, actor fields, and useful indexes.
+- Feature status is `PARTIAL`. This does not implement the full typed onboarding backend, setup wizard persistence, API service/controller behavior, tenant-isolated onboarding mutations, permission enforcement, recompute behavior, or audit-event write behavior.
+- No UI persistence, localStorage, sessionStorage, indexedDB, cookies, URL query persistence, public API behavior, hosted migration, Supabase mutation, provider behavior, generated-document object storage, signed URL behavior, Convex integration, or production compliance behavior was added.
+- Persistent setup checklist state remains unimplemented at runtime.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report packs, integration health, and document review remain planned.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Typed onboarding persistence design (2026-06-20):
 
 - Added a LedgerByte-native design document for future typed onboarding profile and setup checklist persistence.
