@@ -1,7 +1,60 @@
+import { getAppRouteByKey, type AppRoute, type AppRouteKey } from "./app-routes";
 import type { AgingBucket, BalanceSheetReport } from "./types";
 
 export const REPORT_BUCKETS: AgingBucket[] = ["CURRENT", "1_30", "31_60", "61_90", "90_PLUS"];
 export type ReportExportFormat = "csv" | "pdf";
+export type ReportIndexGroupLabel = "Financial statements" | "Tax reports" | "Aging" | "Inventory";
+
+export interface ReportIndexLink {
+  routeKey: AppRouteKey;
+  label: string;
+  href: string;
+  description: string;
+}
+
+export interface ReportIndexGroup {
+  label: ReportIndexGroupLabel;
+  links: ReportIndexLink[];
+}
+
+interface ReportIndexRouteRef {
+  group: ReportIndexGroupLabel;
+  key: AppRouteKey;
+  label?: string;
+  description?: string;
+}
+
+const REPORT_INDEX_GROUP_LABELS: readonly ReportIndexGroupLabel[] = ["Financial statements", "Tax reports", "Aging", "Inventory"];
+
+const REPORT_INDEX_ROUTE_REFS: readonly ReportIndexRouteRef[] = [
+  { group: "Financial statements", key: "reports.generalLedger", description: "Trace posted journal lines by account." },
+  { group: "Financial statements", key: "reports.trialBalance", description: "Confirm debits and credits stay balanced." },
+  { group: "Financial statements", key: "reports.profitLoss", description: "Review revenue, costs, expenses, and net profit." },
+  { group: "Financial statements", key: "reports.balanceSheet", description: "Check assets, liabilities, equity, and retained earnings." },
+  { group: "Tax reports", key: "reports.vatSummary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },
+  { group: "Tax reports", key: "reports.vatReturn", description: "Draft source-document VAT review with internal CSV export only. It is not an official filing workflow." },
+  {
+    group: "Aging",
+    key: "reports.agedReceivables",
+    description:
+      "Outstanding sales invoice balances after posted payments and credits. Quotes, recurring templates, delivery notes, and collection cases are excluded.",
+  },
+  { group: "Aging", key: "reports.agedPayables", description: "See supplier bill balances by overdue bucket." },
+  {
+    group: "Inventory",
+    key: "inventory.report.movementSummary",
+    label: "Inventory Movement",
+    description: "Trace stock in, stock out, and closing quantity by item and warehouse.",
+  },
+  {
+    group: "Inventory",
+    key: "inventory.report.stockValuation",
+    label: "Stock Valuation",
+    description: "Review moving-average operational stock value estimates.",
+  },
+  { group: "Inventory", key: "inventory.report.lowStock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
+];
+
 export const VAT_REPORT_LABELS = {
   outputVat: "Output VAT (sales)",
   inputVat: "Input VAT (purchases)",
@@ -42,6 +95,13 @@ export function reportExportFilename(slug: string, format: ReportExportFormat, d
   return `${slug}-${date}.${format}`;
 }
 
+export function reportIndexGroups(): ReportIndexGroup[] {
+  return REPORT_INDEX_GROUP_LABELS.map((label) => ({
+    label,
+    links: REPORT_INDEX_ROUTE_REFS.filter((ref) => ref.group === label).map(reportIndexLinkFromRef),
+  })).filter((group) => group.links.length > 0);
+}
+
 export function agingBucketLabel(bucket: AgingBucket): string {
   switch (bucket) {
     case "CURRENT":
@@ -69,4 +129,22 @@ export function balanceSheetStatusClass(report: Pick<BalanceSheetReport, "balanc
     return "bg-slate-100 text-slate-700";
   }
   return report.balanced ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rosewood";
+}
+
+function reportIndexLinkFromRef(ref: ReportIndexRouteRef): ReportIndexLink {
+  const route = requireActiveReportIndexRoute(ref.key);
+  return {
+    routeKey: route.key,
+    label: ref.label ?? route.label,
+    href: route.href,
+    description: ref.description ?? route.description,
+  };
+}
+
+function requireActiveReportIndexRoute(key: AppRouteKey): AppRoute {
+  const route = getAppRouteByKey(key);
+  if (!route || route.capabilityStatus !== "active") {
+    throw new Error(`Unknown active report index route: ${key}`);
+  }
+  return route;
 }
