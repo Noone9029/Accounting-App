@@ -2,7 +2,7 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main` after PR #95 merge) plus the post-merge OpenBooks adoption baseline audit branch.
+Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main` after PR #95 merge) plus the post-merge OpenBooks adoption baseline audit branch and stacked typed-onboarding guidance/design branches.
 
 ## 2026-06-20 OpenBooks Adoption Post-Merge Baseline Update
 
@@ -13,6 +13,14 @@ Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main`
 - Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health/degraded mode runtime, and document/receipt review remain planned.
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
+
+## 2026-06-20 Typed Onboarding Persistence Design Update
+
+- Product clarity improves because LedgerByte now has a design-only plan for future typed onboarding profile and setup checklist persistence.
+- The design covers future-only model sketches, API sketches, state machines, template versioning, recompute rules, tenant scoping, permissions, audit events, Inbox interaction boundaries, and integration-health interaction boundaries.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma schema changes, migrations, API modules, controllers, services, setup wizard runtime behavior, UI persistence, database persistence, hosted behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Persistent setup checklist state remains planned and unimplemented.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
 
 ## 2026-06-20 Archetype-Aware Setup Guidance Copy Update
 

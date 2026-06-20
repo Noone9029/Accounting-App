@@ -11,6 +11,16 @@
 - Next sequence is captured in `docs/development/openbooks-adoption/OPENBOOKS_ADOPTION_NEXT_GOALS.md`.
 - Recommended next prompt: `Implement LedgerByte-native archetype-aware setup guidance copy`.
 
+## 2026-06-20 Typed Onboarding Persistence Design
+
+- Branch `feature/typed-onboarding-persistence-design` adds a LedgerByte-native docs/design plan for future typed onboarding profile and setup checklist persistence.
+- The design covers future-only domain model sketches, API sketches, state machines, template versioning, recompute rules, tenant scoping, permissions, audit events, Inbox interaction boundaries, and integration-health interaction boundaries.
+- This is docs/design/contract planning only. No Prisma schema, migration, API module, controller, service, setup wizard runtime behavior, UI persistence, database persistence, local storage, session storage, cookies, URL query persistence, or hosted persistence was added.
+- Full typed onboarding backend remains planned; persistent setup checklist state remains unimplemented.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement approved typed onboarding persistence foundation`.
+
 ## 2026-06-20 Archetype-Aware Setup Guidance Copy
 
 - Branch `feature/archetype-aware-setup-guidance-copy` adds a narrow LedgerByte-native typed onboarding guidance helper and setup checklist preview copy.
