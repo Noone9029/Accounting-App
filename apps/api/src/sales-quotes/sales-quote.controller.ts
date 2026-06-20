@@ -46,6 +46,12 @@ export class SalesQuoteController {
     return this.salesQuoteService.get(organizationId, id);
   }
 
+  @Get(":id/workflow-summary")
+  @RequirePermissions(PERMISSIONS.salesInvoices.view)
+  workflowSummary(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesQuoteService.workflowSummary(organizationId, id);
+  }
+
   @Get(":id/pdf-data")
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

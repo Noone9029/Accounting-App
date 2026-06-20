@@ -78,6 +78,39 @@ interface PreparedQuote {
 }
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
+interface SalesQuoteWorkflowInput {
+  id: string;
+  quoteNumber: string;
+  customerId: string;
+  status: SalesQuoteStatus;
+  issueDate: Date;
+  expiryDate: Date | null;
+  currency: string;
+  total: unknown;
+  convertedSalesInvoiceId: string | null;
+  convertedAt: Date | null;
+  sentAt: Date | null;
+  acceptedAt: Date | null;
+  rejectedAt: Date | null;
+  expiredAt: Date | null;
+  cancelledAt: Date | null;
+  convertedSalesInvoice: {
+    id: string;
+    invoiceNumber: string;
+    status: SalesInvoiceStatus;
+    issueDate: Date;
+    total: unknown;
+  } | null;
+}
+
+interface SalesQuoteWorkflowGeneratedDocumentInput {
+  id: string;
+  filename: string;
+  status: string;
+  storageProvider: string;
+  generatedAt: Date;
+}
+
 type PersistedSalesQuoteLine = {
   itemId: string | null;
   description: string;
@@ -276,6 +309,42 @@ export class SalesQuoteService {
   async generatePdf(organizationId: string, actorUserId: string, id: string) {
     const { document } = await this.pdf(organizationId, actorUserId, id);
     return document;
+  }
+
+  async workflowSummary(organizationId: string, id: string) {
+    const quote = await this.prisma.salesQuote.findFirst({
+      where: { id, organizationId },
+      select: {
+        id: true,
+        quoteNumber: true,
+        customerId: true,
+        status: true,
+        issueDate: true,
+        expiryDate: true,
+        currency: true,
+        total: true,
+        convertedSalesInvoiceId: true,
+        convertedAt: true,
+        sentAt: true,
+        acceptedAt: true,
+        rejectedAt: true,
+        expiredAt: true,
+        cancelledAt: true,
+        convertedSalesInvoice: { select: { id: true, invoiceNumber: true, status: true, issueDate: true, total: true } },
+      },
+    });
+
+    if (!quote) {
+      throw new NotFoundException("Sales quote not found.");
+    }
+
+    const generatedDocuments = await this.prisma.generatedDocument.findMany({
+      where: { organizationId, sourceType: "SalesQuote", sourceId: id, documentType: DocumentType.SALES_QUOTE },
+      orderBy: { generatedAt: "desc" },
+      select: { id: true, filename: true, status: true, storageProvider: true, generatedAt: true },
+    });
+
+    return buildSalesQuoteWorkflowSummary(quote, generatedDocuments);
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesQuoteDto) {
@@ -876,6 +945,158 @@ export class SalesQuoteService {
 
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "P2002";
+}
+
+export function buildSalesQuoteWorkflowSummary(
+  quote: SalesQuoteWorkflowInput,
+  generatedDocuments: SalesQuoteWorkflowGeneratedDocumentInput[],
+) {
+  const sortedDocuments = [...generatedDocuments].sort((left, right) => right.generatedAt.getTime() - left.generatedAt.getTime());
+  const latestPdf = sortedDocuments[0] ?? null;
+
+  return {
+    document: {
+      id: quote.id,
+      type: "SalesQuote",
+      number: quote.quoteNumber,
+      status: quote.status,
+      customerId: quote.customerId,
+      currency: quote.currency,
+      total: workflowMoneyString(quote.total),
+      issueDate: quote.issueDate,
+      expiryDate: quote.expiryDate,
+    },
+    lifecycle: {
+      state: salesQuoteLifecycleState(quote.status),
+      sentAt: quote.sentAt,
+      acceptedAt: quote.acceptedAt,
+      rejectedAt: quote.rejectedAt,
+      expiredAt: quote.expiredAt,
+      cancelledAt: quote.cancelledAt,
+    },
+    conversion: {
+      state: salesQuoteConversionState(quote),
+      convertedAt: quote.convertedAt,
+      convertedSalesInvoice: quote.convertedSalesInvoice
+        ? {
+            id: quote.convertedSalesInvoice.id,
+            invoiceNumber: quote.convertedSalesInvoice.invoiceNumber,
+            status: quote.convertedSalesInvoice.status,
+            issueDate: quote.convertedSalesInvoice.issueDate,
+            total: workflowMoneyString(quote.convertedSalesInvoice.total),
+          }
+        : null,
+    },
+    generatedDocuments: {
+      pdfCount: sortedDocuments.length,
+      latestPdf: latestPdf
+        ? {
+            id: latestPdf.id,
+            filename: latestPdf.filename,
+            status: latestPdf.status,
+            storageProvider: latestPdf.storageProvider,
+            generatedAt: latestPdf.generatedAt,
+          }
+        : null,
+    },
+    availableActions: salesQuoteAvailableActions(quote.status),
+    blockedActions: salesQuoteBlockedActions(quote),
+    notes: [
+      "This workflow summary is read-only: it does not edit, send, accept, reject, expire, cancel, convert, generate PDFs, send email, and does not submit compliance data.",
+      "PDF generation and download remain explicit user actions behind the existing sales quote and generated-document permissions.",
+      "Generated document storage information reflects the current archive record only; it is not a production storage-provider claim.",
+    ],
+  };
+}
+
+function salesQuoteLifecycleState(status: SalesQuoteStatus): string {
+  switch (status) {
+    case SalesQuoteStatus.DRAFT:
+      return "DRAFT_NOT_SENT";
+    case SalesQuoteStatus.SENT:
+      return "SENT_AWAITING_ACCEPTANCE";
+    case SalesQuoteStatus.ACCEPTED:
+      return "ACCEPTED_READY_TO_CONVERT";
+    case SalesQuoteStatus.REJECTED:
+      return "REJECTED";
+    case SalesQuoteStatus.EXPIRED:
+      return "EXPIRED";
+    case SalesQuoteStatus.CANCELLED:
+      return "CANCELLED";
+    case SalesQuoteStatus.CONVERTED:
+      return "CONVERTED";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+function salesQuoteConversionState(quote: SalesQuoteWorkflowInput): string {
+  if (quote.convertedSalesInvoiceId || quote.status === SalesQuoteStatus.CONVERTED) {
+    return "CONVERTED";
+  }
+  if (quote.status === SalesQuoteStatus.ACCEPTED) {
+    return "READY_TO_CONVERT";
+  }
+  if (
+    quote.status === SalesQuoteStatus.REJECTED ||
+    quote.status === SalesQuoteStatus.EXPIRED ||
+    quote.status === SalesQuoteStatus.CANCELLED
+  ) {
+    return "BLOCKED_TERMINAL";
+  }
+  return "NOT_READY";
+}
+
+function salesQuoteAvailableActions(status: SalesQuoteStatus): string[] {
+  switch (status) {
+    case SalesQuoteStatus.DRAFT:
+      return ["edit", "markSent", "generatePdf"];
+    case SalesQuoteStatus.SENT:
+      return ["accept", "reject", "expire", "cancel", "generatePdf"];
+    case SalesQuoteStatus.ACCEPTED:
+      return ["convertToInvoice", "generatePdf"];
+    case SalesQuoteStatus.CONVERTED:
+      return ["viewConvertedInvoice", "generatePdf"];
+    case SalesQuoteStatus.REJECTED:
+    case SalesQuoteStatus.EXPIRED:
+    case SalesQuoteStatus.CANCELLED:
+      return ["generatePdf"];
+    default:
+      return [];
+  }
+}
+
+function salesQuoteBlockedActions(quote: SalesQuoteWorkflowInput): Array<{ action: string; reason: string }> {
+  const blocked: Array<{ action: string; reason: string }> = [];
+  if (quote.status !== SalesQuoteStatus.DRAFT) {
+    blocked.push({ action: "edit", reason: "Only draft sales quotes can be edited." });
+    blocked.push({ action: "markSent", reason: "Only draft sales quotes can be marked as sent." });
+  }
+  if (quote.status !== SalesQuoteStatus.SENT) {
+    blocked.push({ action: "accept", reason: "Only sent sales quotes can be accepted." });
+    blocked.push({ action: "reject", reason: "Only sent sales quotes can be rejected." });
+    blocked.push({ action: "expire", reason: "Only sent sales quotes can be expired." });
+  }
+  if (quote.status !== SalesQuoteStatus.DRAFT && quote.status !== SalesQuoteStatus.SENT) {
+    blocked.push({ action: "cancel", reason: "Only draft or sent sales quotes can be cancelled." });
+  }
+  if (quote.convertedSalesInvoiceId || quote.status === SalesQuoteStatus.CONVERTED) {
+    blocked.push({ action: "convertToInvoice", reason: "Sales quote has already been converted to an invoice." });
+  } else if (quote.status !== SalesQuoteStatus.ACCEPTED) {
+    blocked.push({ action: "convertToInvoice", reason: "Only accepted sales quotes can be converted." });
+  }
+  return blocked;
+}
+
+function workflowMoneyString(value: unknown): string {
+  if (value instanceof Prisma.Decimal) {
+    return value.toFixed(4);
+  }
+  if (value && typeof value === "object" && "toFixed" in value && typeof (value as { toFixed: unknown }).toFixed === "function") {
+    return (value as { toFixed(scale: number): string }).toFixed(4);
+  }
+  const decimal = new Prisma.Decimal(String(value ?? "0"));
+  return decimal.toFixed(4);
 }
 
 function moneyString(value: unknown): string {
