@@ -1,3 +1,4 @@
+import { getAppRouteByKey, type AppRoute, type AppRouteKey } from "./app-routes";
 import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
@@ -22,6 +23,18 @@ export interface DashboardQuickAction {
   label: string;
   href: string;
   permission: Permission;
+}
+
+export interface DashboardWorkspaceLink {
+  label: string;
+  href: string;
+  description: string;
+  permissions: readonly Permission[];
+}
+
+interface DashboardWorkspaceRef {
+  key: AppRouteKey;
+  description?: string;
 }
 
 export const DASHBOARD_ROUTE = getSetupCompletionDestination().href;
@@ -56,6 +69,16 @@ export const DASHBOARD_QUICK_ACTIONS: readonly DashboardQuickAction[] = [
   { label: "Import bank statement", href: "/bank-accounts", permission: PERMISSIONS.bankStatements.import },
   { label: "View reports", href: "/reports", permission: PERMISSIONS.reports.view },
   { label: "Inventory adjustment", href: "/inventory/adjustments/new", permission: PERMISSIONS.inventoryAdjustments.create },
+];
+
+const DASHBOARD_WORKSPACE_REFS: readonly DashboardWorkspaceRef[] = [
+  { key: "sales.invoice.list", description: "Review invoices, balances due, and sales document status." },
+  { key: "sales.quote.list", description: "Review quotes and proforma workflows before conversion." },
+  { key: "purchase.bill.list", description: "Review supplier bills and payables workflow status." },
+  { key: "banking.bankAccounts", description: "Open bank accounts and reconciliation entry points." },
+  { key: "inventory.items", description: "Open the products and services catalog." },
+  { key: "reports.profitLoss", description: "Review the profit and loss report from posted ledger activity." },
+  { key: "settings.team", description: "Manage team access and role administration." },
 ];
 
 export type DashboardDrilldownKey =
@@ -391,6 +414,24 @@ export function visibleDashboardQuickActions(subject: PermissionSubject): Dashbo
   return DASHBOARD_QUICK_ACTIONS.filter((action) => hasPermission(subject, action.permission));
 }
 
+export function visibleDashboardWorkspaceLinks(subject: PermissionSubject): DashboardWorkspaceLink[] {
+  return DASHBOARD_WORKSPACE_REFS.flatMap((ref) => {
+    const route = requireDashboardWorkspaceRoute(ref.key);
+    if (!route.requiredAny.some((permission) => hasPermission(subject, permission))) {
+      return [];
+    }
+
+    return [
+      {
+        label: route.label,
+        href: route.href,
+        description: ref.description ?? route.description,
+        permissions: route.requiredAny,
+      },
+    ];
+  });
+}
+
 export function dashboardDrilldownLink(key: DashboardDrilldownKey, subject: PermissionSubject, market?: LedgerByteMarket): DashboardDrilldownLink | null {
   if (key === "zatcaReadiness") {
     const edition = getLedgerByteEdition(market);
@@ -462,4 +503,12 @@ export function dashboardIsEmpty(summary: DashboardSummary): boolean {
     summary.inventory.trackedItemCount === 0 &&
     summary.attentionItems.length === 0
   );
+}
+
+function requireDashboardWorkspaceRoute(key: AppRouteKey): AppRoute {
+  const route = getAppRouteByKey(key);
+  if (!route || route.capabilityStatus !== "active") {
+    throw new Error(`Unknown active dashboard workspace route: ${key}`);
+  }
+  return route;
 }
