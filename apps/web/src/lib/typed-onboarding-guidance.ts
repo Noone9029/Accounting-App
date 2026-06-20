@@ -25,10 +25,10 @@ const guidanceByArchetype = {
     emphasis: ["Organization profile", "VAT/tax profile", "customer", "invoice", "payment", "Profit & Loss review"],
     activeNow: [
       "Use active setup links for organization profile, accounts, tax rates, customers, invoices, payments, and reports.",
-      "Treat the preview as read-only guidance; selected profile state is not saved.",
+      "Save selected profile state through the LedgerByte onboarding API when an organization context is available.",
     ],
     plannedNext: [
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
       "Future automation should wait for explicit backend and audit design.",
     ],
     blockedUntilProven: [
@@ -44,11 +44,11 @@ const guidanceByArchetype = {
     emphasis: ["customer records", "invoice cadence", "payment evidence", "report review", "future subscription templates"],
     activeNow: [
       "Use active customer, invoice, payment, and report routes for the first accounting loop.",
-      "Keep selected profile state in the preview only.",
+      "Keep selected profile state in the LedgerByte onboarding API; do not use browser persistence.",
     ],
     plannedNext: [
       "Subscription billing profile remains planned metadata only.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "Generated-document object storage remains blocked until separate approval and hosted proof exist.",
@@ -63,7 +63,7 @@ const guidanceByArchetype = {
     emphasis: ["client records", "invoice workflow", "collections", "management reporting", "future project profitability"],
     activeNow: [
       "Use active customer, invoice, payment, and report routes.",
-      "Keep setup guidance read-only and preview-only.",
+      "Keep setup guidance conservative while profile selection is saved through the LedgerByte onboarding API.",
     ],
     plannedNext: [
       "Project profitability templates remain planned metadata.",
@@ -85,7 +85,7 @@ const guidanceByArchetype = {
       "Review inventory visibility without implying production inventory policy completion.",
     ],
     plannedNext: [
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
       "Future automation for matching, replenishment, and deeper inventory policy remains planned.",
     ],
     blockedUntilProven: [
@@ -105,7 +105,7 @@ const guidanceByArchetype = {
     ],
     plannedNext: [
       "Commerce channel mapping remains planned metadata.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "Object storage remains blocked unless separately approved and proven.",
@@ -120,11 +120,11 @@ const guidanceByArchetype = {
     emphasis: ["customer setup", "invoice workflow", "purchase bills", "payment review", "future job-cost templates"],
     activeNow: [
       "Use active customer, invoice, purchase bill, payment, and report routes.",
-      "Keep the preview non-persistent and read-only.",
+      "Save selected profile state through the LedgerByte onboarding API without browser persistence.",
     ],
     plannedNext: [
       "Job-cost onboarding remains planned metadata.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "Object storage remains blocked unless separately approved and proven.",
@@ -143,7 +143,7 @@ const guidanceByArchetype = {
     ],
     plannedNext: [
       "Entity consolidation templates remain planned metadata.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "Object storage remains blocked unless separately approved and proven.",
@@ -162,7 +162,7 @@ const guidanceByArchetype = {
     ],
     plannedNext: [
       "Specialist review, credential strategy, hosted proof, and audit evidence remain separate future work.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "KSA production support remains blocked until credentials, signing custody, official validation, hosted proof, and approval are separately completed.",
@@ -181,7 +181,7 @@ const guidanceByArchetype = {
     ],
     plannedNext: [
       "Official serializer alignment, real ASP integration, webhook flow, and evidence storage remain separate future work.",
-      "Persistent typed onboarding state remains planned.",
+      "Broader typed onboarding automation, audit review, and setup checklist integration remain planned.",
     ],
     blockedUntilProven: [
       "UAE provider use remains blocked until provider evidence, sandbox proof, security review, webhook flow, and approval are separately completed.",

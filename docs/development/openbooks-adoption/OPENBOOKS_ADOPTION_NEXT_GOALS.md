@@ -86,13 +86,26 @@ Recommended outcome:
 
 Scope: frontend/API consumption only after API/service foundation review.
 
+Status: implemented in `feature/setup-wizard-typed-onboarding-api-consumption`.
+
 Recommended outcome:
 
 - Wire the setup wizard to the approved typed onboarding API/service contract.
 - Keep UI persistence explicit, permission-aware, tenant-scoped, and covered by focused tests.
 - Do not add localStorage, sessionStorage, cookies, indexedDB, URL persistence, provider behavior, storage behavior, signed URLs, compliance production claims, hosted mutations, Inbox, AI proposals, report-pack runtime, integration-health runtime, or document-review runtime.
 
-## Goal 16: Exception Inbox Design Plan
+## Goal 16: Merge And Stabilize Setup Wizard API Consumption
+
+Scope: merge/stabilization only, no new runtime behavior.
+
+Recommended outcome:
+
+- Merge the setup wizard typed onboarding API consumption PR into `main`.
+- Verify the merged baseline from updated `main`.
+- Update handoff/status docs after the merge.
+- Do not add feature work during the merge goal.
+
+## Goal 17: Exception Inbox Design Plan
 
 Scope: docs/API/schema design only.
 
@@ -102,7 +115,7 @@ Recommended outcome:
 - Keep AI out of scope.
 - Do not implement DB/API/UI runtime behavior in this design goal.
 
-## Goal 17: Inbox DB/API Foundation
+## Goal 18: Inbox DB/API Foundation
 
 Scope: local/test-safe DB/API foundation.
 
@@ -112,7 +125,7 @@ Recommended outcome:
 - Include tenant isolation, permissions, audit-safe mutations, and focused tests.
 - No AI proposal behavior yet.
 
-## Goal 18: Inbox UI And Audit-Safe Actions
+## Goal 19: Inbox UI And Audit-Safe Actions
 
 Scope: Inbox UI and explicit operator actions.
 
@@ -122,7 +135,7 @@ Recommended outcome:
 - Keep actions explicit, auditable, and deterministic.
 - No AI proposal behavior yet.
 
-## Goal 19: Deterministic Bookkeeping Pipeline Design
+## Goal 20: Deterministic Bookkeeping Pipeline Design
 
 Scope: docs/service design only.
 
@@ -131,7 +144,7 @@ Recommended outcome:
 - Design the deterministic bookkeeping pipeline service boundary, inputs, outputs, audit events, idempotency rules, and failure modes.
 - Do not implement runtime posting behavior in this design goal.
 
-## Goal 20: AI Proposal Boundary Design
+## Goal 21: AI Proposal Boundary Design
 
 Scope: docs/security/threat model only.
 

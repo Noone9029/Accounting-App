@@ -8,14 +8,16 @@ It defines the intended domain model, future API boundaries, state machines, ver
 
 ## Current Baseline
 
-LedgerByte currently has a frontend/helper baseline for typed onboarding:
+LedgerByte started with a frontend/helper baseline for typed onboarding:
 
 - Typed onboarding metadata defines LedgerByte-native business archetypes and setup checklist templates.
 - Selector/default helpers provide safe preview defaults, selector options, invalid-value fallback, and preview summary counts.
 - The setup checklist preview renders archetype-aware checklist templates.
 - Archetype-aware guidance copy explains active, planned, and blocked setup guidance for the selected archetype.
-- Selected archetype state is ephemeral React state only.
-- No selected archetype, generated checklist, checklist completion state, skip state, dismissal state, or setup progress state is persisted.
+- The schema foundation adds persisted profile/checklist/checklist-item/event groundwork.
+- The service foundation adds local onboarding profile/checklist domain behavior.
+- The setup wizard API consumption slice starts UI consumption of the typed onboarding API for selected archetype and checklist state.
+- Full typed onboarding remains partial.
 
 ## Implementation Status
 
@@ -23,11 +25,13 @@ As of the typed onboarding persistence schema foundation PR, LedgerByte has star
 
 As of the typed onboarding API/service foundation PR, LedgerByte has also started the local service/domain foundation for persisted onboarding profile and checklist state. The service layer covers explicit actor context, organization and optional branch scoping, selected-archetype validation, checklist generation/recompute, item complete/skip/reopen transitions, blocked-item fail-closed behavior, and onboarding checklist event records.
 
+As of the setup wizard typed onboarding API consumption PR, LedgerByte has started consuming the service foundation from the setup wizard preview through a narrow controller/client path. The setup wizard can load saved typed onboarding profile/checklist state, save selected archetype changes through the API, and refresh checklist preview state from API recompute results.
+
 This remains a partial foundation only:
 
-- No public API endpoints, controllers, or setup wizard persistence are implemented yet.
-- No UI persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, or API writes from the setup wizard are implemented.
-- Full typed onboarding backend behavior remains incomplete; the service foundation is local and not yet consumed by the setup wizard.
+- Full typed onboarding backend behavior remains incomplete.
+- Setup wizard typed onboarding API consumption is started, but broader setup checklist integration, audit review, and polish remain future work.
+- No localStorage, sessionStorage, cookies, indexedDB, or URL persistence is implemented for selected archetype/checklist state.
 - Compliance, provider, storage, generated-document object storage, signed URL, hosted, Supabase, and Vercel behavior remains unchanged.
 
 ## Goals
@@ -45,13 +49,11 @@ Future typed onboarding persistence should support:
 
 ## Non-Goals
 
-The design-only PR did not implement runtime behavior. The later schema foundation PR starts additive database groundwork only. The API/service foundation PR adds local service/domain behavior, but still does not implement public runtime routes or setup wizard persistence.
+The design-only PR did not implement runtime behavior. Later implementation slices added schema groundwork, service/domain behavior, and a narrow setup wizard API consumption path.
 
-- No public API controllers or frontend-consumed routes.
-- No setup wizard runtime changes.
-- No setup wizard archetype selection persistence.
-- No setup wizard checklist state persistence.
-- No localStorage, sessionStorage, cookies, indexedDB, URL persistence, or API writes.
+- No full typed onboarding backend.
+- No broad setup checklist state machine.
+- No browser durable persistence through localStorage, sessionStorage, cookies, indexedDB, or URL state.
 - No compliance, provider, storage, hosted, Supabase, Vercel, signed URL, or generated-document object storage behavior changes.
 - No production readiness claims.
 
@@ -209,9 +211,9 @@ Design notes:
 - Published template versions should be immutable. Corrections should create a new version.
 - A later implementation can start with code-defined template versions before adding a persisted template table.
 
-## Proposed API Design
+## API Design Status
 
-The following endpoints are future design sketches only. They are not implemented routes.
+The following endpoint family began as a design sketch. The setup wizard API consumption PR starts a narrow implemented controller/client path for these onboarding profile and checklist operations while keeping full typed onboarding partial.
 
 ### `GET /onboarding/profile`
 

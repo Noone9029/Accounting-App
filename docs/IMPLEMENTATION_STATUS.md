@@ -23,6 +23,18 @@ Typed onboarding API/service foundation (2026-06-20):
 - Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
 
+Setup wizard typed onboarding API consumption (2026-06-20):
+
+- Added a LedgerByte-native setup wizard typed onboarding API consumption slice on top of the existing schema/service foundation.
+- The backend now exposes narrow onboarding profile/checklist controller endpoints for profile read/update, checklist read/recompute, and checklist item complete/skip/reopen operations using the existing typed onboarding service.
+- The web setup checklist preview now loads the saved typed onboarding profile/checklist from the LedgerByte API, falls back to the default preview when missing/unavailable, saves selected archetype changes through the API, and refreshes checklist preview state from API recompute results.
+- Feature status remains `PARTIAL`. This does not complete the full typed onboarding backend, broader setup checklist state machine, audit UI, or production onboarding flow.
+- No browser-side durable persistence was added: no localStorage, sessionStorage, indexedDB, cookies, or URL query persistence for selected archetype/checklist state.
+- No unrelated Prisma migration, hosted migration, Supabase mutation, Vercel mutation, provider behavior, generated-document object storage, signed URL behavior, Convex integration, or production compliance behavior was added.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report packs, integration health, and document review remain planned.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Typed onboarding persistence schema foundation (2026-06-20):
 
 - Added a LedgerByte-native additive Prisma schema and migration foundation for future typed onboarding profile/checklist persistence.

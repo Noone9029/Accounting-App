@@ -104,7 +104,7 @@ const COMMON_FIRST_ACCOUNTING_LOOP: readonly TypedOnboardingChecklistTemplateIte
 const PLANNED_TYPED_ONBOARDING_STATE = plannedItem({
   key: "typed_onboarding_state",
   title: "Typed onboarding state",
-  description: "Future typed onboarding state remains metadata-only with no persistence, backend state, or active route.",
+  description: "Typed onboarding profile and checklist state are partial; broader automation, audit review, and setup integration remain planned.",
   category: "business_profile",
   recommended: false,
 });

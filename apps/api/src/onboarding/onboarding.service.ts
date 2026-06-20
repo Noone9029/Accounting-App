@@ -91,6 +91,11 @@ type OnboardingChecklistItemRecord = {
 export class OnboardingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getProfile(context: OnboardingActorContext): Promise<OnboardingProfileRecord | null> {
+    this.assertCanRead(context);
+    return this.findActiveProfile(this.scopeFromContext(context));
+  }
+
   async getOrCreateProfile(
     context: OnboardingActorContext,
     input: { selectedArchetypeKey?: string } = {},
