@@ -2,6 +2,14 @@
 
 Audit date: 2026-06-19
 
+Typed onboarding status contract (2026-06-21):
+
+- Added a docs-only contract for typed onboarding real-environment migration strategy and `PARTIAL` to `WORKING` promotion criteria.
+- Feature status remains `PARTIAL`. This does not add runtime behavior, routes, persistence changes, public tokens, provider calls, storage mutation, hosted mutation, AI behavior, compliance submission, or production readiness claims.
+- `WORKING` now requires approved migration evidence, focused API coverage, setup wizard loading/empty/error/save/recompute coverage, browser/E2E proof, safe no-profile/API-failure behavior, clean-room validation, and status-doc updates.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 OpenBooks adoption post-merge baseline audit (2026-06-20):
 
 - PR #89 through PR #95 are now merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`.

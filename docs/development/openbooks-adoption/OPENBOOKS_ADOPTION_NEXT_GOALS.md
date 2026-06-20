@@ -99,6 +99,8 @@ Recommended outcome:
 
 Scope: merge/stabilization only, no new runtime behavior.
 
+Status: completed on `main`.
+
 Recommended outcome:
 
 - Merge the setup wizard typed onboarding API consumption PR into `main`.
@@ -106,7 +108,30 @@ Recommended outcome:
 - Update handoff/status docs after the merge.
 - Do not add feature work during the merge goal.
 
-## Goal 17: Exception Inbox Design Plan
+## Goal 17: Typed Onboarding Status Contract
+
+Scope: docs/status contract only, no runtime behavior.
+
+Status: implemented in `codex/typed-onboarding-status-contract`.
+
+Recommended outcome:
+
+- Confirm the real-environment migration strategy for typed onboarding.
+- Define explicit criteria for moving typed onboarding from `PARTIAL` to `WORKING`.
+- Keep feature status `PARTIAL` until migration evidence, focused API coverage, setup wizard state coverage, browser/E2E coverage, clean-room validation, and status-doc updates all exist.
+- Do not add routes, persistence changes, hosted migrations, provider/storage/compliance behavior, public tokens, AI behavior, or production readiness claims.
+
+## Goal 18: Setup Wizard Typed Onboarding Browser Coverage
+
+Scope: browser/E2E coverage only.
+
+Recommended outcome:
+
+- Add broader setup wizard typed onboarding browser coverage for load, no-profile fallback, API failure, save, reload, and persisted checklist rendering.
+- Keep the coverage local/test-safe and do not mutate hosted data.
+- Do not add runtime behavior beyond test fixtures/harnesses needed for coverage.
+
+## Goal 19: Exception Inbox Design Plan
 
 Scope: docs/API/schema design only.
 
@@ -116,7 +141,7 @@ Recommended outcome:
 - Keep AI out of scope.
 - Do not implement DB/API/UI runtime behavior in this design goal.
 
-## Goal 18: Inbox DB/API Foundation
+## Goal 20: Inbox DB/API Foundation
 
 Scope: local/test-safe DB/API foundation.
 
@@ -126,7 +151,7 @@ Recommended outcome:
 - Include tenant isolation, permissions, audit-safe mutations, and focused tests.
 - No AI proposal behavior yet.
 
-## Goal 19: Inbox UI And Audit-Safe Actions
+## Goal 21: Inbox UI And Audit-Safe Actions
 
 Scope: Inbox UI and explicit operator actions.
 
