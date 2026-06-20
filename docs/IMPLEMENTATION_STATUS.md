@@ -13,6 +13,16 @@ OpenBooks adoption post-merge baseline audit (2026-06-20):
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
+Typed onboarding API/service foundation (2026-06-20):
+
+- Added a LedgerByte-native local API/service foundation for typed onboarding profile and checklist persistence using the schema foundation from PR #99.
+- New service behavior covers explicit actor context permission checks, organization scoping, optional branch scoping, selected-archetype validation, checklist generation/recompute, complete/skip/reopen item transitions, blocked-item fail-closed behavior, and onboarding checklist event records.
+- Feature status is `PARTIAL`. This does not implement the full typed onboarding backend, public controller endpoints, setup wizard API consumption, setup wizard persistence, or frontend/UI persistence.
+- No localStorage, sessionStorage, indexedDB, cookies, URL query persistence, hosted migration, Supabase mutation, Vercel mutation, provider behavior, generated-document object storage, signed URL behavior, Convex integration, or production compliance behavior was added.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report packs, integration health, and document review remain planned.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Typed onboarding persistence schema foundation (2026-06-20):
 
 - Added a LedgerByte-native additive Prisma schema and migration foundation for future typed onboarding profile/checklist persistence.

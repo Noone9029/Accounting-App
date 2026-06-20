@@ -1,5 +1,15 @@
 # Remaining Roadmap
 
+## 2026-06-20 Typed Onboarding API/Service Foundation
+
+- Branch `feature/typed-onboarding-api-service-foundation` adds the next LedgerByte-native typed onboarding persistence slice after the schema foundation.
+- The service foundation covers explicit actor context permission checks, organization scoping, optional branch scoping, selected-archetype validation, checklist generation/recompute, complete/skip/reopen state transitions, blocked-item fail-closed behavior, and onboarding checklist event records.
+- Feature status remains `PARTIAL`. The full typed onboarding backend remains incomplete, setup wizard persistence remains unimplemented, and frontend/UI persistence remains unimplemented.
+- No setup wizard UI persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, public frontend API writes, hosted migration, Supabase mutation, Vercel mutation, provider/storage/compliance behavior, signed URLs, or production compliance claim was added.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Implement setup wizard typed onboarding API consumption`.
+
 ## 2026-06-20 Typed Onboarding Persistence Schema Foundation
 
 - Branch `feature/typed-onboarding-persistence-schema-foundation` adds the first LedgerByte-native Prisma schema/migration foundation for future typed onboarding persistence.
