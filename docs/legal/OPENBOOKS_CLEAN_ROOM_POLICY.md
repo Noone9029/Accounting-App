@@ -1,37 +1,38 @@
-# OpenBooks Clean-Room Policy
+# OpenBook MIT Reuse Policy
 
-Date: 2026-06-19
+Date: 2026-06-20
 
 Status: `ACTIVE_POLICY`
 
 ## Policy
 
-OpenBooks must be treated as AGPL-risk reference material. It may inform high-level behavioral planning only. It must not be used as source material for LedgerByte implementation.
+OpenBook is MIT-licensed reference software and may be used as source material only under this controlled reuse policy. This supersedes the earlier clean-room-only posture, which was written before the license was verified.
+
+The default implementation posture remains conservative: adopt behavior and UX ideas first, copy only small isolated chunks when that is better than rewriting, and preserve LedgerByte's accounting, audit, tenant, fiscal-lock, storage, provider, and compliance boundaries.
 
 ## Prohibited
 
-- No direct copying.
-- No translated copying.
-- No copied schemas, comments, UI text, file names, function names, implementation structure, or distinctive strings.
-- No OpenBooks dependencies.
-- No source vendoring, source import, source port, or source-derived implementation.
+- No AGPL-risk, unknown-license, or mixed-license source reuse.
+- No wholesale OpenBook schema, server-action, provider, storage, compliance, or accounting-posting transplant.
+- No OpenBook dependency additions unless a separate PR justifies the dependency and verifies its license.
 - No production source reference to OpenBooks.
+- No provider, storage, ZATCA, UAE, Peppol, ASP, hosted-service, or production-compliance claim based on OpenBook adoption.
 
 ## Allowed
 
-- Independently written behavior specs.
-- LedgerByte-native implementation after docs/spec approval.
-- Documentation that cites OpenBooks only as behavioral inspiration, not as source.
-- Future implementation PRs that state they are clean-room reimplementations.
+- Independently written LedgerByte-native implementation.
+- Small OpenBook MIT source chunks when they are isolated, reviewable, and not part of provider, storage, compliance, security, tenant-isolation, or accounting-posting trust boundaries.
+- Documentation that cites OpenBook as source or inspiration.
+- Behavior-level adoption of OpenBook workflows after LedgerByte-specific review.
 
 ## Required For Future Work
 
 - Production source must not reference OpenBooks.
-- Any future direct reuse requires explicit legal approval before code is viewed, copied, imported, vendored, translated, ported, or reused.
-- Implementation PRs must confirm clean-room reimplementation and list the LedgerByte-native files changed.
-- Reviewers must reject any implementation PR that contains OpenBooks code, schemas, comments, UI text, names, file layout, or implementation structure.
+- Any future direct reuse must be listed in `docs/legal/OPENBOOK_MIT_ATTRIBUTION.md` before the PR is marked ready for review.
+- The attribution entry must identify the OpenBook source path, upstream commit, copied/adapted LedgerByte path, license, and reason for reuse.
+- Reviewers must reject unattributed source copying, large mixed ports, and copied logic that bypasses LedgerByte domain rules.
 - Feature status must remain `PLANNED`, `PARTIAL`, or `BLOCKED` until LedgerByte evidence proves a bounded `WORKING` path.
 
 ## Current PR Scope
 
-This PR is docs and validator only. It does not implement runtime OpenBooks-adoption behavior, copy OpenBooks code, fetch OpenBooks source, add dependencies, add migrations, change API behavior, change web UI, or change provider/compliance/storage readiness.
+This PR is docs and validator only. It does not implement runtime OpenBook-adoption behavior, copy OpenBook code into production source, add dependencies, add migrations, change API behavior, change web UI, or change provider/compliance/storage readiness.
