@@ -21,11 +21,13 @@ LedgerByte currently has a frontend/helper baseline for typed onboarding:
 
 As of the typed onboarding persistence schema foundation PR, LedgerByte has started the persistence implementation with additive Prisma schema and migration groundwork for onboarding profiles, checklists, checklist items, checklist events, and template version tracking.
 
+As of the typed onboarding API/service foundation PR, LedgerByte has also started the local service/domain foundation for persisted onboarding profile and checklist state. The service layer covers explicit actor context, organization and optional branch scoping, selected-archetype validation, checklist generation/recompute, item complete/skip/reopen transitions, blocked-item fail-closed behavior, and onboarding checklist event records.
+
 This remains a partial foundation only:
 
-- No public API endpoints, controllers, services, or setup wizard persistence are implemented yet.
+- No public API endpoints, controllers, or setup wizard persistence are implemented yet.
 - No UI persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, or API writes from the setup wizard are implemented.
-- Full typed onboarding backend behavior, tenant-isolated mutations, permission enforcement, recompute behavior, and audit-event writes remain future implementation phases.
+- Full typed onboarding backend behavior remains incomplete; the service foundation is local and not yet consumed by the setup wizard.
 - Compliance, provider, storage, generated-document object storage, signed URL, hosted, Supabase, and Vercel behavior remains unchanged.
 
 ## Goals
@@ -43,12 +45,12 @@ Future typed onboarding persistence should support:
 
 ## Non-Goals
 
-The design-only PR did not implement runtime behavior. The later schema foundation PR starts additive database groundwork only and still does not implement public runtime behavior.
+The design-only PR did not implement runtime behavior. The later schema foundation PR starts additive database groundwork only. The API/service foundation PR adds local service/domain behavior, but still does not implement public runtime routes or setup wizard persistence.
 
-- No API modules, controllers, or services.
+- No public API controllers or frontend-consumed routes.
 - No setup wizard runtime changes.
-- No archetype selection persistence.
-- No checklist state persistence.
+- No setup wizard archetype selection persistence.
+- No setup wizard checklist state persistence.
 - No localStorage, sessionStorage, cookies, indexedDB, URL persistence, or API writes.
 - No compliance, provider, storage, hosted, Supabase, Vercel, signed URL, or generated-document object storage behavior changes.
 - No production readiness claims.
@@ -403,7 +405,7 @@ This design does not change any storage, provider, compliance, hosted, Supabase,
 
 1. Design only: this PR.
 2. Prisma schema/migration behind focused tests after design approval.
-3. API service/controller with local tests for tenant scoping, permissions, state transitions, and audit events.
+3. API service foundation with local tests for tenant scoping, permissions, state transitions, and audit events.
 4. Web client consumption that replaces preview-only state with API-backed state.
 5. Audit event integration and audit UI visibility.
 6. Optional Inbox integration after Inbox design/API approval.

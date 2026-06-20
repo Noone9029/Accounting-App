@@ -2,7 +2,16 @@
 
 Audit date: 2026-06-19
 
-Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema foundation branch.
+Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
+
+## 2026-06-20 Typed Onboarding API/Service Foundation Update
+
+- Product implementation depth improves because LedgerByte now has a local typed onboarding service foundation for persisted profile and checklist state.
+- The foundation covers explicit actor context permission checks, organization scoping, optional branch scoping, selected-archetype validation, checklist generation/recompute, complete/skip/reopen state transitions, blocked-item fail-closed behavior, and onboarding checklist event records.
+- Feature status remains `PARTIAL`. No production readiness score increase is taken for production launch readiness because setup wizard persistence, frontend/UI persistence, public frontend API writes, hosted migration, Supabase mutation, Vercel mutation, provider behavior, storage behavior, signed URL behavior, and production compliance behavior were not added.
+- Full typed onboarding backend behavior remains incomplete. Setup wizard persistence remains unimplemented.
+- Inbox, AI proposals, deterministic pipeline, report packs, integration health, document review, generated-document object storage, signed URLs, provider behavior, hosted behavior, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
 
 ## 2026-06-20 Typed Onboarding Persistence Schema Foundation Update
 
