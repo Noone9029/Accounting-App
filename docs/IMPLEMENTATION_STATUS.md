@@ -2,6 +2,17 @@
 
 Audit date: 2026-06-19
 
+OpenBooks adoption post-merge baseline audit (2026-06-20):
+
+- PR #89 through PR #95 are now merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`.
+- The OpenBooks clean-room adoption frontend metadata stack is now part of the main baseline: clean-room validator, app shell route registry, setup/onboarding route registry consumers, setup progress metadata, typed onboarding profile metadata, setup checklist template UI consumption, and typed onboarding selector/default helpers.
+- The clean-room validator is now part of `main` and was proven on merged `main` with `corepack pnpm verify:openbooks-clean-room` and `node scripts/openbooks-clean-room-validate.cjs --strict`.
+- Focused merged-main verification passed for `typed-onboarding-selector`, `typed-onboarding-preview`, `setup-wizard`, `typed-onboarding`, `setup-progress`, `setup-onboarding-routes`, `app-routes`, `sidebar`, and `route-load-verification`; `verify:ci:local` also passed.
+- Full typed onboarding backend remains planned. Persistent setup checklist state remains unimplemented.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, and document review remain planned.
+- Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
+
 Typed onboarding profile selector defaults (2026-06-20):
 
 - Added a LedgerByte-native typed onboarding selector helper for safe setup preview default selection, selector options, invalid-value fallback, preview metadata, and summary counts.
