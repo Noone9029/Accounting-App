@@ -12,6 +12,7 @@ import {
   buildBalanceSheetReport,
   buildGeneralLedgerReport,
   buildProfitAndLossReport,
+  buildTopCustomersReport,
   buildTrialBalanceReport,
   buildVatReturnReport,
   buildVatSummaryReport,
@@ -211,6 +212,99 @@ describe("reports service builders", () => {
     expect(report.netVat).toBe("-15.0000");
     expect(report.netVatPayable).toBe("0.0000");
     expect(report.netVatRefundable).toBe("15.0000");
+  });
+
+  it("ranks top customers from finalized sales invoice source documents", () => {
+    const report = buildTopCustomersReport(
+      [
+        topCustomerInvoice("invoice-1", "INV-1", "customer-2", "Beta Trading", "2026-01-10", "100.0000", "15.0000", "115.0000"),
+        topCustomerInvoice("invoice-2", "INV-2", "customer-1", "Alpha LLC", "2026-01-11", "200.0000", "30.0000", "230.0000"),
+        topCustomerInvoice("invoice-3", "INV-3", "customer-2", "Beta Trading", "2026-01-12", "80.0000", "12.0000", "92.0000"),
+      ],
+      { from: "2026-01-01", to: "2026-01-31", limit: 1 },
+    );
+
+    expect(report).toMatchObject({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      basis: "FINALIZED_SALES_INVOICES",
+      limit: 1,
+      totals: {
+        customerCount: 2,
+        invoiceCount: 3,
+        taxableAmount: "380.0000",
+        taxAmount: "57.0000",
+        grossAmount: "437.0000",
+      },
+    });
+    expect(report.rows).toEqual([
+      {
+        customer: { id: "customer-1", name: "Alpha LLC", displayName: "Alpha LLC" },
+        invoiceCount: 1,
+        taxableAmount: "200.0000",
+        taxAmount: "30.0000",
+        grossAmount: "230.0000",
+        latestInvoiceDate: "2026-01-11T00:00:00.000Z",
+      },
+    ]);
+    expect(report.notes.join(" ")).toContain("finalized sales invoices");
+    expect(report.notes.join(" ")).toContain("does not net credit notes");
+  });
+
+  it("calculates top customers from active-organization finalized invoices inside the date range", async () => {
+    const salesInvoices = [
+      salesInvoiceFixture({
+        id: "invoice-alpha",
+        customerId: "customer-alpha",
+        issueDate: new Date("2026-01-10T00:00:00.000Z"),
+        total: "230.0000",
+        taxableTotal: "200.0000",
+        taxTotal: "30.0000",
+      }),
+      salesInvoiceFixture({
+        id: "invoice-beta",
+        customerId: "customer-beta",
+        issueDate: new Date("2026-01-12T00:00:00.000Z"),
+        total: "115.0000",
+        taxableTotal: "100.0000",
+        taxTotal: "15.0000",
+      }),
+      salesInvoiceFixture({ id: "invoice-draft", customerId: "customer-draft", status: SalesInvoiceStatus.DRAFT, total: "999.0000" }),
+      salesInvoiceFixture({ id: "invoice-other-org", organizationId: "org-2", customerId: "customer-other", total: "888.0000" }),
+      salesInvoiceFixture({ id: "invoice-other-branch", branchId: "branch-2", customerId: "customer-branch", total: "777.0000" }),
+      salesInvoiceFixture({
+        id: "invoice-outside-range",
+        customerId: "customer-outside",
+        issueDate: new Date("2026-02-01T00:00:00.000Z"),
+        total: "666.0000",
+      }),
+    ].map((invoice) => ({
+      ...invoice,
+      customer: {
+        id: invoice.customerId,
+        name: invoice.customerId.replace("customer-", "").toUpperCase(),
+        displayName: `${invoice.customerId.replace("customer-", "").toUpperCase()} Customer`,
+      },
+    }));
+    const prisma = {
+      salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.topCustomers("org-1", { from: "2026-01-01", to: "2026-01-31", branchId: " branch-1 ", limit: "5" });
+
+    expect(report.rows.map((row) => row.customer.id)).toEqual(["customer-alpha", "customer-beta"]);
+    expect(report.totals).toMatchObject({ customerCount: 2, invoiceCount: 2, grossAmount: "345.0000" });
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          branchId: "branch-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          issueDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+        }),
+      }),
+    );
   });
 
   it("calculates VAT return from active-organization finalized documents inside the date range", async () => {
@@ -527,11 +621,33 @@ function vatDocument(id: string, number: string, date: string, taxableTotal: str
   };
 }
 
+function topCustomerInvoice(
+  id: string,
+  number: string,
+  customerId: string,
+  customerName: string,
+  date: string,
+  taxableTotal: string,
+  taxTotal: string,
+  total: string,
+) {
+  return {
+    id,
+    number,
+    documentDate: `${date}T00:00:00.000Z`,
+    taxableTotal,
+    taxTotal,
+    total,
+    customer: { id: customerId, name: customerName, displayName: customerName },
+  };
+}
+
 interface SalesInvoiceFixture {
   id: string;
   organizationId: string;
   branchId: string | null;
   invoiceNumber: string;
+  customerId: string;
   issueDate: Date;
   dueDate: Date | null;
   status: SalesInvoiceStatus;
@@ -551,6 +667,7 @@ function salesInvoiceFixtureBase(): SalesInvoiceFixture {
     organizationId: "org-1",
     branchId: "branch-1",
     invoiceNumber: "INV-1",
+    customerId: "customer-1",
     issueDate: new Date("2026-01-10T00:00:00.000Z"),
     dueDate: null,
     status: SalesInvoiceStatus.FINALIZED,
