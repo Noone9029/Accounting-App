@@ -32,6 +32,7 @@ export interface ReportDateQuery {
   accountId?: string;
   branchId?: string;
   includeZero?: string | boolean;
+  limit?: string | number;
   format?: "json" | "csv" | string;
 }
 
@@ -75,6 +76,17 @@ interface VatReturnDocumentInput {
   taxableTotal: unknown;
   taxTotal: unknown;
   total: unknown;
+}
+
+interface TopProductsServicesLineInput {
+  id: string;
+  description: string;
+  quantity: unknown;
+  taxableAmount: unknown;
+  taxAmount: unknown;
+  lineTotal: unknown;
+  item: { id: string; name: string; sku?: string | null; type: string } | null;
+  invoice: { issueDate: string | Date; invoiceNumber: string };
 }
 
 interface DashboardOpenDocumentInput {
@@ -242,6 +254,42 @@ export class ReportsService {
       })),
       { from: range.fromLabel, to: range.toLabel },
     );
+  }
+
+  async topProductsServices(organizationId: string, query: ReportDateQuery) {
+    const range = parseRange(query);
+    const documentDateFilter = dateRangeFilter(range.from, range.to);
+    const branchId = cleanOptionalFilterId(query.branchId);
+    const lines = await this.prisma.salesInvoiceLine.findMany({
+      where: {
+        organizationId,
+        invoice: {
+          is: {
+            organizationId,
+            status: SalesInvoiceStatus.FINALIZED,
+            ...(branchId ? { branchId } : {}),
+            ...(documentDateFilter ? { issueDate: documentDateFilter } : {}),
+          },
+        },
+      },
+      orderBy: [{ invoice: { issueDate: "asc" } }, { sortOrder: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        description: true,
+        quantity: true,
+        taxableAmount: true,
+        taxAmount: true,
+        lineTotal: true,
+        item: { select: { id: true, name: true, sku: true, type: true } },
+        invoice: { select: { issueDate: true, invoiceNumber: true } },
+      },
+    });
+
+    return buildTopProductsServicesReport(lines, {
+      from: range.fromLabel,
+      to: range.toLabel,
+      limit: parseReportLimit(query.limit),
+    });
   }
 
   async dashboardSummary(organizationId: string, query: ReportDateQuery) {
@@ -933,6 +981,105 @@ export function buildVatReturnReport(
   };
 }
 
+export function buildTopProductsServicesReport(
+  lines: TopProductsServicesLineInput[],
+  options: { from: string | null; to: string | null; limit?: number },
+) {
+  const limit = options.limit ?? 10;
+  const byProductService = new Map<
+    string,
+    {
+      kind: "CATALOG_ITEM" | "UNCATALOGED_LINE";
+      label: string;
+      item: TopProductsServicesLineInput["item"];
+      lineCount: number;
+      quantity: Decimal;
+      taxableAmount: Decimal;
+      taxAmount: Decimal;
+      grossAmount: Decimal;
+      latestInvoiceDate: Date | null;
+    }
+  >();
+  const totals = lines.reduce(
+    (sum, line) => ({
+      quantity: sum.quantity.plus(money(line.quantity)),
+      taxableAmount: sum.taxableAmount.plus(money(line.taxableAmount)),
+      taxAmount: sum.taxAmount.plus(money(line.taxAmount)),
+      grossAmount: sum.grossAmount.plus(money(line.lineTotal)),
+    }),
+    { quantity: ZERO, taxableAmount: ZERO, taxAmount: ZERO, grossAmount: ZERO },
+  );
+
+  for (const line of lines) {
+    const key = productServiceKey(line);
+    const current =
+      byProductService.get(key) ??
+      {
+        kind: line.item ? ("CATALOG_ITEM" as const) : ("UNCATALOGED_LINE" as const),
+        label: productServiceLabel(line),
+        item: line.item,
+        lineCount: 0,
+        quantity: ZERO,
+        taxableAmount: ZERO,
+        taxAmount: ZERO,
+        grossAmount: ZERO,
+        latestInvoiceDate: null,
+      };
+    const invoiceDate = new Date(line.invoice.issueDate);
+    current.lineCount += 1;
+    current.quantity = current.quantity.plus(money(line.quantity));
+    current.taxableAmount = current.taxableAmount.plus(money(line.taxableAmount));
+    current.taxAmount = current.taxAmount.plus(money(line.taxAmount));
+    current.grossAmount = current.grossAmount.plus(money(line.lineTotal));
+    current.latestInvoiceDate =
+      current.latestInvoiceDate && current.latestInvoiceDate.getTime() > invoiceDate.getTime() ? current.latestInvoiceDate : invoiceDate;
+    byProductService.set(key, current);
+  }
+
+  const rows = Array.from(byProductService.values())
+    .sort((a, b) => {
+      const amountDelta = b.grossAmount.comparedTo(a.grossAmount);
+      if (amountDelta !== 0) {
+        return amountDelta;
+      }
+      return a.label.localeCompare(b.label);
+    })
+    .slice(0, limit)
+    .map((row) => ({
+      kind: row.kind,
+      label: row.label,
+      item: row.item,
+      lineCount: row.lineCount,
+      quantity: fixed(row.quantity),
+      taxableAmount: fixed(row.taxableAmount),
+      taxAmount: fixed(row.taxAmount),
+      grossAmount: fixed(row.grossAmount),
+      latestInvoiceDate: row.latestInvoiceDate ? row.latestInvoiceDate.toISOString() : null,
+    }));
+
+  return {
+    from: options.from,
+    to: options.to,
+    basis: "FINALIZED_SALES_INVOICE_LINES",
+    limit,
+    rows,
+    totals: {
+      lineCount: lines.length,
+      catalogItemCount: Array.from(byProductService.values()).filter((row) => row.kind === "CATALOG_ITEM").length,
+      uncatalogedLineGroupCount: Array.from(byProductService.values()).filter((row) => row.kind === "UNCATALOGED_LINE").length,
+      quantity: fixed(totals.quantity),
+      taxableAmount: fixed(totals.taxableAmount),
+      taxAmount: fixed(totals.taxAmount),
+      grossAmount: fixed(totals.grossAmount),
+    },
+    notes: [
+      "Top products and services are ranked by finalized sales invoice lines in the selected period.",
+      "Uncataloged lines are grouped by line description.",
+      "This report does not net credit notes, refunds, returns, delivery notes, quotes, recurring templates, cost of goods sold, or profitability.",
+    ],
+  };
+}
+
 export function buildFinancialDashboardSummary(
   input: {
     receivables: DashboardOpenDocumentInput[];
@@ -1245,6 +1392,25 @@ function emptyBucketTotals(): Record<ReturnType<typeof agingBucket>, string> {
 
 function boolQuery(value: string | boolean | undefined): boolean {
   return value === true || value === "true" || value === "1";
+}
+
+function parseReportLimit(value: string | number | undefined, fallback = 10, max = 50): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(Math.trunc(parsed), max);
+}
+
+function productServiceKey(line: TopProductsServicesLineInput): string {
+  if (line.item) {
+    return `item:${line.item.id}`;
+  }
+  return `description:${productServiceLabel(line).toLowerCase()}`;
+}
+
+function productServiceLabel(line: TopProductsServicesLineInput): string {
+  return line.item?.name || line.description.trim() || "Uncataloged sales line";
 }
 
 function fixed(value: unknown): string {

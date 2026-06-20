@@ -142,6 +142,11 @@ export class ReportsController {
     return this.reportsService.dashboardSummary(organizationId, query);
   }
 
+  @Get("top-products-services")
+  topProductsServices(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    return this.reportsService.topProductsServices(organizationId, query);
+  }
+
   @Get("aged-receivables")
   agedReceivables(
     @CurrentOrganizationId() organizationId: string,

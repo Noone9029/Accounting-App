@@ -11,6 +11,7 @@ describe("ReportsController exports", () => {
     vatReturn: jest.fn().mockResolvedValue({ outputVat: "15.0000", inputVat: "0.0000", netVatPayable: "15.0000" }),
     vatReturnCsvFile: jest.fn().mockResolvedValue({ filename: "vat-return-draft-review.csv", content: "Draft VAT Return Review Export\r\n" }),
     dashboardSummary: jest.fn().mockResolvedValue({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } }),
+    topProductsServices: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICE_LINES", rows: [] }),
   };
   const controller = new ReportsController(service as never);
 
@@ -80,6 +81,14 @@ describe("ReportsController exports", () => {
 
     expect(result).toMatchObject({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } });
     expect(service.dashboardSummary).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
+  });
+
+  it("routes top products and services requests to the finalized-invoice-line report engine", async () => {
+    const result = await controller.topProductsServices("org-1", { from: "2026-01-01", to: "2026-01-31", limit: "5" });
+
+    expect(result).toMatchObject({ basis: "FINALIZED_SALES_INVOICE_LINES", rows: [] });
+    expect(service.topProductsServices).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31", limit: "5" });
+    expect(service.coreReportCsvFile).not.toHaveBeenCalledWith("org-1", "top-products-services", expect.anything());
   });
 
   it("allows generated document download permission to export reports", async () => {
