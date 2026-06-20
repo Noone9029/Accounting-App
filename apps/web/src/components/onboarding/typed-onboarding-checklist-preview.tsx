@@ -1,14 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Ban, CheckCircle2, Clock3 } from "lucide-react";
 import { getAppRouteByKey } from "@/lib/app-routes";
+import {
+  loadTypedOnboardingState,
+  recomputeTypedOnboardingChecklist,
+  updateTypedOnboardingProfile,
+  type TypedOnboardingApiChecklist,
+  type TypedOnboardingApiChecklistItem,
+  type TypedOnboardingApiChecklistItemStatus,
+} from "@/lib/onboarding-api";
 import { getSetupRoute } from "@/lib/setup-onboarding-routes";
 import {
   getDefaultTypedOnboardingSelectorValue,
+  getTypedOnboardingSelectorOptions,
   getTypedOnboardingSelectorPreview,
   resolveTypedOnboardingSelectorValue,
+  type TypedOnboardingSelectorSummary,
 } from "@/lib/typed-onboarding-selector";
 import { getTypedOnboardingGuidance, type TypedOnboardingGuidance } from "@/lib/typed-onboarding-guidance";
 import {
@@ -18,10 +28,75 @@ import {
   type TypedOnboardingChecklistTemplateItem,
 } from "@/lib/typed-onboarding";
 
+type TypedOnboardingPreviewItem = TypedOnboardingChecklistTemplateItem & {
+  persistedStatus?: TypedOnboardingApiChecklistItemStatus;
+  persistedStatusLabel?: string;
+  blockedReason?: string | null;
+};
+
 export function TypedOnboardingChecklistPreview() {
   const [selectedKey, setSelectedKey] = useState(getDefaultTypedOnboardingSelectorValue);
-  const preview = getTypedOnboardingSelectorPreview(selectedKey);
+  const [apiChecklist, setApiChecklist] = useState<TypedOnboardingApiChecklist | null>(null);
+  const [loadingSavedState, setLoadingSavedState] = useState(false);
+  const [savingSelection, setSavingSelection] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Saved setup profile will load from LedgerByte API when available.");
+  const preview = useMemo(() => buildPreview(selectedKey, apiChecklist), [selectedKey, apiChecklist]);
   const counts = preview.summary;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingSavedState(true);
+
+    loadTypedOnboardingState()
+      .then((state) => {
+        if (cancelled) {
+          return;
+        }
+        const nextKey = resolveTypedOnboardingSelectorValue(state.profile?.selectedArchetypeKey);
+        setSelectedKey(nextKey);
+        setApiChecklist(state.checklist);
+        setStatusMessage(
+          state.profile
+            ? "Saved setup profile loaded from LedgerByte API."
+            : "Saved setup profile will load from LedgerByte API when available.",
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStatusMessage("Setup profile API is unavailable; showing local preview only.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingSavedState(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function selectArchetype(value: string): Promise<void> {
+    const nextKey = resolveTypedOnboardingSelectorValue(value);
+    if (nextKey === selectedKey || savingSelection) {
+      return;
+    }
+
+    setSavingSelection(true);
+    setStatusMessage("Saving setup profile through LedgerByte API...");
+    try {
+      const updatedProfile = await updateTypedOnboardingProfile(nextKey);
+      const recomputedChecklist = await recomputeTypedOnboardingChecklist();
+      setSelectedKey(resolveTypedOnboardingSelectorValue(updatedProfile?.selectedArchetypeKey ?? nextKey));
+      setApiChecklist(recomputedChecklist ?? null);
+      setStatusMessage("Saved setup profile updated through LedgerByte API.");
+    } catch {
+      setStatusMessage("Setup profile could not be saved. Local preview state was left unchanged.");
+    } finally {
+      setSavingSelection(false);
+    }
+  }
 
   return (
     <section data-testid="typed-onboarding-preview" className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
@@ -29,8 +104,13 @@ export function TypedOnboardingChecklistPreview() {
         <div>
           <h2 className="text-base font-semibold text-ink">Setup profile previews</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Preview archetype-aware setup checklist templates. This is read-only guidance; selections are not saved and
-            planned or blocked capabilities stay non-actionable.
+            Preview archetype-aware setup checklist templates. Profile selection is saved through LedgerByte API when
+            available; planned or blocked capabilities stay non-actionable.
+          </p>
+          <p className="mt-1 text-xs leading-5 text-steel">
+            {loadingSavedState ? "Loading saved setup profile... " : null}
+            {savingSelection ? "Saving selection... " : null}
+            {statusMessage}
           </p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-xs text-steel sm:w-72">
@@ -49,8 +129,10 @@ export function TypedOnboardingChecklistPreview() {
               key={option.key}
               type="button"
               aria-pressed={selected}
-              disabled={!selectable}
-              onClick={() => setSelectedKey(resolveTypedOnboardingSelectorValue(option.key))}
+              disabled={!selectable || savingSelection}
+              onClick={() => {
+                void selectArchetype(option.key);
+              }}
               className={`rounded-md border px-3 py-2 text-sm font-medium ${
                 selected
                   ? "border-palm bg-emerald-50 text-emerald-900"
@@ -75,7 +157,7 @@ function SelectedArchetypePreview({
   previewItems,
 }: Readonly<{
   archetype: TypedOnboardingArchetype;
-  previewItems: TypedOnboardingChecklistTemplateItem[];
+  previewItems: TypedOnboardingPreviewItem[];
 }>) {
   const guidance = getTypedOnboardingGuidance(archetype.key);
 
@@ -138,7 +220,7 @@ function GuidanceList({ title, items }: Readonly<{ title: string; items: string[
   );
 }
 
-function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingChecklistTemplateItem }>) {
+function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingPreviewItem }>) {
   const action = templateItemAction(item);
   return (
     <article data-testid={`typed-onboarding-item-${item.key}`} className="rounded-md border border-slate-200 bg-white px-3 py-3">
@@ -155,6 +237,9 @@ function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingChecklist
           </div>
           <p className="mt-1 text-sm leading-6 text-steel">{item.description}</p>
           <div className="mt-2 text-xs uppercase text-steel">{categoryLabel(item.category)}</div>
+          {item.persistedStatusLabel ? (
+            <div className="mt-2 text-xs font-semibold uppercase text-slate-600">Saved state: {item.persistedStatusLabel}</div>
+          ) : null}
           {action ? (
             <Link href={action.href} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-palm hover:underline">
               Open {item.title}
@@ -268,4 +353,86 @@ function nonActionableLabel(item: TypedOnboardingChecklistTemplateItem): string 
     return "Planned metadata only";
   }
   return item.blockerCode ? `Blocked: ${item.blockerCode}` : "Blocked";
+}
+
+function buildPreview(selectedValue: unknown, checklist: TypedOnboardingApiChecklist | null): {
+  selectedKey: ReturnType<typeof resolveTypedOnboardingSelectorValue>;
+  archetype: TypedOnboardingArchetype;
+  options: ReturnType<typeof getTypedOnboardingSelectorOptions>;
+  items: TypedOnboardingPreviewItem[];
+  summary: TypedOnboardingSelectorSummary;
+} {
+  const selectedKey = resolveTypedOnboardingSelectorValue(selectedValue);
+  const selectorPreview = getTypedOnboardingSelectorPreview(selectedKey);
+  const items = applyPersistedChecklist(selectorPreview.items, checklist);
+  return {
+    selectedKey: selectorPreview.selectedKey,
+    archetype: selectorPreview.archetype,
+    options: getTypedOnboardingSelectorOptions(),
+    items,
+    summary: summarizeItems(items),
+  };
+}
+
+function applyPersistedChecklist(
+  templateItems: TypedOnboardingChecklistTemplateItem[],
+  checklist: TypedOnboardingApiChecklist | null,
+): TypedOnboardingPreviewItem[] {
+  const apiItemsByKey = new Map((checklist?.items ?? []).map((item) => [item.itemKey, item]));
+  return templateItems.map((item) => {
+    const apiItem = apiItemsByKey.get(item.key);
+    if (!apiItem) {
+      return item;
+    }
+
+    return {
+      ...item,
+      status: statusFromApiItem(apiItem, item.status),
+      blockerCode: apiItem.blockedReasonCode ?? item.blockerCode,
+      blockedReason: apiItem.blockedReason,
+      persistedStatus: apiItem.status,
+      persistedStatusLabel: persistedStatusLabel(apiItem.status),
+    };
+  });
+}
+
+function statusFromApiItem(
+  item: TypedOnboardingApiChecklistItem,
+  fallback: TypedOnboardingCapabilityStatus,
+): TypedOnboardingCapabilityStatus {
+  if (item.status === "BLOCKED") {
+    return "blocked";
+  }
+  if (item.status === "NOT_STARTED") {
+    return fallback;
+  }
+  return "active";
+}
+
+function persistedStatusLabel(status: TypedOnboardingApiChecklistItemStatus): string | undefined {
+  switch (status) {
+    case "COMPLETED":
+      return "Completed";
+    case "SKIPPED":
+      return "Skipped";
+    case "REOPENED":
+      return "Reopened";
+    default:
+      return undefined;
+  }
+}
+
+function summarizeItems(items: TypedOnboardingPreviewItem[]): TypedOnboardingSelectorSummary {
+  const active = items.filter((item) => item.status === "active").length;
+  const planned = items.filter((item) => item.status === "planned").length;
+  const blocked = items.filter((item) => item.status === "blocked").length;
+  const actionable = items.filter(isTypedOnboardingTemplateItemActionable).length;
+  return {
+    active,
+    planned,
+    blocked,
+    total: items.length,
+    actionable,
+    nonActionable: items.length - actionable,
+  };
 }

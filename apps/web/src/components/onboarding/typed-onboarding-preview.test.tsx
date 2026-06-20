@@ -1,9 +1,13 @@
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { TypedOnboardingChecklistPreview } from "./typed-onboarding-checklist-preview";
 import { SetupWizardContent } from "./setup-wizard";
 import type { DashboardOnboardingChecklist } from "@/lib/types";
+
+const loadTypedOnboardingStateMock = jest.fn();
+const updateTypedOnboardingProfileMock = jest.fn();
+const recomputeTypedOnboardingChecklistMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -18,8 +22,25 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("@/lib/onboarding-api", () => ({
+  loadTypedOnboardingState: (...args: unknown[]) => loadTypedOnboardingStateMock(...args),
+  updateTypedOnboardingProfile: (...args: unknown[]) => updateTypedOnboardingProfileMock(...args),
+  recomputeTypedOnboardingChecklist: (...args: unknown[]) => recomputeTypedOnboardingChecklistMock(...args),
+}));
+
 describe("typed onboarding checklist preview", () => {
-  it("renders available archetypes and defaults to general services without persistence", () => {
+  beforeEach(() => {
+    loadTypedOnboardingStateMock.mockReset();
+    updateTypedOnboardingProfileMock.mockReset();
+    recomputeTypedOnboardingChecklistMock.mockReset();
+    loadTypedOnboardingStateMock.mockResolvedValue({ profile: null, checklist: null });
+    updateTypedOnboardingProfileMock.mockImplementation(async (selectedArchetypeKey: string) =>
+      apiProfile({ selectedArchetypeKey }),
+    );
+    recomputeTypedOnboardingChecklistMock.mockResolvedValue(null);
+  });
+
+  it("renders available archetypes and defaults to general services without persistence", async () => {
     const setItem = jest.spyOn(Storage.prototype, "setItem");
 
     render(<TypedOnboardingChecklistPreview />);
@@ -31,15 +52,83 @@ describe("typed onboarding checklist preview", () => {
     expect(screen.getByText(/A balanced first accounting setup/)).toBeInTheDocument();
     expect(screen.getByText("Balanced first workflow")).toBeInTheDocument();
     expect(screen.getByText(/Focus on getting one customer sale from profile through report review/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved setup profile will load from LedgerByte API when available/)).toBeInTheDocument();
     expect(setItem).not.toHaveBeenCalled();
 
     setItem.mockRestore();
   });
 
-  it("renders recommended default checklist items from typed onboarding metadata with safe active links", () => {
+  it("renders while loading the API profile and checklist", async () => {
+    loadTypedOnboardingStateMock.mockReturnValue(new Promise(() => undefined));
+
     render(<TypedOnboardingChecklistPreview />);
 
-    const profile = screen.getByTestId("typed-onboarding-profile-general_services");
+    expect(await screen.findByText(/Loading saved setup profile/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "General services" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("uses persisted API archetype and checklist state when available", async () => {
+    loadTypedOnboardingStateMock.mockResolvedValue({
+      profile: apiProfile({ selectedArchetypeKey: "trading" }),
+      checklist: apiChecklist({
+        items: [
+          apiItem({ itemKey: "organization_profile", status: "COMPLETED" }),
+          apiItem({ itemKey: "inventory_items", status: "AVAILABLE" }),
+        ],
+      }),
+    });
+
+    render(<TypedOnboardingChecklistPreview />);
+
+    const profile = await screen.findByTestId("typed-onboarding-profile-trading");
+    expect(screen.getByRole("button", { name: "Trading" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(profile).getByText("Saved state: Completed")).toBeInTheDocument();
+    expect(within(profile).getByTestId("typed-onboarding-item-inventory_items")).toHaveTextContent("Products and services");
+  });
+
+  it("changes archetype through the API and refreshes the checklist preview", async () => {
+    updateTypedOnboardingProfileMock.mockResolvedValue(apiProfile({ selectedArchetypeKey: "software_saas" }));
+    recomputeTypedOnboardingChecklistMock.mockResolvedValue(
+      apiChecklist({
+        items: [
+          apiItem({ itemKey: "subscription_billing_profile", status: "NOT_STARTED" }),
+          apiItem({ itemKey: "generated_document_object_storage", status: "BLOCKED", blockedReasonCode: "GENERATED_DOCUMENT_OBJECT_STORAGE_BLOCKED" }),
+        ],
+      }),
+    );
+
+    render(<TypedOnboardingChecklistPreview />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Software and SaaS" }));
+
+    await waitFor(() => expect(updateTypedOnboardingProfileMock).toHaveBeenCalledWith("software_saas"));
+    expect(recomputeTypedOnboardingChecklistMock).toHaveBeenCalledWith();
+    const profile = await screen.findByTestId("typed-onboarding-profile-software_saas");
+    expect(within(profile).getByTestId("typed-onboarding-item-subscription_billing_profile")).toHaveTextContent(
+      "Subscription billing profile",
+    );
+    expect(within(profile).getByTestId("typed-onboarding-item-generated_document_object_storage")).toHaveTextContent("Blocked");
+  });
+
+  it("keeps failed API responses non-destructive and free of browser durable persistence", async () => {
+    const setItem = jest.spyOn(Storage.prototype, "setItem");
+    updateTypedOnboardingProfileMock.mockRejectedValueOnce(new Error("network down"));
+
+    render(<TypedOnboardingChecklistPreview />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Agency" }));
+
+    expect(await screen.findByText(/Setup profile could not be saved/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "General services" })).toHaveAttribute("aria-pressed", "true");
+    expect(setItem).not.toHaveBeenCalled();
+
+    setItem.mockRestore();
+  });
+
+  it("renders recommended default checklist items from typed onboarding metadata with safe active links", async () => {
+    render(<TypedOnboardingChecklistPreview />);
+
+    const profile = await screen.findByTestId("typed-onboarding-profile-general_services");
 
     expect(within(profile).getByTestId("typed-onboarding-item-organization_profile")).toHaveTextContent("Organization profile");
     expect(within(profile).getByTestId("typed-onboarding-item-first_invoice")).toHaveTextContent("First invoice");
@@ -48,14 +137,15 @@ describe("typed onboarding checklist preview", () => {
     expect(within(profile).queryByRole("link", { name: /Inbox|AI|Report packs|Integration health|Document review/i })).not.toBeInTheDocument();
   });
 
-  it("switches preview archetypes client-side without persisting selection", () => {
+  it("switches preview archetypes through the API without browser durable persistence", async () => {
     const setItem = jest.spyOn(Storage.prototype, "setItem");
 
     render(<TypedOnboardingChecklistPreview />);
 
     fireEvent.click(screen.getByRole("button", { name: "Software and SaaS" }));
-    const profile = screen.getByTestId("typed-onboarding-profile-software_saas");
+    const profile = await screen.findByTestId("typed-onboarding-profile-software_saas");
 
+    expect(updateTypedOnboardingProfileMock).toHaveBeenCalledWith("software_saas");
     expect(within(profile).getByTestId("typed-onboarding-item-subscription_billing_profile")).toHaveTextContent(
       "Subscription billing profile",
     );
@@ -72,11 +162,11 @@ describe("typed onboarding checklist preview", () => {
     setItem.mockRestore();
   });
 
-  it("keeps UAE and KSA readiness previews conservative and non-actionable for blocked capabilities", () => {
+  it("keeps UAE and KSA readiness previews conservative and non-actionable for blocked capabilities", async () => {
     render(<TypedOnboardingChecklistPreview />);
 
     fireEvent.click(screen.getByRole("button", { name: "UAE eInvoicing local readiness" }));
-    const uaeProfile = screen.getByTestId("typed-onboarding-profile-uae_einvoicing_readiness");
+    const uaeProfile = await screen.findByTestId("typed-onboarding-profile-uae_einvoicing_readiness");
     const providerItem = within(uaeProfile).getByTestId("typed-onboarding-item-uae_provider_network");
 
     expect(within(uaeProfile).getByText("UAE local readiness visibility")).toBeInTheDocument();
@@ -89,7 +179,7 @@ describe("typed onboarding checklist preview", () => {
     expect(uaeProfile).not.toHaveTextContent(/production ready|certified|accredited|official provider/i);
 
     fireEvent.click(screen.getByRole("button", { name: "KSA local readiness" }));
-    const ksaProfile = screen.getByTestId("typed-onboarding-profile-ksa_zatca_readiness");
+    const ksaProfile = await screen.findByTestId("typed-onboarding-profile-ksa_zatca_readiness");
     const productionItem = within(ksaProfile).getByTestId("typed-onboarding-item-ksa_production_submission");
 
     expect(within(ksaProfile).getByText("KSA local-readiness planning")).toBeInTheDocument();
@@ -107,12 +197,58 @@ describe("typed onboarding checklist preview", () => {
     expect(screen.getByText("Active tax rates: 0")).toBeInTheDocument();
   });
 
-  it("does not render production-source vendor references", () => {
+  it("does not render production-source vendor references", async () => {
     render(<TypedOnboardingChecklistPreview />);
 
-    expect(screen.getByTestId("typed-onboarding-preview")).not.toHaveTextContent(new RegExp("Open" + "Books", "i"));
+    expect(await screen.findByTestId("typed-onboarding-preview")).not.toHaveTextContent(new RegExp("Open" + "Books", "i"));
   });
 });
+
+function apiProfile(overrides = {}) {
+  return {
+    id: "profile-1",
+    organizationId: "org-1",
+    branchId: null,
+    selectedArchetypeKey: "general_services",
+    templateVersion: "typed-onboarding-v1",
+    status: "ACTIVE",
+    ...overrides,
+  };
+}
+
+function apiChecklist(overrides = {}) {
+  return {
+    id: "checklist-1",
+    organizationId: "org-1",
+    branchId: null,
+    onboardingProfileId: "profile-1",
+    templateVersion: "typed-onboarding-v1",
+    status: "ACTIVE",
+    generatedAt: "2026-06-20T00:00:00.000Z",
+    items: [apiItem()],
+    ...overrides,
+  };
+}
+
+function apiItem(overrides = {}) {
+  return {
+    id: "item-1",
+    organizationId: "org-1",
+    branchId: null,
+    onboardingChecklistId: "checklist-1",
+    itemKey: "organization_profile",
+    category: "business_profile",
+    status: "AVAILABLE",
+    routeKey: "settings.organization",
+    setupProgressKey: "organization_profile",
+    blockedReasonCode: null,
+    blockedReason: null,
+    completedAt: null,
+    skippedAt: null,
+    reopenedAt: null,
+    ...overrides,
+  };
+}
 
 function sampleChecklist(): DashboardOnboardingChecklist {
   return {

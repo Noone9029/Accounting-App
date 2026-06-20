@@ -35,6 +35,7 @@ import { NumberSequenceModule } from "./number-sequences/number-sequence.module"
 import { OrganizationMemberModule } from "./organization-members/organization-member.module";
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
+import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
@@ -79,6 +80,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     ChequeModule,
     ComplianceCoreModule,
     OrganizationModule,
+    OnboardingModule,
     BranchModule,
     CashExpenseModule,
     CollectionModule,

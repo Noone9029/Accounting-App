@@ -1,5 +1,16 @@
 # Remaining Roadmap
 
+## 2026-06-20 Setup Wizard Typed Onboarding API Consumption
+
+- Branch `feature/setup-wizard-typed-onboarding-api-consumption` adds the next LedgerByte-native typed onboarding persistence consumption slice after the API/service foundation.
+- The backend exposes narrow onboarding profile/checklist controller endpoints for profile read/update, checklist read/recompute, and checklist item complete/skip/reopen operations using the existing typed onboarding service.
+- The setup wizard typed onboarding preview now loads saved profile/checklist state from the LedgerByte API, falls back to the default preview when no saved state is available, saves selected archetype changes through the API, and refreshes checklist preview state from API recompute results.
+- Feature status remains `PARTIAL`. Full typed onboarding remains incomplete, broader setup checklist polish/audit integration remains planned, and production onboarding readiness is not claimed.
+- No browser-side durable persistence, localStorage, sessionStorage, cookies, indexedDB, URL persistence, unrelated Prisma migration, hosted migration, Supabase mutation, Vercel mutation, provider/storage/compliance behavior, signed URLs, or production compliance claim was added.
+- Inbox, AI proposals, deterministic bookkeeping pipeline, report pack, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, and production compliance behavior remain out of scope.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Merge and stabilize setup wizard typed onboarding API consumption`.
+
 ## 2026-06-20 Typed Onboarding API/Service Foundation
 
 - Branch `feature/typed-onboarding-api-service-foundation` adds the next LedgerByte-native typed onboarding persistence slice after the schema foundation.
