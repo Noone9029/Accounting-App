@@ -6,6 +6,7 @@ import {
   calculateSalesInvoiceTotals,
 } from "@ledgerbyte/accounting-core";
 import { AccountType, DocumentType, ItemTrackingMode, SalesInvoiceStatus, SalesInvoiceTaxMode } from "@prisma/client";
+import { buildSalesInvoiceWorkflowSummary } from "./sales-invoice.service";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 import { SalesInvoiceService } from "./sales-invoice.service";
 import { ItemService } from "../items/item.service";
@@ -121,6 +122,55 @@ describe("sales invoice rules", () => {
       expect.objectContaining({ accountId: "vat", debit: "0.0000", credit: "15.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("builds invoice workflow summaries without mutating document state", () => {
+    const draft = buildSalesInvoiceWorkflowSummary(
+      invoiceWorkflowFixture({ status: SalesInvoiceStatus.DRAFT, journalEntryId: null }),
+      [],
+    );
+    expect(draft).toMatchObject({
+      document: { id: "invoice-1", number: "INV-001", status: SalesInvoiceStatus.DRAFT },
+      posting: { state: "DRAFT_NOT_POSTED", journalEntryId: null, reversalJournalEntryId: null },
+      payment: { state: "NOT_COLLECTIBLE_DRAFT", balanceDue: "115.0000", paidAmount: "0.0000" },
+      generatedDocuments: { pdfCount: 0, latestPdf: null },
+      availableActions: expect.arrayContaining(["finalize", "generatePdf", "downloadPdf"]),
+      blockedActions: expect.arrayContaining([expect.objectContaining({ action: "recordPayment" })]),
+    });
+
+    const finalized = buildSalesInvoiceWorkflowSummary(
+      invoiceWorkflowFixture({
+        status: SalesInvoiceStatus.FINALIZED,
+        journalEntryId: "journal-1",
+        journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
+        balanceDue: "40.0000",
+      }),
+      [generatedDocumentFixture({ id: "doc-1", filename: "invoice-INV-001.pdf" })],
+    );
+    expect(finalized).toMatchObject({
+      posting: { state: "POSTED", journalEntryId: "journal-1", journalEntryNumber: "JE-000001" },
+      payment: { state: "PARTIALLY_PAID", balanceDue: "40.0000", paidAmount: "75.0000" },
+      generatedDocuments: { pdfCount: 1, latestPdf: { id: "doc-1", filename: "invoice-INV-001.pdf" } },
+      availableActions: expect.arrayContaining(["recordPayment", "generatePdf", "downloadPdf", "reviewCustomerLedger"]),
+    });
+    expect(finalized.notes.join(" ")).toContain("does not finalize");
+    expect(finalized.notes.join(" ")).toContain("does not submit compliance data");
+
+    const voided = buildSalesInvoiceWorkflowSummary(
+      invoiceWorkflowFixture({
+        status: SalesInvoiceStatus.VOIDED,
+        balanceDue: "0.0000",
+        reversalJournalEntryId: "reversal-1",
+        reversalJournalEntry: { id: "reversal-1", entryNumber: "JE-REV-001", status: "POSTED" },
+      }),
+      [],
+    );
+    expect(voided).toMatchObject({
+      posting: { state: "VOIDED", reversalJournalEntryId: "reversal-1", reversalJournalEntryNumber: "JE-REV-001" },
+      payment: { state: "VOIDED", paidAmount: "115.0000" },
+      availableActions: expect.arrayContaining(["generatePdf", "downloadPdf", "reviewCustomerLedger"]),
+      blockedActions: expect.arrayContaining([expect.objectContaining({ action: "finalize" }), expect.objectContaining({ action: "recordPayment" })]),
+    });
   });
 
   it("groups finalization revenue credits by selected invoice line account", () => {
@@ -760,6 +810,46 @@ describe("sales invoice rules", () => {
     );
   });
 
+  it("returns invoice workflow summaries from active-organization invoice and generated document state", async () => {
+    const invoice = invoiceWorkflowFixture({
+      status: SalesInvoiceStatus.FINALIZED,
+      journalEntryId: "journal-1",
+      journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: "POSTED" },
+      balanceDue: "0.0000",
+    });
+    const generatedDocuments = [
+      generatedDocumentFixture({ id: "doc-latest", filename: "invoice-latest.pdf", generatedAt: new Date("2026-05-07T00:00:00.000Z") }),
+      generatedDocumentFixture({ id: "doc-old", filename: "invoice-old.pdf", generatedAt: new Date("2026-05-06T00:00:00.000Z") }),
+    ];
+    const prisma = {
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue(invoice) },
+      generatedDocument: { findMany: jest.fn().mockResolvedValue(generatedDocuments) },
+    };
+    const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
+
+    await expect(service.workflowSummary("org-1", "invoice-1")).resolves.toMatchObject({
+      document: { id: "invoice-1", status: SalesInvoiceStatus.FINALIZED },
+      payment: { state: "PAID" },
+      generatedDocuments: { pdfCount: 2, latestPdf: { id: "doc-latest", filename: "invoice-latest.pdf" } },
+    });
+    expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invoice-1", organizationId: "org-1" },
+      }),
+    );
+    expect(prisma.generatedDocument.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          sourceType: "SalesInvoice",
+          sourceId: "invoice-1",
+          documentType: DocumentType.SALES_INVOICE,
+        },
+        orderBy: { generatedAt: "desc" },
+      }),
+    );
+  });
+
   it("filters open allocation targets by active organization, customer, and optional branch", async () => {
     const prisma = {
       salesInvoice: {
@@ -940,6 +1030,56 @@ interface OpenInvoiceFixture {
   currency: string;
   total: string;
   balanceDue: string;
+}
+
+interface InvoiceWorkflowFixture {
+  id: string;
+  invoiceNumber: string;
+  customerId: string | null;
+  status: SalesInvoiceStatus;
+  currency: string;
+  total: string;
+  balanceDue: string;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  journalEntry: { id: string; entryNumber: string; status: string } | null;
+  reversalJournalEntry: { id: string; entryNumber: string; status: string } | null;
+}
+
+interface GeneratedDocumentFixture {
+  id: string;
+  filename: string;
+  status: string;
+  storageProvider: string;
+  generatedAt: Date;
+}
+
+function invoiceWorkflowFixture(overrides: Partial<InvoiceWorkflowFixture> = {}): InvoiceWorkflowFixture {
+  return {
+    id: "invoice-1",
+    invoiceNumber: "INV-001",
+    customerId: "customer-1",
+    status: SalesInvoiceStatus.DRAFT,
+    currency: "SAR",
+    total: "115.0000",
+    balanceDue: "115.0000",
+    journalEntryId: null,
+    reversalJournalEntryId: null,
+    journalEntry: null,
+    reversalJournalEntry: null,
+    ...overrides,
+  };
+}
+
+function generatedDocumentFixture(overrides: Partial<GeneratedDocumentFixture> = {}): GeneratedDocumentFixture {
+  return {
+    id: "doc-1",
+    filename: "invoice-INV-001.pdf",
+    status: "GENERATED",
+    storageProvider: "database",
+    generatedAt: new Date("2026-05-06T00:00:00.000Z"),
+    ...overrides,
+  };
 }
 
 interface OpenInvoiceFindManyArgs {
