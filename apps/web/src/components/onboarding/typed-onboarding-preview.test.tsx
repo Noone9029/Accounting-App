@@ -29,6 +29,8 @@ describe("typed onboarding checklist preview", () => {
     expect(screen.getByRole("button", { name: "Software and SaaS" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "UAE eInvoicing local readiness" })).toBeInTheDocument();
     expect(screen.getByText(/A balanced first accounting setup/)).toBeInTheDocument();
+    expect(screen.getByText("Balanced first workflow")).toBeInTheDocument();
+    expect(screen.getByText(/Focus on getting one customer sale from profile through report review/)).toBeInTheDocument();
     expect(setItem).not.toHaveBeenCalled();
 
     setItem.mockRestore();
@@ -39,8 +41,8 @@ describe("typed onboarding checklist preview", () => {
 
     const profile = screen.getByTestId("typed-onboarding-profile-general_services");
 
-    expect(within(profile).getByText("Organization profile")).toBeInTheDocument();
-    expect(within(profile).getByText("First invoice")).toBeInTheDocument();
+    expect(within(profile).getByTestId("typed-onboarding-item-organization_profile")).toHaveTextContent("Organization profile");
+    expect(within(profile).getByTestId("typed-onboarding-item-first_invoice")).toHaveTextContent("First invoice");
     expect(within(profile).getByRole("link", { name: "Open Organization profile" })).toHaveAttribute("href", "/organization/setup");
     expect(within(profile).getByRole("link", { name: "Open First invoice" })).toHaveAttribute("href", "/sales/invoices/new?returnTo=%2Fsetup");
     expect(within(profile).queryByRole("link", { name: /Inbox|AI|Report packs|Integration health|Document review/i })).not.toBeInTheDocument();
@@ -54,7 +56,12 @@ describe("typed onboarding checklist preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Software and SaaS" }));
     const profile = screen.getByTestId("typed-onboarding-profile-software_saas");
 
-    expect(within(profile).getByText("Subscription billing profile")).toBeInTheDocument();
+    expect(within(profile).getByTestId("typed-onboarding-item-subscription_billing_profile")).toHaveTextContent(
+      "Subscription billing profile",
+    );
+    expect(within(profile).getByText("Subscription-ready preview")).toBeInTheDocument();
+    expect(within(profile).getAllByText(/object storage remains blocked/i).length).toBeGreaterThanOrEqual(1);
+    expect(within(profile).getAllByText(/signed URLs remain blocked/i).length).toBeGreaterThanOrEqual(1);
     expect(within(profile).getByText("Generated-document object storage approval")).toBeInTheDocument();
     expect(within(profile).getByText("Signed URL delivery")).toBeInTheDocument();
     expect(within(profile).getAllByText("Planned").length).toBeGreaterThanOrEqual(1);
@@ -73,6 +80,9 @@ describe("typed onboarding checklist preview", () => {
     const providerItem = within(uaeProfile).getByTestId("typed-onboarding-item-uae_provider_network");
 
     expect(within(uaeProfile).getByText("UAE local readiness visibility")).toBeInTheDocument();
+    expect(within(uaeProfile).getByText("UAE local-readiness planning")).toBeInTheDocument();
+    expect(within(uaeProfile).getByText(/no FTA reporting is enabled/i)).toBeInTheDocument();
+    expect(within(uaeProfile).getAllByText(/provider evidence, sandbox proof/i).length).toBeGreaterThanOrEqual(1);
     expect(within(uaeProfile).getByRole("link", { name: "Open UAE local readiness visibility" })).toHaveAttribute("href", "/settings/compliance");
     expect(within(providerItem).getByText("Blocked")).toBeInTheDocument();
     expect(within(providerItem).queryByRole("link")).not.toBeInTheDocument();
@@ -82,6 +92,8 @@ describe("typed onboarding checklist preview", () => {
     const ksaProfile = screen.getByTestId("typed-onboarding-profile-ksa_zatca_readiness");
     const productionItem = within(ksaProfile).getByTestId("typed-onboarding-item-ksa_production_submission");
 
+    expect(within(ksaProfile).getByText("KSA local-readiness planning")).toBeInTheDocument();
+    expect(within(ksaProfile).getAllByText(/production support remains blocked/i).length).toBeGreaterThanOrEqual(1);
     expect(within(productionItem).getByText("Blocked")).toBeInTheDocument();
     expect(within(productionItem).queryByRole("link")).not.toBeInTheDocument();
     expect(ksaProfile).not.toHaveTextContent(/production ready|certified|accredited|official provider/i);

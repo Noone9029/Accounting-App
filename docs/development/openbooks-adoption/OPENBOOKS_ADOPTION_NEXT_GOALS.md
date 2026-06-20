@@ -21,6 +21,8 @@ The next work should continue as narrow LedgerByte-native clean-room slices. Pro
 
 Scope: frontend-only, no persistence.
 
+Status: implemented in `feature/archetype-aware-setup-guidance-copy`.
+
 Recommended outcome:
 
 - Add LedgerByte-native guidance copy driven by existing typed onboarding/profile metadata.
