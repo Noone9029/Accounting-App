@@ -73,12 +73,13 @@ describe("global search helpers", () => {
     const invoice = result("invoice-1", "Transactions", "INV-001", "/sales/invoices/invoice-1");
     const duplicateInvoice = result("invoice-1-copy", "Transactions", "INV-001", "/sales/invoices/invoice-1");
     const customer = result("customer-1", "Contacts", "Alpha Customer", "/customers/customer-1");
+    const item = result("item-1", "Products / Services", "Implementation Package", "/items");
 
-    const combined = combineGlobalSearchResults([invoice, customer], [duplicateInvoice]);
+    const combined = combineGlobalSearchResults([invoice, item, customer], [duplicateInvoice]);
     const groups = groupGlobalSearchResults(combined);
 
-    expect(combined).toHaveLength(2);
-    expect(groups.map((group) => group.category)).toEqual(["Contacts", "Transactions"]);
+    expect(combined).toHaveLength(3);
+    expect(groups.map((group) => group.category)).toEqual(["Contacts", "Transactions", "Products / Services"]);
   });
 });
 

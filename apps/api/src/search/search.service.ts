@@ -4,7 +4,7 @@ import { hasPermission, PERMISSIONS, type Permission } from "@ledgerbyte/shared"
 import { ContactType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
-export type GlobalSearchResultCategory = "Contacts" | "Transactions";
+export type GlobalSearchResultCategory = "Contacts" | "Transactions" | "Products / Services";
 
 export interface GlobalSearchResult {
   id: string;
@@ -127,6 +127,27 @@ interface CollectionCaseSearchRow {
   } | null;
 }
 
+interface SalesQuoteSearchRow {
+  id: string;
+  quoteNumber: string;
+  issueDate: Date | string;
+  expiryDate: Date | string | null;
+  status: unknown;
+  total: unknown;
+  customer: PartySummary | null;
+}
+
+interface ItemSearchRow {
+  id: string;
+  name: string;
+  description: string | null;
+  sku: string | null;
+  type: unknown;
+  status: unknown;
+  sellingPrice: unknown;
+  inventoryTracking: boolean;
+}
+
 const RESULT_LIMIT_PER_SOURCE = 5;
 const MAX_RESULTS = 25;
 
@@ -153,6 +174,8 @@ export class SearchService {
         this.purchaseOrderResults(organizationId, normalizedQuery, permissions, amountNeedle),
         this.deliveryNoteResults(organizationId, normalizedQuery, permissions),
         this.collectionCaseResults(organizationId, normalizedQuery, permissions, amountNeedle),
+        this.salesQuoteResults(organizationId, normalizedQuery, permissions, amountNeedle),
+        this.itemResults(organizationId, normalizedQuery, permissions, amountNeedle),
         this.journalEntryResults(organizationId, normalizedQuery, permissions, amountNeedle),
       ])
     ).flat();
@@ -567,6 +590,90 @@ export class SearchService {
         ]),
       };
     });
+  }
+
+  private async salesQuoteResults(organizationId: string, query: string, permissions: unknown, amountNeedle: string | null) {
+    if (!can(permissions, PERMISSIONS.salesInvoices.view)) {
+      return [];
+    }
+    const rows = (await this.prisma.salesQuote.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { quoteNumber: contains(query) },
+          { reference: contains(query) },
+          { customer: { is: partySearch(query) } },
+          ...(amountNeedle ? [{ total: amountNeedle }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        quoteNumber: true,
+        issueDate: true,
+        expiryDate: true,
+        status: true,
+        total: true,
+        customer: { select: { id: true, name: true, displayName: true } },
+      },
+      orderBy: { issueDate: "desc" },
+      take: RESULT_LIMIT_PER_SOURCE,
+    })) as unknown as SalesQuoteSearchRow[];
+    return rows.map((row) => {
+      const customerName = row.customer ? row.customer.displayName ?? row.customer.name : "No customer";
+      return {
+        id: `sales-quote-${row.id}`,
+        category: "Transactions" as const,
+        label: row.quoteNumber,
+        href: `/sales/quotes/${row.id}`,
+        resultType: "Sales quote",
+        detail: customerName,
+        amount: moneyString(row.total),
+        date: toIsoString(row.issueDate),
+        status: String(row.status),
+        keywords: compact([row.quoteNumber, "sales quote", "quote", "quotation", "proforma", customerName]),
+      };
+    });
+  }
+
+  private async itemResults(organizationId: string, query: string, permissions: unknown, amountNeedle: string | null) {
+    if (!can(permissions, PERMISSIONS.items.view)) {
+      return [];
+    }
+    const rows = (await this.prisma.item.findMany({
+      where: {
+        organizationId,
+        OR: [
+          { name: contains(query) },
+          { sku: contains(query) },
+          { description: contains(query) },
+          ...(amountNeedle ? [{ sellingPrice: amountNeedle }, { purchaseCost: amountNeedle }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        sku: true,
+        type: true,
+        status: true,
+        sellingPrice: true,
+        inventoryTracking: true,
+      },
+      orderBy: { name: "asc" },
+      take: RESULT_LIMIT_PER_SOURCE,
+    })) as unknown as ItemSearchRow[];
+    return rows.map((row) => ({
+      id: `item-${row.id}`,
+      category: "Products / Services" as const,
+      label: row.name,
+      href: "/items",
+      resultType: "Product/service",
+      detail: compact([row.sku, String(row.type)]).join(" / ") || "Catalog item",
+      amount: moneyString(row.sellingPrice),
+      date: null,
+      status: String(row.status),
+      keywords: compact([row.name, row.sku, row.description, String(row.type), row.inventoryTracking ? "inventory" : "service"]),
+    }));
   }
 
   private async journalEntryResults(organizationId: string, query: string, permissions: unknown, amountNeedle: string | null) {
