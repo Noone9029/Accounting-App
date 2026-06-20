@@ -14,6 +14,14 @@ Latest commit audited: `a8ebc9e6d039c52675135fa77bc1eb838c00a70d` (`origin/main`
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
+## 2026-06-20 Archetype-Aware Setup Guidance Copy Update
+
+- Product clarity improves because the setup checklist preview now renders LedgerByte-native guidance copy for the selected typed onboarding archetype.
+- Guidance covers every archetype with active-now, planned-next, and blocked-until-proven copy while keeping planned and blocked items non-actionable.
+- The selected archetype remains ephemeral React state only and is not persisted to an API, database, local storage, session storage, cookies, URL query parameters, or hosted service.
+- No readiness score increase is taken for production launch readiness. This does not implement a full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, hosted behavior, API runtime behavior, provider adapters, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+
 ## 2026-06-20 Typed Onboarding Profile Selector Defaults Update
 
 - Product clarity improves because setup checklist preview defaults and selector behavior now come from a LedgerByte-native frontend/shared helper.

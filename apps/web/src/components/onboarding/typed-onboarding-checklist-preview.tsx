@@ -10,6 +10,7 @@ import {
   getTypedOnboardingSelectorPreview,
   resolveTypedOnboardingSelectorValue,
 } from "@/lib/typed-onboarding-selector";
+import { getTypedOnboardingGuidance, type TypedOnboardingGuidance } from "@/lib/typed-onboarding-guidance";
 import {
   isTypedOnboardingTemplateItemActionable,
   type TypedOnboardingArchetype,
@@ -76,6 +77,8 @@ function SelectedArchetypePreview({
   archetype: TypedOnboardingArchetype;
   previewItems: TypedOnboardingChecklistTemplateItem[];
 }>) {
+  const guidance = getTypedOnboardingGuidance(archetype.key);
+
   return (
     <div data-testid={`typed-onboarding-profile-${archetype.key}`} className="mt-4">
       <div className="rounded-md border border-slate-100 bg-mist px-3 py-3">
@@ -90,11 +93,47 @@ function SelectedArchetypePreview({
         </div>
       </div>
 
+      <ArchetypeGuidancePanel guidance={guidance} />
+
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {previewItems.map((item) => (
           <TemplateItemPreview key={item.key} item={item} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function ArchetypeGuidancePanel({ guidance }: Readonly<{ guidance: TypedOnboardingGuidance }>) {
+  return (
+    <div className={`mt-3 rounded-md border px-3 py-3 ${guidancePanelClassName(guidance.tone)}`}>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-ink">{guidance.headline}</div>
+          <p className="mt-1 text-sm leading-6 text-slate-700">{guidance.summary}</p>
+        </div>
+        <div className="shrink-0 rounded-md border border-white/70 bg-white/70 px-2 py-1 text-xs font-semibold uppercase text-slate-600">
+          {guidanceToneLabel(guidance.tone)}
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <GuidanceList title="Emphasis" items={guidance.emphasis} />
+        <GuidanceList title="Active now" items={guidance.activeNow} />
+        <GuidanceList title="Planned or blocked" items={[...guidance.plannedNext, ...guidance.blockedUntilProven]} />
+      </div>
+    </div>
+  );
+}
+
+function GuidanceList({ title, items }: Readonly<{ title: string; items: string[] }>) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase text-slate-600">{title}</div>
+      <ul className="mt-2 space-y-1.5 text-sm leading-5 text-slate-700">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -128,6 +167,28 @@ function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingChecklist
       </div>
     </article>
   );
+}
+
+function guidancePanelClassName(tone: TypedOnboardingGuidance["tone"]): string {
+  switch (tone) {
+    case "active":
+      return "border-emerald-100 bg-emerald-50";
+    case "planning":
+      return "border-amber-100 bg-amber-50";
+    case "blocked":
+      return "border-red-100 bg-red-50";
+  }
+}
+
+function guidanceToneLabel(tone: TypedOnboardingGuidance["tone"]): string {
+  switch (tone) {
+    case "active":
+      return "Active guidance";
+    case "planning":
+      return "Planning guidance";
+    case "blocked":
+      return "Blocked guidance";
+  }
 }
 
 function templateItemAction(item: TypedOnboardingChecklistTemplateItem): { href: string } | null {

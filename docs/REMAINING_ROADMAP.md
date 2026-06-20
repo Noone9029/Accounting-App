@@ -11,6 +11,16 @@
 - Next sequence is captured in `docs/development/openbooks-adoption/OPENBOOKS_ADOPTION_NEXT_GOALS.md`.
 - Recommended next prompt: `Implement LedgerByte-native archetype-aware setup guidance copy`.
 
+## 2026-06-20 Archetype-Aware Setup Guidance Copy
+
+- Branch `feature/archetype-aware-setup-guidance-copy` adds a narrow LedgerByte-native typed onboarding guidance helper and setup checklist preview copy.
+- Guidance covers every typed onboarding archetype with active-now, planned-next, and blocked-until-proven copy.
+- The selected archetype remains ephemeral React state only. No API, database, local storage, session storage, cookies, URL query persistence, or hosted persistence was added.
+- Planned and blocked guidance remains non-actionable and does not activate future inactive routes.
+- This does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, document review, provider behavior, hosted behavior, generated-document object storage, signed URLs, or production compliance behavior.
+- Production compliance status remains unchanged. Generated document object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented and unproven; UAE/ZATCA/Peppol/ASP production claims remain blocked unless separately proven.
+- Recommended next prompt: `Design LedgerByte-native typed onboarding persistence`.
+
 ## 2026-06-20 Typed Onboarding Profile Selector Defaults
 
 - Branch `feature/typed-onboarding-profile-selector-defaults` adds a narrow LedgerByte-native typed onboarding selector helper for safe setup preview defaults.

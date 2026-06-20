@@ -13,6 +13,17 @@ OpenBooks adoption post-merge baseline audit (2026-06-20):
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
+Archetype-aware setup guidance copy (2026-06-20):
+
+- Added a LedgerByte-native typed onboarding guidance helper for archetype-aware setup preview copy, default guidance, invalid-value fallback, tone lookup, warning buckets, and compliance/storage/provider cautions.
+- The setup checklist preview now renders selected-archetype guidance while keeping selected archetype state ephemeral in React state only.
+- Guidance covers active-now, planned-next, and blocked-until-proven copy for every typed onboarding archetype.
+- Planned and blocked guidance remains non-actionable and does not activate future inactive routes.
+- This changes frontend guidance-copy/helper behavior only. It does not implement the full typed onboarding backend, persistent setup checklist state, setup state-machine behavior, setup checklist database tables, Prisma migrations, Inbox runtime, AI proposals, deterministic pipeline, report packs, integration health, or document review.
+- No localStorage, sessionStorage, indexedDB, cookies, URL query persistence, API runtime behavior, hosted behavior, provider adapter, Convex integration, external dependency, generated-document object storage, signed URL behavior, or production compliance behavior was added.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Typed onboarding profile selector defaults (2026-06-20):
 
 - Added a LedgerByte-native typed onboarding selector helper for safe setup preview default selection, selector options, invalid-value fallback, preview metadata, and summary counts.
