@@ -22,6 +22,7 @@ import { ContactModule } from "./contacts/contact.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
+import { DataManagementModule } from "./data-management/data-management.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DeliveryNoteModule } from "./delivery-notes/delivery-note.module";
 import { EmailModule } from "./email/email.module";
@@ -88,6 +89,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     CreditNoteModule,
     CustomerPaymentModule,
     CustomerRefundModule,
+    DataManagementModule,
     DashboardModule,
     DeliveryNoteModule,
     GeneratedDocumentModule,
