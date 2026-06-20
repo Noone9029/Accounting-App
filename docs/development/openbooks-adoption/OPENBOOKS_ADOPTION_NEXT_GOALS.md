@@ -33,6 +33,8 @@ Recommended outcome:
 
 Scope: docs/API/schema design only, no migration.
 
+Status: designed in `feature/typed-onboarding-persistence-design`.
+
 Recommended outcome:
 
 - Design the future typed onboarding persistence model.
@@ -45,7 +47,7 @@ Scope: implementation only after Goal 11 design approval.
 
 Recommended outcome:
 
-- Add local/test-safe API and persistence for setup checklist state after design approval.
+- Add local/test-safe persistence foundation and API behavior for setup checklist state after design approval.
 - Keep persistence auditable and tenant-scoped.
 - Do not include Inbox, AI, provider, storage, signed URL, or compliance production behavior.
 

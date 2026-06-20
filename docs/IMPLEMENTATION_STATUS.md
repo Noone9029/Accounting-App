@@ -13,6 +13,17 @@ OpenBooks adoption post-merge baseline audit (2026-06-20):
 - Generated-document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
 - UAE/ZATCA/Peppol/ASP production readiness remains blocked unless separately proven and approved.
 
+Typed onboarding persistence design (2026-06-20):
+
+- Added a LedgerByte-native design document for future typed onboarding profile and setup checklist persistence.
+- The design covers future-only domain model sketches, API sketches, state machines, template versioning, recompute rules, tenant scoping, permissions, audit events, Inbox interaction boundaries, and integration-health interaction boundaries.
+- This is docs/design/contract planning only. It does not implement persistent typed onboarding, persistent setup checklist state, schema changes, Prisma migrations, API modules, controllers, services, UI persistence, or runtime behavior.
+- No localStorage, sessionStorage, indexedDB, cookies, URL query persistence, database write, API write, hosted behavior, provider adapter, Convex integration, external dependency, generated-document object storage, signed URL behavior, or production compliance behavior was added.
+- Persistent setup checklist state remains planned and unimplemented.
+- Inbox, AI proposals, deterministic pipeline, report packs, integration health, and document review remain planned.
+- Production compliance status is unchanged. Generated document object storage approval remains `BLOCKED`; runtime generated documents remain database-backed; real object storage and signed URLs remain unimplemented and unproven.
+- UAE, ZATCA, Peppol, object-storage, signed-URL, and ASP production claims remain `BLOCKED` unless separately proven and approved.
+
 Archetype-aware setup guidance copy (2026-06-20):
 
 - Added a LedgerByte-native typed onboarding guidance helper for archetype-aware setup preview copy, default guidance, invalid-value fallback, tone lookup, warning buckets, and compliance/storage/provider cautions.
