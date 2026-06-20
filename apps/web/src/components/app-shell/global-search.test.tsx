@@ -127,6 +127,39 @@ describe("GlobalSearch", () => {
     expect(searchGlobalRecordsMock).toHaveBeenCalledWith("inv");
   });
 
+  it("renders remote product and service catalog results", async () => {
+    searchGlobalRecordsMock.mockResolvedValueOnce({
+      query: "setup",
+      results: [
+        {
+          id: "item-1",
+          category: "Products / Services",
+          label: "Implementation Package",
+          href: "/items",
+          resultType: "Product/service",
+          detail: "SERV-SETUP / SERVICE",
+          amount: "750.0000",
+          date: null,
+          status: "ACTIVE",
+          keywords: ["Implementation Package", "SERV-SETUP"],
+        },
+      ],
+    });
+    render(<GlobalSearch />);
+
+    const input = screen.getByPlaceholderText("Search transactions, contacts, reports, and pages");
+    fireEvent.change(input, { target: { value: "setup" } });
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+    });
+
+    expect(await screen.findByText("Products / Services")).toBeInTheDocument();
+    expect(screen.getByText("Implementation Package")).toBeInTheDocument();
+    expect(screen.getByText("Product/service")).toBeInTheDocument();
+    expect(screen.getByText("SERV-SETUP / SERVICE")).toBeInTheDocument();
+  });
+
   it("shows no-result and view-all states", async () => {
     searchGlobalRecordsMock.mockResolvedValueOnce({
       query: "alpha",

@@ -5,6 +5,7 @@ import type { GlobalSearchCategory, GlobalSearchResponse, GlobalSearchResult } f
 export const GLOBAL_SEARCH_CATEGORY_ORDER: readonly GlobalSearchCategory[] = [
   "Contacts",
   "Transactions",
+  "Products / Services",
   "Reports",
   "Pages / Navigation",
 ];
