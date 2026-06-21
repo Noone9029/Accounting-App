@@ -1,5 +1,12 @@
 # Remaining Roadmap
 
+## 2026-06-22 Frontend Redesign Continuation
+
+- Branch `codex/ui-ux-full-redesign` extends the shared LedgerByte frontend system and migrates `/settings`, `/documents`, and `/report-packs` as the next cohesive redesign slice stacked on the UI/UX rebuild foundation.
+- This is frontend and documentation work only. It does not add hosted migrations, Supabase mutations, Vercel mutations/deploys, provider calls, banking execution, reconciliation execution, generated-document object storage, signed URL behavior, storage moves, ZATCA/UAE/Peppol/ASP behavior, tax-authority submissions, seed/reset/delete behavior, or shutdown behavior.
+- Remaining frontend route families: sales, purchases, contacts, inventory, banking import/rules/clearing, report drilldowns, settings subroutes, setup/onboarding, dashboard, and auth/entry screens.
+- Recommended next prompt: `Migrate the sales invoice and quote workspaces onto the LedgerByte frontend redesign system`.
+
 ## 2026-06-21 Report-Pack Generation/Export/Download/Archive Design
 
 - Branch `codex/report-pack-generation-export-archive-design` adds `docs/architecture/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN.md` and evidence in `docs/development/openbooks-adoption/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN_EVIDENCE.md`.

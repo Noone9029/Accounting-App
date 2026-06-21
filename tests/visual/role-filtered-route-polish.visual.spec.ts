@@ -33,7 +33,7 @@ const routes = [
   { slug: "purchase-debit-notes", path: "/purchases/debit-notes", heading: /Debit notes/i, actionText: /DN-VIS-001/i, requiredAny: [PERMISSIONS.purchaseDebitNotes.view] },
   { slug: "documents", path: "/documents", heading: /^Documents$/i, actionText: /Generated PDF archive/i, requiredAny: [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view] },
   { slug: "reports", path: "/reports", heading: /^Reports$/i, actionText: /First report path/i, requiredAny: [PERMISSIONS.reports.view] },
-  { slug: "settings", path: "/settings", heading: /Team Members/i, actionText: /Beta access guidance/i, requiredAny: [PERMISSIONS.users.view] },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, actionText: /Team and roles|Controlled beta/i, requiredAny: [PERMISSIONS.users.view] },
   { slug: "settings-storage", path: "/settings/storage", heading: /Storage/i, actionText: /readiness and dry-run planning only/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage] },
   { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, actionText: /Controlled beta/i, requiredAny: [PERMISSIONS.compliance.view] },
   { slug: "bank-accounts", path: "/bank-accounts", heading: /Bank accounts/i, actionText: /Cash and bank profiles/i, requiredAny: [PERMISSIONS.bankAccounts.view] },
@@ -179,7 +179,7 @@ async function expectAuthenticatedShell(page: Page, roleProfile: VisualRoleProfi
   await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
 
   if (viewportName !== "mobile") {
-    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    const nav = page.getByRole("navigation", { name: "Workspace navigation" });
     await expect(nav).toBeVisible();
     await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible();
 

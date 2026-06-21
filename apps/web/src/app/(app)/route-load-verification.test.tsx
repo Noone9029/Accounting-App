@@ -125,10 +125,13 @@ describe("controlled beta route-load verification batch", () => {
     expect(reportsIndexPageMock).toHaveBeenCalledTimes(1);
   });
 
-  it("redirects the missing settings root to team settings", () => {
+  it("loads the settings overview route safely", () => {
     render(<SettingsPage />);
 
-    expect(redirectMock).toHaveBeenCalledWith("/settings/team");
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Team and roles/i })).toHaveAttribute("href", "/settings/team");
+    expect(screen.getByRole("link", { name: /Compliance readiness/i })).toHaveAttribute("href", "/settings/compliance");
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("loads the storage settings route safely without an organization", () => {

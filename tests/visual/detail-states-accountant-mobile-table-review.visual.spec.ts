@@ -216,7 +216,7 @@ async function expectAuthenticatedShell(page: Page, viewportName: string) {
   if (viewportName === "mobile") {
     await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
   } else {
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
 

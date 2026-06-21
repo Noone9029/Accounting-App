@@ -2,6 +2,14 @@
 
 Audit date: 2026-06-19
 
+Frontend redesign continuation (2026-06-22):
+
+- Expanded the shared LedgerByte frontend system with reusable layout, table, form, state, workflow, summary, review, and breadcrumb primitives.
+- Migrated the settings root into a grouped admin overview, migrated the generated-document archive surface, and migrated the report-pack read-only preview surface onto the shared system.
+- Added product system documentation and frontend redesign evidence for the current adoption slice.
+- This does not change backend behavior, route permissions, hosted migrations, Supabase state, Vercel deployment state, provider calls, banking execution, reconciliation execution, generated-document object storage, signed URL behavior, storage moves, ZATCA/UAE/Peppol/ASP behavior, tax-authority submissions, seed/reset/delete behavior, or shutdown behavior.
+- Remaining route families require follow-up slices: sales, purchases, contacts, inventory, banking, reports/drilldowns, settings subroutes, setup/onboarding, dashboard, and auth/entry screens.
+
 Report-pack generation/export/download/archive design (2026-06-21):
 
 - Added `docs/architecture/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN.md` and evidence in `docs/development/openbooks-adoption/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN_EVIDENCE.md`.

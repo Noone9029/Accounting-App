@@ -19,7 +19,7 @@ const viewports = [
 ] as const;
 
 const coveredRoutes = [
-  { slug: "settings", path: "/settings", heading: /Team Members/i, expectedText: /Beta access guidance|mock invites/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant|pending\.invite\.long|Suspended Former Beta Reviewer/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer|Beta role guidance|permission groups/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
   { slug: "settings-storage", path: "/settings/storage", heading: /^Storage$/i, expectedText: /Generated document backup|No hosted backup provider evidence|metadata-only|Capture metadata/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage], ownerOnlyAction: /Capture evidence/i },
@@ -215,7 +215,7 @@ async function expectAuthenticatedShell(page: Page, viewportName: string) {
   if (viewportName === "mobile") {
     await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
   } else {
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
 

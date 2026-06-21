@@ -19,7 +19,7 @@ const viewports = [
 ] as const;
 
 const coveredRoutes = [
-  { slug: "settings", path: "/settings", heading: /Team Members/i, expectedText: /Beta access guidance|mock invites/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Security and audit|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant With Extended Review Name|pending\.invite\.long\.external|Suspended Former Beta Reviewer/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-security", path: "/settings/security", heading: /Security settings/i, expectedText: /Read-only security overview|Team and role controls|Not available yet/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Team settings/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer With Long Role Name|Beta role guidance|permissions/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
@@ -58,7 +58,7 @@ test.afterAll(async () => {
         localOnly: true,
         skippedRoutes,
         ownerOrganizationSecurityStatesChecked: [
-          "settings redirect to the real team management surface",
+          "settings overview with grouped access, security, compliance, storage, email, and banking admin entry points",
           "team members with Owner, Accountant, Sales, Purchases, Viewer, pending invite, suspended user, long names, long emails, and role controls",
           "role list and role detail surfaces with system role protection, long custom role name, permission matrix, and read-only role state",
           "audit-log retention and compliance readiness surfaces used as the real security/evidence-adjacent settings pages",
@@ -177,7 +177,7 @@ async function expectAuthenticatedShell(page: Page, viewportName: string) {
   if (viewportName === "mobile") {
     await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
   } else {
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
 
