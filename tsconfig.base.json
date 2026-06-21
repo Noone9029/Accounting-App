@@ -17,12 +17,12 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@ledgerbyte/shared": ["packages/shared/src/index.ts"],
-      "@ledgerbyte/accounting-core": ["packages/accounting-core/src/index.ts"],
-      "@ledgerbyte/uae-peppol-pint-ae": ["packages/uae-peppol-pint-ae/src/index.ts"],
-      "@ledgerbyte/zatca-core": ["packages/zatca-core/src/index.ts"],
-      "@ledgerbyte/pdf-core": ["packages/pdf-core/src/index.ts"],
-      "@ledgerbyte/ui": ["packages/ui/src/index.ts"]
+      "@ledgerbyte/shared": ["packages/shared/src/index"],
+      "@ledgerbyte/accounting-core": ["packages/accounting-core/src/index"],
+      "@ledgerbyte/uae-peppol-pint-ae": ["packages/uae-peppol-pint-ae/src/index"],
+      "@ledgerbyte/zatca-core": ["packages/zatca-core/src/index"],
+      "@ledgerbyte/pdf-core": ["packages/pdf-core/src/index"],
+      "@ledgerbyte/ui": ["packages/ui/src/index"]
     }
   }
 }
