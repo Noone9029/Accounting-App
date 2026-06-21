@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-21 Report-Pack Generation/Export/Download/Archive Design
+
+- Branch `codex/report-pack-generation-export-archive-design` adds `docs/architecture/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN.md` and evidence in `docs/development/openbooks-adoption/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN_EVIDENCE.md`.
+- The design covers future-only report-pack request/run/item/artifact/delivery/event/schedule models, state machines, API shape, permissions, audit events, storage/download/archive blockers, failure/retry/idempotency, and sequencing.
+- This is docs/design-only. It does not add runtime API endpoints, runtime UI behavior, Prisma migrations, report generation, PDF/CSV/XLSX generation, download/export behavior, email sending, scheduling, archive writes, generated-document mutation, object storage behavior, signed URLs, provider calls, compliance behavior, ZATCA/UAE/Peppol/ASP behavior, AI proposals, Inbox behavior, or hosted mutations.
+- Object storage approval remains `BLOCKED`; real object storage remains unimplemented/unproven; signed URLs remain unimplemented/unproven; runtime generated documents remain DB-backed unless separately changed.
+- Report-pack archive writes remain blocked until storage approval; download links remain blocked until signed URL behavior is proven.
+- Recommended next prompt: `Implement report-pack execution contract foundation as a disabled, contract/test-only slice`.
+
 ## 2026-06-20 Setup Wizard Typed Onboarding API Consumption
 
 - Branch `feature/setup-wizard-typed-onboarding-api-consumption` adds the next LedgerByte-native typed onboarding persistence consumption slice after the API/service foundation.

@@ -4,6 +4,13 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-06-21 Report-Pack Generation/Export/Download/Archive Design Update
+
+- Product clarity improves because LedgerByte now has a docs-only future design for report-pack execution, artifacts, downloads, archive writes, email delivery, schedules, permissions, audit events, idempotency, failure/retry handling, and blocked storage/signed URL boundaries.
+- No production readiness score increase is taken because this does not implement runtime API endpoints, runtime UI behavior, Prisma migrations, report generation, PDF/CSV/XLSX generation, download/export behavior, email sending, scheduling, archive writes, generated-document mutation, object storage behavior, signed URLs, provider calls, compliance behavior, ZATCA/UAE/Peppol/ASP behavior, AI proposals, Inbox behavior, or hosted mutations.
+- Object storage approval remains `BLOCKED`; real object storage remains unimplemented/unproven; signed URLs remain unimplemented/unproven; runtime generated documents remain DB-backed unless separately changed.
+- Report-pack archive writes remain blocked until storage approval; download links remain blocked until signed URL behavior is proven.
+
 ## 2026-06-20 Setup Wizard Typed Onboarding API Consumption Update
 
 - Product implementation depth improves because the setup wizard typed onboarding preview now consumes the LedgerByte typed onboarding API/service foundation.

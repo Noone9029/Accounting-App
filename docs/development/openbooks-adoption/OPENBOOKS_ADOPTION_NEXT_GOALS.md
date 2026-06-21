@@ -172,14 +172,29 @@ Outcome:
 
 Scope: docs/API/schema design only.
 
+Status: implemented in `codex/report-pack-generation-export-archive-design`.
+
+Outcome:
+
+- Added `docs/architecture/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN.md`.
+- Added `docs/development/openbooks-adoption/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN_EVIDENCE.md`.
+- Designed future-only report-pack request/run/item/artifact/delivery/event/schedule models, request/run/artifact/delivery state machines, API shape, permissions, audit events, storage dependencies, idempotency, retention, and rollback boundaries.
+- Kept runtime generation, downloads, exports, email sending, scheduling, archive writes, generated-document mutation, object storage, signed URLs, provider calls, hosted mutations, and compliance behavior out of scope.
+- Preserved blockers: object storage approval remains `BLOCKED`; real object storage and signed URLs remain unimplemented/unproven; runtime generated documents remain DB-backed unless separately changed; report-pack archive writes and download links remain blocked until storage approval and signed URL proof are separately approved.
+
+## Goal 24: Report Pack Execution Contract Foundation
+
+Scope: contract/test-only foundation.
+
 Recommended outcome:
 
-- Design the future report-pack generation/export/download/archive workflow, permissions, audit events, storage dependencies, idempotency, retention, and rollback boundaries.
-- Keep runtime generation, downloads, exports, email sending, scheduling, archive writes, generated-document mutation, object storage, signed URLs, provider calls, hosted mutations, and compliance behavior out of scope.
+- Introduce future contract/type names and state-machine tests for report-pack requests, runs, items, artifacts, deliveries, events, and schedules.
+- Keep execution gates disabled.
+- Do not add runtime API routes, Prisma migrations, workers, UI behavior, generation, exports, downloads, email sending, scheduling, archive writes, object storage behavior, signed URLs, provider calls, hosted mutations, or compliance behavior.
 
 ## Separate Workstreams
 
-The following work remains separate from Goals 10 through 23:
+The following work remains separate from Goals 10 through 24:
 
 - Generated-document object storage approval and implementation.
 - Signed URL design and implementation.
