@@ -7,9 +7,11 @@ Frontend redesign loop engineering (2026-06-22):
 - Added the full route-family redesign checklist in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
 - Began the Sales workspace loop by migrating `/sales/quotes` and tightening `/sales/invoices` list surfaces onto shared LedgerByte primitives.
 - Began the Purchase workspace loop by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives.
+- Began the Banking workspace loop by migrating `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte primitives.
 - Preserved product truth: sales quotes remain non-posting; invoice finalization remains explicit and permission-gated; no send, payment, compliance, storage, signed URL, or provider behavior changed.
 - Preserved AP truth: purchase bill finalization remains explicit and permission-gated, debit notes remain supplier adjustments, and no payment sending, provider approval workflow, archive/storage operation, or supplier balance math change was added.
-- Remaining Sales and Purchase surfaces include invoice/quote/bill/debit-note detail pages and forms, credit notes, customer payments/refunds, purchase orders, supplier payments/refunds, recurring invoices, delivery notes, inventory returns, collections, cash expenses, matching, AP dashboard, and purchase returns.
+- Preserved manual-banking truth: bank account and transfer lists do not connect to live bank feeds, move provider money, auto-reconcile, import statements, or match/categorize statement rows.
+- Remaining Sales, Purchase, and Banking surfaces include invoice/quote/bill/debit-note detail pages and forms, credit notes, customer payments/refunds, purchase orders, supplier payments/refunds, recurring invoices, delivery notes, inventory returns, collections, cash expenses, matching, AP dashboard, purchase returns, bank account detail, statement imports/review, bank rules, deposits, cheques, card settlements, reconciliation summary/history/close, and transfer detail.
 
 Frontend redesign continuation (2026-06-22):
 

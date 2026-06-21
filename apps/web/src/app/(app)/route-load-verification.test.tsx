@@ -1,6 +1,8 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import BankAccountsPage from "./bank-accounts/page";
+import BankTransfersPage from "./bank-transfers/page";
 import CustomersPage from "./customers/page";
 import CustomerDetailPage from "./customers/[id]/page";
 import PurchaseBillsPage from "./purchases/bills/page";
@@ -146,6 +148,23 @@ describe("controlled beta route-load verification batch", () => {
     render(<BankingAccountingSettingsPage />);
 
     expect(screen.getByText("Log in and select an organization to configure banking accounting.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the bank account and transfer routes without workspace data", () => {
+    render(
+      <>
+        <BankAccountsPage />
+        <BankTransfersPage />
+      </>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Bank accounts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Link account" })).toHaveAttribute("href", "/bank-accounts/new");
+    expect(screen.getByText("Log in and select an organization to load bank accounts.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bank transfers" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New transfer" })).toHaveAttribute("href", "/bank-transfers/new");
+    expect(screen.getByText("Log in and select an organization to load bank transfers.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 

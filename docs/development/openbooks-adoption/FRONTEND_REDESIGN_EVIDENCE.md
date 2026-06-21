@@ -20,6 +20,7 @@ Base: `origin/main` after PR #144 and PR #145 merge
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
+| Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 
 ## Verification Results
 
@@ -52,6 +53,17 @@ Base: `origin/main` after PR #144 and PR #145 merge
 - `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification purchase-bill-form purchase-debit-note-form ledger-system`: PASS, 22 tests.
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "purchase-(bills|debit-notes) authenticated visual QA at (desktop|mobile)"`: PASS, 4 checks.
+
+## 2026-06-22 Banking Workspace Loop Evidence
+
+- `/bank-accounts`: migrated the bank account profile list from route-local table/button/empty-state styling to shared `LedgerPage`, `LedgerPageBody`, `LedgerPageHeader`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerDate`, `LedgerMoney`, `LedgerStatusBadge`, and `LedgerButton`.
+- `/bank-transfers`: migrated the transfer list to the same shared LedgerByte primitives while preserving existing transfer create/detail links and posted/voided status labels.
+- Existing permissions remain tied to `PERMISSIONS.bankAccounts.manage` and `PERMISSIONS.bankTransfers.create`. No live bank feed, automatic reconciliation, provider money movement, statement import execution, or match/categorize behavior was added.
+- `apps/web/src/app/(app)/route-load-verification.test.tsx`: now covers `/bank-accounts` and `/bank-transfers` without an active organization.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification bank-accounts bank-transfers ledger-system`: PASS, 68 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "bank-accounts authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks.
+- `/bank-transfers` list visual check was not run because this branch has detail visual coverage for `/bank-transfers/[id]` but no existing authenticated list fixture for `/bank-transfers`.
 
 ## Mutation Boundary
 
