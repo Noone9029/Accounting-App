@@ -6,6 +6,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerButton, LedgerPageHeader, LedgerToolbar } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -46,30 +47,27 @@ export function ReportsIndexPage() {
 
   return (
     <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Reports</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Start with Profit & Loss after your first finalized invoice or payment. Most reports are derived from posted journals and current open AR/AP balances, while VAT Return stays a draft accountant-review view with internal export only.
+      <LedgerPageHeader
+        eyebrow="Accountant review"
+        title="Reports"
+        description="Start with Profit & Loss after your first finalized invoice or payment. Most reports are derived from posted journals and current open AR/AP balances, while VAT Return stays a draft accountant-review view with internal export only."
+        actions={<LedgerButton href="/setup">Guided setup</LedgerButton>}
+      />
+      <div className="mb-5">
+        <LedgerToolbar
+          title="First report path"
+          description="Use Profit & Loss for the first business result, then Trial Balance to confirm debits and credits stay balanced."
+          actions={
+            <>
+              <LedgerButton href="/reports/profit-and-loss" variant="primary">Open Profit & Loss</LedgerButton>
+              <LedgerButton href="/dashboard">Back to dashboard</LedgerButton>
+            </>
+          }
+        >
+          <p className="text-sm leading-6 text-steel">
+            Reports are accountant-review surfaces. Tax reports keep internal-review wording until an official filing or tax-authority submission workflow is implemented and proven.
           </p>
-        </div>
-        <Link href="/setup" className="self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Guided setup
-        </Link>
-      </div>
-      <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-6 text-emerald-900 shadow-panel">
-        <div className="font-semibold text-ink">First report path</div>
-        <p className="mt-1">
-          Use Profit & Loss for the first business result, then Trial Balance to confirm debits and credits stay balanced.
-        </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/reports/profit-and-loss" className="rounded-md bg-palm px-3 py-2 text-center font-medium text-white hover:bg-palm-dark">
-            Open Profit & Loss
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center font-medium text-emerald-900 hover:bg-emerald-100">
-            Back to dashboard
-          </Link>
-        </div>
+        </LedgerToolbar>
       </div>
       <div className="space-y-6">
         {groups.map((group) => (

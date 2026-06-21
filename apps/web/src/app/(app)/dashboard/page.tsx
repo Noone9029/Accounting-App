@@ -18,6 +18,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { DashboardFirstWorkflowPrompt, DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { buttonVariants } from "@/components/ui/button";
+import { LedgerPageHeader, LedgerStatusBadge } from "@/components/ui/ledger-system";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KpiCard } from "@/components/ui-ledger/kpi-card";
 import { PanelSection } from "@/components/ui-ledger/panel-section";
@@ -153,30 +154,33 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6">
-      <div className="relative overflow-hidden rounded-xl border border-slate-900 bg-sidebar p-5 text-white shadow-panel">
+      <div className="relative overflow-hidden rounded-md border border-slate-900 bg-sidebar p-5 text-white shadow-panel">
         <FinancialFlowScene />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-300">LedgerByte overview</div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
-              <span className="rounded-md border border-blue-300/30 bg-blue-400/10 px-2 py-1 text-xs font-semibold text-blue-100">Controlled beta</span>
-            </div>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-200">
-              Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}. Accounting workspace surfaces remain controlled-beta review only.
-            </p>
-            {summary ? <p className="mt-1 text-xs text-slate-300">Last updated {new Date(summary.asOf).toLocaleString()}.</p> : null}
-          </div>
-          {quickActions.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {quickActions.slice(0, 3).map((action) => (
-                <Link key={action.href} href={action.href} className={buttonVariants({ variant: "outline", className: "border-white/20 bg-white/10 text-white hover:bg-white/15" })}>
-                  {action.label}
-                  <ArrowRight data-icon="inline-end" aria-hidden="true" />
-                </Link>
-              ))}
-            </div>
-          ) : null}
+          <LedgerPageHeader
+            eyebrow="Operations cockpit"
+            title="Dashboard"
+            inverse
+            badge={<LedgerStatusBadge tone="info">Controlled beta</LedgerStatusBadge>}
+            description={
+              <>
+                Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}. Accounting workspace surfaces remain controlled-beta review only.
+                {summary ? <span className="mt-1 block text-xs text-slate-300">Last updated {new Date(summary.asOf).toLocaleString()}.</span> : null}
+              </>
+            }
+            actions={
+              quickActions.length > 0 ? (
+                <>
+                  {quickActions.slice(0, 3).map((action) => (
+                    <Link key={action.href} href={action.href} className={buttonVariants({ variant: "outline", className: "border-white/20 bg-white/10 text-white hover:bg-white/15" })}>
+                      {action.label}
+                      <ArrowRight data-icon="inline-end" aria-hidden="true" />
+                    </Link>
+                  ))}
+                </>
+              ) : null
+            }
+          />
         </div>
         <div className="relative mt-4 grid grid-cols-1 gap-3 text-xs text-slate-300 md:grid-cols-3">
           <span>Manual/imported bank transactions only</span>

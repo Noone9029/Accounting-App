@@ -74,15 +74,19 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
         <GlobalCreateMenu />
       </div>
       <ScrollArea className="min-h-0 flex-1">
-        <nav className="px-3 py-4" aria-label="Main navigation">
+        <nav className="px-3 py-4" aria-label="Workspace navigation">
           <div className="flex flex-col gap-1">
-          {visibleItems.map((item) => {
+          {visibleItems.map((item, itemIndex) => {
             const Icon = iconsByHref[item.href];
             const activeBase = item.activePrefix ?? item.href;
             const childActive = Boolean(item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)));
             const active = pathname === item.href || pathname.startsWith(`${activeBase}/`) || childActive;
+            const section = sidebarSectionLabel(item.label);
+            const previousItem = visibleItems[itemIndex - 1];
+            const showSection = !previousItem || sidebarSectionLabel(previousItem.label) !== section;
             return (
               <div key={item.href}>
+                {showSection ? <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{section}</div> : null}
                 <Link
                   href={item.href}
                   className={`ledger-focus flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
@@ -95,7 +99,7 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
                 {item.children && item.children.length > 0 ? (
                   <div className="mb-2 ml-5 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3">
                     {item.children.map((child, index) => (
-                      <div key={`${child.href}-${child.label}`}>
+                      <div key={`${child.group ?? "default"}-${child.href}-${child.label}`}>
                         {child.group && child.group !== item.children?.[index - 1]?.group ? (
                           <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{child.group}</div>
                         ) : null}
@@ -122,6 +126,14 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
       </div>
     </aside>
   );
+}
+
+function sidebarSectionLabel(label: string): string {
+  if (label === "Dashboard") return "Overview";
+  if (label === "Customers" || label === "Suppliers" || label === "Sales" || label === "Purchases") return "Daily books";
+  if (label === "Banking" || label === "Accounting" || label === "Inventory") return "Operations";
+  if (label === "Documents" || label === "Compliance" || label === "Reports") return "Review";
+  return "Administration";
 }
 
 export function MobileWorkflowNav() {
