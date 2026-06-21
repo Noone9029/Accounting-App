@@ -9,9 +9,21 @@ import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-d
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { StatusBadge } from "@/components/ui-ledger/status-badge";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerMoney,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
@@ -580,80 +592,84 @@ export default function SalesInvoiceDetailPage() {
   const invoiceDetailHref = salesInvoiceDetailHref(params.id, returnTo);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{invoice ? invoice.invoiceNumber : "Sales invoice"}</h1>
-          <p className="mt-1 text-sm text-steel">Invoice detail, calculated totals, and linked journal entry.</p>
-          {invoice ? <p className="mt-1 text-xs text-steel">Invoice PDF downloads create an archive record for later review.</p> : null}
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales invoice"
+        title={invoice ? invoice.invoiceNumber : "Sales invoice"}
+        badge={invoice ? <LedgerStatusBadge tone={salesInvoiceStatusTone(invoice.status)}>{salesInvoiceStatusLabel(invoice.status)}</LedgerStatusBadge> : null}
+        description={
+          <>
+            <div>Invoice detail, calculated totals, and linked journal entry.</div>
+            {invoice ? <div className="text-xs">Invoice PDF downloads create an archive record for later review.</div> : null}
+          </>
+        }
+        actions={
+          <LedgerActionBar className="sm:flex-col xl:flex-row xl:justify-end">
+            <LedgerButton href={returnTo || "/sales/invoices"}>Back</LedgerButton>
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <Link href={`/sales/invoices/${invoice.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href={`/sales/invoices/${invoice.id}/edit`}>
               Edit
-            </Link>
+            </LedgerButton>
           ) : null}
           {invoice?.customerId ? (
-            <Link href={partyDetailHref("customer", invoice.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href={partyDetailHref("customer", invoice.customerId)}>
               Customer workspace
-            </Link>
+            </LedgerButton>
           ) : null}
           {invoice ? (
-            <button type="button" onClick={() => void downloadInvoicePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void downloadInvoicePdf()} disabled={actionLoading}>
               Download invoice PDF
-            </button>
+            </LedgerButton>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
-            <Link
+            <LedgerButton
               href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+              variant="primary"
             >
               Record payment
-            </Link>
+            </LedgerButton>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
-            <Link
+            <LedgerButton
               href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
               Create credit note
-            </Link>
+            </LedgerButton>
           ) : null}
           {invoice?.status === "FINALIZED" && stockIssueStatus && canCreateStockIssue && hasStockIssueRemaining(stockIssueStatus) ? (
-            <Link href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+            <LedgerButton href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`}>
               Issue stock
-            </Link>
+            </LedgerButton>
           ) : null}
           {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <LedgerButton onClick={() => void runAction("finalize")} disabled={actionLoading} variant="primary">
               Finalize
-            </button>
+            </LedgerButton>
           ) : null}
           {invoice && invoice.status !== "VOIDED" && canVoidInvoice ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void runAction("void")} disabled={actionLoading} variant="danger">
               Void
-            </button>
+            </LedgerButton>
           ) : null}
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <button type="button" onClick={() => void deleteInvoice()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void deleteInvoice()} disabled={actionLoading} variant="danger">
               Delete
-            </button>
+            </LedgerButton>
           ) : null}
-        </div>
-      </div>
+          </LedgerActionBar>
+        }
+      />
 
-      <div className="space-y-3">
+      <LedgerPageBody>
+        <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load invoices.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading invoice...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+        </div>
 
       {invoice ? (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
       <InvoiceWorkflowGuidance
         invoice={invoice}
         actionLoading={actionLoading}
@@ -676,10 +692,13 @@ export default function SalesInvoiceDetailPage() {
             returnTo={returnTo}
           />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+          <LedgerSection
+            title="Invoice snapshot"
+            description="Customer, status, posting, and source details for this invoice."
+          >
+            <LedgerMetricGrid>
               <Summary label="Customer" value={invoice.customer?.displayName ?? invoice.customer?.name ?? "-"} />
-              <Summary label="Status" value={invoice.status} />
+              <Summary label="Status" value={salesInvoiceStatusLabel(invoice.status)} />
               <Summary label="Issue date" value={new Date(invoice.issueDate).toLocaleDateString()} />
               <Summary label="Due date" value={formatOptionalDate(invoice.dueDate)} />
               <Summary label="Currency" value={invoice.currency} />
@@ -692,8 +711,8 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Finalized" value={invoice.finalizedAt ? new Date(invoice.finalizedAt).toLocaleString() : "-"} />
               <Summary label="Notes" value={invoice.notes ?? "-"} />
               <Summary label="Terms" value={invoice.terms ?? "-"} />
-            </div>
-          </div>
+            </LedgerMetricGrid>
+          </LedgerSection>
 
           {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
 
@@ -709,8 +728,11 @@ export default function SalesInvoiceDetailPage() {
             <StatusMessage type="info">UAE eInvoicing readiness requires compliance view permission.</StatusMessage>
           ) : null}
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[1040px] text-left text-sm">
+          <LedgerSection
+            title="Line items"
+            description="Invoice quantities, revenue accounts, discounts, tax, and line totals."
+          >
+            <LedgerDataTable minWidth="1040px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Description</th>
@@ -730,63 +752,62 @@ export default function SalesInvoiceDetailPage() {
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
                     <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.unitPrice, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineGrossAmount, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.discountAmount, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxableAmount, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxAmount, invoice.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineTotal, invoice.currency)}</td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineGrossAmount, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxableAmount, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, invoice.currency)}</LedgerMoney></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </LedgerDataTable>
+          </LedgerSection>
 
-          <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ml-auto">
-            <span className="text-steel">Subtotal</span>
-            <span className="text-right font-mono">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</span>
-            <span className="text-steel">Discount</span>
-            <span className="text-right font-mono">{formatMoneyAmount(invoice.discountTotal, invoice.currency)}</span>
-            <span className="text-steel">Taxable</span>
-            <span className="text-right font-mono">{formatMoneyAmount(invoice.taxableTotal, invoice.currency)}</span>
-            <span className="text-steel">VAT</span>
-            <span className="text-right font-mono">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</span>
-            <span className="font-semibold text-ink">Total</span>
-            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(invoice.total, invoice.currency)}</span>
-            <span className="font-semibold text-ink">Balance due</span>
-            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</span>
-          </div>
+          <LedgerSummaryBand>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-6">
+              <dt className="text-steel">Subtotal</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></dd>
+              <dt className="text-steel">Discount</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.discountTotal, invoice.currency)}</LedgerMoney></dd>
+              <dt className="text-steel">Taxable</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.taxableTotal, invoice.currency)}</LedgerMoney></dd>
+              <dt className="text-steel">VAT</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></dd>
+              <dt className="font-semibold text-ink">Total</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></dd>
+              <dt className="font-semibold text-ink">Balance due</dt>
+              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></dd>
+            </dl>
+          </LedgerSummaryBand>
 
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Payments</h2>
-                <p className="mt-1 text-sm text-steel">{deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with {formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.</p>
-              </div>
-              {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <LedgerSection
+            title="Payments"
+            description={`${deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with ${formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.`}
+            action={
+              invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
+                <LedgerActionBar>
                   {canCreateCustomerPayment ? (
-                    <Link
+                    <LedgerButton
                       href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
+                      variant="primary"
                     >
                       Record payment
-                    </Link>
+                    </LedgerButton>
                   ) : null}
                   {canCreateCreditNote ? (
-                    <Link
+                    <LedgerButton
                       href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
                     >
                       Create credit note
-                    </Link>
+                    </LedgerButton>
                   ) : null}
-                </div>
-              ) : null}
-            </div>
+                </LedgerActionBar>
+              ) : null
+            }
+          >
             {invoice.paymentAllocations && invoice.paymentAllocations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
+              <LedgerDataTable minWidth="720px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Payment</th>
@@ -800,14 +821,14 @@ export default function SalesInvoiceDetailPage() {
                     {invoice.paymentAllocations.map((allocation) => (
                       <tr key={allocation.id}>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
                         <td className="px-4 py-3">
                           {allocation.payment ? (
-                            <Link href={`/sales/customer-payments/${allocation.payment.id}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <LedgerButton href={`/sales/customer-payments/${allocation.payment.id}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} size="sm">
                               View payment
-                            </Link>
+                            </LedgerButton>
                           ) : (
                             "-"
                           )}
@@ -815,25 +836,20 @@ export default function SalesInvoiceDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">
-                  No payments have been applied yet. Finalized invoices can be paid from the Record payment action.
-                </StatusMessage>
-              </div>
+              <StatusMessage type="empty">
+                No payments have been applied yet. Finalized invoices can be paid from the Record payment action.
+              </StatusMessage>
             )}
-          </div>
+          </LedgerSection>
 
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-base font-semibold text-ink">Unapplied payment applications</h2>
-              <p className="mt-1 text-sm text-steel">Unapplied customer payment credits matched to this invoice. These rows are balance matching records, not accounting postings.</p>
-            </div>
+          <LedgerSection
+            title="Unapplied payment applications"
+            description="Unapplied customer payment credits matched to this invoice. These rows are balance matching records, not accounting postings."
+          >
             {invoice.paymentUnappliedAllocations && invoice.paymentUnappliedAllocations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[860px] text-left text-sm">
+              <LedgerDataTable minWidth="860px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Payment</th>
@@ -849,47 +865,42 @@ export default function SalesInvoiceDetailPage() {
                     {invoice.paymentUnappliedAllocations.map((allocation) => (
                       <tr key={allocation.id}>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
                             {customerPaymentUnappliedAllocationStatusLabel(allocation)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3">
-                          <Link href={`/sales/customer-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          <LedgerButton href={`/sales/customer-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} size="sm">
                             View payment
-                          </Link>
+                          </LedgerButton>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">No unapplied payment credit has been matched to this invoice.</StatusMessage>
-              </div>
+              <StatusMessage type="empty">No unapplied payment credit has been matched to this invoice.</StatusMessage>
             )}
-          </div>
+          </LedgerSection>
 
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Credit notes</h2>
-                <p className="mt-1 text-sm text-steel">Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry.</p>
-              </div>
-              {invoice.status === "FINALIZED" && canCreateCreditNote ? (
-                <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="self-start rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+          <LedgerSection
+            title="Credit notes"
+            description="Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry."
+            action={
+              invoice.status === "FINALIZED" && canCreateCreditNote ? (
+                <LedgerButton href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`}>
                   Create credit note
-                </Link>
-              ) : null}
-            </div>
+                </LedgerButton>
+              ) : null
+            }
+          >
             {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+              <LedgerDataTable minWidth="760px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Credit note</th>
@@ -904,37 +915,32 @@ export default function SalesInvoiceDetailPage() {
                     {invoice.creditNotes.map((creditNote) => (
                       <tr key={creditNote.id}>
                         <td className="px-4 py-3 font-mono text-xs">{creditNote.creditNoteNumber}</td>
-                        <td className="px-4 py-3 text-steel">{new Date(creditNote.issueDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-3"><LedgerDate>{new Date(creditNote.issueDate).toLocaleDateString()}</LedgerDate></td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{creditNoteStatusLabel(creditNote.status)}</span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.total, creditNote.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(creditNote.total, creditNote.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</LedgerMoney></td>
                         <td className="px-4 py-3">
-                          <Link href={`/sales/credit-notes/${creditNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          <LedgerButton href={`/sales/credit-notes/${creditNote.id}`} size="sm">
                             View credit note
-                          </Link>
+                          </LedgerButton>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">No credit notes are linked to this invoice.</StatusMessage>
-              </div>
+              <StatusMessage type="empty">No credit notes are linked to this invoice.</StatusMessage>
             )}
-          </div>
+          </LedgerSection>
 
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-base font-semibold text-ink">Credit applications</h2>
-              <p className="mt-1 text-sm text-steel">Credit note allocations applied to this invoice. These rows are matching records, not accounting postings.</p>
-            </div>
+          <LedgerSection
+            title="Credit applications"
+            description="Credit note allocations applied to this invoice. These rows are matching records, not accounting postings."
+          >
             {invoice.creditNoteAllocations && invoice.creditNoteAllocations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left text-sm">
+              <LedgerDataTable minWidth="900px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Credit note</th>
@@ -950,7 +956,7 @@ export default function SalesInvoiceDetailPage() {
                     {invoice.creditNoteAllocations.map((allocation) => (
                       <tr key={allocation.id}>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.creditNote?.creditNoteNumber ?? allocation.creditNoteId}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.creditNote ? new Date(allocation.creditNote.issueDate).toLocaleDateString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.creditNote ? new Date(allocation.creditNote.issueDate).toLocaleDateString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3">
                           {allocation.creditNote ? (
                             <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(allocation.creditNote.status)}`}>{creditNoteStatusLabel(allocation.creditNote.status)}</span>
@@ -958,30 +964,27 @@ export default function SalesInvoiceDetailPage() {
                             "-"
                           )}
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{creditNoteAllocationStatusLabel(allocation)}</span>
                         </td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3">
-                          <Link href={`/sales/credit-notes/${allocation.creditNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          <LedgerButton href={`/sales/credit-notes/${allocation.creditNoteId}`} size="sm">
                             View credit note
-                          </Link>
+                          </LedgerButton>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">No credit note allocations have been applied to this invoice.</StatusMessage>
-              </div>
+              <StatusMessage type="empty">No credit note allocations have been applied to this invoice.</StatusMessage>
             )}
-          </div>
+          </LedgerSection>
 
           {canViewZatca && edition.showZatca ? (
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-ink">Local ZATCA readiness groundwork</h2>
@@ -990,7 +993,7 @@ export default function SalesInvoiceDetailPage() {
               <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(zatca?.zatcaStatus)}</span>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+            <LedgerMetricGrid className="mt-4">
               <Summary label="Invoice UUID" value={zatca?.invoiceUuid ?? "-"} />
               <Summary label="ICV" value={zatca?.icv === null || zatca?.icv === undefined ? "-" : String(zatca.icv)} />
               <Summary label="Invoice hash" value={truncateHash(zatca?.invoiceHash)} />
@@ -1001,7 +1004,7 @@ export default function SalesInvoiceDetailPage() {
               <Summary label="Action status" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.status) : "-"} />
               <Summary label="Last error" value={zatca?.lastErrorMessage ?? "-"} />
               <Summary label="Action error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
-            </div>
+            </LedgerMetricGrid>
 
             {zatcaReadiness ? (
               <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
@@ -1056,14 +1059,13 @@ export default function SalesInvoiceDetailPage() {
                   Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, approved immutable policy, legal retention review, object versioning, restore testing, real CSID/certificate/key custody, and a separate promotion workflow.
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
+                  <LedgerButton
                     onClick={() => void createSignedArtifactDraft()}
                     disabled={actionLoading || !canManageZatca || !signedArtifactStoragePlan.metadataOnlyDraftAllowed}
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    size="sm"
                   >
                     Create metadata-only draft
-                  </button>
+                  </LedgerButton>
                   <span className="text-xs text-amber-700">No signed XML body, QR payload body, CSID request, ZATCA network call, or submission.</span>
                 </div>
                 {latestSignedArtifactDraft ? (
@@ -1106,14 +1108,13 @@ export default function SalesInvoiceDetailPage() {
                   </ul>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
+                  <LedgerButton
                     onClick={runLocalSigningDryRun}
                     disabled={actionLoading}
-                    className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    size="sm"
                   >
                     View local signing dry-run
-                  </button>
+                  </LedgerButton>
                   <span className="text-xs text-amber-700">Local-only. Default gate is disabled; no CSID, network, submission, or persistence.</span>
                 </div>
                 {localSigningDryRun ? (
@@ -1146,49 +1147,49 @@ export default function SalesInvoiceDetailPage() {
 
             <div className="mt-4 flex flex-wrap gap-2">
               {invoice.status === "FINALIZED" && canGenerateZatca ? (
-                <button type="button" onClick={() => void generateZatca()} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                <LedgerButton onClick={() => void generateZatca()} disabled={actionLoading} variant="primary">
                   Generate ZATCA XML/QR
-                </button>
+                </LedgerButton>
               ) : null}
               {zatca?.xmlBase64 ? (
-                <button type="button" onClick={() => void downloadZatcaXml()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void downloadZatcaXml()} disabled={actionLoading}>
                   Download XML
-                </button>
+                </LedgerButton>
               ) : null}
               {zatca?.qrCodeBase64 ? (
-                <button type="button" onClick={() => void loadQrPayload()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void loadQrPayload()} disabled={actionLoading}>
                   View QR payload
-                </button>
+                </LedgerButton>
               ) : null}
               {canRunZatcaChecks ? (
-                <button type="button" onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                <LedgerButton onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading}>
                   Run local/mock compliance check
-                </button>
+                </LedgerButton>
               ) : null}
               {canManageZatca ? (
-                <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading}>
                   Check clearance blocker
-                </button>
+                </LedgerButton>
               ) : null}
               {canManageZatca ? (
-                <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading}>
                   Check reporting blocker
-                </button>
+                </LedgerButton>
               ) : null}
               {canRunZatcaChecks ? (
-                <button type="button" onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading}>
                   SDK validation dry run
-                </button>
+                </LedgerButton>
               ) : null}
               {canRunZatcaChecks ? (
-                <button type="button" onClick={() => void runLocalSdkValidation()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                <LedgerButton onClick={() => void runLocalSdkValidation()} disabled={!zatca?.xmlBase64 || actionLoading}>
                   Run local SDK validation
-                </button>
+                </LedgerButton>
               ) : null}
               {canRunZatcaChecks ? (
-                <button type="button" onClick={() => void runHashComparison()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton onClick={() => void runHashComparison()} disabled={!zatca?.xmlBase64 || actionLoading}>
                   Compare SDK hash
-                </button>
+                </LedgerButton>
               ) : null}
             </div>
 
@@ -1202,14 +1203,13 @@ export default function SalesInvoiceDetailPage() {
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${xmlValidation?.valid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                     {zatcaXmlValidationLabel(xmlValidation?.valid)}
                   </span>
-                  <button
-                    type="button"
+                  <LedgerButton
                     onClick={() => void refreshXmlValidation()}
                     disabled={actionLoading}
-                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                    size="sm"
                   >
                     Refresh check
-                  </button>
+                  </LedgerButton>
                 </div>
               </div>
               {shouldShowZatcaLocalOnlyWarning(xmlValidation) ? (
@@ -1354,11 +1354,12 @@ export default function SalesInvoiceDetailPage() {
                 <div className="mt-1 break-all font-mono text-xs text-ink">{qrPayload}</div>
               </div>
             ) : null}
-          </div>
+          </LedgerPanel>
           ) : null}
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -1387,13 +1388,13 @@ export function InvoiceWorkflowGuidance({
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <PanelSection title="What happened?" description={invoiceOutcomeDescription(invoice, paymentState)}>
+      <LedgerSection title="What happened?" description={invoiceOutcomeDescription(invoice, paymentState)}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="text-sm leading-6 text-muted-foreground">Invoice workflow summary</div>
+          <div className="text-sm leading-6 text-steel">Invoice workflow summary</div>
           <div className="flex flex-wrap gap-2">
-            <StatusBadge tone={invoice.status === "FINALIZED" ? "success" : invoice.status === "VOIDED" ? "danger" : "muted"}>{statusLabel}</StatusBadge>
+            <LedgerStatusBadge tone={salesInvoiceStatusTone(invoice.status)}>{statusLabel}</LedgerStatusBadge>
             {invoice.status === "FINALIZED" ? (
-              <StatusBadge tone={paymentState === "Paid" ? "success" : paymentState === "Partially paid" ? "warning" : "muted"}>{paymentState}</StatusBadge>
+              <LedgerStatusBadge tone={invoicePaymentStateTone(paymentState)}>{paymentState}</LedgerStatusBadge>
             ) : null}
           </div>
         </div>
@@ -1402,57 +1403,55 @@ export function InvoiceWorkflowGuidance({
           <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
           <Summary label="Journal" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} posted` : "Not posted yet"} />
         </div>
-      </PanelSection>
+      </LedgerSection>
 
-      <PanelSection title="Next actions" description={invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}>
+      <LedgerSection title="Next actions" description={invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}>
         <div className="mt-4 flex flex-col gap-2">
           {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-            <Button
-              type="button"
+            <LedgerButton
               onClick={onFinalize}
               disabled={actionLoading}
+              variant="primary"
             >
               Finalize invoice
-            </Button>
+            </LedgerButton>
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
-            <Link href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`} className={buttonVariants()}>
+            <LedgerButton href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`} variant="primary">
               Record payment
-            </Link>
+            </LedgerButton>
           ) : null}
-          <Button
-            type="button"
-            variant="outline"
+          <LedgerButton
             onClick={onDownloadPdf}
             disabled={actionLoading}
           >
             Download invoice PDF
-          </Button>
+          </LedgerButton>
           {invoice.customerId ? (
-            <Link href={`/customers/${invoice.customerId}`} className={buttonVariants({ variant: "outline" })}>
+            <LedgerButton href={`/customers/${invoice.customerId}`}>
               View customer ledger
-            </Link>
+            </LedgerButton>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link href="/reports/profit-and-loss" className={buttonVariants({ variant: "outline" })}>
+            <LedgerButton href="/reports/profit-and-loss">
               View report
-            </Link>
-            <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
+            </LedgerButton>
+            <LedgerButton href="/dashboard">
               Dashboard
-            </Link>
+            </LedgerButton>
           </div>
         </div>
         {invoice.status === "DRAFT" && !canFinalizeInvoice ? (
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">You need invoice finalization permission before this draft can be posted.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">You need invoice finalization permission before this draft can be posted.</p>
         ) : null}
         {invoice.status === "FINALIZED" && hasBalanceDue && !canCreateCustomerPayment ? (
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">You need customer payment permission to record money against this invoice.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">You need customer payment permission to record money against this invoice.</p>
         ) : null}
         {invoice.status === "VOIDED" ? (
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
         ) : null}
         <SourceDocumentGuidance className="mt-4" />
-      </PanelSection>
+      </LedgerSection>
     </div>
   );
 }
@@ -1473,25 +1472,25 @@ function salesInvoiceStatusLabel(status: SalesInvoice["status"]): string {
   }
 }
 
-function salesInvoiceStatusBadgeClass(status: SalesInvoice["status"]): string {
+function salesInvoiceStatusTone(status: SalesInvoice["status"]): "draft" | "success" | "danger" {
   switch (status) {
     case "DRAFT":
-      return "bg-slate-100 text-slate-700";
+      return "draft";
     case "FINALIZED":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "VOIDED":
-      return "bg-rose-50 text-rosewood";
+      return "danger";
   }
 }
 
-function invoicePaymentStateBadgeClass(paymentState: ReturnType<typeof deriveInvoicePaymentState>): string {
+function invoicePaymentStateTone(paymentState: ReturnType<typeof deriveInvoicePaymentState>): "neutral" | "success" | "warning" {
   switch (paymentState) {
     case "Paid":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "Partially paid":
-      return "bg-amber-50 text-amber-700";
+      return "warning";
     case "Unpaid":
-      return "bg-slate-100 text-slate-700";
+      return "neutral";
   }
 }
 
@@ -1562,23 +1561,22 @@ function RelatedCollectionCasesPanel({
   const createHref = `/sales/collections/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(salesInvoiceDetailHref(invoice.id, returnTo))}`;
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Related collection cases</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{collectionsSafeWording}</p>
-        </div>
-        {canCreateFromInvoice ? (
-          <Link href={createHref} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+    <LedgerSection
+      title="Related collection cases"
+      description={collectionsSafeWording}
+      action={
+        canCreateFromInvoice ? (
+          <LedgerButton href={createHref}>
             Create collection case
-          </Link>
-        ) : null}
-      </div>
+          </LedgerButton>
+        ) : null
+      }
+    >
       {loading ? <div className="mt-3"><StatusMessage type="loading">Loading collection cases...</StatusMessage></div> : null}
       {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">No collection case is linked to this invoice.</p> : null}
       {collectionCases.length > 0 ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+        <div className="mt-4">
+          <LedgerDataTable minWidth="760px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Case</th>
@@ -1600,29 +1598,29 @@ function RelatedCollectionCasesPanel({
                     <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{collectionStatusLabel(collectionCase.status)}</span>
                   </td>
                   <td className="px-3 py-2 text-steel">{collectionCase.priority}</td>
-                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</td>
+                  <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</LedgerDate></td>
                   <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.promisedPaymentDate, "-")} {collectionCase.promisedAmount ? `/ ${formatMoneyAmount(collectionCase.promisedAmount, invoice.currency)}` : ""}</td>
                   <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? collectionActivityTypeLabel(collectionCase.activities[0].activityType) : "-"}</td>
                   <td className="px-3 py-2">
-                    <Link href={`/sales/collections/${collectionCase.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <LedgerButton href={`/sales/collections/${collectionCase.id}`} size="sm">
                       Open
-                    </Link>
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </LedgerDataTable>
         </div>
       ) : null}
-    </div>
+    </LedgerSection>
   );
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    <div className="rounded-md bg-mist px-3 py-2">
+      <div className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 break-words text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }
@@ -1653,18 +1651,16 @@ function InvoiceReadinessSectionCard({ title, section }: { title: string; sectio
 
 function StockIssueStatusPanel({ status }: { status: SalesInvoiceStockIssueStatus }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Stock issue status</h2>
-          <p className="mt-1 text-sm text-steel">Operational stock issue progress for inventory-tracked invoice lines.</p>
-        </div>
+    <LedgerSection
+      title="Stock issue status"
+      description="Operational stock issue progress for inventory-tracked invoice lines."
+      action={
         <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryProgressStatusBadgeClass(status.status)}`}>
           {inventoryProgressStatusLabel(status.status)}
         </span>
-      </div>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+      }
+    >
+      <LedgerDataTable minWidth="640px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-3 py-2">Item</th>
@@ -1683,9 +1679,8 @@ function StockIssueStatusPanel({ status }: { status: SalesInvoiceStockIssueStatu
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+      </LedgerDataTable>
+    </LedgerSection>
   );
 }
 
