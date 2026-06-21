@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+Frontend redesign loop engineering (2026-06-22):
+
+- Added the full route-family redesign checklist in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
+- Began the Sales workspace loop by migrating `/sales/quotes` and tightening `/sales/invoices` list surfaces onto shared LedgerByte primitives.
+- Preserved product truth: sales quotes remain non-posting; invoice finalization remains explicit and permission-gated; no send, payment, compliance, storage, signed URL, or provider behavior changed.
+- Remaining Sales surfaces include invoice/quote detail pages and forms, credit notes, customer payments/refunds, recurring invoices, delivery notes, inventory returns, and collections.
+
 Frontend redesign continuation (2026-06-22):
 
 - Expanded the shared LedgerByte frontend system with reusable layout, table, form, state, workflow, summary, review, and breadcrumb primitives.

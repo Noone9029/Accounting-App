@@ -12,6 +12,16 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Migrated `/report-packs` onto shared page/header/metric/table/workflow/disabled-boundary primitives while preserving read-only preview behavior and all disabled execution boundaries.
 - Updated focused component and route-load tests for the shared system and settings overview route.
 
+## Loop Engineering Progress
+
+### 2026-06-22 Sales Workspace List Loop
+
+- Added `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` as the full-route tracking artifact for the ongoing redesign loop.
+- Migrated `/sales/quotes` list layout, filters, status badges, date/money cells, action buttons, and empty states to shared LedgerByte primitives.
+- Tightened `/sales/invoices` list layout around shared page/body, summary, data table, date/money cells, and empty states while preserving explicit finalize behavior.
+- Preserved quote truth: quotes remain non-posting and do not create journals, VAT filings, inventory movements, payments, email delivery, or compliance submissions from the list view.
+- Preserved invoice truth: invoice finalization remains the only explicit posting action on the list and keeps existing permission gates.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -21,7 +31,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 
 ## Remaining Frontend Route Families
 
-- Sales, purchases, contacts, and inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Sales detail/form/supporting flows, purchases, contacts, and inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
 - Banking import, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
 - Existing settings subroutes need gradual migration to shared panels/forms while preserving each route's permission and mutation behavior.

@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-ux-full-redesign`
+Branch: `codex/ui-rebuild-loop-full-frontend`
 
-Base: `origin/codex/ui-ux-rebuild-foundation`
+Base: `origin/main` after PR #144 and PR #145 merge
 
 ## Evidence Summary
 
@@ -17,6 +17,8 @@ Base: `origin/codex/ui-ux-rebuild-foundation`
 | Documents archive | `apps/web/src/app/(app)/documents/page.tsx` uses shared page, filter, table, and empty-state primitives while preserving local archive behavior. |
 | Report packs | `apps/web/src/app/(app)/report-packs/page.tsx` uses shared preview, metric, table, and disabled-boundary primitives while preserving read-only behavior. |
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
+| Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
+| Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 
 ## Verification Results
 
@@ -28,6 +30,18 @@ Base: `origin/codex/ui-ux-rebuild-foundation`
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/owner-settings-generated-document-storage-evidence.visual.spec.ts --grep "Owner owner-settings/generated-document evidence visual QA for (settings|documents) at (desktop|mobile)"`: PASS, 4 visual checks
 - `git diff --check`: PASS
 - `git diff --cached --check`: PASS
+
+## 2026-06-22 Sales Workspace Loop Evidence
+
+- `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`: ADDED and populated for Sales, Purchase, Banking, Contacts, Inventory, Accounting, Reports, Documents/Storage, Settings/Admin, Compliance, Setup/Onboarding, Dashboard, Marketing/Auth, and Placeholder/future routes.
+- `/sales/invoices`: tightened the foundation pass onto `LedgerPage`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerDate`, and shared action buttons. Existing explicit finalize action and permission checks remain unchanged.
+- `/sales/quotes`: migrated from route-local card/table/filter styles to shared LedgerByte primitives and added conservative non-posting quote wording. Existing create/edit links, customer/status filters, converted-invoice links, and quote status labels remain intact.
+- `apps/web/src/app/(app)/route-load-verification.test.tsx`: now loads `/sales/quotes` in the no-organization route safety batch.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification sales/quotes sales-quote-form ledger-system`: PASS, 27 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "sales-invoices authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "Accountant role route QA for sales-invoices at (desktop|mobile)"`: PASS for the matching mobile check; this spec only has compact route coverage for that route title.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/quote-workflow.visual.spec.ts --grep "sales quote create edit lifecycle"`: route assertions reached the final customer activity page, but the test failed its strict `consoleErrors` assertion because the browser captured five generic `Failed to load resource: the server responded with a status of 404 (Not Found)` messages. No fake quote visual pass is claimed from this run.
 
 ## Mutation Boundary
 
