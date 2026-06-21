@@ -1,16 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { AllocationTable } from "@/components/ui-ledger/allocation-table";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { PaymentSummaryCard } from "@/components/ui-ledger/payment-summary-card";
-import { StatusBadge } from "@/components/ui-ledger/status-badge";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -25,18 +39,21 @@ interface AllocationState {
   amountApplied: string;
 }
 
-const customerAllocationColumns = [
-  { key: "invoice", label: "Invoice", className: "min-w-32" },
-  { key: "issueDate", label: "Issue date" },
-  { key: "dueDate", label: "Due date" },
-  { key: "total", label: "Total" },
-  { key: "balanceDue", label: "Balance due" },
-  { key: "amountApplied", label: "Amount to apply" },
-  { key: "action", label: "Action" },
-] as const;
-
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function allocationStateTone(state: CustomerPaymentAllocationState): LedgerStatusTone {
+  switch (state) {
+    case "FULLY_APPLIED":
+      return "success";
+    case "PARTIALLY_UNAPPLIED":
+      return "warning";
+    case "NO_ALLOCATIONS":
+      return "neutral";
+    default:
+      return "neutral";
+  }
 }
 
 export default function NewCustomerPaymentPage() {
@@ -229,23 +246,25 @@ export default function NewCustomerPaymentPage() {
   }
 
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
         title="Record customer payment"
         description="Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop."
         actions={
           <>
-          <Link href="/setup" className={buttonVariants({ variant: "outline" })}>
+          <LedgerButton href="/setup">
             Guided setup
-          </Link>
-          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
+          </LedgerButton>
+          <LedgerButton href={returnTo || "/sales/customer-payments"} icon={ArrowLeft}>
             Back
-          </Link>
+          </LedgerButton>
           </>
         }
       />
 
-      <div className="space-y-3">
+      <LedgerPageBody>
+        <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to record payments.</StatusMessage> : null}
         {loadingSetup ? <StatusMessage type="loading">Loading payment setup data...</StatusMessage> : null}
         {loadingInvoices ? <StatusMessage type="loading">Loading open invoices...</StatusMessage> : null}
@@ -268,88 +287,87 @@ export default function NewCustomerPaymentPage() {
             .
           </StatusMessage>
         ) : null}
-      </div>
+        </div>
 
-      <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-5">
-        <PanelSection title="Payment details" description="Choose the customer, payment date, amount, and paid-through account.">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Customer</span>
-              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+        <form onSubmit={onSubmit} className="flex flex-col gap-5">
+          <LedgerFormSection title="Payment details" description="Choose the customer, payment date, amount, and paid-through account.">
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Customer</LedgerFieldText>
+              <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
                 <option value="">Select customer</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.displayName ?? customer.name}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-foreground">Payment date</span>
-              <Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-foreground">Amount received</span>
-              <Input inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="mt-1 font-mono tabular-nums" />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Paid-through account</span>
-              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Payment date</LedgerFieldText>
+              <LedgerInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Amount received</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="font-mono tabular-nums" />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Paid-through account</LedgerFieldText>
+              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
                 <option value="">Select cash or bank account</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Description</span>
-              <Input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1" />
-            </label>
-          </div>
-        </PanelSection>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Description</LedgerFieldText>
+              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
 
-        <PanelSection title="Invoice allocation" description="Apply this payment only to finalized open invoices for the selected customer." contentClassName="p-0">
-          <AllocationTable
-            columns={customerAllocationColumns}
-            rows={openInvoices}
-            rowKey={(invoice) => invoice.id}
-            minWidth="min-w-[880px]"
-            framed={false}
-            renderCell={(invoice, columnKey) => {
-                const allocation = allocations.find((candidate) => candidate.invoiceId === invoice.id);
-                switch (columnKey) {
-                  case "invoice":
-                    return <span className="font-mono text-xs">{invoice.invoiceNumber}</span>;
-                  case "issueDate":
-                    return <span className="text-muted-foreground">{new Date(invoice.issueDate).toLocaleDateString()}</span>;
-                  case "dueDate":
-                    return <span className="text-muted-foreground">{formatOptionalDate(invoice.dueDate)}</span>;
-                  case "total":
-                    return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(invoice.total, invoice.currency)}</span>;
-                  case "balanceDue":
-                    return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</span>;
-                  case "amountApplied":
-                    return (
-                      <Input
-                        inputMode="decimal"
-                        value={allocation?.amountApplied ?? "0.0000"}
-                        onChange={(event) => updateAllocation(invoice.id, event.target.value)}
-                        className="w-36 font-mono text-xs tabular-nums"
-                      />
-                    );
-                  case "action":
-                    return (
-                      <Button type="button" variant="outline" size="xs" onClick={() => applyFullBalance(invoice)}>
-                        Apply balance
-                      </Button>
-                    );
-                  default:
-                    return null;
-                }
-              }}
-          />
+          <LedgerSection title="Invoice allocation" description="Apply this payment only to finalized open invoices for the selected customer.">
+            <LedgerDataTable minWidth="880px" className="shadow-none">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Invoice</th>
+                  <th className="px-4 py-3">Issue date</th>
+                  <th className="px-4 py-3">Due date</th>
+                  <th className="px-4 py-3">Total</th>
+                  <th className="px-4 py-3">Balance due</th>
+                  <th className="px-4 py-3">Amount to apply</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {openInvoices.map((invoice) => {
+                  const allocation = allocations.find((candidate) => candidate.invoiceId === invoice.id);
+                  return (
+                    <tr key={invoice.id}>
+                      <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3"><LedgerDate>{new Date(invoice.issueDate).toLocaleDateString()}</LedgerDate></td>
+                      <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(invoice.dueDate)}</LedgerDate></td>
+                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></td>
+                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></td>
+                      <td className="px-4 py-3">
+                        <LedgerInput
+                          inputMode="decimal"
+                          value={allocation?.amountApplied ?? "0.0000"}
+                          onChange={(event) => updateAllocation(invoice.id, event.target.value)}
+                          className="w-36 font-mono text-xs tabular-nums"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <LedgerButton type="button" size="sm" onClick={() => applyFullBalance(invoice)}>
+                          Apply balance
+                        </LedgerButton>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </LedgerDataTable>
           {!loadingInvoices && customerId && openInvoices.length === 0 ? (
             <div className="px-4 py-5">
               <StatusMessage type="empty">
@@ -361,35 +379,40 @@ export default function NewCustomerPaymentPage() {
               </StatusMessage>
             </div>
           ) : null}
-        </PanelSection>
+          </LedgerSection>
 
-        <PaymentSummaryCard
-          className="w-full sm:ml-auto sm:max-w-sm"
-          rows={[
-            { label: "Amount received", value: formatMoneyAmount(preview.amountReceived) },
-            { label: "Allocated", value: formatMoneyAmount(preview.totalAllocated) },
-            { label: "Unapplied", value: formatMoneyAmount(preview.unappliedAmount), emphasized: true },
-            {
-              label: "Allocation state",
-              value: (
-                <StatusBadge tone={previewAllocationState === "FULLY_APPLIED" ? "success" : previewAllocationState === "PARTIALLY_UNAPPLIED" ? "warning" : "muted"}>
+          <LedgerSummaryBand>
+            <dl className="ml-auto grid max-w-sm grid-cols-2 gap-2 text-sm">
+              <dt>Amount received</dt>
+              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.amountReceived)}</LedgerMoney></dd>
+              <dt>Allocated</dt>
+              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.totalAllocated)}</LedgerMoney></dd>
+              <dt className="font-semibold text-ink">Unapplied</dt>
+              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(preview.unappliedAmount)}</LedgerMoney></dd>
+              <dt>Allocation state</dt>
+              <dd className="text-right">
+                <LedgerStatusBadge tone={allocationStateTone(previewAllocationState)}>
                   {customerPaymentAllocationStateLabel(previewAllocationState)}
-                </StatusBadge>
-              ),
-            },
-          ]}
-        />
+                </LedgerStatusBadge>
+              </dd>
+            </dl>
+          </LedgerSummaryBand>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid}>
+          <LedgerAlert tone="info">
+            Customer payments post only through this explicit record action. No payment provider, bank feed, or automatic reconciliation is called from this form.
+          </LedgerAlert>
+
+        <LedgerActionBar>
+          <LedgerButton type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} variant="primary" icon={Save}>
             {submitting ? "Recording..." : "Record payment"}
-          </Button>
-          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
+          </LedgerButton>
+          <LedgerButton href={returnTo || "/sales/customer-payments"}>
             Cancel
-          </Link>
-        </div>
-      </form>
-    </section>
+          </LedgerButton>
+        </LedgerActionBar>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 

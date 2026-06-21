@@ -1,16 +1,41 @@
 "use client";
 
-import Link from "next/link";
+import { Eye, Plus, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { customerRefundSourceTypeLabel, customerRefundStatusBadgeClass, customerRefundStatusLabel } from "@/lib/customer-refunds";
+import { customerRefundSourceTypeLabel, customerRefundStatusLabel } from "@/lib/customer-refunds";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerRefund } from "@/lib/types";
+
+function refundStatusTone(status: CustomerRefund["status"]): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "draft";
+    case "POSTED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
 
 export default function CustomerRefundsPage() {
   const organizationId = useActiveOrganizationId();
@@ -76,30 +101,37 @@ export default function CustomerRefundsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Customer refunds</h1>
-          <p className="mt-1 text-sm text-steel">Manual refunds of unapplied customer payments and credit notes.</p>
-        </div>
-        {canCreateRefund ? (
-          <Link href="/sales/customer-refunds/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Record refund
-          </Link>
-        ) : null}
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
+        title="Customer refunds"
+        description="Manual refunds of unapplied customer payments and credit notes."
+        actions={
+          canCreateRefund ? (
+            <LedgerButton href="/sales/customer-refunds/new" variant="primary" icon={Plus}>
+              Record refund
+            </LedgerButton>
+          ) : null
+        }
+      />
 
-      <div className="space-y-3">
+      <LedgerPageBody>
+        <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load customer refunds.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading customer refunds...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && refunds.length === 0 ? <StatusMessage type="empty">No customer refunds found.</StatusMessage> : null}
-      </div>
+        {!loading && organizationId && refunds.length === 0 ? (
+          <LedgerEmptyState
+            title="No customer refunds found"
+            description="Record a manual refund when unapplied customer payment or credit-note credit is returned."
+            action={canCreateRefund ? <LedgerButton href="/sales/customer-refunds/new" variant="primary" icon={Plus}>Record refund</LedgerButton> : null}
+          />
+        ) : null}
+        </div>
 
-      {refunds.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1120px] text-left text-sm">
+        {refunds.length > 0 ? (
+          <LedgerDataTable minWidth="1120px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Number</th>
@@ -117,33 +149,31 @@ export default function CustomerRefundsPage() {
                 <tr key={refund.id}>
                   <td className="px-4 py-3 font-mono text-xs">{refund.refundNumber}</td>
                   <td className="px-4 py-3 font-medium text-ink">{refund.customer?.displayName ?? refund.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(refund.refundDate, "-")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(refund.refundDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 text-steel">{customerRefundSourceTypeLabel(refund.sourceType)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(refund.amountRefunded, refund.currency)}</td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(refund.amountRefunded, refund.currency)}</LedgerMoney></td>
                   <td className="px-4 py-3 text-steel">{refund.account ? `${refund.account.code} ${refund.account.name}` : "-"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerRefundStatusBadgeClass(refund.status)}`}>
-                      {customerRefundStatusLabel(refund.status)}
-                    </span>
+                    <LedgerStatusBadge tone={refundStatusTone(refund.status)}>{customerRefundStatusLabel(refund.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Link href={`/sales/customer-refunds/${refund.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <LedgerButton href={`/sales/customer-refunds/${refund.id}`} size="sm" icon={Eye}>
                         View
-                      </Link>
+                      </LedgerButton>
                       {refund.status === "POSTED" && canVoidRefund ? (
-                        <button type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <LedgerButton type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} size="sm" variant="danger" icon={Undo2}>
                           Void
-                        </button>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
