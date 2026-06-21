@@ -155,9 +155,31 @@ Recommended outcome:
 - Keep AI non-authoritative and operator-approved.
 - Do not implement AI runtime behavior.
 
+## Goal 22: Report Pack Preview UI Consumption
+
+Scope: frontend read-only preview consumption only.
+
+Status: implemented in `codex/report-pack-preview-ui`.
+
+Outcome:
+
+- Connect `/report-packs` to `GET /reports/report-pack/manifest-preview`.
+- Display supported report items, planning status, and disabled execution boundaries.
+- Link only to existing active web report pages; preview-only API report items are not exposed as active navigation.
+- Do not add generation, downloads, exports, email sending, scheduling, archive writes, generated-document mutation, object storage, signed URLs, provider calls, or compliance behavior.
+
+## Goal 23: Report Pack Generation/Export Design
+
+Scope: docs/API/schema design only.
+
+Recommended outcome:
+
+- Design the future report-pack generation/export/download/archive workflow, permissions, audit events, storage dependencies, idempotency, retention, and rollback boundaries.
+- Keep runtime generation, downloads, exports, email sending, scheduling, archive writes, generated-document mutation, object storage, signed URLs, provider calls, hosted mutations, and compliance behavior out of scope.
+
 ## Separate Workstreams
 
-The following work remains separate from Goals 10 through 20:
+The following work remains separate from Goals 10 through 23:
 
 - Generated-document object storage approval and implementation.
 - Signed URL design and implementation.

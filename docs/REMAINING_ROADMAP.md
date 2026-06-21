@@ -1264,7 +1264,7 @@ Tasks:
 - Official VAT return report.
 - Scheduled/email report delivery.
 - Customer/supplier statement layout review.
-- Convert the DEV-10 reports/financial statements production gaps into scoped accountant-review, official VAT, scheduled/email delivery, report-pack, advanced reporting, generated-document storage, restricted-role matrix, E2E, and load/concurrency tickets.
+- Convert the DEV-10 reports/financial statements production gaps into scoped accountant-review, official VAT, scheduled/email delivery, report-pack generation/export/download/archive design, advanced reporting, generated-document storage, restricted-role matrix, E2E, and load/concurrency tickets. The read-only report-pack preview UI exists, but it does not generate, export, download, email, schedule, archive, store, or submit anything.
 - Convert the DEV-12 generated-document production gaps into scoped object-storage, DB/base64 migration, signed URL, lifecycle, legal-hold, retention approval, malware scanning, backup/restore, purge executor, versioning/supersede, PDF/A-3/ZATCA boundary, hosted proof, E2E, and load/concurrency tickets.
 
 Manual dependencies:
