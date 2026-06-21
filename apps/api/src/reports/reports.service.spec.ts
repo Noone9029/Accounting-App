@@ -10,6 +10,7 @@ import {
   agingBucket,
   buildAgingReport,
   buildBalanceSheetReport,
+  buildCashFlowReport,
   buildGeneralLedgerReport,
   buildProfitAndLossReport,
   buildRevenueTrendReport,
@@ -111,6 +112,42 @@ describe("reports service builders", () => {
       expenses: "25.0000",
       netProfit: "135.0000",
     });
+  });
+
+  it("builds cash flow from cash and bank journal lines", () => {
+    const report = buildCashFlowReport(
+      [
+        dashboardLine("cash", "111", AccountType.ASSET, "2025-12-31", JournalEntryStatus.POSTED, "200.0000", "0.0000"),
+        dashboardLine("bank", "112", AccountType.ASSET, "2025-12-31", JournalEntryStatus.POSTED, "0.0000", "50.0000"),
+      ],
+      [
+        dashboardLine("cash", "111", AccountType.ASSET, "2026-01-05", JournalEntryStatus.POSTED, "150.0000", "0.0000"),
+        dashboardLine("bank", "112", AccountType.ASSET, "2026-01-06", JournalEntryStatus.POSTED, "0.0000", "40.0000"),
+        dashboardLine("bank", "112", AccountType.ASSET, "2026-02-07", JournalEntryStatus.REVERSED, "30.0000", "0.0000"),
+      ],
+      { from: "2026-01-01", to: "2026-02-28", accountCount: 2 },
+    );
+
+    expect(report).toMatchObject({
+      from: "2026-01-01",
+      to: "2026-02-28",
+      basis: "POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES",
+      totals: {
+        openingCash: "150.0000",
+        inflows: "180.0000",
+        outflows: "40.0000",
+        netCashFlow: "140.0000",
+        closingCash: "290.0000",
+        accountCount: 2,
+        lineCount: 3,
+      },
+      rows: [
+        { period: "2026-01", inflows: "150.0000", outflows: "40.0000", netCashFlow: "110.0000", lineCount: 2 },
+        { period: "2026-02", inflows: "30.0000", outflows: "0.0000", netCashFlow: "30.0000", lineCount: 1 },
+      ],
+    });
+    expect(report.notes.join(" ")).toContain("journal lines");
+    expect(report.notes.join(" ")).toContain("does not initiate payments");
   });
 
   it("builds monthly revenue trend from revenue journal lines", () => {
@@ -656,6 +693,79 @@ describe("reports service builders", () => {
     );
   });
 
+  it("calculates cash flow from active-organization active cash and bank accounts inside the date range", async () => {
+    const journalLines = [
+      dashboardLine("cash", "111", AccountType.ASSET, "2025-12-31", JournalEntryStatus.POSTED, "200.0000", "0.0000"),
+      dashboardLine("bank", "112", AccountType.ASSET, "2025-12-31", JournalEntryStatus.POSTED, "0.0000", "50.0000"),
+      dashboardLine("cash", "111", AccountType.ASSET, "2026-01-05", JournalEntryStatus.POSTED, "150.0000", "0.0000"),
+      dashboardLine("bank", "112", AccountType.ASSET, "2026-01-06", JournalEntryStatus.REVERSED, "0.0000", "40.0000"),
+      dashboardLine("expense", "511", AccountType.EXPENSE, "2026-01-07", JournalEntryStatus.POSTED, "999.0000", "0.0000"),
+      dashboardLine("cash", "111", AccountType.ASSET, "2026-01-08", JournalEntryStatus.VOIDED, "888.0000", "0.0000"),
+      dashboardLine("cash", "111", AccountType.ASSET, "2026-02-01", JournalEntryStatus.POSTED, "777.0000", "0.0000"),
+      { ...dashboardLine("cash", "111", AccountType.ASSET, "2026-01-09", JournalEntryStatus.POSTED, "666.0000", "0.0000"), organizationId: "org-2" },
+    ];
+    const prisma = {
+      bankAccountProfile: {
+        findMany: jest.fn().mockResolvedValue([
+          { accountId: "cash", displayName: "Cash", account: { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET } },
+          { accountId: "bank", displayName: "Bank", account: { id: "bank", code: "112", name: "Bank", type: AccountType.ASSET } },
+        ]),
+      },
+      journalLine: { findMany: jest.fn(async (args: any) => journalLines.filter((line) => matchesDashboardLineWhere(line, args.where))) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.cashFlow("org-1", { from: "2026-01-01", to: "2026-01-31" });
+
+    expect(report).toMatchObject({
+      totals: {
+        openingCash: "150.0000",
+        inflows: "150.0000",
+        outflows: "40.0000",
+        netCashFlow: "110.0000",
+        closingCash: "260.0000",
+        accountCount: 2,
+        lineCount: 2,
+      },
+      rows: [{ period: "2026-01", inflows: "150.0000", outflows: "40.0000", netCashFlow: "110.0000", lineCount: 2 }],
+    });
+    expect(prisma.bankAccountProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          status: BankAccountStatus.ACTIVE,
+          account: { is: { allowPosting: true, isActive: true, type: AccountType.ASSET } },
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          accountId: { in: ["cash", "bank"] },
+          journalEntry: expect.objectContaining({
+            status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
+            entryDate: { lt: new Date("2026-01-01T00:00:00.000Z") },
+          }),
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          accountId: { in: ["cash", "bank"] },
+          journalEntry: expect.objectContaining({
+            status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
+            entryDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("calculates revenue trend from active-organization posted revenue lines inside the date range", async () => {
     const journalLines = [
       dashboardLine("revenue", "411", AccountType.REVENUE, "2026-01-08", JournalEntryStatus.POSTED, "0.0000", "120.0000"),
@@ -684,6 +794,34 @@ describe("reports service builders", () => {
           journalEntry: expect.objectContaining({
             status: { in: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] },
             entryDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("passes optional branch filters into cash flow journal reads", async () => {
+    const prisma = {
+      bankAccountProfile: {
+        findMany: jest.fn().mockResolvedValue([{ accountId: "cash", displayName: "Cash", account: { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET } }]),
+      },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ReportsService(prisma as never);
+
+    await service.cashFlow("org-1", { branchId: " branch-1 ", from: "2026-01-01", to: "2026-01-31" });
+
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          accountId: { in: ["cash"] },
+          journalEntry: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { salesInvoice: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+              { purchaseBill: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+            ]),
           }),
         }),
       }),
@@ -1009,7 +1147,7 @@ function matchesDashboardLineWhere(
     organizationId: string;
     accountId?: { in?: string[] };
     account?: { is?: { type?: AccountType; code?: { in?: string[] } } };
-    journalEntry?: { status?: { in?: JournalEntryStatus[] }; entryDate?: { gte?: Date; lte?: Date } };
+    journalEntry?: { status?: { in?: JournalEntryStatus[] }; entryDate?: { gte?: Date; lte?: Date; lt?: Date } };
   },
 ) {
   const entryDate = line.journalEntry.entryDate;
@@ -1020,7 +1158,8 @@ function matchesDashboardLineWhere(
     (!where.account?.is?.code?.in || where.account.is.code.in.includes(line.account.code)) &&
     (!where.journalEntry?.status?.in || where.journalEntry.status.in.includes(line.journalEntry.status)) &&
     (!where.journalEntry?.entryDate?.gte || entryDate >= where.journalEntry.entryDate.gte) &&
-    (!where.journalEntry?.entryDate?.lte || entryDate <= where.journalEntry.entryDate.lte)
+    (!where.journalEntry?.entryDate?.lte || entryDate <= where.journalEntry.entryDate.lte) &&
+    (!where.journalEntry?.entryDate?.lt || entryDate < where.journalEntry.entryDate.lt)
   );
 }
 
