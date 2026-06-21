@@ -7,8 +7,9 @@
 - First loop migrates `/sales/quotes` and tightens `/sales/invoices` list surfaces onto shared LedgerByte primitives while preserving quote non-posting and invoice finalization truth.
 - Second loop starts Purchase by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives while preserving explicit AP posting and debit-note adjustment truth.
 - Third loop starts Banking by migrating `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte primitives while preserving manual-review and no-live-feed truth.
-- Remaining immediate frontend loop work: Sales, Purchase, and Banking detail/form/supporting routes, then Contacts, Inventory, Accounting, Reports, Settings/Compliance, Setup/Dashboard, Marketing/Auth, and placeholders.
-- Recommended next prompt if interrupted: `Continue UI-REBUILD-LOOP-FULL-01 from banking statement review/import routes, then continue route-family loops`.
+- Fourth loop starts Contacts by migrating `/contacts` list/create surface onto shared LedgerByte primitives while preserving customer/supplier handoffs and local-only readiness truth.
+- Remaining immediate frontend loop work: Sales, Purchase, Banking, and Contacts detail/form/supporting routes, then Inventory, Accounting, Reports, Settings/Compliance, Setup/Dashboard, Marketing/Auth, and placeholders.
+- Recommended next prompt if interrupted: `Continue UI-REBUILD-LOOP-FULL-01 from contact detail/customer/supplier statement routes, then continue route-family loops`.
 
 ## 2026-06-22 Frontend Redesign Continuation
 

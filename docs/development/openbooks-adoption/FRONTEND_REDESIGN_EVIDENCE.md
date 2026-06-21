@@ -21,6 +21,7 @@ Base: `origin/main` after PR #144 and PR #145 merge
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
+| Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 
 ## Verification Results
 
@@ -64,6 +65,18 @@ Base: `origin/main` after PR #144 and PR #145 merge
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "bank-accounts authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks.
 - `/bank-transfers` list visual check was not run because this branch has detail visual coverage for `/bank-transfers/[id]` but no existing authenticated list fixture for `/bank-transfers`.
+
+## 2026-06-22 Contacts Workspace Loop Evidence
+
+- `/contacts`: migrated the contact list/create surface from route-local page/table/empty-state/button styling to shared `LedgerPage`, `LedgerPageBody`, `LedgerPageHeader`, `LedgerPanel`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerStatusBadge`, and `LedgerButton`.
+- The create form remains inline and permission-gated by `PERMISSIONS.contacts.manage`; customer/supplier handoff links remain unchanged.
+- Conservative readiness wording is preserved: adding VAT, ID, UAE, Peppol, and address fields does not send eInvoices, validate endpoints, submit ZATCA data, or call providers.
+- `apps/web/src/app/(app)/route-load-verification.test.tsx`: now covers `/contacts` without an active organization.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification contacts/page contacts page ledger-system`: PASS, 234 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
+- `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
 
 ## Mutation Boundary
 

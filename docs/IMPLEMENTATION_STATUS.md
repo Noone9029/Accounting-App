@@ -8,10 +8,12 @@ Frontend redesign loop engineering (2026-06-22):
 - Began the Sales workspace loop by migrating `/sales/quotes` and tightening `/sales/invoices` list surfaces onto shared LedgerByte primitives.
 - Began the Purchase workspace loop by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives.
 - Began the Banking workspace loop by migrating `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte primitives.
+- Began the Contacts workspace loop by migrating `/contacts` list/create surface onto shared LedgerByte primitives.
 - Preserved product truth: sales quotes remain non-posting; invoice finalization remains explicit and permission-gated; no send, payment, compliance, storage, signed URL, or provider behavior changed.
 - Preserved AP truth: purchase bill finalization remains explicit and permission-gated, debit notes remain supplier adjustments, and no payment sending, provider approval workflow, archive/storage operation, or supplier balance math change was added.
 - Preserved manual-banking truth: bank account and transfer lists do not connect to live bank feeds, move provider money, auto-reconcile, import statements, or match/categorize statement rows.
-- Remaining Sales, Purchase, and Banking surfaces include invoice/quote/bill/debit-note detail pages and forms, credit notes, customer payments/refunds, purchase orders, supplier payments/refunds, recurring invoices, delivery notes, inventory returns, collections, cash expenses, matching, AP dashboard, purchase returns, bank account detail, statement imports/review, bank rules, deposits, cheques, card settlements, reconciliation summary/history/close, and transfer detail.
+- Preserved contact truth: VAT, ID, UAE, Peppol, and address readiness fields remain local profile data and do not send eInvoices, validate endpoints, submit ZATCA data, or call providers.
+- Remaining Sales, Purchase, Banking, and Contacts surfaces include invoice/quote/bill/debit-note detail pages and forms, credit notes, customer payments/refunds, purchase orders, supplier payments/refunds, recurring invoices, delivery notes, inventory returns, collections, cash expenses, matching, AP dashboard, purchase returns, bank account detail, statement imports/review, bank rules, deposits, cheques, card settlements, reconciliation summary/history/close, transfer detail, shared contact detail, customer/supplier detail pages, statement pages, activity tabs, and transaction handoffs.
 
 Frontend redesign continuation (2026-06-22):
 

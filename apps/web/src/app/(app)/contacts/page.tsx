@@ -6,6 +6,18 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { contactIdentificationOptions, formatContactIdentificationType, getContactIdentificationOption } from "@/lib/contact-identification";
@@ -108,22 +120,24 @@ export default function ContactsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Contacts</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Start with one customer or supplier. VAT, ID, and address fields can be added now or reviewed later before local customer-invoice ZATCA rehearsal work.
-          </p>
-        </div>
-        <Link href="/setup" className="inline-flex items-center gap-2 self-start rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Contacts / Customer and supplier profiles"
+        title="Contacts"
+        description="Start with one customer or supplier. VAT, ID, and address fields can be added now or reviewed later before local customer-invoice ZATCA rehearsal work."
+        actions={
+          <LedgerButton href="/setup" icon={ArrowRight}>
           Guided setup
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
-      </div>
+          </LedgerButton>
+        }
+      />
+
+      <LedgerSummaryBand tone="info">
+        Contacts are local customer and supplier profiles. Adding readiness fields does not send eInvoices, validate Peppol endpoints, submit ZATCA data, or contact external providers.
+      </LedgerSummaryBand>
 
       {canManageContacts ? (
-        <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-semibold text-ink">Add a customer or supplier</h2>
             <p className="text-sm leading-6 text-steel">
@@ -202,33 +216,28 @@ export default function ContactsPage() {
             <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             <input name="postalCode" placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 md:self-start">
+            <LedgerButton type="submit" variant="primary" disabled={!organizationId} className="md:self-start">
               Add contact
-            </button>
+            </LedgerButton>
           </form>
-        </div>
+        </LedgerPanel>
       ) : null}
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading contacts...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && contacts.length === 0 ? (
-          <StatusMessage type="empty">
-            {canManageContacts ? (
-              <ContactsEmptyState contactType={initialContactType} />
-            ) : (
-              contactsBlockedMessage(initialContactType)
-            )}
-          </StatusMessage>
+          <LedgerEmptyState
+            title="No contacts yet"
+            description={canManageContacts ? <ContactsEmptyState contactType={initialContactType} /> : contactsBlockedMessage(initialContactType)}
+          />
         ) : null}
-      </div>
 
-      {contacts.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+        {contacts.length > 0 ? (
+          <LedgerDataTable minWidth="980px">
+            <thead className="ledger-table-header">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Type</th>
@@ -255,19 +264,21 @@ export default function ContactsPage() {
                   <td className="px-4 py-3 text-steel">{formatContactIdentificationType(contact.identificationType)}</td>
                   <td className="px-4 py-3 text-steel">{contact.identificationNumber ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{contact.buildingNumber && contact.district ? `${contact.buildingNumber}, ${contact.district}` : "Incomplete"}</td>
-                  <td className="px-4 py-3 text-steel">{contact.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3">
-                    <Link href={contactPrimaryHref(contact)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <ContactStatusPill isActive={contact.isActive} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <LedgerButton href={contactPrimaryHref(contact)} size="sm">
                       View
-                    </Link>
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -322,4 +333,9 @@ function contactsBlockedMessage(contactType: ContactType): string {
   return contactType === "SUPPLIER"
     ? "No contacts yet. Ask an administrator to add the first supplier before creating bills."
     : "No contacts yet. Ask an administrator to add the first customer before creating invoices.";
+}
+
+function ContactStatusPill({ isActive }: Readonly<{ isActive: boolean }>) {
+  const tone: LedgerStatusTone = isActive ? "success" : "neutral";
+  return <LedgerStatusBadge tone={tone}>{isActive ? "Active" : "Inactive"}</LedgerStatusBadge>;
 }

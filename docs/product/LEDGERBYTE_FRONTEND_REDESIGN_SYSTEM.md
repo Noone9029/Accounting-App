@@ -72,4 +72,5 @@ New or migrated frontend routes should use the shared `ledger-system` primitives
 - Sales list surfaces: `/sales/invoices` and `/sales/quotes`.
 - Purchase list surfaces: `/purchases/bills` and `/purchases/debit-notes`.
 - Banking list surfaces: `/bank-accounts` and `/bank-transfers`.
+- Contacts list/create surface: `/contacts`.
 - Existing foundation surfaces: `/settings`, `/documents`, `/report-packs`, dashboard foundation, auth form, and representative roles/settings routes.

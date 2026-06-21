@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import BankAccountsPage from "./bank-accounts/page";
 import BankTransfersPage from "./bank-transfers/page";
+import ContactsPage from "./contacts/page";
 import CustomersPage from "./customers/page";
 import CustomerDetailPage from "./customers/[id]/page";
 import PurchaseBillsPage from "./purchases/bills/page";
@@ -45,6 +46,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => redirectMock(...args),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -119,6 +121,15 @@ describe("controlled beta route-load verification batch", () => {
     expect(partyDetailPageMock).toHaveBeenNthCalledWith(1, expect.objectContaining({ kind: "customer" }));
     expect(partyListPageMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ kind: "supplier" }));
     expect(partyDetailPageMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ kind: "supplier" }));
+  });
+
+  it("loads the contacts route without workspace data", () => {
+    render(<ContactsPage />);
+
+    expect(screen.getByRole("heading", { name: "Contacts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Guided setup" })).toHaveAttribute("href", "/setup");
+    expect(screen.getByText("Log in and select an organization to load contacts.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
   it("loads the reports route through the reports index module", () => {

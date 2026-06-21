@@ -12,6 +12,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Migrated `/report-packs` onto shared page/header/metric/table/workflow/disabled-boundary primitives while preserving read-only preview behavior and all disabled execution boundaries.
 - Migrated `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte page/table/state primitives while preserving explicit AP posting and debit-note adjustment boundaries.
 - Migrated `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte page/table/state primitives while preserving manual banking and explicit transfer boundaries.
+- Migrated `/contacts` list/create surface onto shared LedgerByte page/panel/table/state primitives while preserving customer/supplier handoff links and conservative readiness wording.
 - Updated focused component and route-load tests for the shared system and settings overview route.
 
 ## Loop Engineering Progress
@@ -36,6 +37,12 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Migrated `/bank-transfers` list layout, posted/voided status badges, amount/date cells, action button, summary wording, and empty states to the same shared system.
 - Preserved manual-banking truth: these list views do not connect to live feeds, move provider money, auto-reconcile, import statements, or match/categorize statement rows.
 
+### 2026-06-22 Contacts Workspace Loop
+
+- Migrated `/contacts` page layout, create panel, readiness summary, table, active/inactive status badges, action buttons, and empty state to shared LedgerByte primitives.
+- Preserved contact truth: readiness fields remain local profile data and do not send eInvoices, validate Peppol endpoints, submit ZATCA data, or contact external providers.
+- Customer and supplier list routes continue through the shared party module; detail/statement flows remain deferred for a dedicated return-to and transaction-tabs pass.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -45,7 +52,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 
 ## Remaining Frontend Route Families
 
-- Sales and Purchase detail/form/supporting flows, contacts, and inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Sales, Purchase, Banking, and Contacts detail/form/supporting flows plus inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
 - Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
 - Existing settings subroutes need gradual migration to shared panels/forms while preserving each route's permission and mutation behavior.
