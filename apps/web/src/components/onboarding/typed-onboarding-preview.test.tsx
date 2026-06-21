@@ -52,7 +52,7 @@ describe("typed onboarding checklist preview", () => {
     expect(screen.getByText(/A balanced first accounting setup/)).toBeInTheDocument();
     expect(screen.getByText("Balanced first workflow")).toBeInTheDocument();
     expect(screen.getByText(/Focus on getting one customer sale from profile through report review/)).toBeInTheDocument();
-    expect(await screen.findByText(/Saved setup profile will load from LedgerByte API when available/)).toBeInTheDocument();
+    expect(await screen.findByText(/No saved setup profile found/)).toBeInTheDocument();
     expect(setItem).not.toHaveBeenCalled();
 
     setItem.mockRestore();
@@ -63,7 +63,21 @@ describe("typed onboarding checklist preview", () => {
 
     render(<TypedOnboardingChecklistPreview />);
 
-    expect(await screen.findByText(/Loading saved setup profile/)).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(/Loading saved setup profile/);
+    expect(screen.getByRole("button", { name: "General services" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "General services" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Software and SaaS" })).toBeDisabled();
+  });
+
+  it("surfaces API load failures as a non-destructive local preview alert", async () => {
+    loadTypedOnboardingStateMock.mockRejectedValueOnce(new Error("private upstream details"));
+
+    render(<TypedOnboardingChecklistPreview />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Setup profile API is unavailable; showing local preview only.",
+    );
+    expect(screen.queryByText(/private upstream details/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "General services" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -99,6 +113,7 @@ describe("typed onboarding checklist preview", () => {
 
     render(<TypedOnboardingChecklistPreview />);
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Software and SaaS" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Software and SaaS" }));
 
     await waitFor(() => expect(updateTypedOnboardingProfileMock).toHaveBeenCalledWith("software_saas"));
@@ -116,6 +131,7 @@ describe("typed onboarding checklist preview", () => {
 
     render(<TypedOnboardingChecklistPreview />);
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Agency" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Agency" }));
 
     expect(await screen.findByText(/Setup profile could not be saved/)).toBeInTheDocument();
@@ -142,6 +158,7 @@ describe("typed onboarding checklist preview", () => {
 
     render(<TypedOnboardingChecklistPreview />);
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "Software and SaaS" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Software and SaaS" }));
     const profile = await screen.findByTestId("typed-onboarding-profile-software_saas");
 
@@ -165,6 +182,7 @@ describe("typed onboarding checklist preview", () => {
   it("keeps UAE and KSA readiness previews conservative and non-actionable for blocked capabilities", async () => {
     render(<TypedOnboardingChecklistPreview />);
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "UAE eInvoicing local readiness" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "UAE eInvoicing local readiness" }));
     const uaeProfile = await screen.findByTestId("typed-onboarding-profile-uae_einvoicing_readiness");
     const providerItem = within(uaeProfile).getByTestId("typed-onboarding-item-uae_provider_network");
@@ -178,6 +196,7 @@ describe("typed onboarding checklist preview", () => {
     expect(within(providerItem).queryByRole("link")).not.toBeInTheDocument();
     expect(uaeProfile).not.toHaveTextContent(/production ready|certified|accredited|official provider/i);
 
+    await waitFor(() => expect(screen.getByRole("button", { name: "KSA local readiness" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "KSA local readiness" }));
     const ksaProfile = await screen.findByTestId("typed-onboarding-profile-ksa_zatca_readiness");
     const productionItem = within(ksaProfile).getByTestId("typed-onboarding-item-ksa_production_submission");

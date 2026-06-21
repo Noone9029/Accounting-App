@@ -34,18 +34,23 @@ type TypedOnboardingPreviewItem = TypedOnboardingChecklistTemplateItem & {
   blockedReason?: string | null;
 };
 
+type TypedOnboardingPreviewStatusTone = "info" | "success" | "loading" | "error";
+
 export function TypedOnboardingChecklistPreview() {
   const [selectedKey, setSelectedKey] = useState(getDefaultTypedOnboardingSelectorValue);
   const [apiChecklist, setApiChecklist] = useState<TypedOnboardingApiChecklist | null>(null);
   const [loadingSavedState, setLoadingSavedState] = useState(false);
   const [savingSelection, setSavingSelection] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Saved setup profile will load from LedgerByte API when available.");
+  const [statusTone, setStatusTone] = useState<TypedOnboardingPreviewStatusTone>("info");
   const preview = useMemo(() => buildPreview(selectedKey, apiChecklist), [selectedKey, apiChecklist]);
   const counts = preview.summary;
+  const controlsDisabled = loadingSavedState || savingSelection;
 
   useEffect(() => {
     let cancelled = false;
     setLoadingSavedState(true);
+    setStatusTone("loading");
 
     loadTypedOnboardingState()
       .then((state) => {
@@ -58,12 +63,14 @@ export function TypedOnboardingChecklistPreview() {
         setStatusMessage(
           state.profile
             ? "Saved setup profile loaded from LedgerByte API."
-            : "Saved setup profile will load from LedgerByte API when available.",
+            : "No saved setup profile found; showing local preview until one is saved through the API.",
         );
+        setStatusTone(state.profile ? "success" : "info");
       })
       .catch(() => {
         if (!cancelled) {
           setStatusMessage("Setup profile API is unavailable; showing local preview only.");
+          setStatusTone("error");
         }
       })
       .finally(() => {
@@ -79,20 +86,23 @@ export function TypedOnboardingChecklistPreview() {
 
   async function selectArchetype(value: string): Promise<void> {
     const nextKey = resolveTypedOnboardingSelectorValue(value);
-    if (nextKey === selectedKey || savingSelection) {
+    if (nextKey === selectedKey || controlsDisabled) {
       return;
     }
 
     setSavingSelection(true);
     setStatusMessage("Saving setup profile through LedgerByte API...");
+    setStatusTone("loading");
     try {
       const updatedProfile = await updateTypedOnboardingProfile(nextKey);
       const recomputedChecklist = await recomputeTypedOnboardingChecklist();
       setSelectedKey(resolveTypedOnboardingSelectorValue(updatedProfile?.selectedArchetypeKey ?? nextKey));
       setApiChecklist(recomputedChecklist ?? null);
       setStatusMessage("Saved setup profile updated through LedgerByte API.");
+      setStatusTone("success");
     } catch {
       setStatusMessage("Setup profile could not be saved. Local preview state was left unchanged.");
+      setStatusTone("error");
     } finally {
       setSavingSelection(false);
     }
@@ -107,7 +117,11 @@ export function TypedOnboardingChecklistPreview() {
             Preview archetype-aware setup checklist templates. Profile selection is saved through LedgerByte API when
             available; planned or blocked capabilities stay non-actionable.
           </p>
-          <p className="mt-1 text-xs leading-5 text-steel">
+          <p
+            role={statusTone === "error" ? "alert" : "status"}
+            aria-live={statusTone === "error" ? "assertive" : "polite"}
+            className={`mt-1 rounded-md border px-2 py-1 text-xs leading-5 ${statusMessageClassName(statusTone)}`}
+          >
             {loadingSavedState ? "Loading saved setup profile... " : null}
             {savingSelection ? "Saving selection... " : null}
             {statusMessage}
@@ -129,7 +143,7 @@ export function TypedOnboardingChecklistPreview() {
               key={option.key}
               type="button"
               aria-pressed={selected}
-              disabled={!selectable || savingSelection}
+              disabled={!selectable || controlsDisabled}
               onClick={() => {
                 void selectArchetype(option.key);
               }}
@@ -150,6 +164,19 @@ export function TypedOnboardingChecklistPreview() {
       <SelectedArchetypePreview archetype={preview.archetype} previewItems={preview.items} />
     </section>
   );
+}
+
+function statusMessageClassName(tone: TypedOnboardingPreviewStatusTone): string {
+  switch (tone) {
+    case "success":
+      return "border-emerald-100 bg-emerald-50 text-emerald-800";
+    case "loading":
+      return "border-blue-100 bg-blue-50 text-blue-800";
+    case "error":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "info":
+      return "border-slate-100 bg-slate-50 text-steel";
+  }
 }
 
 function SelectedArchetypePreview({
