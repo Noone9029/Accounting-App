@@ -22,6 +22,7 @@ Base: `origin/main` after PR #144 and PR #145 merge
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
+| Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
 
 ## Verification Results
 
@@ -77,6 +78,15 @@ Base: `origin/main` after PR #144 and PR #145 merge
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
 - `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
+
+## 2026-06-22 Inventory Balances Loop Evidence
+
+- `/inventory/balances`: migrated the operational stock balance page from route-local header/action/table/empty-state styling to shared `LedgerPage`, `LedgerPageBody`, `LedgerPageHeader`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerStatusBadge`, and `LedgerButton`.
+- Existing balance totals, `inventoryBalanceDisplay`, FIFO links, operational warning copy, and `InventoryBalanceGuidance` remain unchanged. No stock movement, valuation, COGS, receipt, transfer, adjustment, or variance behavior was added or changed.
+- `apps/web/src/app/(app)/route-load-verification.test.tsx`: now covers `/inventory/balances` without an active organization.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification inventory/balances inventory-guidance ledger-system`: PASS, 26 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `/inventory/balances` visual check was not run because this branch has no existing visual fixture for that route; existing inventory visual slices cover `/items`, stock valuation, and warehouse detail.
 
 ## Mutation Boundary
 

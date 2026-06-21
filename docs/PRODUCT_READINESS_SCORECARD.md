@@ -11,8 +11,9 @@ Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main`
 - `/purchases/bills` and `/purchases/debit-notes` list surfaces now use the same shared primitives for AP table structure, date/money cells, status badges, action buttons, summary copy, and empty states.
 - `/bank-accounts` and `/bank-transfers` list surfaces now use the shared primitives for manual banking table structure, date/money cells, status badges, action buttons, summary copy, and empty states.
 - `/contacts` list/create surface now uses the shared primitives for contact profile setup, readiness copy, table structure, active/inactive status badges, action buttons, and empty states.
+- `/inventory/balances` now uses the shared primitives for operational stock review, warning copy, table structure, warehouse status badges, action buttons, and empty states.
 - No production readiness score increase is taken for launch readiness. This branch does not add backend behavior, hosted migrations, Supabase mutations, Vercel deployments, provider calls, live banking, automatic reconciliation, email sending, payment collection, generated-document object storage, signed URLs, storage moves, ZATCA/UAE/Peppol/ASP production behavior, tax-authority submission, seed/reset/delete behavior, or shutdown behavior.
-- Full frontend readiness still depends on completing the remaining Sales, Purchase, Banking, Contacts, and all other route-family loops in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
+- Full frontend readiness still depends on completing the remaining Sales, Purchase, Banking, Contacts, Inventory, and all other route-family loops in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
 
 ## 2026-06-22 Frontend Redesign Continuation Update
 

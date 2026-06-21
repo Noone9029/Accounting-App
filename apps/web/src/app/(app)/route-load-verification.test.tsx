@@ -6,6 +6,7 @@ import BankTransfersPage from "./bank-transfers/page";
 import ContactsPage from "./contacts/page";
 import CustomersPage from "./customers/page";
 import CustomerDetailPage from "./customers/[id]/page";
+import InventoryBalancesPage from "./inventory/balances/page";
 import PurchaseBillsPage from "./purchases/bills/page";
 import NewPurchaseBillPage from "./purchases/bills/new/page";
 import PurchaseDebitNotesPage from "./purchases/debit-notes/page";
@@ -176,6 +177,15 @@ describe("controlled beta route-load verification batch", () => {
     expect(screen.getByRole("heading", { name: "Bank transfers" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New transfer" })).toHaveAttribute("href", "/bank-transfers/new");
     expect(screen.getByText("Log in and select an organization to load bank transfers.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the inventory balance route without workspace data", () => {
+    render(<InventoryBalancesPage />);
+
+    expect(screen.getByRole("heading", { name: "Inventory balances" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Stock valuation" })).toHaveAttribute("href", "/inventory/reports/stock-valuation");
+    expect(screen.getByText("Log in and select an organization to load inventory balances.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
