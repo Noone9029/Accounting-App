@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
 import { apiRequest, setAccessToken, setActiveOrganizationId } from "@/lib/api";
 import type { AuthResponse, MeResponse } from "@/lib/types";
 
@@ -68,22 +69,23 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {mode === "register" ? (
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Name</span>
-          <input name="name" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Name</LedgerFieldText>
+          <LedgerInput name="name" required autoComplete="name" />
+        </LedgerFieldLabel>
       ) : null}
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Email</span>
-        <input name="email" type="email" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Password</span>
-        <input name="password" type="password" required minLength={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <button type="submit" disabled={submitting} className="w-full rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+      <LedgerFieldLabel>
+        <LedgerFieldText>Email</LedgerFieldText>
+        <LedgerInput name="email" type="email" required autoComplete="email" />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Password</LedgerFieldText>
+        <LedgerInput name="password" type="password" required minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+        <LedgerFieldHelp>{mode === "login" ? "Use your beta workspace credentials." : "Use at least 8 characters for beta access."}</LedgerFieldHelp>
+      </LedgerFieldLabel>
+      <LedgerButton type="submit" disabled={submitting} variant="primary" className="w-full">
         {submitting ? "Submitting..." : mode === "login" ? "Log in" : "Create account"}
-      </button>
+      </LedgerButton>
       {status ? <p className="text-sm text-steel">{status}</p> : null}
     </form>
   );

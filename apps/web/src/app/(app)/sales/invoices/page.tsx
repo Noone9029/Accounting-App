@@ -1,17 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerTableShell,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DataTable } from "@/components/ui-ledger/data-table";
 import { EmptyState } from "@/components/ui-ledger/empty-state";
-import { FilterBar } from "@/components/ui-ledger/filter-bar";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { StatusBadge } from "@/components/ui-ledger/status-badge";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -94,14 +101,15 @@ export default function SalesInvoicesPage() {
 
   return (
     <section>
-      <PageHeader
+      <LedgerPageHeader
+        eyebrow="Sales / AR"
         title="Sales invoices"
-        description="Draft and finalized customer invoices from the live API."
+        description="Draft and finalized customer invoices from the live API. Review customer, VAT, balance, and posting state before taking action."
         actions={
           canCreateInvoice ? (
-            <Link href="/sales/invoices/new" className={buttonVariants()}>
+            <LedgerButton href="/sales/invoices/new" variant="primary">
               Create invoice
-            </Link>
+            </LedgerButton>
           ) : null
         }
       />
@@ -115,27 +123,32 @@ export default function SalesInvoicesPage() {
           <EmptyState
             title="No sales invoices found"
             description="Create the first draft invoice, then finalize it when the customer and totals are ready."
-            action={canCreateInvoice ? <Link href="/sales/invoices/new" className={buttonVariants()}>Create invoice</Link> : null}
+            action={canCreateInvoice ? <LedgerButton href="/sales/invoices/new" variant="primary">Create invoice</LedgerButton> : null}
           />
         ) : null}
       </div>
 
       {invoices.length > 0 ? (
-        <FilterBar>
-          <label className="block">
-            <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 h-8 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20">
-              <option value="ALL">All</option>
-              <option value="DRAFT">Draft</option>
-              <option value="FINALIZED">Finalized</option>
-              <option value="VOIDED">Voided</option>
-            </select>
-          </label>
-          <label className="block min-w-64">
-            <span className="text-xs font-medium uppercase text-muted-foreground">Customer</span>
-            <Input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 w-full" />
-          </label>
-        </FilterBar>
+        <LedgerToolbar
+          title="Invoice filters"
+          description="Keep this list focused on review status and customer context before finalizing or recording payment."
+        >
+          <LedgerFilterBar>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Status</LedgerFieldText>
+              <LedgerSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="sm:w-40">
+                <option value="ALL">All</option>
+                <option value="DRAFT">Draft</option>
+                <option value="FINALIZED">Finalized</option>
+                <option value="VOIDED">Voided</option>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="min-w-64">
+              <LedgerFieldText>Customer</LedgerFieldText>
+              <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
+            </LedgerFieldLabel>
+          </LedgerFilterBar>
+        </LedgerToolbar>
       ) : null}
 
       {invoices.length > 0 && filteredInvoices.length === 0 ? (
@@ -145,7 +158,9 @@ export default function SalesInvoicesPage() {
       ) : null}
 
       {filteredInvoices.length > 0 ? (
-        <DataTable minWidth="min-w-[1280px]">
+        <div className="mt-5">
+          <LedgerTableShell minWidth="1280px">
+          <table className="w-full text-left text-sm">
             <TableHeader className="bg-muted/60 text-xs uppercase text-muted-foreground">
               <TableRow>
                 <TableHead>Number</TableHead>
@@ -171,16 +186,14 @@ export default function SalesInvoicesPage() {
                   <TableCell>
                     <InvoiceStatusPill status={invoice.status} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.subtotal, invoice.currency)}</TableCell>
-                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</TableCell>
-                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.total, invoice.currency)}</TableCell>
-                  <TableCell className="font-mono text-xs">{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</TableCell>
+                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></TableCell>
+                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></TableCell>
+                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></TableCell>
+                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></TableCell>
                   <TableCell className="text-muted-foreground">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Link href={`/sales/invoices/${invoice.id}`} className={buttonVariants({ variant: "outline", size: "xs" })}>
-                        View
-                      </Link>
+                      <LedgerButton href={`/sales/invoices/${invoice.id}`} size="sm">View</LedgerButton>
                       {invoice.status === "DRAFT" && canFinalizeInvoice ? (
                         <Button type="button" variant="outline" size="xs" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id}>
                           Finalize
@@ -191,7 +204,9 @@ export default function SalesInvoicesPage() {
                 </TableRow>
               ))}
             </TableBody>
-        </DataTable>
+          </table>
+          </LedgerTableShell>
+        </div>
       ) : null}
     </section>
   );
@@ -199,7 +214,7 @@ export default function SalesInvoicesPage() {
 
 function InvoiceStatusPill({ status }: { status: SalesInvoiceStatus }) {
   const label = status === "FINALIZED" ? "Finalized/posted" : status === "VOIDED" ? "Voided" : "Draft";
-  const tone = status === "FINALIZED" ? "success" : status === "VOIDED" ? "danger" : "muted";
+  const tone = status === "FINALIZED" ? "success" : status === "VOIDED" ? "danger" : "draft";
 
-  return <StatusBadge tone={tone}>{label}</StatusBadge>;
+  return <LedgerStatusBadge tone={tone}>{label}</LedgerStatusBadge>;
 }

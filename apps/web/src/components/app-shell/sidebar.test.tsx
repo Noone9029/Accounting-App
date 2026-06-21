@@ -68,6 +68,17 @@ describe("sidebar create shortcut", () => {
 
     expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
   });
+
+  it("groups workflow navigation for faster accounting scanning", () => {
+    render(<Sidebar />);
+
+    expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBeInTheDocument();
+    expect(screen.getByText("Overview")).toBeInTheDocument();
+    expect(screen.getByText("Daily books")).toBeInTheDocument();
+    expect(screen.getByText("Operations")).toBeInTheDocument();
+    expect(screen.getByText("Review")).toBeInTheDocument();
+    expect(screen.getByText("Administration")).toBeInTheDocument();
+  });
 });
 
 describe("edition-aware compliance navigation", () => {

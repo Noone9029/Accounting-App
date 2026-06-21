@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PermissionMatrix } from "@/components/permissions/permission-matrix";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput, LedgerPageHeader, LedgerToolbar } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -55,10 +56,11 @@ export default function RolesSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-ink">Roles & Permissions</h1>
-        <p className="mt-1 text-sm text-steel">Review system roles and create custom permission sets.</p>
-      </header>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Roles & Permissions"
+        description="Review system roles and create custom permission sets for controlled beta access."
+      />
 
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage roles.</StatusMessage> : null}
       {loading ? <StatusMessage type="loading">Loading roles...</StatusMessage> : null}
@@ -81,31 +83,30 @@ export default function RolesSettingsPage() {
       </section>
 
       {canManage ? (
-        <form onSubmit={createRole} className="space-y-4 rounded-md border border-slate-200 bg-white p-4">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Create Custom Role</h2>
-            <p className="mt-1 text-sm text-steel">
-              Custom roles can be edited or deleted when no active members are assigned. For beta testers, add only the workflow permissions needed for the testing script.
-            </p>
-          </div>
-          <label className="block text-sm">
-            <span className="font-medium text-ink">Role name</span>
-            <input
+        <form onSubmit={createRole} className="space-y-4">
+          <LedgerToolbar
+            title="Create custom role"
+            description="Custom roles can be edited or deleted when no active members are assigned. For beta testers, add only the workflow permissions needed for the testing script."
+          >
+            <LedgerFieldLabel className="max-w-md">
+              <LedgerFieldText>Role name</LedgerFieldText>
+              <LedgerInput
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="mt-1 w-full max-w-md rounded-md border border-slate-300 px-3 py-2"
               placeholder="Reports reviewer"
-            />
-          </label>
+              />
+              <LedgerFieldHelp>Name roles by the beta workflow or review responsibility they unlock.</LedgerFieldHelp>
+            </LedgerFieldLabel>
+          </LedgerToolbar>
           <PermissionMatrix selected={permissions} onToggle={togglePermission} />
-          <button
+          <LedgerButton
             type="submit"
             disabled={saving || permissions.length === 0}
-            className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            variant="primary"
           >
             Create role
-          </button>
+          </LedgerButton>
         </form>
       ) : (
         <StatusMessage type="info">Your role can view permission matrices but cannot create or edit roles.</StatusMessage>

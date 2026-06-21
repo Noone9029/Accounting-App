@@ -4,6 +4,19 @@
 
 :root {
   color-scheme: light;
+  --lb-ink: #17212b;
+  --lb-sidebar: #122033;
+  --lb-workspace: #f6f8fb;
+  --lb-panel: #fbfcfe;
+  --lb-line: #d9e2ea;
+  --lb-mist: #eef3f6;
+  --lb-steel: #5d7182;
+  --lb-accent: #2563eb;
+  --lb-palm: #0f766e;
+  --lb-palm-dark: #115e59;
+  --lb-amber: #b7791f;
+  --lb-rosewood: #9f1239;
+  --lb-info: #4f46e5;
   --background: 210 25% 97%;
   --foreground: 214 31% 12%;
   --card: 0 0% 100%;
@@ -35,8 +48,8 @@
 
 body {
   margin: 0;
-  background: #f7fafc;
-  color: #17212b;
+  background: var(--lb-workspace);
+  color: var(--lb-ink);
   font-family:
     Inter,
     ui-sans-serif,
@@ -61,6 +74,38 @@ textarea {
 
 ::selection {
   background: rgba(37, 99, 235, 0.16);
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    letter-spacing: 0;
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .ledger-app-surface {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(246, 248, 251, 0.92)),
+      var(--lb-workspace);
+  }
+
+  .ledger-table-header {
+    @apply bg-slate-50 text-xs font-semibold uppercase tracking-wide text-steel;
+  }
+
+  .ledger-control {
+    @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10 disabled:bg-slate-50 disabled:text-slate-400;
+  }
+
+  .ledger-action-row {
+    @apply flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center;
+  }
 }
 
 .ledger-focus {
