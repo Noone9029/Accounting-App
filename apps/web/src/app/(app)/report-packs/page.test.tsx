@@ -37,7 +37,8 @@ describe("ReportPacksPage", () => {
   it("renders report-pack preview data from the API manifest", async () => {
     render(<ReportPacksPage />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading report-pack preview metadata.");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading report-pack preview");
+    expect(screen.getByText("Reading manifest metadata only.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Report packs" })).toBeInTheDocument();
     expect(screen.getByText("Read-only preview")).toBeInTheDocument();
     expect(await screen.findByText("PLANNING ONLY")).toBeInTheDocument();
@@ -49,7 +50,7 @@ describe("ReportPacksPage", () => {
     expect(screen.getByText("Ready for review")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open reports" })).toHaveAttribute("href", "/reports");
     expect(screen.getByRole("link", { name: "View source report" })).toHaveAttribute("href", "/reports/general-ledger");
-    expect(screen.getByText("Preview-only item. No active web report page is linked yet.")).toBeInTheDocument();
+    expect(screen.getByText("Preview-only; no route linked")).toBeInTheDocument();
     expect(fetchReportPackManifestPreviewMock).toHaveBeenCalledTimes(1);
   });
 
@@ -93,7 +94,8 @@ describe("ReportPacksPage", () => {
 
     render(<ReportPacksPage />);
 
-    expect(await screen.findByText(/No report-pack items were returned by the preview endpoint/i)).toBeInTheDocument();
+    expect(await screen.findByText("No report-pack items returned")).toBeInTheDocument();
+    expect(screen.getByText("Nothing can be generated or exported from this state.")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -102,9 +104,10 @@ describe("ReportPacksPage", () => {
 
     render(<ReportPacksPage />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Report-pack preview is unavailable.");
-    expect(screen.getByText("Preview service unavailable")).toBeInTheDocument();
-    expect(screen.getByText("No report-pack action is available while the preview cannot be loaded.")).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Report-pack preview is unavailable");
+    expect(alert).toHaveTextContent("Preview service unavailable");
+    expect(alert).toHaveTextContent("No report-pack action is available while the preview cannot be loaded.");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

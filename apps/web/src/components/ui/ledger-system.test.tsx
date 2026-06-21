@@ -3,19 +3,29 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Plus } from "lucide-react";
 import {
   LedgerAlert,
+  LedgerBreadcrumbs,
   LedgerButton,
+  LedgerDataTable,
   LedgerEmptyState,
+  LedgerErrorState,
   LedgerFieldHelp,
   LedgerFieldLabel,
+  LedgerFieldRow,
   LedgerFieldText,
+  LedgerFormSection,
   LedgerInput,
+  LedgerKbd,
+  LedgerLoadingState,
   LedgerMetadataRow,
   LedgerPageHeader,
+  LedgerReviewPanel,
   LedgerSegmentedControl,
   LedgerSkeleton,
   LedgerStatusBadge,
+  LedgerSummaryBand,
   LedgerTableShell,
   LedgerToolbar,
+  LedgerWorkflowCard,
   buttonClassName,
 } from "./ledger-system";
 
@@ -125,5 +135,54 @@ describe("ledger UI system", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByText("Currency")).toBeInTheDocument();
     expect(screen.getByText("AED")).toBeInTheDocument();
+  });
+
+  it("renders full redesign layout primitives with semantic roles", () => {
+    render(
+      <div>
+        <LedgerBreadcrumbs items={[{ label: "Reports", href: "/reports" }, { label: "Report packs" }]} />
+        <LedgerLoadingState title="Loading report packs" description="Reading preview metadata." />
+        <LedgerErrorState title="Preview unavailable" description="No report-pack action is available." />
+        <LedgerSummaryBand tone="warning">Generation remains disabled.</LedgerSummaryBand>
+        <LedgerWorkflowCard title="Documents" description="Generated archive metadata." status={<LedgerStatusBadge tone="draft">Review</LedgerStatusBadge>} />
+        <LedgerReviewPanel title="Execution boundary" status={<LedgerStatusBadge tone="warning">Disabled</LedgerStatusBadge>}>
+          <p>No exports</p>
+        </LedgerReviewPanel>
+      </div>,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading report packs");
+    expect(screen.getByRole("alert")).toHaveTextContent("Preview unavailable");
+    expect(screen.getByText("Generation remains disabled.")).toHaveClass("bg-amber-50");
+    expect(screen.getByRole("heading", { name: "Documents" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Execution boundary" })).toBeInTheDocument();
+  });
+
+  it("renders form, field-row, kbd, and data-table primitives", () => {
+    render(
+      <div>
+        <LedgerFormSection title="Document filters" description="Filter generated outputs.">
+          <LedgerFieldRow>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Type</LedgerFieldText>
+              <LedgerInput aria-label="Type" />
+            </LedgerFieldLabel>
+          </LedgerFieldRow>
+        </LedgerFormSection>
+        <LedgerDataTable minWidth="720px">
+          <tbody>
+            <tr>
+              <td>PDF-001</td>
+            </tr>
+          </tbody>
+        </LedgerDataTable>
+        <LedgerKbd>Tab</LedgerKbd>
+      </div>,
+    );
+
+    expect(screen.getByRole("group", { name: "Document filters" })).toBeInTheDocument();
+    expect(screen.getByRole("table")).toHaveTextContent("PDF-001");
+    expect(screen.getByText("Tab").tagName).toBe("KBD");
   });
 });

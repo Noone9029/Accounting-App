@@ -5,6 +5,20 @@ import Link from "next/link";
 import { StatusMessage } from "@/components/common/status-message";
 import { ArchiveDocumentGuidance } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -115,15 +129,22 @@ export default function GeneratedDocumentsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Documents</h1>
-        <p className="mt-1 text-sm text-steel">Generated PDF archive for invoices, receipts, statements, bills, debit notes, credit notes, and report PDFs.</p>
-        <p className="mt-1 text-sm text-steel">Uploaded supporting attachments stay on each source record; this page is for generated PDF outputs only.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Document archive"
+        title="Documents"
+        badge={<LedgerStatusBadge tone="draft">Generated PDFs only</LedgerStatusBadge>}
+        description={
+          <>
+            Generated PDF archive for invoices, receipts, statements, bills, debit notes, credit notes, and report PDFs.
+            <span className="mt-1 block">Uploaded supporting attachments stay on each source record; this page is for generated PDF outputs only.</span>
+          </>
+        }
+      />
 
       <ArchiveDocumentGuidance />
 
+      <LedgerPageBody>
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load generated documents.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading generated documents...</StatusMessage> : null}
@@ -138,38 +159,39 @@ export default function GeneratedDocumentsPage() {
         ) : null}
       </div>
 
-      <form onSubmit={loadDocuments} className="mt-5 flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Document type</span>
-          <select value={documentType} onChange={(event) => setDocumentType(event.target.value as "" | DocumentType)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <form onSubmit={loadDocuments}>
+        <LedgerToolbar
+          title="Archive filters"
+          description="Filter by document type or generation status. Failed rows mean PDF generation did not complete; retry from the source record after correcting source data."
+          actions={<LedgerButton type="submit" disabled={loading} variant="primary">Apply filters</LedgerButton>}
+        >
+          <LedgerFilterBar>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Document type</LedgerFieldText>
+              <LedgerSelect value={documentType} onChange={(event) => setDocumentType(event.target.value as "" | DocumentType)}>
             {documentTypes.map((type) => (
               <option key={type || "all"} value={type}>
                 {type ? documentTypeLabel(type) : "All types"}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as "" | GeneratedDocumentStatus)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Status</LedgerFieldText>
+              <LedgerSelect value={status} onChange={(event) => setStatus(event.target.value as "" | GeneratedDocumentStatus)}>
             {statuses.map((item) => (
               <option key={item || "all"} value={item}>
                 {item ? generatedDocumentStatusLabel(item) : "All statuses"}
               </option>
             ))}
-          </select>
-        </label>
-        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-          Apply filters
-        </button>
-        <p className="basis-full text-xs leading-5 text-steel">
-          Filter by document type or generation status. Failed rows mean PDF generation did not complete; retry from the source record after correcting the source data.
-        </p>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+          </LedgerFilterBar>
+        </LedgerToolbar>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+      <LedgerDataTable minWidth="980px">
+          <thead className="ledger-table-header">
             <tr>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Document number</th>
@@ -189,9 +211,7 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3 font-medium text-ink">{document.filename}</td>
                 <td className="px-4 py-3 text-steel">{documentSourceTypeLabel(document.sourceType)}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>
-                    {generatedDocumentStatusLabel(document.status)}
-                  </span>
+                  <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>{generatedDocumentStatusLabel(document.status)}</span>
                 </td>
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
@@ -224,27 +244,21 @@ export default function GeneratedDocumentsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </LedgerDataTable>
         {documents.length === 0 && !loading ? (
-          <div className="px-5 py-4">
-            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
-              <StatusMessage type="empty">No generated documents found.</StatusMessage>
-              <p className="mt-3 text-sm leading-6 text-steel">
-                Generate a PDF from an invoice, payment receipt, bill, debit note, credit note, customer or supplier statement, or report to create the first archive record.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Review document settings
-                </Link>
-                <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Review number sequences
-                </Link>
+          <LedgerEmptyState
+            title="No generated documents found"
+            description="Generate a PDF from an invoice, payment receipt, bill, debit note, credit note, customer or supplier statement, or report to create the first archive record."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <LedgerButton href="/settings/documents">Review document settings</LedgerButton>
+                <LedgerButton href="/settings/number-sequences">Review number sequences</LedgerButton>
               </div>
-            </div>
-          </div>
+            }
+          />
         ) : null}
-      </div>
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 

@@ -21,7 +21,7 @@ const viewports = [
 const coveredRoutes = [
   { slug: "customers", path: "/customers", heading: /^Customers$/i, expectedText: /Visual Customer International Holdings|No matching customers found/i, requiredAny: [PERMISSIONS.contacts.view] },
   { slug: "suppliers", path: "/suppliers", heading: /^Suppliers$/i, expectedText: /Visual Supplier Regional Logistics|No matching suppliers found/i, requiredAny: [PERMISSIONS.contacts.view] },
-  { slug: "settings", path: "/settings", heading: /Team Members/i, expectedText: /Beta access guidance|mock invites/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant|pending\.invite\.long/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer|Beta role guidance/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
   { slug: "settings-storage", path: "/settings/storage", heading: /^Storage$/i, expectedText: /metadata-only|No hosted backup provider evidence/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage], ownerOnlyAction: /Capture evidence/i },
@@ -74,7 +74,7 @@ test.afterAll(async () => {
         skippedRoutes,
         secondaryOperationalStatesChecked: [
           "customer and supplier lists with many rows, long names, balances, overdue balances, TRN/TIN-style tax fields, inactive rows, and filtered empty states",
-          "settings overview redirect, users/team, roles, storage, compliance, audit logs, numbering, accounts, and tax setup",
+          "settings overview, users/team, roles, storage, compliance, audit logs, numbering, accounts, and tax setup",
           "setup checklist with complete, incomplete, and blocked-provider-evidence states",
           "generated document archive with long filenames, failed rows, local-ready database rows, filters, and empty filtered states",
           "manual bank-account list, detail, and statement transaction review routes without fake bank-feed claims",
@@ -211,7 +211,7 @@ async function expectAuthenticatedShell(page: Page, viewportName: string) {
   if (viewportName === "mobile") {
     await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
   } else {
-    await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
 

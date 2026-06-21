@@ -100,6 +100,10 @@ export function LedgerPage({ children, className }: Readonly<{ children: ReactNo
   return <section className={cn("space-y-6", className)}>{children}</section>;
 }
 
+export function LedgerPageBody({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
+  return <div className={cn("space-y-5", className)}>{children}</div>;
+}
+
 export function LedgerPageHeader({
   eyebrow,
   title,
@@ -198,6 +202,10 @@ export function LedgerStatCard({
   );
 }
 
+export function LedgerMetricGrid({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
+  return <div className={cn("grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4", className)}>{children}</div>;
+}
+
 export function LedgerStatusBadge({ tone = "neutral", children }: Readonly<{ tone?: LedgerStatusTone; children: ReactNode }>) {
   return <span className={cn("inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold", statusTones[tone])}>{children}</span>;
 }
@@ -214,6 +222,30 @@ export function LedgerEmptyState({
       <h2 className="mt-2 text-sm font-semibold text-ink">{title}</h2>
       {description ? <div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-steel">{description}</div> : null}
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+    </div>
+  );
+}
+
+export function LedgerLoadingState({ title = "Loading", description }: Readonly<{ title?: string; description?: ReactNode }>) {
+  return (
+    <div role="status" aria-live="polite" className="rounded-md border border-line bg-panel p-4 shadow-panel">
+      <div className="flex items-center gap-3">
+        <Loader2 className="h-4 w-4 animate-spin text-palm" aria-hidden="true" />
+        <div>
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          {description ? <div className="mt-1 text-sm leading-6 text-steel">{description}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LedgerErrorState({ title = "Unable to load", description, action }: Readonly<{ title?: string; description?: ReactNode; action?: ReactNode }>) {
+  return (
+    <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-rosewood">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      {description ? <div className="mt-1 text-sm leading-6">{description}</div> : null}
+      {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
 }
@@ -240,8 +272,44 @@ export function LedgerTableShell({ children, minWidth = "960px", className }: Re
   );
 }
 
+export function LedgerDataTable({
+  children,
+  minWidth = "960px",
+  className,
+}: Readonly<{ children: ReactNode; minWidth?: string; className?: string }>) {
+  return (
+    <LedgerTableShell minWidth={minWidth} className={className}>
+      <table className="w-full text-left text-sm">{children}</table>
+    </LedgerTableShell>
+  );
+}
+
 export function LedgerActionBar({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
   return <div className={cn("flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center", className)}>{children}</div>;
+}
+
+export function LedgerSidePanel({ title, description, children, className }: Readonly<{ title: string; description?: ReactNode; children: ReactNode; className?: string }>) {
+  return (
+    <aside className={cn("rounded-md border border-line bg-panel p-4 shadow-panel", className)}>
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
+      {description ? <div className="mt-1 text-sm leading-6 text-steel">{description}</div> : null}
+      <div className="mt-4 space-y-3">{children}</div>
+    </aside>
+  );
+}
+
+export function LedgerFormSection({ title, description, children, className }: Readonly<{ title: string; description?: ReactNode; children: ReactNode; className?: string }>) {
+  return (
+    <fieldset className={cn("rounded-md border border-line bg-panel p-4 shadow-panel", className)}>
+      <legend className="px-1 text-base font-semibold text-ink">{title}</legend>
+      {description ? <p className="mt-1 text-sm leading-6 text-steel">{description}</p> : null}
+      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">{children}</div>
+    </fieldset>
+  );
+}
+
+export function LedgerFieldRow({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
+  return <div className={cn("grid grid-cols-1 gap-3 md:grid-cols-2", className)}>{children}</div>;
 }
 
 export function LedgerSkeleton({ label = "Loading", rows = 3 }: Readonly<{ label?: string; rows?: number }>) {
@@ -259,6 +327,14 @@ export function LedgerMoney({ children }: Readonly<{ children: ReactNode }>) {
   return <span className="font-mono text-xs tabular-nums text-ink">{children}</span>;
 }
 
+export function LedgerDate({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="font-mono text-xs tabular-nums text-steel">{children}</span>;
+}
+
+export function LedgerKbd({ children }: Readonly<{ children: ReactNode }>) {
+  return <kbd className="rounded border border-line bg-mist px-1.5 py-0.5 font-mono text-[11px] text-ink">{children}</kbd>;
+}
+
 export function LedgerMetadataRow({ items }: Readonly<{ items: Array<{ label: string; value: ReactNode }> }>) {
   return (
     <dl className="grid gap-2 text-xs text-steel sm:grid-cols-2 lg:grid-cols-4">
@@ -269,6 +345,71 @@ export function LedgerMetadataRow({ items }: Readonly<{ items: Array<{ label: st
         </div>
       ))}
     </dl>
+  );
+}
+
+export function LedgerReviewPanel({ title, status, children }: Readonly<{ title: string; status?: ReactNode; children: ReactNode }>) {
+  return (
+    <LedgerSidePanel title={title}>
+      {status ? <div>{status}</div> : null}
+      {children}
+    </LedgerSidePanel>
+  );
+}
+
+export function LedgerWorkflowCard({
+  title,
+  description,
+  href,
+  status,
+}: Readonly<{ title: string; description: ReactNode; href?: string; status?: ReactNode }>) {
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-base font-semibold text-ink">{title}</h3>
+        {status}
+      </div>
+      <div className="mt-2 text-sm leading-6 text-steel">{description}</div>
+    </>
+  );
+  const className = "block rounded-md border border-line bg-panel p-4 shadow-panel";
+  return href ? (
+    <Link href={href} className={cn(className, "hover:border-palm/50")}>
+      {content}
+    </Link>
+  ) : (
+    <article className={className}>{content}</article>
+  );
+}
+
+export function LedgerSummaryBand({ children, tone = "neutral" }: Readonly<{ children: ReactNode; tone?: "neutral" | "info" | "warning" | "success" }>) {
+  const classes = {
+    neutral: "border-line bg-panel text-steel",
+    info: "border-blue-200 bg-blue-50 text-blue-900",
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  };
+  return <div className={cn("rounded-md border px-4 py-3 text-sm leading-6", classes[tone])}>{children}</div>;
+}
+
+export function LedgerBreadcrumbs({ items }: Readonly<{ items: Array<{ label: string; href?: string }> }>) {
+  return (
+    <nav aria-label="Breadcrumb" className="text-xs text-steel">
+      <ol className="flex flex-wrap items-center gap-1">
+        {items.map((item, index) => (
+          <li key={`${item.label}-${index}`} className="flex items-center gap-1">
+            {index > 0 ? <span aria-hidden="true">/</span> : null}
+            {item.href ? (
+              <Link href={item.href} className="font-medium hover:text-palm">
+                {item.label}
+              </Link>
+            ) : (
+              <span aria-current="page" className="font-semibold text-ink">{item.label}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
