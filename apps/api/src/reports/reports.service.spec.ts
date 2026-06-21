@@ -1,3 +1,4 @@
+import { BadRequestException } from "@nestjs/common";
 import {
   AccountType,
   BankAccountStatus,
@@ -21,6 +22,7 @@ import {
   buildVatSummaryReport,
   ReportsService,
 } from "./reports.service";
+import { REPORT_PACK_EXECUTION_BOUNDARY, REPORT_PACK_SUPPORTED_REPORTS } from "./report-pack-manifest";
 
 const accounts = [
   { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET },
@@ -35,6 +37,101 @@ const accounts = [
   { id: "cogs", code: "510", name: "Cost of Sales", type: AccountType.COST_OF_SALES },
   { id: "expense", code: "511", name: "General Expenses", type: AccountType.EXPENSE },
 ];
+
+describe("report pack manifest preview", () => {
+  it("returns a default planning-only manifest for all supported reports without reading data", () => {
+    const prisma = {
+      bankAccountProfile: { findMany: jest.fn() },
+      journalLine: { findMany: jest.fn() },
+      salesInvoice: { findMany: jest.fn() },
+      salesInvoiceLine: { findMany: jest.fn() },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const manifest = service.reportPackManifestPreview("org-1", "user-1", {});
+
+    expect(manifest).toMatchObject({
+      id: "report-pack-manifest-preview",
+      organizationId: "org-1",
+      title: "Report pack manifest preview",
+      requestedByUserId: "user-1",
+      status: "PLANNING_ONLY",
+      executionBoundary: REPORT_PACK_EXECUTION_BOUNDARY,
+    });
+    expect(manifest.items.map((item) => item.reportKind)).toEqual(REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.kind));
+    expect(manifest.items).toEqual(
+      REPORT_PACK_SUPPORTED_REPORTS.map((report) =>
+        expect.objectContaining({
+          id: `preview-${report.kind}`,
+          reportKind: report.kind,
+          title: report.title,
+          query: {},
+          source: { type: "ledgerbyte-report-route", href: report.href },
+          reviewStatus: "NEEDS_REVIEW",
+        }),
+      ),
+    );
+    expect(prisma.bankAccountProfile.findMany).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+    expect(prisma.salesInvoice.findMany).not.toHaveBeenCalled();
+    expect(prisma.salesInvoiceLine.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns requested supported report kinds, including cash flow and revenue trend", () => {
+    const service = new ReportsService({} as never);
+
+    const manifest = service.reportPackManifestPreview("org-1", "user-1", {
+      reportKinds: "cash-flow,revenue-trend,profit-and-loss",
+    });
+
+    expect(manifest.items.map((item) => item.reportKind)).toEqual(["cash-flow", "revenue-trend", "profit-and-loss"]);
+    expect(manifest.items.map((item) => item.source.href)).toEqual([
+      "/reports/cash-flow",
+      "/reports/revenue-trend",
+      "/reports/profit-and-loss",
+    ]);
+  });
+
+  it("dedupes repeated report kinds deterministically and treats blank requests as default", () => {
+    const service = new ReportsService({} as never);
+
+    const deduped = service.reportPackManifestPreview("org-1", "user-1", {
+      reportKinds: ["cash-flow", " revenue-trend , cash-flow ", "revenue-trend"],
+    });
+    const blank = service.reportPackManifestPreview("org-1", "user-1", { reportKinds: " , " });
+
+    expect(deduped.items.map((item) => item.reportKind)).toEqual(["cash-flow", "revenue-trend"]);
+    expect(blank.items.map((item) => item.reportKind)).toEqual(REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.kind));
+  });
+
+  it("rejects unsupported report kinds before building a manifest", () => {
+    const service = new ReportsService({} as never);
+
+    expect(() =>
+      service.reportPackManifestPreview("org-1", "user-1", {
+        reportKinds: "cash-flow,vat-return",
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it("keeps every execution, storage, provider, and compliance boundary disabled", () => {
+    const service = new ReportsService({} as never);
+
+    const manifest = service.reportPackManifestPreview("org-1", "user-1", { reportKinds: "cash-flow" });
+
+    expect(manifest.executionBoundary).toEqual({
+      generationEnabled: false,
+      downloadEnabled: false,
+      emailSendingEnabled: false,
+      scheduledRunEnabled: false,
+      archiveWriteEnabled: false,
+      generatedDocumentMutationEnabled: false,
+      storageMutationEnabled: false,
+      providerCallEnabled: false,
+      complianceSubmissionEnabled: false,
+    });
+  });
+});
 
 describe("reports service builders", () => {
   it("calculates general ledger opening balances and natural running balances", () => {

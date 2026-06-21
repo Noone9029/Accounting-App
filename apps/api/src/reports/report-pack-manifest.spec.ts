@@ -14,6 +14,10 @@ describe("report pack manifest contract", () => {
       "vat-summary",
       "aged-receivables",
       "aged-payables",
+      "cash-flow",
+      "revenue-trend",
+      "top-customers",
+      "top-products-services",
     ]);
     expect(REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.href)).toEqual([
       "/reports/general-ledger",
@@ -23,6 +27,10 @@ describe("report pack manifest contract", () => {
       "/reports/vat-summary",
       "/reports/aged-receivables",
       "/reports/aged-payables",
+      "/reports/cash-flow",
+      "/reports/revenue-trend",
+      "/reports/top-customers",
+      "/reports/top-products-services",
     ]);
   });
 
@@ -62,6 +70,36 @@ describe("report pack manifest contract", () => {
         },
       ],
     });
+    expect(manifest.executionBoundary).toEqual({
+      generationEnabled: false,
+      downloadEnabled: false,
+      emailSendingEnabled: false,
+      scheduledRunEnabled: false,
+      archiveWriteEnabled: false,
+      generatedDocumentMutationEnabled: false,
+      storageMutationEnabled: false,
+      providerCallEnabled: false,
+      complianceSubmissionEnabled: false,
+    });
+  });
+
+  it("supports current read-only report API endpoints in manifest previews", () => {
+    const manifest = buildReportPackManifest({
+      id: "pack-1",
+      organizationId: "org-1",
+      title: "Monthly owner review",
+      createdAt: "2026-06-21T10:00:00.000Z",
+      requestedByUserId: "user-1",
+      items: [
+        { id: "item-1", reportKind: "cash-flow", query: { from: "2026-06-01", to: "2026-06-30" } },
+        { id: "item-2", reportKind: "revenue-trend", query: { from: "2026-06-01", to: "2026-06-30" } },
+      ],
+    });
+
+    expect(manifest.items).toMatchObject([
+      { reportKind: "cash-flow", title: "Cash Flow", source: { href: "/reports/cash-flow" } },
+      { reportKind: "revenue-trend", title: "Revenue Trend", source: { href: "/reports/revenue-trend" } },
+    ]);
   });
 
   it("rejects empty, unsupported, or duplicate manifest items", () => {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccountType,
   BankAccountStatus,
@@ -21,6 +21,12 @@ import { GeneratedDocumentService, sanitizeFilename } from "../generated-documen
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
+import {
+  REPORT_PACK_SUPPORTED_REPORTS,
+  buildReportPackManifest,
+  type ReportPackManifest,
+  type ReportPackReportKind,
+} from "./report-pack-manifest";
 
 const POSTED_REPORT_STATUSES = [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED];
 const ZERO = new Decimal(0);
@@ -34,6 +40,10 @@ export interface ReportDateQuery {
   includeZero?: string | boolean;
   limit?: string | number;
   format?: "json" | "csv" | string;
+}
+
+export interface ReportPackManifestPreviewQuery {
+  reportKinds?: string | string[];
 }
 
 export interface ReportAccountInput {
@@ -123,6 +133,27 @@ export class ReportsService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
   ) {}
+
+  reportPackManifestPreview(
+    organizationId: string,
+    requestedByUserId: string,
+    query: ReportPackManifestPreviewQuery = {},
+  ): ReportPackManifest {
+    const reportKinds = parseReportPackManifestPreviewKinds(query.reportKinds);
+    return buildReportPackManifest({
+      id: "report-pack-manifest-preview",
+      organizationId,
+      title: "Report pack manifest preview",
+      createdAt: new Date().toISOString(),
+      requestedByUserId,
+      items: reportKinds.map((reportKind) => ({
+        id: `preview-${reportKind}`,
+        reportKind,
+        query: {},
+        reviewStatus: "NEEDS_REVIEW",
+      })),
+    });
+  }
 
   async generalLedger(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
@@ -776,6 +807,32 @@ function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
 function cleanOptionalFilterId(value?: string): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
+}
+
+const supportedReportPackKindValues = new Set<string>(REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.kind));
+
+function parseReportPackManifestPreviewKinds(input: string | string[] | undefined): ReportPackReportKind[] {
+  const requested = (Array.isArray(input) ? input : input ? [input] : [])
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (requested.length === 0) {
+    return REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.kind);
+  }
+
+  const reportKinds: ReportPackReportKind[] = [];
+  const seen = new Set<string>();
+  for (const value of requested) {
+    if (!supportedReportPackKindValues.has(value)) {
+      throw new BadRequestException(`Unsupported report pack report kind: ${value}.`);
+    }
+    if (!seen.has(value)) {
+      seen.add(value);
+      reportKinds.push(value as ReportPackReportKind);
+    }
+  }
+  return reportKinds;
 }
 
 function journalEntryBranchFilter(organizationId: string, branchId?: string) {
