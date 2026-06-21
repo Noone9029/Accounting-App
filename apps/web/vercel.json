@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "main": false,
+      "codex/**": false
+    }
+  },
   "buildCommand": "corepack pnpm --filter @ledgerbyte/web build"
 }
