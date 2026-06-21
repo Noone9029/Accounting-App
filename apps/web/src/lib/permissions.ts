@@ -72,6 +72,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.reports.view];
   }
 
+  if (pathname.startsWith("/report-packs")) {
+    return [PERMISSIONS.reports.view];
+  }
+
   if (pathname === "/tax" || pathname.startsWith("/tax/")) {
     return [PERMISSIONS.reports.view];
   }

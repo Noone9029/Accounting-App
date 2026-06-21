@@ -34,6 +34,7 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/setup")).toEqual([PERMISSIONS.dashboard.view]);
     expect(getRequiredPermissionsForPathname("/organization/setup")).toEqual([]);
     expect(getRequiredPermissionsForPathname("/reports/trial-balance")).toEqual([PERMISSIONS.reports.view]);
+    expect(getRequiredPermissionsForPathname("/report-packs")).toEqual([PERMISSIONS.reports.view]);
     expect(getRequiredPermissionsForPathname("/tax")).toEqual([PERMISSIONS.reports.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts")).toEqual([PERMISSIONS.bankAccounts.view]);
     expect(getRequiredPermissionsForPathname("/bank-accounts/new")).toEqual([PERMISSIONS.bankAccounts.manage]);
