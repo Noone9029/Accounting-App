@@ -431,6 +431,39 @@ export class ReportsService {
     );
   }
 
+  async cashFlow(organizationId: string, query: ReportDateQuery) {
+    const range = parseRange(query);
+    const branchId = cleanOptionalFilterId(query.branchId);
+    const cashAccounts = await this.prisma.bankAccountProfile.findMany({
+      where: {
+        organizationId,
+        status: BankAccountStatus.ACTIVE,
+        account: { is: { allowPosting: true, isActive: true, type: AccountType.ASSET } },
+      },
+      orderBy: { displayName: "asc" },
+      select: {
+        accountId: true,
+        displayName: true,
+        account: { select: { id: true, code: true, name: true, type: true } },
+      },
+    });
+    const cashAccountIds = cashAccounts.map((account) => account.accountId);
+    const [openingLines, periodLines] = cashAccountIds.length
+      ? await Promise.all([
+          range.from
+            ? this.findDashboardJournalLines(organizationId, { before: range.from, accountIds: cashAccountIds, branchId })
+            : Promise.resolve([]),
+          this.findDashboardJournalLines(organizationId, { from: range.from, to: range.to, accountIds: cashAccountIds, branchId }),
+        ])
+      : [[], []];
+
+    return buildCashFlowReport(openingLines, periodLines, {
+      from: range.fromLabel,
+      to: range.toLabel,
+      accountCount: cashAccountIds.length,
+    });
+  }
+
   async revenueTrend(organizationId: string, query: ReportDateQuery) {
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -608,18 +641,22 @@ export class ReportsService {
     filters: {
       from?: Date | null;
       to?: Date | null;
+      before?: Date | null;
       accountIds?: string[];
       accountType?: AccountType;
       accountCodes?: string[];
       branchId?: string;
     },
   ): Promise<DashboardLedgerLineInput[]> {
-    const entryDate: { gte?: Date; lte?: Date } = {};
+    const entryDate: { gte?: Date; lte?: Date; lt?: Date } = {};
     if (filters.from) {
       entryDate.gte = filters.from;
     }
     if (filters.to) {
       entryDate.lte = filters.to;
+    }
+    if (filters.before) {
+      entryDate.lt = filters.before;
     }
     const accountFilter =
       filters.accountType || filters.accountCodes?.length
@@ -1284,6 +1321,65 @@ export function buildFinancialDashboardSummary(
       netVatRefundable: fixed(Decimal.max(netVat.negated(), ZERO)),
     },
     ledgerBasis: "POSTED_AND_REVERSED_JOURNALS",
+  };
+}
+
+export function buildCashFlowReport(
+  openingLines: DashboardLedgerLineInput[],
+  periodLines: DashboardLedgerLineInput[],
+  options: { from: string | null; to: string | null; accountCount: number },
+) {
+  const openingCash = Array.from(aggregateNaturalAssetLines(openingLines).values()).reduce((sum, balance) => sum.plus(balance), ZERO);
+  const byPeriod = new Map<string, { inflows: Decimal; outflows: Decimal; lineCount: number }>();
+  for (const line of periodLines) {
+    const period = monthPeriodKey(line.journalEntry?.entryDate);
+    const aggregate = byPeriod.get(period) ?? { inflows: ZERO, outflows: ZERO, lineCount: 0 };
+    aggregate.inflows = aggregate.inflows.plus(money(line.debit));
+    aggregate.outflows = aggregate.outflows.plus(money(line.credit));
+    aggregate.lineCount += 1;
+    byPeriod.set(period, aggregate);
+  }
+
+  const rows = Array.from(byPeriod.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([period, aggregate]) => ({
+      period,
+      inflows: fixed(aggregate.inflows),
+      outflows: fixed(aggregate.outflows),
+      netCashFlow: fixed(aggregate.inflows.minus(aggregate.outflows)),
+      lineCount: aggregate.lineCount,
+    }));
+  const totals = rows.reduce(
+    (sum, row) => ({
+      inflows: sum.inflows.plus(row.inflows),
+      outflows: sum.outflows.plus(row.outflows),
+      netCashFlow: sum.netCashFlow.plus(row.netCashFlow),
+      lineCount: sum.lineCount + row.lineCount,
+    }),
+    { inflows: ZERO, outflows: ZERO, netCashFlow: ZERO, lineCount: 0 },
+  );
+  const closingCash = openingCash.plus(totals.netCashFlow);
+
+  return {
+    from: options.from,
+    to: options.to,
+    basis: "POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES",
+    granularity: "month",
+    rows,
+    totals: {
+      openingCash: fixed(openingCash),
+      inflows: fixed(totals.inflows),
+      outflows: fixed(totals.outflows),
+      netCashFlow: fixed(totals.netCashFlow),
+      closingCash: fixed(closingCash),
+      accountCount: options.accountCount,
+      lineCount: totals.lineCount,
+    },
+    notes: [
+      "Cash flow is derived from posted and reversed journal lines for active LedgerByte cash and bank accounts.",
+      "Draft, voided, inactive-account, and source-document-only activity is excluded.",
+      "This internal management report does not connect bank feeds, does not initiate payments, and does not create provider submissions.",
+    ],
   };
 }
 
