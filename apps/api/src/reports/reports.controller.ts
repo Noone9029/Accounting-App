@@ -9,7 +9,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import type { CoreReportKind } from "./report-csv";
-import { ReportDateQuery, ReportsService } from "./reports.service";
+import { ReportDateQuery, ReportPackManifestPreviewQuery, ReportsService } from "./reports.service";
 
 @Controller("reports")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -140,6 +140,15 @@ export class ReportsController {
   @Get("dashboard-summary")
   dashboardSummary(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
     return this.reportsService.dashboardSummary(organizationId, query);
+  }
+
+  @Get("report-pack/manifest-preview")
+  reportPackManifestPreview(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReportPackManifestPreviewQuery,
+  ) {
+    return this.reportsService.reportPackManifestPreview(organizationId, user.id, query);
   }
 
   @Get("cash-flow")

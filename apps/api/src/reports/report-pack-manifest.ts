@@ -1,17 +1,18 @@
 import type { CoreReportKind } from "./report-csv";
 
+export type ReportPackReportKind = CoreReportKind | "cash-flow" | "revenue-trend" | "top-customers" | "top-products-services";
 export type ReportPackReviewStatus = "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "BLOCKED";
 export type ReportPackManifestStatus = "PLANNING_ONLY";
 
 export interface ReportPackSourceReport {
-  kind: CoreReportKind;
+  kind: ReportPackReportKind;
   title: string;
-  href: `/reports/${CoreReportKind}`;
+  href: `/reports/${ReportPackReportKind}`;
 }
 
 export interface ReportPackItemInput {
   id: string;
-  reportKind: CoreReportKind;
+  reportKind: ReportPackReportKind;
   query: Record<string, string | undefined>;
   title?: string;
   reviewStatus?: ReportPackReviewStatus;
@@ -28,12 +29,12 @@ export interface ReportPackManifestInput {
 
 export interface ReportPackManifestItem {
   id: string;
-  reportKind: CoreReportKind;
+  reportKind: ReportPackReportKind;
   title: string;
   query: Record<string, string | undefined>;
   source: {
     type: "ledgerbyte-report-route";
-    href: `/reports/${CoreReportKind}`;
+    href: `/reports/${ReportPackReportKind}`;
   };
   reviewStatus: ReportPackReviewStatus;
 }
@@ -45,7 +46,9 @@ export interface ReportPackExecutionBoundary {
   scheduledRunEnabled: false;
   archiveWriteEnabled: false;
   generatedDocumentMutationEnabled: false;
+  storageMutationEnabled: false;
   providerCallEnabled: false;
+  complianceSubmissionEnabled: false;
 }
 
 export interface ReportPackManifest {
@@ -67,6 +70,10 @@ export const REPORT_PACK_SUPPORTED_REPORTS: readonly ReportPackSourceReport[] = 
   { kind: "vat-summary", title: "VAT Summary", href: "/reports/vat-summary" },
   { kind: "aged-receivables", title: "Aged Receivables", href: "/reports/aged-receivables" },
   { kind: "aged-payables", title: "Aged Payables", href: "/reports/aged-payables" },
+  { kind: "cash-flow", title: "Cash Flow", href: "/reports/cash-flow" },
+  { kind: "revenue-trend", title: "Revenue Trend", href: "/reports/revenue-trend" },
+  { kind: "top-customers", title: "Top Customers", href: "/reports/top-customers" },
+  { kind: "top-products-services", title: "Top Products & Services", href: "/reports/top-products-services" },
 ] as const;
 
 export const REPORT_PACK_EXECUTION_BOUNDARY: ReportPackExecutionBoundary = {
@@ -76,10 +83,12 @@ export const REPORT_PACK_EXECUTION_BOUNDARY: ReportPackExecutionBoundary = {
   scheduledRunEnabled: false,
   archiveWriteEnabled: false,
   generatedDocumentMutationEnabled: false,
+  storageMutationEnabled: false,
   providerCallEnabled: false,
+  complianceSubmissionEnabled: false,
 };
 
-const supportedReportByKind = new Map<CoreReportKind, ReportPackSourceReport>(
+const supportedReportByKind = new Map<ReportPackReportKind, ReportPackSourceReport>(
   REPORT_PACK_SUPPORTED_REPORTS.map((report) => [report.kind, report]),
 );
 
