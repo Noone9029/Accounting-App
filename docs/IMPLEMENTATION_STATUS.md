@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+Vercel Git deployment controls (2026-06-21):
+
+- Added repo-local Vercel Git deployment controls for the root, API, and web Vercel project configs.
+- Automatic Vercel Git deployments are disabled for `main` and `codex/**` branch patterns through `git.deploymentEnabled`.
+- Manual Vercel deployments remain possible for authorized operators; no manual Vercel command, hosted mutation, provider behavior, storage behavior, compliance submission, or runtime app behavior changed in this slice.
+- GitHub branch protection must not require Vercel status contexts while auto-deploy is disabled for the protected or Codex branch patterns.
+
 OpenBooks adoption post-merge baseline audit (2026-06-20):
 
 - PR #89 through PR #95 are now merged into `main` at `a8ebc9e6d039c52675135fa77bc1eb838c00a70d`.
