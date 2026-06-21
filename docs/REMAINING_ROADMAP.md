@@ -5,8 +5,9 @@
 - Branch `codex/ui-rebuild-loop-full-frontend` starts the full route-family loop from merged `origin/main`.
 - Added `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` to track every major route family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps.
 - First loop migrates `/sales/quotes` and tightens `/sales/invoices` list surfaces onto shared LedgerByte primitives while preserving quote non-posting and invoice finalization truth.
-- Remaining immediate frontend loop work: Sales detail/form/supporting routes, then Purchase, Banking, Contacts, Inventory, Accounting, Reports, Settings/Compliance, Setup/Dashboard, Marketing/Auth, and placeholders.
-- Recommended next prompt if interrupted: `Continue UI-REBUILD-LOOP-FULL-01 from the Sales workspace detail/form routes`.
+- Second loop starts Purchase by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives while preserving explicit AP posting and debit-note adjustment truth.
+- Remaining immediate frontend loop work: Sales and Purchase detail/form/supporting routes, then Banking, Contacts, Inventory, Accounting, Reports, Settings/Compliance, Setup/Dashboard, Marketing/Auth, and placeholders.
+- Recommended next prompt if interrupted: `Continue UI-REBUILD-LOOP-FULL-01 from the Purchase workspace detail/form routes, then continue route-family loops`.
 
 ## 2026-06-22 Frontend Redesign Continuation
 

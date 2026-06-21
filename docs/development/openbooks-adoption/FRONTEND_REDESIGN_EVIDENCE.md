@@ -19,6 +19,7 @@ Base: `origin/main` after PR #144 and PR #145 merge
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
+| Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 
 ## Verification Results
 
@@ -42,6 +43,15 @@ Base: `origin/main` after PR #144 and PR #145 merge
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "sales-invoices authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "Accountant role route QA for sales-invoices at (desktop|mobile)"`: PASS for the matching mobile check; this spec only has compact route coverage for that route title.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/quote-workflow.visual.spec.ts --grep "sales quote create edit lifecycle"`: route assertions reached the final customer activity page, but the test failed its strict `consoleErrors` assertion because the browser captured five generic `Failed to load resource: the server responded with a status of 404 (Not Found)` messages. No fake quote visual pass is claimed from this run.
+
+## 2026-06-22 Purchase Workspace Loop Evidence
+
+- `/purchases/bills`: migrated the AP bill list from route-local table/button/empty-state styling to `LedgerPage`, `LedgerPageBody`, `LedgerPageHeader`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerDate`, `LedgerMoney`, `LedgerStatusBadge`, and `LedgerButton`.
+- `/purchases/debit-notes`: migrated the supplier debit-note list to the same shared LedgerByte primitives, including typed debit-note status badges and consistent AP adjustment wording.
+- Existing create/finalize gates remain tied to `PERMISSIONS.purchaseBills.*` and `PERMISSIONS.purchaseDebitNotes.*`. No payment sending, provider approval workflow, archive/storage operation, or supplier balance math change was added.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification purchase-bill-form purchase-debit-note-form ledger-system`: PASS, 22 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "purchase-(bills|debit-notes) authenticated visual QA at (desktop|mobile)"`: PASS, 4 checks.
 
 ## Mutation Boundary
 

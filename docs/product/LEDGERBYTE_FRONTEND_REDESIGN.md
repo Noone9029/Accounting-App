@@ -10,6 +10,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Migrated `/settings` from a redirect-only root into a grouped administration overview using shared LedgerByte primitives and conservative controlled-beta wording.
 - Migrated `/documents` onto shared page/header/filter/table/empty-state primitives while preserving existing generated-document archive behavior, filters, download wording, and local AP email outbox boundaries.
 - Migrated `/report-packs` onto shared page/header/metric/table/workflow/disabled-boundary primitives while preserving read-only preview behavior and all disabled execution boundaries.
+- Migrated `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte page/table/state primitives while preserving explicit AP posting and debit-note adjustment boundaries.
 - Updated focused component and route-load tests for the shared system and settings overview route.
 
 ## Loop Engineering Progress
@@ -22,6 +23,12 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Preserved quote truth: quotes remain non-posting and do not create journals, VAT filings, inventory movements, payments, email delivery, or compliance submissions from the list view.
 - Preserved invoice truth: invoice finalization remains the only explicit posting action on the list and keeps existing permission gates.
 
+### 2026-06-22 Purchase Workspace List Loop
+
+- Migrated `/purchases/bills` list layout, status badges, date/money cells, action buttons, summary wording, and empty states to shared LedgerByte primitives.
+- Migrated `/purchases/debit-notes` list layout, status badges, amount/date cells, action buttons, and empty states to the same shared system.
+- Preserved AP truth: bill finalization remains an explicit posting action, debit notes remain explicit supplier adjustments, and these list views do not send payments, execute provider approvals, move storage, or alter supplier balance math outside existing actions.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -31,7 +38,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 
 ## Remaining Frontend Route Families
 
-- Sales detail/form/supporting flows, purchases, contacts, and inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Sales and Purchase detail/form/supporting flows, contacts, and inventory list/detail/edit flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
 - Banking import, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
 - Existing settings subroutes need gradual migration to shared panels/forms while preserving each route's permission and mutation behavior.
