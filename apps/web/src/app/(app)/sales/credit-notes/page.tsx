@@ -1,17 +1,48 @@
 "use client";
 
-import Link from "next/link";
+import { CheckCircle2, Eye, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerToolbar,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
+import { creditNoteStatusLabel } from "@/lib/credit-notes";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { CreditNote, CreditNoteStatus } from "@/lib/types";
 
 type StatusFilter = "ALL" | CreditNoteStatus;
+
+function creditNoteStatusTone(status: CreditNoteStatus): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "draft";
+    case "FINALIZED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
 
 export default function CreditNotesPage() {
   const organizationId = useActiveOrganizationId();
@@ -85,54 +116,71 @@ export default function CreditNotesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Sales credit notes</h1>
-          <p className="mt-1 text-sm text-steel">Customer credit notes, revenue reversal posting, and PDF downloads.</p>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
+        title="Sales credit notes"
+        description="Customer credit notes, revenue reversal posting, and PDF downloads."
+        actions={
+          canCreateCreditNote ? (
+            <LedgerButton href="/sales/credit-notes/new" variant="primary" icon={Plus}>
+              Create credit note
+            </LedgerButton>
+          ) : null
+        }
+      />
+
+      <LedgerPageBody>
+        <div className="space-y-3">
+          {!organizationId ? <StatusMessage type="info">Log in and select an organization to load credit notes.</StatusMessage> : null}
+          {loading ? <StatusMessage type="loading">Loading credit notes...</StatusMessage> : null}
+          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+          {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         </div>
-        {canCreateCreditNote ? (
-          <Link href="/sales/credit-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Create credit note
-          </Link>
+
+        {!loading && organizationId && creditNotes.length === 0 ? (
+          <LedgerEmptyState
+            title="No credit notes found"
+            description="Create a draft customer credit note when revenue needs to be reversed or credited."
+            action={
+              canCreateCreditNote ? (
+                <LedgerButton href="/sales/credit-notes/new" variant="primary" icon={Plus}>
+                  Create credit note
+                </LedgerButton>
+              ) : null
+            }
+          />
         ) : null}
-      </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load credit notes.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading credit notes...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && creditNotes.length === 0 ? <StatusMessage type="empty">No credit notes found.</StatusMessage> : null}
-      </div>
+        {creditNotes.length > 0 ? (
+          <LedgerToolbar
+            title="Filter credit notes"
+            description={`${filteredCreditNotes.length} of ${creditNotes.length} credit notes shown.`}
+          >
+            <LedgerFilterBar>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Status</LedgerFieldText>
+                <LedgerSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+                  <option value="ALL">All</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="FINALIZED">Finalized</option>
+                  <option value="VOIDED">Voided</option>
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerFieldLabel className="min-w-64">
+                <LedgerFieldText>Customer</LedgerFieldText>
+                <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
+              </LedgerFieldLabel>
+            </LedgerFilterBar>
+          </LedgerToolbar>
+        ) : null}
 
-      {creditNotes.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="ALL">All</option>
-              <option value="DRAFT">Draft</option>
-              <option value="FINALIZED">Finalized</option>
-              <option value="VOIDED">Voided</option>
-            </select>
-          </label>
-          <label className="block min-w-64">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer</span>
-            <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-      ) : null}
+        {creditNotes.length > 0 && filteredCreditNotes.length === 0 ? (
+          <LedgerEmptyState title="No credit notes match the current filters" description="Adjust the status or customer filter to review other credit notes." />
+        ) : null}
 
-      {creditNotes.length > 0 && filteredCreditNotes.length === 0 ? (
-        <div className="mt-5">
-          <StatusMessage type="empty">No credit notes match the current filters.</StatusMessage>
-        </div>
-      ) : null}
-
-      {filteredCreditNotes.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1080px] text-left text-sm">
+        {filteredCreditNotes.length > 0 ? (
+          <LedgerDataTable minWidth="1080px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Number</th>
@@ -151,32 +199,38 @@ export default function CreditNotesPage() {
                 <tr key={creditNote.id}>
                   <td className="px-4 py-3 font-mono text-xs">{creditNote.creditNoteNumber}</td>
                   <td className="px-4 py-3 font-medium text-ink">{creditNote.customer?.displayName ?? creditNote.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{new Date(creditNote.issueDate).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{creditNoteStatusLabel(creditNote.status)}</span>
+                    <LedgerDate>{new Date(creditNote.issueDate).toLocaleDateString()}</LedgerDate>
+                  </td>
+                  <td className="px-4 py-3">
+                    <LedgerStatusBadge tone={creditNoteStatusTone(creditNote.status)}>{creditNoteStatusLabel(creditNote.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{creditNote.originalInvoice?.invoiceNumber ?? "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.total, creditNote.currency)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</td>
+                  <td className="px-4 py-3">
+                    <LedgerMoney>{formatMoneyAmount(creditNote.total, creditNote.currency)}</LedgerMoney>
+                  </td>
+                  <td className="px-4 py-3">
+                    <LedgerMoney>{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</LedgerMoney>
+                  </td>
                   <td className="px-4 py-3 text-steel">{creditNote.journalEntry ? creditNote.journalEntry.status : "-"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Link href={`/sales/credit-notes/${creditNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <LedgerButton href={`/sales/credit-notes/${creditNote.id}`} size="sm" icon={Eye}>
                         View
-                      </Link>
+                      </LedgerButton>
                       {creditNote.status === "DRAFT" && canFinalizeCreditNote ? (
-                        <button type="button" onClick={() => void finalizeCreditNote(creditNote)} disabled={actionId === creditNote.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <LedgerButton type="button" onClick={() => void finalizeCreditNote(creditNote)} disabled={actionId === creditNote.id} size="sm" variant="primary" icon={CheckCircle2}>
                           Finalize
-                        </button>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }

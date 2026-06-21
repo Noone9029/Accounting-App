@@ -1,9 +1,23 @@
 "use client";
 
-import Link from "next/link";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
@@ -242,69 +256,67 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
     return (
       <div className="space-y-4">
         <StatusMessage type="error">Only draft credit notes can be edited.</StatusMessage>
-        <Link href={`/sales/credit-notes/${initialCreditNote.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <LedgerButton href={`/sales/credit-notes/${initialCreditNote.id}`} icon={ArrowLeft}>
           Back to credit note
-        </Link>
+        </LedgerButton>
       </div>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Customer</span>
-            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerFormSection title="Credit note details" description="Choose the customer, issue date, branch, and optional original invoice reference.">
+          <LedgerFieldLabel className="md:col-span-2">
+            <LedgerFieldText>Customer</LedgerFieldText>
+            <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
               <option value="">Select customer</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.displayName ?? customer.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Issue date</span>
-            <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Branch</span>
-            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Issue date</LedgerFieldText>
+            <LedgerInput type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Branch</LedgerFieldText>
+            <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
               <option value="">No branch</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.displayName ?? branch.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Original invoice</span>
-            <select value={originalInvoiceId} onChange={(event) => setOriginalInvoiceId(event.target.value)} disabled={!customerId} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-50">
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="md:col-span-2">
+            <LedgerFieldText>Original invoice</LedgerFieldText>
+            <LedgerSelect value={originalInvoiceId} onChange={(event) => setOriginalInvoiceId(event.target.value)} disabled={!customerId}>
               <option value="">Standalone credit note</option>
               {customerInvoices.map((invoice) => (
                 <option key={invoice.id} value={invoice.id}>
                   {invoice.invoiceNumber} - {formatMoneyAmount(invoice.total, invoice.currency)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Reason</span>
-            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Return, adjustment, discount" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Notes</span>
-            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Reason</LedgerFieldText>
+            <LedgerInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Return, adjustment, discount" />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Notes</LedgerFieldText>
+            <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
+          </LedgerFieldLabel>
         {selectedOriginalInvoice ? (
-          <p className="mt-3 text-xs text-steel">
+          <p className="text-xs text-steel md:col-span-2">
             Linked to invoice {selectedOriginalInvoice.invoiceNumber}. Credit note total is validated against the original invoice total.
           </p>
         ) : null}
-      </div>
+      </LedgerFormSection>
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating credit notes.</StatusMessage> : null}
@@ -312,84 +324,110 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <div className="grid min-w-[1120px] grid-cols-[1fr_1.2fr_1fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
-          <div>Item</div>
-          <div>Description</div>
-          <div>Revenue account</div>
-          <div>Qty</div>
-          <div>Price</div>
-          <div>Discount %</div>
-          <div>Tax</div>
-          <div>Total</div>
-          <div></div>
-        </div>
-        {lines.map((line, index) => {
-          const previewLine = preview.lines[index];
-          return (
-            <div key={line.id} className="grid min-w-[1120px] grid-cols-[1fr_1.2fr_1fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
-              <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">No item</option>
-                {activeItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.sku ? `${item.sku} - ${item.name}` : item.name}
-                  </option>
-                ))}
-              </select>
-              <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <select value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">Select account</option>
-                {postingRevenueAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.code} {account.name}
-                  </option>
-                ))}
-              </select>
-              <input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-              <select value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
-                <option value="">No tax</option>
-                {activeSalesTaxRates.map((taxRate) => (
-                  <option key={taxRate.id} value={taxRate.id}>
-                    {taxRate.name}
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</div>
-              <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
-                Remove
-              </button>
-            </div>
-          );
-        })}
-        <div className="flex min-w-[1120px] items-center justify-between px-4 py-3 text-sm">
-          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+      <LedgerSection title="Credit note lines" description="Use revenue accounts and sales tax rates for the draft credit note lines.">
+        <LedgerDataTable minWidth="1120px" className="shadow-none">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Item</th>
+              <th className="px-3 py-2">Description</th>
+              <th className="px-3 py-2">Revenue account</th>
+              <th className="px-3 py-2">Qty</th>
+              <th className="px-3 py-2">Price</th>
+              <th className="px-3 py-2">Discount %</th>
+              <th className="px-3 py-2">Tax</th>
+              <th className="px-3 py-2">Total</th>
+              <th className="px-3 py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {lines.map((line, index) => {
+              const previewLine = preview.lines[index];
+              return (
+                <tr key={line.id}>
+                  <td className="px-3 py-3">
+                    <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="min-w-36">
+                      <option value="">No item</option>
+                      {activeItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.sku ? `${item.sku} - ${item.name}` : item.name}
+                        </option>
+                      ))}
+                    </LedgerSelect>
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="min-w-44" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerSelect value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="min-w-44">
+                      <option value="">Select account</option>
+                      {postingRevenueAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.code} {account.name}
+                        </option>
+                      ))}
+                    </LedgerSelect>
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerInput inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="min-w-24" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerInput inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="min-w-28" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerInput inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="min-w-24" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerSelect value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="min-w-36">
+                      <option value="">No tax</option>
+                      {activeSalesTaxRates.map((taxRate) => (
+                        <option key={taxRate.id} value={taxRate.id}>
+                          {taxRate.name}
+                        </option>
+                      ))}
+                    </LedgerSelect>
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerMoney>{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</LedgerMoney>
+                  </td>
+                  <td className="px-3 py-3">
+                    <LedgerButton type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} size="sm" icon={Trash2}>
+                      Remove
+                    </LedgerButton>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </LedgerDataTable>
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={Plus}>
             Add line
-          </button>
-          <div className="grid min-w-72 grid-cols-2 gap-2 text-right">
-            <span className="text-steel">Subtotal</span>
-            <span className="font-mono">{formatMoneyAmount(preview.subtotal)}</span>
-            <span className="text-steel">Discount</span>
-            <span className="font-mono">{formatMoneyAmount(preview.discountTotal)}</span>
-            <span className="text-steel">Taxable</span>
-            <span className="font-mono">{formatMoneyAmount(preview.taxableTotal)}</span>
-            <span className="text-steel">VAT</span>
-            <span className="font-mono">{formatMoneyAmount(preview.taxTotal)}</span>
-            <span className="font-semibold text-ink">Total credit</span>
-            <span className="font-mono font-semibold text-ink">{formatMoneyAmount(preview.total)}</span>
-          </div>
+          </LedgerButton>
+          <LedgerSummaryBand>
+            <dl className="grid min-w-72 grid-cols-2 gap-2 text-right text-sm">
+              <dt className="text-steel">Subtotal</dt>
+              <dd><LedgerMoney>{formatMoneyAmount(preview.subtotal)}</LedgerMoney></dd>
+              <dt className="text-steel">Discount</dt>
+              <dd><LedgerMoney>{formatMoneyAmount(preview.discountTotal)}</LedgerMoney></dd>
+              <dt className="text-steel">Taxable</dt>
+              <dd><LedgerMoney>{formatMoneyAmount(preview.taxableTotal)}</LedgerMoney></dd>
+              <dt className="text-steel">VAT</dt>
+              <dd><LedgerMoney>{formatMoneyAmount(preview.taxTotal)}</LedgerMoney></dd>
+              <dt className="font-semibold text-ink">Total credit</dt>
+              <dd className="font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(preview.total)}</LedgerMoney></dd>
+            </dl>
+          </LedgerSummaryBand>
         </div>
-      </div>
+      </LedgerSection>
 
-      <div className="flex gap-3">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+      <LedgerPanel>
+        <LedgerActionBar>
+          <LedgerButton type="submit" disabled={!organizationId || loading || submitting || !preview.valid} variant="primary" icon={Save}>
           {submitting ? "Saving..." : initialCreditNote ? "Save draft credit note" : "Create draft credit note"}
-        </button>
-        <Link href={returnTo || "/sales/credit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Cancel
-        </Link>
-      </div>
+          </LedgerButton>
+          <LedgerButton href={returnTo || "/sales/credit-notes"}>Cancel</LedgerButton>
+        </LedgerActionBar>
+      </LedgerPanel>
     </form>
   );
 }

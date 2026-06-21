@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-invoice-detail`
+Branch: `codex/ui-redesign-credit-notes`
 
-Base: stacked on `origin/codex/ui-redesign-sales-documents` while PR #148 is open
+Base: stacked on `origin/codex/ui-redesign-invoice-detail` while PR #149 is open
 
 ## Evidence Summary
 
@@ -21,6 +21,7 @@ Base: stacked on `origin/codex/ui-redesign-sales-documents` while PR #148 is ope
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 | Sales document workflow loop | `apps/web/src/components/forms/sales-invoice-form.tsx`, `apps/web/src/components/forms/sales-quote-form.tsx`, and sales invoice/quote new/edit/quote-detail route shells use shared LedgerByte page, field, table, metric, status, summary, and action primitives while preserving draft, posting, quote non-posting, PDF archive, and return-to behavior. |
 | Sales invoice detail loop | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` now uses shared LedgerByte page, section, metric, summary, data-table, date, money, status, panel, and action primitives while preserving finalization/void/delete/PDF/payment/credit-note/stock-issue/collection/compliance/ZATCA behavior. |
+| Sales credit notes loop | `apps/web/src/app/(app)/sales/credit-notes/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/credit-note-form.tsx` use shared LedgerByte list, detail, form, table, money/date, status, allocation, alert, and action primitives while preserving credit-note posting, allocation, PDF archive, UAE readiness, and return-to behavior. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -75,6 +76,21 @@ Base: stacked on `origin/codex/ui-redesign-sales-documents` while PR #148 is ope
 - `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx"`: PASS, 7 tests.
 - `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification sales/invoices`: PASS, 20 tests.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep invoice-line-items`: PASS, 3 checks after constraining the invoice detail header action group so the tablet viewport has no document-level horizontal overflow.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2061 checked files, 0 blocked references, 0 forbidden claims.
+
+## 2026-06-22 Sales Credit Notes Loop Evidence
+
+- `/sales/credit-notes`: migrated the credit-note list page from route-local header, filter panel, table wrapper, empty state, money/date cells, and row actions to shared LedgerByte page, toolbar, filter, table, status, money/date, empty-state, and button primitives.
+- `/sales/credit-notes/new` and `/sales/credit-notes/[id]/edit`: migrated route shells to shared page/header/body/action primitives while preserving the shared form handoff and draft edit load behavior.
+- `CreditNoteForm`: migrated credit-note details, original-invoice selector, line-item grid, revenue account picker, tax picker, totals, add/remove actions, save action, cancel link, and draft-only edit guard to shared Ledger form, field, table, money, summary, panel, and action primitives. Existing setup-data loads, validation, payload shape, fixed `SAR` currency behavior, return-to redirect, and draft-only edit boundary remain unchanged.
+- `/sales/credit-notes/[id]`: migrated the detail shell, status badge, header actions, attachment slot, summary metrics, reason/notes metadata, line-item table, totals band, allocation table, apply-credit form, local UAE credit-note readiness panel shell, source-document guidance, and local ZATCA warning to shared Ledger primitives.
+- Existing behavior remains frontend-only and unchanged: finalize/void/delete actions, credit-note PDF download/archive wording, customer ledger handoff, refund-credit handoff, credit allocation and reversal endpoints, no-new-journal allocation wording, UAE/PINT-AE local validation wording, generated-document/source guidance, and ZATCA not-implemented wording.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/credit-notes/[id]/page.test.tsx"`: PASS, 1 test.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification sales/credit-notes`: PASS, 14 tests.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/refund-collections-banking-detail-polish.visual.spec.ts --grep "credit-note"`: initially failed 3 mobile checks because the header `Void` action stretched to 216.75px; after constraining that destructive action to `self-start`, rerun PASS, 27 checks.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2061 checked files, 0 blocked references, 0 forbidden claims.
 

@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { CreditNoteForm } from "@/components/forms/credit-note-form";
+import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { CreditNote } from "@/lib/types";
@@ -48,24 +49,27 @@ export default function EditCreditNotePage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit credit note</h1>
-          <p className="mt-1 text-sm text-steel">Draft credit notes can be edited before finalization.</p>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
+        title="Edit credit note"
+        description="Draft credit notes can be edited before finalization."
+        actions={
+          <LedgerButton href={creditNote ? `/sales/credit-notes/${creditNote.id}` : "/sales/credit-notes"} icon={ArrowLeft}>
+            Back
+          </LedgerButton>
+        }
+      />
+
+      <LedgerPageBody>
+        <div className="space-y-3">
+          {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit credit notes.</StatusMessage> : null}
+          {loading ? <StatusMessage type="loading">Loading credit note...</StatusMessage> : null}
+          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         </div>
-        <Link href={creditNote ? `/sales/credit-notes/${creditNote.id}` : "/sales/credit-notes"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit credit notes.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading credit note...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
-
-      {creditNote ? <div className="mt-5"><CreditNoteForm initialCreditNote={creditNote} /></div> : null}
-    </section>
+        {creditNote ? <CreditNoteForm initialCreditNote={creditNote} /> : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
