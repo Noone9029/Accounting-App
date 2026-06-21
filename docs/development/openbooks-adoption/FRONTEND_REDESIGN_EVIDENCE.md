@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-contacts-statements`
+Branch: `codex/ui-redesign-sales-documents`
 
-Base: stacked on `origin/codex/ui-rebuild-loop-full-frontend` while PR #146 is open
+Base: stacked on `origin/codex/ui-redesign-contacts-statements` while PR #147 is open
 
 ## Evidence Summary
 
@@ -19,6 +19,7 @@ Base: stacked on `origin/codex/ui-rebuild-loop-full-frontend` while PR #146 is o
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
+| Sales document workflow loop | `apps/web/src/components/forms/sales-invoice-form.tsx`, `apps/web/src/components/forms/sales-quote-form.tsx`, and sales invoice/quote new/edit/quote-detail route shells use shared LedgerByte page, field, table, metric, status, summary, and action primitives while preserving draft, posting, quote non-posting, PDF archive, and return-to behavior. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -48,6 +49,21 @@ Base: stacked on `origin/codex/ui-rebuild-loop-full-frontend` while PR #146 is o
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep supplier-statement`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep customer-statement`: PASS, 9 checks.
 - Attempted to run customer/supplier statement visual checks in parallel; the customer run failed before Playwright started because both commands tried to start the shared visual web server on `127.0.0.1:3030`. The command was rerun alone and passed.
+
+## 2026-06-22 Sales Document Workflow Loop Evidence
+
+- `/sales/invoices/new` and `/sales/invoices/[id]/edit`: migrated route shells to `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, and `LedgerButton` while preserving setup/back links, load behavior, and the shared invoice form handoff.
+- `/sales/quotes/new` and `/sales/quotes/[id]/edit`: migrated route shells to shared page/header/body primitives while preserving quote edit load behavior and the shared quote form handoff.
+- `SalesInvoiceForm`: migrated invoice details, line-item table, account picker, totals panel, add/remove actions, save/cancel actions, and read-only draft guard to shared Ledger field/table/money/button/panel primitives. Existing payload shape, validation, draft-only edit guard, sequence preview, return-to redirect, compliance readiness wording, and no auto-finalize/no fake compliance boundaries remain unchanged.
+- `SalesQuoteForm`: migrated quote details, non-posting warning, line-item table, account picker, totals panel, add/remove actions, and save/cancel actions to shared Ledger primitives. Existing quote save/update payloads, validation, draft-only edit guard, sequence preview, return-to redirect, and non-posting wording remain unchanged.
+- `/sales/quotes/[id]`: migrated quote detail shell, customer context, status badge, action group, totals, line-item table, notes/terms, and PDF archive panel to shared Ledger primitives. Existing mark-sent/accept/reject/expire/cancel/convert/PDF/archive API calls and permission checks remain unchanged.
+- `/sales/invoices/[id]` detail remains deferred for a dedicated invoice-detail pass because it carries compliance readiness, generated-document, stock issue, payment, collection, delivery-note, and posting panels.
+- `corepack pnpm --filter @ledgerbyte/web test -- sales-invoice-form sales-quote-form sales/quotes/[id] route-load-verification`: PASS, 23 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2061 checked files, 0 blocked references, 0 forbidden claims.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "sales-invoice-new authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks after adding `min-w-0` constraints to the line-item grid container.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/quote-workflow.visual.spec.ts --grep "sales quote create edit lifecycle"`: route assertions reached the final customer activity page and verified the non-posting quote row, but the test failed its strict `consoleErrors` assertion because the browser captured five generic `Failed to load resource: the server responded with a status of 404 (Not Found)` messages. No fake quote workflow visual pass is claimed from this run.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 

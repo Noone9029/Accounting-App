@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SalesQuoteForm } from "@/components/forms/sales-quote-form";
+import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { SalesQuote } from "@/lib/types";
@@ -48,16 +48,13 @@ export default function EditSalesQuotePage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit sales quote</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Update draft quote details before sharing it or marking it sent for tracking.</p>
-        </div>
-        <Link href={quote ? `/sales/quotes/${quote.id}` : "/sales/quotes"} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back to quote
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales quote"
+        title="Edit sales quote"
+        description="Update draft quote details before sharing it or marking it sent for tracking."
+        actions={<LedgerButton href={quote ? `/sales/quotes/${quote.id}` : "/sales/quotes"}>Back to quote</LedgerButton>}
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit this sales quote.</StatusMessage> : null}
@@ -66,10 +63,10 @@ export default function EditSalesQuotePage() {
       </div>
 
       {quote ? (
-        <div className="mt-5">
+        <LedgerPageBody>
           <SalesQuoteForm initialQuote={quote} />
-        </div>
+        </LedgerPageBody>
       ) : null}
-    </section>
+    </LedgerPage>
   );
 }

@@ -1,21 +1,18 @@
 import { SalesInvoiceForm } from "@/components/forms/sales-invoice-form";
-import { buttonVariants } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import Link from "next/link";
+import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 
 export default function NewSalesInvoicePage() {
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
         title="Create sales invoice"
         description="Build the first sale from a customer, revenue account, and optional item/tax rate. Save the draft first, then review and finalize from the invoice page."
-        actions={
-          <Link href="/setup" className={buttonVariants({ variant: "outline" })}>
-            Guided setup
-          </Link>
-        }
+        actions={<LedgerButton href="/setup">Guided setup</LedgerButton>}
       />
-      <SalesInvoiceForm />
-    </section>
+      <LedgerPageBody>
+        <SalesInvoiceForm />
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
