@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LedgerButton, LedgerErrorState, LedgerLoadingState, LedgerPanel } from "@/components/ui/ledger-system";
 import { getRequiredPermissionsForPathname, hasAnyPermission } from "@/lib/permissions";
 import { usePermissions } from "./permission-provider";
 
@@ -11,11 +11,7 @@ export function PermissionBoundary({ children }: Readonly<{ children: React.Reac
   const requiredPermissions = getRequiredPermissionsForPathname(pathname);
 
   if (loading) {
-    return (
-      <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-steel">
-        Loading access...
-      </div>
-    );
+    return <LedgerLoadingState title="Loading access" />;
   }
 
   if (error) {
@@ -39,12 +35,12 @@ function AccessDeniedPanel({
   detail,
 }: Readonly<{ actionHref?: string; actionLabel?: string; detail: string }>) {
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-6">
-      <div className="text-sm font-semibold text-ink">Access denied</div>
-      <p className="mt-2 max-w-2xl text-sm text-steel">{detail}</p>
-      <Link href={actionHref} className="mt-4 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        {actionLabel}
-      </Link>
-    </section>
+    <LedgerPanel>
+      <LedgerErrorState
+        title="Access denied"
+        description={detail}
+        action={<LedgerButton href={actionHref}>{actionLabel}</LedgerButton>}
+      />
+    </LedgerPanel>
   );
 }

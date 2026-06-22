@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, CircleDashed, ShieldCheck } from "lucide-react";
+import { LedgerAlert, LedgerButton, LedgerPanel, LedgerStatusBadge, LedgerSummaryBand, type LedgerStatusTone } from "@/components/ui/ledger-system";
 import { complianceStatusLabel } from "@/lib/compliance";
 import type { ComplianceReadinessCheck, ComplianceSourceReadinessResponse, UaePartyReadinessReport } from "@/lib/types";
 
@@ -19,10 +20,10 @@ export function UaeEinvoiceReadinessPanel({
 }) {
   if (!response) {
     return (
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <h2 className="text-base font-semibold text-ink">{title}</h2>
         <p className="mt-2 text-sm text-steel">UAE eInvoicing readiness is available when compliance view permission is granted.</p>
-      </section>
+      </LedgerPanel>
     );
   }
 
@@ -38,7 +39,7 @@ export function UaeEinvoiceReadinessPanel({
   ];
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">{title}</h2>
@@ -46,9 +47,9 @@ export function UaeEinvoiceReadinessPanel({
             Local readiness and official PINT-AE XML generation for controlled beta/user-testing only. ASP validation is not connected yet; no ASP submission, FTA reporting, provider network call, or production compliance claim is made.
           </p>
         </div>
-        <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${response.canAttemptLocalXmlGeneration ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        <LedgerStatusBadge tone={response.canAttemptLocalXmlGeneration ? "success" : "warning"}>
           {response.canAttemptLocalXmlGeneration ? "Official PINT-AE XML can be generated locally" : "Needs local readiness data"}
-        </span>
+        </LedgerStatusBadge>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
@@ -65,32 +66,35 @@ export function UaeEinvoiceReadinessPanel({
       </div>
 
       {response.readiness.validation.issues.length ? (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
-          <h3 className="text-sm font-semibold text-amber-950">Validation messages</h3>
+        <div className="mt-4">
+        <LedgerAlert tone="warning" title="Validation messages">
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-900">
             {response.readiness.validation.issues.slice(0, 6).map((issue) => (
               <li key={`${issue.code}:${issue.message}`}>{issue.message}</li>
             ))}
           </ul>
+        </LedgerAlert>
         </div>
       ) : null}
 
       {latestValidation || latestArchive ? (
-        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-steel">
+        <div className="mt-4">
+        <LedgerSummaryBand>
           {latestValidation ? <p>Latest local validation result: {latestValidation.summary}</p> : null}
           {latestArchive ? <p className="mt-1">Archive metadata: {latestArchive.filename ?? "XML metadata"} hash {latestArchive.contentHash ?? "-"}; payload body stored: no.</p> : null}
+        </LedgerSummaryBand>
         </div>
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-        <button
+        <LedgerButton
           type="button"
           onClick={onValidate}
           disabled={actionLoading || !canValidate || response.sourceStatus !== "FINALIZED"}
-          className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          variant="primary"
         >
           {actionLoading ? "Validating..." : "Validate UAE eInvoice readiness"}
-        </button>
+        </LedgerButton>
         {!canValidate ? <span className="text-xs text-amber-700">Requires compliance prepare and local validation permissions.</span> : null}
         {response.sourceStatus !== "FINALIZED" ? <span className="text-xs text-steel">Available after document finalization.</span> : null}
         <span className="inline-flex items-center gap-1 text-xs text-steel">
@@ -98,25 +102,23 @@ export function UaeEinvoiceReadinessPanel({
           ASP validation not connected yet; no network, no ASP submission, no FTA reporting.
         </span>
       </div>
-    </section>
+    </LedgerPanel>
   );
 }
 
 function ReadinessSection({ section }: { section: UaePartyReadinessReport }) {
   return (
-    <div className="rounded-md border border-slate-200 p-3">
+    <LedgerPanel className="p-3 shadow-none">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-ink">{section.label}</h3>
-        <span className={`rounded-md px-2 py-1 text-xs font-medium ${section.status === "READY_FOR_VALIDATION" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-          {complianceStatusLabel(section.status)}
-        </span>
+        <LedgerStatusBadge tone={complianceStatusTone(section.status)}>{complianceStatusLabel(section.status)}</LedgerStatusBadge>
       </div>
       <div className="mt-3 space-y-2">
         {section.checks.map((check) => (
           <CheckRow key={check.key} check={check} />
         ))}
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -132,6 +134,16 @@ function CheckRow({ check }: { check: ComplianceReadinessCheck }) {
       </div>
     </div>
   );
+}
+
+function complianceStatusTone(status: string): LedgerStatusTone {
+  if (status === "READY_FOR_VALIDATION" || status === "PASS" || status === "READY") {
+    return "success";
+  }
+  if (status === "BLOCKED" || status === "FAIL") {
+    return "danger";
+  }
+  return "warning";
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
