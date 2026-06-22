@@ -1,9 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatCard,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatMoneyAmount } from "@/lib/money";
@@ -90,90 +105,89 @@ export default function NewBankReconciliationPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New reconciliation</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} statement close draft` : "Statement close draft"}</p>
-        </div>
-        <Link href={`/bank-accounts/${params.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="New reconciliation"
+        description={profile ? `${profile.displayName} statement close draft` : "Statement close draft"}
+        actions={<LedgerButton href={`/bank-accounts/${params.id}/reconciliations`}>Back</LedgerButton>}
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to create a reconciliation.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading bank account...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Creating a draft does not lock the period. The period becomes immutable only after close succeeds with zero difference and no unmatched statement rows.
+      </LedgerSummaryBand>
 
-      <form onSubmit={submitReconciliation} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-          <h2 className="text-base font-semibold text-ink">Before you close a period</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-            Create a draft after statement rows are imported and reviewed. The period is not locked yet; submit and close only after the difference is zero and no statement rows remain unmatched.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Review unmatched rows
-            </Link>
-            <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Import statement
-            </Link>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to create a reconciliation.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading bank account" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+
+        <LedgerPanel>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <h2 className="text-base font-semibold text-ink">Before you close a period</h2>
+              <p className="mt-2 text-sm leading-6 text-steel">
+                Create a draft after statement rows are imported and reviewed. The period is not locked yet; submit and close only after the difference is zero and no statement rows remain unmatched.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
+              <LedgerButton href={`/bank-accounts/${params.id}/statement-imports`}>Import statement</LedgerButton>
+            </div>
           </div>
-        </div>
+        </LedgerPanel>
 
         {profile ? (
-          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <SummaryCard label="Bank account" value={profile.displayName} />
-            <SummaryCard label="Current ledger balance" value={formatMoneyAmount(profile.ledgerBalance, profile.currency)} />
-            <SummaryCard label="Currency" value={profile.currency} />
-          </div>
+          <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-3">
+            <LedgerStatCard label="Bank account" value={profile.displayName} />
+            <LedgerStatCard label="Current ledger balance" value={<LedgerMoney>{formatMoneyAmount(profile.ledgerBalance, profile.currency)}</LedgerMoney>} />
+            <LedgerStatCard label="Currency" value={profile.currency} />
+          </LedgerMetricGrid>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Period start</span>
-            <input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Period end</span>
-            <input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Statement opening balance</span>
-            <input inputMode="decimal" value={statementOpeningBalance} onChange={(event) => setStatementOpeningBalance(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Statement closing balance</span>
-            <input inputMode="decimal" value={statementClosingBalance} onChange={(event) => setStatementClosingBalance(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-        <label className="mt-4 block">
-          <span className="text-sm font-medium text-slate-700">Notes</span>
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Creating a draft does not lock the period. The period becomes immutable only after close succeeds with zero difference and no unmatched statement rows.
-        </div>
-        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Review summary first
-          </Link>
-          <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Creating..." : "Create draft"}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
+        <form onSubmit={submitReconciliation} className="space-y-5">
+          <LedgerFormSection
+            title="Statement period"
+            description="Enter the statement period and balances for the manual reconciliation draft."
+          >
+            <LedgerFieldLabel>
+              <LedgerFieldText>Period start</LedgerFieldText>
+              <LedgerInput type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Period end</LedgerFieldText>
+              <LedgerInput type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Statement opening balance</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={statementOpeningBalance} onChange={(event) => setStatementOpeningBalance(event.target.value)} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Statement closing balance</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={statementClosingBalance} onChange={(event) => setStatementClosingBalance(event.target.value)} />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
+          <LedgerFormSection title="Notes" description="Optional reconciliation notes for accountant review.">
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Notes</LedgerFieldText>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={4}
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
+              />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <LedgerButton href={`/bank-accounts/${params.id}/reconciliation`}>Review summary first</LedgerButton>
+            <LedgerButton type="submit" disabled={submitting} variant="primary">
+              {submitting ? "Creating..." : "Create draft"}
+            </LedgerButton>
+          </div>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
