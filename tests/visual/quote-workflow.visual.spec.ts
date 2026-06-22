@@ -67,7 +67,7 @@ test("sales quote create edit lifecycle PDF archive convert and customer activit
   const state = await installQuoteWorkflowMocks(page);
 
   await page.goto("/sales/quotes");
-  await expect(page.getByRole("heading", { name: "Sales quotes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sales quotes", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create quote" })).toBeVisible();
   await expectQuotePageUsesSafeLabels(page);
 
@@ -168,7 +168,7 @@ test("restricted quote viewer cannot create edit convert or download quote PDFs"
   });
 
   await page.goto("/sales/quotes");
-  await expect(page.getByRole("heading", { name: "Sales quotes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sales quotes", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create quote" })).toHaveCount(0);
 
   await page.goto(`/sales/quotes/${quoteId}`);
@@ -368,6 +368,15 @@ async function fulfillQuoteApiRoute(route: Route, state: QuoteWorkflowState) {
   }
   if (pathname === "/generated-documents" && method === "GET") {
     return json(route, state.archiveDocuments);
+  }
+  if (pathname === "/delivery-notes" && method === "GET") {
+    return json(route, []);
+  }
+  if (pathname === "/collections/invoice/invoice-from-quote" && method === "GET") {
+    return json(route, []);
+  }
+  if (pathname === `/collections/customer/${customer.id}` && method === "GET") {
+    return json(route, []);
   }
   if (pathname === "/generated-documents/generated-quote-doc-1/download" && method === "GET") {
     state.archiveDownloadRequests += 1;

@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-23 Redesigned Frontend Beta Walkthrough Evidence
+
+- `BETA-WALKTHROUGH-01` captured local mocked redesigned frontend beta walkthrough evidence and issue logging on branch `codex/beta-walkthrough-01`.
+- Completed evidence: route-load verification, auth/marketing tests, polished workflow visual baselines, authenticated route hardening, sales quote/delivery/recurring/collections workflows, refunds/credit/debit notes, banking detail/reconciliation/cheques, reports, documents, and role coverage in completed suites.
+- Fixed one confirmed frontend regression on `/bank-accounts/[id]/reconciliations` tablet layout and refreshed stale quote workflow visual fixture coverage.
+- Remaining blocker: broad remaining visual suites timed out before usable output, and no explicitly disposable live demo org/API walkthrough was available in this goal.
+- Recommended next prompt: `BETA-FIX-01`.
+- Production launch readiness, compliance readiness, provider readiness, object-storage readiness, signed URL readiness, hosted deployment posture, payment/email readiness, and seed/reset/delete posture remain unchanged.
+
 ## 2026-06-22 Frontend Redesign Full-Stack Merge
 
 - PR #146 through PR #210 are merged into `main`; final stack SHA is `cb34543d16389344ba45e69a2db277fce4c633ad`.

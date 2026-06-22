@@ -115,7 +115,7 @@ export default function BankReconciliationsPage() {
         {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
         <LedgerPanel>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
               <h2 className="text-base font-semibold text-ink">Closed-period history</h2>
               <p className="mt-2 text-sm leading-6 text-steel">

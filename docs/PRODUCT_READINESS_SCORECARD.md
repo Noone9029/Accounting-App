@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-06-23 Redesigned Frontend Beta Walkthrough Evidence
+
+- Controlled beta frontend confidence improves because `BETA-WALKTHROUGH-01` completed the redesigned walkthrough through local mocked route/auth/visual evidence on branch `codex/beta-walkthrough-01` at baseline `31e932920d7a488f50baffba3dd651e567b8654f`.
+- Completed commands passed 23 Jest tests and 272 Playwright visual tests after one confirmed tablet overflow fix and one stale quote visual fixture refresh.
+- No production readiness score increase is taken. This pass did not run a live disposable demo-org/API walkthrough and did not complete the broad owner/settings/report/detail/secondary/role visual suites because combined attempts timed out.
+- No backend APIs, Prisma schema changes, hosted migrations, Supabase/Vercel mutations, provider calls, live banking, automated reconciliation, generated-document object storage, signed URLs, storage moves, ZATCA/UAE/Peppol/ASP production behavior, tax-authority submission, seed/reset/delete behavior, payment collection, email delivery, deployment behavior, or production compliance claims changed.
+- Next readiness work is `BETA-FIX-01`: split and complete the timed-out visual evidence plus prepare an explicitly disposable demo org/runtime for live walkthrough signoff.
+
 ## 2026-06-22 Frontend Redesign Stabilization Evidence Update
 
 - Controlled beta frontend confidence improves because `UI-REBUILD-STABILIZE-01` adds route-load, visual QA, accessibility, responsive, truthfulness, permission/action, and beta walkthrough evidence on top of merged `origin/main` at `d12535cd2fc608797bc4664543cbbb1920379406`.
