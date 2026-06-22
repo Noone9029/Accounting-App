@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-detail`
+Branch: `codex/ui-redesign-supplier-settlement`
 
-Base: stacked on `origin/codex/ui-redesign-purchase-documents` while PR #157 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-detail` while PR #158 is open
 
 ## Evidence Summary
 
@@ -31,6 +31,7 @@ Base: stacked on `origin/codex/ui-redesign-purchase-documents` while PR #157 is 
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Purchase document form loop | `apps/web/src/app/(app)/purchases/bills/new/page.tsx`, `apps/web/src/app/(app)/purchases/bills/[id]/edit/page.tsx`, `apps/web/src/components/forms/purchase-bill-form.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/new/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-debit-note-form.tsx` use shared LedgerByte page, form, field, panel, table, alert, money, and action primitives while preserving AP draft save/update payloads, return-to handoffs, inventory-clearing/accountant warnings, debit-note supplier/original-bill prefill, and no provider/payment/tax-authority/compliance behavior. |
 | Purchase document detail loop | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx`, and `apps/web/src/components/ui/ledger-system.tsx` use shared LedgerByte page, header, panel, section, table, status, alert, money/date, form-field, and action primitives while preserving AP finalization/void/delete/download/apply/reverse handlers, return-to handoffs, receiving/matching/clearing/valuation preview surfaces, generated-document guidance, and no provider/payment-sending/tax-authority/compliance/valuation behavior changes. |
+| Purchase supplier settlement loop | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx`, and `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` use shared LedgerByte list, form, detail, table, field, panel, summary, alert, money/date, status, and action primitives while preserving supplier workspace return-to handoffs, bill allocations, unapplied apply/reverse behavior, voids, PDF downloads, manual refund source selection, no-bank/no-provider/no-ZATCA wording, and AP journal boundaries. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -249,6 +250,26 @@ Base: stacked on `origin/codex/ui-redesign-purchase-documents` while PR #157 is 
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 599 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+
+## 2026-06-22 Purchase Supplier Settlement Loop Evidence
+
+- `/purchases/supplier-payments`: migrated the supplier payment list from older `ui-ledger` header/table/button/empty-state styling to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerMoney`, `LedgerDate`, `LedgerAlert`, and `LedgerButton` primitives while preserving supplier workspace filtering, back-to-workspace handoff, record-payment link, detail return-to link, and void permission gate.
+- `/purchases/supplier-payments/new`: migrated the record-payment form shell, payment details, paid-through account picker, bill allocation table, allocation preview, AP posting warning, and action row to shared Ledger form/table/summary/alert/action primitives. Existing setup loads, query prefill, bill allocation preview, validation, fixed `SAR` currency behavior, POST payload, and return-to redirect remain unchanged.
+- `/purchases/supplier-payments/[id]`: migrated the supplier payment detail shell, status badge, header actions, workflow guidance, payment details, direct bill allocations, unapplied credit applications, apply-unapplied form, and receipt data preview to shared Ledger primitives while preserving receipt preview/download, void, refund handoff, supplier/report/dashboard handoffs, unapplied allocation apply/reverse, return-to links, and no-extra-journal allocation wording.
+- `/purchases/supplier-refunds`: migrated the supplier refund list to shared Ledger page/table/money/date/status/empty/action primitives while preserving record-refund and void behavior.
+- `/purchases/supplier-refunds/new`: migrated the refund form, source selector, received-into account picker, remaining-unapplied summary, no-bank/no-gateway/no-reconciliation/no-ZATCA warning, and save/cancel actions to shared Ledger form/summary/alert/action primitives. Existing refundable-source loading, query prefill, amount validation, source payment vs debit-note body shape, POST payload, and redirect remain unchanged.
+- `/purchases/supplier-refunds/[id]`: migrated refund detail, header actions, status badge, attachment slot, refund metadata, source reference, and PDF data preview to shared Ledger primitives while preserving void, PDF download, supplier ledger, source handoff, no-bank/no-reconciliation/no-ZATCA wording, and PDF data endpoint behavior.
+- Existing behavior remains frontend-only and unchanged: supplier payment and refund endpoints, AP journal posting, bill allocation math, unapplied apply/reverse handlers, void handlers, PDF download handlers, generated-document archive side effects from existing explicit downloads, permission gates, and supplier source handoffs keep their existing semantics. No payment sending, provider calls, live bank transfer, automatic reconciliation, tax-authority submission, hosted mutation, schema change, storage change, supplier balance math change, or compliance behavior was added.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `node .\node_modules\jest\bin\jest.js --config jest.config.cjs --passWithNoTests --runTestsByPath "src/app/(app)/purchases/supplier-payments/page.test.tsx" "src/app/(app)/purchases/supplier-payments/new/page.test.tsx" "src/app/(app)/purchases/supplier-payments/[id]/page.test.tsx" "src/app/(app)/purchases/supplier-refunds/page.test.tsx" "src/app/(app)/purchases/supplier-refunds/new/page.test.tsx" "src/app/(app)/purchases/supplier-refunds/[id]/page.test.tsx"` from `apps/web`: PASS, 6 suites, 12 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/refund-collections-banking-detail-polish.visual.spec.ts --grep "supplier-refund"`: PASS, 15 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "supplier-payment"`: PASS, 4 checks for supplier payment table/list coverage.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "supplier payment"`: PASS, 9 checks for allocated, partially allocated, and unallocated supplier payment detail states.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --grep "polished route group assertions"`: PASS, 1 grouped desktop assertion including supplier payment success.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 129 suites, 603 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2063 checked files, 0 blocked references, 0 forbidden claims.
+- Attempted to run supplier payment and polished workflow visual checks in parallel; the polished workflow command failed before Playwright started because both commands tried to start the shared visual web server on `127.0.0.1:3030`. The command was rerun alone and passed.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 

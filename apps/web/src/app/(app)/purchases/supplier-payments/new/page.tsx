@@ -3,13 +3,24 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { AllocationTable } from "@/components/ui-ledger/allocation-table";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { PaymentSummaryCard } from "@/components/ui-ledger/payment-summary-card";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -226,135 +237,146 @@ export default function NewSupplierPaymentPage() {
   }
 
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
         title="Record supplier payment"
         description="Pay suppliers and allocate the payment to finalized open bills."
         actions={
-          <Link href={returnTo || "/purchases/supplier-payments"} className={buttonVariants({ variant: "outline" })}>
+          <LedgerButton href={returnTo || "/purchases/supplier-payments"}>
           Back
-        </Link>
+        </LedgerButton>
         }
       />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to record supplier payments.</StatusMessage> : null}
-        {loadingSetup ? <StatusMessage type="loading">Loading supplier payment setup data...</StatusMessage> : null}
-        {loadingBills ? <StatusMessage type="loading">Loading open bills...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to record supplier payments.</LedgerAlert> : null}
+        {loadingSetup ? <LedgerAlert tone="info">Loading supplier payment setup data...</LedgerAlert> : null}
+        {loadingBills ? <LedgerAlert tone="info">Loading open bills...</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-5">
-        <PanelSection title="Payment details" description="Choose the supplier, payment date, amount, and paid-through account.">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Supplier</span>
-              <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+      <form onSubmit={onSubmit} className="flex flex-col gap-5">
+        <LedgerFormSection title="Payment details" description="Choose the supplier, payment date, amount, and paid-through account.">
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Supplier</LedgerFieldText>
+              <LedgerSelect value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
                 <option value="">Select supplier</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.displayName ?? supplier.name}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-foreground">Payment date</span>
-              <Input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-foreground">Amount paid</span>
-              <Input inputMode="decimal" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} required className="mt-1 font-mono tabular-nums" />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Paid-through account</span>
-              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Payment date</LedgerFieldText>
+              <LedgerInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Amount paid</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} required className="font-mono tabular-nums" />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Paid-through account</LedgerFieldText>
+              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
                 <option value="">Select cash or bank account</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-foreground">Description</span>
-              <Input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1" />
-            </label>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Description</LedgerFieldText>
+              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
+            </LedgerFieldLabel>
+        </LedgerFormSection>
+
+        <LedgerPanel className="p-0">
+          <div className="border-b border-line px-4 py-3">
+            <h2 className="text-base font-semibold text-ink">Bill allocation</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">Apply this payment only to finalized open bills for the selected supplier.</p>
           </div>
-        </PanelSection>
+          <LedgerDataTable minWidth="760px" className="rounded-t-none border-0 shadow-none">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                {supplierAllocationColumns.map((column) => (
+                  <th key={column.key} className="px-4 py-3">{column.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {openBills.length > 0 ? openBills.map((bill) => {
+                const allocation = allocations.find((candidate) => candidate.billId === bill.id);
+                return (
+                  <tr key={bill.id}>
+                    <td className="px-4 py-3 font-mono text-xs">{bill.billNumber}</td>
+                    <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(bill.billDate, "-")}</LedgerDate></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(bill.total, bill.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(bill.balanceDue, bill.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3">
+                      <LedgerInput
+                        inputMode="decimal"
+                        value={allocation?.amountApplied ?? "0.0000"}
+                        onChange={(event) => updateAllocation(bill.id, event.target.value)}
+                        className="w-32 font-mono text-xs tabular-nums"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <LedgerButton size="sm" onClick={() => applyFullBalance(bill)}>
+                        Full balance
+                      </LedgerButton>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={supplierAllocationColumns.length} className="px-4 py-5 text-steel">
+                    {supplierId ? (
+                      <>
+                        No finalized open bills were found for this supplier.{" "}
+                        <Link href={createBillHref} className="font-semibold text-palm hover:underline">
+                          Create and finalize a bill
+                        </Link>{" "}
+                        before recording payment.
+                      </>
+                    ) : (
+                      "Select a supplier to load finalized open bills."
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </LedgerDataTable>
+        </LedgerPanel>
 
-        <PanelSection title="Bill allocation" description="Apply this payment only to finalized open bills for the selected supplier." contentClassName="p-0">
-          <AllocationTable
-            columns={supplierAllocationColumns}
-            rows={openBills}
-            rowKey={(bill) => bill.id}
-            minWidth="min-w-[760px]"
-            framed={false}
-            emptyState={
-              supplierId ? (
-                    <StatusMessage type="empty">
-                      No finalized open bills were found for this supplier.{" "}
-                      <Link href={createBillHref} className="font-semibold text-primary hover:underline">
-                        Create and finalize a bill
-                      </Link>
-                      {" "}before recording payment.
-                    </StatusMessage>
-              ) : null
-            }
-            renderCell={(bill, columnKey) => {
-                  const allocation = allocations.find((candidate) => candidate.billId === bill.id);
-                  switch (columnKey) {
-                    case "bill":
-                      return <span className="font-mono text-xs">{bill.billNumber}</span>;
-                    case "billDate":
-                      return <span className="text-muted-foreground">{formatOptionalDate(bill.billDate, "-")}</span>;
-                    case "total":
-                      return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(bill.total, bill.currency)}</span>;
-                    case "balanceDue":
-                      return <span className="font-mono text-xs tabular-nums">{formatMoneyAmount(bill.balanceDue, bill.currency)}</span>;
-                    case "amountApplied":
-                      return (
-                        <Input
-                          inputMode="decimal"
-                          value={allocation?.amountApplied ?? "0.0000"}
-                          onChange={(event) => updateAllocation(bill.id, event.target.value)}
-                          className="w-32 font-mono text-xs tabular-nums"
-                        />
-                      );
-                    case "action":
-                      return (
-                        <Button type="button" variant="outline" size="xs" onClick={() => applyFullBalance(bill)}>
-                          Full balance
-                        </Button>
-                      );
-                    default:
-                      return null;
-                  }
-                }}
-          />
-        </PanelSection>
-
-        <PaymentSummaryCard
-          className="w-full sm:ml-auto sm:max-w-sm"
-          description="Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances."
-          rows={[
-            { label: "Amount paid", value: formatMoneyAmount(preview.amountPaid) },
-            { label: "Allocated", value: formatMoneyAmount(preview.totalAllocated) },
-            { label: "Unapplied", value: formatMoneyAmount(preview.unappliedAmount), emphasized: true },
-          ]}
-        />
-
-        <div className="flex justify-end gap-3">
-          <Link href={returnTo || "/purchases/supplier-payments"} className={buttonVariants({ variant: "outline" })}>
-            Cancel
-          </Link>
-          <Button type="submit" disabled={submitting || !organizationId}>
-            {submitting ? "Recording..." : "Record payment"}
-          </Button>
+        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+          <LedgerSummaryBand>
+            Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances.
+          </LedgerSummaryBand>
+          <LedgerPanel className="p-4">
+            <h2 className="text-base font-semibold text-ink">Payment summary</h2>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <dt className="text-steel">Amount paid</dt>
+              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.amountPaid)}</LedgerMoney></dd>
+              <dt className="text-steel">Allocated</dt>
+              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.totalAllocated)}</LedgerMoney></dd>
+              <dt className="font-semibold text-ink">Unapplied</dt>
+              <dd className="text-right font-semibold"><LedgerMoney>{formatMoneyAmount(preview.unappliedAmount)}</LedgerMoney></dd>
+            </dl>
+          </LedgerPanel>
         </div>
+
+        <LedgerActionBar className="justify-end">
+          <LedgerButton href={returnTo || "/purchases/supplier-payments"}>Cancel</LedgerButton>
+          <LedgerButton type="submit" disabled={submitting || !organizationId} variant="primary">
+            {submitting ? "Recording..." : "Record payment"}
+          </LedgerButton>
+        </LedgerActionBar>
       </form>
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
