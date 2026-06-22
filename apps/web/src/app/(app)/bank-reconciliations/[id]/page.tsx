@@ -1,15 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
-  bankReconciliationStatusBadgeClass,
   bankReconciliationStatusLabel,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
@@ -22,6 +41,35 @@ import { formatMoneyAmount } from "@/lib/money";
 import { bankReconciliationReportCsvPath, bankReconciliationReportPdfPath, downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { BankReconciliation, BankReconciliationItem, BankReconciliationReportData, BankReconciliationReviewEvent } from "@/lib/types";
+
+function reconciliationStatusTone(status: BankReconciliation["status"]): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "warning";
+    case "PENDING_APPROVAL":
+      return "info";
+    case "APPROVED":
+      return "neutral";
+    case "CLOSED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+  }
+}
+
+function statementStatusTone(status: BankReconciliationItem["statusAtClose"]): LedgerStatusTone {
+  switch (status) {
+    case "UNMATCHED":
+      return "warning";
+    case "MATCHED":
+    case "CATEGORIZED":
+      return "success";
+    case "IGNORED":
+      return "draft";
+    case "VOIDED":
+      return "danger";
+  }
+}
 
 export default function BankReconciliationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -128,197 +176,208 @@ export default function BankReconciliationDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{reconciliation?.reconciliationNumber ?? "Bank reconciliation"}</h1>
-          <p className="mt-1 text-sm text-steel">{reconciliation?.bankAccountProfile?.displayName ?? "Review history and period lock"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {reconciliation && canDownloadReports ? (
-            <>
-              <button type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("csv")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}
-              </button>
-              <button type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("pdf")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                {downloading === "pdf" ? "Downloading PDF..." : "Download PDF"}
-              </button>
-            </>
-          ) : null}
-          {reconciliation?.bankAccountProfileId ? (
-            <Link href={`/bank-accounts/${reconciliation.bankAccountProfileId}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Back
-            </Link>
-          ) : null}
-          {reconciliation && canClose && reconciliation.status === "DRAFT" && !submitBlock ? (
-            <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("submit")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {submitting === "submit" ? "Submitting..." : "Submit for approval"}
-            </button>
-          ) : null}
-          {reconciliation && canApprove && reconciliation.status === "PENDING_APPROVAL" ? (
-            <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("approve")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {submitting === "approve" ? "Approving..." : "Approve"}
-            </button>
-          ) : null}
-          {reconciliation && canReopen && (reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED") ? (
-            <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("reopen")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {submitting === "reopen" ? "Reopening..." : "Reopen"}
-            </button>
-          ) : null}
-          {reconciliation && canClose && reconciliation.status === "APPROVED" && !blockedMessage ? (
-            <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("close")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {submitting === "close" ? "Closing..." : "Close"}
-            </button>
-          ) : null}
-          {reconciliation && canVoid && reconciliation.status !== "VOIDED" ? (
-            <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("void")} className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {submitting === "void" ? "Voiding..." : "Void"}
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title={reconciliation?.reconciliationNumber ?? "Bank reconciliation"}
+        description={reconciliation?.bankAccountProfile?.displayName ?? "Review history and period lock"}
+        badge={reconciliation ? <LedgerStatusBadge tone={reconciliationStatusTone(reconciliation.status)}>{bankReconciliationStatusLabel(reconciliation.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            {reconciliation && canDownloadReports ? (
+              <>
+                <LedgerButton type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("csv")}>
+                  {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}
+                </LedgerButton>
+                <LedgerButton type="button" disabled={Boolean(downloading)} onClick={() => void downloadReport("pdf")}>
+                  {downloading === "pdf" ? "Downloading PDF..." : "Download PDF"}
+                </LedgerButton>
+              </>
+            ) : null}
+            {reconciliation?.bankAccountProfileId ? <LedgerButton href={`/bank-accounts/${reconciliation.bankAccountProfileId}/reconciliations`}>Back</LedgerButton> : null}
+            {reconciliation && canClose && reconciliation.status === "DRAFT" && !submitBlock ? (
+              <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("submit")}>
+                {submitting === "submit" ? "Submitting..." : "Submit for approval"}
+              </LedgerButton>
+            ) : null}
+            {reconciliation && canApprove && reconciliation.status === "PENDING_APPROVAL" ? (
+              <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("approve")}>
+                {submitting === "approve" ? "Approving..." : "Approve"}
+              </LedgerButton>
+            ) : null}
+            {reconciliation && canReopen && (reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED") ? (
+              <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("reopen")}>
+                {submitting === "reopen" ? "Reopening..." : "Reopen"}
+              </LedgerButton>
+            ) : null}
+            {reconciliation && canClose && reconciliation.status === "APPROVED" && !blockedMessage ? (
+              <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("close")} variant="primary">
+                {submitting === "close" ? "Closing..." : "Close"}
+              </LedgerButton>
+            ) : null}
+            {reconciliation && canVoid && reconciliation.status !== "VOIDED" ? (
+              <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("void")} variant="danger">
+                {submitting === "void" ? "Voiding..." : "Void"}
+              </LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load reconciliation details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading reconciliation...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {reconciliation && submitBlock && reconciliation.status === "DRAFT" ? <StatusMessage type="info">{submitBlock}</StatusMessage> : null}
-        {reconciliation && blockedMessage && reconciliation.status !== "DRAFT" && reconciliation.status !== "VOIDED" ? <StatusMessage type="info">{blockedMessage}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Closing a reconciliation records the close decision and locks statement rows in the period. It does not change ledger math or enable automatic reconciliation.
+      </LedgerSummaryBand>
 
-      {reconciliation ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="BANK_RECONCILIATION" linkedEntityId={reconciliation.id} />
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load reconciliation details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading reconciliation" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {reconciliation && submitBlock && reconciliation.status === "DRAFT" ? <LedgerAlert tone="info">{submitBlock}</LedgerAlert> : null}
+        {reconciliation && blockedMessage && reconciliation.status !== "DRAFT" && reconciliation.status !== "VOIDED" ? <LedgerAlert tone="info">{blockedMessage}</LedgerAlert> : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Statement closing" value={formatMoneyAmount(reconciliation.statementClosingBalance, currency)} />
-            <SummaryCard label="Ledger closing" value={formatMoneyAmount(reconciliation.ledgerClosingBalance, currency)} />
-            <SummaryCard label="Difference" value={formatMoneyAmount(reconciliation.difference, currency)} />
-            <SummaryCard label="Unmatched rows" value={String(reconciliation.unmatchedTransactionCount ?? 0)} />
-          </div>
+        {reconciliation ? (
+          <>
+            <AttachmentPanel linkedEntityType="BANK_RECONCILIATION" linkedEntityId={reconciliation.id} />
 
-          {reportData ? <ReconciliationReportReviewPanels report={reportData} currency={currency} /> : null}
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Statement closing" value={<LedgerMoney>{formatMoneyAmount(reconciliation.statementClosingBalance, currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Ledger closing" value={<LedgerMoney>{formatMoneyAmount(reconciliation.ledgerClosingBalance, currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Difference" value={<LedgerMoney>{formatMoneyAmount(reconciliation.difference, currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Unmatched rows" value={String(reconciliation.unmatchedTransactionCount ?? 0)} />
+            </LedgerMetricGrid>
 
-          <BankReconciliationWorkflowGuidance reconciliation={reconciliation} blockedMessage={blockedMessage} submitBlock={submitBlock} />
+            {reportData ? <ReconciliationReportReviewPanels report={reportData} currency={currency} /> : null}
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <Detail label="Period start" value={formatOptionalDate(reconciliation.periodStart, "-")} />
-              <Detail label="Period end" value={formatOptionalDate(reconciliation.periodEnd, "-")} />
-              <Detail label="Statement opening" value={reconciliation.statementOpeningBalance ? formatMoneyAmount(reconciliation.statementOpeningBalance, currency) : "-"} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-medium ${bankReconciliationStatusBadgeClass(reconciliation.status)}`}>
-                  {bankReconciliationStatusLabel(reconciliation.status)}
-                </span>
-              </div>
-              <Detail label="Created by" value={reconciliation.createdBy?.name ?? "-"} />
-              <Detail label="Submitted by" value={reconciliation.submittedBy?.name ?? "-"} />
-              <Detail label="Submitted at" value={formatOptionalDate(reconciliation.submittedAt, "-")} />
-              <Detail label="Approved by" value={reconciliation.approvedBy?.name ?? "-"} />
-              <Detail label="Approved at" value={formatOptionalDate(reconciliation.approvedAt, "-")} />
-              <Detail label="Reopened at" value={formatOptionalDate(reconciliation.reopenedAt, "-")} />
-              <Detail label="Closed by" value={reconciliation.closedBy?.name ?? "-"} />
-              <Detail label="Closed at" value={formatOptionalDate(reconciliation.closedAt, "-")} />
-              <Detail label="Voided at" value={formatOptionalDate(reconciliation.voidedAt, "-")} />
-            </div>
-            {reconciliation.notes ? <p className="mt-4 text-sm text-steel">{reconciliation.notes}</p> : null}
-            {reconciliation.approvalNotes ? <p className="mt-4 text-sm text-steel">Approval notes: {reconciliation.approvalNotes}</p> : null}
-            {reconciliation.reopenReason ? <p className="mt-2 text-sm text-steel">Reopen reason: {reconciliation.reopenReason}</p> : null}
-            {reconciliation.status === "CLOSED" ? (
-              <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-                This reconciliation is closed. Statement transactions in this period are locked until the reconciliation is voided.
+            <BankReconciliationWorkflowGuidance reconciliation={reconciliation} blockedMessage={blockedMessage} submitBlock={submitBlock} />
+
+            <LedgerSection title="Close detail" description="Period, reviewer, and lock metadata for this reconciliation.">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Period start", value: <LedgerDate>{formatOptionalDate(reconciliation.periodStart, "-")}</LedgerDate> },
+                  { label: "Period end", value: <LedgerDate>{formatOptionalDate(reconciliation.periodEnd, "-")}</LedgerDate> },
+                  { label: "Statement opening", value: <LedgerMoney>{reconciliation.statementOpeningBalance ? formatMoneyAmount(reconciliation.statementOpeningBalance, currency) : "-"}</LedgerMoney> },
+                  { label: "Status", value: <LedgerStatusBadge tone={reconciliationStatusTone(reconciliation.status)}>{bankReconciliationStatusLabel(reconciliation.status)}</LedgerStatusBadge> },
+                  { label: "Created by", value: reconciliation.createdBy?.name ?? "-" },
+                  { label: "Submitted by", value: reconciliation.submittedBy?.name ?? "-" },
+                  { label: "Submitted at", value: <LedgerDate>{formatOptionalDate(reconciliation.submittedAt, "-")}</LedgerDate> },
+                  { label: "Approved by", value: reconciliation.approvedBy?.name ?? "-" },
+                  { label: "Approved at", value: <LedgerDate>{formatOptionalDate(reconciliation.approvedAt, "-")}</LedgerDate> },
+                  { label: "Reopened at", value: <LedgerDate>{formatOptionalDate(reconciliation.reopenedAt, "-")}</LedgerDate> },
+                  { label: "Closed by", value: reconciliation.closedBy?.name ?? "-" },
+                  { label: "Closed at", value: <LedgerDate>{formatOptionalDate(reconciliation.closedAt, "-")}</LedgerDate> },
+                  { label: "Voided at", value: <LedgerDate>{formatOptionalDate(reconciliation.voidedAt, "-")}</LedgerDate> },
+                ]}
+              />
+              {reconciliation.notes ? <p className="mt-4 text-sm leading-6 text-steel">{reconciliation.notes}</p> : null}
+              {reconciliation.approvalNotes ? <p className="mt-4 text-sm leading-6 text-steel">Approval notes: {reconciliation.approvalNotes}</p> : null}
+              {reconciliation.reopenReason ? <p className="mt-2 text-sm leading-6 text-steel">Reopen reason: {reconciliation.reopenReason}</p> : null}
+              {reconciliation.status === "CLOSED" ? (
+                <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                  This reconciliation is closed. Statement transactions in this period are locked until the reconciliation is voided.
+                </div>
+              ) : null}
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">PDF reports are archived automatically.</div>
+            </LedgerSection>
+
+            {(reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED") && (canApprove || canReopen) ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {canApprove && reconciliation.status === "PENDING_APPROVAL" ? (
+                  <LedgerPanel>
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Approval notes</LedgerFieldText>
+                      <textarea
+                        value={approvalNotes}
+                        onChange={(event) => setApprovalNotes(event.target.value)}
+                        rows={3}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
+                      />
+                    </LedgerFieldLabel>
+                  </LedgerPanel>
+                ) : null}
+                {canReopen ? (
+                  <LedgerPanel>
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Reopen reason</LedgerFieldText>
+                      <textarea
+                        value={reopenReason}
+                        onChange={(event) => setReopenReason(event.target.value)}
+                        rows={3}
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
+                      />
+                    </LedgerFieldLabel>
+                  </LedgerPanel>
+                ) : null}
               </div>
             ) : null}
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">PDF reports are archived automatically.</div>
-          </div>
 
-          {(reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED") && (canApprove || canReopen) ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {canApprove && reconciliation.status === "PENDING_APPROVAL" ? (
-                <label className="block rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Approval notes</span>
-                  <textarea value={approvalNotes} onChange={(event) => setApprovalNotes(event.target.value)} rows={3} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-              ) : null}
-              {canReopen ? (
-                <label className="block rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Reopen reason</span>
-                  <textarea value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} rows={3} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <h2 className="text-lg font-semibold text-ink">Review history</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">Approval, reopen, close, and void events stay visible so the close decision can be audited later.</p>
-            <div className="mt-4 space-y-3">
-              {reviewEvents.map((event) => (
-                <div key={event.id} className="rounded-md border border-slate-200 px-3 py-2">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-ink">{reviewEventLabel(event)}</p>
-                      <p className="mt-1 text-xs text-steel">{event.actorUser?.name ?? "System"} - {formatOptionalDate(event.createdAt, "-")}</p>
+            <LedgerSection
+              title="Review history"
+              description="Approval, reopen, close, and void events stay visible so the close decision can be audited later."
+            >
+              <div className="space-y-3">
+                {reviewEvents.map((event) => (
+                  <div key={event.id} className="rounded-md border border-slate-200 px-3 py-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{reviewEventLabel(event)}</p>
+                        <p className="mt-1 text-xs text-steel">{event.actorUser?.name ?? "System"} - {formatOptionalDate(event.createdAt, "-")}</p>
+                      </div>
+                      <LedgerStatusBadge tone={reconciliationStatusTone(event.toStatus)}>{bankReconciliationStatusLabel(event.toStatus)}</LedgerStatusBadge>
                     </div>
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankReconciliationStatusBadgeClass(event.toStatus)}`}>
-                      {bankReconciliationStatusLabel(event.toStatus)}
-                    </span>
+                    {event.notes ? <p className="mt-2 text-sm leading-6 text-steel">{event.notes}</p> : null}
                   </div>
-                  {event.notes ? <p className="mt-2 text-sm text-steel">{event.notes}</p> : null}
-                </div>
-              ))}
-              {reviewEvents.length === 0 ? <StatusMessage type="empty">No review events recorded yet.</StatusMessage> : null}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-base font-semibold text-ink">Rows captured at close</h2>
-              <p className="mt-1 text-sm leading-6 text-steel">
-                These statement rows were snapshotted when the reconciliation closed. Status at close shows whether each row was matched, categorized, ignored, or still open at that point.
-              </p>
-            </div>
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Reference</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Status at close</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3">Journal</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-3 text-steel">{formatOptionalDate(item.statementTransaction?.transactionDate, "-")}</td>
-                    <td className="px-4 py-3 text-ink">{item.statementTransaction?.description ?? "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{item.statementTransaction?.reference ?? "-"}</td>
-                    <td className="px-4 py-3 text-steel">{bankStatementTransactionTypeLabel(item.type)}</td>
-                    <td className="px-4 py-3 text-steel">{bankStatementTransactionStatusLabel(item.statusAtClose)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(item.amount, currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {item.statementTransaction?.matchedJournalEntry?.entryNumber ?? item.statementTransaction?.createdJournalEntry?.entryNumber ?? "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/bank-statement-transactions/${item.statementTransactionId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                        Row
-                      </Link>
-                    </td>
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-            {!loading && items.length === 0 ? <StatusMessage type="empty">No statement rows are snapshotted yet.</StatusMessage> : null}
-          </div>
-        </div>
-      ) : null}
-    </section>
+                {reviewEvents.length === 0 ? <LedgerEmptyState title="No review events recorded yet." /> : null}
+              </div>
+            </LedgerSection>
+
+            <LedgerSection
+              title="Rows captured at close"
+              description="These statement rows were snapshotted when the reconciliation closed. Status at close shows whether each row was matched, categorized, ignored, or still open at that point."
+            >
+              <LedgerDataTable minWidth="980px">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3">Reference</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Status at close</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
+                    <th className="px-4 py-3">Journal</th>
+                    <th className="px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(item.statementTransaction?.transactionDate, "-")}</LedgerDate></td>
+                      <td className="px-4 py-3 text-ink">{item.statementTransaction?.description ?? "-"}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{item.statementTransaction?.reference ?? "-"}</td>
+                      <td className="px-4 py-3 text-steel">{bankStatementTransactionTypeLabel(item.type)}</td>
+                      <td className="px-4 py-3"><LedgerStatusBadge tone={statementStatusTone(item.statusAtClose)}>{bankStatementTransactionStatusLabel(item.statusAtClose)}</LedgerStatusBadge></td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(item.amount, currency)}</LedgerMoney></td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {item.statementTransaction?.matchedJournalEntry?.entryNumber ?? item.statementTransaction?.createdJournalEntry?.entryNumber ?? "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <LedgerButton href={`/bank-statement-transactions/${item.statementTransactionId}`} size="sm">Row</LedgerButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </LedgerDataTable>
+              {!loading && items.length === 0 ? (
+                <div className="mt-4">
+                  <LedgerEmptyState title="No statement rows are snapshotted yet." />
+                </div>
+              ) : null}
+            </LedgerSection>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -348,14 +407,12 @@ export function BankReconciliationWorkflowGuidance({
           : blockedMessage ?? lockedCopy;
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">Reconciliation status</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankReconciliationStatusBadgeClass(reconciliation.status)}`}>
-              {bankReconciliationStatusLabel(reconciliation.status)}
-            </span>
+            <LedgerStatusBadge tone={reconciliationStatusTone(reconciliation.status)}>{bankReconciliationStatusLabel(reconciliation.status)}</LedgerStatusBadge>
           </div>
           <p className="mt-2 text-sm leading-6 text-steel">{lockedCopy}</p>
           <p className="mt-2 text-sm leading-6 text-steel">{actionCopy}</p>
@@ -364,24 +421,16 @@ export function BankReconciliationWorkflowGuidance({
           </p>
         </div>
         <div className="min-w-full lg:min-w-[260px]">
-          <p className="text-xs font-medium uppercase tracking-wide text-steel">Next actions</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Next actions</p>
           <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
-            <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Review unmatched rows
-            </Link>
-            <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Reconciliation summary
-            </Link>
-            <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Bank account
-            </Link>
-            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Dashboard
-            </Link>
+            <LedgerButton href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${profileId}/reconciliation`}>Reconciliation summary</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${profileId}`}>Bank account</LedgerButton>
+            <LedgerButton href="/dashboard">Dashboard</LedgerButton>
           </div>
         </div>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -391,60 +440,45 @@ export function ReconciliationReportReviewPanels({ report, currency }: { report:
   const timelinePreview = report.auditTimeline.slice(-8).reverse();
   return (
     <div className="space-y-5">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Accountant review summary</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">
-              Manual banking only. This report uses imported statement rows, explicit review actions, treasury links, and posted journal links already recorded in LedgerByte.
-            </p>
-          </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            No live bank feed, bank API, bank credentials, or payment initiation is enabled.
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <ReportMetric label="Linked chart account" value={report.bankAccount.account ? `${report.bankAccount.account.code} ${report.bankAccount.account.name}` : "-"} />
-          <ReportMetric label="Period rows" value={String(report.summary.totalRowsCount)} />
-          <ReportMetric label="Rule-applied rows" value={String(report.summary.ruleAppliedRowsCount)} />
-          <ReportMetric label="Captured close rows" value={String(report.summary.itemCount)} />
-        </div>
-      </div>
+      <LedgerSection
+        title="Accountant review summary"
+        description="Manual banking only. This report uses imported statement rows, explicit review actions, treasury links, and posted journal links already recorded in LedgerByte."
+        action={<LedgerStatusBadge tone="warning">No live bank feed, bank API, bank credentials, or payment initiation is enabled.</LedgerStatusBadge>}
+      >
+        <LedgerMetricGrid>
+          <LedgerStatCard label="Linked chart account" value={report.bankAccount.account ? `${report.bankAccount.account.code} ${report.bankAccount.account.name}` : "-"} />
+          <LedgerStatCard label="Period rows" value={String(report.summary.totalRowsCount)} />
+          <LedgerStatCard label="Rule-applied rows" value={String(report.summary.ruleAppliedRowsCount)} />
+          <LedgerStatCard label="Captured close rows" value={String(report.summary.itemCount)} />
+        </LedgerMetricGrid>
+      </LedgerSection>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <h2 className="text-base font-semibold text-ink">Exceptions</h2>
           <div className="mt-4 grid grid-cols-1 gap-3">
             <ReportMetric label="Unmatched rows" value={String(report.summary.unmatchedRowsCount)} />
             <ReportMetric label="Unreconciled rows" value={String(report.summary.unreconciledRowsCount)} />
             <ReportMetric label="Exception rows" value={String(report.summary.exceptionRowsCount)} />
           </div>
-        </div>
+        </LedgerPanel>
 
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <h2 className="text-base font-semibold text-ink">Linked treasury activity</h2>
           <div className="mt-4 space-y-3">
             <TreasuryLine label="Deposits" summary={treasury.depositBatches} currency={currency} />
             <TreasuryLine label="Card settlements" summary={treasury.cardSettlements} currency={currency} />
             <TreasuryLine label="Cheques" summary={treasury.cheques} currency={currency} />
           </div>
-        </div>
+        </LedgerPanel>
 
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <h2 className="text-base font-semibold text-ink">Accounting status</h2>
           <div className="mt-4 space-y-3 text-sm text-steel">
-            <p>
-              <span className="font-medium text-ink">Clearing config:</span> {accounting.clearingConfigEnabled ? "Enabled" : "Missing or disabled"}
-            </p>
-            <p>
-              <span className="font-medium text-ink">Configured accounts:</span> {accounting.configuredAccountCount}
-            </p>
-            <p>
-              <span className="font-medium text-ink">Journal posted:</span> {accounting.journalPostedCount}
-            </p>
-            <p>
-              <span className="font-medium text-ink">Operational-only:</span> {accounting.operationalOnlyCount}
-            </p>
+            <p><span className="font-medium text-ink">Clearing config:</span> {accounting.clearingConfigEnabled ? "Enabled" : "Missing or disabled"}</p>
+            <p><span className="font-medium text-ink">Configured accounts:</span> {accounting.configuredAccountCount}</p>
+            <p><span className="font-medium text-ink">Journal posted:</span> {accounting.journalPostedCount}</p>
+            <p><span className="font-medium text-ink">Operational-only:</span> {accounting.operationalOnlyCount}</p>
           </div>
           {accounting.missingClearingConfig ? (
             <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -456,18 +490,15 @@ export function ReconciliationReportReviewPanels({ report, currency }: { report:
               Operational-only records are visible for review but are not silently posted, matched, or reconciled.
             </div>
           ) : null}
-        </div>
+        </LedgerPanel>
       </div>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Audit timeline</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">Recent import, row review, rule, treasury, journal, and reconciliation review events for this period.</p>
-          </div>
-          <p className="text-xs text-steel">Export CSV for the full timeline.</p>
-        </div>
-        <div className="mt-4 space-y-3">
+      <LedgerSection
+        title="Audit timeline"
+        description="Recent import, row review, rule, treasury, journal, and reconciliation review events for this period."
+        action={<p className="text-xs text-steel">Export CSV for the full timeline.</p>}
+      >
+        <div className="space-y-3">
           {timelinePreview.map((event) => (
             <div key={event.id} className="rounded-md border border-slate-200 px-3 py-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -477,13 +508,13 @@ export function ReconciliationReportReviewPanels({ report, currency }: { report:
                     {event.type} - {formatOptionalDate(event.occurredAt, "-")} - {event.actor?.name ?? event.actor?.email ?? "System"}
                   </p>
                 </div>
-                {event.amount ? <span className="font-mono text-xs text-steel">{formatMoneyAmount(event.amount, currency)}</span> : null}
+                {event.amount ? <LedgerMoney>{formatMoneyAmount(event.amount, currency)}</LedgerMoney> : null}
               </div>
             </div>
           ))}
-          {timelinePreview.length === 0 ? <StatusMessage type="empty">No report timeline events found for this period.</StatusMessage> : null}
+          {timelinePreview.length === 0 ? <LedgerEmptyState title="No report timeline events found for this period." /> : null}
         </div>
-      </div>
+      </LedgerSection>
     </div>
   );
 }
@@ -491,7 +522,7 @@ export function ReconciliationReportReviewPanels({ report, currency }: { report:
 function ReportMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</p>
       <p className="mt-1 font-mono text-sm font-semibold text-ink">{value}</p>
     </div>
   );
@@ -517,27 +548,9 @@ function TreasuryLine({
         </div>
         <div className="text-right">
           <p className="font-mono text-xs font-semibold text-ink">{summary.count}</p>
-          <p className="mt-1 font-mono text-xs text-steel">{formatMoneyAmount(summary.totalAmount, currency)}</p>
+          <p className="mt-1"><LedgerMoney>{formatMoneyAmount(summary.totalAmount, currency)}</LedgerMoney></p>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
     </div>
   );
 }
