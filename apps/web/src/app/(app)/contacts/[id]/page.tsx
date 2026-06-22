@@ -670,7 +670,7 @@ function contactWorkspaceActions(contact: Pick<Contact, "id" | "type">): Array<{
 
 export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: { contactId: string; closingBalance: string; rowCount: number }) {
   return (
-    <div className="grid grid-cols-1 gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-panel lg:grid-cols-[1.25fr_0.75fr]">
+    <LedgerPanel className="grid grid-cols-1 gap-4 border-emerald-200 bg-emerald-50 p-5 lg:grid-cols-[1.25fr_0.75fr]">
       <div>
         <h2 className="text-base font-semibold text-ink">What changed after payment?</h2>
         <p className="mt-2 text-sm leading-6 text-emerald-900">
@@ -681,7 +681,7 @@ export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: 
         </p>
       </div>
       <div className="space-y-3">
-        <div className="rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm">
+        <div className="rounded-md bg-panel px-4 py-3 text-sm">
           <div className="text-xs uppercase tracking-wide text-emerald-800">Current customer balance</div>
           <div className="mt-1 font-mono font-semibold text-ink">{formatLedgerBalance(closingBalance)}</div>
           <div className="mt-1 text-xs text-steel">{rowCount} ledger {rowCount === 1 ? "row" : "rows"} posted for this customer.</div>
@@ -695,13 +695,13 @@ export function CustomerLedgerGuidance({ contactId, closingBalance, rowCount }: 
           <ActionLink href="/dashboard">Dashboard</ActionLink>
         </div>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
 export function SupplierLedgerGuidance({ contactId, closingBalance, rowCount }: { contactId: string; closingBalance: string; rowCount: number }) {
   return (
-    <div className="grid grid-cols-1 gap-4 rounded-md border border-emerald-200 bg-emerald-50 p-5 shadow-panel lg:grid-cols-[1.25fr_0.75fr]">
+    <LedgerPanel className="grid grid-cols-1 gap-4 border-emerald-200 bg-emerald-50 p-5 lg:grid-cols-[1.25fr_0.75fr]">
       <div>
         <h2 className="text-base font-semibold text-ink">What changed after supplier payment?</h2>
         <p className="mt-2 text-sm leading-6 text-emerald-900">
@@ -712,7 +712,7 @@ export function SupplierLedgerGuidance({ contactId, closingBalance, rowCount }: 
         </p>
       </div>
       <div className="space-y-3">
-        <div className="rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm">
+        <div className="rounded-md bg-panel px-4 py-3 text-sm">
           <div className="text-xs uppercase tracking-wide text-emerald-800">Current supplier payable</div>
           <div className="mt-1 font-mono font-semibold text-ink">{formatLedgerBalance(closingBalance)}</div>
           <div className="mt-1 text-xs text-steel">{rowCount} ledger {rowCount === 1 ? "row" : "rows"} posted for this supplier.</div>
@@ -726,7 +726,7 @@ export function SupplierLedgerGuidance({ contactId, closingBalance, rowCount }: 
           <ActionLink href="/dashboard">Dashboard</ActionLink>
         </div>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
