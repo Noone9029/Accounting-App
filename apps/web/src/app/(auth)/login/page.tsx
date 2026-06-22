@@ -9,13 +9,13 @@ export default function LoginPage() {
       footer={
         <>
           <p>
-          New workspace?{" "}
+            New workspace?{" "}
             <AuthTextLink href="/register">Create an account</AuthTextLink>
-        </p>
+          </p>
           <p>
-          Forgot your password?{" "}
+            Forgot your password?{" "}
             <AuthTextLink href="/password-reset">Reset it</AuthTextLink>
-        </p>
+          </p>
         </>
       }
     >

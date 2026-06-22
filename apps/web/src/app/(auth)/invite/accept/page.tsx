@@ -87,7 +87,7 @@ export default function InviteAcceptPage() {
         {preview && !preview.valid ? <LedgerAlert tone="danger">This invitation is invalid, expired, or already used.</LedgerAlert> : null}
         {preview?.valid ? (
           <LedgerAlert tone="info">
-              Joining {preview.organization?.name ?? "the organization"} as {preview.role?.name ?? "a member"}.
+            Joining {preview.organization?.name ?? "the organization"} as {preview.role?.name ?? "a member"}.
           </LedgerAlert>
         ) : null}
       </div>

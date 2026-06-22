@@ -251,6 +251,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated direct contact ledger guidance, supplier ledger guidance, inventory balance guidance, the dashboard hero container, and the customer payment reversal dialog shell onto shared LedgerByte panel primitives.
 - Preserved routing and operational truth: customer/supplier return links, inventory action availability, controlled-beta dashboard wording, financial scene behavior, and customer payment reversal behavior remain unchanged.
 
+### 2026-06-22 Auth Shell Polish Loop
+
+- Tightened the shared auth shell spacing, footer divider, and focus treatment for auth text links, and cleaned up malformed auth page JSX indentation.
+- Preserved auth behavior: login/register/password-reset/invite endpoints, redirects, token handling, and mock/local email wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
