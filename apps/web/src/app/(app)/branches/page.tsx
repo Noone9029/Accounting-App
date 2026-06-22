@@ -1,8 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -77,44 +91,53 @@ export default function BranchesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Branches</h1>
-        <p className="mt-1 text-sm text-steel">Tenant branch records used later for documents, taxes, and ZATCA EGS units.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Admin" title="Branches" description="Tenant branch records used later for documents, taxes, and ZATCA EGS units." />
 
-      {canUpdateOrganization ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create branch</h2>
-        <form onSubmit={createBranch} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="displayName" placeholder="Display name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="taxNumber" placeholder="VAT number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input name="isDefault" type="checkbox" />
-            Default branch
-          </label>
-          <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            Add branch
-          </button>
-        </form>
-      </div>
-      ) : null}
+      <LedgerPageBody>
+        {canUpdateOrganization ? (
+          <LedgerPanel>
+            <h2 className="text-base font-semibold text-ink">Create branch</h2>
+            <form onSubmit={createBranch} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Field label="Name">
+                <LedgerInput name="name" required placeholder="Name" />
+              </Field>
+              <Field label="Display name">
+                <LedgerInput name="displayName" placeholder="Display name" />
+              </Field>
+              <Field label="Phone">
+                <LedgerInput name="phone" placeholder="Phone" />
+              </Field>
+              <Field label="VAT number">
+                <LedgerInput name="taxNumber" placeholder="VAT number" />
+              </Field>
+              <Field label="City">
+                <LedgerInput name="city" placeholder="City" />
+              </Field>
+              <Field label="Country">
+                <LedgerInput name="countryCode" defaultValue="SA" placeholder="Country" />
+              </Field>
+              <label className="flex min-h-[68px] items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
+                <input name="isDefault" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-palm focus:ring-palm/20" />
+                Default branch
+              </label>
+              <div className="flex items-end">
+                <LedgerButton type="submit" variant="primary" disabled={!organizationId}>
+                  Add branch
+                </LedgerButton>
+              </div>
+            </form>
+          </LedgerPanel>
+        ) : null}
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load branches.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading branches...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && branches.length === 0 ? <StatusMessage type="empty">No branches found.</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load branches.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading branches" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!loading && organizationId && branches.length === 0 ? <LedgerEmptyState title="No branches found." /> : null}
 
-      {branches.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[840px] text-left text-sm">
+        {branches.length > 0 ? (
+          <LedgerDataTable minWidth="840px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -131,13 +154,24 @@ export default function BranchesPage() {
                   <td className="px-4 py-3 text-steel">{branch.displayName ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{branch.city ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{branch.taxNumber ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{branch.isDefault ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3">
+                    <LedgerStatusBadge tone={branch.isDefault ? "info" : "neutral"}>{branch.isDefault ? "Default" : "No"}</LedgerStatusBadge>
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }

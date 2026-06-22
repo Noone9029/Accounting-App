@@ -1,7 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerSelect,
+  LedgerTableShell,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateTotals, formatUnits, parseDecimalToUnits } from "@/lib/money";
@@ -144,28 +154,23 @@ export function CreateJournalForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Date</span>
-          <input name="entryDate" type="date" required defaultValue={todayInputValue()} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
-        <label className="block md:col-span-2">
-          <span className="text-sm font-medium text-slate-700">Description</span>
-          <input name="description" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Reference</span>
-          <input name="reference" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
+        <Field label="Date">
+          <LedgerInput name="entryDate" type="date" required defaultValue={todayInputValue()} />
+        </Field>
+        <Field label="Description" className="md:col-span-2">
+          <LedgerInput name="description" required />
+        </Field>
+        <Field label="Reference">
+          <LedgerInput name="reference" />
+        </Field>
       </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating journals.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading accounts and tax rates...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      {!organizationId ? <LedgerAlert tone="info">Log in and select an organization before creating journals.</LedgerAlert> : null}
+      {loading ? <LedgerLoadingState title="Loading accounts and tax rates" /> : null}
+      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+      <LedgerTableShell minWidth="980px">
         <div className="grid min-w-[980px] grid-cols-[1.2fr_1.2fr_1.2fr_0.7fr_0.7fr_0.4fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
           <div>Account</div>
           <div>Tax rate</div>
@@ -176,44 +181,53 @@ export function CreateJournalForm() {
         </div>
         {lines.map((line) => (
           <div key={line.id} className="grid min-w-[980px] grid-cols-[1.2fr_1.2fr_1.2fr_0.7fr_0.7fr_0.4fr] gap-3 border-b border-slate-100 px-4 py-3">
-            <select value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
+            <LedgerSelect value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })}>
               <option value="">Select account</option>
               {postingAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.code} {account.name}
                 </option>
               ))}
-            </select>
-            <select value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
+            </LedgerSelect>
+            <LedgerSelect value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })}>
               <option value="">No tax</option>
               {taxRates.map((taxRate) => (
                 <option key={taxRate.id} value={taxRate.id}>
                   {taxRate.name}
                 </option>
               ))}
-            </select>
-            <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-            <input inputMode="decimal" value={line.debit} onChange={(event) => updateLine(line.id, { debit: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-            <input inputMode="decimal" value={line.credit} onChange={(event) => updateLine(line.id, { credit: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
-            <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 2} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
+            </LedgerSelect>
+            <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} />
+            <LedgerInput inputMode="decimal" value={line.debit} onChange={(event) => updateLine(line.id, { debit: event.target.value })} />
+            <LedgerInput inputMode="decimal" value={line.credit} onChange={(event) => updateLine(line.id, { credit: event.target.value })} />
+            <LedgerButton type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 2}>
               Remove
-            </button>
+            </LedgerButton>
           </div>
         ))}
         <div className="flex min-w-[980px] items-center justify-between px-4 py-3 text-sm">
-          <button type="button" onClick={() => setLines((current) => [...current, makeLine(postingAccounts[0]?.id ?? "")])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+          <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine(postingAccounts[0]?.id ?? "")])}>
             Add line
-          </button>
+          </LedgerButton>
           <div className={totals.balanced ? "font-semibold text-palm" : "font-semibold text-rosewood"}>
-            Debit {totals.debit} / Credit {totals.credit}
+            Debit <LedgerMoney>{totals.debit}</LedgerMoney> / Credit <LedgerMoney>{totals.credit}</LedgerMoney>
           </div>
         </div>
-      </div>
+      </LedgerTableShell>
 
-      <button type="submit" disabled={!organizationId || loading || submitting || !totals.balanced} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+      <LedgerButton type="submit" variant="primary" disabled={!organizationId || loading || submitting || !totals.balanced}>
         {submitting ? "Saving..." : "Save draft journal"}
-      </button>
+      </LedgerButton>
     </form>
+  );
+}
+
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <LedgerFieldLabel className={className}>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }
 

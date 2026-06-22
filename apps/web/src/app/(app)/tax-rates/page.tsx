@@ -1,8 +1,23 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -78,47 +93,58 @@ export default function TaxRatesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Tax rates</h1>
-        <p className="mt-1 text-sm text-steel">Live VAT rate setup for the active organization.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Accounting" title="Tax rates" description="Live VAT rate setup for the active organization." />
 
-      {canManageTaxRates ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create tax rate</h2>
-        <form onSubmit={createTaxRate} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.9fr_0.5fr]">
-          <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <select name="scope" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {scopes.map((scope) => (
-              <option key={scope} value={scope}>{scope}</option>
-            ))}
-          </select>
-          <select name="category" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {categories.map((category) => (
-              <option key={category} value={category}>{category.replaceAll("_", " ")}</option>
-            ))}
-          </select>
-          <input name="rate" required defaultValue="15.0000" placeholder="15.0000" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="description" placeholder="Description" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm md:col-span-3" />
-          <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            Add tax rate
-          </button>
-        </form>
-      </div>
-      ) : null}
+      <LedgerPageBody>
+        {canManageTaxRates ? (
+          <LedgerPanel>
+            <h2 className="text-base font-semibold text-ink">Create tax rate</h2>
+            <form onSubmit={createTaxRate} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.9fr_0.5fr]">
+              <Field label="Name">
+                <LedgerInput name="name" required placeholder="Name" />
+              </Field>
+              <Field label="Scope">
+                <LedgerSelect name="scope" required>
+                  {scopes.map((scope) => (
+                    <option key={scope} value={scope}>
+                      {scope}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </Field>
+              <Field label="Category">
+                <LedgerSelect name="category" required>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </Field>
+              <Field label="Rate">
+                <LedgerInput name="rate" required defaultValue="15.0000" placeholder="15.0000" />
+              </Field>
+              <Field label="Description" className="md:col-span-3">
+                <LedgerInput name="description" placeholder="Description" />
+              </Field>
+              <div className="flex items-end">
+                <LedgerButton type="submit" variant="primary" disabled={!organizationId}>
+                  Add tax rate
+                </LedgerButton>
+              </div>
+            </form>
+          </LedgerPanel>
+        ) : null}
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load tax rates.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading tax rates...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && taxRates.length === 0 ? <StatusMessage type="empty">No tax rates found.</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load tax rates.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading tax rates" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!loading && organizationId && taxRates.length === 0 ? <LedgerEmptyState title="No tax rates found." /> : null}
 
-      {taxRates.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[820px] text-left text-sm">
+        {taxRates.length > 0 ? (
+          <LedgerDataTable minWidth="820px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -135,13 +161,24 @@ export default function TaxRatesPage() {
                   <td className="px-4 py-3 text-steel">{taxRate.scope}</td>
                   <td className="px-4 py-3 text-steel">{taxRate.category.replaceAll("_", " ")}</td>
                   <td className="px-4 py-3 font-mono text-xs">{taxRate.rate}%</td>
-                  <td className="px-4 py-3 text-steel">{taxRate.isActive ? "Active" : "Inactive"}</td>
+                  <td className="px-4 py-3">
+                    <LedgerStatusBadge tone={taxRate.isActive ? "success" : "neutral"}>{taxRate.isActive ? "Active" : "Inactive"}</LedgerStatusBadge>
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
+  );
+}
+
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <LedgerFieldLabel className={className}>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }
