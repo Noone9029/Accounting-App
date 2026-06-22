@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
   LedgerEmptyState,
@@ -12,7 +12,6 @@ import {
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerInput,
-  LedgerLoadingState,
   LedgerMetadataRow,
   LedgerPage,
   LedgerPageBody,
@@ -284,14 +283,4 @@ function TextField({
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" | "success" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  if (type === "error") {
-    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
-  }
-  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }

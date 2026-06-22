@@ -1,15 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
   LedgerButton,
   LedgerEmptyState,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerInput,
-  LedgerLoadingState,
   LedgerMetadataRow,
   LedgerPage,
   LedgerPageBody,
@@ -506,17 +505,4 @@ function formatOptionalDate(value: string | null): string {
 function readDownloadFilename(contentDisposition: string | null): string {
   const match = contentDisposition?.match(/filename="?([^";]+)"?/i);
   return match?.[1] ?? `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" | "success" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  if (type === "empty") {
-    return <LedgerEmptyState title="No audit detail selected" description={children} />;
-  }
-  if (type === "error") {
-    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
-  }
-  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }

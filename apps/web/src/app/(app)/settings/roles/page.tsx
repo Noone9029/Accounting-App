@@ -2,16 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { StatusMessage } from "@/components/common/status-message";
 import { PermissionMatrix } from "@/components/permissions/permission-matrix";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
   LedgerButton,
   LedgerFieldHelp,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerInput,
-  LedgerLoadingState,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
@@ -139,11 +138,4 @@ export function BetaRoleGuidance() {
       </p>
     </LedgerSummaryBand>
   );
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  return <LedgerAlert tone={type === "error" ? "danger" : "info"}>{children}</LedgerAlert>;
 }

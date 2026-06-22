@@ -199,6 +199,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved banking truth: transfer validation and POST payloads, manual statement upload/preview/import/void endpoints, parser behavior, permission gates, return links, and no-live-feed wording remain unchanged.
 - Preserved tax/compliance truth: VAT summary loads still use existing report endpoints and remain draft/accountant-review only with no tax-authority submission, provider call, generated-document storage mutation, VAT filing, or ZATCA/UAE/Peppol behavior added.
 
+### 2026-06-22 Settings Status Bridge Loop
+
+- Replaced local settings `StatusMessage` helpers in team, roles, role detail, security, compliance, banking accounting, number sequences, and audit logs with the shared LedgerByte status bridge.
+- Preserved settings truth: team invites, role saves, security placeholders, compliance readiness reads/saves, banking accounting configuration, number sequence saves, audit log reads/exports, and permission gates remain unchanged.
+- Deferred the larger ZATCA and email outbox layout/status cleanup to dedicated settings passes because those pages still contain broader table, textarea, and evidence-panel migration work.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.

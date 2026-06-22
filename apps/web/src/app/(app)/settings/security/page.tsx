@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { AlertTriangle, KeyRound, LockKeyhole, UsersRound } from "lucide-react";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
-  LedgerLoadingState,
   LedgerMetadataRow,
   LedgerPage,
   LedgerPageBody,
@@ -160,11 +159,4 @@ export default function SecuritySettingsPage() {
       </LedgerSection>
     </LedgerPage>
   );
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "info" | "loading" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  return <LedgerAlert tone="info">{children}</LedgerAlert>;
 }
