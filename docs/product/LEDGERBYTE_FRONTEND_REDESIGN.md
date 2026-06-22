@@ -241,6 +241,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Replaced the local ZATCA settings `StatusMessage` helper with the shared LedgerByte status bridge.
 - Preserved ZATCA truth: KSA edition gating, profile/EGS/CSR/CSID readiness messages, local-only SDK warnings, and no-production-submission/no-real-network wording remain unchanged.
 
+### 2026-06-22 ZATCA Panel and Table Polish Loop
+
+- Migrated the ZATCA settings readiness, immutable signed-artifact policy, compliance checklist, seller profile, EGS units, recent logs, CSR preview/review, custody metadata, hash-chain, and checklist tables/cards onto shared LedgerByte panel/table tokens.
+- Preserved ZATCA truth: all metadata-only, local-only, no-real-network, no-CSID-request, no-signing, no-clearance/reporting, no-PDF/A-3, no-production-compliance wording and route behavior remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
