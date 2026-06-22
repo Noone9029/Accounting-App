@@ -18,8 +18,8 @@ export function Topbar() {
   const context = topbarContext(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-3 border-b border-line bg-panel/95 px-4 py-3 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between lg:px-6">
-      <div className="min-w-0 lg:w-64">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-3 border-b border-line bg-panel/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6 xl:flex-row xl:items-center xl:justify-between">
+      <div className="min-w-0 xl:w-64">
         <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm font-semibold text-ink">{context.title}</div>
           <span className="rounded-md border border-line bg-mist px-1.5 py-0.5 text-[11px] font-semibold uppercase text-steel">{context.group}</span>
@@ -34,8 +34,8 @@ export function Topbar() {
           ) : null}
         </div>
       </div>
-      <GlobalSearch className="w-full lg:min-w-[22rem] lg:flex-1 lg:max-w-2xl" />
-      <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end lg:gap-3">
+      <GlobalSearch className="w-full xl:min-w-[22rem] xl:flex-1 xl:max-w-2xl" />
+      <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end xl:gap-3">
         <GlobalCreateMenu className="lg:hidden" placement="topbar" />
         <OrganizationSwitcher />
         {!activeMembership || can(PERMISSIONS.organization.update) ? (

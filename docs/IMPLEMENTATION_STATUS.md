@@ -10,6 +10,14 @@ Frontend redesign full-stack merge and stabilization (2026-06-22):
 - Stabilized frontend visual artifacts by refreshing the focused `polished-workflows` baselines and fixing dashboard/mobile workflow navigation horizontal overflow.
 - Remaining frontend work is post-merge stabilization: expand visual fixture coverage and fix only confirmed frontend regressions.
 
+Frontend redesign stabilization evidence update (2026-06-22):
+
+- `UI-REBUILD-STABILIZE-01` runs on branch `codex/ui-rebuild-stabilize-01` from merged `origin/main` at `d12535cd2fc608797bc4664543cbbb1920379406`.
+- Added route-load, visual QA, accessibility, responsive, truthfulness, permission/action, and beta walkthrough evidence docs for the redesigned frontend.
+- Fixed confirmed frontend-only regressions in app-shell tablet wrapping and audit-log page responsive overflow; refreshed stale visual assertions for authenticated route hardening.
+- No backend API, Prisma schema, provider, storage, compliance, accounting, reporting, banking, inventory valuation, hosted mutation, deployment, seed/reset/delete, or production readiness behavior changed.
+- Remaining frontend work is controlled beta walkthrough execution plus visual fixture refresh for old quote/delivery-note/settings/public-auth fixtures.
+
 Frontend redesign loop engineering (2026-06-22):
 
 - Added the full route-family redesign checklist in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
