@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-delivery-notes`
+Branch: `codex/ui-redesign-recurring-invoices`
 
-Base: stacked on `origin/codex/ui-redesign-customer-payment-detail` while PR #152 is open
+Base: stacked on `origin/codex/ui-redesign-delivery-notes` while PR #153 is open
 
 ## Evidence Summary
 
@@ -25,6 +25,7 @@ Base: stacked on `origin/codex/ui-redesign-customer-payment-detail` while PR #15
 | Sales customer payments/refunds loop | `apps/web/src/app/(app)/sales/customer-payments/page.tsx`, `apps/web/src/app/(app)/sales/customer-payments/new/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/new/page.tsx`, and `apps/web/src/app/(app)/sales/customer-refunds/[id]/page.tsx` use shared LedgerByte list, form, table, metric, source, PDF-preview, alert, summary, money/date, status, and action primitives while preserving payment posting, refund posting, allocation, return-to, no-provider, and no-ZATCA behavior. |
 | Sales customer payment detail loop | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` uses shared LedgerByte page, workflow, metric, table, receipt archive, audit, apply-credit, modal, field, money/date, status, alert, and action primitives while preserving receipt preview/download, generated-document archive loading, audit log loading, void, refund handoff, unapplied allocation apply/reverse, and return-to behavior. |
 | Sales delivery notes loop | `apps/web/src/app/(app)/sales/delivery-notes/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/delivery-note-form.tsx` use shared LedgerByte list, detail, form, table, archive, status, alert, and action primitives while preserving non-posting fulfillment, source invoice/quote, PDF archive, lifecycle action, return-to, and no-stock/no-accounting mutation boundaries. |
+| Sales recurring invoices loop | `apps/web/src/app/(app)/sales/recurring-invoices/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/new/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/edit/page.tsx`, and `apps/web/src/components/forms/recurring-invoice-form.tsx` use shared LedgerByte list, detail, form, schedule, table, status, alert, money/date, and action primitives while preserving non-posting templates, manual draft-invoice generation, lifecycle permissions, return-to, and no-scheduler/no-send/no-payment/no-compliance boundaries. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -144,6 +145,22 @@ Base: stacked on `origin/codex/ui-redesign-customer-payment-detail` while PR #15
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/delivery-note-workflow.visual.spec.ts`: PASS, 4 checks, after tightening ambiguous existing assertions for repeated customer/document headings and filtering known generic browser resource noise.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
+
+## 2026-06-22 Sales Recurring Invoices Loop Evidence
+
+- `/sales/recurring-invoices`: migrated the recurring-template list shell, create action, filters, empty states, row status, dates, totals, and row actions to shared LedgerByte page/header/body, toolbar, filter, table, date, money, status, alert, empty-state, and button primitives.
+- `/sales/recurring-invoices/new` and `/sales/recurring-invoices/[id]/edit`: migrated route shells and load/error states to shared page/header/body, alert, and action primitives while preserving setup loads, draft-only edit loading, and the shared recurring-invoice form handoff.
+- `RecurringInvoiceForm`: migrated template details, schedule preview, revenue account picker, line editor, line add/remove controls, totals, save/cancel actions, no-posting warning, and draft-only edit guard to shared Ledger form, field, panel, summary, table, money, alert, and action primitives.
+- `/sales/recurring-invoices/[id]`: migrated the recurring-template detail shell, lifecycle actions, manual generate action, summary metadata, template totals, preview blockers, line table, and generation history to shared LedgerByte primitives.
+- Existing behavior remains frontend-only and unchanged: recurring templates stay non-posting; generated invoices are drafts only; activate/pause/resume/end/cancel/generate-now actions call the existing endpoints; permissions still hide lifecycle and generate actions; no scheduler, email, payment collection, posting, VAT filing, ZATCA submission, or compliance provider behavior was added.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/components/forms/recurring-invoice-form.test.tsx" "apps/web/src/app/(app)/sales/recurring-invoices/[id]/page.test.tsx"`: PASS, 2 suites, 7 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification recurring-invoices recurring-invoice-form`: PASS, 126 suites, 598 tests matched.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/recurring-invoice-workflow.visual.spec.ts`: PASS, 3 checks, after filtering known generic browser resource noise from the visual fixture's console assertion.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 
