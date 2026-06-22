@@ -2,6 +2,14 @@
 
 Audit date: 2026-06-19
 
+Frontend redesign full-stack merge and stabilization (2026-06-22):
+
+- Merged the complete frontend redesign PR stack #146 through #210 into `main`; final merged stack SHA is `cb34543d16389344ba45e69a2db277fce4c633ad`.
+- Retargeted dependent stacked PRs to `main` after each parent landed; no PR head rebases or conflict resolutions were required.
+- Final-main verification passed in a clean worktree: `corepack pnpm install --frozen-lockfile`, `corepack pnpm verify:ci:local`, and `corepack pnpm verify:openbooks-clean-room`.
+- Stabilized frontend visual artifacts by refreshing the focused `polished-workflows` baselines and fixing dashboard/mobile workflow navigation horizontal overflow.
+- Remaining frontend work is post-merge stabilization: expand visual fixture coverage and fix only confirmed frontend regressions.
+
 Frontend redesign loop engineering (2026-06-22):
 
 - Added the full route-family redesign checklist in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.

@@ -2,9 +2,11 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-storage-readiness`
+Branch: merged into `main` through PR #210, with follow-up stabilization on `codex/ui-redesign-full-stack-merge-docs`
 
 This checklist tracks the full LedgerByte frontend redesign loop. It is a product/UI tracking artifact only. It does not add backend behavior, provider integrations, storage behavior, signed URLs, compliance submission, hosted mutations, seed/reset/delete commands, or deployment behavior.
+
+Final stack status: PR #146 through PR #210 are merged into `main` at `cb34543d16389344ba45e69a2db277fce4c633ad`. The route-family migration is now merged; remaining work is post-merge visual fixture expansion and confirmed regression polish.
 
 | Route family | Routes inspected | Migrated | Placeholder/deferred | Tests run | Visual check | Mobile check | Accessibility notes | Permission notes | Remaining gaps |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

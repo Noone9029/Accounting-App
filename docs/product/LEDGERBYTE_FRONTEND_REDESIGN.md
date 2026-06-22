@@ -280,11 +280,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ## Remaining Frontend Route Families
 
-- Remaining work is now refreshed visual fixture coverage and any cross-family regression polish found after the stack lands.
+- PR #146 through PR #210 are merged into `main` at `cb34543d16389344ba45e69a2db277fce4c633ad`.
+- Remaining work is now refreshed visual fixture coverage beyond the focused `polished-workflows` suite and any cross-family regression polish found after the stack lands.
 - Sales now has list surfaces, invoice/quote new/edit forms, invoice detail, quote detail, credit-note list/detail/form coverage, customer payment list/new/detail coverage, customer refund list/new/detail coverage, delivery-note list/new/detail/edit/form coverage, recurring-invoice list/new/detail/edit/form coverage, collections list/new/detail/edit/form coverage, and inventory-return list/new/detail/edit/form coverage.
 - Contacts now has list/create, shared contact ledger tabs, customer/supplier workspaces, and dedicated statement coverage; refreshed visual QA remains.
 - Sales, purchase, banking, inventory, accounting/admin, reports, documents/storage, settings/compliance, setup/onboarding, dashboard, auth, and placeholder route families have scoped migration coverage in the stacked route-family PRs; remaining gaps are visual fixture refreshes and review-driven polish.
 
 ## Recommended Next Goal
 
-Continue through refreshed visual fixture coverage for the migrated route families and any regression polish found by review.
+`UI-REBUILD-STABILIZE-01`: run a post-merge frontend stabilization pass over final `main`, expanding visual fixtures and fixing only confirmed frontend regressions.
