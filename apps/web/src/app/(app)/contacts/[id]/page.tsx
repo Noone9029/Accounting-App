@@ -4,9 +4,33 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { ComplianceNote } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerErrorState,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  buttonClassName,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { contactIdentificationOptions, formatContactIdentificationType, getContactIdentificationOption } from "@/lib/contact-identification";
@@ -273,47 +297,50 @@ export default function ContactDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? profile?.name ?? "Contact"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Review the contact profile, ledger trail, statements, and next accounting actions from one place.
-          </p>
-          {profile?.type === "BOTH" ? (
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
-              This contact appears in both customer and supplier workspaces. Use the workspace buttons to switch between receivables and payables context.
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Contacts / Shared ledger"
+        title={profile?.displayName ?? profile?.name ?? "Contact"}
+        description={
+          <>
+            <span className="block">Review the contact profile, ledger trail, statements, and next accounting actions from one place.</span>
+            {profile?.type === "BOTH" ? (
+              <span className="mt-1 block text-xs leading-5">
+                This contact appears in both customer and supplier workspaces. Use the workspace buttons to switch between receivables and payables context.
+              </span>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
           {workspaceReturnTo ? (
-            <Link href={workspaceReturnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href={workspaceReturnTo}>
               Back to workspace
-            </Link>
+            </LedgerButton>
           ) : null}
           {profile
             ? contactWorkspaceActions(profile).map((action) => (
-                <Link key={action.href} href={action.href} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <LedgerButton key={action.href} href={action.href}>
                   {action.label}
-                </Link>
+                </LedgerButton>
               ))
             : null}
-          <Link href="/contacts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <LedgerButton href="/contacts">
             Back to contacts
-          </Link>
-        </div>
-      </div>
+          </LedgerButton>
+          </>
+        }
+      />
 
       <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading contact ledger...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load contacts.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading contact ledger" /> : null}
+        {error ? <LedgerErrorState title="Unable to load contact" description={error} /> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
       </div>
 
       {profile ? (
-        <div className="mt-5 space-y-5">
+        <LedgerPageBody>
           <div className="flex flex-wrap gap-2 border-b border-slate-200">
             {([
               "overview",
@@ -333,7 +360,7 @@ export default function ContactDetailPage() {
 
           {activeSection === "overview" ? (
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_0.8fr]">
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <LedgerPanel>
                 <h2 className="text-base font-semibold text-ink">Profile</h2>
                 <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
                   <Summary label="Name" value={profile.name} />
@@ -368,32 +395,33 @@ export default function ContactDetailPage() {
                         ID type and ID number support buyer identification when VAT is not available. UAE fields support Peppol/PINT-AE readiness checks without blocking normal bookkeeping contact updates.
                       </p>
                     </div>
-                    <input name="legalName" defaultValue={contact.legalName ?? ""} placeholder="Legal name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeTrn" defaultValue={contact.uaeTrn ?? ""} placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeTin" defaultValue={contact.uaeTin ?? ""} placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="peppolParticipantId" defaultValue={contact.peppolParticipantId ?? ""} placeholder="Peppol participant ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeVatRegistrationStatus" defaultValue={contact.uaeVatRegistrationStatus ?? ""} placeholder="VAT category/status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="peppolEndpointStatus" defaultValue={contact.peppolEndpointStatus ?? ""} placeholder="Endpoint status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="preferredEinvoiceDeliveryMethod" defaultValue={contact.preferredEinvoiceDeliveryMethod ?? ""} placeholder="Preferred eInvoice delivery" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeAddressLine1" defaultValue={contact.uaeAddressLine1 ?? ""} placeholder="UAE address" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeAddressLine2" defaultValue={contact.uaeAddressLine2 ?? ""} placeholder="UAE address line 2" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="uaeEmirate" defaultValue={contact.uaeEmirate ?? ""} placeholder="Emirate" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <div>
-                      <select
+                    <LedgerInput name="legalName" defaultValue={contact.legalName ?? ""} placeholder="Legal name" />
+                    <LedgerInput name="uaeTrn" defaultValue={contact.uaeTrn ?? ""} placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} />
+                    <LedgerInput name="uaeTin" defaultValue={contact.uaeTin ?? ""} placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} />
+                    <LedgerInput name="peppolParticipantId" defaultValue={contact.peppolParticipantId ?? ""} placeholder="Peppol participant ID" />
+                    <LedgerInput name="uaeVatRegistrationStatus" defaultValue={contact.uaeVatRegistrationStatus ?? ""} placeholder="VAT category/status" />
+                    <LedgerInput name="peppolEndpointStatus" defaultValue={contact.peppolEndpointStatus ?? ""} placeholder="Endpoint status" />
+                    <LedgerInput name="preferredEinvoiceDeliveryMethod" defaultValue={contact.preferredEinvoiceDeliveryMethod ?? ""} placeholder="Preferred eInvoice delivery" />
+                    <LedgerInput name="uaeAddressLine1" defaultValue={contact.uaeAddressLine1 ?? ""} placeholder="UAE address" />
+                    <LedgerInput name="uaeAddressLine2" defaultValue={contact.uaeAddressLine2 ?? ""} placeholder="UAE address line 2" />
+                    <LedgerInput name="uaeEmirate" defaultValue={contact.uaeEmirate ?? ""} placeholder="Emirate" />
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>ID Type</LedgerFieldText>
+                      <LedgerSelect
                         name="identificationType"
                         value={identificationTypeDraft}
                         onChange={(event) => setIdentificationTypeDraft(event.target.value)}
-                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
                       >
                         <option value="">ID Type</option>
                         {contactIdentificationOptions.map((option) => (
                           <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
-                      </select>
-                      <p className="mt-1 text-[11px] text-steel">Choose the contact ID type.</p>
-                    </div>
-                    <div>
-                      <input
+                      </LedgerSelect>
+                      <LedgerFieldHelp>Choose the contact ID type.</LedgerFieldHelp>
+                    </LedgerFieldLabel>
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>ID number</LedgerFieldText>
+                      <LedgerInput
                         name="identificationNumber"
                         defaultValue={contact.identificationNumber ?? ""}
                         placeholder="ID number"
@@ -403,25 +431,25 @@ export default function ContactDetailPage() {
                         pattern={identificationOption?.pattern}
                         maxLength={identificationOption?.maxLength}
                         title={identificationOption ? `${identificationOption.label}: ${identificationOption.hint}` : "Choose an ID type first."}
-                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
+                        className="uppercase"
                       />
-                      <p className="mt-1 text-[11px] text-steel">{identificationOption?.hint ?? "Choose an ID type first."}</p>
-                    </div>
+                      <LedgerFieldHelp>{identificationOption?.hint ?? "Choose an ID type first."}</LedgerFieldHelp>
+                    </LedgerFieldLabel>
                     <div />
-                    <input name="addressLine1" defaultValue={contact.addressLine1 ?? ""} placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="addressLine2" defaultValue={contact.addressLine2 ?? ""} placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="buildingNumber" defaultValue={contact.buildingNumber ?? ""} placeholder="Building number" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="district" defaultValue={contact.district ?? ""} placeholder="District" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="city" defaultValue={contact.city ?? ""} placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="postalCode" defaultValue={contact.postalCode ?? ""} placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <input name="countryCode" defaultValue={contact.countryCode ?? "SA"} placeholder="Country code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    <button type="submit" disabled={addressSaving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    <LedgerInput name="addressLine1" defaultValue={contact.addressLine1 ?? ""} placeholder="Street name" />
+                    <LedgerInput name="addressLine2" defaultValue={contact.addressLine2 ?? ""} placeholder="Additional street" />
+                    <LedgerInput name="buildingNumber" defaultValue={contact.buildingNumber ?? ""} placeholder="Building number" />
+                    <LedgerInput name="district" defaultValue={contact.district ?? ""} placeholder="District" />
+                    <LedgerInput name="city" defaultValue={contact.city ?? ""} placeholder="City" />
+                    <LedgerInput name="postalCode" defaultValue={contact.postalCode ?? ""} placeholder="Postal code" />
+                    <LedgerInput name="countryCode" defaultValue={contact.countryCode ?? "SA"} placeholder="Country code" />
+                    <LedgerButton type="submit" disabled={addressSaving} variant="primary">
                       {addressSaving ? "Saving..." : "Save address"}
-                    </button>
+                    </LedgerButton>
                   </form>
                 ) : null}
-              </div>
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              </LedgerPanel>
+              <LedgerPanel>
                 <h2 className="text-base font-semibold text-ink">Balance</h2>
                 {ledger || supplierLedger ? (
                   <div className="mt-4 space-y-3 text-sm">
@@ -452,22 +480,22 @@ export default function ContactDetailPage() {
                   </div>
                 ) : (
                   <div className="mt-4">
-                    <StatusMessage type="info">Ledger and statements are available for customer and supplier contacts.</StatusMessage>
+                    <LedgerAlert tone="info">Ledger and statements are available for customer and supplier contacts.</LedgerAlert>
                   </div>
                 )}
-              </div>
+              </LedgerPanel>
             </div>
           ) : null}
 
           {activeSection === "ledger" && ledger ? (
             <div className="space-y-4">
               <CustomerLedgerGuidance contactId={ledger.contact.id} closingBalance={ledger.closingBalance} rowCount={ledger.rows.length} />
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <LedgerPanel>
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="text-steel">Opening balance: {formatLedgerBalance(ledger.openingBalance)}</span>
                   <span className="font-semibold text-ink">Closing balance: {formatLedgerBalance(ledger.closingBalance)}</span>
                 </div>
-              </div>
+              </LedgerPanel>
               <LedgerTable rows={ledger.rows} emptyMessage="No customer ledger activity yet." ledgerKind="customer" contactId={ledger.contact.id} />
             </div>
           ) : null}
@@ -485,41 +513,41 @@ export default function ContactDetailPage() {
                 agingHref={`/reports/aged-receivables?returnTo=${encodeURIComponent(customerStatementWorkspaceHref)}`}
                 agingLabel="Aged receivables"
               />
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                <form onSubmit={loadStatement} className="flex flex-wrap items-end gap-3">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-                    <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              <LedgerSection title="Statement period" description="Choose the date range for posted customer statement rows.">
+                <form onSubmit={loadStatement}>
+                  <LedgerFilterBar>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>From</LedgerFieldText>
+                    <LedgerInput type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>To</LedgerFieldText>
+                    <LedgerInput type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerButton type="submit" disabled={statementLoading} variant="primary">
                     {statementLoading ? "Loading..." : "Load customer statement"}
-                  </button>
-                  <button type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  </LedgerButton>
+                  <LedgerButton type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading}>
                     {statementPdfLoading ? "Preparing..." : "Download customer statement PDF"}
-                  </button>
+                  </LedgerButton>
+                  </LedgerFilterBar>
                 </form>
                 <CustomerStatementDocumentGuidance />
                 {statementError ? (
                   <div className="mt-3">
-                    <StatusMessage type="error">{statementError}</StatusMessage>
+                    <LedgerErrorState title="Unable to load customer statement" description={statementError} />
                   </div>
                 ) : null}
-              </div>
+              </LedgerSection>
 
               {statement ? (
                 <>
-                  <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                    <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-                      <Summary label="Period from" value={statement.periodFrom ?? "-"} />
-                      <Summary label="Period to" value={statement.periodTo ?? "-"} />
-                      <Summary label="Opening customer balance" value={formatLedgerBalance(statement.openingBalance)} />
-                      <Summary label="Closing customer balance" value={formatLedgerBalance(statement.closingBalance)} />
-                    </div>
-                  </div>
+                  <LedgerMetricGrid className="md:grid-cols-4">
+                    <LedgerStatCard label="Period from" value={statement.periodFrom ?? "-"} />
+                    <LedgerStatCard label="Period to" value={statement.periodTo ?? "-"} />
+                    <LedgerStatCard label="Opening customer balance" value={formatLedgerBalance(statement.openingBalance)} />
+                    <LedgerStatCard label="Closing customer balance" value={formatLedgerBalance(statement.closingBalance)} />
+                  </LedgerMetricGrid>
                   <LedgerTable
                     rows={statement.rows}
                     emptyMessage="No customer statement activity was found for this period."
@@ -529,7 +557,7 @@ export default function ContactDetailPage() {
                   />
                 </>
               ) : (
-                <StatusMessage type="info">Choose a period to review posted customer activity, then load or download the statement.</StatusMessage>
+                <LedgerSummaryBand tone="info">Choose a period to review posted customer activity, then load or download the statement.</LedgerSummaryBand>
               )}
             </div>
           ) : null}
@@ -537,12 +565,12 @@ export default function ContactDetailPage() {
           {activeSection === "supplier-ledger" && supplierLedger ? (
             <div className="space-y-4">
               <SupplierLedgerGuidance contactId={supplierLedger.contact.id} closingBalance={supplierLedger.closingBalance} rowCount={supplierLedger.rows.length} />
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+              <LedgerPanel>
                 <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <span className="text-steel">Opening payable: {formatLedgerBalance(supplierLedger.openingBalance)}</span>
                   <span className="font-semibold text-ink">Closing payable: {formatLedgerBalance(supplierLedger.closingBalance)}</span>
                 </div>
-              </div>
+              </LedgerPanel>
               <LedgerTable rows={supplierLedger.rows} emptyMessage="No supplier ledger activity found." ledgerKind="supplier" contactId={supplierLedger.contact.id} />
             </div>
           ) : null}
@@ -560,41 +588,41 @@ export default function ContactDetailPage() {
                 agingHref={`/reports/aged-payables?returnTo=${encodeURIComponent(supplierStatementWorkspaceHref)}`}
                 agingLabel="Aged payables"
               />
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                <form onSubmit={loadSupplierStatement} className="flex flex-wrap items-end gap-3">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-                    <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              <LedgerSection title="Statement period" description="Choose the date range for posted supplier statement rows.">
+                <form onSubmit={loadSupplierStatement}>
+                  <LedgerFilterBar>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>From</LedgerFieldText>
+                    <LedgerInput type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>To</LedgerFieldText>
+                    <LedgerInput type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerButton type="submit" disabled={statementLoading} variant="primary">
                     {statementLoading ? "Loading..." : "Load supplier statement"}
-                  </button>
-                  <button type="button" onClick={() => void downloadSupplierStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  </LedgerButton>
+                  <LedgerButton type="button" onClick={() => void downloadSupplierStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading}>
                     {statementPdfLoading ? "Preparing..." : "Download supplier statement PDF"}
-                  </button>
+                  </LedgerButton>
+                  </LedgerFilterBar>
                 </form>
                 <SupplierStatementDocumentGuidance />
                 {statementError ? (
                   <div className="mt-3">
-                    <StatusMessage type="error">{statementError}</StatusMessage>
+                    <LedgerErrorState title="Unable to load supplier statement" description={statementError} />
                   </div>
                 ) : null}
-              </div>
+              </LedgerSection>
 
               {supplierStatement ? (
                 <>
-                  <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                    <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-                      <Summary label="Period from" value={supplierStatement.periodFrom ?? "-"} />
-                      <Summary label="Period to" value={supplierStatement.periodTo ?? "-"} />
-                      <Summary label="Opening payable" value={formatLedgerBalance(supplierStatement.openingBalance)} />
-                      <Summary label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
-                    </div>
-                  </div>
+                  <LedgerMetricGrid className="md:grid-cols-4">
+                    <LedgerStatCard label="Period from" value={supplierStatement.periodFrom ?? "-"} />
+                    <LedgerStatCard label="Period to" value={supplierStatement.periodTo ?? "-"} />
+                    <LedgerStatCard label="Opening payable" value={formatLedgerBalance(supplierStatement.openingBalance)} />
+                    <LedgerStatCard label="Closing payable" value={formatLedgerBalance(supplierStatement.closingBalance)} />
+                  </LedgerMetricGrid>
                   <LedgerTable
                     rows={supplierStatement.rows}
                     emptyMessage="No supplier statement activity was found for this period."
@@ -604,13 +632,13 @@ export default function ContactDetailPage() {
                   />
                 </>
               ) : (
-                <StatusMessage type="info">Choose a period to review posted supplier activity, then load or download the statement.</StatusMessage>
+                <LedgerSummaryBand tone="info">Choose a period to review posted supplier activity, then load or download the statement.</LedgerSummaryBand>
               )}
             </div>
           ) : null}
-        </div>
+        </LedgerPageBody>
       ) : null}
-    </section>
+    </LedgerPage>
   );
 }
 
@@ -717,14 +745,15 @@ export function LedgerTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-        <h2 className="font-semibold text-ink">{emptyMessage}</h2>
-        <p className="mt-2 max-w-3xl leading-6 text-steel">
-          {ledgerKind === "customer"
+      <LedgerEmptyState
+        title={emptyMessage}
+        description={
+          ledgerKind === "customer"
             ? "Create and finalize an invoice, then record a payment to see invoice, allocation, payment, and balance rows here."
-            : "Post a supplier bill or supplier payment to start building the supplier payable trail."}
-        </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            : "Post a supplier bill or supplier payment to start building the supplier payable trail."
+        }
+        action={
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {ledgerKind === "customer" ? (
             <>
               <ActionLink href={contactId ? `/sales/invoices/new?customerId=${contactId}` : "/sales/invoices/new"} tone="primary">
@@ -747,22 +776,22 @@ export function LedgerTable({
             </>
           )}
           <ActionLink href="/dashboard">Dashboard</ActionLink>
-        </div>
-      </div>
+          </div>
+        }
+      />
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+      <LedgerSummaryBand>
         <span className="font-semibold text-ink">How to read this ledger:</span>{" "}
         {ledgerKind === "customer"
           ? "Debit adds to the customer balance, credit reduces it, and balance is the running amount after that row."
           : "Debit, credit, and balance follow the posted supplier ledger rows exactly. Use debit and credit to see each AP movement, then balance to see the running payable after that row."}
-      </div>
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[1120px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+      </LedgerSummaryBand>
+      <LedgerDataTable minWidth="1120px">
+          <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Type</th>
@@ -786,16 +815,13 @@ export function LedgerTable({
                 <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.credit)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatLedgerBalance(row.balance)}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${ledgerStatusBadgeClass(row.status)}`}>
-                    {formatStatusLabel(row.status)}
-                  </span>
+                  <LedgerStatusBadge tone={ledgerStatusTone(row.status)}>{formatStatusLabel(row.status)}</LedgerStatusBadge>
                 </td>
                 <td className="px-4 py-3">{renderRowLink(row, returnToHref)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </LedgerDataTable>
     </div>
   );
 }
@@ -840,30 +866,25 @@ function formatStatusLabel(status: string): string {
     .join(" ");
 }
 
-function ledgerStatusBadgeClass(status: string): string {
+function ledgerStatusTone(status: string): LedgerStatusTone {
   const normalized = status.toUpperCase();
   if (normalized.includes("VOID") || normalized.includes("REVERSE") || normalized.includes("CANCEL")) {
-    return "bg-rose-50 text-rosewood";
+    return "danger";
   }
   if (normalized.includes("DRAFT") || normalized.includes("PENDING") || normalized.includes("PARTIAL")) {
-    return "bg-amber-50 text-amber-800";
+    return "warning";
   }
   if (normalized.includes("POST") || normalized.includes("FINAL") || normalized.includes("PAID") || normalized.includes("APPROVED")) {
-    return "bg-emerald-50 text-emerald-700";
+    return "success";
   }
-  return "bg-slate-100 text-slate-700";
+  return "neutral";
 }
 
 function ActionLink({ href, children, tone = "secondary" }: { href: string; children: ReactNode; tone?: "primary" | "secondary" }) {
-  const className =
-    tone === "primary"
-      ? "rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
-      : "rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100";
-
   return (
-    <Link href={href} className={className}>
+    <LedgerButton href={href} variant={tone === "primary" ? "primary" : "secondary"}>
       {children}
-    </Link>
+    </LedgerButton>
   );
 }
 
@@ -1016,7 +1037,7 @@ function StatementWorkspaceContext({
   agingLabel: string;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-steel shadow-panel">
+    <LedgerSummaryBand>
       <p>{description}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <ActionLink href={workspaceHref}>{workspaceLabel}</ActionLink>
@@ -1024,7 +1045,7 @@ function StatementWorkspaceContext({
         <ActionLink href={activityHref}>{activityLabel}</ActionLink>
         <ActionLink href={agingHref}>{agingLabel}</ActionLink>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -1082,13 +1103,13 @@ export function CustomerStatementDocumentGuidance() {
         automatically so the same generated output can be reviewed later.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link href="/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/documents" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Open archive
         </Link>
-        <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/settings/documents" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Document settings
         </Link>
-        <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/settings/number-sequences" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Number sequences
         </Link>
       </div>
@@ -1109,13 +1130,13 @@ export function SupplierStatementDocumentGuidance() {
         automatically from the same AP ledger rows shown on screen, so the generated output can be reviewed later.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link href="/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/documents" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Open archive
         </Link>
-        <Link href="/settings/documents" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/settings/documents" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Document settings
         </Link>
-        <Link href="/settings/number-sequences" className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        <Link href="/settings/number-sequences" className={buttonClassName({ variant: "secondary", size: "sm" })}>
           Number sequences
         </Link>
       </div>

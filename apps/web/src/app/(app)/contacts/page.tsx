@@ -3,17 +3,24 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import { FormEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, useEffect, useState } from "react";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
+  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
   LedgerEmptyState,
+  LedgerErrorState,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
   LedgerPanel,
+  LedgerSelect,
   LedgerStatusBadge,
   LedgerSummaryBand,
   type LedgerStatusTone,
@@ -145,77 +152,65 @@ export default function ContactsPage() {
             </p>
           </div>
           <form onSubmit={createContact} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <select
+            <ContactSelect
+              label="Type"
               key={initialContactType}
               name="type"
               required
               defaultValue={initialContactType}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               {contactTypes.map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
-            </select>
-            <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="email" type="email" placeholder="Email" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="phone" placeholder="Phone" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <div>
-              <input name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-              <p className="mt-1 text-[11px] text-steel">Exactly 15 digits.</p>
-            </div>
+            </ContactSelect>
+            <ContactField label="Name" name="name" required placeholder="Name" />
+            <ContactField label="Email" name="email" type="email" placeholder="Email" />
+            <ContactField label="Phone" name="phone" placeholder="Phone" />
+            <ContactField label="VAT number" name="taxNumber" placeholder="VAT number" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="VAT number must be exactly 15 digits." help="Exactly 15 digits." />
             <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">UAE eInvoicing readiness fields</div>
-            <input name="legalName" placeholder="Legal name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeTrn" placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="TRN must be exactly 15 digits." className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeTin" placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} title="TIN must be exactly 10 digits." className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="peppolParticipantId" placeholder="Peppol participant ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeAddressLine1" placeholder="UAE address" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeAddressLine2" placeholder="UAE address line 2" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeEmirate" placeholder="Emirate" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="uaeVatRegistrationStatus" placeholder="VAT category/status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="peppolEndpointStatus" placeholder="Endpoint status" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="preferredEinvoiceDeliveryMethod" placeholder="Preferred eInvoice delivery" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <div>
-              <select
-                name="identificationType"
-                value={createIdentificationType}
-                onChange={(event) => setCreateIdentificationType(event.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-              >
+            <ContactField label="Legal name" name="legalName" placeholder="Legal name" />
+            <ContactField label="TRN" name="uaeTrn" placeholder="TRN" inputMode="numeric" pattern="[0-9]{15}" minLength={15} maxLength={15} title="TRN must be exactly 15 digits." />
+            <ContactField label="TIN" name="uaeTin" placeholder="TIN" inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} title="TIN must be exactly 10 digits." />
+            <ContactField label="Peppol participant ID" name="peppolParticipantId" placeholder="Peppol participant ID" />
+            <ContactField label="UAE address" name="uaeAddressLine1" placeholder="UAE address" />
+            <ContactField label="UAE address line 2" name="uaeAddressLine2" placeholder="UAE address line 2" />
+            <ContactField label="Emirate" name="uaeEmirate" placeholder="Emirate" />
+            <ContactField label="VAT category/status" name="uaeVatRegistrationStatus" placeholder="VAT category/status" />
+            <ContactField label="Endpoint status" name="peppolEndpointStatus" placeholder="Endpoint status" />
+            <ContactField label="Preferred eInvoice delivery" name="preferredEinvoiceDeliveryMethod" placeholder="Preferred eInvoice delivery" />
+            <ContactSelect
+              label="ID Type"
+              name="identificationType"
+              value={createIdentificationType}
+              onChange={(event) => setCreateIdentificationType(event.target.value)}
+              help="Used for buyer identification when VAT is not available."
+            >
                 <option value="">ID Type</option>
                 {contactIdentificationOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
-              </select>
-              <p className="mt-1 text-[11px] text-steel">Used for buyer identification when VAT is not available.</p>
-            </div>
-            <div>
-              <input
-                name="identificationNumber"
-                placeholder="ID number"
-                disabled={!createIdentificationOption}
-                required={Boolean(createIdentificationOption)}
-                inputMode={createIdentificationOption?.inputMode ?? "text"}
-                pattern={createIdentificationOption?.pattern}
-                maxLength={createIdentificationOption?.maxLength}
-                title={createIdentificationOption ? `${createIdentificationOption.label}: ${createIdentificationOption.hint}` : "Choose an ID type first."}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm disabled:bg-slate-100"
-              />
-              <p className="mt-1 text-[11px] text-steel">{createIdentificationOption?.hint ?? "Choose an ID type first."}</p>
-            </div>
+            </ContactSelect>
+            <ContactField
+              label="ID number"
+              name="identificationNumber"
+              placeholder="ID number"
+              disabled={!createIdentificationOption}
+              required={Boolean(createIdentificationOption)}
+              inputMode={createIdentificationOption?.inputMode ?? "text"}
+              pattern={createIdentificationOption?.pattern}
+              maxLength={createIdentificationOption?.maxLength}
+              title={createIdentificationOption ? `${createIdentificationOption.label}: ${createIdentificationOption.hint}` : "Choose an ID type first."}
+              className="uppercase"
+              help={createIdentificationOption?.hint ?? "Choose an ID type first."}
+            />
             <div className="pt-2 text-xs font-semibold uppercase tracking-wide text-steel md:col-span-4">Address and ZATCA buyer fields</div>
-            <input name="addressLine1" placeholder="Street name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="addressLine2" placeholder="Additional street" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <div>
-              <input name="buildingNumber" placeholder="Building number" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-              <p className="mt-1 text-[11px] text-steel">Usually 4 digits for Saudi national address.</p>
-            </div>
-            <div>
-              <input name="district" placeholder="District" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-              <p className="mt-1 text-[11px] text-steel">Required for clean Saudi ZATCA buyer address validation where applicable.</p>
-            </div>
-            <input name="city" placeholder="City" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="postalCode" placeholder="Postal code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="countryCode" defaultValue="SA" placeholder="Country" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <ContactField label="Street name" name="addressLine1" placeholder="Street name" />
+            <ContactField label="Additional street" name="addressLine2" placeholder="Additional street" />
+            <ContactField label="Building number" name="buildingNumber" placeholder="Building number" help="Usually 4 digits for Saudi national address." />
+            <ContactField label="District" name="district" placeholder="District" help="Required for clean Saudi ZATCA buyer address validation where applicable." />
+            <ContactField label="City" name="city" placeholder="City" />
+            <ContactField label="Postal code" name="postalCode" placeholder="Postal code" />
+            <ContactField label="Country" name="countryCode" defaultValue="SA" placeholder="Country" />
             <LedgerButton type="submit" variant="primary" disabled={!organizationId} className="md:self-start">
               Add contact
             </LedgerButton>
@@ -224,10 +219,10 @@ export default function ContactsPage() {
       ) : null}
 
       <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load contacts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading contacts...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load contacts.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading contacts" /> : null}
+        {error ? <LedgerErrorState title="Unable to load contacts" description={error} /> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
         {!loading && organizationId && contacts.length === 0 ? (
           <LedgerEmptyState
             title="No contacts yet"
@@ -326,6 +321,35 @@ function ContactsEmptyState({ contactType }: Readonly<{ contactType: ContactType
       </Link>
       .
     </>
+  );
+}
+
+function ContactField({
+  label,
+  help,
+  ...props
+}: Readonly<{ label: string; help?: ReactNode } & InputHTMLAttributes<HTMLInputElement>>) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput {...props} />
+      {help ? <LedgerFieldHelp>{help}</LedgerFieldHelp> : null}
+    </LedgerFieldLabel>
+  );
+}
+
+function ContactSelect({
+  label,
+  help,
+  children,
+  ...props
+}: Readonly<{ label: string; help?: ReactNode } & SelectHTMLAttributes<HTMLSelectElement>>) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect {...props}>{children}</LedgerSelect>
+      {help ? <LedgerFieldHelp>{help}</LedgerFieldHelp> : null}
+    </LedgerFieldLabel>
   );
 }
 

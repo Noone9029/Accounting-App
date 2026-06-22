@@ -176,6 +176,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved attachment behavior: list, upload, download, note update, delete, permission checks, file hashing display, and linked-entity API paths remain unchanged.
 - Preserved document and delivery-note truth: guidance remains non-posting, local/readiness-only, and explicit that linked delivery notes do not post, file, send, call providers, or move inventory by themselves.
 
+### 2026-06-22 Shared Contact Ledger Loop
+
+- Migrated `/contacts` create fields, state messages, and shared `/contacts/[id]` profile, balance, ledger, statement, and statement-guidance surfaces to shared LedgerByte field, alert/loading/error, panel, section, metric, summary, table, status, and action primitives.
+- Migrated shared customer/supplier list, detail, collections, supplier AP, activity, transaction-empty, and dedicated statement route states away from legacy `StatusMessage` and local status-pill classes.
+- Preserved contact truth: contact create/update payloads, ledger loads, statement loads, statement PDF downloads, customer/supplier workspace handoffs, row drill-down return-to links, collection safe wording, supplier AP non-posting wording, and all existing permission gates remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -185,14 +191,10 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ## Remaining Frontend Route Families
 
-- Purchase supporting flows, Banking, Contacts, and Inventory detail/supporting flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Remaining work is now refreshed visual fixture coverage and any cross-family regression polish found after the stack lands.
 - Sales now has list surfaces, invoice/quote new/edit forms, invoice detail, quote detail, credit-note list/detail/form coverage, customer payment list/new/detail coverage, customer refund list/new/detail coverage, delivery-note list/new/detail/edit/form coverage, recurring-invoice list/new/detail/edit/form coverage, collections list/new/detail/edit/form coverage, and inventory-return list/new/detail/edit/form coverage.
-- Contacts now has customer/supplier detail and dedicated statement coverage; shared contact ledger tabs and visual QA remain.
-- Purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns remain in the purchase family. Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
-- Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
-- Existing settings subroutes are migrated in the stacked settings/admin loop; they still need refreshed visual fixture coverage.
-- Setup/onboarding and dashboard surfaces are migrated in stacked loops; both still need refreshed visual fixture coverage after the stack lands.
-- Auth and marketing-adjacent entry screens were not included in this operational app-shell slice.
+- Contacts now has list/create, shared contact ledger tabs, customer/supplier workspaces, and dedicated statement coverage; refreshed visual QA remains.
+- Sales, purchase, banking, inventory, accounting/admin, reports, documents/storage, settings/compliance, setup/onboarding, dashboard, auth, and placeholder route families have scoped migration coverage in the stacked route-family PRs; remaining gaps are visual fixture refreshes and review-driven polish.
 
 ## Recommended Next Goal
 
