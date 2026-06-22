@@ -1,9 +1,23 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { BackupReadinessSafeStatus } from "@/components/storage/backup-readiness-safe-status";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -174,24 +188,20 @@ export default function StorageSettingsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Storage</h1>
-        <p className="mt-1 text-sm text-steel">Attachment and generated-document storage readiness.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Settings" title="Storage" description="Attachment and generated-document storage readiness." />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to review storage readiness.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading storage readiness...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {backupNotice ? <StatusMessage type="success">{backupNotice}</StatusMessage> : null}
-        {readiness?.warnings.map((warning) => <StatusMessage key={warning} type="info">{warning}</StatusMessage>)}
-        <StatusMessage type="info">Migration execution is not implemented yet. This page is readiness and dry-run planning only.</StatusMessage>
-        <StatusMessage type="info">Backup and restore controls are metadata-only. There is no run backup or restore action in LedgerByte.</StatusMessage>
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to review storage readiness.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading storage readiness" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {backupNotice ? <LedgerAlert tone="success">{backupNotice}</LedgerAlert> : null}
+        {readiness?.warnings.map((warning) => <LedgerAlert key={warning} tone="info">{warning}</LedgerAlert>)}
+        <LedgerAlert tone="info">Migration execution is not implemented yet. This page is readiness and dry-run planning only.</LedgerAlert>
+        <LedgerAlert tone="info">Backup and restore controls are metadata-only. There is no run backup or restore action in LedgerByte.</LedgerAlert>
 
       {readiness ? (
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <StorageCard title="Uploaded attachments" section={readiness.attachmentStorage} extra={`${readiness.attachmentStorage.maxSizeMb} MB max upload`} />
           <StorageCard title="Generated documents" section={readiness.generatedDocumentStorage} />
           <S3ConfigCard config={readiness.s3Config} />
@@ -208,29 +218,30 @@ export default function StorageSettingsPage() {
               loading={backupActionLoading}
             />
           ) : (
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <h2 className="text-base font-semibold text-ink">Backup readiness</h2>
               <p className="mt-1 text-sm text-steel">Backup and restore evidence requires audit retention administration permission.</p>
-            </div>
+            </LedgerPanel>
           )}
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function StorageCard({ title, section, extra }: { title: string; section: StorageReadinessSection; extra?: string }) {
   const tone = storageReadinessTone(section);
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <p className="mt-1 text-sm text-steel">{storageProviderLabel(section.activeProvider)}</p>
         </div>
-        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${tone === "success" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+        <LedgerStatusBadge tone={tone === "success" ? "success" : "warning"}>
           {storageReadinessLabel(section)}
-        </span>
+        </LedgerStatusBadge>
       </div>
       {extra ? <p className="mt-3 text-sm text-steel">{extra}</p> : null}
       {section.blockingReasons.length > 0 ? (
@@ -249,18 +260,18 @@ function StorageCard({ title, section, extra }: { title: string; section: Storag
           </ul>
         </div>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
 function S3ConfigCard({ config }: { config: S3ConfigReadiness }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">S3-compatible configuration</h2>
       <p className="mt-1 text-sm text-steel">Only boolean checks are shown. Secret values are never returned by the API.</p>
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {s3ConfigRows(config).map((row) => (
-          <div key={row.label} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm">
+          <div key={row.label} className="flex items-center justify-between rounded-md border border-line bg-white px-3 py-2 text-sm">
             <span className="text-steel">{row.label}</span>
             <span className={row.configured ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
               {row.configured ? "Configured" : "Missing"}
@@ -268,13 +279,13 @@ function S3ConfigCard({ config }: { config: S3ConfigReadiness }) {
           </div>
         ))}
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
 function MigrationPlanCard({ plan }: { plan: StorageMigrationPlanResponse }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Migration dry run</h2>
@@ -287,24 +298,15 @@ function MigrationPlanCard({ plan }: { plan: StorageMigrationPlanResponse }) {
         </span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <Metric label="Attachments" value={`${plan.attachmentCount} / ${formatStorageBytes(plan.attachmentTotalBytes)}`} />
-        <Metric label="Generated documents" value={`${plan.generatedDocumentCount} / ${formatStorageBytes(plan.generatedDocumentTotalBytes)}`} />
-        <Metric label="Database records" value={String(plan.databaseStorageCount)} />
-        <Metric label="S3 records" value={String(plan.s3StorageCount)} />
+        <LedgerStatCard label="Attachments" value={`${plan.attachmentCount} / ${formatStorageBytes(plan.attachmentTotalBytes)}`} />
+        <LedgerStatCard label="Generated documents" value={`${plan.generatedDocumentCount} / ${formatStorageBytes(plan.generatedDocumentTotalBytes)}`} />
+        <LedgerStatCard label="Database records" value={String(plan.databaseStorageCount)} />
+        <LedgerStatCard label="S3 records" value={String(plan.s3StorageCount)} />
       </div>
       <ul className="mt-4 space-y-1 text-sm text-steel">
         {plan.notes.map((note) => <li key={note}>{note}</li>)}
       </ul>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
-      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 font-semibold text-ink">{value}</div>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -326,7 +328,7 @@ function BackupEvidenceCard({
   loading: boolean;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel lg:col-span-2">
+    <LedgerPanel className="lg:col-span-2">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div>
           <h2 className="text-base font-semibold text-ink">Backup evidence</h2>
@@ -336,7 +338,7 @@ function BackupEvidenceCard({
           <div className="mt-4 space-y-2">
             {evidence.length === 0 ? <p className="text-sm text-steel">No backup evidence has been captured yet.</p> : null}
             {evidence.map((entry) => (
-              <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm">
+              <div key={entry.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-white px-3 py-2 text-sm">
                 <div>
                   <p className="font-semibold text-ink">{backupEvidenceTypeLabel(entry.evidenceType)}</p>
                   <p className="text-xs text-steel">
@@ -345,24 +347,25 @@ function BackupEvidenceCard({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {entry.status === "DRAFT" ? (
-                    <button
+                    <LedgerButton
                       type="button"
                       onClick={() => onVerify(entry.id)}
                       disabled={loading}
-                      className="rounded-md border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 disabled:opacity-60"
+                      size="sm"
                     >
                       Verify
-                    </button>
+                    </LedgerButton>
                   ) : null}
                   {entry.status !== "REVOKED" ? (
-                    <button
+                    <LedgerButton
                       type="button"
                       onClick={() => onRevoke(entry.id)}
                       disabled={loading}
-                      className="rounded-md border border-rose-200 px-3 py-1 text-xs font-semibold text-rosewood disabled:opacity-60"
+                      size="sm"
+                      variant="danger"
                     >
                       Revoke
-                    </button>
+                    </LedgerButton>
                   ) : null}
                 </div>
               </div>
@@ -370,38 +373,35 @@ function BackupEvidenceCard({
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="rounded-md border border-slate-200 p-4">
+        <form onSubmit={onSubmit} className="rounded-md border border-line bg-mist p-4">
           <h3 className="text-sm font-semibold text-ink">Capture metadata</h3>
-          <label className="mt-3 block text-sm font-medium text-ink">
-            Evidence type
-            <select
+          <LedgerFieldLabel className="mt-3">
+            <LedgerFieldText>Evidence type</LedgerFieldText>
+            <LedgerSelect
               value={form.evidenceType}
               onChange={(event) => setForm({ ...form, evidenceType: event.target.value as BackupRestoreEvidenceType })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               {backupEvidenceTypes.map((type) => <option key={type} value={type}>{backupEvidenceTypeLabel(type)}</option>)}
-            </select>
-          </label>
-          <label className="mt-3 block text-sm font-medium text-ink">
-            Scope
-            <select
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="mt-3">
+            <LedgerFieldText>Scope</LedgerFieldText>
+            <LedgerSelect
               value={form.scope}
               onChange={(event) => setForm({ ...form, scope: event.target.value as BackupRestoreEvidenceScope })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="ORGANIZATION">Organization</option>
               <option value="GLOBAL">Global</option>
-            </select>
-          </label>
-          <label className="mt-3 block text-sm font-medium text-ink">
-            Provider
-            <input
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="mt-3">
+            <LedgerFieldText>Provider</LedgerFieldText>
+            <LedgerInput
               value={form.provider}
               onChange={(event) => setForm({ ...form, provider: event.target.value })}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               placeholder="Supabase, S3-compatible storage, runbook"
             />
-          </label>
+          </LedgerFieldLabel>
           <label className="mt-3 block text-sm font-medium text-ink">
             Evidence summary JSON
             <textarea
@@ -420,15 +420,16 @@ function BackupEvidenceCard({
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
-          <button
+          <LedgerButton
             type="submit"
             disabled={loading}
-            className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="mt-4"
+            variant="primary"
           >
             Capture evidence
-          </button>
+          </LedgerButton>
         </form>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
