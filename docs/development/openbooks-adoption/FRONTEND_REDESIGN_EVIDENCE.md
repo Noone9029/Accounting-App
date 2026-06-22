@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-report-drilldowns`
+Branch: `codex/ui-redesign-documents-storage-settings`
 
-Base: stacked on `origin/codex/ui-redesign-accounting-admin-workspaces` while PR #178 is open
+Base: stacked on `origin/codex/ui-redesign-report-drilldowns` while PR #179 is open
 
 ## Evidence Summary
 
@@ -15,6 +15,7 @@ Base: stacked on `origin/codex/ui-redesign-accounting-admin-workspaces` while PR
 | Settings overview | `apps/web/src/app/(app)/settings/page.tsx` now renders a grouped admin overview instead of redirecting. |
 | Settings route test | `apps/web/src/app/(app)/route-load-verification.test.tsx` verifies `/settings` loads and links to existing settings routes. |
 | Documents archive | `apps/web/src/app/(app)/documents/page.tsx` uses shared page, filter, table, and empty-state primitives while preserving local archive behavior. |
+| Document settings loop | `apps/web/src/app/(app)/documents/page.tsx` and `apps/web/src/app/(app)/settings/documents/page.tsx` use shared Ledger alert, loading, field, input, select, panel, date, and action primitives while preserving generated-document filters/downloads, local AP email outbox behavior, document settings PATCH payloads, and document settings permission boundaries. |
 | Report packs | `apps/web/src/app/(app)/report-packs/page.tsx` uses shared preview, metric, table, and disabled-boundary primitives while preserving read-only behavior. |
 | Report drilldowns loop | `apps/web/src/components/reports/report-pages.tsx` drives `/reports`, General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, VAT Return, Aged Receivables, and Aged Payables through shared Ledger page, toolbar, field, alert, loading, empty, panel, stat, table, date, money, action, and workflow primitives while preserving report query filters, exports, return-to links, aging handoffs, and internal-review VAT wording. |
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
@@ -591,6 +592,20 @@ Base: stacked on `origin/codex/ui-redesign-accounting-admin-workspaces` while PR
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - Visual checks were not run in this slice; a refreshed report visual fixture pass should cover the report index, GL, trial balance, P&L, balance sheet, VAT summary/return, and aging reports together.
+
+## 2026-06-22 Generated Documents And Document Settings Loop Evidence
+
+- `/documents`: migrated the archive status states, generated date display, PDF download action, and local AP email outbox form/actions to shared Ledger primitives while preserving document filters, download behavior, AP outbox POST payload, local-only/no-provider-send wording, and email outbox handoff.
+- `/settings/documents`: migrated the document settings shell, status states, grouped settings panels, text fields, template selects, toggles, and save action to shared Ledger primitives while preserving `/organization-document-settings` loading, PATCH payload construction, color validation, settings impact guidance, and document settings permission boundaries.
+- `/settings/storage` remains deferred for the next storage-readiness route slice; this pass does not change storage readiness, backup metadata, restore metadata, provider configuration, or migration execution behavior.
+- Existing behavior remains frontend-only and unchanged: this pass does not add email sending, provider calls, storage execution, signed URL behavior, generated-document storage behavior, schema changes, compliance behavior, hosted mutations, seed/reset/delete commands, or deployments.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- documents document-settings generated-documents`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed documents/settings visual fixture pass should cover generated documents, document settings, storage readiness, and email outbox together after storage lands.
 
 ## Mutation Boundary
 

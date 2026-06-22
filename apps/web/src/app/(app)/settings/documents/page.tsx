@@ -1,9 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { SettingsImpactGuidance } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -93,25 +106,25 @@ export default function DocumentSettingsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Document settings</h1>
-        <p className="mt-1 text-sm text-steel">Branding, wording, and display defaults used by generated invoices, receipts, bills, and statements.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Settings"
+        title="Document settings"
+        description="Branding, wording, and display defaults used by generated invoices, receipts, bills, and statements."
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit document settings.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading document settings...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!canManageSettings ? <StatusMessage type="info">Your role can view document settings but cannot save changes.</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to edit document settings.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading document settings" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!canManageSettings ? <LedgerAlert tone="info">Your role can view document settings but cannot save changes.</LedgerAlert> : null}
 
       {form ? (
-        <form onSubmit={saveSettings} className="mt-5 space-y-5">
+        <form onSubmit={saveSettings} className="space-y-5">
           <SettingsImpactGuidance />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Titles and footer</h2>
             <p className="mt-1 text-sm text-steel">These labels appear in the header or footer of generated PDFs.</p>
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -120,18 +133,18 @@ export default function DocumentSettingsPage() {
               <TextField label="Statement title" helper="Shown on customer and supplier statement PDFs." value={form.statementTitle} onChange={(value) => updateField("statementTitle", value)} />
               <TextField label="Footer text" helper="Optional footer copy for beta review documents." value={form.footerText} onChange={(value) => updateField("footerText", value)} />
             </div>
-          </div>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Colors</h2>
             <p className="mt-1 text-sm text-steel">Use simple hex colors for PDF accents. Leave blank to use LedgerByte defaults.</p>
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <TextField label="Primary color" helper="Used for prominent text and headings in generated PDFs." placeholder="#111827" value={form.primaryColor} onChange={(value) => updateField("primaryColor", value)} />
               <TextField label="Accent color" helper="Used for subtle backgrounds, dividers, and table accents." placeholder="#f3f4f6" value={form.accentColor} onChange={(value) => updateField("accentColor", value)} />
             </div>
-          </div>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Display options</h2>
             <p className="mt-1 text-sm text-steel">Choose which business details appear on generated PDFs. Totals and posting data are not changed by these toggles.</p>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -140,9 +153,9 @@ export default function DocumentSettingsPage() {
               <Toggle label="Show notes" helper="Includes document notes when present on the source record." checked={form.showNotes} onChange={(value) => updateField("showNotes", value)} />
               <Toggle label="Show terms" helper="Includes invoice or bill terms when present on the source record." checked={form.showTerms} onChange={(value) => updateField("showTerms", value)} />
             </div>
-          </div>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Templates</h2>
             <p className="mt-1 text-sm text-steel">Template choices adjust presentation density only. They do not change accounting values, VAT totals, or compliance status.</p>
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -150,18 +163,19 @@ export default function DocumentSettingsPage() {
               <TemplateField label="Receipt template" value={form.defaultReceiptTemplate} onChange={(value) => updateField("defaultReceiptTemplate", value)} />
               <TemplateField label="Statement template" value={form.defaultStatementTemplate} onChange={(value) => updateField("defaultStatementTemplate", value)} />
             </div>
-          </div>
+          </LedgerPanel>
 
           {canManageSettings ? (
           <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <LedgerButton type="submit" variant="primary" disabled={saving}>
               {saving ? "Saving..." : "Save settings"}
-            </button>
+            </LedgerButton>
           </div>
           ) : null}
         </form>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -179,22 +193,21 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
       />
-      {helper ? <span className="mt-1 block text-xs leading-5 text-steel">{helper}</span> : null}
-    </label>
+      {helper ? <LedgerFieldHelp>{helper}</LedgerFieldHelp> : null}
+    </LedgerFieldLabel>
   );
 }
 
 function Toggle({ label, helper, checked, onChange }: { label: string; helper?: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
-    <label className="flex items-start gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm text-ink">
+    <label className="flex items-start gap-3 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 h-4 w-4 accent-palm" />
       <span>
         <span className="block font-medium">{label}</span>
@@ -214,20 +227,19 @@ function TemplateField({
   onChange: (value: OrganizationDocumentSettingsForm["defaultInvoiceTemplate"]) => void;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <select
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect
         value={value}
         onChange={(event) => onChange(event.target.value as OrganizationDocumentSettingsForm["defaultInvoiceTemplate"])}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
       >
         {documentTemplateOptions.map((option) => (
           <option key={option} value={option}>
             {documentTemplateLabel(option)}
           </option>
         ))}
-      </select>
-      <span className="mt-1 block text-xs leading-5 text-steel">{documentTemplateDescription(value)}</span>
-    </label>
+      </LedgerSelect>
+      <LedgerFieldHelp>{documentTemplateDescription(value)}</LedgerFieldHelp>
+    </LedgerFieldLabel>
   );
 }
