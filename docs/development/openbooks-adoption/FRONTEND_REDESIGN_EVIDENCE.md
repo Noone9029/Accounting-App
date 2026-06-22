@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-operations`
+Branch: `codex/ui-redesign-purchase-cash-expenses`
 
-Base: stacked on `origin/codex/ui-redesign-supplier-settlement` while PR #159 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-operations` while PR #160 is open
 
 ## Evidence Summary
 
@@ -33,6 +33,7 @@ Base: stacked on `origin/codex/ui-redesign-supplier-settlement` while PR #159 is
 | Purchase document detail loop | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx`, and `apps/web/src/components/ui/ledger-system.tsx` use shared LedgerByte page, header, panel, section, table, status, alert, money/date, form-field, and action primitives while preserving AP finalization/void/delete/download/apply/reverse handlers, return-to handoffs, receiving/matching/clearing/valuation preview surfaces, generated-document guidance, and no provider/payment-sending/tax-authority/compliance/valuation behavior changes. |
 | Purchase supplier settlement loop | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx`, and `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` use shared LedgerByte list, form, detail, table, field, panel, summary, alert, money/date, status, and action primitives while preserving supplier workspace return-to handoffs, bill allocations, unapplied apply/reverse behavior, voids, PDF downloads, manual refund source selection, no-bank/no-provider/no-ZATCA wording, and AP journal boundaries. |
 | Purchase order operations loop | `apps/web/src/app/(app)/purchases/purchase-orders/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/new/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-order-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving purchase order lifecycle handlers, receiving and converted-bill handoffs, supplier return-to context, non-posting wording, no payment-sending/no-tax-authority boundaries, and existing purchase order payload behavior. |
+| Purchase cash expense loop | `apps/web/src/app/(app)/purchases/cash-expenses/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/new/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/[id]/page.tsx`, and `apps/web/src/components/forms/cash-expense-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving immediate cash expense posting, paid-through account behavior, void reversal action, PDF download, supplier return-to context, and no-AP/no-bank-transfer/no-tax-authority boundaries. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -282,6 +283,17 @@ Base: stacked on `origin/codex/ui-redesign-supplier-settlement` while PR #159 is
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `corepack pnpm --filter @ledgerbyte/web test -- purchase-order-form purchase-orders`: PASS, 4 suites, 9 tests.
 - Purchase order visual checks were not run because fixture search found no existing Playwright visual fixture for `/purchases/purchase-orders`, `/purchases/purchase-orders/new`, or purchase order detail/edit workflows.
+
+## 2026-06-22 Purchase Cash Expense Loop Evidence
+
+- `/purchases/cash-expenses`: migrated the cash expense list from route-local header/table/button/status styling to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerMoney`, `LedgerDate`, `LedgerStatusBadge`, `LedgerAlert`, `LedgerActionBar`, and `LedgerButton` primitives while preserving create permission gating, void permission gating, paid-through account labels, journal links-as-text, and view links.
+- `/purchases/cash-expenses/new`: migrated the route shell to shared page/header/body primitives while preserving the shared form handoff and direct paid expense wording.
+- `CashExpenseForm`: migrated expense details, paid-through account picker, immediate-posting boundary guidance, line editor, account/tax selectors, totals panel, add/remove controls, error/loading states, and post/cancel actions to shared Ledger form, field, panel, summary, money, alert, and action primitives. Existing setup-data loads, supplier query prefill, fixed `SAR` currency behavior, validation, POST payload, default paid-through account selection, and return-to redirect remain unchanged.
+- `/purchases/cash-expenses/[id]`: migrated the cash expense detail shell, status badge, action group, metadata, line table, totals, PDF data preview, and attachment slot to shared Ledger primitives while preserving void, PDF download, generated-document permission checks, supplier/contact handoff, journal/reversal metadata, and return-to context.
+- Existing behavior remains frontend-only and unchanged: cash expense endpoints, direct posting, paid-through account credit behavior, void reversal action, PDF data reads, generated-document download side effects from existing explicit downloads, permission gates, and supplier/contact handoffs keep their existing semantics. No AP creation, supplier payment sending, bank transfer, bank-feed/reconciliation action, provider call, tax-authority submission, compliance behavior, schema change, or storage behavior was added.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- cash-expense cash-expenses`: PASS, 135 suites, 612 tests matched.
+- Cash expense visual checks were not run because fixture search found no existing Playwright visual fixture for `/purchases/cash-expenses`, `/purchases/cash-expenses/new`, or cash expense detail workflows.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 
