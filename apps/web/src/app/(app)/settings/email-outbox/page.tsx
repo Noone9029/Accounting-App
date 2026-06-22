@@ -522,7 +522,7 @@ export default function EmailOutboxPage() {
             <Detail label="Webhook health" value={readiness.providerWebhookHealthMonitoringConfigured ? "Configured" : "Missing"} />
           </div>
           {canManageEmail ? (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
               <h3 className="text-sm font-semibold text-ink">Retry and provider event readiness</h3>
               <p className="mt-1 text-sm text-steel">
                 Retry processing is disabled by default and this page only shows safe plans. Provider event capture is mock-only until a signed webhook is
@@ -638,7 +638,7 @@ export default function EmailOutboxPage() {
             </div>
             ) : null}
           {canRunDiagnostics ? (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
               <h3 className="text-sm font-semibold text-ink">Safe email diagnostics</h3>
               <p className="mt-1 text-sm text-steel">
                 Disabled by default. It sends no customer email unless server diagnostics are explicitly enabled and the recipient is allowlisted.
@@ -671,7 +671,7 @@ export default function EmailOutboxPage() {
             </div>
           ) : null}
           {canManageEmail ? (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
               <h3 className="text-sm font-semibold text-ink">Sender-domain evidence</h3>
               <p className="mt-1 text-sm text-steel">
                 Capture SPF, DKIM, DMARC, and provider-verification metadata only. Do not paste SMTP credentials, API keys, DNS provider tokens, auth
@@ -766,7 +766,7 @@ export default function EmailOutboxPage() {
             </div>
           ) : null}
           {canManageEmail ? (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
               <h3 className="text-sm font-semibold text-ink">Delivery monitoring evidence</h3>
               <p className="mt-1 text-sm text-steel">
                 Capture retry throughput, bounce and complaint threshold, suppression trend, delivery dashboard, and webhook-health evidence as metadata only.
@@ -855,7 +855,7 @@ export default function EmailOutboxPage() {
             </div>
           ) : null}
           {canManageEmail ? (
-            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
               <h3 className="text-sm font-semibold text-ink">Suppression list</h3>
               <p className="mt-1 text-sm text-steel">
                 Manual entries and verified bounce/complaint events store masked and hashed email metadata only. Active suppressions block future send attempts;

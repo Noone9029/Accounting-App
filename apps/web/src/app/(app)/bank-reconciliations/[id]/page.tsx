@@ -479,7 +479,7 @@ export function ReconciliationReportReviewPanels({ report, currency }: { report:
             </div>
           ) : null}
           {accounting.operationalOnlyCount > 0 ? (
-            <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
+            <div className="mt-3 rounded-md border border-line bg-mist px-3 py-2 text-sm text-steel">
               Operational-only records are visible for review but are not silently posted, matched, or reconciled.
             </div>
           ) : null}

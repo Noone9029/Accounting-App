@@ -372,7 +372,7 @@ export default function LandedCostPreviewPage() {
 
 function Metric({ label, value, href }: { label: string; value: string; href?: string | null }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-md border border-line bg-mist p-3">
       <p className="text-xs uppercase tracking-wide text-steel">{label}</p>
       {href ? (
         <Link href={href} className="mt-1 block font-medium text-palm hover:underline">

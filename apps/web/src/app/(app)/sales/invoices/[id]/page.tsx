@@ -1007,7 +1007,7 @@ export default function SalesInvoiceDetailPage() {
             </LedgerMetricGrid>
 
             {zatcaReadiness ? (
-              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-5 rounded-md border border-line bg-mist p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-ink">ZATCA readiness</h3>
@@ -1036,7 +1036,7 @@ export default function SalesInvoiceDetailPage() {
             ) : null}
 
             {signedArtifactStoragePlan ? (
-              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-5 rounded-md border border-line bg-mist p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-ink">Signed artifact metadata drafts</h3>
