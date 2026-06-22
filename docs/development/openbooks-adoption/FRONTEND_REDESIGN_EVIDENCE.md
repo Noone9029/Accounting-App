@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-ap-dashboard`
+Branch: `codex/ui-redesign-purchase-returns`
 
-Base: stacked on `origin/codex/ui-redesign-purchase-matching` while PR #162 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-ap-dashboard` while PR #163 is open
 
 ## Evidence Summary
 
@@ -36,6 +36,7 @@ Base: stacked on `origin/codex/ui-redesign-purchase-matching` while PR #162 is o
 | Purchase cash expense loop | `apps/web/src/app/(app)/purchases/cash-expenses/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/new/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/[id]/page.tsx`, and `apps/web/src/components/forms/cash-expense-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving immediate cash expense posting, paid-through account behavior, void reversal action, PDF download, supplier return-to context, and no-AP/no-bank-transfer/no-tax-authority boundaries. |
 | Purchase matching loop | `apps/web/src/app/(app)/purchases/matching/page.tsx` and `apps/web/src/components/purchases/purchase-matching-panel.tsx` use shared LedgerByte page, filter, metric, panel, section, table, empty/loading/alert, date, status, summary, and action primitives while preserving read-only exception loading, review action endpoints, source links, purchase return follow-up links, valuation preview links, permissions, and no-posting/no-AP/no-inventory/no-variance/no-return-creation boundaries. |
 | Purchase AP dashboard loop | `apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx` uses shared LedgerByte page, header, summary, metric, stat, panel, section, table, empty/loading/alert, date, money, status, and action primitives while preserving supplier/AP dashboard loading, source/supplier/action links, permission gates, attention panels, recent activity, and read-only/no-journal/no-AP-adjustment/no-inventory/no-email/no-variance-booking boundaries. |
+| Purchase returns loop | `apps/web/src/app/(app)/purchases/returns/page.tsx`, `apps/web/src/app/(app)/purchases/returns/new/page.tsx`, `apps/web/src/app/(app)/purchases/returns/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/returns/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-return-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, loading, money/date, status, and action primitives while preserving purchase return lifecycle actions, inventory movement preview/posting handoff, source links, supplier links, valuation preview link, permissions, and no-posting/no-AP/no-automatic-inventory/no-debit-note/no-refund/no-variance/no-VAT/no-ZATCA boundaries. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -317,6 +318,19 @@ Base: stacked on `origin/codex/ui-redesign-purchase-matching` while PR #162 is o
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - AP dashboard visual checks were not run because fixture search found no existing Playwright visual route fixture for `/purchases/ap-dashboard`; accounts-payable references under the visual fixtures are data helpers for other visual routes, not a route-level AP dashboard visual spec.
+
+## 2026-06-22 Purchase Returns Loop Evidence
+
+- `/purchases/returns`: migrated the purchase return list from route-local page/header/button/alert/table/status styling to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerDate`, `LedgerStatusBadge`, `LedgerAlert`, `LedgerLoadingState`, `LedgerEmptyState`, and `LedgerButton` primitives.
+- `/purchases/returns/new` and `/purchases/returns/[id]/edit`: migrated the route shells to shared page/header/body primitives while preserving the existing `PurchaseReturnForm` handoff, draft edit wording, and purchase-return load path.
+- `/purchases/returns/[id]`: migrated the detail shell, lifecycle guidance, metadata panel, inventory movement preview, line table, and accounting/inventory boundary section to shared Ledger primitives while preserving existing lifecycle POST actions, cancel/void confirmations, inventory return movement POST confirmation, supplier/source/matching/valuation links, permission gates, status labels, and movement-posted state.
+- `PurchaseReturnForm`: migrated return details, supplier/source pickers, return line editor, add/remove controls, loading/error states, and save/cancel actions to shared Ledger form, field, table, summary, alert, and action primitives. Existing setup-data loads, next-number load, supplier query prefill, source query prefill, source-line copy behavior, POST/PATCH payload, and redirect remain unchanged.
+- Existing behavior remains frontend-only and unchanged: purchase return endpoints, lifecycle actions, explicit inventory movement posting, source document references, matching review references, supplier links, valuation preview links, and permission gates keep their existing semantics. Purchase returns still do not post journals, adjust AP balances, create debit notes/refunds, book variances, send email, affect VAT/ZATCA/compliance, move inventory automatically, change schema, or mutate storage.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- purchase-returns purchase-return-form`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- Purchase return visual checks were not run because fixture search found no existing Playwright visual route fixture for `/purchases/returns`, `/purchases/returns/new`, or purchase return detail/edit workflows.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 

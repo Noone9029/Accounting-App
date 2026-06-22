@@ -2,8 +2,8 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { PurchaseReturnForm } from "@/components/forms/purchase-return-form";
+import { LedgerAlert, LedgerLoadingState, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { PurchaseReturn } from "@/lib/types";
@@ -38,14 +38,17 @@ export default function EditPurchaseReturnPage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Edit purchase return</h1>
-        <p className="mt-1 text-sm text-steel">Draft purchase returns can be edited before submission.</p>
-      </div>
-      {loading ? <StatusMessage type="loading">Loading purchase return...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      {purchaseReturn ? <PurchaseReturnForm initialReturn={purchaseReturn} /> : null}
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title="Edit purchase return"
+        description="Draft purchase returns can be edited before submission."
+      />
+      <LedgerPageBody>
+        {loading ? <LedgerLoadingState title="Loading purchase return" description="Fetching the saved return before opening the editable form." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {purchaseReturn ? <PurchaseReturnForm initialReturn={purchaseReturn} /> : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }

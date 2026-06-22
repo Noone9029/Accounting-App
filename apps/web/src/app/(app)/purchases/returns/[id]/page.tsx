@@ -3,9 +3,25 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  LedgerLoadingState,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -26,7 +42,6 @@ import {
   purchaseReturnInventoryMovementStatusLabel,
   purchaseReturnSourceHref,
   purchaseReturnSourceLabel,
-  purchaseReturnStatusBadgeClass,
   purchaseReturnStatusLabel,
 } from "@/lib/purchase-returns";
 import type {
@@ -35,6 +50,7 @@ import type {
   PurchaseReturnInventoryMovementPreview,
   PurchaseReturnInventoryMovementPreviewLine,
   PurchaseReturnLine,
+  PurchaseReturnStatus,
 } from "@/lib/types";
 
 type ReturnAction = "submit" | "approve" | "complete" | "cancel" | "void";
@@ -163,41 +179,42 @@ export default function PurchaseReturnDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{purchaseReturn?.purchaseReturnNumber ?? "Purchase return"}</h1>
-          <p className="mt-1 text-sm text-steel">Operational supplier return detail and non-posting lifecycle.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/purchases/returns" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {purchaseReturn && canEditPurchaseReturn(purchaseReturn.status) && canManage ? (
-            <Link href={`/purchases/returns/${purchaseReturn.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Edit
-            </Link>
-          ) : null}
-          {purchaseReturn?.supplierId ? (
-            <Link href={`/contacts/${purchaseReturn.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Supplier ledger
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title={purchaseReturn?.purchaseReturnNumber ?? "Purchase return"}
+        description="Operational supplier return detail and non-posting lifecycle."
+        badge={purchaseReturn ? <PurchaseReturnStatusBadge status={purchaseReturn.status} /> : null}
+        actions={
+          <LedgerActionBar className="sm:justify-end">
+            <LedgerButton href="/purchases/returns">
+              Back
+            </LedgerButton>
+            {purchaseReturn && canEditPurchaseReturn(purchaseReturn.status) && canManage ? (
+              <LedgerButton href={`/purchases/returns/${purchaseReturn.id}/edit`}>
+                Edit
+              </LedgerButton>
+            ) : null}
+            {purchaseReturn?.supplierId ? (
+              <LedgerButton href={`/contacts/${purchaseReturn.supplierId}`}>
+                Supplier ledger
+              </LedgerButton>
+            ) : null}
+          </LedgerActionBar>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase returns.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading purchase return...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase returns.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading purchase return" description="Fetching the return document, source links, and operational movement state." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
       {purchaseReturn ? (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
           <PurchaseReturnWorkflowGuidance purchaseReturn={purchaseReturn} canManage={canManage} actionLoading={actionLoading} onAction={runAction} />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Supplier" value={purchaseReturn.supplier?.displayName ?? purchaseReturn.supplier?.name ?? "-"} />
               <Summary label="Status" value={purchaseReturnStatusLabel(purchaseReturn.status)} />
@@ -214,7 +231,7 @@ export default function PurchaseReturnDetailPage() {
               <Summary label="Movement posted at" value={formatOptionalDate(inventoryMovementPreview?.postedAt ?? purchaseReturn.inventoryReturnPostedAt ?? null, "-")} />
               <Summary label="Notes" value={purchaseReturn.notes ?? "-"} />
             </div>
-          </div>
+          </LedgerPanel>
 
           {canViewInventoryMovement ? (
             <PurchaseReturnInventoryMovementPanel
@@ -232,8 +249,7 @@ export default function PurchaseReturnDetailPage() {
             />
           ) : null}
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[920px] text-left text-sm">
+          <LedgerDataTable minWidth="920px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Description</th>
@@ -249,27 +265,26 @@ export default function PurchaseReturnDetailPage() {
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{line.unitCost ? formatMoneyAmount(line.unitCost, "SAR") : "-"}</td>
+                    <td className="px-4 py-3">{line.unitCost ? <LedgerMoney>{formatMoneyAmount(line.unitCost, "SAR")}</LedgerMoney> : "-"}</td>
                     <td className="px-4 py-3 text-steel">{sourceLineLabel(line)}</td>
                     <td className="px-4 py-3 font-mono text-xs text-steel">{line.stockMovementId ?? line.stockMovement?.id ?? "-"}</td>
                     <td className="px-4 py-3 text-steel">{line.reason ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </LedgerDataTable>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <h2 className="text-base font-semibold text-ink">Accounting and inventory boundary</h2>
-            <p className="mt-2 text-sm leading-6 text-steel">{PURCHASE_RETURN_NON_EFFECT_TEXT}</p>
+          <LedgerSection title="Accounting and inventory boundary">
+            <LedgerSummaryBand tone="warning">{PURCHASE_RETURN_NON_EFFECT_TEXT}</LedgerSummaryBand>
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
               <p className="rounded-md bg-slate-50 p-3 text-steel">Create a purchase debit note separately if supplier credit accounting is required.</p>
               <p className="rounded-md bg-slate-50 p-3 text-steel">Record a supplier refund separately if money is returned.</p>
             </div>
-          </div>
+          </LedgerSection>
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -286,34 +301,34 @@ export function PurchaseReturnWorkflowGuidance({
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-ink">What happened?</h2>
+            <h2 className="text-base font-semibold text-ink">Return status</h2>
             <p className="mt-1 text-sm leading-6 text-steel">{outcomeDescription(purchaseReturn)}</p>
           </div>
-          <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseReturnStatusBadgeClass(purchaseReturn.status)}`}>
-            {purchaseReturnStatusLabel(purchaseReturn.status)}
-          </span>
+          <PurchaseReturnStatusBadge status={purchaseReturn.status} />
         </div>
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">{PURCHASE_RETURN_NON_EFFECT_TEXT}</div>
-      </div>
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="mt-4">
+          <LedgerSummaryBand tone="warning">{PURCHASE_RETURN_NON_EFFECT_TEXT}</LedgerSummaryBand>
+        </div>
+      </LedgerPanel>
+      <LedgerPanel>
         <h2 className="text-base font-semibold text-ink">Next actions</h2>
         <p className="mt-1 text-sm leading-6 text-steel">{nextActionDescription(purchaseReturn)}</p>
-        <div className="mt-4 flex flex-col gap-2">
+        <LedgerActionBar className="mt-4">
           {canManage && canSubmitPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Submit" active={actionLoading} onClick={() => onAction("submit")} /> : null}
           {canManage && canApprovePurchaseReturn(purchaseReturn.status) ? <ActionButton label="Approve" active={actionLoading} onClick={() => onAction("approve")} /> : null}
           {canManage && canCompletePurchaseReturn(purchaseReturn.status) ? <ActionButton label="Complete" active={actionLoading} onClick={() => onAction("complete")} /> : null}
           {canManage && canCancelPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Cancel" active={actionLoading} onClick={() => onAction("cancel")} secondary /> : null}
           {canManage && canVoidPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Void" active={actionLoading} onClick={() => onAction("void")} danger /> : null}
           {purchaseReturn.sourceMatchingReview ? (
-            <Link href="/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href="/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW">
               View matching review
-            </Link>
+            </LedgerButton>
           ) : null}
-        </div>
-      </div>
+        </LedgerActionBar>
+      </LedgerPanel>
     </div>
   );
 }
@@ -331,10 +346,9 @@ export function PurchaseReturnInventoryMovementPanel({
 }) {
   if (!preview) {
     return (
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Inventory return movement</h2>
+      <LedgerSection title="Inventory return movement">
         <p className="mt-2 text-sm text-steel">Inventory movement preview is unavailable for this return.</p>
-      </div>
+      </LedgerSection>
     );
   }
 
@@ -343,15 +357,13 @@ export function PurchaseReturnInventoryMovementPanel({
   const showPostAction = canPostPurchaseReturnInventoryMovement(preview, canPost);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Inventory return movement</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{preview.safeHelperText}</p>
         </div>
-        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${inventoryMovementStatusBadgeClass(preview.inventoryMovementStatus)}`}>
-          {purchaseReturnInventoryMovementStatusLabel(preview)}
-        </span>
+        <LedgerStatusBadge tone={inventoryMovementStatusTone(preview.inventoryMovementStatus)}>{purchaseReturnInventoryMovementStatusLabel(preview)}</LedgerStatusBadge>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
@@ -374,18 +386,16 @@ export function PurchaseReturnInventoryMovementPanel({
       ) : null}
 
       {preview.blockingReasons.length > 0 ? (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <p className="font-medium">Posting blockers</p>
+        <LedgerAlert tone="warning" title="Posting blockers">
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {preview.blockingReasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
-        </div>
+        </LedgerAlert>
       ) : null}
 
-      <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[900px] text-left text-sm">
+      <LedgerDataTable minWidth="900px" className="mt-4 shadow-none">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Line</th>
@@ -414,18 +424,17 @@ export function PurchaseReturnInventoryMovementPanel({
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </LedgerDataTable>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <LedgerActionBar className="mt-4">
         {showPostAction ? (
-          <button type="button" onClick={onPost} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            Post inventory return movement
-          </button>
+          <LedgerButton type="button" onClick={onPost} disabled={actionLoading} variant="primary">
+            {actionLoading ? "Posting..." : "Post inventory return movement"}
+          </LedgerButton>
         ) : null}
         {!canPost && preview.canPost ? <p className="text-sm text-steel">Posting requires stock movement create permission.</p> : null}
-      </div>
-    </div>
+      </LedgerActionBar>
+    </LedgerPanel>
   );
 }
 
@@ -433,7 +442,7 @@ function LineStatus({ line }: { line: PurchaseReturnInventoryMovementPreviewLine
   const label = line.status === "SKIPPED_NON_TRACKED" ? "Skipped" : line.status.charAt(0) + line.status.slice(1).toLowerCase().replaceAll("_", " ");
   return (
     <div>
-      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${lineStatusBadgeClass(line.status)}`}>{label}</span>
+      <LedgerStatusBadge tone={lineStatusTone(line.status)}>{label}</LedgerStatusBadge>
       {line.stockMovementId ? <p className="mt-1 font-mono text-xs text-steel">{line.stockMovementId}</p> : null}
       {line.blockingReasons.length > 0 ? <p className="mt-1 text-xs leading-5 text-rosewood">{line.blockingReasons.join("; ")}</p> : null}
       {line.warnings.length > 0 ? <p className="mt-1 text-xs leading-5 text-steel">{line.warnings.join("; ")}</p> : null}
@@ -442,15 +451,10 @@ function LineStatus({ line }: { line: PurchaseReturnInventoryMovementPreviewLine
 }
 
 function ActionButton({ label, active, onClick, secondary = false, danger = false }: { label: string; active: boolean; onClick: () => void; secondary?: boolean; danger?: boolean }) {
-  const className = danger
-    ? "rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
-    : secondary
-      ? "rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-      : "rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400";
   return (
-    <button type="button" onClick={onClick} disabled={active} className={className}>
+    <LedgerButton type="button" onClick={onClick} disabled={active} variant={danger ? "danger" : secondary ? "secondary" : "primary"}>
       {label}
-    </button>
+    </LedgerButton>
   );
 }
 
@@ -488,29 +492,50 @@ function sourceLineLabel(line: PurchaseReturnLine): string {
   return "Manual";
 }
 
-function inventoryMovementStatusBadgeClass(status: PurchaseReturnInventoryMovementPreview["inventoryMovementStatus"]): string {
-  if (status === "POSTED") return "bg-emerald-50 text-emerald-700";
-  if (status === "BLOCKED") return "bg-amber-50 text-amber-700";
-  return "bg-slate-100 text-slate-700";
+function PurchaseReturnStatusBadge({ status }: { status: PurchaseReturnStatus }) {
+  return <LedgerStatusBadge tone={purchaseReturnStatusTone(status)}>{purchaseReturnStatusLabel(status)}</LedgerStatusBadge>;
 }
 
-function lineStatusBadgeClass(status: PurchaseReturnInventoryMovementPreviewLine["status"]): string {
-  if (status === "POSTED" || status === "POSTABLE") return "bg-emerald-50 text-emerald-700";
-  if (status === "BLOCKED") return "bg-amber-50 text-amber-700";
-  return "bg-slate-100 text-slate-700";
+function purchaseReturnStatusTone(status: PurchaseReturnStatus | undefined | null): LedgerStatusTone {
+  if (status === "COMPLETED") return "success";
+  if (status === "APPROVED" || status === "SUBMITTED") return "info";
+  if (status === "DRAFT") return "warning";
+  if (status === "VOIDED" || status === "CANCELLED") return "danger";
+  return "neutral";
+}
+
+function inventoryMovementStatusTone(status: PurchaseReturnInventoryMovementPreview["inventoryMovementStatus"]): LedgerStatusTone {
+  if (status === "POSTED") return "success";
+  if (status === "BLOCKED") return "danger";
+  return "warning";
+}
+
+function lineStatusTone(status: PurchaseReturnInventoryMovementPreviewLine["status"]): LedgerStatusTone {
+  if (status === "POSTED" || status === "POSTABLE") return "success";
+  if (status === "BLOCKED") return "danger";
+  return "neutral";
 }
 
 function Summary({ label, value, href }: { label: string; value: string; href?: string }) {
+  let content = <div className="mt-1 break-words font-medium text-ink">{value}</div>;
+  if (href) {
+    content = (
+      <Link href={href} className="mt-1 inline-block font-medium text-palm hover:underline">
+        {value}
+      </Link>
+    );
+  } else if (label.toLowerCase().includes("date") || label.toLowerCase().endsWith("at")) {
+    content = (
+      <div className="mt-1">
+        <LedgerDate>{value}</LedgerDate>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      {href ? (
-        <Link href={href} className="mt-1 block font-medium text-palm hover:underline">
-          {value}
-        </Link>
-      ) : (
-        <div className="mt-1 break-words font-medium text-ink">{value}</div>
-      )}
+      {content}
     </div>
   );
 }
