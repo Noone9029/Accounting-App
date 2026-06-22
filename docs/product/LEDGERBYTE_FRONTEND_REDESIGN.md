@@ -152,6 +152,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved setup truth: the checklist remains read-only and evidence-backed, typed profile selection still loads/saves/recomputes through the existing API helpers, and planned or blocked capabilities remain non-actionable.
 - Preserved organization setup behavior: the form still posts to `/organizations`, stores the active organization id, and redirects to `/dashboard` without adding provider, compliance, storage, or tax-authority behavior.
 
+### 2026-06-22 Dashboard Revisit Loop
+
+- Migrated `/dashboard` root states, KPI grid, report/cash-flow panels, onboarding states, attention panels, common workspaces, quick actions, Sales/AR attention cards, chart shells, low-stock watchlist, and attention rows to shared LedgerByte primitives where applicable.
+- Preserved dashboard truth: KPI values, drilldown links, workspace links, and quick actions still come from existing summary data and permission-filtered helper functions.
+- Preserved controlled-beta boundaries: dashboard attention remains read-only and does not send reminders, collect payments, post journals, file VAT, call ZATCA, move inventory, or imply provider/compliance readiness.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -167,9 +173,9 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns remain in the purchase family. Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
 - Existing settings subroutes are migrated in the stacked settings/admin loop; they still need refreshed visual fixture coverage.
-- Setup/onboarding is migrated in the stacked onboarding loop; dashboard surfaces still need final attention queue, cash, AR/AP, banking, storage, and compliance snapshot alignment.
+- Setup/onboarding and dashboard surfaces are migrated in stacked loops; both still need refreshed visual fixture coverage after the stack lands.
 - Auth and marketing-adjacent entry screens were not included in this operational app-shell slice.
 
 ## Recommended Next Goal
 
-Continue through dashboard, public/auth polish, placeholder/future-route styling, and refreshed visual fixture coverage for the migrated route families.
+Continue through public/auth polish, placeholder/future-route styling, and refreshed visual fixture coverage for the migrated route families.
