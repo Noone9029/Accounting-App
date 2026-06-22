@@ -1,5 +1,6 @@
 "use client";
 
+import { LedgerPanel } from "@/components/ui/ledger-system";
 import { PERMISSION_GROUPS } from "@/lib/permission-matrix";
 import type { Permission } from "@/lib/permissions";
 
@@ -15,7 +16,7 @@ export function PermissionMatrix({ selected, readOnly = false, onToggle }: Permi
   return (
     <div className="space-y-4">
       {PERMISSION_GROUPS.map((group) => (
-        <section key={group.id} className="rounded-md border border-slate-200 bg-white">
+        <LedgerPanel key={group.id} className="p-0">
           <div className="border-b border-slate-200 px-4 py-3">
             <h2 className="text-sm font-semibold text-ink">{group.label}</h2>
           </div>
@@ -40,7 +41,7 @@ export function PermissionMatrix({ selected, readOnly = false, onToggle }: Permi
               );
             })}
           </div>
-        </section>
+        </LedgerPanel>
       ))}
     </div>
   );
