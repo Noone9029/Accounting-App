@@ -2,8 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -168,126 +191,128 @@ export default function PurchaseMatchingExceptionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Purchase Matching Exceptions</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">
-            This page is read-only. It highlights PO, bill, and receipt mismatches. It does not post journals, update AP balances, change inventory quantities, or book variances.
-          </p>
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-steel">
-            Review actions classify matching exceptions for follow-up. They do not post journals, update AP balances, change inventory quantities, book variances, create returns, or contact suppliers.
-          </p>
-        </div>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title="Purchase Matching Exceptions"
+        description="PO, bill, and receipt mismatch review for follow-up classification."
+      />
 
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase matching exceptions.</StatusMessage> : null}
-      {organizationId && !canViewPage ? <StatusMessage type="info">Purchase matching exceptions require purchase order, purchase bill, or purchase receiving view permission.</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Loading purchase matching exceptions...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      {actionMessage ? <StatusMessage type="success">{actionMessage}</StatusMessage> : null}
-      {actionError ? <StatusMessage type="error">{actionError}</StatusMessage> : null}
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">
+          Purchase matching is review-only. It highlights quantity exceptions and review status, but does not post journals, update AP balances, change inventory quantities, book variances, create returns, or contact suppliers.
+        </LedgerSummaryBand>
 
-      {data ? (
-        <>
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <SummaryCard label="Total exceptions" value={data.summary.totalExceptionCount} />
-            <SummaryCard label="Critical" value={data.summary.criticalCount} tone="critical" />
-            <SummaryCard label="High" value={data.summary.highCount} tone="high" />
-            <SummaryCard label="Over billed" value={data.summary.overBilledCount} tone="critical" />
-            <SummaryCard label="Over received" value={data.summary.overReceivedCount} tone="critical" />
-            <SummaryCard label="Pending bill/receipt" value={data.summary.billPendingReceiptCount + data.summary.receiptPendingBillCount} tone="high" />
-          </section>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase matching exceptions.</LedgerAlert> : null}
+        {organizationId && !canViewPage ? <LedgerAlert tone="info">Purchase matching exceptions require purchase order, purchase bill, or purchase receiving view permission.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading purchase matching exceptions" description="Fetching supplier groups, exception counts, and review status." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {actionMessage ? <LedgerAlert tone="success">{actionMessage}</LedgerAlert> : null}
+        {actionError ? <LedgerAlert tone="danger">{actionError}</LedgerAlert> : null}
 
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-7">
-              <label className="text-sm font-medium text-ink">
-                Supplier
-                <select
-                  value={filters.supplierId}
-                  onChange={(event) => setFilters((current) => ({ ...current, supplierId: event.target.value }))}
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">All suppliers</option>
-                  {supplierOptions.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <FilterSelect
-                label="Severity"
-                value={filters.severity}
-                options={SEVERITY_OPTIONS}
-                optionLabel={severityLabel}
-                onChange={(value) => setFilters((current) => ({ ...current, severity: value }))}
-              />
-              <FilterSelect
-                label="Exception type"
-                value={filters.exceptionType}
-                options={EXCEPTION_TYPE_OPTIONS}
-                optionLabel={exceptionTypeLabel}
-                onChange={(value) => setFilters((current) => ({ ...current, exceptionType: value }))}
-              />
-              <FilterSelect
-                label="Source type"
-                value={filters.sourceType}
-                options={SOURCE_TYPE_OPTIONS}
-                optionLabel={sourceTypeLabel}
-                onChange={(value) => setFilters((current) => ({ ...current, sourceType: value }))}
-              />
-              <FilterSelect
-                label="Review status"
-                value={filters.reviewStatus}
-                options={REVIEW_STATUS_OPTIONS}
-                optionLabel={reviewStatusLabel}
-                onChange={(value) => setFilters((current) => ({ ...current, reviewStatus: value }))}
-              />
-              <FilterSelect
-                label="Reason"
-                value={filters.reasonCode}
-                options={REVIEW_REASON_OPTIONS}
-                optionLabel={reasonLabel}
-                onChange={(value) => setFilters((current) => ({ ...current, reasonCode: value }))}
-              />
-              <label className="text-sm font-medium text-ink">
-                Search
-                <input
-                  value={filters.search}
-                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  placeholder="Supplier or document number"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+        {data ? (
+          <>
+            <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-6">
+              <LedgerStatCard label="Total exceptions" value={data.summary.totalExceptionCount} />
+              <LedgerStatCard label="Critical" value={data.summary.criticalCount} />
+              <LedgerStatCard label="High" value={data.summary.highCount} />
+              <LedgerStatCard label="Over billed" value={data.summary.overBilledCount} />
+              <LedgerStatCard label="Over received" value={data.summary.overReceivedCount} />
+              <LedgerStatCard label="Pending bill/receipt" value={data.summary.billPendingReceiptCount + data.summary.receiptPendingBillCount} />
+            </LedgerMetricGrid>
+
+            <LedgerPanel>
+              <LedgerFilterBar>
+                <LedgerFieldLabel className="min-w-[12rem] flex-1">
+                  <LedgerFieldText>Supplier</LedgerFieldText>
+                  <LedgerSelect value={filters.supplierId} onChange={(event) => setFilters((current) => ({ ...current, supplierId: event.target.value }))}>
+                    <option value="">All suppliers</option>
+                    {supplierOptions.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </LedgerSelect>
+                </LedgerFieldLabel>
+                <FilterSelect
+                  label="Severity"
+                  value={filters.severity}
+                  options={SEVERITY_OPTIONS}
+                  optionLabel={severityLabel}
+                  onChange={(value) => setFilters((current) => ({ ...current, severity: value }))}
                 />
-              </label>
-            </div>
-          </section>
+                <FilterSelect
+                  label="Exception type"
+                  value={filters.exceptionType}
+                  options={EXCEPTION_TYPE_OPTIONS}
+                  optionLabel={exceptionTypeLabel}
+                  onChange={(value) => setFilters((current) => ({ ...current, exceptionType: value }))}
+                />
+                <FilterSelect
+                  label="Source type"
+                  value={filters.sourceType}
+                  options={SOURCE_TYPE_OPTIONS}
+                  optionLabel={sourceTypeLabel}
+                  onChange={(value) => setFilters((current) => ({ ...current, sourceType: value }))}
+                />
+                <FilterSelect
+                  label="Review status"
+                  value={filters.reviewStatus}
+                  options={REVIEW_STATUS_OPTIONS}
+                  optionLabel={reviewStatusLabel}
+                  onChange={(value) => setFilters((current) => ({ ...current, reviewStatus: value }))}
+                />
+                <FilterSelect
+                  label="Reason"
+                  value={filters.reasonCode}
+                  options={REVIEW_REASON_OPTIONS}
+                  optionLabel={reasonLabel}
+                  onChange={(value) => setFilters((current) => ({ ...current, reasonCode: value }))}
+                />
+                <LedgerFieldLabel className="min-w-[14rem] flex-1">
+                  <LedgerFieldText>Search</LedgerFieldText>
+                  <LedgerInput
+                    value={filters.search}
+                    onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                    placeholder="Supplier or document number"
+                  />
+                </LedgerFieldLabel>
+              </LedgerFilterBar>
+            </LedgerPanel>
 
-          {data.groups.length === 0 ? (
-            <StatusMessage type="empty">No purchase matching exceptions found for the selected filters.</StatusMessage>
-          ) : (
-            <section className="space-y-4">
-              {data.groups.map((group) => (
-                <div key={group.supplierId} className="rounded-md border border-slate-200 bg-white shadow-panel">
-                  <div className="flex flex-col gap-2 border-b border-slate-100 p-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <div className="text-xs uppercase tracking-wide text-steel">Supplier</div>
-                      {linkPermissions.supplier ? (
-                        <Link href={partyDetailHref("supplier", group.supplierId)} className="text-base font-semibold text-palm hover:underline">
-                          {group.supplierName}
-                        </Link>
-                      ) : (
-                        <div className="text-base font-semibold text-ink">{group.supplierName}</div>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className={`rounded-md px-2 py-1 text-xs font-medium ${severityBadgeClass(group.highestSeverity)}`}>{severityLabel(group.highestSeverity)}</span>
-                      <span className="text-steel">{group.totalExceptionCount} exceptions</span>
-                      <span className="text-steel">{group.outstandingReviewCount} review required</span>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1280px] text-left text-sm">
+            {data.groups.length === 0 ? (
+              <LedgerEmptyState
+                title="No purchase matching exceptions found"
+                description="Try a different supplier, review status, exception type, or document search."
+              />
+            ) : (
+              <section className="space-y-4">
+                {data.groups.map((group) => (
+                  <LedgerSection
+                    key={group.supplierId}
+                    title="Supplier exceptions"
+                    description={
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-steel">Supplier</div>
+                        {linkPermissions.supplier ? (
+                          <Link href={partyDetailHref("supplier", group.supplierId)} className="text-base font-semibold text-palm hover:underline">
+                            {group.supplierName}
+                          </Link>
+                        ) : (
+                          <div className="text-base font-semibold text-ink">{group.supplierName}</div>
+                        )}
+                      </div>
+                    }
+                    action={
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <LedgerStatusBadge tone={severityTone(group.highestSeverity)}>{severityLabel(group.highestSeverity)}</LedgerStatusBadge>
+                        <span className="text-steel">{group.totalExceptionCount} exceptions</span>
+                        <span className="text-steel">{group.outstandingReviewCount} review required</span>
+                      </div>
+                    }
+                    className="p-0"
+                  >
+                    <LedgerDataTable minWidth="1280px" className="rounded-t-none border-0 shadow-none">
                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                         <tr>
                           <th className="px-3 py-2">Source</th>
@@ -316,25 +341,15 @@ export default function PurchaseMatchingExceptionsPage() {
                           />
                         ))}
                       </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "critical" | "high" }) {
-  const toneClass = tone === "critical" ? "text-rose-700" : tone === "high" ? "text-amber-700" : "text-ink";
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</div>
-    </div>
+                    </LedgerDataTable>
+                  </LedgerSection>
+                ))}
+              </section>
+            )}
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -352,17 +367,17 @@ function FilterSelect<T extends string>({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="text-sm font-medium text-ink">
-      {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm">
+    <LedgerFieldLabel className="min-w-[12rem] flex-1">
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">All</option>
         {options.map((option) => (
           <option key={option} value={option}>
             {optionLabel(option)}
           </option>
         ))}
-      </select>
-    </label>
+      </LedgerSelect>
+    </LedgerFieldLabel>
   );
 }
 
@@ -401,15 +416,13 @@ function ExceptionRow({
         <div className="text-xs text-steel">{item.itemName ?? item.lineDescription}</div>
       </td>
       <td className="px-3 py-3">
-        <span className={`rounded-md px-2 py-1 text-xs font-medium ${severityBadgeClass(item.severity)}`}>{exceptionTypeLabel(item.exceptionType)}</span>
+        <LedgerStatusBadge tone={severityTone(item.severity)}>{exceptionTypeLabel(item.exceptionType)}</LedgerStatusBadge>
         <div className="mt-1 text-xs text-steel">{item.exceptionLabel}</div>
       </td>
       <td className="px-3 py-3">
         <div className="space-y-2">
           <div>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${reviewStatusBadgeClass(item.reviewStatus)}`}>
-              {reviewStatusLabel(item.reviewStatus ?? "NONE")}
-            </span>
+            <LedgerStatusBadge tone={reviewStatusTone(item.reviewStatus)}>{reviewStatusLabel(item.reviewStatus ?? "NONE")}</LedgerStatusBadge>
             {item.reasonCode ? <div className="mt-1 text-xs text-steel">{reasonLabel(item.reasonCode)}</div> : null}
             {item.assignedTo ? <div className="mt-1 text-xs text-steel">Assigned to {item.assignedTo.name}</div> : null}
             {item.reviewStatus === "NEEDS_RETURN_REVIEW" ? <div className="mt-1 text-xs font-medium text-amber-700">Return review needed</div> : null}
@@ -432,7 +445,7 @@ function ExceptionRow({
             ) : null}
           </div>
           {canManageReviews ? (
-            <div className="flex max-w-[260px] flex-wrap gap-1">
+            <LedgerActionBar className="max-w-[300px] gap-1 sm:flex-row">
               {!item.reviewId ? (
                 <ReviewActionButton
                   label="Start review"
@@ -465,7 +478,7 @@ function ExceptionRow({
                   <ReviewActionButton label="Cancel" active={activeAction === `${item.id}:cancel`} onClick={() => onReviewAction(item, "cancel")} />
                 </>
               )}
-            </div>
+            </LedgerActionBar>
           ) : null}
         </div>
       </td>
@@ -481,7 +494,7 @@ function ExceptionRow({
           <RecordLink label="Receipt" href={item.purchaseReceiptHref} number={item.purchaseReceiptNumber} allowed={linkPermissions.purchaseReceipt} />
         </div>
       </td>
-      <td className="px-3 py-3 text-xs text-steel">{formatOptionalDate(item.latestRelevantDate, "-")}</td>
+      <td className="px-3 py-3"><LedgerDate>{formatOptionalDate(item.latestRelevantDate, "-")}</LedgerDate></td>
     </tr>
   );
 }
@@ -498,14 +511,15 @@ function purchaseReturnCreateHref(item: PurchaseMatchingExceptionItem): string {
 
 function ReviewActionButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
+    <LedgerButton
       type="button"
       onClick={onClick}
       disabled={active}
-      className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-ink hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+      size="sm"
+      variant="quiet"
     >
       {active ? "Updating..." : label}
-    </button>
+    </LedgerButton>
   );
 }
 
@@ -565,18 +579,18 @@ function reasonLabel(value: PurchaseMatchingReviewReason): string {
     .join(" ");
 }
 
-function severityBadgeClass(severity: PurchaseMatchingExceptionSeverity): string {
-  if (severity === "CRITICAL") return "bg-rose-50 text-rose-700";
-  if (severity === "HIGH") return "bg-amber-50 text-amber-700";
-  if (severity === "MEDIUM") return "bg-slate-100 text-slate-700";
-  return "bg-emerald-50 text-emerald-700";
+function severityTone(severity: PurchaseMatchingExceptionSeverity): LedgerStatusTone {
+  if (severity === "CRITICAL") return "danger";
+  if (severity === "HIGH") return "warning";
+  if (severity === "MEDIUM") return "neutral";
+  return "success";
 }
 
-function reviewStatusBadgeClass(status: PurchaseMatchingReviewStatus | null): string {
-  if (!status) return "bg-slate-100 text-slate-700";
-  if (status === "RESOLVED") return "bg-emerald-50 text-emerald-700";
-  if (status === "CANCELLED") return "bg-slate-100 text-slate-700";
-  if (status === "NEEDS_VARIANCE_REVIEW" || status === "NEEDS_RETURN_REVIEW") return "bg-orange-50 text-orange-700";
-  if (status === "WAITING_FOR_SUPPLIER" || status === "WAITING_FOR_RECEIPT" || status === "WAITING_FOR_BILL") return "bg-amber-50 text-amber-700";
-  return "bg-blue-50 text-blue-700";
+function reviewStatusTone(status: PurchaseMatchingReviewStatus | null): LedgerStatusTone {
+  if (!status) return "neutral";
+  if (status === "RESOLVED") return "success";
+  if (status === "CANCELLED") return "neutral";
+  if (status === "NEEDS_VARIANCE_REVIEW" || status === "NEEDS_RETURN_REVIEW") return "warning";
+  if (status === "WAITING_FOR_SUPPLIER" || status === "WAITING_FOR_RECEIPT" || status === "WAITING_FOR_BILL") return "warning";
+  return "info";
 }
