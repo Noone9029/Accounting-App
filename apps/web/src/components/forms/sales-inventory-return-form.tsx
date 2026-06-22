@@ -1,9 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerPanel,
+  LedgerSelect,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { safeReturnToFromSearch } from "@/lib/parties";
@@ -320,163 +331,159 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
 
   if (initialSalesInventoryReturn && initialSalesInventoryReturn.status !== "DRAFT") {
     return (
-      <div className="space-y-4">
-        <StatusMessage type="error">Only draft sales inventory returns can be edited.</StatusMessage>
-        <Link href={`/sales/inventory-returns/${initialSalesInventoryReturn.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <LedgerPanel>
+        <LedgerAlert tone="danger">Only draft sales inventory returns can be edited.</LedgerAlert>
+        <LedgerButton href={`/sales/inventory-returns/${initialSalesInventoryReturn.id}`} className="mt-4">
           Back to sales inventory return
-        </Link>
-      </div>
+        </LedgerButton>
+      </LedgerPanel>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <StatusMessage type="info">{SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}</StatusMessage>
+      <LedgerAlert tone="warning">{SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}</LedgerAlert>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Customer</span>
-            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerFormSection title="Return details">
+        <LedgerFieldLabel className="md:col-span-2">
+          <LedgerFieldText>Customer</LedgerFieldText>
+          <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
               <option value="">Select customer</option>
               {activeCustomers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.displayName ?? customer.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Return number</span>
-            <input value={initialSalesInventoryReturn?.salesReturnNumber ?? numberPreview?.salesReturnNumber ?? "From sequence"} readOnly aria-label="Sales inventory return number" className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none" />
-            <span className="mt-1 block text-xs leading-5 text-steel">
-              {initialSalesInventoryReturn ? "Number assigned from the sales inventory return sequence." : (numberPreview?.helperText ?? "Assigned from the sales inventory return sequence when saved.")}
-            </span>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Return date</span>
-            <input value={returnDate} onChange={(event) => setReturnDate(event.target.value)} type="date" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Reason</span>
-            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Optional return reason" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Reference</span>
-            <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="RMA or source reference" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-4">
-            <span className="text-sm font-medium text-slate-700">Notes</span>
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-      </div>
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Return number</LedgerFieldText>
+          <LedgerInput value={initialSalesInventoryReturn?.salesReturnNumber ?? numberPreview?.salesReturnNumber ?? "From sequence"} readOnly aria-label="Sales inventory return number" className="bg-slate-50 text-slate-700" />
+          <LedgerFieldHelp>
+            {initialSalesInventoryReturn ? "Number assigned from the sales inventory return sequence." : (numberPreview?.helperText ?? "Assigned from the sales inventory return sequence when saved.")}
+          </LedgerFieldHelp>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Return date</LedgerFieldText>
+          <LedgerInput value={returnDate} onChange={(event) => setReturnDate(event.target.value)} type="date" required />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-2">
+          <LedgerFieldText>Reason</LedgerFieldText>
+          <LedgerInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Optional return reason" />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Reference</LedgerFieldText>
+          <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} placeholder="RMA or source reference" />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-2">
+          <LedgerFieldText>Notes</LedgerFieldText>
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10" />
+        </LedgerFieldLabel>
+      </LedgerFormSection>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Source document</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">Source links are for traceability and warehouse validation. Credit notes stay separate from stock movement unless explicit return lines and warehouses are supplied here.</p>
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Source type</span>
-            <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerFormSection title="Source document" description="Source links are for traceability and warehouse validation. Credit notes stay separate from stock movement unless explicit return lines and warehouses are supplied here.">
+        <LedgerFieldLabel>
+          <LedgerFieldText>Source type</LedgerFieldText>
+          <LedgerSelect value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)}>
               <option value="direct">Customer direct</option>
               <option value="stockIssue">Sales stock issue</option>
               <option value="deliveryNote">Delivery note</option>
               <option value="invoice">Sales invoice</option>
               <option value="creditNote">Credit note reference</option>
-            </select>
-          </label>
-          {sourceType === "invoice" ? (
-            <SourceSelect label="Sales invoice" value={sourceSalesInvoiceId} onChange={copyFromInvoice} options={filteredInvoices.map((invoice) => ({ id: invoice.id, label: invoice.invoiceNumber }))} />
-          ) : null}
-          {sourceType === "creditNote" ? (
-            <SourceSelect label="Credit note" value={sourceCreditNoteId} onChange={copyFromCreditNote} options={filteredCreditNotes.map((creditNote) => ({ id: creditNote.id, label: creditNote.creditNoteNumber }))} />
-          ) : null}
-          {sourceType === "deliveryNote" ? (
-            <SourceSelect label="Delivery note" value={sourceDeliveryNoteId} onChange={copyFromDeliveryNote} options={filteredDeliveryNotes.map((deliveryNote) => ({ id: deliveryNote.id, label: deliveryNote.deliveryNoteNumber }))} />
-          ) : null}
-          {sourceType === "stockIssue" ? (
-            <SourceSelect label="Sales stock issue" value={sourceSalesStockIssueId} onChange={copyFromStockIssue} options={filteredStockIssues.map((issue) => ({ id: issue.id, label: issue.issueNumber }))} />
-          ) : null}
-        </div>
-      </div>
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        {sourceType === "invoice" ? (
+          <SourceSelect label="Sales invoice" value={sourceSalesInvoiceId} onChange={copyFromInvoice} options={filteredInvoices.map((invoice) => ({ id: invoice.id, label: invoice.invoiceNumber }))} />
+        ) : null}
+        {sourceType === "creditNote" ? (
+          <SourceSelect label="Credit note" value={sourceCreditNoteId} onChange={copyFromCreditNote} options={filteredCreditNotes.map((creditNote) => ({ id: creditNote.id, label: creditNote.creditNoteNumber }))} />
+        ) : null}
+        {sourceType === "deliveryNote" ? (
+          <SourceSelect label="Delivery note" value={sourceDeliveryNoteId} onChange={copyFromDeliveryNote} options={filteredDeliveryNotes.map((deliveryNote) => ({ id: deliveryNote.id, label: deliveryNote.deliveryNoteNumber }))} />
+        ) : null}
+        {sourceType === "stockIssue" ? (
+          <SourceSelect label="Sales stock issue" value={sourceSalesStockIssueId} onChange={copyFromStockIssue} options={filteredStockIssues.map((issue) => ({ id: issue.id, label: issue.issueNumber }))} />
+        ) : null}
+      </LedgerFormSection>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-ink">Return lines</h2>
-          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])}>
             Add line
-          </button>
+          </LedgerButton>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-3 py-2">Item</th>
-                <th className="px-3 py-2">Description</th>
-                <th className="px-3 py-2">Quantity</th>
-                <th className="px-3 py-2">Warehouse</th>
-                <th className="px-3 py-2">Reason</th>
-                <th className="px-3 py-2">Source line</th>
-                <th className="px-3 py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {lines.map((line) => (
-                <tr key={line.id}>
-                  <td className="px-3 py-2">
-                    <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
-                      <option value="">No item</option>
-                      {activeItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.sku ? `${item.sku} - ` : ""}{item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required inputMode="decimal" className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
-                  </td>
-                  <td className="px-3 py-2">
-                    <select value={line.warehouseId} onChange={(event) => updateLine(line.id, { warehouseId: event.target.value })} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
-                      <option value="">Select if stock tracked</option>
-                      {activeWarehouses.map((warehouse) => (
-                        <option key={warehouse.id} value={warehouse.id}>
-                          {warehouse.code} {warehouse.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input value={line.reason} onChange={(event) => updateLine(line.id, { reason: event.target.value })} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
-                  </td>
-                  <td className="px-3 py-2 text-xs text-steel">{sourceLineLabel(line)}</td>
-                  <td className="px-3 py-2">
-                    <button type="button" onClick={() => removeLine(line.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      Remove
-                    </button>
-                  </td>
+        <div className="overflow-x-auto rounded-md border border-line">
+          <div style={{ minWidth: "1080px" }}>
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-3 py-2">Item</th>
+                  <th className="px-3 py-2">Description</th>
+                  <th className="px-3 py-2">Quantity</th>
+                  <th className="px-3 py-2">Warehouse</th>
+                  <th className="px-3 py-2">Reason</th>
+                  <th className="px-3 py-2">Source line</th>
+                  <th className="px-3 py-2">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {lines.map((line) => (
+                  <tr key={line.id}>
+                    <td className="px-3 py-2">
+                      <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48">
+                        <option value="">No item</option>
+                        {activeItems.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.sku ? `${item.sku} - ` : ""}{item.name}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required inputMode="decimal" className="w-28" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerSelect value={line.warehouseId} onChange={(event) => updateLine(line.id, { warehouseId: event.target.value })} className="w-48">
+                        <option value="">Select if stock tracked</option>
+                        {activeWarehouses.map((warehouse) => (
+                          <option key={warehouse.id} value={warehouse.id}>
+                            {warehouse.code} {warehouse.name}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput value={line.reason} onChange={(event) => updateLine(line.id, { reason: event.target.value })} className="w-48" />
+                    </td>
+                    <td className="px-3 py-2 text-xs text-steel">{sourceLineLabel(line)}</td>
+                    <td className="px-3 py-2">
+                      <LedgerButton type="button" onClick={() => removeLine(line.id)} size="sm">
+                        Remove
+                      </LedgerButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </LedgerPanel>
 
-      <div className="flex justify-end gap-3">
-        <Link href={returnTo || "/sales/inventory-returns"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <LedgerActionBar className="justify-end">
+        <LedgerButton href={returnTo || "/sales/inventory-returns"}>
           Cancel
-        </Link>
-        <button type="submit" disabled={submitting || loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        </LedgerButton>
+        <LedgerButton type="submit" disabled={submitting || loading} variant="primary">
           {submitting ? "Saving..." : initialSalesInventoryReturn ? "Save changes" : "Save draft"}
-        </button>
-      </div>
+        </LedgerButton>
+      </LedgerActionBar>
 
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
       {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
     </form>
   );
@@ -484,17 +491,17 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
 
 function SourceSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void | Promise<void>; options: Array<{ id: string; label: string }> }) {
   return (
-    <label className="block md:col-span-2">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <select value={value} onChange={(event) => void onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+    <LedgerFieldLabel className="md:col-span-2">
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect value={value} onChange={(event) => void onChange(event.target.value)}>
         <option value="">Select source</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}
           </option>
         ))}
-      </select>
-    </label>
+      </LedgerSelect>
+    </LedgerFieldLabel>
   );
 }
 

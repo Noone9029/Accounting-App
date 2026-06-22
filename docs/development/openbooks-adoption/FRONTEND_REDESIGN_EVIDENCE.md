@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-collections`
+Branch: `codex/ui-redesign-inventory-returns`
 
-Base: stacked on `origin/codex/ui-redesign-recurring-invoices` while PR #154 is open
+Base: stacked on `origin/codex/ui-redesign-collections` while PR #155 is open
 
 ## Evidence Summary
 
@@ -27,6 +27,7 @@ Base: stacked on `origin/codex/ui-redesign-recurring-invoices` while PR #154 is 
 | Sales delivery notes loop | `apps/web/src/app/(app)/sales/delivery-notes/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/delivery-note-form.tsx` use shared LedgerByte list, detail, form, table, archive, status, alert, and action primitives while preserving non-posting fulfillment, source invoice/quote, PDF archive, lifecycle action, return-to, and no-stock/no-accounting mutation boundaries. |
 | Sales recurring invoices loop | `apps/web/src/app/(app)/sales/recurring-invoices/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/new/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/edit/page.tsx`, and `apps/web/src/components/forms/recurring-invoice-form.tsx` use shared LedgerByte list, detail, form, schedule, table, status, alert, money/date, and action primitives while preserving non-posting templates, manual draft-invoice generation, lifecycle permissions, return-to, and no-scheduler/no-send/no-payment/no-compliance boundaries. |
 | Sales collections loop | `apps/web/src/app/(app)/sales/collections/page.tsx`, `apps/web/src/app/(app)/sales/collections/new/page.tsx`, `apps/web/src/app/(app)/sales/collections/[id]/page.tsx`, `apps/web/src/app/(app)/sales/collections/[id]/edit/page.tsx`, and `apps/web/src/components/forms/collection-case-form.tsx` use shared LedgerByte list, detail, form, timeline, filter, status, alert, money/date, and action primitives while preserving collection follow-up metadata, permission-gated activities/actions, customer/invoice links, return-to behavior, and no-journal/no-allocation/no-send/no-payment-link/no-VAT/no-ZATCA/no-balance-change boundaries. |
+| Sales inventory returns loop | `apps/web/src/app/(app)/sales/inventory-returns/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/new/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/[id]/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/[id]/edit/page.tsx`, and `apps/web/src/components/forms/sales-inventory-return-form.tsx` use shared LedgerByte list, detail, form, movement-preview, status, alert, table, and action primitives while preserving operational stock-in return behavior, return-to behavior, lifecycle permissions, and no-credit-note/no-refund/no-journal/no-VAT/no-ZATCA/no-email/no-payment-link boundaries. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -177,6 +178,21 @@ Base: stacked on `origin/codex/ui-redesign-recurring-invoices` while PR #154 is 
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/collections-workflow.visual.spec.ts`: PASS, 3 checks, after updating the visual selector to target the migrated `LedgerSection` timeline and aligning planned activity labels with the shared label helper.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
+
+## 2026-06-22 Sales Inventory Returns Loop Evidence
+
+- `/sales/inventory-returns`: migrated the sales inventory return list, status badges, dates, source labels, movement status, empty state, warning copy, and create/view actions to shared LedgerByte page/header/body, alert, table, date, status, empty-state, and button primitives.
+- `/sales/inventory-returns/new` and `/sales/inventory-returns/[id]/edit`: migrated route shells and load/error states to shared page/header/body, alert, and action primitives while preserving setup loads, draft-only edit loading, and the shared sales inventory return form handoff.
+- `SalesInventoryReturnForm`: migrated return details, source-document selectors, line editor, add/remove controls, safe-helper warning, draft-only edit guard, and save/cancel actions to shared Ledger form, field, panel, input, select, alert, and action primitives. Existing setup-data loads, source copy behavior, validation, payload shape, POST/PATCH endpoints, and return-to redirect remain unchanged.
+- `/sales/inventory-returns/[id]`: migrated the detail shell, lifecycle guidance, summary metadata, line table, accounting/customer-balance boundary, inventory movement preview, movement status, and explicit post action to shared LedgerByte page, panel, section, summary, table, status, alert, date, and action primitives.
+- Existing behavior remains frontend-only and unchanged: sales inventory returns record operational customer stock returns only; lifecycle and stock-in movement actions call existing endpoints behind existing permissions; draft-only edit and restricted viewer states remain; no credit note, refund, accounting journal, AR adjustment, VAT filing, ZATCA submission, email, payment link, or valuation/COGS behavior was added.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/inventory-returns/page.test.tsx" "apps/web/src/app/(app)/sales/inventory-returns/[id]/page.test.tsx" "apps/web/src/components/forms/sales-inventory-return-form.test.tsx"`: PASS, 3 suites, 5 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification inventory-returns sales-inventory-return-form`: PASS, 126 suites, 598 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
+- Sales inventory return visual checks were not run because this branch has no existing Playwright visual fixture for `/sales/inventory-returns` or the sales inventory return form/detail workflow. The fixture search found only Jest/route-load coverage for this route family.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 
