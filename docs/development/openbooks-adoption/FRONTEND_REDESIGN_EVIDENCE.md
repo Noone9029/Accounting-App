@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-traceability-flows`
+Branch: `codex/ui-redesign-inventory-valuation-flows`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-receipt-issue-flows` while PR #172 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-traceability-flows` while PR #173 is open
 
 ## Evidence Summary
 
@@ -50,6 +50,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-receipt-issue-flows` while 
 | Inventory stock operations loop | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx`, `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`, and `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` use shared LedgerByte page, summary, filter, table, form, metric, metadata, status, money/date, loading, empty, and action primitives while preserving stock movement filters/opening-balance payloads, adjustment lifecycle actions, transfer validation/create/void behavior, linked movement visibility, permissions, and stock/COGS/valuation boundaries. |
 | Inventory receipt and issue loop | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx`, and `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` use shared LedgerByte page, summary, form, field, table, metadata, status, loading, empty, preview, and action primitives while preserving purchase receipt source/receiving-status loading, receipt POST/void/manual asset posting/reversal, matching/clearing/valuation links, sales stock issue invoice-status loading, issue POST/void/manual COGS posting/reversal, permissions, and no-automatic-valuation/no-automatic-COGS boundaries. |
 | Inventory traceability loop | `apps/web/src/components/inventory/traceability-setup-pages.tsx` now drives `/inventory/batches`, `/inventory/batches/new`, `/inventory/batches/[id]`, `/inventory/serial-numbers`, `/inventory/serial-numbers/new`, `/inventory/serial-numbers/[id]`, `/inventory/bin-locations`, `/inventory/bin-locations/new`, `/inventory/bin-locations/[id]`, and `/inventory/traceability/items/[id]` with shared LedgerByte page, alert, loading, empty, field, metadata, status, summary, panel, and action primitives while preserving setup loads, create/update payloads, read-only item traceability, permissions, and no-mutation/no-posting/no-valuation/no-FIFO/no-COGS/no-VAT/no-ZATCA boundaries. |
+| Inventory valuation preview loop | `apps/web/src/app/(app)/inventory/fifo-preview/page.tsx`, `apps/web/src/app/(app)/inventory/landed-cost/page.tsx`, and `apps/web/src/app/(app)/inventory/valuation-variances/page.tsx` use shared LedgerByte page, header, toolbar, field, alert, loading, empty, metadata, stat, table, summary, and action primitives while preserving FIFO reconstruction output, landed cost preview payloads, valuation variance filters/source links, permissions, and no-posting/no-valuation/no-COGS/no-VAT/no-ZATCA/no-AP/no-AR boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -445,6 +446,20 @@ Base: stacked on `origin/codex/ui-redesign-inventory-receipt-issue-flows` while 
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover traceability setup, item traceability, purchase receipts, sales stock issues, stock movement, adjustment, transfer, and valuation routes after the operational inventory stack lands.
+
+## 2026-06-22 Inventory Valuation Preview Loop Evidence
+
+- `/inventory/fifo-preview`: migrated the read-only FIFO preview shell, filters, valuation method metadata, layer table, consumption preview table, blockers/warnings, and limitations panel to shared Ledger primitives while preserving `inventoryFifoPreviewUrl` query behavior, source-document permission gates, FIFO helper text, and no-mutation/no-posting/no-valuation/no-COGS/no-VAT/no-ZATCA/no-AP/no-AR wording.
+- `/inventory/landed-cost`: migrated the source selector, cost-line editor, allocation method panel, manual allocations, preview result metrics, blockers/warnings, allocation table, and limitations panel to shared Ledger primitives while preserving `/inventory/landed-cost/preview` POST payloads, source permission checks, manual allocation labels, and planning-only/no-journal/no-inventory/no-AP/no-VAT/no-ZATCA boundaries.
+- `/inventory/valuation-variances`: migrated the valuation variance preview header/actions, filter grid, summary metrics, warning panel, supplier group panels, and variance table to shared Ledger primitives while preserving query construction, supplier/item/source filters, source/supplier permission-gated links, and no-posting/no-inventory-valuation/no-AP/no-return/refund automation wording.
+- Existing behavior remains frontend-only and unchanged: this pass does not add FIFO activation, landed cost posting, valuation variance booking, inventory valuation math, COGS entries, AP/AR effects, VAT/ZATCA/compliance behavior, schema changes, storage behavior, provider calls, or hosted mutations.
+- `corepack pnpm --filter @ledgerbyte/web test -- fifo-preview landed-cost valuation-variances`: PASS, 3 suites, 13 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- `git diff --cached --check`: PASS.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover FIFO preview, landed cost, valuation variances, variance proposals, reports, and settings together after the valuation stack lands.
 
 ## 2026-06-22 Inventory Receipt and Issue Loop Evidence
 

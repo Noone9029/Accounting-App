@@ -4,8 +4,25 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -131,40 +148,30 @@ export default function InventoryValuationVariancesPage() {
   }, [data]);
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Inventory Valuation Variance Preview</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">
-            This page previews valuation differences between purchase receipts, bills, returns, and matching reviews. It does not post journals, update inventory valuation, change AP balances, or book variances.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            FIFO preview
-          </Link>
-          {filters.itemId ? (
-            <Link href={inventoryTraceabilityUrl(filters.itemId)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Item traceability
-            </Link>
-          ) : null}
-          <Link href={landedCostPreviewUrl({})} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Landed cost preview
-          </Link>
-          <Link href="/purchases/matching?reviewStatus=NEEDS_VARIANCE_REVIEW" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Matching variance reviews
-          </Link>
-        </div>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory valuation"
+        title="Inventory Valuation Variance Preview"
+        description="This page previews valuation differences between purchase receipts, bills, returns, and matching reviews. It does not post journals, update inventory valuation, change AP balances, or book variances."
+        actions={
+          <>
+            <LedgerButton href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null })}>FIFO preview</LedgerButton>
+            {filters.itemId ? <LedgerButton href={inventoryTraceabilityUrl(filters.itemId)}>Item traceability</LedgerButton> : null}
+            <LedgerButton href={landedCostPreviewUrl({})}>Landed cost preview</LedgerButton>
+            <LedgerButton href="/purchases/matching?reviewStatus=NEEDS_VARIANCE_REVIEW">Matching variance reviews</LedgerButton>
+          </>
+        }
+      />
 
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to load valuation variance previews.</StatusMessage> : null}
-      {organizationId && !canViewPage ? <StatusMessage type="info">Inventory valuation variance preview requires inventory view permission.</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Loading valuation variance preview...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load valuation variance previews.</LedgerAlert> : null}
+        {organizationId && !canViewPage ? <LedgerAlert tone="info">Inventory valuation variance preview requires inventory view permission.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading valuation variance preview" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      {data ? (
-        <>
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {data ? (
+          <>
+            <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <SummaryCard label="Total variance" value={data.summary.totalVarianceCount} />
             <SummaryCard label="Critical/high review count" value={data.summary.criticalCount + data.summary.highCount} tone="high" />
             <SummaryCard label="Suppliers affected" value={data.summary.suppliersAffected} />
@@ -173,7 +180,11 @@ export default function InventoryValuationVariancesPage() {
             <SummaryCard label="Matching-review variances" value={data.summary.matchingReviewRelatedVarianceCount} tone="review" />
           </section>
 
-          <section className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel md:grid-cols-4 xl:grid-cols-8">
+          <LedgerToolbar
+            title="Variance filters"
+            description="Filter the read-only variance preview by supplier, item, source, severity, date, or source document."
+          >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-8">
             <SelectField label="Supplier" value={filters.supplierId} onChange={(value) => setFilters((current) => ({ ...current, supplierId: value }))}>
               <option value="">All suppliers</option>
               {supplierOptions.map((supplier) => (
@@ -217,7 +228,8 @@ export default function InventoryValuationVariancesPage() {
             <InputField label="From" type="date" value={filters.from} onChange={(value) => setFilters((current) => ({ ...current, from: value }))} />
             <InputField label="To" type="date" value={filters.to} onChange={(value) => setFilters((current) => ({ ...current, to: value }))} />
             <InputField label="Search" value={filters.search} placeholder="Supplier, item, document" onChange={(value) => setFilters((current) => ({ ...current, search: value }))} />
-          </section>
+          </div>
+          </LedgerToolbar>
 
           <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <AmountSummary label="Total absolute variance" value={data.summary.totalAbsoluteVarianceAmount} />
@@ -226,21 +238,21 @@ export default function InventoryValuationVariancesPage() {
           </section>
 
           {data.warnings.length > 0 ? (
-            <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <LedgerAlert tone="warning" title="Warnings">
               <ul className="space-y-1">
                 {data.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
-            </section>
+            </LedgerAlert>
           ) : null}
 
           {data.supplierGroups.length === 0 ? (
-            <StatusMessage type="empty">No valuation variance previews found for the selected filters.</StatusMessage>
+            <LedgerEmptyState title="No valuation variance previews found for the selected filters." />
           ) : (
             <section className="space-y-4">
               {data.supplierGroups.map((group) => (
-                <div key={group.supplierId} className="rounded-md border border-slate-200 bg-white shadow-panel">
+                <LedgerPanel key={group.supplierId}>
                   <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-steel">Supplier group</p>
@@ -266,8 +278,7 @@ export default function InventoryValuationVariancesPage() {
                       <span className="text-steel">{group.itemsAffected} items affected</span>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1320px] text-left text-sm">
+                  <LedgerDataTable minWidth="1320px" className="mt-4">
                       <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                         <tr>
                           <th className="px-3 py-2">Source</th>
@@ -286,15 +297,15 @@ export default function InventoryValuationVariancesPage() {
                           <VarianceRow key={item.id} item={item} linkPermissions={linkPermissions} />
                         ))}
                       </tbody>
-                    </table>
-                  </div>
-                </div>
+                    </LedgerDataTable>
+                </LedgerPanel>
               ))}
             </section>
           )}
         </>
       ) : null}
-    </div>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -375,22 +386,12 @@ function SourceLink({ link, allowed }: { link: InventoryValuationVarianceSourceL
 }
 
 function SummaryCard({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "high" | "return" | "review" }) {
-  const toneClass = tone === "high" ? "text-amber-700" : tone === "return" ? "text-palm" : tone === "review" ? "text-sky-700" : "text-ink";
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs uppercase tracking-wide text-steel">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
-    </div>
-  );
+  const detail = tone === "high" ? "Critical or high severity." : tone === "return" ? "Return-linked review." : tone === "review" ? "Matching review linked." : undefined;
+  return <LedgerStatCard label={label} value={value} detail={detail} />;
 }
 
 function AmountSummary({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 font-mono text-sm font-semibold text-ink">{inventoryValuationVarianceAmountDisplay(value)}</p>
-    </div>
-  );
+  return <LedgerStatCard label={label} value={<LedgerMoney>{inventoryValuationVarianceAmountDisplay(value)}</LedgerMoney>} />;
 }
 
 function SelectField({
@@ -405,12 +406,12 @@ function SelectField({
   children: ReactNode;
 }) {
   return (
-    <label className="text-sm font-medium text-ink">
-      {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm">
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect value={value} onChange={(event) => onChange(event.target.value)}>
         {children}
-      </select>
-    </label>
+      </LedgerSelect>
+    </LedgerFieldLabel>
   );
 }
 
@@ -428,16 +429,15 @@ function InputField({
   placeholder?: string;
 }) {
   return (
-    <label className="text-sm font-medium text-ink">
-      {label}
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
       />
-    </label>
+    </LedgerFieldLabel>
   );
 }
 
