@@ -749,7 +749,7 @@ function ProductPreview({ content }: { content: MarketingContent }) {
         <div className="grid gap-5 p-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-3">
             {content.dashboardRows.map((row) => (
-              <div key={`${row.label}-${row.value}`} className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+              <div key={`${row.label}-${row.value}`} className="flex items-center justify-between gap-4 rounded-md border border-line bg-mist px-4 py-3">
                 <span className="text-sm font-medium text-slate-800">{row.label}</span>
                 <span className={`rounded-md px-3 py-1 text-xs font-semibold ${rowToneClass(row.tone)}`}>{row.value}</span>
               </div>
@@ -770,7 +770,7 @@ function ProductPreview({ content }: { content: MarketingContent }) {
             {content.dashboardPanels.map((panel) => {
               const Icon = panel.icon;
               return (
-                <div key={panel.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={panel.title} className="rounded-md border border-line bg-panel p-4 shadow-sm">
                   <div className="flex items-center gap-3">
                     <span className="grid h-9 w-9 place-items-center rounded-md bg-emerald-900 text-white">
                       <Icon className="h-4 w-4" aria-hidden="true" />

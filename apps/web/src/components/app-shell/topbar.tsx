@@ -22,7 +22,7 @@ export function Topbar() {
       <div className="min-w-0 lg:w-64">
         <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm font-semibold text-ink">{context.title}</div>
-          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-steel">{context.group}</span>
+          <span className="rounded-md border border-line bg-mist px-1.5 py-0.5 text-[11px] font-semibold uppercase text-steel">{context.group}</span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-steel">
           <span>{edition.topbarSubtitle}</span>
