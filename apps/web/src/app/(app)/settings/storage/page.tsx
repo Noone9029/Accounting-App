@@ -18,6 +18,7 @@ import {
   LedgerStatCard,
   LedgerStatusBadge,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -402,24 +403,24 @@ function BackupEvidenceCard({
               placeholder="Supabase, S3-compatible storage, runbook"
             />
           </LedgerFieldLabel>
-          <label className="mt-3 block text-sm font-medium text-ink">
-            Evidence summary JSON
-            <textarea
+          <LedgerFieldLabel className="mt-3">
+            <LedgerFieldText>Evidence summary JSON</LedgerFieldText>
+            <Textarea
               value={form.evidenceSummaryJson}
               onChange={(event) => setForm({ ...form, evidenceSummaryJson: event.target.value })}
               rows={5}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs"
+              className="mt-1 font-mono text-xs"
             />
-          </label>
-          <label className="mt-3 block text-sm font-medium text-ink">
-            Note
-            <textarea
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="mt-3">
+            <LedgerFieldText>Note</LedgerFieldText>
+            <Textarea
               value={form.note}
               onChange={(event) => setForm({ ...form, note: event.target.value })}
               rows={2}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1"
             />
-          </label>
+          </LedgerFieldLabel>
           <LedgerButton
             type="submit"
             disabled={loading}

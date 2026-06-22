@@ -211,6 +211,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved workflow truth: backup readiness remains metadata-only, bank profile saves keep existing payloads, variance proposal creation remains draft-only, and reconciliation close/reopen/approval actions keep existing endpoints and permission gates.
 - Preserved boundaries: this pass adds no backup/restore execution, live bank feed, reconciliation automation, journal posting, valuation change, COGS posting, provider call, storage mutation, VAT filing, or compliance submission.
 
+### 2026-06-22 Storage Settings Polish Loop
+
+- Migrated storage evidence capture textareas to shared LedgerByte field and textarea primitives.
+- Preserved storage truth: evidence capture still records metadata only through the existing form state and API flow, with no backup execution, restore execution, raw-file archive, object-storage mutation, signed URL operation, or secret exposure added.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
