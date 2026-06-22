@@ -170,6 +170,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Added auth route render coverage for login/register, password reset request/confirm, and missing-token invite acceptance states.
 - Preserved auth behavior: endpoints, token storage, active organization selection, redirects, reset token validation, invite preview/acceptance flow, and real-email-not-configured wording remain unchanged.
 
+### 2026-06-22 Supporting Panels Loop
+
+- Migrated shared attachment panels, related delivery-note panels, and document guidance panels to shared LedgerByte panel, table, field, input, empty/loading/error, status, alert, and action primitives.
+- Preserved attachment behavior: list, upload, download, note update, delete, permission checks, file hashing display, and linked-entity API paths remain unchanged.
+- Preserved document and delivery-note truth: guidance remains non-posting, local/readiness-only, and explicit that linked delivery notes do not post, file, send, call providers, or move inventory by themselves.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
