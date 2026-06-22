@@ -6,6 +6,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import {
   LedgerAlert,
   LedgerButton,
+  LedgerDataTable,
   LedgerEmptyState,
   LedgerFieldLabel,
   LedgerFieldText,
@@ -22,6 +23,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -74,8 +76,8 @@ export function BinLocationsListPage() {
       error={error}
       reload={reload}
     >
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[860px] text-left text-sm">
+      <>
+        <LedgerDataTable minWidth="860px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Code</th>
@@ -98,9 +100,9 @@ export function BinLocationsListPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No bin/location setup records yet" /></div> : null}
-      </div>
+        </LedgerDataTable>
+        {records.length === 0 && !loading ? <LedgerEmptyState title="No bin/location setup records yet" /> : null}
+      </>
     </TraceabilityPageFrame>
   );
 }
@@ -141,8 +143,8 @@ export function BatchesListPage() {
       error={error}
       reload={reload}
     >
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[920px] text-left text-sm">
+      <>
+        <LedgerDataTable minWidth="920px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Batch</th>
@@ -165,9 +167,9 @@ export function BatchesListPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No batch/lot setup records yet" /></div> : null}
-      </div>
+        </LedgerDataTable>
+        {records.length === 0 && !loading ? <LedgerEmptyState title="No batch/lot setup records yet" /> : null}
+      </>
     </TraceabilityPageFrame>
   );
 }
@@ -194,8 +196,8 @@ export function SerialNumbersListPage() {
       error={error}
       reload={reload}
     >
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[1040px] text-left text-sm">
+      <>
+        <LedgerDataTable minWidth="1040px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Serial</th>
@@ -220,9 +222,9 @@ export function SerialNumbersListPage() {
               </tr>
             ))}
           </tbody>
-        </table>
-        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No serial number setup records yet" /></div> : null}
-      </div>
+        </LedgerDataTable>
+        {records.length === 0 && !loading ? <LedgerEmptyState title="No serial number setup records yet" /> : null}
+      </>
     </TraceabilityPageFrame>
   );
 }
@@ -282,7 +284,7 @@ export function ItemTraceabilityPage({ itemId }: { itemId: string }) {
     >
       {traceability ? (
         <div className="space-y-5">
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+          <LedgerPanel>
             <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
               <Metric label="Item" value={`${traceability.item.name}${traceability.item.sku ? ` (${traceability.item.sku})` : ""}`} />
               <Metric label="Tracking mode" value={itemTrackingModeLabel(traceability.trackingMode)} />
@@ -293,19 +295,17 @@ export function ItemTraceabilityPage({ itemId }: { itemId: string }) {
               <Metric label="Movements" value={String(traceability.movementCount)} />
               <Metric label="Flags" value={[traceability.expiryTrackingEnabled ? "Expiry" : null, traceability.binTrackingEnabled ? "Bin" : null].filter(Boolean).join(", ") || "No extra flags"} />
             </div>
-          </section>
+          </LedgerPanel>
 
           <WarningsPanel warnings={traceability.warnings} />
           <BatchesTable batches={traceability.batches} />
           <SerialNumbersTable serials={traceability.serialNumbers} />
           <BinLocationsTable bins={traceability.binLocations} />
 
-          <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-            <h2 className="text-base font-semibold text-ink">Movements grouped by available tracking metadata</h2>
+          <LedgerSection title="Movements grouped by available tracking metadata">
             {traceability.movements.length === 0 ? <LedgerEmptyState title="No stock movements exist for this item yet" /> : null}
             {traceability.movements.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1040px] text-left text-sm">
+              <LedgerDataTable minWidth="1040px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-3 py-2">Date</th>
@@ -332,15 +332,14 @@ export function ItemTraceabilityPage({ itemId }: { itemId: string }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : null}
-          </section>
+          </LedgerSection>
 
-          <section className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Safe limitations</h2>
             <p className="mt-2">This view is read-only. It does not post journals, change FIFO preview behavior, update valuation, create COGS, change VAT/ZATCA, or mutate historical movements.</p>
-          </section>
+          </LedgerPanel>
         </div>
       ) : null}
     </TraceabilityPageFrame>
@@ -414,26 +413,28 @@ function BinLocationEditor({
 
   return (
     <TraceabilityEditorFrame title={title} canView={canView} canManage={canManage} organizationId={organizationId} loading={loading} error={error} success={success}>
-      <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel md:grid-cols-2">
-        {method === "POST" ? (
-          <SelectField name="warehouseId" label="Warehouse" required>
-            <option value="">Select warehouse</option>
-            {warehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
-            ))}
+      <LedgerPanel>
+        <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {method === "POST" ? (
+            <SelectField name="warehouseId" label="Warehouse" required>
+              <option value="">Select warehouse</option>
+              {warehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
+              ))}
+            </SelectField>
+          ) : null}
+          <InputField name="code" label="Code" defaultValue={current?.code ?? ""} required />
+          <InputField name="name" label="Name" defaultValue={current?.name ?? ""} required />
+          <SelectField name="type" label="Type" defaultValue={current?.type ?? "BIN"} required>
+            {binLocationTypes.map((type) => <option key={type} value={type}>{inventoryBinLocationTypeLabel(type)}</option>)}
           </SelectField>
-        ) : null}
-        <InputField name="code" label="Code" defaultValue={current?.code ?? ""} required />
-        <InputField name="name" label="Name" defaultValue={current?.name ?? ""} required />
-        <SelectField name="type" label="Type" defaultValue={current?.type ?? "BIN"} required>
-          {binLocationTypes.map((type) => <option key={type} value={type}>{inventoryBinLocationTypeLabel(type)}</option>)}
-        </SelectField>
-        <SelectField name="status" label="Status" defaultValue={current?.status ?? "ACTIVE"} required>
-          {binLocationStatuses.map((status) => <option key={status} value={status}>{inventoryBinLocationStatusLabel(status)}</option>)}
-        </SelectField>
-        <TextAreaField name="description" label="Description" defaultValue={current?.description ?? ""} />
-        {canManage ? <LedgerButton type="submit" variant="primary">{submitLabel}</LedgerButton> : null}
-      </form>
+          <SelectField name="status" label="Status" defaultValue={current?.status ?? "ACTIVE"} required>
+            {binLocationStatuses.map((status) => <option key={status} value={status}>{inventoryBinLocationStatusLabel(status)}</option>)}
+          </SelectField>
+          <TextAreaField name="description" label="Description" defaultValue={current?.description ?? ""} />
+          {canManage ? <LedgerButton type="submit" variant="primary">{submitLabel}</LedgerButton> : null}
+        </form>
+      </LedgerPanel>
       {current ? <RecordSummary rows={[["Warehouse", current.warehouse ? `${current.warehouse.code} ${current.warehouse.name}` : current.warehouseId], ["Type", inventoryBinLocationTypeLabel(current.type)], ["Status", inventoryBinLocationStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
   );
@@ -500,25 +501,27 @@ function BatchEditor(props: {
 
   return (
     <TraceabilityEditorFrame title={props.title} canView={canView} canManage={canManage} organizationId={organizationId} loading={loading} error={error} success={success}>
-      <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel md:grid-cols-2">
-        {props.method === "POST" ? (
-          <SelectField name="itemId" label="Item" required>
-            <option value="">Select item</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}{item.sku ? ` (${item.sku})` : ""} - {itemTrackingModeLabel(item.trackingMode)}</option>
-            ))}
+      <LedgerPanel>
+        <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {props.method === "POST" ? (
+            <SelectField name="itemId" label="Item" required>
+              <option value="">Select item</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}{item.sku ? ` (${item.sku})` : ""} - {itemTrackingModeLabel(item.trackingMode)}</option>
+              ))}
+            </SelectField>
+          ) : null}
+          <InputField name="batchNumber" label="Batch number" defaultValue={current?.batchNumber ?? ""} required />
+          <InputField name="lotNumber" label="Lot number" defaultValue={current?.lotNumber ?? ""} />
+          <InputField name="manufactureDate" label="Manufacture date" type="date" defaultValue={dateInputValue(current?.manufactureDate)} />
+          <InputField name="expiryDate" label="Expiry date" type="date" defaultValue={dateInputValue(current?.expiryDate)} />
+          <SelectField name="status" label="Status" defaultValue={current?.status ?? "ACTIVE"} required>
+            {batchStatuses.map((status) => <option key={status} value={status}>{inventoryBatchStatusLabel(status)}</option>)}
           </SelectField>
-        ) : null}
-        <InputField name="batchNumber" label="Batch number" defaultValue={current?.batchNumber ?? ""} required />
-        <InputField name="lotNumber" label="Lot number" defaultValue={current?.lotNumber ?? ""} />
-        <InputField name="manufactureDate" label="Manufacture date" type="date" defaultValue={dateInputValue(current?.manufactureDate)} />
-        <InputField name="expiryDate" label="Expiry date" type="date" defaultValue={dateInputValue(current?.expiryDate)} />
-        <SelectField name="status" label="Status" defaultValue={current?.status ?? "ACTIVE"} required>
-          {batchStatuses.map((status) => <option key={status} value={status}>{inventoryBatchStatusLabel(status)}</option>)}
-        </SelectField>
-        <TextAreaField name="notes" label="Notes" defaultValue={current?.notes ?? ""} />
-        {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
-      </form>
+          <TextAreaField name="notes" label="Notes" defaultValue={current?.notes ?? ""} />
+          {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
+        </form>
+      </LedgerPanel>
       {current ? <RecordSummary rows={[["Item", current.item ? `${current.item.name}${current.item.sku ? ` (${current.item.sku})` : ""}` : current.itemId], ["Expiry", formatOptionalDate(current.expiryDate, "-")], ["Status", inventoryBatchStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
   );
@@ -596,33 +599,35 @@ function SerialNumberEditor(props: {
 
   return (
     <TraceabilityEditorFrame title={props.title} canView={canView} canManage={canManage} organizationId={organizationId} loading={loading} error={error} success={success}>
-      <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel md:grid-cols-2">
-        {props.method === "POST" ? (
-          <SelectField name="itemId" label="Item" required>
-            <option value="">Select item</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}{item.sku ? ` (${item.sku})` : ""} - {itemTrackingModeLabel(item.trackingMode)}</option>
-            ))}
+      <LedgerPanel>
+        <form key={current?.id ?? "new"} onSubmit={(event) => void submit(event)} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {props.method === "POST" ? (
+            <SelectField name="itemId" label="Item" required>
+              <option value="">Select item</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}{item.sku ? ` (${item.sku})` : ""} - {itemTrackingModeLabel(item.trackingMode)}</option>
+              ))}
+            </SelectField>
+          ) : null}
+          <InputField name="serialNumber" label="Serial number" defaultValue={current?.serialNumber ?? ""} required />
+          <SelectField name="batchId" label="Batch" defaultValue={current?.batchId ?? ""}>
+            <option value="">No batch</option>
+            {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.batchNumber}</option>)}
           </SelectField>
-        ) : null}
-        <InputField name="serialNumber" label="Serial number" defaultValue={current?.serialNumber ?? ""} required />
-        <SelectField name="batchId" label="Batch" defaultValue={current?.batchId ?? ""}>
-          <option value="">No batch</option>
-          {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.batchNumber}</option>)}
-        </SelectField>
-        <SelectField name="status" label="Status" defaultValue={current?.status ?? "AVAILABLE"} required>
-          {serialStatuses.map((status) => <option key={status} value={status}>{inventorySerialNumberStatusLabel(status)}</option>)}
-        </SelectField>
-        <SelectField name="currentWarehouseId" label="Current warehouse" defaultValue={current?.currentWarehouseId ?? ""}>
-          <option value="">No warehouse</option>
-          {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>)}
-        </SelectField>
-        <SelectField name="currentBinLocationId" label="Current bin/location" defaultValue={current?.currentBinLocationId ?? ""}>
-          <option value="">No bin/location</option>
-          {bins.map((bin) => <option key={bin.id} value={bin.id}>{bin.code} {bin.name}</option>)}
-        </SelectField>
-        {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
-      </form>
+          <SelectField name="status" label="Status" defaultValue={current?.status ?? "AVAILABLE"} required>
+            {serialStatuses.map((status) => <option key={status} value={status}>{inventorySerialNumberStatusLabel(status)}</option>)}
+          </SelectField>
+          <SelectField name="currentWarehouseId" label="Current warehouse" defaultValue={current?.currentWarehouseId ?? ""}>
+            <option value="">No warehouse</option>
+            {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>)}
+          </SelectField>
+          <SelectField name="currentBinLocationId" label="Current bin/location" defaultValue={current?.currentBinLocationId ?? ""}>
+            <option value="">No bin/location</option>
+            {bins.map((bin) => <option key={bin.id} value={bin.id}>{bin.code} {bin.name}</option>)}
+          </SelectField>
+          {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
+        </form>
+      </LedgerPanel>
       {current ? <RecordSummary rows={[["Item", current.item ? `${current.item.name}${current.item.sku ? ` (${current.item.sku})` : ""}` : current.itemId], ["Batch", current.batch?.batchNumber ?? "-"], ["Status", inventorySerialNumberStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
   );
@@ -630,58 +635,49 @@ function SerialNumberEditor(props: {
 
 function BatchesTable({ batches }: { batches: InventoryBatch[] }) {
   return (
-    <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Batches and lots</h2>
+    <LedgerSection title="Batches and lots">
       {batches.length === 0 ? <LedgerEmptyState title="No batches are linked to this item" /> : null}
       {batches.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+        <LedgerDataTable minWidth="760px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Lot</th><th className="px-3 py-2">Expiry</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {batches.map((batch) => <tr key={batch.id}><td className="px-3 py-3 font-medium text-ink">{batch.batchNumber}</td><td className="px-3 py-3 text-steel">{batch.lotNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{formatOptionalDate(batch.expiryDate, "-")}</td><td className="px-3 py-3"><StatusBadge status={batch.status} label={inventoryBatchStatusLabel(batch.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/batches/${batch.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </section>
+    </LedgerSection>
   );
 }
 
 function SerialNumbersTable({ serials }: { serials: InventorySerialNumber[] }) {
   return (
-    <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Serial numbers</h2>
+    <LedgerSection title="Serial numbers">
       {serials.length === 0 ? <LedgerEmptyState title="No serial numbers are linked to this item" /> : null}
       {serials.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[840px] text-left text-sm">
+        <LedgerDataTable minWidth="840px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Serial</th><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Warehouse</th><th className="px-3 py-2">Bin/location</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {serials.map((serial) => <tr key={serial.id}><td className="px-3 py-3 font-medium text-ink">{serial.serialNumber}</td><td className="px-3 py-3 text-steel">{serial.batch?.batchNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{serial.currentWarehouse ? `${serial.currentWarehouse.code} ${serial.currentWarehouse.name}` : "-"}</td><td className="px-3 py-3 text-steel">{serial.currentBinLocation ? `${serial.currentBinLocation.code} ${serial.currentBinLocation.name}` : "-"}</td><td className="px-3 py-3"><StatusBadge status={serial.status} label={inventorySerialNumberStatusLabel(serial.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/serial-numbers/${serial.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </section>
+    </LedgerSection>
   );
 }
 
 function BinLocationsTable({ bins }: { bins: InventoryBinLocation[] }) {
   return (
-    <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Bin locations</h2>
+    <LedgerSection title="Bin locations">
       {bins.length === 0 ? <LedgerEmptyState title="No bin/location metadata is linked to this item yet" /> : null}
       {bins.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+        <LedgerDataTable minWidth="760px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Name</th><th className="px-3 py-2">Warehouse</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {bins.map((bin) => <tr key={bin.id}><td className="px-3 py-3 font-mono text-xs text-ink">{bin.code}</td><td className="px-3 py-3 font-medium text-ink">{bin.name}</td><td className="px-3 py-3 text-steel">{bin.warehouse ? `${bin.warehouse.code} ${bin.warehouse.name}` : bin.warehouseId}</td><td className="px-3 py-3 text-steel">{inventoryBinLocationTypeLabel(bin.type)}</td><td className="px-3 py-3"><StatusBadge status={bin.status} label={inventoryBinLocationStatusLabel(bin.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/bin-locations/${bin.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </section>
+    </LedgerSection>
   );
 }
 
@@ -846,7 +842,7 @@ function TextAreaField({ name, label, defaultValue = "" }: { name: string; label
   return (
     <LedgerFieldLabel className="md:col-span-2">
       <LedgerFieldText>{label}</LedgerFieldText>
-      <textarea name={name} defaultValue={defaultValue} className="mt-1 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+      <Textarea name={name} defaultValue={defaultValue} className="mt-1 min-h-24" />
     </LedgerFieldLabel>
   );
 }
