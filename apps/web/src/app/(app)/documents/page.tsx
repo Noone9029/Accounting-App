@@ -2,16 +2,20 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { StatusMessage } from "@/components/common/status-message";
 import { ArchiveDocumentGuidance } from "@/components/documents/document-guidance";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
+  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
+  LedgerDate,
   LedgerEmptyState,
+  LedgerFieldHelp,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerFilterBar,
+  LedgerInput,
+  LedgerLoadingState,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
@@ -145,19 +149,17 @@ export default function GeneratedDocumentsPage() {
       <ArchiveDocumentGuidance />
 
       <LedgerPageBody>
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load generated documents.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading generated documents...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load generated documents.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading generated documents" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
         {success ? (
-          <StatusMessage type="success">
+          <LedgerAlert tone="success">
             <span>{success}</span>{" "}
             <Link href="/settings/email-outbox" className="font-semibold underline underline-offset-2">
               Open email outbox
             </Link>
-          </StatusMessage>
+          </LedgerAlert>
         ) : null}
-      </div>
 
       <form onSubmit={loadDocuments}>
         <LedgerToolbar
@@ -213,7 +215,7 @@ export default function GeneratedDocumentsPage() {
                 <td className="px-4 py-3">
                   <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>{generatedDocumentStatusLabel(document.status)}</span>
                 </td>
-                <td className="px-4 py-3 text-steel">{formatOptionalDate(document.generatedAt, "-")}</td>
+                <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(document.generatedAt, "-")}</LedgerDate></td>
                 <td className="px-4 py-3 font-mono text-xs">{formatBytes(document.sizeBytes)}</td>
                 <td className="px-4 py-3">
                   <div className="flex min-w-[250px] flex-col gap-2">
@@ -305,14 +307,9 @@ export function GeneratedDocumentDownloadAction({ document, loading, onDownload 
   }
 
   return (
-    <button
-      type="button"
-      onClick={onDownload}
-      disabled={loading}
-      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-    >
+    <LedgerButton type="button" onClick={onDownload} disabled={loading} size="sm">
       {loading ? "Downloading..." : "Download archived PDF"}
-    </button>
+    </LedgerButton>
   );
 }
 
@@ -329,12 +326,12 @@ export function GeneratedDocumentApEmailAction({ document, visible, recipientEma
         event.preventDefault();
         onSubmit(recipientEmail.trim());
       }}
-      className="rounded-md border border-teal-100 bg-teal-50/60 p-2"
+      className="rounded-md border border-line bg-mist p-2"
     >
-      <label htmlFor={recipientInputId} className="block text-xs font-medium text-slate-700">
-        Recipient email
-      </label>
-      <input
+      <LedgerFieldLabel htmlFor={recipientInputId}>
+        <LedgerFieldText>Recipient email</LedgerFieldText>
+      </LedgerFieldLabel>
+      <LedgerInput
         id={recipientInputId}
         type="email"
         required
@@ -343,13 +340,13 @@ export function GeneratedDocumentApEmailAction({ document, visible, recipientEma
         value={recipientEmail}
         onChange={(event) => onRecipientChange(event.target.value)}
         placeholder="ap-review@example.test"
-        className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-palm disabled:bg-slate-50"
+        className="text-xs"
         disabled={loading}
       />
-      <p className="mt-1 text-xs leading-5 text-steel">Local mock outbox only. No real email or provider send. PDF body is not shown.</p>
-      <button type="submit" disabled={loading} className="mt-2 w-full rounded-md bg-palm px-2 py-1 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+      <LedgerFieldHelp>Local mock outbox only. No real email or provider send. PDF body is not shown.</LedgerFieldHelp>
+      <LedgerButton type="submit" disabled={loading} className="mt-2 w-full" size="sm" variant="primary">
         {loading ? "Creating local outbox..." : "Create local email outbox"}
-      </button>
+      </LedgerButton>
     </form>
   );
 }
