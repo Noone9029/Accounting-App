@@ -1,11 +1,13 @@
 import { PurchaseBillForm } from "@/components/forms/purchase-bill-form";
-import { PageHeader } from "@/components/ui-ledger/page-header";
+import { LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 
 export default function NewPurchaseBillPage() {
   return (
-    <section>
-      <PageHeader title="Create purchase bill" description="Save a draft supplier bill for AP posting." />
-      <PurchaseBillForm />
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Purchases" title="Create purchase bill" description="Save a draft supplier bill for AP posting." />
+      <LedgerPageBody>
+        <PurchaseBillForm />
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }

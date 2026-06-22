@@ -1,17 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PlusIcon, SaveIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ComplianceReadinessPanel } from "@/components/ui-ledger/compliance-readiness-panel";
-import { LineItemsTable } from "@/components/ui-ledger/line-items-table";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { TransactionSummaryCard } from "@/components/ui-ledger/transaction-summary-card";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getLedgerByteEdition } from "@/lib/edition";
@@ -243,219 +249,215 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
 
   if (initialBill && initialBill.status !== "DRAFT") {
     return (
-      <div className="flex flex-col gap-4">
-        <StatusMessage type="error">Only draft purchase bills can be edited.</StatusMessage>
-        <Link href={`/purchases/bills/${initialBill.id}`} className={buttonVariants({ variant: "outline", className: "self-start" })}>
+      <LedgerPanel>
+        <LedgerAlert tone="danger">Only draft purchase bills can be edited.</LedgerAlert>
+        <LedgerButton href={`/purchases/bills/${initialBill.id}`} className="mt-4">
           Back to bill
-        </Link>
-      </div>
+        </LedgerButton>
+      </LedgerPanel>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
-      <PanelSection
+    <form onSubmit={onSubmit} className="min-w-0 space-y-5">
+      <LedgerFormSection
+        className="min-w-0"
         title="Bill details"
         description="Draft supplier bill fields are captured before any AP posting or finalization workflow."
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Supplier</span>
-            <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select supplier</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.displayName ?? supplier.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-foreground">Bill date</span>
-            <Input type="date" value={billDate} onChange={(event) => setBillDate(event.target.value)} required className="mt-1" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-foreground">Due date</span>
-            <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-foreground">Currency</span>
-            <Input value={edition.defaultCurrency} readOnly aria-label="Currency" className="mt-1 bg-muted text-muted-foreground" />
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default {edition.marketLabel} workspace currency.</span>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Branch</span>
-            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">No branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.displayName ?? branch.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-foreground">Terms</span>
-            <Input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-1" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-foreground">Notes</span>
-            <Input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-foreground">Inventory posting mode</span>
-            <select
-              value={inventoryPostingMode}
-              onChange={(event) => setInventoryPostingMode(event.target.value as PurchaseBillInventoryPostingMode)}
-              className="mt-1 h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="DIRECT_EXPENSE_OR_ASSET">{purchaseBillInventoryPostingModeLabel("DIRECT_EXPENSE_OR_ASSET")}</option>
-              <option value="INVENTORY_CLEARING">{purchaseBillInventoryPostingModeLabel("INVENTORY_CLEARING")}</option>
-            </select>
-          </label>
-        </div>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Supplier</LedgerFieldText>
+          <LedgerSelect value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
+            <option value="">Select supplier</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.displayName ?? supplier.name}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Bill date</LedgerFieldText>
+          <LedgerInput type="date" value={billDate} onChange={(event) => setBillDate(event.target.value)} required />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Due date</LedgerFieldText>
+          <LedgerInput type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Currency</LedgerFieldText>
+          <LedgerInput value={edition.defaultCurrency} readOnly aria-label="Currency" className="bg-slate-50 text-slate-700" />
+          <LedgerFieldHelp>Default {edition.marketLabel} workspace currency.</LedgerFieldHelp>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Branch</LedgerFieldText>
+          <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+            <option value="">No branch</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.displayName ?? branch.name}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Terms</LedgerFieldText>
+          <LedgerInput value={terms} onChange={(event) => setTerms(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Notes</LedgerFieldText>
+          <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Inventory posting mode</LedgerFieldText>
+          <LedgerSelect value={inventoryPostingMode} onChange={(event) => setInventoryPostingMode(event.target.value as PurchaseBillInventoryPostingMode)}>
+            <option value="DIRECT_EXPENSE_OR_ASSET">{purchaseBillInventoryPostingModeLabel("DIRECT_EXPENSE_OR_ASSET")}</option>
+            <option value="INVENTORY_CLEARING">{purchaseBillInventoryPostingModeLabel("INVENTORY_CLEARING")}</option>
+          </LedgerSelect>
+        </LedgerFieldLabel>
         {inventoryPostingMode === "INVENTORY_CLEARING" ? (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="md:col-span-2">
+            <LedgerAlert tone="warning">
             <ul className="flex flex-col gap-1">
               <li>{purchaseBillInventoryClearingModeWarning()}</li>
               <li>{purchaseBillAccountantReviewWarning()}</li>
             </ul>
+            </LedgerAlert>
           </div>
         ) : null}
-      </PanelSection>
+      </LedgerFormSection>
 
-      <ComplianceReadinessPanel
-        title="VAT readiness"
-        description="Local VAT and accounting review only. No tax-authority submission or provider reporting is enabled."
-        checks={[
-          {
-            label: "Supplier bill coding",
-            status: supplierId && lines.length > 0 ? "pass" : "pending",
-            detail: "Supplier, bill date, due date, expense/account coding, and VAT handling stay in the draft AP workflow.",
-          },
-          {
-            label: "Accountant review",
-            status: inventoryPostingMode === "INVENTORY_CLEARING" ? "warning" : "pass",
-            detail: "Inventory clearing mode keeps the existing accountant-review warning and does not post stock automation.",
-          },
-          {
-            label: "Local readiness only",
-            status: "warning",
-            detail: "No provider integration, tax-authority reporting, or certification claim is made here.",
-          },
-        ]}
-      />
+      <LedgerPanel>
+        <h2 className="text-base font-semibold text-ink">VAT readiness</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">Local VAT and accounting review only. No tax-authority submission or provider reporting is enabled.</p>
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <LedgerSummaryBand tone={supplierId && lines.length > 0 ? "success" : "info"}>Supplier, bill date, due date, expense/account coding, and VAT handling stay in the draft AP workflow.</LedgerSummaryBand>
+          <LedgerSummaryBand tone={inventoryPostingMode === "INVENTORY_CLEARING" ? "warning" : "success"}>Inventory clearing mode keeps the existing accountant-review warning and does not post stock automation.</LedgerSummaryBand>
+          <LedgerSummaryBand tone="warning">No provider integration, tax-authority reporting, or certification claim is made here.</LedgerSummaryBand>
+        </div>
+      </LedgerPanel>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <LineItemsTable
-          title="Bill line items"
-          description="Line entries keep existing item, purchase account, discount, tax, and preview totals behavior."
-        >
-          <div className="overflow-x-auto">
-            <Table className="min-w-[980px]">
-              <TableHeader className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Account</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Unit price</TableHead>
-                  <TableHead>Discount %</TableHead>
-                  <TableHead>Tax</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+        <LedgerPanel className="min-w-0">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">Bill line items</h2>
+              <p className="mt-1 text-sm leading-6 text-steel">Line entries keep existing item, purchase account, discount, tax, and preview totals behavior.</p>
+            </div>
+            <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={PlusIcon}>
+              Add line
+            </LedgerButton>
+          </div>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <div style={{ minWidth: "980px" }}>
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">Description</th>
+                    <th className="px-3 py-2">Account</th>
+                    <th className="px-3 py-2">Qty</th>
+                    <th className="px-3 py-2">Unit price</th>
+                    <th className="px-3 py-2">Discount %</th>
+                    <th className="px-3 py-2">Tax</th>
+                    <th className="px-3 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
                 {lines.map((line) => (
-                  <TableRow key={line.id}>
-                    <TableCell>
-                      <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                  <tr key={line.id}>
+                    <td className="px-3 py-2">
+                      <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48">
                         <option value="">No item</option>
                         {activeItems.map((item) => (
                           <option key={item.id} value={item.id}>
                             {item.name}
                           </option>
                         ))}
-                      </select>
-                    </TableCell>
-                    <TableCell>
-                      <Input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required />
-                    </TableCell>
-                    <TableCell>
-                      <select value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                      </LedgerSelect>
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerSelect value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="w-56">
                         <option value="">Select account</option>
                         {postingPurchaseAccounts.map((account) => (
                           <option key={account.id} value={account.id}>
                             {account.code} {account.name}
                           </option>
                         ))}
-                      </select>
-                    </TableCell>
-                    <TableCell>
-                      <Input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required className="w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} required className="w-28" />
-                    </TableCell>
-                    <TableCell>
-                      <Input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <select value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                      </LedgerSelect>
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required className="w-24" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} required className="w-28" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerInput inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerSelect value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="w-48">
                         <option value="">No tax</option>
                         {activePurchaseTaxRates.map((taxRate) => (
                           <option key={taxRate.id} value={taxRate.id}>
                             {taxRate.name} ({taxRate.rate}%)
                           </option>
                         ))}
-                      </select>
-                    </TableCell>
-                    <TableCell>
-                      <Button type="button" variant="outline" size="xs" onClick={() => removeLine(line.id)}>
+                      </LedgerSelect>
+                    </td>
+                    <td className="px-3 py-2">
+                      <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)}>
                         Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </LedgerButton>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="border-t px-4 py-3">
-            <Button type="button" variant="outline" onClick={() => setLines((current) => [...current, makeLine()])}>
-              <PlusIcon data-icon="inline-start" />
-              Add line
-            </Button>
-          </div>
-        </LineItemsTable>
+        </LedgerPanel>
 
-        <TransactionSummaryCard
-          rows={[
-            { label: "Subtotal", value: formatMoneyAmount(preview.subtotal, edition.defaultCurrency) },
-            { label: "Discount", value: formatMoneyAmount(preview.discountTotal, edition.defaultCurrency) },
-            { label: "Taxable", value: formatMoneyAmount(preview.taxableTotal, edition.defaultCurrency) },
-            { label: "VAT / Tax", value: formatMoneyAmount(preview.taxTotal, edition.defaultCurrency) },
-            { label: "Total", value: formatMoneyAmount(preview.total, edition.defaultCurrency), emphasized: true },
-          ]}
-        />
+        <LedgerPanel className="min-w-0">
+          <h2 className="text-base font-semibold text-ink">Transaction summary</h2>
+          <div className="mt-4 space-y-2 text-sm">
+            <TotalRow label="Subtotal" value={formatMoneyAmount(preview.subtotal, edition.defaultCurrency)} />
+            <TotalRow label="Discount" value={formatMoneyAmount(preview.discountTotal, edition.defaultCurrency)} />
+            <TotalRow label="Taxable" value={formatMoneyAmount(preview.taxableTotal, edition.defaultCurrency)} />
+            <TotalRow label="VAT / Tax" value={formatMoneyAmount(preview.taxTotal, edition.defaultCurrency)} />
+            <TotalRow label="Total" value={formatMoneyAmount(preview.total, edition.defaultCurrency)} strong />
+          </div>
+        </LedgerPanel>
       </div>
 
       <div className="flex flex-col gap-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to create purchase bills.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading purchase bill setup data...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!preview.valid ? <StatusMessage type="info">Every bill line needs a positive quantity, non-negative unit price, valid discount, and a posting account.</StatusMessage> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {!preview.valid ? <LedgerAlert tone="info">Every bill line needs a positive quantity, non-negative unit price, valid discount, and a posting account.</LedgerAlert> : null}
       </div>
 
-      <div className="flex justify-end gap-3">
-        <Link href={returnTo || "/purchases/bills"} className={buttonVariants({ variant: "outline" })}>
+      <LedgerActionBar className="justify-end">
+        <LedgerButton href={returnTo || "/purchases/bills"}>
           Cancel
-        </Link>
-        <Button type="submit" disabled={submitting || !organizationId}>
-          <SaveIcon data-icon="inline-start" />
+        </LedgerButton>
+        <LedgerButton type="submit" disabled={submitting || !organizationId} variant="primary" icon={SaveIcon}>
           {submitting ? "Saving..." : initialBill ? "Save changes" : "Save draft"}
-        </Button>
-      </div>
+        </LedgerButton>
+      </LedgerActionBar>
     </form>
+  );
+}
+
+function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-4 ${strong ? "font-semibold text-ink" : "text-steel"}`}>
+      <span>{label}</span>
+      <LedgerMoney>{value}</LedgerMoney>
+    </div>
   );
 }
 

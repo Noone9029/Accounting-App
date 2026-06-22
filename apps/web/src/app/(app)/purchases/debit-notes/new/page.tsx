@@ -1,13 +1,13 @@
 import { PurchaseDebitNoteForm } from "@/components/forms/purchase-debit-note-form";
+import { LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 
 export default function NewPurchaseDebitNotePage() {
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Create debit note</h1>
-        <p className="mt-1 text-sm text-steel">Save a draft supplier debit note for AP reversal posting.</p>
-      </div>
-      <PurchaseDebitNoteForm />
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Purchases" title="Create debit note" description="Save a draft supplier debit note for AP reversal posting." />
+      <LedgerPageBody>
+        <PurchaseDebitNoteForm />
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
