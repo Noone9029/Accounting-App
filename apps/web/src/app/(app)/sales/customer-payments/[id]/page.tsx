@@ -3,15 +3,34 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
+import { ArrowLeft, Download, Eye, ReceiptText, RotateCcw, Undo2 } from "lucide-react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
-import { PaymentSummaryCard } from "@/components/ui-ledger/payment-summary-card";
-import { StatusBadge } from "@/components/ui-ledger/status-badge";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
@@ -19,21 +38,19 @@ import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
   customerPaymentAllocationState,
-  customerPaymentAllocationStateBadgeClass,
+  type CustomerPaymentAllocationState,
   customerPaymentAllocationStateLabel,
   customerPaymentActiveUnappliedAppliedAmount,
   customerPaymentApplyMaximumAmount,
   customerPaymentDirectAllocatedAmount,
   customerPaymentReceiptPdfPath,
-  customerPaymentStatusBadgeClass,
   customerPaymentStatusLabel,
-  customerPaymentUnappliedAllocationStatusBadgeClass,
   customerPaymentUnappliedAllocationStatusLabel,
   getCustomerPaymentReceiptData,
   reverseCustomerPaymentUnappliedAllocation,
   validateCustomerPaymentUnappliedAllocation,
 } from "@/lib/customer-payments";
-import { generatedDocumentStatusBadgeClass, generatedDocumentStatusLabel } from "@/lib/documents";
+import { generatedDocumentStatusLabel } from "@/lib/documents";
 import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf } from "@/lib/pdf-download";
@@ -395,41 +412,44 @@ export default function CustomerPaymentDetailPage() {
     payment ? `/sales/customer-payments/${payment.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
 
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
         title={payment ? payment.paymentNumber : "Customer payment"}
-        description="Payment posting, allocations, and reversal reference."
+        description="Payment posting, receipt output, invoice allocations, audit status, and unapplied credit review."
+        badge={payment ? <LedgerStatusBadge tone={paymentStatusTone(payment.status)}>{customerPaymentStatusLabel(payment.status)}</LedgerStatusBadge> : null}
         actions={
-          <>
-          <Link href={returnTo || "/sales/customer-payments"} className={buttonVariants({ variant: "outline" })}>
-            Back
-          </Link>
-          {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <Button type="button" variant="destructive" onClick={() => void voidPayment()} disabled={actionLoading}>
-              Void
-            </Button>
-          ) : null}
-          {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
-            <Link
-              href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(payment.customerId)}&sourceType=CUSTOMER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
-              className={buttonVariants()}
-            >
-              Refund unapplied amount
-            </Link>
-          ) : null}
-          </>
+          <LedgerActionBar>
+            <LedgerButton href={returnTo || "/sales/customer-payments"} icon={ArrowLeft}>
+              Back
+            </LedgerButton>
+            {payment?.status === "POSTED" && canVoidPaymentPermission ? (
+              <LedgerButton type="button" variant="danger" icon={Undo2} onClick={() => void voidPayment()} disabled={actionLoading} className="self-start">
+                Void
+              </LedgerButton>
+            ) : null}
+            {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
+              <LedgerButton
+                href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(payment.customerId)}&sourceType=CUSTOMER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
+                variant="primary"
+              >
+                Refund unapplied amount
+              </LedgerButton>
+            ) : null}
+          </LedgerActionBar>
         }
       />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load payments.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading customer payment...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        <div className="space-y-3">
+          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load payments.</LedgerAlert> : null}
+          {loading ? <StatusMessage type="loading">Loading customer payment...</StatusMessage> : null}
+          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+          {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        </div>
 
       {payment ? (
-        <div className="mt-5 space-y-5">
+        <>
           <CustomerPaymentWorkflowGuidance
             payment={payment}
             recorded={wasJustRecorded}
@@ -460,18 +480,13 @@ export default function CustomerPaymentDetailPage() {
             canViewAuditLogs={canViewAuditLogs}
           />
 
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Direct invoice allocations</h2>
-                <p className="mt-1 text-sm text-steel">Amounts applied when this payment was posted.</p>
-              </div>
-              <span className="self-start rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                {(payment.allocations?.length ?? 0).toLocaleString()} direct
-              </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+          <LedgerSection
+            title="Direct invoice allocations"
+            description="Amounts applied when this payment was posted."
+            action={<LedgerStatusBadge tone="neutral">{(payment.allocations?.length ?? 0).toLocaleString()} direct</LedgerStatusBadge>}
+          >
+            {(payment.allocations?.length ?? 0) > 0 ? (
+              <LedgerDataTable minWidth="760px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Invoice</th>
@@ -486,15 +501,15 @@ export default function CustomerPaymentDetailPage() {
                 {payment.allocations?.map((allocation) => (
                   <tr key={allocation.id}>
                     <td className="px-4 py-3 font-mono text-xs">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</td>
-                    <td className="px-4 py-3 text-steel">{allocation.invoice ? new Date(allocation.invoice.issueDate).toLocaleDateString() : "-"}</td>
-                    <td className="px-4 py-3 text-steel">{allocation.invoice?.status ?? "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, payment.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.balanceDue, payment.currency) : "-"}</td>
+                    <td className="px-4 py-3">{allocation.invoice ? <LedgerDate>{new Date(allocation.invoice.issueDate).toLocaleDateString()}</LedgerDate> : "-"}</td>
+                    <td className="px-4 py-3">{allocation.invoice?.status ?? "-"}</td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, payment.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3">{allocation.invoice ? <LedgerMoney>{formatMoneyAmount(allocation.invoice.balanceDue, payment.currency)}</LedgerMoney> : "-"}</td>
                     <td className="px-4 py-3">
                       {allocation.invoice ? (
-                        <Link href={`/sales/invoices/${allocation.invoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        <LedgerButton href={`/sales/invoices/${allocation.invoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} size="sm">
                           View invoice
-                        </Link>
+                        </LedgerButton>
                       ) : (
                         "-"
                       )}
@@ -502,81 +517,74 @@ export default function CustomerPaymentDetailPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-            </div>
-            {(payment.allocations?.length ?? 0) === 0 ? (
-              <div className="px-4 py-5">
-                <StatusMessage type="empty">
-                  No direct invoice allocations were recorded when this payment was posted.
-                </StatusMessage>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Unapplied payment applications</h2>
-                <p className="mt-1 text-sm text-steel">Amounts matched from remaining payment credit to later invoices.</p>
-              </div>
-              <span className="self-start rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                {(payment.unappliedAllocations?.length ?? 0).toLocaleString()} applications
-              </span>
-            </div>
-            {payment.unappliedAllocations && payment.unappliedAllocations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                    <tr>
-                      <th className="px-4 py-3">Invoice</th>
-                      <th className="px-4 py-3">Invoice date</th>
-                      <th className="px-4 py-3">Invoice total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Invoice balance due</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Reason</th>
-                      <th className="px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {payment.unappliedAllocations.map((allocation) => (
-                      <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.invoice ? new Date(allocation.invoice.issueDate).toLocaleDateString() : "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.total, payment.currency) : "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, payment.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatMoneyAmount(allocation.invoice.balanceDue, payment.currency) : "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
-                            {customerPaymentUnappliedAllocationStatusLabel(allocation)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            <Link href={`/sales/invoices/${allocation.invoiceId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                              View invoice
-                            </Link>
-                            {canReverseCustomerPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
-                              <button type="button" onClick={() => requestReverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                                Reverse
-                              </button>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">No unapplied payment credit has been matched to another invoice.</StatusMessage>
-              </div>
+              <LedgerEmptyState
+                title="No direct invoice allocations"
+                description="No direct invoice allocations were recorded when this payment was posted."
+              />
             )}
-          </div>
+          </LedgerSection>
+
+          <LedgerSection
+            title="Unapplied payment applications"
+            description="Amounts matched from remaining payment credit to later invoices."
+            action={<LedgerStatusBadge tone="neutral">{(payment.unappliedAllocations?.length ?? 0).toLocaleString()} applications</LedgerStatusBadge>}
+          >
+            {payment.unappliedAllocations && payment.unappliedAllocations.length > 0 ? (
+              <LedgerDataTable minWidth="980px">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-4 py-3">Invoice</th>
+                    <th className="px-4 py-3">Invoice date</th>
+                    <th className="px-4 py-3">Invoice total</th>
+                    <th className="px-4 py-3">Amount applied</th>
+                    <th className="px-4 py-3">Invoice balance due</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Reversed</th>
+                    <th className="px-4 py-3">Reason</th>
+                    <th className="px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {payment.unappliedAllocations.map((allocation) => (
+                    <tr key={allocation.id}>
+                      <td className="px-4 py-3 font-mono text-xs">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</td>
+                      <td className="px-4 py-3">{allocation.invoice ? <LedgerDate>{new Date(allocation.invoice.issueDate).toLocaleDateString()}</LedgerDate> : "-"}</td>
+                      <td className="px-4 py-3">{allocation.invoice ? <LedgerMoney>{formatMoneyAmount(allocation.invoice.total, payment.currency)}</LedgerMoney> : "-"}</td>
+                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, payment.currency)}</LedgerMoney></td>
+                      <td className="px-4 py-3">{allocation.invoice ? <LedgerMoney>{formatMoneyAmount(allocation.invoice.balanceDue, payment.currency)}</LedgerMoney> : "-"}</td>
+                      <td className="px-4 py-3">
+                        <LedgerStatusBadge tone={unappliedAllocationTone(allocation)}>
+                          {customerPaymentUnappliedAllocationStatusLabel(allocation)}
+                        </LedgerStatusBadge>
+                      </td>
+                      <td className="px-4 py-3">{allocation.reversedAt ? <LedgerDate>{new Date(allocation.reversedAt).toLocaleString()}</LedgerDate> : "-"}</td>
+                      <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <LedgerButton href={`/sales/invoices/${allocation.invoiceId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} size="sm">
+                            View invoice
+                          </LedgerButton>
+                          {canReverseCustomerPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
+                            <LedgerButton type="button" variant="danger" size="sm" icon={RotateCcw} onClick={() => requestReverseUnappliedAllocation(allocation.id)} disabled={actionLoading}>
+                              Reverse
+                            </LedgerButton>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </LedgerDataTable>
+            ) : null}
+            {!payment.unappliedAllocations || payment.unappliedAllocations.length === 0 ? (
+              <LedgerEmptyState
+                title="No unapplied applications"
+                description="No unapplied payment credit has been matched to another invoice."
+              />
+            ) : null}
+          </LedgerSection>
 
           {pendingReverseAllocation ? (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
@@ -585,7 +593,7 @@ export default function CustomerPaymentDetailPage() {
                 aria-modal="true"
                 aria-labelledby="reverse-unapplied-title"
                 onSubmit={reverseUnappliedAllocation}
-                className="w-full max-w-lg rounded-md border border-slate-200 bg-white p-5 shadow-panel"
+                className="w-full max-w-lg rounded-md border border-line bg-panel p-5 shadow-panel"
               >
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -596,78 +604,60 @@ export default function CustomerPaymentDetailPage() {
                       This restores payment credit and the invoice balance without creating another journal entry.
                     </p>
                   </div>
-                  <span className="self-start rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rosewood">
-                    Confirmation required
-                  </span>
+                  <LedgerStatusBadge tone="danger">Confirmation required</LedgerStatusBadge>
                 </div>
 
-                <dl className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-slate-50 p-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs uppercase tracking-wide text-steel">Invoice</dt>
-                    <dd className="mt-1 font-mono text-xs text-ink">{pendingReverseAllocation.invoice?.invoiceNumber ?? pendingReverseAllocation.invoiceId}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs uppercase tracking-wide text-steel">Amount</dt>
-                    <dd className="mt-1 font-mono text-xs text-ink">{formatMoneyAmount(pendingReverseAllocation.amountApplied, payment.currency)}</dd>
-                  </div>
-                </dl>
+                <LedgerMetadataRow
+                  items={[
+                    { label: "Invoice", value: pendingReverseAllocation.invoice?.invoiceNumber ?? pendingReverseAllocation.invoiceId },
+                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(pendingReverseAllocation.amountApplied, payment.currency)}</LedgerMoney> },
+                  ]}
+                />
 
-                <label className="mt-4 block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason (optional)</span>
+                <LedgerFieldLabel className="mt-4">
+                  <LedgerFieldText>Reason (optional)</LedgerFieldText>
                   <textarea
                     value={reverseReason}
                     onChange={(event) => setReverseReason(event.target.value)}
                     rows={3}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
                     placeholder="Correction note for the audit trail"
                   />
-                </label>
+                </LedgerFieldLabel>
 
-                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={cancelReverseUnappliedAllocation}
-                    disabled={actionLoading}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                  >
+                <LedgerActionBar className="mt-5 justify-end">
+                  <LedgerButton type="button" onClick={cancelReverseUnappliedAllocation} disabled={actionLoading}>
                     Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="rounded-md bg-rosewood px-3 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
+                  </LedgerButton>
+                  <LedgerButton type="submit" variant="danger" icon={RotateCcw} disabled={actionLoading}>
                     Confirm reversal
-                  </button>
-                </div>
+                  </LedgerButton>
+                </LedgerActionBar>
               </form>
             </div>
           ) : null}
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Apply unapplied amount</h2>
-                <p className="mt-1 text-sm text-steel">Use remaining payment credit against finalized open invoices for the same customer.</p>
-              </div>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">No accounting journal</span>
-            </div>
+          <LedgerSection
+            title="Apply unapplied amount"
+            description="Use remaining payment credit against finalized open invoices for the same customer."
+            action={<LedgerStatusBadge tone="draft">No accounting journal</LedgerStatusBadge>}
+          >
             {canApplyUnapplied ? (
               openInvoices.length > 0 ? (
-                <form onSubmit={applyUnapplied} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Open invoice</span>
-                    <select value={applyInvoiceId} onChange={(event) => setApplyInvoiceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <form onSubmit={applyUnapplied} className="grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Open invoice</LedgerFieldText>
+                    <LedgerSelect value={applyInvoiceId} onChange={(event) => setApplyInvoiceId(event.target.value)}>
                       {openInvoices.map((invoice) => (
                         <option key={invoice.id} value={invoice.id}>
                           {invoice.invoiceNumber} - balance {formatMoneyAmount(invoice.balanceDue, invoice.currency)}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount to apply</span>
-                    <input
+                    </LedgerSelect>
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Amount to apply</LedgerFieldText>
+                    <LedgerInput
                       type="number"
                       inputMode="decimal"
                       min="0.0001"
@@ -678,34 +668,31 @@ export default function CustomerPaymentDetailPage() {
                       placeholder="0.0000"
                       aria-invalid={Boolean(applyValidationError)}
                       aria-describedby="apply-unapplied-limits"
-                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
                     />
-                  </label>
-                  <button type="submit" disabled={actionLoading || !applyInvoiceId || !applyAmount || Boolean(applyValidationError)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 md:self-end">
+                  </LedgerFieldLabel>
+                  <LedgerButton type="submit" variant="primary" disabled={actionLoading || !applyInvoiceId || !applyAmount || Boolean(applyValidationError)} className="md:self-end">
                     Apply
-                  </button>
-                  <div id="apply-unapplied-limits" className="text-xs text-steel md:col-span-3">
-                    Selected invoice balance: {selectedOpenInvoice ? formatMoneyAmount(selectedOpenInvoice.balanceDue, selectedOpenInvoice.currency) : "-"}.
-                    Payment credit available: {formatMoneyAmount(payment.unappliedAmount, payment.currency)}.
-                    Maximum application: {formatMoneyAmount(maxApplyAmount, payment.currency)}.
+                  </LedgerButton>
+                  <div id="apply-unapplied-limits" className="md:col-span-3">
+                    <LedgerSummaryBand tone="info">
+                      Selected invoice balance: {selectedOpenInvoice ? formatMoneyAmount(selectedOpenInvoice.balanceDue, selectedOpenInvoice.currency) : "-"}.
+                      Payment credit available: {formatMoneyAmount(payment.unappliedAmount, payment.currency)}.
+                      Maximum application: {formatMoneyAmount(maxApplyAmount, payment.currency)}.
+                    </LedgerSummaryBand>
                   </div>
                   {applyValidationError ? <div className="text-xs text-rosewood md:col-span-3">{applyValidationError}</div> : null}
                 </form>
               ) : (
-                <div className="mt-4">
-                  <StatusMessage type="empty">No finalized open invoices are available for this customer.</StatusMessage>
-                </div>
+                <LedgerEmptyState title="No finalized open invoices" description="No finalized open invoices are available for this customer." />
               )
             ) : (
-              <div className="mt-4">
-                <StatusMessage type="info">Unapplied amount can be applied only while the payment is posted and credit remains.</StatusMessage>
-              </div>
+              <LedgerAlert tone="info">Unapplied amount can be applied only while the payment is posted and credit remains.</LedgerAlert>
             )}
-          </div>
-
-        </div>
+          </LedgerSection>
+        </>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -720,23 +707,19 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-ink">Payment state</h2>
             <p className="mt-1 text-sm text-steel">{paymentOutputStatus(payment)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentStatusBadgeClass(payment.status)}`}>
-              {customerPaymentStatusLabel(payment.status)}
-            </span>
-            <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${customerPaymentAllocationStateBadgeClass(allocationState)}`}>
-              {customerPaymentAllocationStateLabel(allocationState)}
-            </span>
+            <LedgerStatusBadge tone={paymentStatusTone(payment.status)}>{customerPaymentStatusLabel(payment.status)}</LedgerStatusBadge>
+            <LedgerStatusBadge tone={allocationStateTone(allocationState)}>{customerPaymentAllocationStateLabel(allocationState)}</LedgerStatusBadge>
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <LedgerMetricGrid className="mt-5">
           <StateMetric label="Amount received" value={formatMoneyAmount(payment.amountReceived, payment.currency)} />
           <StateMetric label="Unapplied amount" value={formatMoneyAmount(payment.unappliedAmount, payment.currency)} detail={customerPaymentAllocationStateLabel(allocationState)} />
           <StateMetric label="Directly allocated" value={formatMoneyAmount(directAllocatedAmount, payment.currency)} detail={`${directAllocationCount} invoice${directAllocationCount === 1 ? "" : "s"}`} />
@@ -745,10 +728,10 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
             value={formatMoneyAmount(unappliedAppliedAmount, payment.currency)}
             detail={`${activeUnappliedCount} active, ${reversedUnappliedCount} reversed`}
           />
-        </div>
-      </section>
+        </LedgerMetricGrid>
+      </LedgerPanel>
 
-      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <h2 className="text-base font-semibold text-ink">Accounting summary</h2>
         <div className="mt-4 space-y-4 text-sm">
           <StateRow label="Paid-through account" value={payment.account ? `${payment.account.code} ${payment.account.name}` : "Not returned"} />
@@ -760,7 +743,7 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
           <StateRow label="Posted" value={payment.postedAt ? new Date(payment.postedAt).toLocaleString() : "Not posted"} />
           <StateRow label="Voided" value={payment.voidedAt ? new Date(payment.voidedAt).toLocaleString() : "Not voided"} />
         </div>
-      </section>
+      </LedgerPanel>
     </div>
   );
 }
@@ -777,34 +760,28 @@ export function CustomerPaymentReceiptArchiveState({
   canViewGeneratedDocuments: boolean;
 }) {
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Receipt output</h2>
-          <p className="mt-1 text-sm text-steel">Generated receipt PDFs are archived only after an explicit receipt action.</p>
-        </div>
-        <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${documents.length > 0 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
-          {documents.length > 0 ? `${documents.length} archived` : "No archived receipt"}
-        </span>
-      </div>
-
-      <div className="mt-4">
+    <LedgerSection
+      title="Receipt output"
+      description="Generated receipt PDFs are archived only after an explicit receipt action."
+      action={<LedgerStatusBadge tone={documents.length > 0 ? "success" : "neutral"}>{documents.length > 0 ? `${documents.length} archived` : "No archived receipt"}</LedgerStatusBadge>}
+    >
         {!canViewGeneratedDocuments ? (
-          <StatusMessage type="info">Generated document permission is required to view archived receipt output records.</StatusMessage>
+          <LedgerAlert tone="info">Generated document permission is required to view archived receipt output records.</LedgerAlert>
         ) : loading ? (
           <StatusMessage type="loading">Loading receipt archive state...</StatusMessage>
         ) : error ? (
-          <StatusMessage type="info">Receipt archive state is unavailable: {error}</StatusMessage>
+          <LedgerAlert tone="info">Receipt archive state is unavailable: {error}</LedgerAlert>
         ) : documents.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
-            <StatusMessage type="empty">No receipt PDF has been generated or archived for this payment.</StatusMessage>
-            <p className="mt-3 text-sm leading-6 text-steel">
+          <LedgerEmptyState
+            title="No receipt PDF has been generated or archived for this payment."
+            description={
+              <>
               Use the explicit receipt PDF action when a customer-facing receipt output is needed. Payment posting, allocation, reversal, and void actions do not create receipt PDFs automatically.
-            </p>
-          </div>
+              </>
+            }
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+          <LedgerDataTable minWidth="720px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Filename</th>
@@ -818,24 +795,20 @@ export function CustomerPaymentReceiptArchiveState({
                   <tr key={document.id}>
                     <td className="px-4 py-3 font-medium text-ink">{document.filename}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${generatedDocumentStatusBadgeClass(document.status)}`}>
-                        {generatedDocumentStatusLabel(document.status)}
-                      </span>
+                      <LedgerStatusBadge tone={generatedDocumentStatusTone(document.status)}>{generatedDocumentStatusLabel(document.status)}</LedgerStatusBadge>
                     </td>
-                    <td className="px-4 py-3 text-steel">{new Date(document.generatedAt).toLocaleString()}</td>
+                    <td className="px-4 py-3"><LedgerDate>{new Date(document.generatedAt).toLocaleString()}</LedgerDate></td>
                     <td className="px-4 py-3">
-                      <Link href="/documents" className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <LedgerButton href="/documents" size="sm">
                         Open archive
-                      </Link>
+                      </LedgerButton>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </LedgerDataTable>
         )}
-      </div>
-    </section>
+    </LedgerSection>
   );
 }
 
@@ -857,31 +830,22 @@ export function CustomerPaymentAuditStatus({
   const badge = auditStatusBadge(logs, loading, error, canViewAuditLogs);
 
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Audit status</h2>
-          <p className="mt-1 text-sm text-steel">
-            {latestLog ? `${auditActionLabel(latestLog.action)} on ${new Date(latestLog.createdAt).toLocaleString()}` : "Payment audit trail status."}
-          </p>
-        </div>
-        <span className={`self-start rounded-md px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
-      </div>
-
-      <div className="mt-4">
+    <LedgerSection
+      title="Audit status"
+      description={latestLog ? `${auditActionLabel(latestLog.action)} on ${new Date(latestLog.createdAt).toLocaleString()}` : "Payment audit trail status."}
+      action={<LedgerStatusBadge tone={badge.tone}>{badge.label}</LedgerStatusBadge>}
+    >
         {!canViewAuditLogs ? (
-          <StatusMessage type="info">Audit log permission is required to view customer payment audit events.</StatusMessage>
+          <LedgerAlert tone="info">Audit log permission is required to view customer payment audit events.</LedgerAlert>
         ) : loading ? (
           <StatusMessage type="loading">Loading payment audit status...</StatusMessage>
         ) : error ? (
-          <StatusMessage type="info">Payment audit status is unavailable: {error}</StatusMessage>
+          <LedgerAlert tone="info">Payment audit status is unavailable: {error}</LedgerAlert>
         ) : logs.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
-            <StatusMessage type="empty">No customer payment audit entries were returned for this payment.</StatusMessage>
-          </div>
+          <LedgerEmptyState title="No customer payment audit entries were returned for this payment." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+          <>
+            <LedgerDataTable minWidth="760px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Event</th>
@@ -898,20 +862,19 @@ export function CustomerPaymentAuditStatus({
                       {auditEntityTypeLabel(log.entityType)} / <span className="font-mono text-xs">{log.entityId}</span>
                     </td>
                     <td className="px-4 py-3 text-steel">{auditActorLabel(log)}</td>
-                    <td className="px-4 py-3 text-steel">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-3"><LedgerDate>{new Date(log.createdAt).toLocaleString()}</LedgerDate></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </LedgerDataTable>
             <div className="mt-3">
-              <Link href={auditHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <LedgerButton href={auditHref}>
                 Open audit logs
-              </Link>
+              </LedgerButton>
             </div>
-          </div>
+          </>
         )}
-      </div>
-    </section>
+    </LedgerSection>
   );
 }
 
@@ -941,21 +904,21 @@ export function CustomerPaymentWorkflowGuidance({
   return (
     <div className="space-y-4">
       {recorded ? (
-        <StatusMessage type="success">
+        <LedgerAlert tone="success">
           Payment recorded. The receipt and allocation details below show what changed; linked invoice balances are updated.
-        </StatusMessage>
+        </LedgerAlert>
       ) : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-ink">What happened?</h2>
               <p className="mt-1 text-sm leading-6 text-steel">{paymentOutcomeDescription(payment, hasUnapplied)}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <PaymentStatusBadge status={payment.status} />
+              <LedgerStatusBadge tone={paymentStatusTone(payment.status)}>{customerPaymentStatusLabel(payment.status)}</LedgerStatusBadge>
               {hasUnapplied ? (
-                <StatusBadge tone="warning">Unapplied credit</StatusBadge>
+                <LedgerStatusBadge tone="warning">Unapplied credit</LedgerStatusBadge>
               ) : null}
             </div>
           </div>
@@ -964,52 +927,51 @@ export function CustomerPaymentWorkflowGuidance({
             <Summary label="Applied to invoices" value={formatMoneyAmount(formatUnits(appliedTotalUnits), payment.currency)} />
             <Summary label="Payment number" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
           </div>
-        </div>
+        </LedgerPanel>
 
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPanel>
           <h2 className="text-base font-semibold text-ink">Next actions</h2>
           <p className="mt-1 text-sm leading-6 text-steel">{paymentNextActionDescription(payment, hasUnapplied)}</p>
           <div className="mt-4 flex flex-col gap-2">
             {firstAllocatedInvoice ? (
-              <Link
+              <LedgerButton
                 href={`/sales/invoices/${firstAllocatedInvoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className={buttonVariants()}
+                variant="primary"
               >
                 View invoice
-              </Link>
+              </LedgerButton>
             ) : null}
-            <Button
+            <LedgerButton
               type="button"
               onClick={onPreviewReceiptData}
               disabled={actionLoading || loadingReceiptData}
-              variant="outline"
+              icon={Eye}
             >
               Preview receipt
-            </Button>
-            <Button
+            </LedgerButton>
+            <LedgerButton
               type="button"
               onClick={onDownloadReceiptPdf}
               disabled={actionLoading || loadingReceiptData}
-              variant="outline"
+              icon={Download}
             >
               Download receipt PDF
-            </Button>
+            </LedgerButton>
             <p className="text-xs leading-5 text-steel">
               Downloading the PDF uses the explicit receipt PDF route and may archive a generated receipt record. Payment posting and allocation actions do not create receipts automatically.
             </p>
-            <Link href={partyDetailHref("customer", payment.customerId)} className={buttonVariants({ variant: "outline" })}>
+            <LedgerButton href={partyDetailHref("customer", payment.customerId)}>
               Open customer workspace
-            </Link>
+            </LedgerButton>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Link
+              <LedgerButton
                 href={`/reports/aged-receivables${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                className={buttonVariants({ variant: "outline" })}
               >
                 AR report
-              </Link>
-              <Link href="/dashboard" className={buttonVariants({ variant: "outline" })}>
+              </LedgerButton>
+              <LedgerButton href="/dashboard">
                 Dashboard
-              </Link>
+              </LedgerButton>
             </div>
           </div>
           {payment.status === "VOIDED" ? (
@@ -1022,7 +984,10 @@ export function CustomerPaymentWorkflowGuidance({
           ) : null}
           {receiptData ? (
             <div className="mt-4 border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-ink">Receipt preview</h3>
+              <div className="flex items-center gap-2">
+                <ReceiptText className="h-4 w-4 text-palm" aria-hidden="true" />
+                <h3 className="text-sm font-semibold text-ink">Receipt preview</h3>
+              </div>
               <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <Summary label="Receipt number" value={receiptData.receiptNumber} />
                 <Summary label="Customer" value={receiptData.customer.displayName ?? receiptData.customer.name} />
@@ -1034,7 +999,7 @@ export function CustomerPaymentWorkflowGuidance({
             </div>
           ) : null}
           <SourceDocumentGuidance className="mt-4" />
-        </div>
+        </LedgerPanel>
       </div>
     </div>
   );
@@ -1075,9 +1040,48 @@ function JournalReference({
       <Link href="/journal-entries" className="font-mono text-xs text-palm hover:underline">
         {journal.entryNumber}
       </Link>
-      <span className={`rounded-md px-2 py-1 text-xs font-medium ${journalStatusBadgeClass(journal.status)}`}>{journal.status}</span>
+      <LedgerStatusBadge tone={journalStatusTone(journal.status)}>{journal.status}</LedgerStatusBadge>
     </span>
   );
+}
+
+function paymentStatusTone(status: CustomerPayment["status"]): LedgerStatusTone {
+  switch (status) {
+    case "POSTED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+    case "DRAFT":
+      return "draft";
+  }
+}
+
+function allocationStateTone(state: CustomerPaymentAllocationState): LedgerStatusTone {
+  switch (state) {
+    case "FULLY_APPLIED":
+      return "success";
+    case "PARTIALLY_UNAPPLIED":
+      return "warning";
+    case "NO_ALLOCATIONS":
+      return "neutral";
+  }
+}
+
+function unappliedAllocationTone(
+  allocation: Pick<NonNullable<CustomerPayment["unappliedAllocations"]>[number], "reversedAt">,
+): LedgerStatusTone {
+  return allocation.reversedAt ? "neutral" : "success";
+}
+
+function generatedDocumentStatusTone(status: GeneratedDocument["status"]): LedgerStatusTone {
+  switch (status) {
+    case "GENERATED":
+      return "success";
+    case "FAILED":
+      return "danger";
+    case "SUPERSEDED":
+      return "warning";
+  }
 }
 
 function paymentOutputStatus(payment: CustomerPayment): string {
@@ -1092,16 +1096,16 @@ function paymentOutputStatus(payment: CustomerPayment): string {
   return "Draft payment with no posted accounting output.";
 }
 
-function journalStatusBadgeClass(status: NonNullable<CustomerPayment["journalEntry"]>["status"]): string {
+function journalStatusTone(status: NonNullable<CustomerPayment["journalEntry"]>["status"]): LedgerStatusTone {
   switch (status) {
     case "POSTED":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "REVERSED":
-      return "bg-slate-100 text-slate-700";
+      return "neutral";
     case "DRAFT":
-      return "bg-amber-50 text-amber-700";
+      return "warning";
     default:
-      return "bg-slate-100 text-slate-700";
+      return "neutral";
   }
 }
 
@@ -1154,20 +1158,20 @@ function auditStatusBadge(
   loading: boolean,
   error: string,
   canViewAuditLogs: boolean,
-): { label: string; className: string } {
+): { label: string; tone: LedgerStatusTone } {
   if (!canViewAuditLogs) {
-    return { label: "Permission required", className: "bg-slate-100 text-slate-700" };
+    return { label: "Permission required", tone: "neutral" };
   }
   if (loading) {
-    return { label: "Loading", className: "bg-slate-100 text-slate-700" };
+    return { label: "Loading", tone: "neutral" };
   }
   if (error) {
-    return { label: "Unavailable", className: "bg-amber-50 text-amber-700" };
+    return { label: "Unavailable", tone: "warning" };
   }
   if (logs.length === 0) {
-    return { label: "No events", className: "bg-slate-100 text-slate-700" };
+    return { label: "No events", tone: "neutral" };
   }
-  return { label: `${logs.length} event${logs.length === 1 ? "" : "s"}`, className: "bg-emerald-50 text-emerald-700" };
+  return { label: `${logs.length} event${logs.length === 1 ? "" : "s"}`, tone: "success" };
 }
 
 function paymentOutcomeDescription(payment: CustomerPayment, hasUnapplied: boolean): string {
