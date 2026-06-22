@@ -1,10 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerInput,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankRuleActionLabel, bankRuleDirectionLabel } from "@/lib/bank-statements";
@@ -199,34 +215,32 @@ export default function BankRulesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Bank rules</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} statement automation` : "Manual statement automation"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking / Rule suggestions"
+        title="Bank rules"
+        description={profile ? `${profile.displayName} statement review suggestions` : "Manual statement review suggestions."}
+        actions={
+          <LedgerActionBar className="sm:justify-end">
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions`}>Statement rows</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
+          </LedgerActionBar>
+        }
+      />
+      <LedgerSummaryBand tone="info">
+        Rules produce operator-reviewed suggestions for imported statement rows. They do not connect to live bank feeds, initiate payments, silently ignore rows, or auto-reconcile.
+      </LedgerSummaryBand>
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage bank rules.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading bank rules...</StatusMessage> : null}
         {message ? <StatusMessage type={message.type === "loading" ? "loading" : message.type}>{message.text}</StatusMessage> : null}
         {!canManage ? <StatusMessage type="info">Your role can view bank rules, but rule changes require bank statement manage permission.</StatusMessage> : null}
-      </div>
 
       <BankRulesGuidance />
 
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">Rule list</h2>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
+        <LedgerSection title="Rule list" description="Enabled and disabled statement review rules, sorted by priority.">
           <div className="mt-4 space-y-3">
             {sortedRules.map((rule) => (
               <div key={rule.id} className="rounded-md border border-slate-200 p-4">
@@ -234,10 +248,8 @@ export default function BankRulesPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-ink">{rule.name}</h3>
-                      <span className={`rounded-md px-2 py-1 text-xs font-medium ${rule.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                        {rule.enabled ? "Enabled" : "Disabled"}
-                      </span>
-                      <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">Priority {rule.priority}</span>
+                      <LedgerStatusBadge tone={rule.enabled ? "success" : "neutral"}>{rule.enabled ? "Enabled" : "Disabled"}</LedgerStatusBadge>
+                      <LedgerStatusBadge tone="draft">Priority {rule.priority}</LedgerStatusBadge>
                     </div>
                     <p className="mt-2 text-sm text-steel">
                       {bankRuleDirectionLabel(rule.direction)} - {bankRuleActionLabel(rule.actionType)}
@@ -245,42 +257,36 @@ export default function BankRulesPage() {
                     <p className="mt-1 text-xs text-steel">{ruleSummary(rule)}</p>
                     <p className="mt-1 text-xs text-steel">Last applied: {formatOptionalDate(rule.lastAppliedAt, "Never")}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => dryRunRule(rule)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                      Dry run
-                    </button>
+                  <LedgerActionBar>
+                    <LedgerButton type="button" onClick={() => dryRunRule(rule)}>Dry run</LedgerButton>
                     {canManage ? (
                       <>
-                        <button type="button" onClick={() => editRule(rule)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                          Edit
-                        </button>
-                        <button type="button" onClick={() => toggleRule(rule)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                          {rule.enabled ? "Disable" : "Enable"}
-                        </button>
+                        <LedgerButton type="button" onClick={() => editRule(rule)}>Edit</LedgerButton>
+                        <LedgerButton type="button" onClick={() => toggleRule(rule)}>{rule.enabled ? "Disable" : "Enable"}</LedgerButton>
                       </>
                     ) : null}
-                  </div>
+                  </LedgerActionBar>
                 </div>
               </div>
             ))}
-            {!loading && sortedRules.length === 0 ? <StatusMessage type="empty">No bank rules exist for this bank account yet.</StatusMessage> : null}
+            {!loading && sortedRules.length === 0 ? <LedgerEmptyState title="No bank rules exist" description="Create a rule to suggest manual review actions for imported unmatched statement rows." /> : null}
           </div>
-        </div>
+        </LedgerSection>
 
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">{form.id ? "Edit rule" : "Create rule"}</h2>
+        <LedgerSection title={form.id ? "Edit rule" : "Create rule"} description="Rules are suggestion templates; applying a suggestion is still explicit.">
           <RuleForm form={form} accounts={accounts} canManage={canManage} onChange={updateForm} onSubmit={submitRule} submitting={submitting} onReset={() => setForm({ ...emptyForm, categorizeAccountId: accounts[0]?.id ?? "" })} />
-        </div>
+        </LedgerSection>
       </div>
 
       {dryRun ? <DryRunPanel dryRun={dryRun} currency={profile?.currency ?? "SAR"} /> : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function BankRulesGuidance() {
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">Rule behavior</h2>
       <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">
         Bank rules evaluate imported manual statement rows and create review suggestions. Applying a suggestion is always an explicit operator action.
@@ -288,7 +294,7 @@ export function BankRulesGuidance() {
       <p className="mt-2 max-w-4xl text-xs leading-5 text-steel">
         This does not add live bank feeds, bank API calls, payment initiation, silent auto-reconciliation, silent auto-ignore, deposits, cards, or cheques.
       </p>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -310,24 +316,24 @@ function RuleForm({
   onReset: () => void;
 }) {
   return (
-    <div className="mt-4 space-y-3">
-      <label className="block">
-        <span className="text-xs font-medium uppercase tracking-wide text-steel">Rule name</span>
-        <input value={form.name} onChange={(event) => onChange("name", event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
+    <div className="space-y-3">
+      <LedgerFieldLabel>
+        Rule name
+        <LedgerInput value={form.name} onChange={(event) => onChange("name", event.target.value)} />
+      </LedgerFieldLabel>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Direction</span>
-          <select value={form.direction} onChange={(event) => onChange("direction", event.target.value as BankRuleDirection)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <LedgerFieldLabel>
+          Direction
+          <LedgerSelect value={form.direction} onChange={(event) => onChange("direction", event.target.value as BankRuleDirection)}>
             <option value="ANY">Any</option>
             <option value="DEBIT">Debit</option>
             <option value="CREDIT">Credit</option>
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Priority</span>
-          <input type="number" value={form.priority} onChange={(event) => onChange("priority", event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          Priority
+          <LedgerInput type="number" value={form.priority} onChange={(event) => onChange("priority", event.target.value)} />
+        </LedgerFieldLabel>
         <label className="flex items-end gap-2 pb-2 text-sm text-steel">
           <input type="checkbox" checked={form.enabled} onChange={(event) => onChange("enabled", event.target.checked)} />
           Enabled
@@ -349,60 +355,53 @@ function RuleForm({
         <TextField label="Start date" type="date" value={form.startDate} onChange={(value) => onChange("startDate", value)} />
         <TextField label="End date" type="date" value={form.endDate} onChange={(value) => onChange("endDate", value)} />
       </div>
-      <label className="block">
-        <span className="text-xs font-medium uppercase tracking-wide text-steel">Action</span>
-        <select value={form.actionType} onChange={(event) => onChange("actionType", event.target.value as BankRuleActionType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerFieldLabel>
+        Action
+        <LedgerSelect value={form.actionType} onChange={(event) => onChange("actionType", event.target.value as BankRuleActionType)}>
           <option value="SUGGEST_CATEGORIZE">Suggest categorize</option>
           <option value="SUGGEST_IGNORE">Suggest ignore</option>
           <option value="SUGGEST_MATCH_CANDIDATES">Suggest match candidates</option>
           <option value="CATEGORIZE">Categorize on explicit apply</option>
           <option value="IGNORE">Ignore on explicit apply</option>
-        </select>
-      </label>
+        </LedgerSelect>
+      </LedgerFieldLabel>
       {(form.actionType === "SUGGEST_CATEGORIZE" || form.actionType === "CATEGORIZE") ? (
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Categorize account</span>
-          <select value={form.categorizeAccountId} onChange={(event) => onChange("categorizeAccountId", event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <LedgerFieldLabel>
+          Categorize account
+          <LedgerSelect value={form.categorizeAccountId} onChange={(event) => onChange("categorizeAccountId", event.target.value)}>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.code} {account.name}
               </option>
             ))}
-          </select>
-        </label>
+          </LedgerSelect>
+        </LedgerFieldLabel>
       ) : null}
       {(form.actionType === "SUGGEST_IGNORE" || form.actionType === "IGNORE") ? <TextField label="Ignore reason" value={form.ignoreReason} onChange={(value) => onChange("ignoreReason", value)} /> : null}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={!canManage || submitting} onClick={() => void onSubmit()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+      <LedgerActionBar>
+        <LedgerButton type="button" disabled={!canManage || submitting} onClick={() => void onSubmit()} variant="primary">
           {submitting ? "Saving..." : form.id ? "Update rule" : "Create rule"}
-        </button>
-        <button type="button" onClick={onReset} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Clear
-        </button>
-      </div>
+        </LedgerButton>
+        <LedgerButton type="button" onClick={onReset}>Clear</LedgerButton>
+      </LedgerActionBar>
     </div>
   );
 }
 
 function TextField({ label, value, type = "text", onChange }: { label: string; value: string; type?: string; onChange: (value: string) => void }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+    <LedgerFieldLabel>
+      {label}
+      <LedgerInput type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </LedgerFieldLabel>
   );
 }
 
 function DryRunPanel({ dryRun, currency }: { dryRun: BankRuleDryRunResponse; currency: string }) {
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Dry-run results</h2>
-      <p className="mt-1 text-sm text-steel">
-        {dryRun.rule.name}: {dryRun.suggestions.length} suggestions from {dryRun.checkedCount} checked unmatched rows.
-      </p>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+    <LedgerSection title="Dry-run results" description={`${dryRun.rule.name}: ${dryRun.suggestions.length} suggestions from ${dryRun.checkedCount} checked unmatched rows.`}>
+        <LedgerDataTable minWidth="760px" className="shadow-none">
+          <thead className="ledger-table-header">
             <tr>
               <th className="px-3 py-2">Date</th>
               <th className="px-3 py-2">Description</th>
@@ -413,16 +412,15 @@ function DryRunPanel({ dryRun, currency }: { dryRun: BankRuleDryRunResponse; cur
           <tbody className="divide-y divide-slate-100">
             {dryRun.suggestions.map(({ transaction, suggestion }) => (
               <tr key={transaction.id}>
-                <td className="px-3 py-2 text-steel">{formatOptionalDate(transaction.transactionDate, "-")}</td>
+                <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(transaction.transactionDate, "-")}</LedgerDate></td>
                 <td className="px-3 py-2 font-medium text-ink">{transaction.description}</td>
                 <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(transaction.amount, currency)}</td>
                 <td className="px-3 py-2 text-steel">{bankRuleActionLabel(suggestion.actionType)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+        </LedgerDataTable>
+    </LedgerSection>
   );
 }
 

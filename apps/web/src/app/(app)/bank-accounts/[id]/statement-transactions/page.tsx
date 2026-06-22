@@ -1,14 +1,30 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerInput,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
-  bankStatementTransactionStatusBadgeClass,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   bankRuleActionLabel,
@@ -482,39 +498,32 @@ export default function BankStatementTransactionsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Statement transaction review</h1>
-          <p className="mt-1 text-sm text-steel">
-            {profile ? `${profile.displayName} imported statement rows` : "Imported statement rows"} for manual match, categorize, or ignore review.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Imports
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Rules
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Reconciliation
-          </Link>
-          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking / Manual review"
+        title="Statement transaction review"
+        description={profile ? `${profile.displayName} imported statement rows for manual match, categorize, or ignore review.` : "Imported statement rows for manual match, categorize, or ignore review."}
+        actions={
+          <LedgerActionBar className="sm:justify-end">
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-imports`}>Imports</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/rules`}>Rules</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/reconciliation`}>Reconciliation</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
+          </LedgerActionBar>
+        }
+      />
+      <LedgerSummaryBand tone="warning">
+        Every row-changing action here is explicit. Match creates no journal, categorize posts through the existing manual journal path, and ignore keeps the row out of reconciliation review.
+      </LedgerSummaryBand>
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load statement transactions.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading statement transactions...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {bulkMessage ? <StatusMessage type={bulkMessage.type === "loading" ? "loading" : bulkMessage.type}>{bulkMessage.message}</StatusMessage> : null}
         {!canReconcile ? <StatusMessage type="info">Your role can view statement rows, but inline review actions require bank statement reconcile permission.</StatusMessage> : null}
-      </div>
 
-      <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerSection title="Review filters" description="Filter imported statement rows before explicit matching, categorization, or ignore actions.">
         <StatementTransactionsGuidance profileId={params.id} />
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Statement transaction filters">
           {STATUS_FILTERS.map((item) => (
@@ -531,79 +540,68 @@ export default function BankStatementTransactionsPage() {
           ))}
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
-          <label className="block lg:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Search</span>
-            <input
+          <LedgerFieldLabel className="lg:col-span-2">
+            Search
+            <LedgerInput
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Description, reference, bank ref, counterparty"
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
             />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Sort</span>
-            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            From
+            <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            To
+            <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Sort
+            <LedgerSelect value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
               <option value="date-desc">Date newest</option>
               <option value="date-asc">Date oldest</option>
               <option value="amount-desc">Amount high</option>
               <option value="amount-asc">Amount low</option>
               <option value="status">Status</option>
-            </select>
-          </label>
+            </LedgerSelect>
+          </LedgerFieldLabel>
         </div>
-      </div>
+      </LedgerSection>
 
       {canReconcile ? (
-        <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerSection title="Bulk review" description={`${selectedRows.length} selected, ${actionableSelectedRows.length} unlocked unmatched rows can be updated. Bulk match is intentionally per-row because each row needs its own candidate.`}>
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-ink">Bulk review</h2>
-              <p className="mt-1 text-sm text-steel">
-                {selectedRows.length} selected, {actionableSelectedRows.length} unlocked unmatched rows can be updated. Bulk match is intentionally per-row because each row needs its own candidate.
-              </p>
-            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[760px] xl:grid-cols-4">
-              <label className="block">
-                <span className="text-xs font-medium uppercase tracking-wide text-steel">Ignore reason</span>
-                <input value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-              </label>
-              <button type="button" onClick={() => void submitBulkAction("ignore")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Bulk ignore
-              </button>
-              <label className="block">
-                <span className="text-xs font-medium uppercase tracking-wide text-steel">Category account</span>
-                <select value={bulkAccountId} onChange={(event) => setBulkAccountId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <LedgerFieldLabel>
+                Ignore reason
+                <LedgerInput value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} />
+              </LedgerFieldLabel>
+              <LedgerButton type="button" onClick={() => void submitBulkAction("ignore")}>Bulk ignore</LedgerButton>
+              <LedgerFieldLabel>
+                Category account
+                <LedgerSelect value={bulkAccountId} onChange={(event) => setBulkAccountId(event.target.value)}>
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.code} {account.name}
                     </option>
                   ))}
-                </select>
-              </label>
-              <button type="button" onClick={() => void submitBulkAction("categorize")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50">
-                Bulk categorize
-              </button>
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerButton type="button" onClick={() => void submitBulkAction("categorize")} variant="primary">Bulk categorize</LedgerButton>
             </div>
           </div>
-          <label className="mt-3 block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Bulk categorize memo</span>
-            <input value={bulkMemo} onChange={(event) => setBulkMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
+          <LedgerFieldLabel className="mt-3">
+            Bulk categorize memo
+            <LedgerInput value={bulkMemo} onChange={(event) => setBulkMemo(event.target.value)} />
+          </LedgerFieldLabel>
+        </LedgerSection>
       ) : null}
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[1280px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+      <LedgerSection title="Statement rows" description="Imported rows and manual review actions.">
+        <LedgerDataTable minWidth="1280px" className="shadow-none">
+          <thead className="ledger-table-header">
             <tr>
               <th className="px-4 py-3">
                 <input aria-label="Select visible statement rows" type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAllVisible(event.target.checked)} />
@@ -643,7 +641,7 @@ export default function BankStatementTransactionsPage() {
                       onChange={(event) => toggleSelected(transaction.id, event.target.checked)}
                     />
                   </td>
-                  <td className="px-4 py-3 align-top text-steel">{formatOptionalDate(transaction.transactionDate, "-")}</td>
+                  <td className="px-4 py-3 align-top"><LedgerDate>{formatOptionalDate(transaction.transactionDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 align-top">
                     <p className="font-medium text-ink">{transaction.description}</p>
                     <p className="mt-1 font-mono text-xs text-steel">{readStatementRawField(transaction.rawData, "bankReference") ?? "-"}</p>
@@ -655,10 +653,8 @@ export default function BankStatementTransactionsPage() {
                   <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "DEBIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
                   <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "CREDIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
                   <td className="px-4 py-3 align-top">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
-                      {bankStatementTransactionStatusLabel(transaction.status)}
-                    </span>
-                    {actionable ? <span className="ml-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Needs review</span> : null}
+                    <StatementStatusBadge status={transaction.status} />
+                    {actionable ? <LedgerStatusBadge tone="warning">Needs review</LedgerStatusBadge> : null}
                     {lockedWarning ? <p className="mt-2 text-xs leading-5 text-amber-800">{lockedWarning}</p> : null}
                   </td>
                   <td className="px-4 py-3 align-top text-xs text-steel">{candidateSummary(candidates, rowCurrency)}</td>
@@ -667,115 +663,98 @@ export default function BankStatementTransactionsPage() {
                       {canReconcile && actionable ? (
                         <>
                           {firstDepositCandidate ? (
-                            <Link
-                              href={`/bank-accounts/${params.id}/deposits/${firstDepositCandidate.id}`}
-                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
-                            >
-                              Match deposit batch
-                            </Link>
+                            <LedgerButton href={`/bank-accounts/${params.id}/deposits/${firstDepositCandidate.id}`} size="sm" variant="primary">Match deposit batch</LedgerButton>
                           ) : null}
                           {transaction.type === "CREDIT" && !firstDepositCandidate ? (
-                            <button
+                            <LedgerButton
                               type="button"
                               onClick={() => void loadDepositCandidates(transaction)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              size="sm"
                             >
                               Find deposit batches
-                            </button>
+                            </LedgerButton>
                           ) : null}
                           {firstCardSettlementCandidate ? (
-                            <Link
-                              href={`/bank-accounts/${params.id}/card-settlements/${firstCardSettlementCandidate.id}`}
-                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
-                            >
-                              Match card settlement
-                            </Link>
+                            <LedgerButton href={`/bank-accounts/${params.id}/card-settlements/${firstCardSettlementCandidate.id}`} size="sm" variant="primary">Match card settlement</LedgerButton>
                           ) : null}
                           {!firstCardSettlementCandidate ? (
-                            <button
+                            <LedgerButton
                               type="button"
                               onClick={() => void loadCardSettlementCandidates(transaction)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              size="sm"
                             >
                               Find card settlements
-                            </button>
+                            </LedgerButton>
                           ) : null}
                           {firstChequeCandidate ? (
-                            <Link
-                              href={`/bank-accounts/${params.id}/cheques/${firstChequeCandidate.id}`}
-                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
-                            >
-                              Match cheque
-                            </Link>
+                            <LedgerButton href={`/bank-accounts/${params.id}/cheques/${firstChequeCandidate.id}`} size="sm" variant="primary">Match cheque</LedgerButton>
                           ) : null}
                           {!firstChequeCandidate ? (
-                            <button
+                            <LedgerButton
                               type="button"
                               onClick={() => void loadChequeCandidates(transaction)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              size="sm"
                             >
                               Find cheques
-                            </button>
+                            </LedgerButton>
                           ) : null}
-                          <button
+                          <LedgerButton
                             type="button"
                             onClick={() => void loadCandidates(transaction)}
                             disabled={loadingCandidatesFor === transaction.id}
-                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            size="sm"
                           >
                             {loadingCandidatesFor === transaction.id ? "Loading..." : "View candidates"}
-                          </button>
-                          <button
+                          </LedgerButton>
+                          <LedgerButton
                             type="button"
                             onClick={() => void loadRuleSuggestions(transaction)}
                             disabled={loadingRulesFor === transaction.id}
-                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                            size="sm"
                           >
                             {loadingRulesFor === transaction.id ? "Loading..." : "Rule suggestions"}
-                          </button>
-                          <button
+                          </LedgerButton>
+                          <LedgerButton
                             type="button"
                             onClick={() => {
                               setActiveAction({ rowId: transaction.id, type: "categorize" });
                               setInlineAccountId((current) => current || accounts[0]?.id || "");
                             }}
-                            className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            size="sm"
+                            variant="primary"
                           >
                             Categorize
-                          </button>
-                          <button
+                          </LedgerButton>
+                          <LedgerButton
                             type="button"
                             onClick={() => setActiveAction({ rowId: transaction.id, type: "ignore" })}
-                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            size="sm"
                           >
                             Ignore
-                          </button>
+                          </LedgerButton>
                         </>
                       ) : null}
-                      <Link href={`/bank-statement-transactions/${transaction.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                        Detail
-                      </Link>
+                      <LedgerButton href={`/bank-statement-transactions/${transaction.id}`} size="sm">Detail</LedgerButton>
                     </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </LedgerDataTable>
         {!loading && displayedTransactions.length === 0 ? (
-          <div className="p-4">
-            <StatusMessage type="empty">No statement transactions found for this filter.</StatusMessage>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Import statement
-              </Link>
-              <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Reconciliation summary
-              </Link>
-            </div>
-          </div>
+          <LedgerEmptyState
+            title="No statement transactions found"
+            description="No imported statement rows match this filter."
+            action={
+              <LedgerActionBar className="justify-center">
+                <LedgerButton href={`/bank-accounts/${params.id}/statement-imports`}>Import statement</LedgerButton>
+                <LedgerButton href={`/bank-accounts/${params.id}/reconciliation`}>Reconciliation summary</LedgerButton>
+              </LedgerActionBar>
+            }
+          />
         ) : null}
-      </div>
+      </LedgerSection>
 
       {activeAction ? (
         <InlineRowActionPanel
@@ -818,13 +797,14 @@ export default function BankStatementTransactionsPage() {
           onApply={applyRuleSuggestion}
         />
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function StatementTransactionsGuidance({ profileId }: { profileId: string }) {
   return (
-    <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">Inline statement review</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         Review imported manual statement rows without leaving the bank account. Match links a row to existing posted bank ledger activity, categorize posts through the existing manual journal path, and ignore keeps a row out of reconciliation totals. Every row-changing action is explicit.
@@ -832,21 +812,13 @@ export function StatementTransactionsGuidance({ profileId }: { profileId: string
       <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
         This workspace is manual banking only. Bank rules create suggestions for review; it does not connect to live bank feeds, collect bank credentials, initiate payments, silently ignore rows, or auto-reconcile.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link href={`/bank-accounts/${profileId}/rules`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Bank rules
-        </Link>
-        <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Import statement
-        </Link>
-        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Reconciliation summary
-        </Link>
-        <Link href="/dashboard" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Dashboard
-        </Link>
-      </div>
-    </div>
+      <LedgerActionBar className="mt-3">
+        <LedgerButton href={`/bank-accounts/${profileId}/rules`}>Bank rules</LedgerButton>
+        <LedgerButton href={`/bank-accounts/${profileId}/statement-imports`}>Import statement</LedgerButton>
+        <LedgerButton href={`/bank-accounts/${profileId}/reconciliation`}>Reconciliation summary</LedgerButton>
+        <LedgerButton href="/dashboard">Dashboard</LedgerButton>
+      </LedgerActionBar>
+    </LedgerPanel>
   );
 }
 
@@ -880,48 +852,46 @@ function InlineRowActionPanel({
   }
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">{type === "categorize" ? "Categorize row" : "Ignore row"}</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Close
-        </button>
+        <LedgerButton type="button" onClick={onCancel}>Close</LedgerButton>
       </div>
       {type === "categorize" ? (
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Offset account</span>
-            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          <LedgerFieldLabel>
+            Offset account
+            <LedgerSelect value={accountId} onChange={(event) => onAccountChange(event.target.value)}>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.code} {account.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Memo</span>
-            <input value={description} onChange={(event) => onDescriptionChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <button type="button" disabled={!accountId} onClick={() => void onSubmit(transaction)} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Memo
+            <LedgerInput value={description} onChange={(event) => onDescriptionChange(event.target.value)} />
+          </LedgerFieldLabel>
+          <LedgerButton type="button" disabled={!accountId} onClick={() => void onSubmit(transaction)} variant="primary">
             Post categorization journal
-          </button>
+          </LedgerButton>
         </div>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason</span>
-            <input value={ignoreReason} onChange={(event) => onIgnoreReasonChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <button type="button" disabled={!ignoreReason.trim()} onClick={() => void onSubmit(transaction)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+          <LedgerFieldLabel>
+            Reason
+            <LedgerInput value={ignoreReason} onChange={(event) => onIgnoreReasonChange(event.target.value)} />
+          </LedgerFieldLabel>
+          <LedgerButton type="button" disabled={!ignoreReason.trim()} onClick={() => void onSubmit(transaction)}>
             Ignore row
-          </button>
+          </LedgerButton>
         </div>
       )}
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -943,16 +913,14 @@ function RuleSuggestionPanel({
   }
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Rule suggestions</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
           <p className="mt-1 text-xs leading-5 text-steel">Suggestions do not change this row until an operator applies one explicitly.</p>
         </div>
-        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Close
-        </button>
+        <LedgerButton type="button" onClick={onClose}>Close</LedgerButton>
       </div>
       {suggestions.length === 0 ? <StatusMessage type="empty">No bank rules matched this statement row.</StatusMessage> : null}
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -965,7 +933,7 @@ function RuleSuggestionPanel({
                   <h3 className="text-sm font-semibold text-ink">{suggestion.ruleName}</h3>
                   <p className="mt-1 text-xs text-steel">{bankRuleActionLabel(suggestion.actionType)} - score {suggestion.score}</p>
                 </div>
-                <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">Priority {suggestion.priority}</span>
+                <LedgerStatusBadge tone="draft">Priority {suggestion.priority}</LedgerStatusBadge>
               </div>
               <ul className="mt-3 space-y-1 text-xs text-steel">
                 {suggestion.matchedReasons.map((reason) => (
@@ -973,14 +941,15 @@ function RuleSuggestionPanel({
                 ))}
               </ul>
               {canApply ? (
-                <button
+                <LedgerButton
                   type="button"
                   disabled={Boolean(applyingRuleId)}
                   onClick={() => void onApply(transaction, suggestion)}
-                  className="mt-3 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                  className="mt-3"
+                  variant="primary"
                 >
                   {applyingRuleId === suggestion.ruleId ? "Applying..." : "Apply suggestion"}
-                </button>
+                </LedgerButton>
               ) : (
                 <p className="mt-3 text-xs leading-5 text-steel">Match-candidate rules surface candidates only. Choose a specific candidate before matching.</p>
               )}
@@ -988,7 +957,7 @@ function RuleSuggestionPanel({
           );
         })}
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -1014,15 +983,13 @@ function CandidateReviewPanel({
   }
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Match candidates</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
         </div>
-        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Close
-        </button>
+        <LedgerButton type="button" onClick={onClose}>Close</LedgerButton>
       </div>
       {candidates.length === 0 ? <StatusMessage type="empty">No posted bank journal candidates matched this row.</StatusMessage> : null}
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -1033,7 +1000,7 @@ function CandidateReviewPanel({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{candidate.entryNumber}</p>
-                  <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">{candidateScoreLabel(candidate)}</span>
+                  <LedgerStatusBadge tone="draft">{candidateScoreLabel(candidate)}</LedgerStatusBadge>
                 </div>
                 <p className="mt-1 text-xs text-steel">
                   {formatOptionalDate(candidate.date, "-")} - {candidate.description ?? candidate.reference ?? "Posted bank journal line"}
@@ -1047,15 +1014,16 @@ function CandidateReviewPanel({
           </label>
         ))}
       </div>
-      <button
+      <LedgerButton
         type="button"
         disabled={!selectedJournalLineId}
         onClick={() => void onConfirm(transaction, selectedJournalLineId)}
-        className="mt-4 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
+        className="mt-4"
+        variant="primary"
       >
         Match selected candidate
-      </button>
-    </div>
+      </LedgerButton>
+    </LedgerPanel>
   );
 }
 
@@ -1105,6 +1073,16 @@ function sortStatementTransactions(transactions: BankStatementTransaction[], sor
 
 function isActionableStatementRow(transaction: BankStatementTransaction): boolean {
   return MUTABLE_STATUSES.has(transaction.status) && !lockedStatementTransactionWarning(transaction);
+}
+
+function StatementStatusBadge({ status }: { status: BankStatementTransactionStatus }) {
+  return <LedgerStatusBadge tone={statementStatusTone(status)}>{bankStatementTransactionStatusLabel(status)}</LedgerStatusBadge>;
+}
+
+function statementStatusTone(status: BankStatementTransactionStatus): LedgerStatusTone {
+  if (status === "MATCHED" || status === "CATEGORIZED") return "success";
+  if (status === "IGNORED") return "neutral";
+  return "warning";
 }
 
 function candidateSummary(candidates: BankStatementMatchCandidate[] | undefined, currency: string): string {
