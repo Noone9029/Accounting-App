@@ -11,17 +11,27 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { FinancialFlowScene } from "@/components/dashboard/financial-flow-scene";
-import { StatusMessage } from "@/components/common/status-message";
 import { DashboardFirstWorkflowPrompt, DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { buttonVariants } from "@/components/ui/button";
-import { LedgerPageHeader, LedgerStatusBadge } from "@/components/ui/ledger-system";
+import {
+  LedgerButton,
+  LedgerEmptyState,
+  LedgerErrorState,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  buttonClassName,
+} from "@/components/ui/ledger-system";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { KpiCard } from "@/components/ui-ledger/kpi-card";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -57,6 +67,7 @@ import type {
 } from "@/lib/types";
 
 type DashboardLinks = Partial<Record<string, DashboardDrilldownLink | null>>;
+type DashboardIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 export default function DashboardPage() {
   const edition = getLedgerByteEdition();
@@ -153,7 +164,7 @@ export default function DashboardPage() {
   }, [organizationId]);
 
   return (
-    <section className="space-y-6">
+    <LedgerPage>
       <div className="relative overflow-hidden rounded-md border border-slate-900 bg-sidebar p-5 text-white shadow-panel">
         <FinancialFlowScene />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -172,10 +183,14 @@ export default function DashboardPage() {
               quickActions.length > 0 ? (
                 <>
                   {quickActions.slice(0, 3).map((action) => (
-                    <Link key={action.href} href={action.href} className={buttonVariants({ variant: "outline", className: "border-white/20 bg-white/10 text-white hover:bg-white/15" })}>
+                    <LedgerButton
+                      key={action.href}
+                      href={action.href}
+                      icon={ArrowRight}
+                      className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+                    >
                       {action.label}
-                      <ArrowRight data-icon="inline-end" aria-hidden="true" />
-                    </Link>
+                    </LedgerButton>
                   ))}
                 </>
               ) : null
@@ -189,62 +204,61 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load the dashboard.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading dashboard...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? (
+          <LedgerEmptyState title="Select an organization" description="Log in and select an organization to load the dashboard." />
+        ) : null}
+        {loading ? <LedgerLoadingState title="Loading dashboard" description="Loading workspace summary and attention signals." /> : null}
+        {error ? <LedgerErrorState title="Unable to load dashboard" description={error} /> : null}
 
-      {summary ? (
-        <>
-          {dashboardIsEmpty(summary) ? (
-            <DashboardFirstWorkflowPrompt checklist={onboardingChecklist} />
-          ) : null}
+        {summary ? (
+          <>
+            {dashboardIsEmpty(summary) ? <DashboardFirstWorkflowPrompt checklist={onboardingChecklist} /> : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <Kpi
-              icon={<TrendingUp className="h-5 w-5" />}
-              label="Revenue"
-              value={formatDashboardMoney(summary.sales.salesThisMonth, summary.currency)}
-              detail="Sales this month"
-              href={drilldownLinks.profitAndLoss?.href}
-            />
-            <Kpi
-              icon={<ReceiptText className="h-5 w-5" />}
-              label="Expenses"
-              value={formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency)}
-              detail="Purchases this month"
-              href={drilldownLinks.unpaidBills?.href}
-            />
-            <Kpi
-              icon={<BarChart3 className="h-5 w-5" />}
-              label="Net profit"
-              value={formatDashboardMoney(summary.reports.profitAndLossNetProfit, summary.currency)}
-              detail={dashboardHealthLabel(summary.reports.trialBalanceBalanced)}
-              href={drilldownLinks.profitAndLoss?.href}
-            />
-            <Kpi
-              icon={<Banknote className="h-5 w-5" />}
-              label="Cash balance"
-              value={formatDashboardMoney(summary.banking.totalBankBalance, summary.currency)}
-              detail={`${summary.banking.bankAccountCount} active accounts`}
-              href={drilldownLinks.bankBalance?.href}
-            />
-            <Kpi
-              icon={<FileText className="h-5 w-5" />}
-              label="Receivables"
-              value={formatDashboardMoney(summary.sales.unpaidInvoiceBalance, summary.currency)}
-              detail={`${summary.sales.unpaidInvoiceCount} open, ${summary.sales.overdueInvoiceCount} overdue`}
-              href={drilldownLinks.unpaidInvoices?.href}
-            />
-            <Kpi
-              icon={<ReceiptText className="h-5 w-5" />}
-              label="Payables"
-              value={formatDashboardMoney(summary.purchases.unpaidBillBalance, summary.currency)}
-              detail={`${summary.purchases.unpaidBillCount} open, ${summary.purchases.overdueBillCount} overdue`}
-              href={drilldownLinks.unpaidBills?.href}
-            />
-          </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <Kpi
+                icon={TrendingUp}
+                label="Revenue"
+                value={formatDashboardMoney(summary.sales.salesThisMonth, summary.currency)}
+                detail="Sales this month"
+                href={drilldownLinks.profitAndLoss?.href}
+              />
+              <Kpi
+                icon={ReceiptText}
+                label="Expenses"
+                value={formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency)}
+                detail="Purchases this month"
+                href={drilldownLinks.unpaidBills?.href}
+              />
+              <Kpi
+                icon={BarChart3}
+                label="Net profit"
+                value={formatDashboardMoney(summary.reports.profitAndLossNetProfit, summary.currency)}
+                detail={dashboardHealthLabel(summary.reports.trialBalanceBalanced)}
+                href={drilldownLinks.profitAndLoss?.href}
+              />
+              <Kpi
+                icon={Banknote}
+                label="Cash balance"
+                value={formatDashboardMoney(summary.banking.totalBankBalance, summary.currency)}
+                detail={`${summary.banking.bankAccountCount} active accounts`}
+                href={drilldownLinks.bankBalance?.href}
+              />
+              <Kpi
+                icon={FileText}
+                label="Receivables"
+                value={formatDashboardMoney(summary.sales.unpaidInvoiceBalance, summary.currency)}
+                detail={`${summary.sales.unpaidInvoiceCount} open, ${summary.sales.overdueInvoiceCount} overdue`}
+                href={drilldownLinks.unpaidInvoices?.href}
+              />
+              <Kpi
+                icon={ReceiptText}
+                label="Payables"
+                value={formatDashboardMoney(summary.purchases.unpaidBillBalance, summary.currency)}
+                detail={`${summary.purchases.unpaidBillCount} open, ${summary.purchases.overdueBillCount} overdue`}
+                href={drilldownLinks.unpaidBills?.href}
+              />
+            </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
             <div className="min-w-0 space-y-5">
@@ -356,11 +370,11 @@ export default function DashboardPage() {
                 <DashboardOnboardingCard checklist={onboardingChecklist} />
               ) : onboardingLoading ? (
                 <Section title="Onboarding checklist">
-                  <StatusMessage type="loading">Loading onboarding checklist...</StatusMessage>
+                  <LedgerLoadingState title="Loading onboarding checklist" description="Checking guided setup evidence." />
                 </Section>
               ) : onboardingError ? (
                 <Section title="Onboarding checklist">
-                  <StatusMessage type="error">{onboardingError}</StatusMessage>
+                  <LedgerErrorState title="Unable to load onboarding checklist" description={onboardingError} />
                 </Section>
               ) : null}
 
@@ -379,13 +393,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+                  <LedgerSummaryBand tone="success">
                     <div className="flex items-center gap-2 font-medium">
                       <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                       No attention items
                     </div>
                     <p className="mt-1 text-xs">No dashboard alerts were generated from current data.</p>
-                  </div>
+                  </LedgerSummaryBand>
                 )}
               </Section>
 
@@ -396,7 +410,7 @@ export default function DashboardPage() {
                       <Link
                         key={link.href}
                         href={link.href}
-                        className="flex items-start justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm transition hover:border-palm/40 hover:bg-slate-50"
+                        className="flex items-start justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm transition hover:border-palm/40 hover:bg-slate-50"
                       >
                         <span className="min-w-0">
                           <span className="block font-semibold text-ink">{link.label}</span>
@@ -416,7 +430,7 @@ export default function DashboardPage() {
                       <Link
                         key={action.href}
                         href={action.href}
-                        className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className={buttonClassName({ variant: "secondary", className: "w-full justify-between" })}
                       >
                         {action.label}
                         <ArrowRight className="h-4 w-4 text-steel" aria-hidden="true" />
@@ -427,18 +441,23 @@ export default function DashboardPage() {
               ) : null}
             </div>
           </div>
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
-function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: ReactNode; label: string; value: string; detail: string; href?: string }>) {
-  return <KpiCard icon={icon} label={label} value={value} detail={detail} href={href} />;
+function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: DashboardIcon; label: string; value: string; detail: string; href?: string }>) {
+  return <LedgerStatCard icon={icon} label={label} value={value} detail={detail} href={href} />;
 }
 
 function Section({ title, action, children }: Readonly<{ title: string; action?: ReactNode; children: ReactNode }>) {
-  return <PanelSection title={title} action={action}>{children}</PanelSection>;
+  return (
+    <LedgerSection title={title} action={action}>
+      {children}
+    </LedgerSection>
+  );
 }
 
 function SectionLink({ link }: Readonly<{ link: DashboardDrilldownLink }>) {
@@ -482,9 +501,7 @@ function SalesArAttentionSection({
 }: Readonly<{ attention: DashboardSalesAttentionSummary; currency: string; canLinkCustomers: boolean }>) {
   return (
     <Section title="Sales/AR attention">
-      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
-        {attention.helperText}
-      </p>
+      <LedgerSummaryBand tone="info">{attention.helperText}</LedgerSummaryBand>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SalesAttentionPanel
           title="Overdue invoices"
@@ -599,14 +616,14 @@ function SalesAttentionPanel({
   children,
 }: Readonly<{ title: string; summary: string; footer?: string; children: ReactNode }>) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-3">
+    <LedgerPanel className="px-3 py-3">
       <div>
         <h3 className="text-sm font-semibold text-ink">{title}</h3>
         <p className="mt-1 text-xs leading-5 text-steel">{summary}</p>
       </div>
       <div className="mt-3">{children}</div>
       {footer ? <p className="mt-3 text-xs leading-5 text-steel">{footer}</p> : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
