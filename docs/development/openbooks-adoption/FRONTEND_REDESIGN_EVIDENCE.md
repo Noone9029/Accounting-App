@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-receipt-issue-flows`
+Branch: `codex/ui-redesign-inventory-traceability-flows`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-stock-operations` while PR #171 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-receipt-issue-flows` while PR #172 is open
 
 ## Evidence Summary
 
@@ -49,6 +49,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-stock-operations` while PR 
 | Inventory catalog and warehouse loop | `apps/web/src/app/(app)/items/page.tsx`, `apps/web/src/app/(app)/inventory/warehouses/page.tsx`, and `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` use shared LedgerByte page, summary, form, field, filter, table, status, loading, empty, metadata, date, money, and action primitives while preserving item create/edit payloads, item traceability links, warehouse create/archive/reactivate actions, and warehouse stock guidance. |
 | Inventory stock operations loop | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx`, `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`, and `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` use shared LedgerByte page, summary, filter, table, form, metric, metadata, status, money/date, loading, empty, and action primitives while preserving stock movement filters/opening-balance payloads, adjustment lifecycle actions, transfer validation/create/void behavior, linked movement visibility, permissions, and stock/COGS/valuation boundaries. |
 | Inventory receipt and issue loop | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx`, and `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` use shared LedgerByte page, summary, form, field, table, metadata, status, loading, empty, preview, and action primitives while preserving purchase receipt source/receiving-status loading, receipt POST/void/manual asset posting/reversal, matching/clearing/valuation links, sales stock issue invoice-status loading, issue POST/void/manual COGS posting/reversal, permissions, and no-automatic-valuation/no-automatic-COGS boundaries. |
+| Inventory traceability loop | `apps/web/src/components/inventory/traceability-setup-pages.tsx` now drives `/inventory/batches`, `/inventory/batches/new`, `/inventory/batches/[id]`, `/inventory/serial-numbers`, `/inventory/serial-numbers/new`, `/inventory/serial-numbers/[id]`, `/inventory/bin-locations`, `/inventory/bin-locations/new`, `/inventory/bin-locations/[id]`, and `/inventory/traceability/items/[id]` with shared LedgerByte page, alert, loading, empty, field, metadata, status, summary, panel, and action primitives while preserving setup loads, create/update payloads, read-only item traceability, permissions, and no-mutation/no-posting/no-valuation/no-FIFO/no-COGS/no-VAT/no-ZATCA boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -429,6 +430,21 @@ Base: stacked on `origin/codex/ui-redesign-inventory-stock-operations` while PR 
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
 - `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
+
+## 2026-06-22 Inventory Traceability Loop Evidence
+
+- `/inventory/batches`, `/inventory/batches/new`, and `/inventory/batches/[id]`: migrated the shared batch/list/editor route surfaces through `apps/web/src/components/inventory/traceability-setup-pages.tsx` to shared Ledger page, alert, loading, empty, field, metadata, status, and action primitives while preserving `/inventory/batches` loading, item loading, POST/PATCH payload shapes, status labels, and inventory manage permission boundaries.
+- `/inventory/serial-numbers`, `/inventory/serial-numbers/new`, and `/inventory/serial-numbers/[id]`: migrated the shared serial/list/editor route surfaces to shared Ledger primitives while preserving item, batch, warehouse, bin/location, detail loading, POST/PATCH payload shapes, status labels, and read-only behavior when inventory manage permission is missing.
+- `/inventory/bin-locations`, `/inventory/bin-locations/new`, and `/inventory/bin-locations/[id]`: migrated the shared bin/location list and editor route surfaces to shared Ledger primitives while preserving optional warehouse filter loading, warehouse loading, POST/PATCH payload shapes, type/status labels, and inventory manage permission boundaries.
+- `/inventory/traceability/items/[id]`: migrated the item traceability page frame, safe-helper warnings, metric panels, linked setup tables, movement metadata table, and limitations panel toward shared Ledger primitives while preserving read-only item traceability loading and no-mutation/no-posting/no-valuation/no-FIFO/no-COGS/no-VAT/no-ZATCA wording.
+- Existing behavior remains frontend-only and unchanged: this pass does not add tracked movement automation, valuation math, FIFO activation, COGS, AP/AR effects, VAT/ZATCA effects, schema changes, storage behavior, provider calls, or hosted mutations.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- traceability-setup-pages inventory-guidance`: PASS, 2 suites, 9 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover traceability setup, item traceability, purchase receipts, sales stock issues, stock movement, adjustment, transfer, and valuation routes after the operational inventory stack lands.
 
 ## 2026-06-22 Inventory Receipt and Issue Loop Evidence
 
