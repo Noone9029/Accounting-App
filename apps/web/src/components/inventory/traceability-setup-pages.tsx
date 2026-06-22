@@ -1,10 +1,27 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -14,7 +31,6 @@ import {
   inventoryBinLocationStatusLabel,
   inventoryBinLocationTypeLabel,
   inventorySerialNumberStatusLabel,
-  inventoryTraceabilityStatusBadgeClass,
   inventoryTraceabilityUrl,
   inventoryTrackingSafeHelperText,
   itemTrackingModeLabel,
@@ -51,7 +67,7 @@ export function BinLocationsListPage() {
     <TraceabilityPageFrame
       title="Bin Locations"
       helper="Optional bins, shelves, zones, staging, receiving, shipping, returns, quarantine, and in-transit locations for warehouse visibility."
-      action={canManage ? <Link className={secondaryButtonClass} href="/inventory/bin-locations/new">New bin/location</Link> : null}
+      action={canManage ? <LedgerButton href="/inventory/bin-locations/new" variant="primary">New bin/location</LedgerButton> : null}
       canView={canView}
       organizationId={organizationId}
       loading={loading}
@@ -78,12 +94,12 @@ export function BinLocationsListPage() {
                 <td className="px-4 py-3 text-steel">{bin.warehouse ? `${bin.warehouse.code} ${bin.warehouse.name}` : bin.warehouseId}</td>
                 <td className="px-4 py-3 text-steel">{inventoryBinLocationTypeLabel(bin.type)}</td>
                 <td className="px-4 py-3"><StatusBadge status={bin.status} label={inventoryBinLocationStatusLabel(bin.status)} /></td>
-                <td className="px-4 py-3"><Link className={tableButtonClass} href={`/inventory/bin-locations/${bin.id}`}>View</Link></td>
+                <td className="px-4 py-3"><LedgerButton href={`/inventory/bin-locations/${bin.id}`} size="sm">View</LedgerButton></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {records.length === 0 && !loading ? <div className="p-4"><StatusMessage type="empty">No bin/location setup records yet.</StatusMessage></div> : null}
+        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No bin/location setup records yet" /></div> : null}
       </div>
     </TraceabilityPageFrame>
   );
@@ -118,7 +134,7 @@ export function BatchesListPage() {
     <TraceabilityPageFrame
       title="Batches and Lots"
       helper="Batch and lot setup supports operational expiry and lot traceability without changing valuation or posting behavior."
-      action={canManage ? <Link className={secondaryButtonClass} href="/inventory/batches/new">New batch/lot</Link> : null}
+      action={canManage ? <LedgerButton href="/inventory/batches/new" variant="primary">New batch/lot</LedgerButton> : null}
       canView={canView}
       organizationId={organizationId}
       loading={loading}
@@ -145,12 +161,12 @@ export function BatchesListPage() {
                 <td className="px-4 py-3 text-steel">{batch.item ? `${batch.item.name}${batch.item.sku ? ` (${batch.item.sku})` : ""}` : batch.itemId}</td>
                 <td className="px-4 py-3 text-steel">{formatOptionalDate(batch.expiryDate, "-")}</td>
                 <td className="px-4 py-3"><StatusBadge status={batch.status} label={inventoryBatchStatusLabel(batch.status)} /></td>
-                <td className="px-4 py-3"><Link className={tableButtonClass} href={`/inventory/batches/${batch.id}`}>View</Link></td>
+                <td className="px-4 py-3"><LedgerButton href={`/inventory/batches/${batch.id}`} size="sm">View</LedgerButton></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {records.length === 0 && !loading ? <div className="p-4"><StatusMessage type="empty">No batch/lot setup records yet.</StatusMessage></div> : null}
+        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No batch/lot setup records yet" /></div> : null}
       </div>
     </TraceabilityPageFrame>
   );
@@ -171,7 +187,7 @@ export function SerialNumbersListPage() {
     <TraceabilityPageFrame
       title="Serial Numbers"
       helper="Serial setup records provide operational traceability status and location visibility. Movement automation remains blocked until tracked movement workflows are added."
-      action={canManage ? <Link className={secondaryButtonClass} href="/inventory/serial-numbers/new">New serial number</Link> : null}
+      action={canManage ? <LedgerButton href="/inventory/serial-numbers/new" variant="primary">New serial number</LedgerButton> : null}
       canView={canView}
       organizationId={organizationId}
       loading={loading}
@@ -200,12 +216,12 @@ export function SerialNumbersListPage() {
                 <td className="px-4 py-3 text-steel">{serial.currentWarehouse ? `${serial.currentWarehouse.code} ${serial.currentWarehouse.name}` : "-"}</td>
                 <td className="px-4 py-3 text-steel">{serial.currentBinLocation ? `${serial.currentBinLocation.code} ${serial.currentBinLocation.name}` : "-"}</td>
                 <td className="px-4 py-3"><StatusBadge status={serial.status} label={inventorySerialNumberStatusLabel(serial.status)} /></td>
-                <td className="px-4 py-3"><Link className={tableButtonClass} href={`/inventory/serial-numbers/${serial.id}`}>View</Link></td>
+                <td className="px-4 py-3"><LedgerButton href={`/inventory/serial-numbers/${serial.id}`} size="sm">View</LedgerButton></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {records.length === 0 && !loading ? <div className="p-4"><StatusMessage type="empty">No serial number setup records yet.</StatusMessage></div> : null}
+        {records.length === 0 && !loading ? <div className="p-4"><LedgerEmptyState title="No serial number setup records yet" /></div> : null}
       </div>
     </TraceabilityPageFrame>
   );
@@ -258,7 +274,7 @@ export function ItemTraceabilityPage({ itemId }: { itemId: string }) {
     <TraceabilityPageFrame
       title="Item Traceability"
       helper={inventoryTrackingSafeHelperText()}
-      action={<Link className={secondaryButtonClass} href="/items">Items</Link>}
+      action={<LedgerButton href="/items">Items</LedgerButton>}
       canView={canView}
       organizationId={organizationId}
       loading={loading}
@@ -286,7 +302,7 @@ export function ItemTraceabilityPage({ itemId }: { itemId: string }) {
 
           <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
             <h2 className="text-base font-semibold text-ink">Movements grouped by available tracking metadata</h2>
-            {traceability.movements.length === 0 ? <StatusMessage type="empty">No stock movements exist for this item yet.</StatusMessage> : null}
+            {traceability.movements.length === 0 ? <LedgerEmptyState title="No stock movements exist for this item yet" /> : null}
             {traceability.movements.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1040px] text-left text-sm">
@@ -416,7 +432,7 @@ function BinLocationEditor({
           {binLocationStatuses.map((status) => <option key={status} value={status}>{inventoryBinLocationStatusLabel(status)}</option>)}
         </SelectField>
         <TextAreaField name="description" label="Description" defaultValue={current?.description ?? ""} />
-        {canManage ? <button type="submit" className={primaryButtonClass}>{submitLabel}</button> : null}
+        {canManage ? <LedgerButton type="submit" variant="primary">{submitLabel}</LedgerButton> : null}
       </form>
       {current ? <RecordSummary rows={[["Warehouse", current.warehouse ? `${current.warehouse.code} ${current.warehouse.name}` : current.warehouseId], ["Type", inventoryBinLocationTypeLabel(current.type)], ["Status", inventoryBinLocationStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
@@ -501,7 +517,7 @@ function BatchEditor(props: {
           {batchStatuses.map((status) => <option key={status} value={status}>{inventoryBatchStatusLabel(status)}</option>)}
         </SelectField>
         <TextAreaField name="notes" label="Notes" defaultValue={current?.notes ?? ""} />
-        {canManage ? <button type="submit" className={primaryButtonClass}>{props.submitLabel}</button> : null}
+        {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
       </form>
       {current ? <RecordSummary rows={[["Item", current.item ? `${current.item.name}${current.item.sku ? ` (${current.item.sku})` : ""}` : current.itemId], ["Expiry", formatOptionalDate(current.expiryDate, "-")], ["Status", inventoryBatchStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
@@ -605,7 +621,7 @@ function SerialNumberEditor(props: {
           <option value="">No bin/location</option>
           {bins.map((bin) => <option key={bin.id} value={bin.id}>{bin.code} {bin.name}</option>)}
         </SelectField>
-        {canManage ? <button type="submit" className={primaryButtonClass}>{props.submitLabel}</button> : null}
+        {canManage ? <LedgerButton type="submit" variant="primary">{props.submitLabel}</LedgerButton> : null}
       </form>
       {current ? <RecordSummary rows={[["Item", current.item ? `${current.item.name}${current.item.sku ? ` (${current.item.sku})` : ""}` : current.itemId], ["Batch", current.batch?.batchNumber ?? "-"], ["Status", inventorySerialNumberStatusLabel(current.status)]]} /> : null}
     </TraceabilityEditorFrame>
@@ -616,13 +632,13 @@ function BatchesTable({ batches }: { batches: InventoryBatch[] }) {
   return (
     <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
       <h2 className="text-base font-semibold text-ink">Batches and lots</h2>
-      {batches.length === 0 ? <StatusMessage type="empty">No batches are linked to this item.</StatusMessage> : null}
+      {batches.length === 0 ? <LedgerEmptyState title="No batches are linked to this item" /> : null}
       {batches.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Lot</th><th className="px-3 py-2">Expiry</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {batches.map((batch) => <tr key={batch.id}><td className="px-3 py-3 font-medium text-ink">{batch.batchNumber}</td><td className="px-3 py-3 text-steel">{batch.lotNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{formatOptionalDate(batch.expiryDate, "-")}</td><td className="px-3 py-3"><StatusBadge status={batch.status} label={inventoryBatchStatusLabel(batch.status)} /></td><td className="px-3 py-3"><Link className={tableButtonClass} href={`/inventory/batches/${batch.id}`}>View</Link></td></tr>)}
+              {batches.map((batch) => <tr key={batch.id}><td className="px-3 py-3 font-medium text-ink">{batch.batchNumber}</td><td className="px-3 py-3 text-steel">{batch.lotNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{formatOptionalDate(batch.expiryDate, "-")}</td><td className="px-3 py-3"><StatusBadge status={batch.status} label={inventoryBatchStatusLabel(batch.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/batches/${batch.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -635,13 +651,13 @@ function SerialNumbersTable({ serials }: { serials: InventorySerialNumber[] }) {
   return (
     <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
       <h2 className="text-base font-semibold text-ink">Serial numbers</h2>
-      {serials.length === 0 ? <StatusMessage type="empty">No serial numbers are linked to this item.</StatusMessage> : null}
+      {serials.length === 0 ? <LedgerEmptyState title="No serial numbers are linked to this item" /> : null}
       {serials.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[840px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Serial</th><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Warehouse</th><th className="px-3 py-2">Bin/location</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {serials.map((serial) => <tr key={serial.id}><td className="px-3 py-3 font-medium text-ink">{serial.serialNumber}</td><td className="px-3 py-3 text-steel">{serial.batch?.batchNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{serial.currentWarehouse ? `${serial.currentWarehouse.code} ${serial.currentWarehouse.name}` : "-"}</td><td className="px-3 py-3 text-steel">{serial.currentBinLocation ? `${serial.currentBinLocation.code} ${serial.currentBinLocation.name}` : "-"}</td><td className="px-3 py-3"><StatusBadge status={serial.status} label={inventorySerialNumberStatusLabel(serial.status)} /></td><td className="px-3 py-3"><Link className={tableButtonClass} href={`/inventory/serial-numbers/${serial.id}`}>View</Link></td></tr>)}
+              {serials.map((serial) => <tr key={serial.id}><td className="px-3 py-3 font-medium text-ink">{serial.serialNumber}</td><td className="px-3 py-3 text-steel">{serial.batch?.batchNumber ?? "-"}</td><td className="px-3 py-3 text-steel">{serial.currentWarehouse ? `${serial.currentWarehouse.code} ${serial.currentWarehouse.name}` : "-"}</td><td className="px-3 py-3 text-steel">{serial.currentBinLocation ? `${serial.currentBinLocation.code} ${serial.currentBinLocation.name}` : "-"}</td><td className="px-3 py-3"><StatusBadge status={serial.status} label={inventorySerialNumberStatusLabel(serial.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/serial-numbers/${serial.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -654,13 +670,13 @@ function BinLocationsTable({ bins }: { bins: InventoryBinLocation[] }) {
   return (
     <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
       <h2 className="text-base font-semibold text-ink">Bin locations</h2>
-      {bins.length === 0 ? <StatusMessage type="empty">No bin/location metadata is linked to this item yet.</StatusMessage> : null}
+      {bins.length === 0 ? <LedgerEmptyState title="No bin/location metadata is linked to this item yet" /> : null}
       {bins.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Code</th><th className="px-3 py-2">Name</th><th className="px-3 py-2">Warehouse</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Link</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {bins.map((bin) => <tr key={bin.id}><td className="px-3 py-3 font-mono text-xs text-ink">{bin.code}</td><td className="px-3 py-3 font-medium text-ink">{bin.name}</td><td className="px-3 py-3 text-steel">{bin.warehouse ? `${bin.warehouse.code} ${bin.warehouse.name}` : bin.warehouseId}</td><td className="px-3 py-3 text-steel">{inventoryBinLocationTypeLabel(bin.type)}</td><td className="px-3 py-3"><StatusBadge status={bin.status} label={inventoryBinLocationStatusLabel(bin.status)} /></td><td className="px-3 py-3"><Link className={tableButtonClass} href={`/inventory/bin-locations/${bin.id}`}>View</Link></td></tr>)}
+              {bins.map((bin) => <tr key={bin.id}><td className="px-3 py-3 font-mono text-xs text-ink">{bin.code}</td><td className="px-3 py-3 font-medium text-ink">{bin.name}</td><td className="px-3 py-3 text-steel">{bin.warehouse ? `${bin.warehouse.code} ${bin.warehouse.name}` : bin.warehouseId}</td><td className="px-3 py-3 text-steel">{inventoryBinLocationTypeLabel(bin.type)}</td><td className="px-3 py-3"><StatusBadge status={bin.status} label={inventoryBinLocationStatusLabel(bin.status)} /></td><td className="px-3 py-3"><LedgerButton href={`/inventory/bin-locations/${bin.id}`} size="sm">View</LedgerButton></td></tr>)}
             </tbody>
           </table>
         </div>
@@ -712,24 +728,27 @@ function TraceabilityPageFrame({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-5">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">{helper}</p>
-          <p className="mt-1 max-w-4xl text-xs leading-5 text-steel">{inventoryTrackingSafeHelperText()}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {action}
-          {reload ? <button type="button" onClick={reload} className={secondaryButtonClass}>Refresh</button> : null}
-        </div>
-      </header>
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to load inventory traceability setup.</StatusMessage> : null}
-      {organizationId && !canView ? <StatusMessage type="info">Inventory traceability setup requires inventory view permission.</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Loading inventory traceability setup...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      {organizationId && canView ? children : null}
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory traceability"
+        title={title}
+        description={helper}
+        actions={
+          <>
+            {action}
+            {reload ? <LedgerButton type="button" onClick={reload}>Refresh</LedgerButton> : null}
+          </>
+        }
+      />
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryTrackingSafeHelperText()}</LedgerSummaryBand>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load inventory traceability setup.</LedgerAlert> : null}
+        {organizationId && !canView ? <LedgerAlert tone="info">Inventory traceability setup requires inventory view permission.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading inventory traceability setup" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {organizationId && canView ? children : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -753,88 +772,82 @@ function TraceabilityEditorFrame({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-5">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">{inventoryTrackingSafeHelperText()}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className={secondaryButtonClass} href="/inventory/bin-locations">Bin locations</Link>
-          <Link className={secondaryButtonClass} href="/inventory/batches">Batches</Link>
-          <Link className={secondaryButtonClass} href="/inventory/serial-numbers">Serial numbers</Link>
-        </div>
-      </header>
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage traceability setup.</StatusMessage> : null}
-      {organizationId && !canView ? <StatusMessage type="info">Inventory traceability setup requires inventory view permission.</StatusMessage> : null}
-      {organizationId && canView && !canManage ? <StatusMessage type="info">You can view this setup. Create and update actions require inventory manage permission.</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Loading setup form...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      {organizationId && canView ? children : null}
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory traceability"
+        title={title}
+        description={inventoryTrackingSafeHelperText()}
+        actions={
+          <>
+            <LedgerButton href="/inventory/bin-locations">Bin locations</LedgerButton>
+            <LedgerButton href="/inventory/batches">Batches</LedgerButton>
+            <LedgerButton href="/inventory/serial-numbers">Serial numbers</LedgerButton>
+          </>
+        }
+      />
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to manage traceability setup.</LedgerAlert> : null}
+        {organizationId && !canView ? <LedgerAlert tone="info">Inventory traceability setup requires inventory view permission.</LedgerAlert> : null}
+        {organizationId && canView && !canManage ? <LedgerAlert tone="info">You can view this setup. Create and update actions require inventory manage permission.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading setup form" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {organizationId && canView ? children : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function StatusBadge({ status, label }: { status: string; label: string }) {
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryTraceabilityStatusBadgeClass(status)}`}>{label}</span>;
+  return <LedgerStatusBadge tone={traceabilityStatusTone(status)}>{label}</LedgerStatusBadge>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 font-medium text-ink">{value}</p>
-    </div>
-  );
+  return <LedgerPanel><p className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</p><p className="mt-1 font-medium text-ink">{value}</p></LedgerPanel>;
 }
 
 function WarningsPanel({ warnings }: { warnings: string[] }) {
   return (
-    <section className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Warnings and blockers</h2>
+    <LedgerAlert tone="warning" title="Warnings and blockers">
       {warnings.map((warning) => <p key={warning}>{warning}</p>)}
-    </section>
+    </LedgerAlert>
   );
 }
 
 function RecordSummary({ rows }: { rows: Array<[string, string]> }) {
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Current setup</h2>
-      <dl className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        {rows.map(([label, value]) => <div key={label}><dt className="text-xs uppercase tracking-wide text-steel">{label}</dt><dd className="mt-1 font-medium text-ink">{value}</dd></div>)}
-      </dl>
-    </section>
+    <LedgerSection title="Current setup">
+      <LedgerMetadataRow items={rows.map(([label, value]) => ({ label, value }))} />
+    </LedgerSection>
   );
 }
 
 function InputField({ name, label, defaultValue = "", type = "text", required = false }: { name: string; label: string; defaultValue?: string; type?: string; required?: boolean }) {
   return (
-    <label className="text-sm font-medium text-ink">
-      {label}
-      <input name={name} type={type} required={required} defaultValue={defaultValue} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput name={name} type={type} required={required} defaultValue={defaultValue} />
+    </LedgerFieldLabel>
   );
 }
 
 function SelectField({ name, label, defaultValue, required = false, children }: { name: string; label: string; defaultValue?: string; required?: boolean; children: ReactNode }) {
   return (
-    <label className="text-sm font-medium text-ink">
-      {label}
-      <select name={name} required={required} defaultValue={defaultValue} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect name={name} required={required} defaultValue={defaultValue}>
         {children}
-      </select>
-    </label>
+      </LedgerSelect>
+    </LedgerFieldLabel>
   );
 }
 
 function TextAreaField({ name, label, defaultValue = "" }: { name: string; label: string; defaultValue?: string }) {
   return (
-    <label className="text-sm font-medium text-ink md:col-span-2">
-      {label}
+    <LedgerFieldLabel className="md:col-span-2">
+      <LedgerFieldText>{label}</LedgerFieldText>
       <textarea name={name} defaultValue={defaultValue} className="mt-1 min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+    </LedgerFieldLabel>
   );
 }
 
@@ -875,6 +888,9 @@ function dateInputValue(value?: string | null): string {
   return value ? value.slice(0, 10) : "";
 }
 
-const primaryButtonClass = "rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400";
-const secondaryButtonClass = "rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50";
-const tableButtonClass = "rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50";
+function traceabilityStatusTone(status: string): LedgerStatusTone {
+  if (["ACTIVE", "AVAILABLE", "RETURNED"].includes(status)) return "success";
+  if (["EXPIRED", "QUARANTINED", "LOST", "SCRAPPED"].includes(status)) return "warning";
+  if (["CLOSED", "ISSUED", "INACTIVE"].includes(status)) return "neutral";
+  return "draft";
+}
