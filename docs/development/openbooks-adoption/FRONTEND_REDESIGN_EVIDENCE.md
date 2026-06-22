@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-sales-documents`
+Branch: `codex/ui-redesign-invoice-detail`
 
-Base: stacked on `origin/codex/ui-redesign-contacts-statements` while PR #147 is open
+Base: stacked on `origin/codex/ui-redesign-sales-documents` while PR #148 is open
 
 ## Evidence Summary
 
@@ -20,6 +20,7 @@ Base: stacked on `origin/codex/ui-redesign-contacts-statements` while PR #147 is
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 | Sales document workflow loop | `apps/web/src/components/forms/sales-invoice-form.tsx`, `apps/web/src/components/forms/sales-quote-form.tsx`, and sales invoice/quote new/edit/quote-detail route shells use shared LedgerByte page, field, table, metric, status, summary, and action primitives while preserving draft, posting, quote non-posting, PDF archive, and return-to behavior. |
+| Sales invoice detail loop | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` now uses shared LedgerByte page, section, metric, summary, data-table, date, money, status, panel, and action primitives while preserving finalization/void/delete/PDF/payment/credit-note/stock-issue/collection/compliance/ZATCA behavior. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -57,13 +58,25 @@ Base: stacked on `origin/codex/ui-redesign-contacts-statements` while PR #147 is
 - `SalesInvoiceForm`: migrated invoice details, line-item table, account picker, totals panel, add/remove actions, save/cancel actions, and read-only draft guard to shared Ledger field/table/money/button/panel primitives. Existing payload shape, validation, draft-only edit guard, sequence preview, return-to redirect, compliance readiness wording, and no auto-finalize/no fake compliance boundaries remain unchanged.
 - `SalesQuoteForm`: migrated quote details, non-posting warning, line-item table, account picker, totals panel, add/remove actions, and save/cancel actions to shared Ledger primitives. Existing quote save/update payloads, validation, draft-only edit guard, sequence preview, return-to redirect, and non-posting wording remain unchanged.
 - `/sales/quotes/[id]`: migrated quote detail shell, customer context, status badge, action group, totals, line-item table, notes/terms, and PDF archive panel to shared Ledger primitives. Existing mark-sent/accept/reject/expire/cancel/convert/PDF/archive API calls and permission checks remain unchanged.
-- `/sales/invoices/[id]` detail remains deferred for a dedicated invoice-detail pass because it carries compliance readiness, generated-document, stock issue, payment, collection, delivery-note, and posting panels.
+- `/sales/invoices/[id]` detail moved to the dedicated invoice-detail pass below.
 - `corepack pnpm --filter @ledgerbyte/web test -- sales-invoice-form sales-quote-form sales/quotes/[id] route-load-verification`: PASS, 23 tests.
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2061 checked files, 0 blocked references, 0 forbidden claims.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "sales-invoice-new authenticated visual QA at (desktop|mobile)"`: PASS, 2 checks after adding `min-w-0` constraints to the line-item grid container.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/quote-workflow.visual.spec.ts --grep "sales quote create edit lifecycle"`: route assertions reached the final customer activity page and verified the non-posting quote row, but the test failed its strict `consoleErrors` assertion because the browser captured five generic `Failed to load resource: the server responded with a status of 404 (Not Found)` messages. No fake quote workflow visual pass is claimed from this run.
+
+## 2026-06-22 Sales Invoice Detail Loop Evidence
+
+- `/sales/invoices/[id]`: migrated the invoice detail shell, status badge, header action group, workflow guidance cards, invoice snapshot, line-item table, totals band, payment allocations, unapplied payment applications, credit notes, credit applications, ZATCA panel shell/actions, related collections, and stock issue status to shared LedgerByte primitives.
+- Existing behavior remains frontend-only and unchanged: finalize/void/delete actions, invoice PDF download/archive wording, customer payment and credit-note return-to links, stock issue handoff, related delivery notes, related collections, UAE/PINT-AE readiness, local ZATCA readiness/check/blocker actions, generated-document permissions, and conservative no-provider/no-production-submission wording.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx"`: PASS, 7 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification sales/invoices`: PASS, 20 tests.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep invoice-line-items`: PASS, 3 checks after constraining the invoice detail header action group so the tablet viewport has no document-level horizontal overflow.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2061 checked files, 0 blocked references, 0 forbidden claims.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 
