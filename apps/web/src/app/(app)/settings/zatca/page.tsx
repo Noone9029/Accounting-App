@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
+  LedgerDataTable,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
@@ -798,7 +799,7 @@ export default function ZatcaSettingsPage() {
           ) : null}
 
           {readiness ? (
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Readiness summary</h2>
@@ -818,7 +819,7 @@ export default function ZatcaSettingsPage() {
                 <ReadinessSummary label="Sandbox CSID plan" ready={readiness.complianceCsidOnboarding.status !== "BLOCKED"} detail="OTP required, execution disabled, no network by default" />
                 <ReadinessSummary label="CSID custody" ready={readiness.complianceCsidCustody.status !== "BLOCKED"} detail="Token, secret, certificate custody not implemented" />
               </div>
-              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-5 rounded-md border border-line bg-mist p-4">
                 <h3 className="text-sm font-semibold text-ink">Preparation gates</h3>
                 <p className="mt-1 text-xs text-steel">Read-only production-readiness documentation and execution gates. These cards do not enable CSID requests, signing, clearance, reporting, PDF/A-3, or production ZATCA compliance.</p>
                 <p className="mt-1 text-xs text-amber-700">SDK validation is local/no-network only. It does not request CSID, sign invoices with production keys, clear invoices, report invoices, or enable production compliance.</p>
@@ -848,7 +849,7 @@ export default function ZatcaSettingsPage() {
                 </div>
               </div>
               {credentialLifecycle ? (
-                <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+                <div className="mt-5 rounded-md border border-line bg-mist p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold text-ink">Key custody and CSID lifecycle metadata</h3>
@@ -895,11 +896,11 @@ export default function ZatcaSettingsPage() {
                   ))}
                 </ul>
               ) : null}
-            </div>
+            </LedgerPanel>
           ) : null}
 
           {immutablePolicyPlan ? (
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Immutable signed artifact policy approval</h2>
@@ -924,14 +925,14 @@ export default function ZatcaSettingsPage() {
               </div>
 
               {latestPolicyApproval ? (
-                <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs text-steel">
+                <div className="mt-4 rounded-md bg-mist p-3 text-xs text-steel">
                   <div className="font-medium text-ink">Latest draft hash: {latestPolicyApproval.policyHash}</div>
                   <div className="mt-1">Retention duration status: {latestPolicyApproval.retentionDurationStatus}. No retention duration is guessed in this UI.</div>
                   <div className="mt-1">Signed XML body persistence: {latestPolicyApproval.signedXmlBodyPersistenceAllowed ? "Allowed" : "Blocked"}. QR payload body persistence: {latestPolicyApproval.qrPayloadBodyPersistenceAllowed ? "Allowed" : "Blocked"}.</div>
                 </div>
               ) : null}
 
-              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-4 rounded-md border border-line bg-mist p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-ink">Storage technical control evidence</h3>
@@ -954,7 +955,7 @@ export default function ZatcaSettingsPage() {
                 {(evidenceCompleteness?.missingEvidenceTypes ?? immutablePolicyPlan.missingEvidenceTypes).length > 0 ? (
                   <p className="mt-3 text-xs text-amber-700">Missing or unverified evidence: {(evidenceCompleteness?.missingEvidenceTypes ?? immutablePolicyPlan.missingEvidenceTypes).join(", ")}.</p>
                 ) : null}
-                <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">
+                <div className="mt-3 rounded-md bg-panel p-3 text-xs text-steel">
                   <div className="font-medium text-ink">Completeness rule</div>
                   <p className="mt-1">
                     Every required technical evidence type must have latest VERIFIED evidence before body persistence can even be reviewed. DRAFT, REVOKED, SUPERSEDED, and OTHER evidence do not satisfy required controls.
@@ -966,7 +967,7 @@ export default function ZatcaSettingsPage() {
                 {storageControlEvidence.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     {storageControlEvidence.slice(0, 4).map((evidence) => (
-                      <div key={evidence.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white p-2 text-xs">
+                      <div key={evidence.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-panel p-2 text-xs">
                         <div>
                           <div className="font-medium text-ink">{evidence.evidenceType}</div>
                           <div className="text-steel">{evidence.status} - hash {evidence.evidenceHash?.slice(0, 12) ?? "not set"} - body persistence blocked</div>
@@ -1036,11 +1037,11 @@ export default function ZatcaSettingsPage() {
               <p className="mt-4 text-xs text-amber-700">
                 Approval records are metadata only. They do not authorize signed XML body storage, QR payload storage, production credentials, CSID requests, clearance/reporting, PDF/A-3, or production compliance.
               </p>
-            </div>
+            </LedgerPanel>
           ) : null}
 
           {checklist ? (
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">Compliance checklist</h2>
@@ -1062,17 +1063,18 @@ export default function ZatcaSettingsPage() {
                   <ChecklistGroup key={category} category={category} items={items} />
                 ))}
               </div>
-            </div>
+            </LedgerPanel>
           ) : null}
 
-          <form onSubmit={saveProfile} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Seller profile</h2>
-                <p className="mt-1 text-sm text-steel">Used to generate local UBL-like XML and basic QR payloads.</p>
+          <LedgerPanel>
+            <form onSubmit={saveProfile}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Seller profile</h2>
+                  <p className="mt-1 text-sm text-steel">Used to generate local UBL-like XML and basic QR payloads.</p>
+                </div>
+                <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(profile?.registrationStatus)}</span>
               </div>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(profile?.registrationStatus)}</span>
-            </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
               <SelectField label="Environment" value={form.environment} options={environmentOptions} onChange={(value) => updateProfileField("environment", value as ZatcaEnvironment)} />
@@ -1097,9 +1099,10 @@ export default function ZatcaSettingsPage() {
               </button>
             </div>
             ) : null}
-          </form>
+            </form>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">EGS units</h2>
             <p className="mt-1 text-sm text-steel">Development placeholders for ICV and previous-invoice hash chaining. Real CSID onboarding comes later.</p>
             <p className="mt-1 text-xs text-rosewood">Mock CSID is for local development only. It does not make invoices ZATCA compliant. Private keys are not shown in the app.</p>
@@ -1116,8 +1119,7 @@ export default function ZatcaSettingsPage() {
             </form>
             ) : null}
 
-            <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full text-left text-sm">
+            <LedgerDataTable minWidth="1720px" className="mt-5">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                   <tr>
                     <th className="px-4 py-3">Name</th>
@@ -1311,16 +1313,14 @@ export default function ZatcaSettingsPage() {
                     ))
                   )}
                 </tbody>
-              </table>
-            </div>
-          </div>
+            </LedgerDataTable>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Recent ZATCA logs</h2>
             <p className="mt-1 text-sm text-steel">Local onboarding and invoice-generation submission records. Network submission is still not implemented.</p>
 
-            <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full text-left text-sm">
+            <LedgerDataTable minWidth="920px" className="mt-4">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                   <tr>
                     <th className="px-4 py-3">Type</th>
@@ -1351,9 +1351,8 @@ export default function ZatcaSettingsPage() {
                     ))
                   )}
                 </tbody>
-              </table>
-            </div>
-          </div>
+            </LedgerDataTable>
+          </LedgerPanel>
         </LedgerPageBody>
       ) : null}
     </LedgerPage>
@@ -1362,7 +1361,7 @@ export default function ZatcaSettingsPage() {
 
 function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewResponse }) {
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="mt-3 rounded-md border border-line bg-mist p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-ink">Sanitized CSR config preview</div>
@@ -1378,7 +1377,7 @@ function CsrConfigPreviewPanel({ preview }: { preview: ZatcaEgsCsrConfigPreviewR
       {preview.reviewFields.length > 0 ? (
         <div className="mt-2 text-[11px] text-amber-700">Needs review: {preview.reviewFields.map((field) => field.key).join(", ")}</div>
       ) : null}
-      <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-white p-3 font-mono text-[11px] text-slate-800">{preview.sanitizedConfigPreview}</pre>
+      <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-panel p-3 font-mono text-[11px] text-slate-800">{preview.sanitizedConfigPreview}</pre>
       <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-steel md:grid-cols-2">
         <div>No private key, certificate body, CSID token, one-time portal code, or generated CSR body is displayed.</div>
         <div>SDK execution disabled by default. Production compliance: {preview.productionCompliance ? "true" : "false"}.</div>
@@ -1419,7 +1418,7 @@ function ComplianceCsidCustodyPlanPanel({
   const latest = plan?.latestCustodyRecord ?? null;
   const createDisabled = !canManage || unit.environment === "PRODUCTION" || actionLoading === `csid-custody-record-${unit.id}`;
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+    <div className="mt-3 rounded-md border border-line bg-panel p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-ink">CSID custody metadata gate</div>
@@ -1450,7 +1449,7 @@ function ComplianceCsidCustodyPlanPanel({
         <div>Body persistence: <span className="font-semibold text-rosewood">blocked</span></div>
       </div>
       {plan?.providerConfiguration?.redactedConfigurationSummary ? (
-        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-[11px] text-steel">
+        <div className="mt-3 rounded-md border border-line bg-mist p-3 text-[11px] text-steel">
           Provider configuration summary is redacted: KMS key {plan.providerConfiguration.redactedConfigurationSummary.kmsKeyId}, prefix {plan.providerConfiguration.redactedConfigurationSummary.secretPrefix}, region {plan.providerConfiguration.redactedConfigurationSummary.region}. Provider remains disabled and body storage remains blocked.
         </div>
       ) : null}
@@ -1559,7 +1558,7 @@ function CsrConfigReviewPanel({
   const createDisabled = !canManage || !preview || actionLoading === `csr-review-create-${unit.id}`;
 
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+    <div className="mt-3 rounded-md border border-line bg-panel p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-xs font-semibold text-ink">CSR config review</div>
@@ -1772,7 +1771,7 @@ function ReadinessCheckCard({ title, section }: { title: string; section: ZatcaR
   const visibleChecks = section.checks.slice(0, 4);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-md border border-line bg-mist p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-ink">{title}</h3>
@@ -1835,7 +1834,7 @@ function HashChainStatusPanel({
 }) {
   const hashMode = resetPlan?.hashMode ?? sdkReadiness?.hashMode ?? null;
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-ink">Hash-chain status</h2>
@@ -1890,8 +1889,7 @@ function HashChainStatusPanel({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-ink">EGS hash mode enablement</h3>
-            <div className="mt-2 overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full text-left text-xs">
+            <LedgerDataTable minWidth="960px" className="mt-2">
                 <thead className="bg-slate-50 uppercase tracking-wide text-steel">
                   <tr>
                     <th className="px-3 py-2">EGS unit</th>
@@ -1956,12 +1954,11 @@ function HashChainStatusPanel({
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+            </LedgerDataTable>
           </div>
         </div>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -1988,8 +1985,7 @@ function ChecklistGroup({ category, items }: { category: string; items: ZatcaChe
   return (
     <div>
       <h3 className="text-sm font-semibold text-ink">{zatcaStatusLabel(category)}</h3>
-      <div className="mt-2 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full text-left text-sm">
+      <LedgerDataTable minWidth="980px" className="mt-2">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Item</th>
@@ -2023,8 +2019,7 @@ function ChecklistGroup({ category, items }: { category: string; items: ZatcaChe
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </LedgerDataTable>
     </div>
   );
 }
