@@ -231,6 +231,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated inventory balance item-total cards and sales invoice readiness section cards to shared LedgerByte stat, panel, and status primitives.
 - Preserved inventory and invoice truth: balance quantities, FIFO links, readiness checks, source-rule copy, and local-only compliance warnings remain unchanged.
 
+### 2026-06-22 Email Outbox Polish Loop
+
+- Migrated email outbox status messages, sender-domain evidence summaries, delivery monitoring summaries, and evidence/suppression list shells to shared LedgerByte status, textarea, and panel primitives.
+- Preserved email truth: readiness checks, evidence capture, monitoring evidence, suppressions, mock outbox inspection, and no-real-email/no-secret/no-provider-execution wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
