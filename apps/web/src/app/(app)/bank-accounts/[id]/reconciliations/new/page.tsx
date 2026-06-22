@@ -19,6 +19,7 @@ import {
   LedgerStatCard,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatMoneyAmount } from "@/lib/money";
@@ -171,12 +172,7 @@ export default function NewBankReconciliationPage() {
           <LedgerFormSection title="Notes" description="Optional reconciliation notes for accountant review.">
             <LedgerFieldLabel className="md:col-span-2">
               <LedgerFieldText>Notes</LedgerFieldText>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={4}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
-              />
+              <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
             </LedgerFieldLabel>
           </LedgerFormSection>
 

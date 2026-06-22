@@ -205,6 +205,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved settings truth: team invites, role saves, security placeholders, compliance readiness reads/saves, banking accounting configuration, number sequence saves, audit log reads/exports, and permission gates remain unchanged.
 - Deferred the larger ZATCA and email outbox layout/status cleanup to dedicated settings passes because those pages still contain broader table, textarea, and evidence-panel migration work.
 
+### 2026-06-22 Shared Textarea And Panel Polish Loop
+
+- Migrated backup readiness status, bank account profile notes, inventory variance proposal description, reconciliation draft notes, and reconciliation approval/reopen notes to shared LedgerByte panel/status/textarea primitives.
+- Preserved workflow truth: backup readiness remains metadata-only, bank profile saves keep existing payloads, variance proposal creation remains draft-only, and reconciliation close/reopen/approval actions keep existing endpoints and permission gates.
+- Preserved boundaries: this pass adds no backup/restore execution, live bank feed, reconciliation automation, journal posting, valuation change, COGS posting, provider call, storage mutation, VAT filing, or compliance submission.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.

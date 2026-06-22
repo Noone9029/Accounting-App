@@ -17,6 +17,7 @@ import {
   LedgerSelect,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { inventoryVarianceReasonLabel } from "@/lib/inventory";
@@ -173,7 +174,7 @@ export default function NewInventoryVarianceProposalPage() {
           ) : null}
 
           <Field label="Description">
-            <textarea name="description" rows={3} className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            <Textarea name="description" rows={3} />
           </Field>
         </div>
 
