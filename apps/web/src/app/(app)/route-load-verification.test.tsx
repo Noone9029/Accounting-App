@@ -1,8 +1,12 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import BankAccountsPage from "./bank-accounts/page";
+import BankTransfersPage from "./bank-transfers/page";
+import ContactsPage from "./contacts/page";
 import CustomersPage from "./customers/page";
 import CustomerDetailPage from "./customers/[id]/page";
+import InventoryBalancesPage from "./inventory/balances/page";
 import PurchaseBillsPage from "./purchases/bills/page";
 import NewPurchaseBillPage from "./purchases/bills/new/page";
 import PurchaseDebitNotesPage from "./purchases/debit-notes/page";
@@ -10,6 +14,7 @@ import ReportsPage from "./reports/page";
 import SalesCreditNotesPage from "./sales/credit-notes/page";
 import SalesInvoicesPage from "./sales/invoices/page";
 import NewSalesInvoicePage from "./sales/invoices/new/page";
+import SalesQuotesPage from "./sales/quotes/page";
 import BankingAccountingSettingsPage from "./settings/banking-accounting/page";
 import SettingsPage from "./settings/page";
 import StorageSettingsPage from "./settings/storage/page";
@@ -42,6 +47,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => redirectMock(...args),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -118,6 +124,15 @@ describe("controlled beta route-load verification batch", () => {
     expect(partyDetailPageMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ kind: "supplier" }));
   });
 
+  it("loads the contacts route without workspace data", () => {
+    render(<ContactsPage />);
+
+    expect(screen.getByRole("heading", { name: "Contacts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Guided setup" })).toHaveAttribute("href", "/setup");
+    expect(screen.getByText("Log in and select an organization to load contacts.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
   it("loads the reports route through the reports index module", () => {
     render(<ReportsPage />);
 
@@ -148,10 +163,37 @@ describe("controlled beta route-load verification batch", () => {
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
-  it("loads the sales invoice and credit-note routes without workspace data", () => {
+  it("loads the bank account and transfer routes without workspace data", () => {
+    render(
+      <>
+        <BankAccountsPage />
+        <BankTransfersPage />
+      </>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Bank accounts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Link account" })).toHaveAttribute("href", "/bank-accounts/new");
+    expect(screen.getByText("Log in and select an organization to load bank accounts.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bank transfers" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New transfer" })).toHaveAttribute("href", "/bank-transfers/new");
+    expect(screen.getByText("Log in and select an organization to load bank transfers.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the inventory balance route without workspace data", () => {
+    render(<InventoryBalancesPage />);
+
+    expect(screen.getByRole("heading", { name: "Inventory balances" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Stock valuation" })).toHaveAttribute("href", "/inventory/reports/stock-valuation");
+    expect(screen.getByText("Log in and select an organization to load inventory balances.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the sales invoice, quote, and credit-note routes without workspace data", () => {
     render(
       <>
         <SalesInvoicesPage />
+        <SalesQuotesPage />
         <SalesCreditNotesPage />
       </>,
     );
@@ -159,6 +201,9 @@ describe("controlled beta route-load verification batch", () => {
     expect(screen.getByRole("heading", { name: "Sales invoices" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new");
     expect(screen.getByText("Log in and select an organization to load invoices.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sales quotes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create quote" })).toHaveAttribute("href", "/sales/quotes/new");
+    expect(screen.getByText("Log in and select an organization to load sales quotes.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sales credit notes" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create credit note" })).toHaveAttribute("href", "/sales/credit-notes/new");
     expect(screen.getByText("Log in and select an organization to load credit notes.")).toBeInTheDocument();

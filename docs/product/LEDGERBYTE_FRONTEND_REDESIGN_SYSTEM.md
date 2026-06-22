@@ -66,3 +66,12 @@ This document defines the LedgerByte frontend redesign system used by the full-r
 ## Adoption Rule
 
 New or migrated frontend routes should use the shared `ledger-system` primitives first. Route-specific markup remains acceptable for real domain behavior, but repeated layout, table, form, state, badge, and warning patterns should move through this system so later frontend slices can converge without changing product truth.
+
+## Current Route Adoption
+
+- Sales list surfaces: `/sales/invoices` and `/sales/quotes`.
+- Purchase list surfaces: `/purchases/bills` and `/purchases/debit-notes`.
+- Banking list surfaces: `/bank-accounts` and `/bank-transfers`.
+- Contacts list/create surface: `/contacts`.
+- Inventory balance surface: `/inventory/balances`.
+- Existing foundation surfaces: `/settings`, `/documents`, `/report-packs`, dashboard foundation, auth form, and representative roles/settings routes.

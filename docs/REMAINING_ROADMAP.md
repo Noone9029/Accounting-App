@@ -1,5 +1,17 @@
 # Remaining Roadmap
 
+## 2026-06-22 Frontend Redesign Loop Engineering
+
+- Branch `codex/ui-rebuild-loop-full-frontend` starts the full route-family loop from merged `origin/main`.
+- Added `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` to track every major route family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps.
+- First loop migrates `/sales/quotes` and tightens `/sales/invoices` list surfaces onto shared LedgerByte primitives while preserving quote non-posting and invoice finalization truth.
+- Second loop starts Purchase by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives while preserving explicit AP posting and debit-note adjustment truth.
+- Third loop starts Banking by migrating `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte primitives while preserving manual-review and no-live-feed truth.
+- Fourth loop starts Contacts by migrating `/contacts` list/create surface onto shared LedgerByte primitives while preserving customer/supplier handoffs and local-only readiness truth.
+- Fifth loop starts Inventory by migrating `/inventory/balances` onto shared LedgerByte primitives while preserving stock movement, valuation, FIFO, and COGS boundaries.
+- Remaining immediate frontend loop work: Sales, Purchase, Banking, Contacts, and Inventory detail/form/supporting routes, then Accounting, Reports, Settings/Compliance, Setup/Dashboard, Marketing/Auth, and placeholders.
+- Recommended next prompt if interrupted: `Continue UI-REBUILD-LOOP-FULL-01 from item catalog and inventory warehouse/detail routes, then continue route-family loops`.
+
 ## 2026-06-22 Frontend Redesign Continuation
 
 - Branch `codex/ui-ux-full-redesign` extends the shared LedgerByte frontend system and migrates `/settings`, `/documents`, and `/report-packs` as the next cohesive redesign slice stacked on the UI/UX rebuild foundation.

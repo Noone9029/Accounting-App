@@ -2,6 +2,21 @@
 
 Audit date: 2026-06-19
 
+Frontend redesign loop engineering (2026-06-22):
+
+- Added the full route-family redesign checklist in `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md`.
+- Began the Sales workspace loop by migrating `/sales/quotes` and tightening `/sales/invoices` list surfaces onto shared LedgerByte primitives.
+- Began the Purchase workspace loop by migrating `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte primitives.
+- Began the Banking workspace loop by migrating `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte primitives.
+- Began the Contacts workspace loop by migrating `/contacts` list/create surface onto shared LedgerByte primitives.
+- Began the Inventory workspace loop by migrating `/inventory/balances` onto shared LedgerByte primitives.
+- Preserved product truth: sales quotes remain non-posting; invoice finalization remains explicit and permission-gated; no send, payment, compliance, storage, signed URL, or provider behavior changed.
+- Preserved AP truth: purchase bill finalization remains explicit and permission-gated, debit notes remain supplier adjustments, and no payment sending, provider approval workflow, archive/storage operation, or supplier balance math change was added.
+- Preserved manual-banking truth: bank account and transfer lists do not connect to live bank feeds, move provider money, auto-reconcile, import statements, or match/categorize statement rows.
+- Preserved contact truth: VAT, ID, UAE, Peppol, and address readiness fields remain local profile data and do not send eInvoices, validate endpoints, submit ZATCA data, or call providers.
+- Preserved inventory truth: inventory balances remain operational review only; no stock movement, valuation math, FIFO, COGS, receipt, adjustment, transfer, or variance behavior changed.
+- Remaining Sales, Purchase, Banking, Contacts, and Inventory surfaces include invoice/quote/bill/debit-note detail pages and forms, credit notes, customer payments/refunds, purchase orders, supplier payments/refunds, recurring invoices, delivery notes, inventory returns, collections, cash expenses, matching, AP dashboard, purchase returns, bank account detail, statement imports/review, bank rules, deposits, cheques, card settlements, reconciliation summary/history/close, transfer detail, shared contact detail, customer/supplier detail pages, statement pages, activity tabs, transaction handoffs, item catalog forms, warehouse/detail, stock ledger, adjustments/transfers, receipts/issues, FIFO, landed cost, valuation variance, and inventory reports.
+
 Frontend redesign continuation (2026-06-22):
 
 - Expanded the shared LedgerByte frontend system with reusable layout, table, form, state, workflow, summary, review, and breadcrumb primitives.

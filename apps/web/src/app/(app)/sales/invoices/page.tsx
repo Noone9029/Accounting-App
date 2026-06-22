@@ -3,22 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button } from "@/components/ui/button";
 import {
   LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerFilterBar,
   LedgerInput,
   LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
   LedgerPageHeader,
   LedgerSelect,
   LedgerStatusBadge,
-  LedgerTableShell,
+  LedgerSummaryBand,
   LedgerToolbar,
 } from "@/components/ui/ledger-system";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EmptyState } from "@/components/ui-ledger/empty-state";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -100,7 +102,7 @@ export default function SalesInvoicesPage() {
   }
 
   return (
-    <section>
+    <LedgerPage>
       <LedgerPageHeader
         eyebrow="Sales / AR"
         title="Sales invoices"
@@ -114,19 +116,22 @@ export default function SalesInvoicesPage() {
         }
       />
 
-      <div className="space-y-3">
+      <LedgerSummaryBand tone="info">
+        Finalizing an invoice remains an explicit posting action. This list does not send email, collect payments, submit tax data, run compliance calls, or change PDF/storage behavior.
+      </LedgerSummaryBand>
+
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load invoices.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading sales invoices...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && invoices.length === 0 ? (
-          <EmptyState
+          <LedgerEmptyState
             title="No sales invoices found"
             description="Create the first draft invoice, then finalize it when the customer and totals are ready."
             action={canCreateInvoice ? <LedgerButton href="/sales/invoices/new" variant="primary">Create invoice</LedgerButton> : null}
           />
         ) : null}
-      </div>
 
       {invoices.length > 0 ? (
         <LedgerToolbar
@@ -152,63 +157,58 @@ export default function SalesInvoicesPage() {
       ) : null}
 
       {invoices.length > 0 && filteredInvoices.length === 0 ? (
-        <div className="mt-5">
-          <EmptyState title="No invoices match the current filters" />
-        </div>
+        <LedgerEmptyState title="No invoices match the current filters" description="Clear the status or customer filter to return to the full AR invoice list." />
       ) : null}
 
       {filteredInvoices.length > 0 ? (
-        <div className="mt-5">
-          <LedgerTableShell minWidth="1280px">
-          <table className="w-full text-left text-sm">
-            <TableHeader className="bg-muted/60 text-xs uppercase text-muted-foreground">
-              <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Issue</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Subtotal</TableHead>
-                <TableHead>Tax</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Balance due</TableHead>
-                <TableHead>Journal</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <LedgerDataTable minWidth="1280px">
+            <thead className="ledger-table-header">
+              <tr>
+                <th className="px-4 py-3">Number</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Issue</th>
+                <th className="px-4 py-3">Due</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Subtotal</th>
+                <th className="px-4 py-3">Tax</th>
+                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Balance due</th>
+                <th className="px-4 py-3">Journal</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
               {filteredInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-mono text-xs">{invoice.invoiceNumber}</TableCell>
-                  <TableCell className="font-medium text-foreground">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatOptionalDate(invoice.dueDate)}</TableCell>
-                  <TableCell>
+                <tr key={invoice.id}>
+                  <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</td>
+                  <td className="px-4 py-3"><LedgerDate>{new Date(invoice.issueDate).toLocaleDateString()}</LedgerDate></td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(invoice.dueDate)}</LedgerDate></td>
+                  <td className="px-4 py-3">
                     <InvoiceStatusPill status={invoice.status} />
-                  </TableCell>
-                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></TableCell>
-                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></TableCell>
-                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></TableCell>
-                  <TableCell><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></TableCell>
-                  <TableCell className="text-muted-foreground">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-steel">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</td>
+                  <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <LedgerButton href={`/sales/invoices/${invoice.id}`} size="sm">View</LedgerButton>
                       {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-                        <Button type="button" variant="outline" size="xs" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id}>
+                        <LedgerButton size="sm" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id}>
                           Finalize
-                        </Button>
+                        </LedgerButton>
                       ) : null}
                     </div>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </table>
-          </LedgerTableShell>
-        </div>
+            </tbody>
+        </LedgerDataTable>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 

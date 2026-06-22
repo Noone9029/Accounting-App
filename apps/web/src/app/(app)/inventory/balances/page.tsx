@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatInventoryQuantity, inventoryBalanceDisplay, inventoryFifoPreviewUrl, inventoryOperationalWarning, warehouseStatusLabel } from "@/lib/inventory";
@@ -59,83 +69,82 @@ export default function InventoryBalancesPage() {
   }, {});
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Inventory balances</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational quantity on hand by tracked item and warehouse.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
-          <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Stock valuation
-          </Link>
-          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            FIFO preview
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Movement summary
-          </Link>
-          {canCreateAdjustment ? (
-            <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              New adjustment
-            </Link>
-          ) : null}
-          {canCreateTransfer ? (
-            <Link href="/inventory/transfers/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-              New transfer
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory / Stock review"
+        title="Inventory balances"
+        description="Operational quantity on hand by tracked item and warehouse."
+        actions={
+          <>
+            <LedgerButton href="/inventory/reports/stock-valuation">
+              Stock valuation
+            </LedgerButton>
+            <LedgerButton href={inventoryFifoPreviewUrl({})}>
+              FIFO preview
+            </LedgerButton>
+            <LedgerButton href="/inventory/reports/movement-summary">
+              Movement summary
+            </LedgerButton>
+            {canCreateAdjustment ? (
+              <LedgerButton href="/inventory/adjustments/new">
+                New adjustment
+              </LedgerButton>
+            ) : null}
+            {canCreateTransfer ? (
+              <LedgerButton href="/inventory/transfers/new" variant="primary">
+                New transfer
+              </LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
       <InventoryBalanceGuidance canCreateAdjustment={canCreateAdjustment} canCreateTransfer={canCreateTransfer} />
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load inventory balances.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading inventory balances...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && balances.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-            <h2 className="font-semibold text-ink">No inventory balances found.</h2>
-            <p className="mt-2 max-w-3xl leading-6 text-steel">
-              Add a tracked item, then receive stock, approve an adjustment, or transfer stock into a warehouse to create an on-hand balance.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Link href="/items" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                View items
-              </Link>
-              {canCreateAdjustment ? (
-                <Link href="/inventory/adjustments/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-                  Create adjustment
-                </Link>
-              ) : null}
-              {canCreateTransfer ? (
-                <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Create transfer
-                </Link>
-              ) : null}
-            </div>
+          <LedgerEmptyState
+            title="No inventory balances found"
+            description="Add a tracked item, then receive stock, approve an adjustment, or transfer stock into a warehouse to create an on-hand balance."
+            action={
+              <div className="flex flex-col justify-center gap-2 sm:flex-row sm:flex-wrap">
+                <LedgerButton href="/items">
+                  View items
+                </LedgerButton>
+                {canCreateAdjustment ? (
+                  <LedgerButton href="/inventory/adjustments/new" variant="primary">
+                    Create adjustment
+                  </LedgerButton>
+                ) : null}
+                {canCreateTransfer ? (
+                  <LedgerButton href="/inventory/transfers/new">
+                    Create transfer
+                  </LedgerButton>
+                ) : null}
+              </div>
+            }
+          />
+        ) : null}
+
+        {Object.keys(totalsByItem).length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {Object.entries(totalsByItem).map(([itemId, total]) => (
+              <div key={itemId} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+                <p className="text-xs font-medium uppercase tracking-wide text-steel">{total.sku ?? "Tracked item"}</p>
+                <p className="mt-1 font-medium text-ink">{total.name}</p>
+                <p className="mt-2 font-mono text-sm font-semibold text-ink">{formatInventoryQuantity(total.quantityUnits / 10000)}</p>
+              </div>
+            ))}
           </div>
         ) : null}
-      </div>
 
-      {Object.keys(totalsByItem).length > 0 ? (
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {Object.entries(totalsByItem).map(([itemId, total]) => (
-            <div key={itemId} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-              <p className="text-xs font-medium uppercase tracking-wide text-steel">{total.sku ?? "Tracked item"}</p>
-              <p className="mt-1 font-medium text-ink">{total.name}</p>
-              <p className="mt-2 font-mono text-sm font-semibold text-ink">{formatInventoryQuantity(total.quantityUnits / 10000)}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {balances.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+        {balances.length > 0 ? (
+          <LedgerDataTable minWidth="980px">
+            <thead className="ledger-table-header">
               <tr>
                 <th className="px-4 py-3">Item</th>
                 <th className="px-4 py-3">SKU</th>
@@ -157,7 +166,11 @@ export default function InventoryBalancesPage() {
                     <td className="px-4 py-3 text-steel">
                       {balance.warehouse.code} {balance.warehouse.name}
                     </td>
-                    <td className="px-4 py-3 text-steel">{warehouseStatusLabel(balance.warehouse.status)}</td>
+                    <td className="px-4 py-3">
+                      <LedgerStatusBadge tone={balance.warehouse.status === "ACTIVE" ? "success" : "neutral"}>
+                        {warehouseStatusLabel(balance.warehouse.status)}
+                      </LedgerStatusBadge>
+                    </td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.quantity}</td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.averageUnitCost}</td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.inventoryValue}</td>
@@ -170,10 +183,10 @@ export default function InventoryBalancesPage() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
