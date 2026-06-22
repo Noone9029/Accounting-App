@@ -193,6 +193,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved traceability truth: bin/location, batch/lot, serial-number, and item traceability loads and save payloads keep existing endpoints, permission gates, and query handoffs.
 - Preserved accounting/compliance/inventory boundaries: this pass adds no stock posting, FIFO/valuation change, COGS posting, VAT filing, ZATCA/UAE/Peppol submission, provider call, generated-document storage mutation, or historical movement mutation.
 
+### 2026-06-22 Banking Import Transfer And Tax Polish Loop
+
+- Migrated `/bank-transfers/new`, bank statement import guidance/detail/preview/result panels, and `/tax` summary controls/drill-down surfaces to shared LedgerByte page, panel, field, textarea, table, metric, alert, status, money, and action primitives.
+- Preserved banking truth: transfer validation and POST payloads, manual statement upload/preview/import/void endpoints, parser behavior, permission gates, return links, and no-live-feed wording remain unchanged.
+- Preserved tax/compliance truth: VAT summary loads still use existing report endpoints and remain draft/accountant-review only with no tax-authority submission, provider call, generated-document storage mutation, VAT filing, or ZATCA/UAE/Peppol behavior added.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
