@@ -529,7 +529,7 @@ export function MarketingHomePage({ locale }: { locale: MarketingLocale }) {
       <section className="relative overflow-hidden px-4 pb-14 pt-7 sm:px-6 lg:px-8 lg:pb-20">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(520px,1.08fr)] lg:items-center">
           <div className="max-w-3xl">
-            <div className="mb-8 flex max-w-xl items-center gap-3 rounded-full border border-emerald-900/10 bg-white/80 px-4 py-2 text-sm text-slate-700 shadow-sm">
+            <div className="mb-8 flex max-w-xl items-center gap-3 rounded-md border border-emerald-900/10 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-800" aria-hidden="true" />
               <span>{content.heroFootnote}</span>
             </div>
@@ -567,7 +567,7 @@ export function MarketingHomePage({ locale }: { locale: MarketingLocale }) {
       />
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-[2rem] border border-amber-900/10 bg-[#fff7df] p-6 shadow-[0_24px_80px_rgba(120,83,28,0.12)] sm:p-10 lg:p-12">
+        <div className="mx-auto max-w-7xl rounded-md border border-amber-900/10 bg-amber-50 p-6 shadow-panel sm:p-10 lg:p-12">
           <div className="grid gap-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
             <SectionHeader title={content.readinessTitle} body={content.readinessBody} align={locale === "ar" ? "right" : "left"} />
             <CardGrid cards={content.readiness} compact />
@@ -628,11 +628,11 @@ export function MarketingDetailPage({ locale, pageKey }: { locale: MarketingLoca
       </section>
 
       <section className="px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl rounded-[2rem] bg-slate-950 p-8 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] sm:p-10 lg:p-12">
+        <div className="mx-auto max-w-7xl rounded-md bg-slate-950 p-8 text-white shadow-panel sm:p-10 lg:p-12">
           <div className="max-w-3xl">
             <h2 className="text-3xl font-semibold sm:text-4xl">{detail.closingTitle}</h2>
             <p className="mt-4 text-base leading-7 text-slate-300">{detail.closingBody}</p>
-          <Link href="/login" className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-50">
+            <Link href="/login" className="mt-8 inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-50">
               {content.betaLogin}
               {locale === "ar" ? <ArrowLeft className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
             </Link>
@@ -658,13 +658,12 @@ function MarketingShell({
     <main
       lang={locale}
       dir={content.dir}
-      className="min-h-screen bg-[#f7faf8] text-slate-950 [font-family:Manrope,Readex_Pro,ui-sans-serif,system-ui,sans-serif]"
+      className="min-h-screen bg-slate-50 text-slate-950 [font-family:Manrope,Readex_Pro,ui-sans-serif,system-ui,sans-serif]"
     >
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(15,118,110,0.10),transparent_32%),linear-gradient(180deg,#f7faf8_0%,#eef5f2_100%)]" />
-      <header className="sticky top-0 z-30 border-b border-emerald-950/10 bg-[#f7faf8]/90 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 border-b border-emerald-950/10 bg-white/90 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <Link href={marketingPath(locale, "home")} className="group flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-900 text-sm font-bold text-white shadow-sm">LB</span>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-emerald-900 text-sm font-bold text-white shadow-sm">LB</span>
             <span className="min-w-0">
               <span className="block text-base font-semibold leading-5 text-slate-950">LedgerByte</span>
               <span className="block truncate text-xs text-slate-600">{content.brandSubline}</span>
@@ -682,10 +681,10 @@ function MarketingShell({
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            <Link href={content.languageHref} className="hidden rounded-full border border-emerald-950/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-900/20 hover:text-emerald-900 sm:inline-flex">
+            <Link href={content.languageHref} className="hidden rounded-md border border-emerald-950/10 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-900/20 hover:text-emerald-900 sm:inline-flex">
               {content.languageLabel}
             </Link>
-            <Link href="/login" className="rounded-full bg-emerald-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-950">
+            <Link href="/login" className="rounded-md bg-emerald-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-950">
               {content.betaLogin}
             </Link>
           </div>
@@ -695,14 +694,14 @@ function MarketingShell({
             <Link
               key={item.key}
               href={marketingPath(locale, item.key)}
-              className={`whitespace-nowrap rounded-full border px-3 py-2 font-medium ${
+              className={`whitespace-nowrap rounded-md border px-3 py-2 font-medium ${
                 pageKey === item.key ? "border-emerald-900 bg-emerald-50 text-emerald-900" : "border-emerald-950/10 bg-white text-slate-700"
               }`}
             >
               {item.label}
             </Link>
           ))}
-          <Link href={content.languageHref} className="whitespace-nowrap rounded-full border border-emerald-950/10 bg-white px-3 py-2 font-medium text-slate-700">
+          <Link href={content.languageHref} className="whitespace-nowrap rounded-md border border-emerald-950/10 bg-white px-3 py-2 font-medium text-slate-700">
             {content.languageLabel}
           </Link>
         </nav>
@@ -733,8 +732,7 @@ function MarketingShell({
 function ProductPreview({ content }: { content: MarketingContent }) {
   return (
     <div id="product-preview-card" className="relative" aria-label={content.proofLabel}>
-      <div className="absolute -inset-6 rounded-[2.5rem] bg-emerald-900/5 blur-3xl" />
-      <div className="relative overflow-hidden rounded-[2rem] border border-emerald-950/10 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.15)]">
+      <div className="relative overflow-hidden rounded-md border border-emerald-950/10 bg-white shadow-panel">
         <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -751,19 +749,19 @@ function ProductPreview({ content }: { content: MarketingContent }) {
         <div className="grid gap-5 p-5 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-3">
             {content.dashboardRows.map((row) => (
-              <div key={`${row.label}-${row.value}`} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div key={`${row.label}-${row.value}`} className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
                 <span className="text-sm font-medium text-slate-800">{row.label}</span>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${rowToneClass(row.tone)}`}>{row.value}</span>
+                <span className={`rounded-md px-3 py-1 text-xs font-semibold ${rowToneClass(row.tone)}`}>{row.value}</span>
               </div>
             ))}
-            <div className="rounded-xl border border-emerald-900/10 bg-emerald-50 p-4">
+            <div className="rounded-md border border-emerald-900/10 bg-emerald-50 p-4">
               <div className="flex items-center justify-between text-sm font-semibold text-emerald-950">
                 <span>Cash movement</span>
                 <span>{content.defaultCurrency}</span>
               </div>
               <div className="mt-4 flex h-28 items-end gap-2" aria-hidden="true">
                 {[38, 62, 48, 74, 55, 86, 68, 92].map((height, index) => (
-                  <span key={height + index} className="flex-1 rounded-t-lg bg-emerald-800/80" style={{ height: `${height}%` }} />
+                  <span key={height + index} className="flex-1 rounded-t-md bg-emerald-800/80" style={{ height: `${height}%` }} />
                 ))}
               </div>
             </div>
@@ -772,9 +770,9 @@ function ProductPreview({ content }: { content: MarketingContent }) {
             {content.dashboardPanels.map((panel) => {
               const Icon = panel.icon;
               return (
-                <div key={panel.title} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div key={panel.title} className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-900 text-white">
+                    <span className="grid h-9 w-9 place-items-center rounded-md bg-emerald-900 text-white">
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div>
@@ -807,14 +805,14 @@ function MiniLedger({ locale }: { locale: MarketingLocale }) {
         ];
 
   return (
-    <div className="rounded-[1.6rem] border border-emerald-950/10 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.12)]">
+    <div className="rounded-md border border-emerald-950/10 bg-white p-5 shadow-panel">
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm font-semibold text-slate-950">{locale === "en" ? "Beta workspace sample" : "مثال من مساحة البيتا"}</div>
-        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">{locale === "en" ? "Coming soon" : "قريبا"}</span>
+        <span className="rounded-md bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">{locale === "en" ? "Coming soon" : "قريبا"}</span>
       </div>
       <div className="space-y-2">
         {rows.map(([type, number, status]) => (
-          <div key={`${type}-${number}`} className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm">
+          <div key={`${type}-${number}`} className="grid grid-cols-3 gap-3 rounded-md bg-slate-50 px-4 py-3 text-sm">
             <span className="font-medium text-slate-950">{type}</span>
             <span className="text-slate-600">{number}</span>
             <span className="text-emerald-800">{status}</span>
@@ -845,7 +843,7 @@ function SplitSection({
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <div>
           <SectionHeader title={title} body={body} align={locale === "ar" ? "right" : "left"} />
-          <Link href={linkHref} className="mt-7 inline-flex items-center gap-2 rounded-full border border-emerald-900/20 bg-white px-5 py-3 text-sm font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-50">
+          <Link href={linkHref} className="mt-7 inline-flex items-center gap-2 rounded-md border border-emerald-900/20 bg-white px-5 py-3 text-sm font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-50">
             {linkLabel}
             {locale === "ar" ? <ArrowLeft className="h-4 w-4" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
           </Link>
@@ -871,12 +869,12 @@ function CardGrid({ cards, compact = false, className = "" }: { cards: readonly 
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <article key={card.title} className="rounded-2xl border border-emerald-950/10 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(15,23,42,0.10)] motion-reduce:transform-none">
+          <article key={card.title} className="rounded-md border border-emerald-950/10 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-panel motion-reduce:transform-none">
             <div className="mb-5 flex items-center justify-between gap-4">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-900 text-white">
+              <span className="grid h-11 w-11 place-items-center rounded-md bg-emerald-900 text-white">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
-              {card.meta ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{card.meta}</span> : null}
+              {card.meta ? <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{card.meta}</span> : null}
             </div>
             <h3 className="text-lg font-semibold leading-6 text-slate-950">{card.title}</h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">{card.description}</p>
@@ -894,7 +892,7 @@ function MarketingButton({ href, variant, children }: { href: string; variant: "
       : "border border-emerald-900/20 bg-white text-emerald-900 hover:bg-emerald-50";
 
   return (
-    <Link href={href} className={`inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold shadow-sm transition ${classes}`}>
+    <Link href={href} className={`inline-flex items-center justify-center rounded-md px-5 py-3 text-sm font-semibold shadow-sm transition ${classes}`}>
       {children}
     </Link>
   );
