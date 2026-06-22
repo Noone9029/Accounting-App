@@ -1,8 +1,23 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -111,81 +126,79 @@ export default function AccountsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Chart of accounts</h1>
-        <p className="mt-1 text-sm text-steel">Live tenant-scoped accounts from the API.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Accounting" title="Chart of accounts" description="Live tenant-scoped accounts from the API." />
 
-      {canManageAccounts ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create account</h2>
-        <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[0.7fr_1fr_0.8fr_1fr_auto]">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Code</span>
-            <input
-              name="code"
-              value={accountCode}
-              onChange={(event) => {
-                setCodeTouched(true);
-                setAccountCode(event.target.value);
-              }}
-              placeholder={codeSuggestion?.code ?? "Auto"}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-            />
-          </label>
-          <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <select
-            name="type"
-            value={newAccountType}
-            onChange={(event) => {
-              setNewAccountType(event.target.value as AccountType);
-              setCodeTouched(false);
-            }}
-            required
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-          >
-            {accountTypes.map((type) => (
-              <option key={type} value={type}>
-                {type.replaceAll("_", " ")}
-              </option>
-            ))}
-          </select>
-          <select name="parentId" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            <option value="">No parent</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} {account.name}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input name="allowPosting" type="checkbox" defaultChecked />
-            Posting
-          </label>
-          <div className="md:col-span-2 xl:col-span-5">
-            <p className="mb-3 text-xs leading-5 text-steel">
-              {codeSuggestion?.helperText ?? "LedgerByte can suggest a code from the selected account type range. Manual changes are audit logged."}
-            </p>
-            <button type="submit" disabled={!organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-              Add account
-            </button>
-          </div>
-        </form>
-      </div>
-      ) : null}
+      <LedgerPageBody>
+        {canManageAccounts ? (
+          <LedgerPanel>
+            <h2 className="text-base font-semibold text-ink">Create account</h2>
+            <form onSubmit={createAccount} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[0.7fr_1fr_0.8fr_1fr_auto]">
+              <Field label="Code">
+                <LedgerInput
+                  name="code"
+                  value={accountCode}
+                  onChange={(event) => {
+                    setCodeTouched(true);
+                    setAccountCode(event.target.value);
+                  }}
+                  placeholder={codeSuggestion?.code ?? "Auto"}
+                />
+              </Field>
+              <Field label="Name">
+                <LedgerInput name="name" required placeholder="Name" />
+              </Field>
+              <Field label="Type">
+                <LedgerSelect
+                  name="type"
+                  value={newAccountType}
+                  onChange={(event) => {
+                    setNewAccountType(event.target.value as AccountType);
+                    setCodeTouched(false);
+                  }}
+                  required
+                >
+                  {accountTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </Field>
+              <Field label="Parent">
+                <LedgerSelect name="parentId">
+                  <option value="">No parent</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.code} {account.name}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </Field>
+              <label className="flex min-h-[68px] items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
+                <input name="allowPosting" type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 text-palm focus:ring-palm/20" />
+                Posting
+              </label>
+              <div className="md:col-span-2 xl:col-span-5">
+                <p className="mb-3 text-xs leading-5 text-steel">
+                  {codeSuggestion?.helperText ?? "LedgerByte can suggest a code from the selected account type range. Manual changes are audit logged."}
+                </p>
+                <LedgerButton type="submit" variant="primary" disabled={!organizationId}>
+                  Add account
+                </LedgerButton>
+              </div>
+            </form>
+          </LedgerPanel>
+        ) : null}
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load accounts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading accounts...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && accounts.length === 0 ? <StatusMessage type="empty">No accounts found.</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load accounts.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading accounts" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!loading && organizationId && accounts.length === 0 ? <LedgerEmptyState title="No accounts found." /> : null}
 
-      {accounts.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        {accounts.length > 0 ? (
+          <LedgerDataTable minWidth="860px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Code</th>
@@ -202,13 +215,27 @@ export default function AccountsPage() {
                   <td className="px-4 py-3 font-medium text-ink">{account.name}</td>
                   <td className="px-4 py-3 text-steel">{account.type.replaceAll("_", " ")}</td>
                   <td className="px-4 py-3 text-steel">{account.parent ? `${account.parent.code} ${account.parent.name}` : "-"}</td>
-                  <td className="px-4 py-3 text-steel">{account.isActive ? "Active" : "Inactive"} · {account.allowPosting ? "Posting" : "Control"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <LedgerStatusBadge tone={account.isActive ? "success" : "neutral"}>{account.isActive ? "Active" : "Inactive"}</LedgerStatusBadge>
+                      <LedgerStatusBadge tone={account.allowPosting ? "info" : "draft"}>{account.allowPosting ? "Posting" : "Control"}</LedgerStatusBadge>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }

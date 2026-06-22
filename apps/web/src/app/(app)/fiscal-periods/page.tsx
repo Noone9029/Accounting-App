@@ -1,8 +1,21 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { fiscalPeriodLockWarning, fiscalPeriodStatusClass, fiscalPeriodStatusLabel, validateFiscalPeriodForm } from "@/lib/fiscal-periods";
@@ -87,41 +100,46 @@ export default function FiscalPeriodsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Fiscal periods</h1>
-        <p className="mt-1 text-sm text-steel">Close or lock posting windows for accountant-controlled periods.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Accounting controls" title="Fiscal periods" description="Close or lock posting windows for accountant-controlled periods." />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        Closed and locked periods block finalized, posted, voided, and reversal accounting entries. {fiscalPeriodLockWarning()}
-      </div>
+      <LedgerPageBody>
+        <LedgerAlert tone="warning">
+          Closed and locked periods block finalized, posted, voided, and reversal accounting entries. {fiscalPeriodLockWarning()}
+        </LedgerAlert>
 
-      {canManagePeriods ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create fiscal period</h2>
-        <form onSubmit={createPeriod} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.8fr_auto]">
-          <input name="name" required placeholder="FY 2026" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="startsOn" type="date" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="endsOn" type="date" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <button type="submit" disabled={!organizationId || submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Creating..." : "Create"}
-          </button>
-        </form>
-      </div>
-      ) : null}
+        {canManagePeriods ? (
+          <LedgerPanel>
+            <h2 className="text-base font-semibold text-ink">Create fiscal period</h2>
+            <form onSubmit={createPeriod} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_0.8fr_0.8fr_auto]">
+              <Field label="Name">
+                <LedgerInput name="name" required placeholder="FY 2026" />
+              </Field>
+              <Field label="Start">
+                <LedgerInput name="startsOn" type="date" required />
+              </Field>
+              <Field label="End">
+                <LedgerInput name="endsOn" type="date" required />
+              </Field>
+              <div className="flex items-end">
+                <LedgerButton type="submit" variant="primary" disabled={!organizationId || submitting}>
+                  {submitting ? "Creating..." : "Create"}
+                </LedgerButton>
+              </div>
+            </form>
+          </LedgerPanel>
+        ) : null}
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load fiscal periods.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading fiscal periods...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && periods.length === 0 ? <StatusMessage type="empty">No fiscal periods exist. Posting remains allowed until periods are configured.</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load fiscal periods.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading fiscal periods" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!loading && organizationId && periods.length === 0 ? (
+          <LedgerEmptyState title="No fiscal periods exist." description="Posting remains allowed until periods are configured." />
+        ) : null}
 
-      {periods.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        {periods.length > 0 ? (
+          <LedgerDataTable minWidth="860px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -145,28 +163,37 @@ export default function FiscalPeriodsPage() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {period.status === "OPEN" && canManagePeriods ? (
-                        <button type="button" onClick={() => transitionPeriod(period, "close")} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        <LedgerButton type="button" size="sm" onClick={() => transitionPeriod(period, "close")}>
                           Close
-                        </button>
+                        </LedgerButton>
                       ) : null}
                       {period.status === "CLOSED" && canManagePeriods ? (
-                        <button type="button" onClick={() => transitionPeriod(period, "reopen")} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        <LedgerButton type="button" size="sm" onClick={() => transitionPeriod(period, "reopen")}>
                           Reopen
-                        </button>
+                        </LedgerButton>
                       ) : null}
                       {period.status !== "LOCKED" && canLockPeriods ? (
-                        <button type="button" onClick={() => transitionPeriod(period, "lock")} className="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">
+                        <LedgerButton type="button" size="sm" variant="danger" onClick={() => transitionPeriod(period, "lock")}>
                           Lock
-                        </button>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }

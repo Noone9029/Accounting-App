@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -70,30 +82,23 @@ export default function JournalEntriesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Manual journals</h1>
-          <p className="mt-1 text-sm text-steel">Live draft, posted, and reversed manual journals from the ledger API.</p>
-        </div>
-        {canCreateJournal ? (
-          <Link href="/journal-entries/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Create journal
-          </Link>
-        ) : null}
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Accounting"
+        title="Manual journals"
+        description="Live draft, posted, and reversed manual journals from the ledger API."
+        actions={canCreateJournal ? <LedgerButton href="/journal-entries/new" variant="primary">Create journal</LedgerButton> : null}
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load journals.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading journal entries...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && entries.length === 0 ? <StatusMessage type="empty">No manual journals found.</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load journals.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading journal entries" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!loading && organizationId && entries.length === 0 ? <LedgerEmptyState title="No manual journals found." /> : null}
 
-      {entries.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[980px] text-left text-sm">
+        {entries.length > 0 ? (
+          <LedgerDataTable minWidth="980px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Number</th>
@@ -109,31 +114,38 @@ export default function JournalEntriesPage() {
               {entries.map((entry) => (
                 <tr key={entry.id}>
                   <td className="px-4 py-3 font-mono text-xs">{entry.entryNumber}</td>
-                  <td className="px-4 py-3 text-steel">{new Date(entry.entryDate).toLocaleDateString()}</td>
+                  <td className="px-4 py-3"><LedgerDate>{new Date(entry.entryDate).toLocaleDateString()}</LedgerDate></td>
                   <td className="px-4 py-3 font-medium text-ink">{entry.description}</td>
-                  <td className="px-4 py-3 text-steel">{entry.status}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{entry.totalDebit}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{entry.totalCredit}</td>
+                  <td className="px-4 py-3"><LedgerStatusBadge tone={journalStatusTone(entry.status)}>{entry.status}</LedgerStatusBadge></td>
+                  <td className="px-4 py-3"><LedgerMoney>{entry.totalDebit}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{entry.totalCredit}</LedgerMoney></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {entry.status === "DRAFT" && canPostJournal ? (
-                        <button type="button" onClick={() => void runAction(entry, "post")} disabled={actionId === entry.id} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <LedgerButton type="button" size="sm" onClick={() => void runAction(entry, "post")} disabled={actionId === entry.id}>
                           Post
-                        </button>
+                        </LedgerButton>
                       ) : null}
                       {entry.status === "POSTED" && canReverseJournal ? (
-                        <button type="button" onClick={() => void runAction(entry, "reverse")} disabled={actionId === entry.id} className="rounded-md border border-amber px-2 py-1 text-xs font-medium text-amber hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <LedgerButton type="button" size="sm" variant="danger" onClick={() => void runAction(entry, "reverse")} disabled={actionId === entry.id}>
                           Reverse
-                        </button>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
+}
+
+function journalStatusTone(status: JournalEntry["status"]) {
+  if (status === "POSTED") return "success";
+  if (status === "DRAFT") return "draft";
+  if (status === "REVERSED") return "warning";
+  return "neutral";
 }

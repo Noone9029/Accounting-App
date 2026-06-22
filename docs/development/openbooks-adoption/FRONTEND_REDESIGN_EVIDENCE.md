@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-clearing-settings`
+Branch: `codex/ui-redesign-accounting-admin-workspaces`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-reports-settings` while PR #176 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-clearing-settings` while PR #177 is open
 
 ## Evidence Summary
 
@@ -45,6 +45,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-reports-settings` while PR 
 | Banking detail and close loop | `apps/web/src/app/(app)/bank-reconciliations/[id]/page.tsx`, `apps/web/src/app/(app)/bank-transfers/[id]/page.tsx`, and `apps/web/src/app/(app)/bank-statement-transactions/[id]/page.tsx` use shared LedgerByte page, summary, section, panel, metric, table, metadata, attachment, report, form, alert, loading, empty, date, money, status, and action primitives while preserving reconciliation submit/approve/reopen/close/void, report downloads, transfer void, and statement match/categorize/ignore controls. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
+| Accounting/admin workspaces loop | `apps/web/src/app/(app)/accounts/page.tsx`, `apps/web/src/app/(app)/journal-entries/page.tsx`, `apps/web/src/app/(app)/journal-entries/new/page.tsx`, `apps/web/src/components/forms/create-journal-form.tsx`, `apps/web/src/app/(app)/tax-rates/page.tsx`, `apps/web/src/app/(app)/fiscal-periods/page.tsx`, and `apps/web/src/app/(app)/branches/page.tsx` use shared LedgerByte page, form, field, panel, alert, loading, empty, table, status, date, money, and action primitives while preserving account/tax/branch create payloads, manual journal draft/post/reverse payloads, fiscal period close/reopen/lock actions, and posting/lock warnings. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
 | Inventory catalog and warehouse loop | `apps/web/src/app/(app)/items/page.tsx`, `apps/web/src/app/(app)/inventory/warehouses/page.tsx`, and `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` use shared LedgerByte page, summary, form, field, filter, table, status, loading, empty, metadata, date, money, and action primitives while preserving item create/edit payloads, item traceability links, warehouse create/archive/reactivate actions, and warehouse stock guidance. |
 | Inventory stock operations loop | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx`, `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`, and `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` use shared LedgerByte page, summary, filter, table, form, metric, metadata, status, money/date, loading, empty, and action primitives while preserving stock movement filters/opening-balance payloads, adjustment lifecycle actions, transfer validation/create/void behavior, linked movement visibility, permissions, and stock/COGS/valuation boundaries. |
@@ -559,6 +560,23 @@ Base: stacked on `origin/codex/ui-redesign-inventory-reports-settings` while PR 
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover stock valuation, low stock, movement summary, clearing reconciliation, clearing variance, inventory settings, FIFO preview, landed cost, valuation variances, and variance proposal workflows together.
+
+## 2026-06-22 Accounting/Admin Workspaces Loop Evidence
+
+- `/accounts`: migrated the chart of accounts shell, account create panel, account code suggestion helper, status/loading/empty states, and account table to shared Ledger primitives while preserving `/accounts` loading, `/accounts/next-code` suggestion loading, POST payload shape, posting/control labels, and `PERMISSIONS.accounts.manage` visibility.
+- `/journal-entries`: migrated the manual journal list shell, create action, status/loading/empty states, journal table, date/money/status display, and post/reverse actions to shared Ledger primitives while preserving `/journal-entries` loading and the existing post/reverse endpoints and permission gates.
+- `/journal-entries/new` and `CreateJournalForm`: migrated the manual journal header, setup status states, header fields, line-entry grid, account/tax selectors, add/remove line actions, balanced totals, and submit button to shared Ledger primitives while preserving validation, account/tax loading, draft POST payload shape, and balanced-only submit behavior.
+- `/tax-rates`: migrated the tax rate create panel, status/loading/empty states, and tax rate table to shared Ledger primitives while preserving POST payload shape, scope/category/rate fields, and `PERMISSIONS.taxRates.manage` visibility.
+- `/fiscal-periods`: migrated the lock warning, create form, status/loading/empty states, fiscal period table, and close/reopen/lock actions to shared Ledger primitives while preserving validation, transition endpoints, irreversible lock confirmation, and period manage/lock permission gates.
+- `/branches`: migrated the branch create panel, status/loading/empty states, default branch checkbox, and branch table to shared Ledger primitives while preserving POST payload shape and organization update permission visibility.
+- Existing behavior remains frontend-only and unchanged: this pass does not add posting automation, journal math changes, fiscal period policy changes, account/tax/branch backend behavior, schema changes, VAT/ZATCA/compliance behavior, provider calls, storage behavior, hosted mutations, seed/reset/delete commands, or deployments.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification accounts journal-entries tax-rates fiscal-periods branches create-journal-form`: PASS, 14 suites, 64 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed accounting/admin visual fixture pass should cover chart of accounts, manual journal list/new, tax rates, fiscal periods, and branches together.
 
 ## Mutation Boundary
 
