@@ -15,7 +15,7 @@ export function AuthPageShell({
 }>) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-mist px-4 py-10">
-      <LedgerPanel className="w-full max-w-md">
+      <LedgerPanel className="w-full max-w-md p-5">
         <LedgerPageHeader
           eyebrow="Private beta access"
           title={title}
@@ -23,7 +23,7 @@ export function AuthPageShell({
           description={description}
         />
         <div className="mt-6">{children}</div>
-        {footer ? <div className="mt-4 space-y-2 text-sm text-steel">{footer}</div> : null}
+        {footer ? <div className="mt-5 space-y-2 border-t border-line pt-4 text-sm text-steel">{footer}</div> : null}
       </LedgerPanel>
     </main>
   );
@@ -31,7 +31,7 @@ export function AuthPageShell({
 
 export function AuthTextLink({ href, children }: Readonly<{ href: string; children: ReactNode }>) {
   return (
-    <Link href={href} className="font-semibold text-palm hover:text-palm-dark">
+    <Link href={href} className="ledger-focus rounded-sm font-semibold text-palm hover:text-palm-dark">
       {children}
     </Link>
   );
