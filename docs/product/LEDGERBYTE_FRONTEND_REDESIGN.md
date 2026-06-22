@@ -216,6 +216,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated storage evidence capture textareas to shared LedgerByte field and textarea primitives.
 - Preserved storage truth: evidence capture still records metadata only through the existing form state and API flow, with no backup execution, restore execution, raw-file archive, object-storage mutation, signed URL operation, or secret exposure added.
 
+### 2026-06-22 Form Textarea Polish Loop
+
+- Migrated collection case notes, delivery-note address, purchase-return notes, sales inventory return notes, and customer payment allocation reversal reason fields to the shared LedgerByte textarea primitive.
+- Preserved form truth: create/update/reversal payloads, return-to behavior, permission gates, and all non-posting/no-provider/no-compliance wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
