@@ -2,7 +2,7 @@
 
 Date: 2026-06-22
 
-This branch continues the full LedgerByte frontend redesign from the PR #151 sales customer-payments loop. It is intentionally stacked on `codex/ui-redesign-customer-payments` while that PR is open so the next pass stays reviewable.
+This branch continues the full LedgerByte frontend redesign from the PR #152 sales customer-payment detail loop. It is intentionally stacked on `codex/ui-redesign-customer-payment-detail` while that PR is open so the next pass stays reviewable.
 
 ## Scope Implemented In This Slice
 
@@ -19,6 +19,7 @@ This branch continues the full LedgerByte frontend redesign from the PR #151 sal
 - Migrated sales credit-note list, new/edit form workflow, detail, allocation, apply-credit, and shared credit-note form surfaces onto shared LedgerByte page/section/form/table/summary/status/action primitives while preserving credit-note posting, allocation, PDF archive, UAE readiness, ZATCA not-implemented, and return-to boundaries.
 - Migrated customer payment list/new workflow and customer refund list/new/detail workflow onto shared LedgerByte page/section/form/table/summary/status/action primitives while preserving payment posting, refund posting, allocation, return-to, no-provider, no-bank-feed, and no-ZATCA boundaries.
 - Migrated customer payment detail receipt/archive/audit/unapplied-allocation workflow onto shared LedgerByte page/workflow/section/table/modal/field/status/action primitives while preserving void, refund handoff, receipt preview/download, audit loading, apply/reverse allocation, and return-to behavior.
+- Migrated delivery-note list/new/detail/edit and shared delivery-note form workflows onto shared LedgerByte page/section/form/table/archive/status/action primitives while preserving non-posting fulfillment, source invoice/quote traceability, PDF archive, lifecycle actions, and no-stock/no-accounting mutation boundaries.
 - Migrated `/inventory/balances` onto shared LedgerByte page/table/state primitives while preserving operational stock and valuation boundaries.
 - Updated focused component and route-load tests for the shared system and settings overview route.
 
@@ -70,6 +71,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #151 sal
 - Preserved allocation truth: direct invoice allocations, unapplied payment applications, apply-unapplied validation, reverse-allocation confirmation, and no-extra-journal wording remain tied to the existing helpers and endpoints.
 - Preserved route continuity: Back, invoice, customer workspace, AR report, dashboard, and refund-unapplied handoffs keep the existing return-to behavior.
 
+### 2026-06-22 Sales Delivery Notes Loop
+
+- Migrated `/sales/delivery-notes`, `/sales/delivery-notes/new`, `/sales/delivery-notes/[id]`, `/sales/delivery-notes/[id]/edit`, and `DeliveryNoteForm` to shared page/header/body, toolbar, form, field, table, panel, archive, status, alert, and action primitives.
+- Preserved delivery-note truth: delivery notes remain operational fulfillment documents only; issue, mark-delivered, cancel, void, PDF download, and archived download actions call existing endpoints and permission gates.
+- Preserved source and inventory truth: source invoice/quote links stay traceability-only, line copy remains form-local, and this pass adds no accounting journal, AR, VAT filing, ZATCA, payment, email, stock movement, COGS, or inventory valuation behavior.
+
 ### 2026-06-22 Purchase Workspace List Loop
 
 - Migrated `/purchases/bills` list layout, status badges, date/money cells, action buttons, summary wording, and empty states to shared LedgerByte primitives.
@@ -111,7 +118,7 @@ This branch continues the full LedgerByte frontend redesign from the PR #151 sal
 ## Remaining Frontend Route Families
 
 - Sales, Purchase, Banking, Contacts, and Inventory detail/form/supporting flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
-- Sales now has list surfaces, invoice/quote new/edit forms, invoice detail, quote detail, credit-note list/detail/form coverage, customer payment list/new/detail coverage, and customer refund list/new/detail coverage; recurring invoices, delivery notes, collections, and sales inventory returns remain.
+- Sales now has list surfaces, invoice/quote new/edit forms, invoice detail, quote detail, credit-note list/detail/form coverage, customer payment list/new/detail coverage, customer refund list/new/detail coverage, and delivery-note list/new/detail/edit/form coverage; recurring invoices, collections, and sales inventory returns remain.
 - Contacts now has customer/supplier detail and dedicated statement coverage; shared contact ledger tabs and visual QA remain.
 - Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
@@ -121,4 +128,4 @@ This branch continues the full LedgerByte frontend redesign from the PR #151 sal
 
 ## Recommended Next Goal
 
-Continue the sales workflow wave with delivery-note/collection supporting routes or recurring invoices, then run the corresponding visual fixtures.
+Continue the sales workflow wave with collections supporting routes or recurring invoices, then run the corresponding visual fixtures.

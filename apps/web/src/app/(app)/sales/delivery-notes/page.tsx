@@ -1,12 +1,30 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerToolbar,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { deliveryNoteStatusBadgeClass, deliveryNoteStatusLabel, deliveryNoteStatuses } from "@/lib/delivery-notes";
+import { deliveryNoteStatusLabel, deliveryNoteStatuses } from "@/lib/delivery-notes";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { DeliveryNote, DeliveryNoteStatus } from "@/lib/types";
@@ -70,57 +88,62 @@ export default function DeliveryNotesPage() {
   }, [organizationId]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Delivery notes</h1>
-          <p className="mt-1 text-sm text-steel">Operational fulfillment documents for customer deliveries. They do not post accounting or move inventory by themselves.</p>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
+        title="Delivery notes"
+        description="Operational fulfillment documents for customer deliveries. They do not post accounting or move inventory by themselves."
+        actions={
+          canCreate ? (
+            <LedgerButton href="/sales/delivery-notes/new" variant="primary" icon={Plus}>
+              Create delivery note
+            </LedgerButton>
+          ) : null
+        }
+      />
+
+      <LedgerPageBody>
+        <div className="space-y-3">
+          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load delivery notes.</LedgerAlert> : null}
+          {loading ? <StatusMessage type="loading">Loading delivery notes...</StatusMessage> : null}
+          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+          {!loading && organizationId && deliveryNotes.length === 0 ? (
+            <LedgerEmptyState
+              title="No delivery notes found"
+              description="Create a draft delivery note, issue it, then mark it delivered when fulfillment is complete."
+              action={canCreate ? <LedgerButton href="/sales/delivery-notes/new" variant="primary" icon={Plus}>Create delivery note</LedgerButton> : null}
+            />
+          ) : null}
         </div>
-        {canCreate ? (
-          <Link href="/sales/delivery-notes/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Create delivery note
-          </Link>
+
+        {deliveryNotes.length > 0 ? (
+          <LedgerToolbar title="Filters" description="Filter fulfillment documents without changing delivery, invoice, quote, stock, or posting state.">
+            <LedgerFilterBar>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Status</LedgerFieldText>
+                <LedgerSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+                  <option value="ALL">All</option>
+                  {deliveryNoteStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {deliveryNoteStatusLabel(status)}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerFieldLabel className="min-w-64">
+                <LedgerFieldText>Customer</LedgerFieldText>
+                <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
+              </LedgerFieldLabel>
+            </LedgerFilterBar>
+          </LedgerToolbar>
         ) : null}
-      </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load delivery notes.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading delivery notes...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && deliveryNotes.length === 0 ? (
-          <StatusMessage type="empty">No delivery notes found. Create a draft delivery note, issue it, then mark it delivered when fulfillment is complete.</StatusMessage>
+        {deliveryNotes.length > 0 && filteredDeliveryNotes.length === 0 ? (
+          <LedgerEmptyState title="No delivery notes match the current filters" />
         ) : null}
-      </div>
 
-      {deliveryNotes.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="ALL">All</option>
-              {deliveryNoteStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {deliveryNoteStatusLabel(status)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block min-w-64">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer</span>
-            <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-      ) : null}
-
-      {deliveryNotes.length > 0 && filteredDeliveryNotes.length === 0 ? (
-        <div className="mt-5">
-          <StatusMessage type="empty">No delivery notes match the current filters.</StatusMessage>
-        </div>
-      ) : null}
-
-      {filteredDeliveryNotes.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1120px] text-left text-sm">
+        {filteredDeliveryNotes.length > 0 ? (
+          <LedgerDataTable minWidth="1120px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Number</th>
@@ -138,8 +161,8 @@ export default function DeliveryNotesPage() {
                 <tr key={deliveryNote.id}>
                   <td className="px-4 py-3 font-mono text-xs">{deliveryNote.deliveryNoteNumber}</td>
                   <td className="px-4 py-3 font-medium text-ink">{deliveryNote.customer?.displayName ?? deliveryNote.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(deliveryNote.issueDate)}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(deliveryNote.deliveryDate)}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(deliveryNote.issueDate)}</LedgerDate></td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(deliveryNote.deliveryDate)}</LedgerDate></td>
                   <td className="px-4 py-3">
                     <DeliveryNoteStatusPill status={deliveryNote.status} />
                   </td>
@@ -147,28 +170,43 @@ export default function DeliveryNotesPage() {
                   <td className="px-4 py-3 font-mono text-xs">{deliveryNote._count?.lines ?? deliveryNote.lines?.length ?? "-"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <Link href={`/sales/delivery-notes/${deliveryNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <LedgerButton href={`/sales/delivery-notes/${deliveryNote.id}`} size="sm">
                         View
-                      </Link>
+                      </LedgerButton>
                       {deliveryNote.status === "DRAFT" && canEdit ? (
-                        <Link href={`/sales/delivery-notes/${deliveryNote.id}/edit`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        <LedgerButton href={`/sales/delivery-notes/${deliveryNote.id}/edit`} size="sm">
                           Edit
-                        </Link>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function DeliveryNoteStatusPill({ status }: { status: DeliveryNoteStatus }) {
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${deliveryNoteStatusBadgeClass(status)}`}>{deliveryNoteStatusLabel(status)}</span>;
+  return <LedgerStatusBadge tone={deliveryNoteStatusTone(status)}>{deliveryNoteStatusLabel(status)}</LedgerStatusBadge>;
+}
+
+function deliveryNoteStatusTone(status: DeliveryNoteStatus): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "draft";
+    case "ISSUED":
+      return "info";
+    case "DELIVERED":
+      return "success";
+    case "CANCELLED":
+      return "warning";
+    case "VOIDED":
+      return "danger";
+  }
 }
 
 function sourceLabel(deliveryNote: DeliveryNote): string {

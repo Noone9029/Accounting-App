@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-customer-payment-detail`
+Branch: `codex/ui-redesign-delivery-notes`
 
-Base: stacked on `origin/codex/ui-redesign-customer-payments` while PR #151 is open
+Base: stacked on `origin/codex/ui-redesign-customer-payment-detail` while PR #152 is open
 
 ## Evidence Summary
 
@@ -24,6 +24,7 @@ Base: stacked on `origin/codex/ui-redesign-customer-payments` while PR #151 is o
 | Sales credit notes loop | `apps/web/src/app/(app)/sales/credit-notes/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/credit-note-form.tsx` use shared LedgerByte list, detail, form, table, money/date, status, allocation, alert, and action primitives while preserving credit-note posting, allocation, PDF archive, UAE readiness, and return-to behavior. |
 | Sales customer payments/refunds loop | `apps/web/src/app/(app)/sales/customer-payments/page.tsx`, `apps/web/src/app/(app)/sales/customer-payments/new/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/new/page.tsx`, and `apps/web/src/app/(app)/sales/customer-refunds/[id]/page.tsx` use shared LedgerByte list, form, table, metric, source, PDF-preview, alert, summary, money/date, status, and action primitives while preserving payment posting, refund posting, allocation, return-to, no-provider, and no-ZATCA behavior. |
 | Sales customer payment detail loop | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` uses shared LedgerByte page, workflow, metric, table, receipt archive, audit, apply-credit, modal, field, money/date, status, alert, and action primitives while preserving receipt preview/download, generated-document archive loading, audit log loading, void, refund handoff, unapplied allocation apply/reverse, and return-to behavior. |
+| Sales delivery notes loop | `apps/web/src/app/(app)/sales/delivery-notes/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/delivery-note-form.tsx` use shared LedgerByte list, detail, form, table, archive, status, alert, and action primitives while preserving non-posting fulfillment, source invoice/quote, PDF archive, lifecycle action, return-to, and no-stock/no-accounting mutation boundaries. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -129,6 +130,20 @@ Base: stacked on `origin/codex/ui-redesign-customer-payments` while PR #151 is o
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+
+## 2026-06-22 Sales Delivery Notes Loop Evidence
+
+- `/sales/delivery-notes`: migrated the delivery-note list shell, create action, filters, empty states, row status, dates, source labels, and row actions to shared LedgerByte page/header/body, toolbar, filter, table, date, status, alert, empty-state, and button primitives.
+- `/sales/delivery-notes/new` and `/sales/delivery-notes/[id]/edit`: migrated route shells and blocked edit states to shared page/header/body, alert, and action primitives while preserving setup loads, draft-only edit loading, and the shared delivery-note form handoff.
+- `DeliveryNoteForm`: migrated delivery details, source invoice/quote selectors, address/date fields, line editor, line add/remove controls, save/cancel actions, source-copy warning, and draft-only edit guard to shared Ledger form, field, table, panel, alert, and action primitives.
+- `/sales/delivery-notes/[id]`: migrated the delivery-note detail shell, lifecycle actions, summary metadata, fulfillment guidance, source traceability, line table, PDF archive, archived download actions, and status labels to shared LedgerByte primitives.
+- Existing behavior remains frontend-only and unchanged: delivery notes stay non-posting fulfillment documents; issue/deliver/cancel/void actions call the existing endpoints; PDF download/archive remains explicit and permission-gated; source invoice/quote links remain traceability-only; no accounting journal, AR, VAT filing, ZATCA submission, email delivery, stock movement, or payment behavior was added.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/delivery-notes/page.test.tsx" "apps/web/src/app/(app)/sales/delivery-notes/[id]/page.test.tsx" "apps/web/src/components/forms/delivery-note-form.test.tsx"`: PASS, 3 suites, 11 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification delivery-notes delivery-note-form`: PASS, 126 suites, 598 tests matched.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/delivery-note-workflow.visual.spec.ts`: PASS, 4 checks, after tightening ambiguous existing assertions for repeated customer/document headings and filtering known generic browser resource noise.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 

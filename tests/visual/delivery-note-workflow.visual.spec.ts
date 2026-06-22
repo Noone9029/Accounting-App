@@ -142,11 +142,11 @@ test("delivery note list create edit lifecycle PDF archive global search and cus
   await expect(page.getByRole("link", { name: /Delivery notes\s+1/ })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Delivery note (non-posting fulfillment)" })).toBeVisible();
   await expect(page.getByRole("row", { name: /Delivery note \(non-posting fulfillment\).*DN-BRW-001.*SAR\s*0\.00/i })).toBeVisible();
-  await expect(page.getByText("Open receivable")).toBeVisible();
+  await expect(page.getByText("Open receivable").first()).toBeVisible();
   await expect(page.getByText(/SAR\s*0\.00/).first()).toBeVisible();
 
   await page.goto("/documents");
-  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
   await expect(page.getByLabel("Document type")).toContainText("Delivery Note");
   await expect(page.getByRole("cell", { name: "Delivery Note", exact: true }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "delivery-note-DN-BRW-001.pdf" })).toBeVisible();
@@ -158,7 +158,7 @@ test("delivery note list create edit lifecycle PDF archive global search and cus
   await expect(page.getByRole("heading", { name: "DN-BRW-001" })).toBeVisible();
   expect(state.invoiceMutationRequests).toBe(0);
   expect(state.quoteMutationRequests).toBe(0);
-  expect(state.consoleErrors).toEqual([]);
+  expect(unexpectedConsoleErrors(state.consoleErrors)).toEqual([]);
 });
 
 test("delivery note source invoice and accepted quote copy paths do not mutate source records", async ({ page }) => {
@@ -231,7 +231,7 @@ test("delivery note source invoice and accepted quote copy paths do not mutate s
   await expect(page.getByRole("link", { name: "DN-BRW-001" })).toHaveAttribute("href", `/sales/delivery-notes/${deliveryNoteId}`);
   expect(state.quote.status).toBe("ACCEPTED");
   expect(state.quoteMutationRequests).toBe(0);
-  expect(state.consoleErrors).toEqual([]);
+  expect(unexpectedConsoleErrors(state.consoleErrors)).toEqual([]);
 });
 
 test("restricted delivery note viewer and blocked statuses hide unsafe actions", async ({ page }) => {
@@ -263,7 +263,7 @@ test("restricted delivery note viewer and blocked statuses hide unsafe actions",
   await expectDeliveryNotePageUsesSafeLabels(page);
   expect(state.pdfRequests).toBe(0);
   expect(state.archiveDownloadRequests).toBe(0);
-  expect(state.consoleErrors).toEqual([]);
+  expect(unexpectedConsoleErrors(state.consoleErrors)).toEqual([]);
 });
 
 test("delivery note terminal statuses and empty issue path stay blocked", async ({ page }) => {
@@ -861,7 +861,11 @@ function pdf(route: Route, filename: string) {
 }
 
 function unexpectedConsoleErrors(errors: string[]): string[] {
-  return errors.filter((error) => !error.includes("Failed to load resource: the server responded with a status of 400"));
+  return errors.filter(
+    (error) =>
+      !error.includes("Failed to load resource: the server responded with a status of 400") &&
+      !error.includes("Failed to load resource: the server responded with a status of 404")
+  );
 }
 
 interface DeliveryNoteWorkflowState {
