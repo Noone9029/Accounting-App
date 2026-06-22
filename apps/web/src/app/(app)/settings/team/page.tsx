@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { InviteOrganizationMemberResponse, MembershipStatus, OrganizationMember, Role } from "@/lib/types";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
   LedgerEmptyState,
@@ -15,7 +15,6 @@ import {
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerInput,
-  LedgerLoadingState,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
@@ -270,16 +269,6 @@ export function BetaAccessGuidance() {
       </p>
     </LedgerSummaryBand>
   );
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" | "success" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  if (type === "error") {
-    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
-  }
-  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
 
 function statusTone(status: MembershipStatus): "success" | "info" | "danger" {
