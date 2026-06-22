@@ -3,8 +3,28 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerSummaryBand,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -95,70 +115,64 @@ export default function InventoryFifoPreviewPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">FIFO Cost-Layer Preview</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">{inventoryFifoPreviewSafeHelperText()}</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
-          <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Stock valuation
-          </Link>
-          <Link href="/inventory/landed-cost" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Landed cost preview
-          </Link>
-          <Link href="/inventory/valuation-variances" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Valuation variances
-          </Link>
-        </div>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory valuation"
+        title="FIFO Cost-Layer Preview"
+        description={inventoryFifoPreviewSafeHelperText()}
+        actions={
+          <>
+            <LedgerButton href="/inventory/reports/stock-valuation">Stock valuation</LedgerButton>
+            <LedgerButton href="/inventory/landed-cost">Landed cost preview</LedgerButton>
+            <LedgerButton href="/inventory/valuation-variances">Valuation variances</LedgerButton>
+          </>
+        }
+      />
 
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to load FIFO cost-layer preview.</StatusMessage> : null}
-      {organizationId && !canViewPage ? <StatusMessage type="info">FIFO cost-layer preview requires inventory view permission.</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Loading FIFO cost-layer preview...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load FIFO cost-layer preview.</LedgerAlert> : null}
+        {organizationId && !canViewPage ? <LedgerAlert tone="info">FIFO cost-layer preview requires inventory view permission.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading FIFO cost-layer preview" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      <form onSubmit={applyFilters} className="grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel md:grid-cols-[1fr_1fr_180px_auto] md:items-end">
-        <label className="text-sm font-medium text-ink">
-          Item
-          <input
-            value={draftFilters.itemId}
-            onChange={(event) => setDraftFilters((current) => ({ ...current, itemId: event.target.value }))}
-            placeholder="Item ID"
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="text-sm font-medium text-ink">
-          Warehouse
-          <input
-            value={draftFilters.warehouseId}
-            onChange={(event) => setDraftFilters((current) => ({ ...current, warehouseId: event.target.value }))}
-            placeholder="Warehouse ID"
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="text-sm font-medium text-ink">
-          As-of date
-          <input
-            type="date"
-            value={draftFilters.asOfDate}
-            onChange={(event) => setDraftFilters((current) => ({ ...current, asOfDate: event.target.value }))}
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={!organizationId || !canViewPage}
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        <LedgerToolbar
+          title="Preview filters"
+          description="Scope the read-only FIFO reconstruction by item, warehouse, and as-of date."
         >
-          Apply filters
-        </button>
-      </form>
+          <form onSubmit={applyFilters} className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_180px_auto] md:items-end">
+            <LedgerFieldLabel>
+              <LedgerFieldText>Item</LedgerFieldText>
+              <LedgerInput
+                value={draftFilters.itemId}
+                onChange={(event) => setDraftFilters((current) => ({ ...current, itemId: event.target.value }))}
+                placeholder="Item ID"
+              />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Warehouse</LedgerFieldText>
+              <LedgerInput
+                value={draftFilters.warehouseId}
+                onChange={(event) => setDraftFilters((current) => ({ ...current, warehouseId: event.target.value }))}
+                placeholder="Warehouse ID"
+              />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>As-of date</LedgerFieldText>
+              <LedgerInput
+                type="date"
+                value={draftFilters.asOfDate}
+                onChange={(event) => setDraftFilters((current) => ({ ...current, asOfDate: event.target.value }))}
+              />
+            </LedgerFieldLabel>
+            <LedgerButton type="submit" variant="primary" disabled={!organizationId || !canViewPage}>
+              Apply filters
+            </LedgerButton>
+          </form>
+        </LedgerToolbar>
 
-      {preview ? (
-        <>
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {preview ? (
+          <>
+            <section className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Metric label="On-hand quantity" value={formatInventoryQuantity(preview.totals.totalOnHandQuantity)} />
             <Metric label="FIFO preview value" value={inventoryReportValueDisplay(preview.totals.fifoPreviewValue)} />
             <Metric label="Current operational value" value={inventoryReportValueDisplay(preview.totals.currentOperationalValuationValue)} />
@@ -167,33 +181,21 @@ export default function InventoryFifoPreviewPage() {
             <Metric label="Blockers" value={String(preview.totals.blockerCount)} tone={preview.totals.blockerCount > 0 ? "blocker" : "neutral"} />
           </section>
 
-          <section className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-            <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-steel">As of</p>
-                <p className="mt-1 font-medium text-ink">{formatOptionalDate(preview.asOfDate, "-")}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-steel">Active valuation method</p>
-                <p className="mt-1 font-medium text-ink">{inventoryValuationMethodLabel(preview.activeValuationMethod.method)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-steel">Preview valuation method</p>
-                <p className="mt-1 font-medium text-ink">{preview.previewValuationMethod.replace("_", " ")}</p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-steel">{preview.activeValuationMethod.note}</p>
-          </section>
+            <LedgerPanel>
+              <LedgerMetadataRow
+                items={[
+                  { label: "As of", value: <LedgerDate>{formatOptionalDate(preview.asOfDate, "-")}</LedgerDate> },
+                  { label: "Active valuation method", value: inventoryValuationMethodLabel(preview.activeValuationMethod.method) },
+                  { label: "Preview valuation method", value: preview.previewValuationMethod.replace("_", " ") },
+                ]}
+              />
+              <p className="mt-3 text-sm leading-6 text-steel">{preview.activeValuationMethod.note}</p>
+            </LedgerPanel>
 
-          <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-              <h2 className="text-base font-semibold text-ink">Layer table</h2>
-              <p className="text-sm text-steel">{layerRows.length} layers</p>
-            </div>
-            {layerRows.length === 0 ? <StatusMessage type="empty">No FIFO layers are available for the selected scope.</StatusMessage> : null}
+            <LedgerSection title="Layer table" description={`${layerRows.length} layers`}>
+            {layerRows.length === 0 ? <LedgerEmptyState title="No FIFO layers are available for the selected scope." /> : null}
             {layerRows.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px] text-left text-sm">
+              <LedgerDataTable minWidth="1180px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-3 py-2">Layer date</th>
@@ -230,20 +232,14 @@ export default function InventoryFifoPreviewPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </LedgerDataTable>
             ) : null}
-          </section>
+          </LedgerSection>
 
-          <section className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-            <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-              <h2 className="text-base font-semibold text-ink">Consumption preview</h2>
-              <p className="text-sm text-steel">{consumptionRows.length} outbound movements</p>
-            </div>
-            {consumptionRows.length === 0 ? <StatusMessage type="empty">No outbound movements consume FIFO layers in the selected scope.</StatusMessage> : null}
+          <LedgerSection title="Consumption preview" description={`${consumptionRows.length} outbound movements`}>
+            {consumptionRows.length === 0 ? <LedgerEmptyState title="No outbound movements consume FIFO layers in the selected scope." /> : null}
             {consumptionRows.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1180px] text-left text-sm">
+              <LedgerDataTable minWidth="1180px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-3 py-2">Outbound movement</th>
@@ -278,34 +274,28 @@ export default function InventoryFifoPreviewPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </LedgerDataTable>
             ) : null}
-          </section>
+          </LedgerSection>
 
           <WarningsPanel title="Blockers" warnings={preview.blockers} />
           <WarningsPanel title="Warnings" warnings={preview.warnings} />
         </>
       ) : null}
 
-      <section className="rounded-md border border-slate-200 bg-slate-50 p-4">
-        <h2 className="text-base font-semibold text-ink">Safe limitations</h2>
-        <p className="mt-2 text-sm leading-6 text-steel">
+        <LedgerSummaryBand>
+          <span className="font-semibold text-ink">Safe limitations</span>
+          {": "}
           FIFO preview is an informational reconstruction only. It does not persist active cost layers, switch the valuation method, update moving average, change stock valuation, create COGS entries, post journals, affect AP or AR, change VAT or ZATCA outputs, update financial statements, or mutate purchase, sales, landed-cost, valuation-variance, return, transfer, adjustment, or stock movement records.
-        </p>
-      </section>
-    </div>
+        </LedgerSummaryBand>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function Metric({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "neutral" | "warning" | "blocker" }) {
-  const toneClass = tone === "blocker" ? "text-rose-700" : tone === "warning" ? "text-amber-700" : "text-ink";
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs uppercase tracking-wide text-steel">{label}</p>
-      <p className={`mt-1 font-mono text-sm font-semibold ${toneClass}`}>{value}</p>
-    </div>
-  );
+  const detail = tone === "blocker" ? "Requires review before reliance." : tone === "warning" ? "Preview warning present." : undefined;
+  return <LedgerStatCard label={label} value={<LedgerMoney>{value}</LedgerMoney>} detail={detail} />;
 }
 
 function SourceDocumentLink({ document, permissions }: { document: InventoryFifoPreviewSourceDocument | null; permissions: SourcePermissionContext }) {
@@ -327,10 +317,8 @@ function WarningsPanel({ title, warnings }: { title: string; warnings: Inventory
   if (warnings.length === 0) {
     return null;
   }
-  const borderClass = title === "Blockers" ? "border-rose-200 bg-rose-50 text-rose-900" : "border-amber-200 bg-amber-50 text-amber-900";
   return (
-    <section className={`rounded-md border px-4 py-3 text-sm ${borderClass}`}>
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
+    <LedgerAlert tone={title === "Blockers" ? "danger" : "warning"} title={title}>
       <ul className="mt-3 space-y-2">
         {warnings.map((warning, index) => (
           <li key={`${warning.type}:${warning.movementId ?? "response"}:${index}`} className="flex flex-col gap-1 md:flex-row md:items-start">
@@ -341,7 +329,7 @@ function WarningsPanel({ title, warnings }: { title: string; warnings: Inventory
           </li>
         ))}
       </ul>
-    </section>
+    </LedgerAlert>
   );
 }
 

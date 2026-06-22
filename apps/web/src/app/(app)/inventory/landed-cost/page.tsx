@@ -3,8 +3,25 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSection,
+  LedgerSelect,
+  LedgerSummaryBand,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -103,152 +120,131 @@ export default function LandedCostPreviewPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Landed Cost Preview</h1>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-steel">{SAFE_HELPER_TEXT}</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
-          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            FIFO preview
-          </Link>
-          <Link href="/inventory/valuation-variances" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Valuation variance preview
-          </Link>
-        </div>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory valuation"
+        title="Landed Cost Preview"
+        description={SAFE_HELPER_TEXT}
+        actions={
+          <>
+            <LedgerButton href={inventoryFifoPreviewUrl({})}>FIFO preview</LedgerButton>
+            <LedgerButton href="/inventory/valuation-variances">Valuation variance preview</LedgerButton>
+          </>
+        }
+      />
 
-      {!organizationId ? <StatusMessage type="info">Log in and select an organization to preview landed cost allocation.</StatusMessage> : null}
-      {organizationId && !canViewPage ? <StatusMessage type="info">Landed cost preview requires inventory view permission.</StatusMessage> : null}
-      {organizationId && canViewPage && !canViewSelectedSource ? <StatusMessage type="info">{sourcePermissionMessage}</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      {loading ? <StatusMessage type="loading">Generating landed cost preview...</StatusMessage> : null}
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to preview landed cost allocation.</LedgerAlert> : null}
+        {organizationId && !canViewPage ? <LedgerAlert tone="info">Landed cost preview requires inventory view permission.</LedgerAlert> : null}
+        {organizationId && canViewPage && !canViewSelectedSource ? <LedgerAlert tone="info">{sourcePermissionMessage}</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Generating landed cost preview" /> : null}
 
-      <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Source selector</h2>
-          <p className="mt-1 text-sm text-steel">Choose an eligible purchase receipt or purchase bill source. Purchase order support returns a blocker in this sprint.</p>
-        </div>
+      <LedgerToolbar
+        title="Source selector"
+        description="Choose an eligible purchase receipt or purchase bill source. Purchase order support returns a blocker in this sprint."
+      >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[240px_1fr_auto] md:items-end">
-          <label className="text-sm font-medium text-ink">
-            Source type
-            <select
+          <LedgerFieldLabel>
+            <LedgerFieldText>Source type</LedgerFieldText>
+            <LedgerSelect
               value={sourceType}
               onChange={(event) => setSourceType(event.target.value as LandedCostSourceType)}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
             >
               {SOURCE_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {landedCostSourceTypeLabel(type)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="text-sm font-medium text-ink">
-            Source document ID
-            <input
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Source document ID</LedgerFieldText>
+            <LedgerInput
               value={sourceId}
               onChange={(event) => setSourceId(event.target.value)}
               placeholder="Paste receipt or bill ID"
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
             />
-          </label>
-          <button
+          </LedgerFieldLabel>
+          <LedgerButton
             type="button"
+            variant="primary"
             onClick={submitPreview}
             disabled={!organizationId || !canViewPage || !canViewSelectedSource || !sourceId.trim() || loading}
-            className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Preview
-          </button>
+          </LedgerButton>
         </div>
-      </section>
+      </LedgerToolbar>
 
-      <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Cost lines</h2>
-            <p className="mt-1 text-sm text-steel">Model freight, customs, insurance, handling, brokerage, storage, or other estimated landed costs.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCostLines((current) => [...current, newCostLine()])}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Add cost line
-          </button>
-        </div>
+      <LedgerSection
+        title="Cost lines"
+        description="Model freight, customs, insurance, handling, brokerage, storage, or other estimated landed costs."
+        action={<LedgerButton type="button" onClick={() => setCostLines((current) => [...current, newCostLine()])}>Add cost line</LedgerButton>}
+      >
         <div className="space-y-3">
           {costLines.map((line, index) => (
             <div key={line.id} className="grid grid-cols-1 gap-3 md:grid-cols-[180px_1fr_150px_110px_150px_auto] md:items-end">
-              <label className="text-sm font-medium text-ink">
-                Category {index + 1}
-                <select
+              <LedgerFieldLabel>
+                <LedgerFieldText>Category {index + 1}</LedgerFieldText>
+                <LedgerSelect
                   value={line.category}
                   onChange={(event) => updateCostLine(line.id, { category: event.target.value as LandedCostCategory }, setCostLines)}
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 >
                   {LANDED_COST_CATEGORIES.map((category) => (
                     <option key={category} value={category}>
                       {landedCostCategoryLabel(category)}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="text-sm font-medium text-ink">
-                Description {index + 1}
-                <input
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Description {index + 1}</LedgerFieldText>
+                <LedgerInput
                   value={line.description}
                   onChange={(event) => updateCostLine(line.id, { description: event.target.value }, setCostLines)}
                   placeholder="Optional"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 />
-              </label>
-              <label className="text-sm font-medium text-ink">
-                Cost amount {index + 1}
-                <input
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Cost amount {index + 1}</LedgerFieldText>
+                <LedgerInput
                   inputMode="decimal"
                   value={line.amount}
                   onChange={(event) => updateCostLine(line.id, { amount: event.target.value }, setCostLines)}
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 />
-              </label>
-              <label className="text-sm font-medium text-ink">
-                Currency {index + 1}
-                <input
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Currency {index + 1}</LedgerFieldText>
+                <LedgerInput
                   value={line.currency}
                   onChange={(event) => updateCostLine(line.id, { currency: event.target.value.toUpperCase() }, setCostLines)}
                   maxLength={3}
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 />
-              </label>
-              <label className="text-sm font-medium text-ink">
-                Supplier ID {index + 1}
-                <input
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Supplier ID {index + 1}</LedgerFieldText>
+                <LedgerInput
                   value={line.supplierId}
                   onChange={(event) => updateCostLine(line.id, { supplierId: event.target.value }, setCostLines)}
                   placeholder="Optional"
-                  className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                 />
-              </label>
-              <button
+              </LedgerFieldLabel>
+              <LedgerButton
                 type="button"
                 onClick={() => setCostLines((current) => (current.length > 1 ? current.filter((candidate) => candidate.id !== line.id) : current))}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Remove
-              </button>
+              </LedgerButton>
             </div>
           ))}
         </div>
-      </section>
+      </LedgerSection>
 
-      <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Allocation method</h2>
-          <p className="mt-1 text-sm text-steel">Choose how the estimated landed costs are spread across eligible inventory lines.</p>
-        </div>
+      <LedgerSection
+        title="Allocation method"
+        description="Choose how the estimated landed costs are spread across eligible inventory lines."
+      >
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           {ALLOCATION_METHODS.map((method) => (
             <label
@@ -268,21 +264,20 @@ export default function LandedCostPreviewPage() {
           ))}
         </div>
         {allocationMethod === "MANUAL" ? (
-          <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="space-y-3 rounded-md border border-line bg-mist p-3">
             <h3 className="text-sm font-semibold text-ink">Manual allocations</h3>
             {preview?.baseLines.length ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {preview.baseLines.map((line) => (
-                  <label key={line.sourceLineId} className="text-sm font-medium text-ink">
-                    {line.itemName} allocation
-                    <input
+                  <LedgerFieldLabel key={line.sourceLineId}>
+                    <LedgerFieldText>{line.itemName} allocation</LedgerFieldText>
+                    <LedgerInput
                       inputMode="decimal"
                       value={manualAllocations[line.sourceLineId] ?? ""}
                       onChange={(event) => setManualAllocations((current) => ({ ...current, [line.sourceLineId]: event.target.value }))}
                       placeholder="0.0000"
-                      className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
                     />
-                  </label>
+                  </LedgerFieldLabel>
                 ))}
               </div>
             ) : (
@@ -290,11 +285,10 @@ export default function LandedCostPreviewPage() {
             )}
           </div>
         ) : null}
-      </section>
+      </LedgerSection>
 
-      <section className="space-y-4 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Preview result</h2>
-        {!preview ? <p className="text-sm text-steel">No preview generated yet.</p> : null}
+      <LedgerSection title="Preview result">
+        {!preview ? <LedgerEmptyState title="No preview generated yet." /> : null}
         {preview ? (
           <>
             {preview.source ? (
@@ -311,28 +305,25 @@ export default function LandedCostPreviewPage() {
               <Metric label="Preview landed inventory value" value={formatInventoryQuantity(preview.totals.previewLandedInventoryValue)} />
             </div>
             {preview.blockers.length > 0 ? (
-              <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <p className="font-semibold">Blockers</p>
+              <LedgerAlert tone="danger" title="Blockers">
                 <ul className="mt-2 space-y-1">
                   {preview.blockers.map((blocker) => (
                     <li key={blocker}>{blocker}</li>
                   ))}
                 </ul>
-              </div>
+              </LedgerAlert>
             ) : null}
             {preview.warnings.length > 0 ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-semibold">Warnings</p>
+              <LedgerAlert tone="warning" title="Warnings">
                 <ul className="mt-2 space-y-1">
                   {preview.warnings.map((warning) => (
                     <li key={warning}>{warning}</li>
                   ))}
                 </ul>
-              </div>
+              </LedgerAlert>
             ) : null}
             {preview.baseLines.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[960px] text-left text-sm">
+              <LedgerDataTable minWidth="960px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-3 py-2">Item</th>
@@ -354,30 +345,28 @@ export default function LandedCostPreviewPage() {
                             <div className="text-xs text-steel">{line.itemSku ?? line.sourceLineId}</div>
                             {line.returnedQuantity !== "0.0000" ? <div className="text-xs text-amber-700">Returned {formatInventoryQuantity(line.returnedQuantity)}</div> : null}
                           </td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.baseUnitCost)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.baseLineValue)}</td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{allocation ? formatInventoryQuantity(allocation.allocatedLandedCost) : "-"}</td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{allocation ? formatInventoryQuantity(allocation.previewLandedUnitCost) : "-"}</td>
-                          <td className="px-3 py-3 text-right font-mono text-xs">{allocation ? formatInventoryQuantity(allocation.previewLandedLineValue) : "-"}</td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.quantity)}</LedgerMoney></td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.baseUnitCost)}</LedgerMoney></td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.baseLineValue)}</LedgerMoney></td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{allocation ? formatInventoryQuantity(allocation.allocatedLandedCost) : "-"}</LedgerMoney></td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{allocation ? formatInventoryQuantity(allocation.previewLandedUnitCost) : "-"}</LedgerMoney></td>
+                          <td className="px-3 py-3 text-right"><LedgerMoney>{allocation ? formatInventoryQuantity(allocation.previewLandedLineValue) : "-"}</LedgerMoney></td>
                         </tr>
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+                </LedgerDataTable>
             ) : null}
           </>
         ) : null}
-      </section>
+      </LedgerSection>
 
-      <section className="rounded-md border border-slate-200 bg-slate-50 p-4">
-        <h2 className="text-base font-semibold text-ink">Safe limitations</h2>
-        <p className="mt-2 text-sm leading-6 text-steel">
+        <LedgerSummaryBand>
+          <span className="font-semibold text-ink">Safe limitations: </span>
           This sprint is planning-only: no landed cost documents are saved, no inventory item cost is updated, no moving average or FIFO layer is created, no AP or bill balance is changed, no VAT report is affected, no supplier payment or debit note/refund is created, no email is sent, and no ZATCA call is made.
-        </p>
-      </section>
-    </div>
+        </LedgerSummaryBand>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
