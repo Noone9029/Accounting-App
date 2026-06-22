@@ -1,8 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getLedgerByteEdition } from "@/lib/edition";
@@ -677,22 +686,20 @@ export default function ZatcaSettingsPage() {
 
   if (!edition.showZatca) {
     return (
-      <section className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold text-ink">{edition.complianceReadinessLabel}</h1>
-          <p className="mt-1 text-sm text-steel">{edition.complianceReadinessExplanation}</p>
-        </header>
+      <LedgerPage>
+        <LedgerPageHeader eyebrow="Administration" title={edition.complianceReadinessLabel} description={edition.complianceReadinessExplanation} />
         <StatusMessage type="info">ZATCA readiness is only visible in the KSA edition.</StatusMessage>
-      </section>
+      </LedgerPage>
     );
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">ZATCA settings</h1>
-        <p className="mt-1 text-sm text-steel">Local-only Phase 2 groundwork for seller profile data, development EGS units, XML, QR, and hash-chain metadata.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="ZATCA settings"
+        description="Local-only Phase 2 groundwork for seller profile data, development EGS units, XML, QR, and hash-chain metadata."
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit ZATCA settings.</StatusMessage> : null}
@@ -711,8 +718,8 @@ export default function ZatcaSettingsPage() {
       </div>
 
       {form ? (
-        <div className="mt-5 space-y-5">
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <LedgerPageBody>
+          <LedgerPanel>
             <h2 className="text-base font-semibold text-ink">Adapter mode</h2>
             <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <AdapterSummary label="Mode" value={zatcaAdapterModeLabel(adapterConfig?.mode)} />
@@ -721,18 +728,18 @@ export default function ZatcaSettingsPage() {
               <AdapterSummary label="Effective network" value={adapterConfig?.effectiveRealNetworkEnabled ? "Enabled" : "Disabled"} />
             </div>
             {adapterConfig?.invalidMode ? <p className="mt-3 text-xs text-rosewood">Invalid adapter mode `{adapterConfig.invalidMode}` was ignored and mock mode is active.</p> : null}
-          </div>
+          </LedgerPanel>
 
           {sdkReadiness ? (
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold text-ink">SDK validation readiness</h2>
                   <p className="mt-1 text-sm text-steel">Optional local-only SDK validation. The app does not submit invoices to ZATCA or prove production compliance.</p>
                 </div>
-                <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkReadiness.canRunLocalValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                <LedgerStatusBadge tone={sdkReadiness.canRunLocalValidation ? "success" : "warning"}>
                   {sdkReadiness.canRunLocalValidation ? "Local validation ready" : zatcaSdkCanAttemptLabel(sdkReadiness.canAttemptSdkValidation)}
-                </span>
+                </LedgerStatusBadge>
               </div>
               <StatusMessage type="info">SDK execution is {zatcaSdkExecutionLabel(sdkReadiness.enabled)}. This is local validation only, does not submit to ZATCA, and does not prove production compliance.</StatusMessage>
               <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -775,7 +782,7 @@ export default function ZatcaSettingsPage() {
                   ) : null}
                 </div>
               ) : null}
-            </div>
+            </LedgerPanel>
           ) : null}
 
           {sdkReadiness || hashResetPlan ? (
@@ -1349,9 +1356,9 @@ export default function ZatcaSettingsPage() {
               </table>
             </div>
           </div>
-        </div>
+        </LedgerPageBody>
       ) : null}
-    </section>
+    </LedgerPage>
   );
 }
 
@@ -2022,4 +2029,17 @@ function ChecklistGroup({ category, items }: { category: string; items: ZatcaChe
       </div>
     </div>
   );
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" | "success" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "empty") {
+    return <LedgerEmptyState title="No records" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
