@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PurchaseOrderForm } from "@/components/forms/purchase-order-form";
-import { StatusMessage } from "@/components/common/status-message";
+import { LedgerAlert, LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { PurchaseOrder } from "@/lib/types";
@@ -48,24 +47,25 @@ export default function EditPurchaseOrderPage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit purchase order</h1>
-          <p className="mt-1 text-sm text-steel">Draft purchase orders can be changed before approval.</p>
-        </div>
-        <Link href={order ? `/purchases/purchase-orders/${order.id}` : "/purchases/purchase-orders"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title="Edit purchase order"
+        description="Draft purchase orders can be changed before approval."
+        actions={
+          <LedgerButton href={order ? `/purchases/purchase-orders/${order.id}` : "/purchases/purchase-orders"}>
           Back
-        </Link>
-      </div>
+          </LedgerButton>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase orders.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading purchase order...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase orders.</LedgerAlert> : null}
+        {loading ? <LedgerAlert tone="info">Loading purchase order...</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
       {order ? <PurchaseOrderForm initialOrder={order} /> : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
