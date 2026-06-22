@@ -1,10 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   collectionPriorities,
@@ -167,115 +179,113 @@ export function CollectionCaseForm({ initialCase }: CollectionCaseFormProps) {
 
   if (initialCase && (initialCase.status === "CLOSED" || initialCase.status === "CANCELLED")) {
     return (
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <h2 className="text-base font-semibold text-ink">Collection case cannot be edited</h2>
         <p className="mt-2 text-sm leading-6 text-steel">Closed or cancelled collection cases are locked from normal edits.</p>
-        <Link href={`/sales/collections/${initialCase.id}`} className="mt-4 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+        <LedgerButton href={`/sales/collections/${initialCase.id}`} className="mt-4">
           Back to collection case
-        </Link>
-      </div>
+        </LedgerButton>
+      </LedgerPanel>
     );
   }
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">{initialCase ? "Edit collection case" : "New collection case"}</h2>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{collectionsSafeWording}</p>
-        <div className="mt-4 space-y-3">
-          {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage collection cases.</StatusMessage> : null}
+      <LedgerFormSection title={initialCase ? "Edit collection case" : "New collection case"} description={collectionsSafeWording}>
+        <div className="space-y-3 md:col-span-3">
+          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to manage collection cases.</LedgerAlert> : null}
           {loading ? <StatusMessage type="loading">Loading collection case setup data...</StatusMessage> : null}
-          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-          {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
+          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+          {message ? <LedgerAlert tone="success">{message}</LedgerAlert> : null}
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Case number</span>
-            <input value={initialCase?.caseNumber ?? numberPreview?.caseNumber ?? "From sequence"} readOnly aria-label="Collection case number" className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none" />
-            <span className="mt-1 block text-xs text-steel">{initialCase ? "Collection case number assigned from the sequence." : numberPreview?.helperText ?? "Assigned from the collection case sequence when saved."}</span>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer</span>
-            <select value={customerId} onChange={(event) => selectCustomer(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <LedgerFieldLabel>
+          <LedgerFieldText>Case number</LedgerFieldText>
+          <LedgerInput value={initialCase?.caseNumber ?? numberPreview?.caseNumber ?? "From sequence"} readOnly aria-label="Collection case number" className="bg-slate-50 text-slate-700" />
+          <LedgerFieldHelp>{initialCase ? "Collection case number assigned from the sequence." : numberPreview?.helperText ?? "Assigned from the collection case sequence when saved."}</LedgerFieldHelp>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-2">
+          <LedgerFieldText>Customer</LedgerFieldText>
+          <LedgerSelect value={customerId} onChange={(event) => selectCustomer(event.target.value)} required>
               <option value="">Select customer</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.displayName ?? customer.name}</option>
               ))}
-            </select>
-          </label>
-          <label className="block md:col-span-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Outstanding invoice</span>
-            <select value={salesInvoiceId} onChange={(event) => setSalesInvoiceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-3">
+          <LedgerFieldText>Outstanding invoice</LedgerFieldText>
+          <LedgerSelect value={salesInvoiceId} onChange={(event) => setSalesInvoiceId(event.target.value)}>
               <option value="">Customer-level collection case</option>
               {invoices.map((invoice) => (
                 <option key={invoice.id} value={invoice.id}>
                   {invoice.invoiceNumber} - {formatMoneyAmount(invoice.balanceDue, invoice.currency)}
                 </option>
               ))}
-            </select>
-            <span className="mt-1 block text-xs text-steel">{invoiceLoading ? "Loading outstanding invoices..." : "Invoice-linked cases use existing invoice balances for display only."}</span>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as CollectionCaseStatus)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerSelect>
+          <LedgerFieldHelp>{invoiceLoading ? "Loading outstanding invoices..." : "Invoice-linked cases use existing invoice balances for display only."}</LedgerFieldHelp>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Status</LedgerFieldText>
+          <LedgerSelect value={status} onChange={(event) => setStatus(event.target.value as CollectionCaseStatus)}>
               {selectableStatuses.map((option) => (
                 <option key={option} value={option}>{collectionStatusLabel(option)}</option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Priority</span>
-            <select value={priority} onChange={(event) => setPriority(event.target.value as CollectionPriority)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Priority</LedgerFieldText>
+          <LedgerSelect value={priority} onChange={(event) => setPriority(event.target.value as CollectionPriority)}>
               {collectionPriorities.map((option) => (
                 <option key={option} value={option}>{collectionPriorityLabel(option)}</option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Next follow-up</span>
-            <input type="date" value={followUpDate} onChange={(event) => setFollowUpDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Next action date</span>
-            <input type="date" value={nextActionAt} onChange={(event) => setNextActionAt(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Promised payment date</span>
-            <input type="date" value={promisedPaymentDate} onChange={(event) => setPromisedPaymentDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Promised amount</span>
-            <input inputMode="decimal" value={promisedAmount} onChange={(event) => setPromisedAmount(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Summary</span>
-            <input value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short internal collection summary" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Internal notes</span>
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Next follow-up</LedgerFieldText>
+          <LedgerInput type="date" value={followUpDate} onChange={(event) => setFollowUpDate(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Next action date</LedgerFieldText>
+          <LedgerInput type="date" value={nextActionAt} onChange={(event) => setNextActionAt(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Promised payment date</LedgerFieldText>
+          <LedgerInput type="date" value={promisedPaymentDate} onChange={(event) => setPromisedPaymentDate(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Promised amount</LedgerFieldText>
+          <LedgerInput inputMode="decimal" value={promisedAmount} onChange={(event) => setPromisedAmount(event.target.value)} placeholder="0.0000" />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-3">
+          <LedgerFieldText>Summary</LedgerFieldText>
+          <LedgerInput value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short internal collection summary" />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel className="md:col-span-3">
+          <LedgerFieldText>Internal notes</LedgerFieldText>
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10 disabled:bg-slate-50 disabled:text-slate-400" />
+        </LedgerFieldLabel>
 
         {selectedInvoice ? (
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-steel">
-            Linked invoice <span className="font-mono text-ink">{selectedInvoice.invoiceNumber}</span> has outstanding balance <span className="font-mono text-ink">{formatMoneyAmount(selectedInvoice.balanceDue, selectedInvoice.currency)}</span>.
-            <span className="ml-1">Due date <span className="font-mono text-ink">{formatOptionalDate(selectedInvoice.dueDate, "-")}</span>.</span>
-            <span className="ml-1">Aging bucket <span className="font-mono text-ink">{agingBucketLabel(selectedInvoice.dueDate)}</span>.</span>
-            <span className="ml-1">Saving this case does not change invoice balance or allocate payment.</span>
+          <div className="md:col-span-3">
+            <LedgerSummaryBand tone="info">
+              Linked invoice <span className="font-mono text-ink">{selectedInvoice.invoiceNumber}</span> has outstanding balance <span className="font-mono text-ink">{formatMoneyAmount(selectedInvoice.balanceDue, selectedInvoice.currency)}</span>.
+              <span className="ml-1">Due date <span className="font-mono text-ink">{formatOptionalDate(selectedInvoice.dueDate, "-")}</span>.</span>
+              <span className="ml-1">Aging bucket <span className="font-mono text-ink">{agingBucketLabel(selectedInvoice.dueDate)}</span>.</span>
+              <span className="ml-1">Saving this case does not change invoice balance or allocate payment.</span>
+            </LedgerSummaryBand>
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button type="submit" disabled={submitting || loading || !customerId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300">
+        <LedgerActionBar className="md:col-span-3">
+          <LedgerButton type="submit" disabled={submitting || loading || !customerId} variant="primary">
             {submitting ? "Saving..." : initialCase ? "Save collection case" : "Create collection case"}
-          </button>
-          <Link href={initialCase ? `/sales/collections/${initialCase.id}` : "/sales/collections"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          </LedgerButton>
+          <LedgerButton href={initialCase ? `/sales/collections/${initialCase.id}` : "/sales/collections"}>
             Cancel
-          </Link>
-        </div>
-      </div>
+          </LedgerButton>
+        </LedgerActionBar>
+      </LedgerFormSection>
     </form>
   );
 }

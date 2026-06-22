@@ -1,17 +1,37 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerToolbar,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   collectionCaseStatuses,
   collectionPriorities,
-  collectionPriorityBadgeClass,
   collectionPriorityLabel,
-  collectionStatusBadgeClass,
   collectionStatusLabel,
   collectionsSafeWording,
 } from "@/lib/collections";
@@ -27,10 +47,13 @@ type PriorityFilter = "ALL" | CollectionPriority;
 export default function CollectionsPage() {
   const organizationId = useActiveOrganizationId();
   const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const customerIdParam = searchParams.get("customerId");
+  const invoiceIdParam = searchParams.get("invoiceId");
   const { can } = usePermissions();
   const [summary, setSummary] = useState<CollectionSummary | null>(null);
   const [cases, setCases] = useState<CollectionCase[]>([]);
-  const [status, setStatus] = useState<StatusFilter>((searchParams.get("status") as StatusFilter) || "ALL");
+  const [status, setStatus] = useState<StatusFilter>((statusParam as StatusFilter) || "ALL");
   const [priority, setPriority] = useState<PriorityFilter>("ALL");
   const [customerSearch, setCustomerSearch] = useState("");
   const [quickFilter, setQuickFilter] = useState<"ALL" | "OVERDUE" | "DUE_TODAY" | "DISPUTED" | "PROMISED">("ALL");
@@ -48,13 +71,11 @@ export default function CollectionsPage() {
     setError("");
 
     const params = new URLSearchParams();
-    const customerId = searchParams.get("customerId");
-    const invoiceId = searchParams.get("invoiceId");
-    if (customerId) {
-      params.set("customerId", customerId);
+    if (customerIdParam) {
+      params.set("customerId", customerIdParam);
     }
-    if (invoiceId) {
-      params.set("invoiceId", invoiceId);
+    if (invoiceIdParam) {
+      params.set("invoiceId", invoiceIdParam);
     }
     const path = `/collections${params.toString() ? `?${params.toString()}` : ""}`;
 
@@ -79,7 +100,7 @@ export default function CollectionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, searchParams]);
+  }, [organizationId, customerIdParam, invoiceIdParam]);
 
   const filteredCases = useMemo(() => {
     const normalizedCustomer = customerSearch.trim().toLowerCase();
@@ -117,28 +138,30 @@ export default function CollectionsPage() {
   }, [cases, customerSearch, priority, quickFilter, status]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Collections</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{collectionsSafeWording}</p>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales"
+        title="Collections"
+        description={collectionsSafeWording}
+        actions={
+          canCreate ? (
+            <LedgerButton href="/sales/collections/new" variant="primary" icon={Plus}>
+              New collection case
+            </LedgerButton>
+          ) : null
+        }
+      />
+
+      <LedgerPageBody>
+        <div className="space-y-3">
+          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load collection cases.</LedgerAlert> : null}
+          {loading ? <StatusMessage type="loading">Loading collection cases...</StatusMessage> : null}
+          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
         </div>
-        {canCreate ? (
-          <Link href="/sales/collections/new" className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            New collection case
-          </Link>
-        ) : null}
-      </div>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load collection cases.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading collection cases...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
-
-      {summary ? (
-        <>
-          <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+        {summary ? (
+          <>
+          <LedgerMetricGrid>
             <SummaryCard label="Overdue amount" value={formatMoneyAmount(summary.totalOverdueAmount, "SAR")} />
             <SummaryCard label="Overdue invoices" value={String(summary.overdueInvoiceCount)} />
             <SummaryCard label="Open cases" value={String(summary.openCollectionCaseCount)} />
@@ -146,7 +169,7 @@ export default function CollectionsPage() {
             <SummaryCard label="Overdue follow-ups" value={String(summary.casesOverdueForFollowUp)} />
             <SummaryCard label="Promised-to-pay" value={formatMoneyAmount(summary.promisedToPayTotal, "SAR")} />
             <SummaryCard label="Disputed" value={formatMoneyAmount(summary.disputedTotal, "SAR")} />
-          </div>
+          </LedgerMetricGrid>
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <SummaryList
               title="Top overdue customers"
@@ -168,47 +191,48 @@ export default function CollectionsPage() {
         </>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Status</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerToolbar title="Filters" description="Filter collection cases without posting journals, allocating payments, sending reminders, creating payment links, filing VAT, calling ZATCA, or changing invoice balances.">
+        <LedgerFilterBar>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Status</LedgerFieldText>
+          <LedgerSelect value={status} onChange={(event) => setStatus(event.target.value as StatusFilter)}>
             <option value="ALL">All statuses</option>
             {collectionCaseStatuses.map((option) => (
               <option key={option} value={option}>{collectionStatusLabel(option)}</option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Priority</span>
-          <select value={priority} onChange={(event) => setPriority(event.target.value as PriorityFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Priority</LedgerFieldText>
+          <LedgerSelect value={priority} onChange={(event) => setPriority(event.target.value as PriorityFilter)}>
             <option value="ALL">All priorities</option>
             {collectionPriorities.map((option) => (
               <option key={option} value={option}>{collectionPriorityLabel(option)}</option>
             ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer</span>
-          <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">Quick filter</span>
-          <select value={quickFilter} onChange={(event) => setQuickFilter(event.target.value as typeof quickFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Customer</LedgerFieldText>
+          <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Quick filter</LedgerFieldText>
+          <LedgerSelect value={quickFilter} onChange={(event) => setQuickFilter(event.target.value as typeof quickFilter)}>
             <option value="ALL">All cases</option>
             <option value="OVERDUE">Overdue follow-up</option>
             <option value="DUE_TODAY">Due today</option>
             <option value="DISPUTED">Disputed</option>
             <option value="PROMISED">Promised-to-pay</option>
-          </select>
-        </label>
-      </div>
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        </LedgerFilterBar>
+      </LedgerToolbar>
 
-      {!loading && cases.length === 0 ? <div className="mt-5"><StatusMessage type="empty">No collection cases yet.</StatusMessage></div> : null}
-      {cases.length > 0 && filteredCases.length === 0 ? <div className="mt-5"><StatusMessage type="empty">No collection cases match the current filters.</StatusMessage></div> : null}
+      {!loading && cases.length === 0 ? <LedgerEmptyState title="No collection cases yet." /> : null}
+      {cases.length > 0 && filteredCases.length === 0 ? <LedgerEmptyState title="No collection cases match the current filters." /> : null}
 
       {filteredCases.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1160px] text-left text-sm">
+        <LedgerDataTable minWidth="1160px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Case</th>
@@ -229,39 +253,34 @@ export default function CollectionsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{collectionCase.caseNumber}</td>
                   <td className="px-4 py-3 text-steel">{collectionCase.customer ? collectionCase.customer.displayName ?? collectionCase.customer.name : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{collectionCase.salesInvoice?.invoiceNumber ?? "Customer-level"}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(collectionCase.salesInvoice?.dueDate, "-")}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(collectionCase.salesInvoice?.balanceDue ?? "0.0000", collectionCase.salesInvoice?.currency ?? "SAR")}</td>
-                  <td className="px-4 py-3"><Pill className={collectionStatusBadgeClass(collectionCase.status)} label={collectionStatusLabel(collectionCase.status)} /></td>
-                  <td className="px-4 py-3"><Pill className={collectionPriorityBadgeClass(collectionCase.priority)} label={collectionPriorityLabel(collectionCase.priority)} /></td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(collectionCase.salesInvoice?.dueDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(collectionCase.salesInvoice?.balanceDue ?? "0.0000", collectionCase.salesInvoice?.currency ?? "SAR")}</LedgerMoney></td>
+                  <td className="px-4 py-3"><CollectionStatusPill status={collectionCase.status} /></td>
+                  <td className="px-4 py-3"><CollectionPriorityPill priority={collectionCase.priority} /></td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 text-steel">{collectionCase.assignedTo?.name ?? "-"}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/sales/collections/${collectionCase.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <LedgerButton href={`/sales/collections/${collectionCase.id}`} size="sm">
                       Open
-                    </Link>
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-2 font-mono text-lg font-semibold text-ink">{value}</div>
-    </div>
-  );
+  return <LedgerStatCard label={label} value={value} />;
 }
 
 function SummaryList({ title, rows, emptyLabel }: { title: string; rows: Array<{ label: string; value: string }>; emptyLabel: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+    <LedgerPanel>
       <h2 className="text-sm font-semibold text-ink">{title}</h2>
       {rows.length ? (
         <div className="mt-3 divide-y divide-slate-100">
@@ -275,12 +294,47 @@ function SummaryList({ title, rows, emptyLabel }: { title: string; rows: Array<{
       ) : (
         <p className="mt-3 text-sm text-steel">{emptyLabel}</p>
       )}
-    </div>
+    </LedgerPanel>
   );
 }
 
-function Pill({ label, className }: { label: string; className: string }) {
-  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{label}</span>;
+function CollectionStatusPill({ status }: { status: CollectionCaseStatus }) {
+  return <LedgerStatusBadge tone={collectionStatusTone(status)}>{collectionStatusLabel(status)}</LedgerStatusBadge>;
+}
+
+function CollectionPriorityPill({ priority }: { priority: CollectionPriority }) {
+  return <LedgerStatusBadge tone={collectionPriorityTone(priority)}>{collectionPriorityLabel(priority)}</LedgerStatusBadge>;
+}
+
+function collectionStatusTone(status: CollectionCaseStatus): LedgerStatusTone {
+  switch (status) {
+    case "OPEN":
+      return "draft";
+    case "IN_PROGRESS":
+    case "PROMISED_TO_PAY":
+      return "info";
+    case "PAID":
+    case "CLOSED":
+      return "success";
+    case "ON_HOLD":
+    case "DISPUTED":
+      return "warning";
+    case "CANCELLED":
+      return "danger";
+  }
+}
+
+function collectionPriorityTone(priority: CollectionPriority): LedgerStatusTone {
+  switch (priority) {
+    case "LOW":
+      return "neutral";
+    case "NORMAL":
+      return "info";
+    case "HIGH":
+      return "warning";
+    case "URGENT":
+      return "danger";
+  }
 }
 
 function dateValue(value: string | null | undefined): Date | null {
