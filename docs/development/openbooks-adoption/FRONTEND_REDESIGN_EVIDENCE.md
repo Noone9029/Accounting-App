@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-valuation-flows`
+Branch: `codex/ui-redesign-inventory-variance-proposals`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-traceability-flows` while PR #173 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-valuation-flows` while PR #174 is open
 
 ## Evidence Summary
 
@@ -51,6 +51,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-traceability-flows` while P
 | Inventory receipt and issue loop | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx`, and `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` use shared LedgerByte page, summary, form, field, table, metadata, status, loading, empty, preview, and action primitives while preserving purchase receipt source/receiving-status loading, receipt POST/void/manual asset posting/reversal, matching/clearing/valuation links, sales stock issue invoice-status loading, issue POST/void/manual COGS posting/reversal, permissions, and no-automatic-valuation/no-automatic-COGS boundaries. |
 | Inventory traceability loop | `apps/web/src/components/inventory/traceability-setup-pages.tsx` now drives `/inventory/batches`, `/inventory/batches/new`, `/inventory/batches/[id]`, `/inventory/serial-numbers`, `/inventory/serial-numbers/new`, `/inventory/serial-numbers/[id]`, `/inventory/bin-locations`, `/inventory/bin-locations/new`, `/inventory/bin-locations/[id]`, and `/inventory/traceability/items/[id]` with shared LedgerByte page, alert, loading, empty, field, metadata, status, summary, panel, and action primitives while preserving setup loads, create/update payloads, read-only item traceability, permissions, and no-mutation/no-posting/no-valuation/no-FIFO/no-COGS/no-VAT/no-ZATCA boundaries. |
 | Inventory valuation preview loop | `apps/web/src/app/(app)/inventory/fifo-preview/page.tsx`, `apps/web/src/app/(app)/inventory/landed-cost/page.tsx`, and `apps/web/src/app/(app)/inventory/valuation-variances/page.tsx` use shared LedgerByte page, header, toolbar, field, alert, loading, empty, metadata, stat, table, summary, and action primitives while preserving FIFO reconstruction output, landed cost preview payloads, valuation variance filters/source links, permissions, and no-posting/no-valuation/no-COGS/no-VAT/no-ZATCA/no-AP/no-AR boundaries. |
+| Inventory variance proposals loop | `apps/web/src/app/(app)/inventory/variance-proposals/page.tsx`, `apps/web/src/app/(app)/inventory/variance-proposals/new/page.tsx`, and `apps/web/src/app/(app)/inventory/variance-proposals/[id]/page.tsx` use shared LedgerByte page, header, panel, form field, select/input, alert, loading, empty, metadata, table, status, money/date, and action primitives while preserving proposal list loading, clearing-source/manual create payloads, workflow action guards, confirmation prompts, accounting preview, events, attachments, and explicit posting/reversal boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -460,6 +461,20 @@ Base: stacked on `origin/codex/ui-redesign-inventory-traceability-flows` while P
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - `git diff --cached --check`: PASS.
 - Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover FIFO preview, landed cost, valuation variances, variance proposals, reports, and settings together after the valuation stack lands.
+
+## 2026-06-22 Inventory Variance Proposals Loop Evidence
+
+- `/inventory/variance-proposals`: migrated the proposal list page frame, create/report actions, loading/error/empty states, proposal table, source links, status labels, money/date display, and journal/source columns to shared Ledger primitives while preserving `/inventory/variance-proposals` loading and create permission visibility.
+- `/inventory/variance-proposals/new`: migrated the proposal creation frame, organization/account loading states, clearing-source summary, manual-proposal warning, reason/account/date/amount/description fields, and submit/cancel actions to shared Ledger primitives while preserving `/accounts` loading, clearing-source POST payloads, manual proposal POST payloads, and redirect behavior.
+- `/inventory/variance-proposals/[id]`: migrated the proposal detail frame, workflow action bar, attachment placement, proposal summary, source panel, accounting preview, warning/blocker lists, journal preview table, and event timeline to shared Ledger primitives while preserving detail/event/accounting-preview loads, submit/approve/post/reverse/void guard logic, confirmation prompts, action payloads, and explicit journal posting/reversal boundaries.
+- Existing behavior remains frontend-only and unchanged: this pass does not add variance auto-posting, inventory valuation math, FIFO activation, landed cost posting, COGS entries, AP/AR effects, VAT/ZATCA/compliance behavior, schema changes, storage behavior, provider calls, or hosted mutations.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification permissions inventory`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- `git diff --cached --check`: PASS.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover variance proposal list/new/detail workflows together with the other valuation/report/settings routes.
 
 ## 2026-06-22 Inventory Receipt and Issue Loop Evidence
 
