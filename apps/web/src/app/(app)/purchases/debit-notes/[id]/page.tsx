@@ -1,17 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
-import { partyDetailHref } from "@/lib/parties";
+import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -29,6 +50,7 @@ import type { OpenPurchaseBill, PurchaseDebitNote } from "@/lib/types";
 export default function PurchaseDebitNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [debitNote, setDebitNote] = useState<PurchaseDebitNote | null>(null);
@@ -233,69 +255,66 @@ export default function PurchaseDebitNoteDetailPage() {
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
+  const returnTo = safeReturnToFromSearch(searchParams.toString());
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{debitNote ? debitNote.debitNoteNumber : "Debit note"}</h1>
-          <p className="mt-1 text-sm text-steel">Debit note detail, AP reversal posting, allocations, and PDF download.</p>
-          {debitNote ? <p className="mt-1 text-xs text-steel">Local AP adjustment only. No ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</p> : null}
-        </div>
-        <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap">
-          <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title={debitNote ? debitNote.debitNoteNumber : "Debit note"}
+        description={
+          <>
+            <span>Debit note detail, AP reversal posting, allocations, and PDF download.</span>
+            {debitNote ? <span className="mt-1 block text-xs">Local AP adjustment only. No ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</span> : null}
+          </>
+        }
+        badge={debitNote ? <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge> : undefined}
+        actions={
+          <LedgerActionBar className="items-start sm:items-center">
+            <LedgerButton href={returnTo || "/purchases/debit-notes"}>Back</LedgerButton>
           {debitNote?.status === "DRAFT" ? (
-            <Link href={`/purchases/debit-notes/${debitNote.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Edit
-            </Link>
+            <LedgerButton href={`/purchases/debit-notes/${debitNote.id}/edit`}>Edit</LedgerButton>
           ) : null}
           {debitNote?.supplierId ? (
-            <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Supplier workspace
-            </Link>
+            <LedgerButton href={partyDetailHref("supplier", debitNote.supplierId)}>Supplier workspace</LedgerButton>
           ) : null}
           {debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 ? (
-            <Link
-              href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`}
-              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
-            >
+            <LedgerButton href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`} variant="primary">
               Record supplier refund
-            </Link>
+            </LedgerButton>
           ) : null}
           {debitNote && canDownloadGeneratedDocuments ? (
-            <button type="button" onClick={() => void downloadDebitNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void downloadDebitNotePdf()} disabled={actionLoading}>
               Download debit note PDF
-            </button>
+            </LedgerButton>
           ) : null}
           {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <LedgerButton onClick={() => void runAction("finalize")} disabled={actionLoading} variant="primary">
               Finalize
-            </button>
+            </LedgerButton>
           ) : null}
           {debitNote && debitNote.status !== "VOIDED" && canVoidDebitNote ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void runAction("void")} disabled={actionLoading} variant="danger">
               Void
-            </button>
+            </LedgerButton>
           ) : null}
           {debitNote?.status === "DRAFT" && canCreateDebitNote ? (
-            <button type="button" onClick={() => void deleteDebitNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void deleteDebitNote()} disabled={actionLoading} variant="danger">
               Delete
-            </button>
+            </LedgerButton>
           ) : null}
-        </div>
-      </div>
+          </LedgerActionBar>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load debit notes.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading debit note...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load debit notes.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading debit note" description="Fetching AP adjustment, allocation, and source document context." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
       {debitNote ? (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
           <PurchaseDebitNoteWorkflowGuidance
             debitNote={debitNote}
             appliedAmount={appliedAmount}
@@ -309,7 +328,7 @@ export default function PurchaseDebitNoteDetailPage() {
 
           <AttachmentPanel linkedEntityType="PURCHASE_DEBIT_NOTE" linkedEntityId={debitNote.id} />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Supplier" value={debitNote.supplier?.displayName ?? debitNote.supplier?.name ?? "-"} />
               <Summary label="Status" value={purchaseDebitNoteStatusLabel(debitNote.status)} />
@@ -327,12 +346,11 @@ export default function PurchaseDebitNoteDetailPage() {
               <Summary label="Notes" value={debitNote.notes ?? "-"} />
             </div>
             <div className="mt-4">
-              <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteStatusBadgeClass(debitNote.status)}`}>{purchaseDebitNoteStatusLabel(debitNote.status)}</span>
+              <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge>
             </div>
-          </div>
+          </LedgerPanel>
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[980px] text-left text-sm">
+          <LedgerDataTable minWidth="980px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Description</th>
@@ -351,44 +369,40 @@ export default function PurchaseDebitNoteDetailPage() {
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
                     <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.unitPrice, debitNote.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineGrossAmount, debitNote.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.discountAmount, debitNote.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxableAmount, debitNote.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxAmount, debitNote.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineTotal, debitNote.currency)}</td>
+                    <td className="px-4 py-3"><LedgerMoney>{line.quantity}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineGrossAmount, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxableAmount, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, debitNote.currency)}</LedgerMoney></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </LedgerDataTable>
 
-          <div className="ml-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+          <LedgerPanel className="ml-auto max-w-sm">
+            <div className="grid grid-cols-2 gap-2 text-sm">
             <span className="text-steel">Subtotal</span>
-            <span className="text-right font-mono">{formatMoneyAmount(debitNote.subtotal, debitNote.currency)}</span>
+            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.subtotal, debitNote.currency)}</LedgerMoney></span>
             <span className="text-steel">Discount</span>
-            <span className="text-right font-mono">{formatMoneyAmount(debitNote.discountTotal, debitNote.currency)}</span>
+            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.discountTotal, debitNote.currency)}</LedgerMoney></span>
             <span className="text-steel">Taxable</span>
-            <span className="text-right font-mono">{formatMoneyAmount(debitNote.taxableTotal, debitNote.currency)}</span>
+            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.taxableTotal, debitNote.currency)}</LedgerMoney></span>
             <span className="text-steel">VAT</span>
-            <span className="text-right font-mono">{formatMoneyAmount(debitNote.taxTotal, debitNote.currency)}</span>
+            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.taxTotal, debitNote.currency)}</LedgerMoney></span>
             <span className="font-semibold text-ink">Total debit</span>
-            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(debitNote.total, debitNote.currency)}</span>
+            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(debitNote.total, debitNote.currency)}</LedgerMoney></span>
             <span className="font-semibold text-ink">Applied amount</span>
-            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(appliedAmount, debitNote.currency)}</span>
+            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(appliedAmount, debitNote.currency)}</LedgerMoney></span>
             <span className="font-semibold text-ink">Unapplied amount</span>
-            <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}</span>
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-base font-semibold text-ink">Debit allocations</h2>
-              <p className="mt-1 text-sm text-steel">Applying a debit note only matches the existing AP reduction to bill balances. No new journal entry is created.</p>
+            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}</LedgerMoney></span>
             </div>
+          </LedgerPanel>
+
+          <LedgerSection title="Debit allocations" description="Applying a debit note only matches the existing AP reduction to bill balances. No new journal entry is created.">
             {debitNote.allocations && debitNote.allocations.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] text-left text-sm">
+              <LedgerDataTable minWidth="980px">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Bill</th>
@@ -406,70 +420,69 @@ export default function PurchaseDebitNoteDetailPage() {
                     {debitNote.allocations.map((allocation) => (
                       <tr key={allocation.id}>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.bill?.billNumber ?? allocation.billId}</td>
-                        <td className="px-4 py-3 text-steel">{formatOptionalDate(allocation.bill?.billDate, "-")}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatMoneyAmount(allocation.bill.total, debitNote.currency) : "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, debitNote.currency)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatMoneyAmount(allocation.bill.balanceDue, debitNote.currency) : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(allocation.bill?.billDate, "-")}</LedgerDate></td>
+                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.total, debitNote.currency)}</LedgerMoney> : "-"}</td>
+                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, debitNote.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.balanceDue, debitNote.currency)}</LedgerMoney> : "-"}</td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteAllocationStatusBadgeClass(allocation)}`}>{purchaseDebitNoteAllocationStatusLabel(allocation)}</span>
+                          <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteAllocationStatusBadgeClass(allocation)}`}>{purchaseDebitNoteAllocationStatusLabel(allocation)}</span>
                         </td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <Link href={`/purchases/bills/${allocation.billId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            <LedgerButton href={`/purchases/bills/${allocation.billId}`} size="sm">
                               View bill
-                            </Link>
+                            </LedgerButton>
                             {canReversePurchaseDebitNoteAllocation(allocation) && canVoidDebitNote ? (
-                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                              <LedgerButton onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} variant="danger" size="sm">
                                 Reverse
-                              </button>
+                              </LedgerButton>
                             ) : null}
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+              </LedgerDataTable>
             ) : (
-              <div className="px-5 py-4">
-                <StatusMessage type="empty">No debit has been applied to bills yet.</StatusMessage>
-              </div>
+              <StatusMessage type="empty">No debit has been applied to bills yet.</StatusMessage>
             )}
-          </div>
+          </LedgerSection>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-ink">Apply debit</h2>
                 <p className="mt-1 text-sm text-steel">Use unapplied supplier debit against finalized open bills for the same supplier.</p>
               </div>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">No accounting journal</span>
+              <LedgerStatusBadge>No accounting journal</LedgerStatusBadge>
             </div>
             {canApplyDebitNote ? (
               openBills.length > 0 ? (
                 <form onSubmit={applyDebitNote} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
-                  <label className="block">
+                  <LedgerFieldLabel>
                     <span className="text-xs font-medium uppercase tracking-wide text-steel">Open bill</span>
-                    <select value={selectedBillId} onChange={(event) => setSelectedBillId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                    <LedgerSelect value={selectedBillId} onChange={(event) => setSelectedBillId(event.target.value)} className="mt-1">
                       {openBills.map((bill) => (
                         <option key={bill.id} value={bill.id}>
                           {bill.billNumber} - balance {formatMoneyAmount(bill.balanceDue, bill.currency)}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="block">
+                    </LedgerSelect>
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
                     <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount to apply</span>
-                    <input value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <button type="submit" disabled={actionLoading || !selectedBillId} className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    <LedgerInput value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1" />
+                  </LedgerFieldLabel>
+                  <LedgerButton type="submit" disabled={actionLoading || !selectedBillId} variant="primary" className="self-end">
                     Apply
-                  </button>
-                  <div className="text-xs text-steel md:col-span-3">
-                    Selected bill balance: {selectedBill ? formatMoneyAmount(selectedBill.balanceDue, selectedBill.currency) : "-"}.
-                    Debit available: {formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}.
+                  </LedgerButton>
+                  <div className="md:col-span-3">
+                    <LedgerFieldHelp>
+                      Selected bill balance: {selectedBill ? formatMoneyAmount(selectedBill.balanceDue, selectedBill.currency) : "-"}.
+                      Debit available: {formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}.
+                    </LedgerFieldHelp>
                   </div>
                 </form>
               ) : (
@@ -482,14 +495,15 @@ export default function PurchaseDebitNoteDetailPage() {
                 <StatusMessage type="info">Debit notes can be applied only after finalization while unapplied amount remains.</StatusMessage>
               </div>
             )}
-          </div>
+          </LedgerPanel>
 
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <LedgerAlert tone="warning">
             Purchase returns, inventory stock movements, bank reconciliation, and ZATCA debit note submission are intentionally not implemented in this MVP.
-          </div>
+          </LedgerAlert>
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -516,18 +530,16 @@ export function PurchaseDebitNoteWorkflowGuidance({
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
             <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteOutcomeDescription(debitNote, hasUnapplied)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseDebitNoteStatusBadgeClass(debitNote.status)}`}>
-              {purchaseDebitNoteStatusLabel(debitNote.status)}
-            </span>
+            <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge>
             {debitNote.status === "FINALIZED" && hasUnapplied ? (
-              <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Unapplied debit</span>
+              <LedgerStatusBadge tone="warning">Unapplied debit</LedgerStatusBadge>
             ) : null}
           </div>
         </div>
@@ -536,47 +548,37 @@ export function PurchaseDebitNoteWorkflowGuidance({
           <Summary label="Applied to bills" value={formatMoneyAmount(appliedAmount, debitNote.currency)} />
           <Summary label="Unapplied" value={formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)} />
         </div>
-      </div>
+      </LedgerPanel>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel>
         <h2 className="text-base font-semibold text-ink">Next actions</h2>
         <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteNextActionDescription(debitNote, hasUnapplied)}</p>
         <div className="mt-4 flex flex-col gap-2">
           {debitNote.status === "DRAFT" && canFinalizeDebitNote ? (
-            <button
-              type="button"
-              onClick={onFinalize}
-              disabled={actionLoading}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
+            <LedgerButton onClick={onFinalize} disabled={actionLoading} variant="primary">
               Finalize debit note
-            </button>
+            </LedgerButton>
           ) : null}
           {debitNote.originalBillId ? (
-            <Link href={`/purchases/bills/${debitNote.originalBillId}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
+            <LedgerButton href={`/purchases/bills/${debitNote.originalBillId}`} variant="primary">
               View original bill
-            </Link>
+            </LedgerButton>
           ) : null}
           {canDownloadGeneratedDocuments ? (
-            <button
-              type="button"
-              onClick={onDownloadPdf}
-              disabled={actionLoading}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton onClick={onDownloadPdf} disabled={actionLoading}>
               Download debit note PDF
-            </button>
+            </LedgerButton>
           ) : null}
-          <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <LedgerButton href={partyDetailHref("supplier", debitNote.supplierId)}>
             Open supplier workspace
-          </Link>
+          </LedgerButton>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href="/reports/aged-payables">
               AP report
-            </Link>
-            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            </LedgerButton>
+            <LedgerButton href="/dashboard">
               Dashboard
-            </Link>
+            </LedgerButton>
           </div>
         </div>
         {debitNote.status === "DRAFT" && !canFinalizeDebitNote ? (
@@ -585,11 +587,11 @@ export function PurchaseDebitNoteWorkflowGuidance({
         {debitNote.status === "FINALIZED" && hasUnapplied && !canApplyDebitNote ? (
           <p className="mt-3 text-xs leading-5 text-steel">This debit note still has unapplied amount, but your role cannot apply it to supplier bills.</p>
         ) : null}
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+        <LedgerSummaryBand tone="warning">
           ZATCA handling here is local/readiness only. Network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
-        </div>
+        </LedgerSummaryBand>
         <SourceDocumentGuidance className="mt-4" />
-      </div>
+      </LedgerPanel>
     </div>
   );
 }
@@ -633,4 +635,15 @@ function Summary({ label, value }: { label: string; value: string }) {
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
     </div>
   );
+}
+
+function purchaseDebitNoteStatusTone(status: PurchaseDebitNote["status"]): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "draft";
+    case "FINALIZED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+  }
 }

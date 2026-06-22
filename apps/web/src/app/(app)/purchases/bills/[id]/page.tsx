@@ -4,12 +4,28 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -179,84 +195,72 @@ export default function PurchaseBillDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{bill ? bill.billNumber : "Purchase bill"}</h1>
-          <p className="mt-1 text-sm text-steel">Supplier bill detail, AP posting, allocations, and PDF download.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Link href={returnTo || "/purchases/bills"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title={bill ? bill.billNumber : "Purchase bill"}
+        description="Supplier bill detail, AP posting, allocations, inventory receiving, and PDF download."
+        badge={bill ? <LedgerStatusBadge tone={purchaseBillStatusTone(bill.status)}>{purchaseBillStatusLabel(bill.status)}</LedgerStatusBadge> : undefined}
+        actions={
+          <LedgerActionBar className="items-start sm:items-center">
+            <LedgerButton href={returnTo || "/purchases/bills"}>Back</LedgerButton>
           {bill?.status === "DRAFT" && canUpdateBill ? (
-            <Link href={`/purchases/bills/${bill.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Edit
-            </Link>
+            <LedgerButton href={`/purchases/bills/${bill.id}/edit`}>Edit</LedgerButton>
           ) : null}
           {bill?.supplierId ? (
-            <Link href={`/suppliers/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Supplier ledger
-            </Link>
+            <LedgerButton href={`/suppliers/${bill.supplierId}`}>Supplier ledger</LedgerButton>
           ) : null}
           {bill?.supplierId && canCreateDebitNote ? (
-            <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
+            <LedgerButton href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}>
               Create debit note
-            </Link>
+            </LedgerButton>
           ) : null}
           {bill && receivingStatus && canCreateReceipt && hasReceiptRemaining(receivingStatus) ? (
-            <Link
-              href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`}
-              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
-            >
+            <LedgerButton href={`/inventory/purchase-receipts/new?sourceType=purchaseBill&purchaseBillId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`} variant="primary">
               Receive stock
-            </Link>
+            </LedgerButton>
           ) : null}
           {bill && canViewLandedCostPreview ? (
-            <Link href={landedCostPreviewUrl({ sourceType: "PURCHASE_BILL", sourceId: bill.id })} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+            <LedgerButton href={landedCostPreviewUrl({ sourceType: "PURCHASE_BILL", sourceId: bill.id })}>
               Preview landed cost
-            </Link>
+            </LedgerButton>
           ) : null}
           {bill && canDownloadGeneratedDocuments ? (
-            <button type="button" onClick={() => void downloadBillPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void downloadBillPdf()} disabled={actionLoading}>
               Download purchase bill PDF
-            </button>
+            </LedgerButton>
           ) : null}
           {bill?.status === "DRAFT" && canFinalizeBill ? (
-            <button
-              type="button"
+            <LedgerButton
               onClick={() => void runAction("finalize")}
               disabled={actionLoading || (accountingPreview !== null && !accountingPreview.canFinalize)}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              variant="primary"
             >
               Finalize
-            </button>
+            </LedgerButton>
           ) : null}
           {bill && bill.status !== "VOIDED" && canVoidBill ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void runAction("void")} disabled={actionLoading} variant="danger">
               Void
-            </button>
+            </LedgerButton>
           ) : null}
           {bill?.status === "DRAFT" && canUpdateBill ? (
-            <button type="button" onClick={() => void deleteBill()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <LedgerButton onClick={() => void deleteBill()} disabled={actionLoading} variant="danger">
               Delete
-            </button>
+            </LedgerButton>
           ) : null}
-        </div>
-      </div>
+          </LedgerActionBar>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase bills.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading purchase bill...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase bills.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading purchase bill" description="Fetching AP posting, allocation, receiving, and preview context." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
       {bill ? (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
       <PurchaseBillWorkflowGuidance
         bill={bill}
         actionLoading={actionLoading}
@@ -271,7 +275,7 @@ export default function PurchaseBillDetailPage() {
 
           <AttachmentPanel linkedEntityType="PURCHASE_BILL" linkedEntityId={bill.id} />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
               <Summary label="Supplier" value={bill.supplier?.displayName ?? bill.supplier?.name ?? "-"} />
               <Summary label="Status" value={purchaseBillStatusLabel(bill.status)} />
@@ -289,7 +293,7 @@ export default function PurchaseBillDetailPage() {
               <Summary label="Journal entry" value={bill.journalEntry ? `${bill.journalEntry.entryNumber} (${bill.journalEntry.id})` : "-"} />
               <Summary label="Reversal journal" value={bill.reversalJournalEntry ? `${bill.reversalJournalEntry.entryNumber} (${bill.reversalJournalEntry.id})` : "-"} />
             </div>
-          </div>
+          </LedgerPanel>
 
           {receivingStatus ? <ReceivingStatusPanel status={receivingStatus} /> : null}
           {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
@@ -302,8 +306,7 @@ export default function PurchaseBillDetailPage() {
           {accountingPreview ? <AccountingPreviewPanel preview={accountingPreview} currency={bill.currency} /> : null}
           <ClearingReconciliationPanel bill={bill} report={clearingReport} />
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[920px] text-left text-sm">
+          <LedgerDataTable minWidth="920px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Description</th>
@@ -320,20 +323,18 @@ export default function PurchaseBillDetailPage() {
                   <tr key={line.id}>
                     <td className="px-4 py-3">{line.description}</td>
                     <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.unitPrice, bill.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.discountAmount, bill.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.taxAmount, bill.currency)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(line.lineTotal, bill.currency)}</td>
+                    <td className="px-4 py-3"><LedgerMoney>{line.quantity}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, bill.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, bill.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, bill.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, bill.currency)}</LedgerMoney></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </LedgerDataTable>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Totals</h2>
+          <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+            <LedgerSection title="Totals" className="min-w-0">
               <div className="mt-4 space-y-2 text-sm">
                 <TotalRow label="Subtotal" value={formatMoneyAmount(bill.subtotal, bill.currency)} />
                 <TotalRow label="Discount" value={formatMoneyAmount(bill.discountTotal, bill.currency)} />
@@ -342,13 +343,12 @@ export default function PurchaseBillDetailPage() {
                 <TotalRow label="Total" value={formatMoneyAmount(bill.total, bill.currency)} strong />
                 <TotalRow label="Balance due" value={formatMoneyAmount(bill.balanceDue, bill.currency)} strong />
               </div>
-            </div>
+            </LedgerSection>
 
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Supplier payment allocations</h2>
+            <LedgerSection title="Supplier payment allocations" className="min-w-0">
               {bill.paymentAllocations?.length ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="mt-4">
+                  <LedgerDataTable minWidth="640px">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                       <tr>
                         <th className="px-3 py-2">Payment</th>
@@ -365,24 +365,23 @@ export default function PurchaseBillDetailPage() {
                               {allocation.payment?.paymentNumber ?? allocation.paymentId}
                             </Link>
                           </td>
-                          <td className="px-3 py-2 text-steel">{formatOptionalDate(allocation.payment?.paymentDate, "-")}</td>
+                          <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(allocation.payment?.paymentDate, "-")}</LedgerDate></td>
                           <td className="px-3 py-2 text-steel">{supplierPaymentStatusLabel(allocation.payment?.status)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, bill.currency)}</td>
+                          <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, bill.currency)}</LedgerMoney></td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </LedgerDataTable>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No supplier payments have been applied to this bill.</p>
               )}
-            </div>
+            </LedgerSection>
 
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Unapplied supplier payment applications</h2>
+            <LedgerSection title="Unapplied supplier payment applications" className="min-w-0">
               {bill.supplierPaymentUnappliedAllocations?.length ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="mt-4">
+                  <LedgerDataTable minWidth="640px">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                       <tr>
                         <th className="px-3 py-2">Payment</th>
@@ -399,26 +398,25 @@ export default function PurchaseBillDetailPage() {
                               {allocation.payment?.paymentNumber ?? allocation.paymentId}
                             </Link>
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, bill.currency)}</td>
+                          <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, bill.currency)}</LedgerMoney></td>
                           <td className="px-3 py-2 text-steel">{allocation.reversedAt ? "Reversed" : "Active"}</td>
-                          <td className="px-3 py-2 text-steel">{formatOptionalDate(allocation.reversedAt, "-")}</td>
+                          <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(allocation.reversedAt, "-")}</LedgerDate></td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </LedgerDataTable>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No unapplied supplier payment amounts have been applied to this bill.</p>
               )}
-            </div>
+            </LedgerSection>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Linked debit notes</h2>
+          <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2">
+            <LedgerSection title="Linked debit notes" className="min-w-0">
               {bill.debitNotes?.length ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="mt-4">
+                  <LedgerDataTable minWidth="640px">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                       <tr>
                         <th className="px-3 py-2">Debit note</th>
@@ -436,23 +434,22 @@ export default function PurchaseBillDetailPage() {
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-steel">{purchaseDebitNoteStatusLabel(debitNote.status)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.total, bill.currency)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(debitNote.unappliedAmount, bill.currency)}</td>
+                          <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(debitNote.total, bill.currency)}</LedgerMoney></td>
+                          <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(debitNote.unappliedAmount, bill.currency)}</LedgerMoney></td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </LedgerDataTable>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No debit notes are linked to this bill.</p>
               )}
-            </div>
+            </LedgerSection>
 
-            <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Debit note allocations</h2>
+            <LedgerSection title="Debit note allocations" className="min-w-0">
               {bill.debitNoteAllocations?.length ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="mt-4">
+                  <LedgerDataTable minWidth="640px">
                     <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                       <tr>
                         <th className="px-3 py-2">Debit note</th>
@@ -469,22 +466,23 @@ export default function PurchaseBillDetailPage() {
                               {allocation.debitNote?.debitNoteNumber ?? allocation.debitNoteId}
                             </Link>
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(allocation.amountApplied, bill.currency)}</td>
+                          <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, bill.currency)}</LedgerMoney></td>
                           <td className="px-3 py-2 text-steel">{allocation.reversedAt ? "Reversed" : "Active"}</td>
-                          <td className="px-3 py-2 text-steel">{formatOptionalDate(allocation.reversedAt, "-")}</td>
+                          <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(allocation.reversedAt, "-")}</LedgerDate></td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </LedgerDataTable>
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-steel">No debit note amounts have been applied to this bill.</p>
               )}
-            </div>
+            </LedgerSection>
           </div>
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -516,21 +514,17 @@ export function PurchaseBillWorkflowGuidance({
   const billDetailHref = purchaseBillDetailHref(bill.id, returnTo);
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <LedgerPanel className="min-w-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
             <p className="mt-1 text-sm leading-6 text-steel">{purchaseBillOutcomeDescription(bill, paymentState)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseBillStatusBadgeClass(bill.status)}`}>
-              {purchaseBillStatusLabel(bill.status)}
-            </span>
+            <LedgerStatusBadge tone={purchaseBillStatusTone(bill.status)}>{purchaseBillStatusLabel(bill.status)}</LedgerStatusBadge>
             {bill.status === "FINALIZED" ? (
-              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseBillPaymentStateBadgeClass(paymentState)}`}>
-                {paymentState}
-              </span>
+              <LedgerStatusBadge tone={purchaseBillPaymentStateTone(paymentState)}>{paymentState}</LedgerStatusBadge>
             ) : null}
           </div>
         </div>
@@ -539,52 +533,36 @@ export function PurchaseBillWorkflowGuidance({
           <Summary label="Paid or credited" value={formatMoneyAmount(formatUnits(paidUnits), bill.currency)} />
           <Summary label="Balance due" value={formatMoneyAmount(bill.balanceDue, bill.currency)} />
         </div>
-      </div>
+      </LedgerPanel>
 
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPanel className="min-w-0">
         <h2 className="text-base font-semibold text-ink">Next actions</h2>
         <p className="mt-1 text-sm leading-6 text-steel">{purchaseBillNextActionDescription(bill, paymentState, canCreateSupplierPayment)}</p>
         <div className="mt-4 flex flex-col gap-2">
           {bill.status === "DRAFT" && canFinalizeBill ? (
-            <button
-              type="button"
-              onClick={onFinalize}
-              disabled={actionLoading}
-              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
+            <LedgerButton onClick={onFinalize} disabled={actionLoading} variant="primary">
               Finalize bill
-            </button>
+            </LedgerButton>
           ) : null}
           {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
-            <Link
-              href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`}
-              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
-            >
+            <LedgerButton href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`} variant="primary">
               Record supplier payment
-            </Link>
+            </LedgerButton>
           ) : null}
           {bill.status === "FINALIZED" && bill.supplierId && canCreateDebitNote ? (
-            <Link
-              href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}
-              className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
+            <LedgerButton href={`/purchases/debit-notes/new?billId=${encodeURIComponent(bill.id)}&supplierId=${encodeURIComponent(bill.supplierId)}&returnTo=${encodeURIComponent(billDetailHref)}`}>
               Create debit note
-            </Link>
+            </LedgerButton>
           ) : null}
           {canDownloadGeneratedDocuments ? (
-            <button
-              type="button"
-              onClick={onDownloadPdf}
-              disabled={actionLoading}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton onClick={onDownloadPdf} disabled={actionLoading}>
               Download purchase bill PDF
-            </button>
+            </LedgerButton>
           ) : null}
           {bill.supplierId ? (
-            <Link href={`/suppliers/${bill.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <LedgerButton href={`/suppliers/${bill.supplierId}`}>
               View supplier ledger
-            </Link>
+            </LedgerButton>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <APActionLink href={`/reports/aged-payables?returnTo=${encodeURIComponent(billDetailHref)}`}>AP report</APActionLink>
@@ -601,7 +579,7 @@ export function PurchaseBillWorkflowGuidance({
           <p className="mt-3 text-xs leading-5 text-steel">Voided bills are closed for supplier payments. Review reversal details below if present.</p>
         ) : null}
         <SourceDocumentGuidance className="mt-4" />
-      </div>
+      </LedgerPanel>
     </div>
   );
 }
@@ -634,25 +612,25 @@ function purchaseBillStatusLabel(status: PurchaseBill["status"] | undefined | nu
   }
 }
 
-function purchaseBillStatusBadgeClass(status: PurchaseBill["status"]): string {
+function purchaseBillStatusTone(status: PurchaseBill["status"]): LedgerStatusTone {
   switch (status) {
     case "DRAFT":
-      return "bg-slate-100 text-slate-700";
+      return "draft";
     case "FINALIZED":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "VOIDED":
-      return "bg-rose-50 text-rosewood";
+      return "danger";
   }
 }
 
-function purchaseBillPaymentStateBadgeClass(paymentState: ReturnType<typeof purchaseBillPaymentState>): string {
+function purchaseBillPaymentStateTone(paymentState: ReturnType<typeof purchaseBillPaymentState>): LedgerStatusTone {
   switch (paymentState) {
     case "Paid":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "Partially paid":
-      return "bg-amber-50 text-amber-700";
+      return "warning";
     case "Unpaid":
-      return "bg-slate-100 text-slate-700";
+      return "neutral";
   }
 }
 
@@ -708,33 +686,28 @@ function supplierPaymentStatusLabel(status: string | undefined | null): string {
 }
 
 function APActionLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link href={href} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-      {children}
-    </Link>
-  );
+  return <LedgerButton href={href}>{children}</LedgerButton>;
 }
 
 function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; report: InventoryClearingReconciliationReport | null }) {
   if (bill.inventoryPostingMode !== "INVENTORY_CLEARING") {
     return (
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
-        <p className="mt-2 text-sm text-steel">This bill uses direct expense/asset posting and is excluded from inventory clearing reconciliation.</p>
-      </div>
+      <LedgerSection title="Clearing reconciliation">
+        <p className="text-sm text-steel">This bill uses direct expense/asset posting and is excluded from inventory clearing reconciliation.</p>
+      </LedgerSection>
     );
   }
 
   const row = report?.rows[0] ?? null;
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
           <p className="mt-1 text-sm text-steel">Inventory Clearing debit from this bill compared with active receipt asset postings.</p>
         </div>
         {row ? (
-          <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryClearingStatusBadgeClass(row.status)}`}>
+          <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${inventoryClearingStatusBadgeClass(row.status)}`}>
             {inventoryClearingStatusLabel(row.status)}
           </span>
         ) : null}
@@ -749,13 +722,13 @@ function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; rep
             <Summary label="Linked receipts" value={String(row.receipts.length)} />
           </div>
           {row.warnings.length > 0 ? (
-            <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+            <LedgerAlert tone="warning">
               <ul className="space-y-1">
                 {row.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>
-            </div>
+            </LedgerAlert>
           ) : null}
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
             <Link href={inventoryClearingReportUrl({ purchaseBillId: bill.id })} className="font-medium text-palm hover:underline">
@@ -769,21 +742,19 @@ function ClearingReconciliationPanel({ bill, report }: { bill: PurchaseBill; rep
       ) : (
         <p className="mt-3 text-sm text-steel">No clearing reconciliation row is available for this bill yet.</p>
       )}
-    </div>
+    </LedgerPanel>
   );
 }
 
 function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAccountingPreview; currency: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Accounting preview</h2>
           <p className="mt-1 text-sm text-steel">Read-only purchase bill posting preview. No journal is created from this panel.</p>
         </div>
-        <span className={`rounded-md px-2 py-1 text-xs font-medium ${preview.canFinalize ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-          {preview.canFinalize ? "Finalizable" : "Preview only"}
-        </span>
+        <LedgerStatusBadge tone={preview.canFinalize ? "success" : "warning"}>{preview.canFinalize ? "Finalizable" : "Preview only"}</LedgerStatusBadge>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
         <Summary label="Mode" value={purchaseBillInventoryPostingModeLabel(preview.inventoryPostingMode)} />
@@ -797,28 +768,28 @@ function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAc
       </div>
 
       {preview.warnings.length > 0 ? (
-        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+        <LedgerAlert tone="warning">
           <ul className="space-y-1">
             {preview.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
           </ul>
-        </div>
+        </LedgerAlert>
       ) : null}
 
       {preview.blockingReasons.length > 0 ? (
-        <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-steel">
+        <LedgerSummaryBand>
           <p className="font-medium text-ink">Blocking reasons</p>
           <ul className="mt-2 space-y-1">
             {preview.blockingReasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
-        </div>
+        </LedgerSummaryBand>
       ) : null}
 
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+      <div className="mt-4">
+        <LedgerDataTable minWidth="720px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-3 py-2">Line</th>
@@ -831,17 +802,17 @@ function AccountingPreviewPanel({ preview, currency }: { preview: PurchaseBillAc
           <tbody className="divide-y divide-slate-100">
             {preview.journal.lines.map((line) => (
               <tr key={`${line.lineNumber}-${line.side}-${line.accountId ?? line.accountName}`}>
-                <td className="px-3 py-2 font-mono text-xs">{line.lineNumber}</td>
+                <td className="px-3 py-2"><LedgerMoney>{line.lineNumber}</LedgerMoney></td>
                 <td className="px-3 py-2">{line.side === "DEBIT" ? "Dr" : "Cr"}</td>
                 <td className="px-3 py-2">{line.accountCode ? `${line.accountCode} ${line.accountName}` : line.accountName}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatMoneyAmount(line.amount, currency)}</td>
+                <td className="px-3 py-2 text-right"><LedgerMoney>{formatMoneyAmount(line.amount, currency)}</LedgerMoney></td>
                 <td className="px-3 py-2 text-steel">{line.description || purchaseBillAccountingPreviewLineDisplay(line)}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </LedgerDataTable>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -862,7 +833,7 @@ function Summary({ label, value, href }: { label: string; value: string; href?: 
 
 function ReceivingStatusPanel({ status }: { status: PurchaseReceivingStatus }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Receiving status</h2>
@@ -872,8 +843,8 @@ function ReceivingStatusPanel({ status }: { status: PurchaseReceivingStatus }) {
           {inventoryProgressStatusLabel(status.status)}
         </span>
       </div>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+      <div className="mt-4">
+        <LedgerDataTable minWidth="640px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-3 py-2">Item</th>
@@ -886,15 +857,15 @@ function ReceivingStatusPanel({ status }: { status: PurchaseReceivingStatus }) {
             {status.lines.map((line) => (
               <tr key={line.lineId}>
                 <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity ?? line.sourceQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+                <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.billedQuantity ?? line.sourceQuantity)}</LedgerMoney></td>
+                <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.receivedQuantity)}</LedgerMoney></td>
+                <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.remainingQuantity)}</LedgerMoney></td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </LedgerDataTable>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
