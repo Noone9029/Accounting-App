@@ -2,7 +2,7 @@
 
 Date: 2026-06-22
 
-This branch continues the full LedgerByte frontend redesign from the UI/UX rebuild foundation branch. It is intentionally stacked on `codex/ui-ux-rebuild-foundation` so the PR can stay reviewable instead of duplicating the foundation diff.
+This branch continues the full LedgerByte frontend redesign from the PR #146 route-family list loop. It is intentionally stacked on `codex/ui-rebuild-loop-full-frontend` while that PR is open so the next pass stays reviewable.
 
 ## Scope Implemented In This Slice
 
@@ -13,6 +13,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 - Migrated `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte page/table/state primitives while preserving explicit AP posting and debit-note adjustment boundaries.
 - Migrated `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte page/table/state primitives while preserving manual banking and explicit transfer boundaries.
 - Migrated `/contacts` list/create surface onto shared LedgerByte page/panel/table/state primitives while preserving customer/supplier handoff links and conservative readiness wording.
+- Migrated customer/supplier detail workspaces and dedicated statement routes onto shared LedgerByte page/section/filter/metric/table/action primitives while preserving return-to handoffs, collections/AP summary, statement PDF behavior, and payment/report drilldown links.
 - Migrated `/inventory/balances` onto shared LedgerByte page/table/state primitives while preserving operational stock and valuation boundaries.
 - Updated focused component and route-load tests for the shared system and settings overview route.
 
@@ -42,7 +43,14 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 
 - Migrated `/contacts` page layout, create panel, readiness summary, table, active/inactive status badges, action buttons, and empty state to shared LedgerByte primitives.
 - Preserved contact truth: readiness fields remain local profile data and do not send eInvoices, validate Peppol endpoints, submit ZATCA data, or contact external providers.
-- Customer and supplier list routes continue through the shared party module; detail/statement flows remain deferred for a dedicated return-to and transaction-tabs pass.
+- Customer and supplier list routes continue through the shared party module.
+
+### 2026-06-22 Contacts Detail And Statement Loop
+
+- Migrated `/customers/[id]` and `/suppliers/[id]` detail workspace shells, summary metrics, transaction filters, transaction tables, supplier AP panels, activity cards, customer collections, details tab, and notes tab to shared LedgerByte primitives.
+- Migrated `/customers/[id]/statement` and `/suppliers/[id]/statement` to shared LedgerByte page, section, field, metric, summary, and action primitives.
+- Preserved return-to behavior, shared contact ledger handoffs, AR/AP payment links, aging report links, statement period loading, statement PDF download behavior, CSV export, print action, collections wording, supplier AP non-posting wording, and all existing permission gates.
+- Shared `/contacts/[id]` detail/ledger/statement tabs remain deferred because they are a larger contact-ledger surface and export statement helper components used by the dedicated statement routes.
 
 ### 2026-06-22 Inventory Balances Loop
 
@@ -60,6 +68,7 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 ## Remaining Frontend Route Families
 
 - Sales, Purchase, Banking, Contacts, and Inventory detail/form/supporting flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Contacts now has customer/supplier detail and dedicated statement coverage; shared contact ledger tabs and visual QA remain.
 - Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
 - Existing settings subroutes need gradual migration to shared panels/forms while preserving each route's permission and mutation behavior.
@@ -68,4 +77,4 @@ This branch continues the full LedgerByte frontend redesign from the UI/UX rebui
 
 ## Recommended Next Goal
 
-Migrate one high-traffic operational family, preferably sales invoices/quotes or banking statement transactions, using the shared ledger-system primitives and route-specific visual QA.
+Run the customer/supplier detail and statement visual fixtures for this stacked branch, then continue with inventory item/warehouse flows or sales invoice/quote detail/form workflows.

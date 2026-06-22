@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-rebuild-loop-full-frontend`
+Branch: `codex/ui-redesign-contacts-statements`
 
-Base: `origin/main` after PR #144 and PR #145 merge
+Base: stacked on `origin/codex/ui-rebuild-loop-full-frontend` while PR #146 is open
 
 ## Evidence Summary
 
@@ -22,9 +22,10 @@ Base: `origin/main` after PR #144 and PR #145 merge
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
+| Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
 
-## Verification Results
+## PR #146 Foundation Verification Results
 
 - `corepack pnpm install --frozen-lockfile`: PASS
 - `corepack pnpm --filter @ledgerbyte/web test -- ledger-system route-load-verification documents report-packs`: PASS, 49 tests
@@ -34,6 +35,19 @@ Base: `origin/main` after PR #144 and PR #145 merge
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/owner-settings-generated-document-storage-evidence.visual.spec.ts --grep "Owner owner-settings/generated-document evidence visual QA for (settings|documents) at (desktop|mobile)"`: PASS, 4 visual checks
 - `git diff --check`: PASS
 - `git diff --cached --check`: PASS
+
+## 2026-06-22 Contacts Detail/Statement Loop Evidence
+
+- `/customers/[id]` and `/suppliers/[id]`: migrated shared party detail workspaces from route-local `PageHeader`, `PanelSection`, `KpiCard`, old table wrappers, and route-local button/input/select styling to `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSection`, `LedgerMetricGrid`, `LedgerStatCard`, `LedgerFilterBar`, `LedgerInput`, `LedgerSelect`, `LedgerDataTable`, `LedgerMoney`, `LedgerDate`, `LedgerStatusBadge`, and `LedgerButton`.
+- `/customers/[id]/statement` and `/suppliers/[id]/statement`: migrated dedicated statement pages to shared page/header/section/form/metric/action primitives while preserving statement period loading, PDF download behavior, dedicated statement return target, shared contact ledger handoff, AR/AP activity links, aging report links, and controlled-beta no-provider/no-compliance wording.
+- Supplier AP summary, supplier grouped activity, customer collection cases, transaction filters, CSV export, print action, and customer/supplier transaction links remain wired through existing helpers and permission checks. No accounting posting, payment sending, compliance submission, provider call, storage mutation, or statement calculation behavior was changed.
+- `corepack pnpm --filter @ledgerbyte/web test -- party-pages party-statement-page`: PASS, 9 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "(customer-detail|supplier-detail) authenticated visual QA at (desktop|mobile)"`: PASS, 4 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep supplier-statement`: PASS, 9 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/report-drilldown-dense-entry-visual-qa.visual.spec.ts --grep customer-statement`: PASS, 9 checks.
+- Attempted to run customer/supplier statement visual checks in parallel; the customer run failed before Playwright started because both commands tried to start the shared visual web server on `127.0.0.1:3030`. The command was rerun alone and passed.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 

@@ -6,15 +6,29 @@ import { ArrowLeftIcon, DownloadIcon, EditIcon, PrinterIcon } from "lucide-react
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTable } from "@/components/ui-ledger/data-table";
-import { KpiCard } from "@/components/ui-ledger/kpi-card";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { StatusBadge as LedgerStatusBadge } from "@/components/ui-ledger/status-badge";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
@@ -107,18 +121,19 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
   }, [copy.pluralLower, kind, organizationId]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{copy.pluralTitle}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{copy.listDescription}</p>
-        </div>
-        {canManageContacts ? (
-          <Link href={`/contacts?type=${copy.contactType}`} className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            Add {copy.singularLower}
-          </Link>
-        ) : null}
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Contacts"
+        title={copy.pluralTitle}
+        description={copy.listDescription}
+        actions={
+          canManageContacts ? (
+            <LedgerButton href={`/contacts?type=${copy.contactType}`} variant="primary">
+              Add {copy.singularLower}
+            </LedgerButton>
+          ) : null
+        }
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load {copy.pluralLower}.</StatusMessage> : null}
@@ -132,29 +147,25 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
       </div>
 
       {rows.length > 0 ? (
-        <div className="mt-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Search {copy.pluralLower}</span>
-            <input
+        <LedgerPanel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Search {copy.pluralLower}</LedgerFieldText>
+            <LedgerInput
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={`Search ${copy.pluralLower} by name, email, phone, TRN, or balance`}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm focus:ring-2 focus:ring-palm/20"
             />
-          </label>
-        </div>
+          </LedgerFieldLabel>
+        </LedgerPanel>
       ) : null}
 
       {rows.length > 0 && filteredRows.length === 0 ? (
-        <div className="mt-5">
-          <StatusMessage type="empty">No matching {copy.pluralLower} found.</StatusMessage>
-        </div>
+        <LedgerEmptyState title={`No matching ${copy.pluralLower}`} description={`Try a different name, email, phone, TRN, or balance search.`} />
       ) : null}
 
       {filteredRows.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1040px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+        <LedgerDataTable minWidth="1040px">
+            <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">{copy.singularTitle}</th>
                 <th className="px-4 py-3">Type</th>
@@ -172,24 +183,23 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
                   <td className="px-4 py-3 font-medium text-ink">{displayName(row.contact)}</td>
                   <td className="px-4 py-3 text-steel">{copy.singularTitle}</td>
                   <td className="px-4 py-3 text-steel">{contactReach(row.contact)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(openBalance(row), "SAR")}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(overdueBalance(row), "SAR")}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(row.lastTransactionDate, "No transactions")}</td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(openBalance(row), "SAR")}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(overdueBalance(row), "SAR")}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(row.lastTransactionDate, "No transactions")}</LedgerDate></td>
                   <td className="px-4 py-3">
                     <StatusBadge isActive={row.contact.isActive} />
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/${copy.routeSegment}/${row.contact.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <LedgerButton href={`/${copy.routeSegment}/${row.contact.id}`} size="sm">
                       Open
-                    </Link>
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </section>
+    </LedgerPage>
   );
 }
 
@@ -349,15 +359,15 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
   }
 
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow={copy.singularTitle}
         title={detail ? displayName(detail.contact) : copy.singularTitle}
         description={copy.detailDescription}
         actions={
-          <Link href={`/${copy.routeSegment}`} className={buttonVariants({ variant: "outline" })}>
-            <ArrowLeftIcon data-icon="inline-start" />
+          <LedgerButton href={`/${copy.routeSegment}`} icon={ArrowLeftIcon}>
             Back to {copy.pluralLower}
-          </Link>
+          </LedgerButton>
         }
       />
 
@@ -368,9 +378,9 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
       </div>
 
       {detail ? (
-        <div className="mt-5 flex flex-col gap-5">
+        <LedgerPageBody>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
-            <PanelSection
+            <LedgerSection
               title={
                 <span className="flex flex-wrap items-center gap-2">
                   {displayName(detail.contact)}
@@ -384,15 +394,14 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
                 </>
               }
               action={
-                <div className="flex flex-wrap gap-2">
+                <LedgerActionBar>
                   <PartyNewTransactionMenu partyId={detail.contact.id} partyType={kind} userPermissions={activeMembership} />
                   {can(PERMISSIONS.contacts.manage) ? (
-                    <Link href={`/contacts/${detail.contact.id}`} className={buttonVariants({ variant: "outline" })}>
-                      <EditIcon data-icon="inline-start" />
+                    <LedgerButton href={`/contacts/${detail.contact.id}`} icon={EditIcon}>
                       Edit {copy.singularLower}
-                    </Link>
+                    </LedgerButton>
                   ) : null}
-                </div>
+                </LedgerActionBar>
               }
             >
               <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
@@ -400,12 +409,12 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
                 <Summary label="Billing address" value={billingAddress(detail.contact)} />
                 <Summary label="VAT / TRN" value={[detail.contact.taxNumber, detail.contact.uaeTrn, detail.contact.uaeTin].filter(Boolean).join(" / ") || "-"} />
               </div>
-            </PanelSection>
+            </LedgerSection>
 
             <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <KpiCard label={copy.openLabel} value={formatMoneyAmount(openBalance(detail), "SAR")} detail={copy.balanceTitle} />
-              <KpiCard label={copy.overdueLabel} value={formatMoneyAmount(overdueBalance(detail), "SAR")} detail="Overdue balance from existing records" tone="warning" />
-              <KpiCard label="Last transaction" value={formatOptionalDate(detail.lastTransactionDate, "No transactions")} detail="Most recent activity date" tone="info" />
+              <LedgerStatCard label={copy.openLabel} value={<LedgerMoney>{formatMoneyAmount(openBalance(detail), "SAR")}</LedgerMoney>} detail={copy.balanceTitle} />
+              <LedgerStatCard label={copy.overdueLabel} value={<LedgerMoney>{formatMoneyAmount(overdueBalance(detail), "SAR")}</LedgerMoney>} detail="Overdue balance from existing records" />
+              <LedgerStatCard label="Last transaction" value={<LedgerDate>{formatOptionalDate(detail.lastTransactionDate, "No transactions")}</LedgerDate>} detail="Most recent activity date" />
             </div>
           </div>
 
@@ -433,46 +442,44 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
             </TabsList>
 
             <TabsContent value="transactions" className="min-w-0 flex flex-col gap-4 overflow-hidden">
-              <PanelSection title="Transaction filters" description="Filters apply only to the loaded transaction rows on this workspace.">
-                <div className="flex flex-wrap items-end gap-3">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
-                    <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value as PartyTransactionStatusFilter)} className="mt-1 h-8 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <LedgerSection title="Transaction filters" description="Filters apply only to the loaded transaction rows on this workspace.">
+                <LedgerFilterBar>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Status</LedgerFieldText>
+                    <LedgerSelect value={filters.status} onChange={(event) => updateFilter("status", event.target.value as PartyTransactionStatusFilter)}>
                       <option value="ALL">All transactions</option>
                       <option value="OPEN">Open transactions</option>
                       <option value="OVERDUE">Overdue transactions</option>
                       <option value="PAID">Paid transactions</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">Type</span>
-                    <select value={filters.type} onChange={(event) => updateFilter("type", event.target.value)} className="mt-1 h-8 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                    </LedgerSelect>
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Type</LedgerFieldText>
+                    <LedgerSelect value={filters.type} onChange={(event) => updateFilter("type", event.target.value)}>
                       <option value="ALL">All types</option>
                       {transactionTypeOptions.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">From</span>
-                    <Input type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} className="mt-1" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">To</span>
-                    <Input type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} className="mt-1" />
-                  </label>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={exportTransactions}>
-                      <DownloadIcon data-icon="inline-start" />
+                    </LedgerSelect>
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>From</LedgerFieldText>
+                    <LedgerInput type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>To</LedgerFieldText>
+                    <LedgerInput type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerActionBar>
+                    <LedgerButton type="button" onClick={exportTransactions} icon={DownloadIcon}>
                       Export
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => window.print()}>
-                      <PrinterIcon data-icon="inline-start" />
+                    </LedgerButton>
+                    <LedgerButton type="button" onClick={() => window.print()} icon={PrinterIcon}>
                       Print
-                    </Button>
-                  </div>
-                </div>
-              </PanelSection>
+                    </LedgerButton>
+                  </LedgerActionBar>
+                </LedgerFilterBar>
+              </LedgerSection>
 
               {kind === "supplier" ? (
                 <SupplierGroupedActivityTables transactions={filteredTransactions} emptyLabel={`No ${copy.singularLower} transactions match the current filters.`} />
@@ -484,9 +491,9 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
             <TabsContent value="details">{activeTab === "details" ? <PartyDetails contact={detail.contact} kind={kind} /> : null}</TabsContent>
             <TabsContent value="notes">{activeTab === "notes" ? <PartyNotes detail={detail} kind={kind} /> : null}</TabsContent>
           </Tabs>
-        </div>
+        </LedgerPageBody>
       ) : null}
-    </section>
+    </LedgerPage>
   );
 }
 
@@ -504,52 +511,52 @@ function PartyTransactionsTable({
   }
 
   return (
-    <DataTable minWidth="min-w-[1180px]" className="mt-0">
-      <TableHeader className="bg-muted/50 text-xs uppercase text-muted-foreground">
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Transaction number</TableHead>
-          <TableHead>Total before tax</TableHead>
-          <TableHead>Tax amount</TableHead>
-          <TableHead>Total</TableHead>
-          <TableHead>Balance due</TableHead>
-          <TableHead>Status</TableHead>
-          {showPostingEffect ? <TableHead>Effect</TableHead> : null}
-          <TableHead>Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <LedgerDataTable minWidth="1180px">
+      <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
+        <tr>
+          <th className="px-4 py-3">Date</th>
+          <th className="px-4 py-3">Type</th>
+          <th className="px-4 py-3">Transaction number</th>
+          <th className="px-4 py-3">Total before tax</th>
+          <th className="px-4 py-3">Tax amount</th>
+          <th className="px-4 py-3">Total</th>
+          <th className="px-4 py-3">Balance due</th>
+          <th className="px-4 py-3">Status</th>
+          {showPostingEffect ? <th className="px-4 py-3">Effect</th> : null}
+          <th className="px-4 py-3">Action</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
           {transactions.map((transaction) => (
-            <TableRow key={transaction.id}>
-              <TableCell className="text-muted-foreground">{formatOptionalDate(transaction.date, "-")}</TableCell>
-              <TableCell className="text-muted-foreground">{transaction.type}</TableCell>
-              <TableCell className="font-mono text-xs">{transaction.transactionNumber}</TableCell>
-              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.subtotal, transaction.currency)}</TableCell>
-              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.taxAmount, transaction.currency)}</TableCell>
-              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.total, transaction.currency)}</TableCell>
-              <TableCell className="font-mono text-xs">{formatMoneyAmount(transaction.balanceDue, transaction.currency)}</TableCell>
-              <TableCell>
+            <tr key={transaction.id}>
+              <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(transaction.date, "-")}</LedgerDate></td>
+              <td className="px-4 py-3 text-steel">{transaction.type}</td>
+              <td className="px-4 py-3 font-mono text-xs">{transaction.transactionNumber}</td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(transaction.subtotal, transaction.currency)}</LedgerMoney></td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(transaction.taxAmount, transaction.currency)}</LedgerMoney></td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(transaction.total, transaction.currency)}</LedgerMoney></td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(transaction.balanceDue, transaction.currency)}</LedgerMoney></td>
+              <td className="px-4 py-3">
                 <LedgerStatusBadge tone={transactionStatusTone(transaction.status)}>{formatStatusLabel(transaction.status)}</LedgerStatusBadge>
-              </TableCell>
+              </td>
               {showPostingEffect ? (
-                <TableCell>
+                <td className="px-4 py-3">
                   {isOperationalNonPostingTransaction(transaction) ? (
                     <LedgerStatusBadge tone="info">Non-posting</LedgerStatusBadge>
                   ) : (
-                    <LedgerStatusBadge tone="muted">Financial posting</LedgerStatusBadge>
+                    <LedgerStatusBadge tone="neutral">Financial posting</LedgerStatusBadge>
                   )}
-                </TableCell>
+                </td>
               ) : null}
-              <TableCell>
-                <Link href={partyTransactionActionHref(transaction)} className={buttonVariants({ variant: "outline", size: "xs" })}>
+              <td className="px-4 py-3">
+                <LedgerButton href={partyTransactionActionHref(transaction)} size="sm">
                   View
-                </Link>
-              </TableCell>
-            </TableRow>
+                </LedgerButton>
+              </td>
+            </tr>
           ))}
-      </TableBody>
-    </DataTable>
+      </tbody>
+    </LedgerDataTable>
   );
 }
 
@@ -566,25 +573,17 @@ export function SupplierApSummaryPanel({ summary }: { summary: SupplierApDetailS
   ];
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Supplier AP Summary</h2>
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-steel">
-            This panel is read-only. Purchase returns are operational/non-posting activity and do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <LedgerSection
+      title="Supplier AP Summary"
+      description="This panel is read-only. Purchase returns are operational/non-posting activity and do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately."
+    >
+      <LedgerMetricGrid className="sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-md border border-slate-200 px-4 py-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-steel">{card.label}</div>
-            <div className="mt-2 font-mono text-sm font-semibold text-ink">{card.value}</div>
-          </div>
+          <LedgerStatCard key={card.label} label={card.label} value={<LedgerMoney>{card.value}</LedgerMoney>} />
         ))}
-      </div>
+      </LedgerMetricGrid>
       <SupplierApRecentActivity rows={summary.recentApActivity} />
-    </div>
+    </LedgerSection>
   );
 }
 
@@ -594,9 +593,8 @@ function SupplierApRecentActivity({ rows }: { rows: SupplierApRecentActivityItem
   }
 
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[820px] text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+    <LedgerDataTable minWidth="820px" className="mt-4">
+        <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-3 py-2">Date</th>
             <th className="px-3 py-2">Activity</th>
@@ -609,25 +607,25 @@ function SupplierApRecentActivity({ rows }: { rows: SupplierApRecentActivityItem
         <tbody className="divide-y divide-slate-100">
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className="px-3 py-2 text-steel">{formatOptionalDate(row.date, "-")}</td>
+              <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(row.date, "-")}</LedgerDate></td>
               <td className="px-3 py-2">
                 <div className="font-medium text-ink">{row.label}</div>
                 <div className="font-mono text-xs text-steel">{row.sourceNumber}</div>
               </td>
-              <td className="px-3 py-2 font-mono text-xs">{row.amount ? formatMoneyAmount(row.amount, "SAR") : "-"}</td>
+              <td className="px-3 py-2"><LedgerMoney>{row.amount ? formatMoneyAmount(row.amount, "SAR") : "-"}</LedgerMoney></td>
               <td className="px-3 py-2 text-steel">{formatStatusLabel(row.status)}</td>
               <td className="px-3 py-2">
                 {row.nonPosting ? (
-                  <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Non-posting</span>
+                  <LedgerStatusBadge tone="info">Non-posting</LedgerStatusBadge>
                 ) : (
-                  <span className="text-xs font-medium text-slate-700">Financial posting</span>
+                  <LedgerStatusBadge tone="neutral">Financial posting</LedgerStatusBadge>
                 )}
               </td>
               <td className="px-3 py-2">
                 {row.href ? (
-                  <Link href={row.href} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  <LedgerButton href={row.href} size="sm">
                     Open
-                  </Link>
+                  </LedgerButton>
                 ) : (
                   <span className="text-xs text-steel">Hidden</span>
                 )}
@@ -635,8 +633,7 @@ function SupplierApRecentActivity({ rows }: { rows: SupplierApRecentActivityItem
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+    </LedgerDataTable>
   );
 }
 
@@ -650,22 +647,19 @@ export function SupplierGroupedActivityTables({ transactions, emptyLabel }: { tr
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Financial posting activity</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">Purchase bills, supplier payments, purchase debit notes, and supplier refunds appear here when present.</p>
-        <div className="mt-4">
+      <LedgerSection title="Financial posting activity" description="Purchase bills, supplier payments, purchase debit notes, and supplier refunds appear here when present.">
           <PartyTransactionsTable transactions={financialRows} emptyLabel="No financial posting activity matches the current filters." showPostingEffect />
-        </div>
-      </div>
-      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Operational/non-posting activity</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">
+      </LedgerSection>
+      <LedgerSection
+        title="Operational/non-posting activity"
+        description={
+          <>
           Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.
-        </p>
-        <div className="mt-4">
+          </>
+        }
+      >
           <PartyTransactionsTable transactions={operationalRows} emptyLabel="No operational/non-posting activity matches the current filters." showPostingEffect />
-        </div>
-      </div>
+      </LedgerSection>
     </div>
   );
 }
@@ -698,32 +692,25 @@ export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; ki
         ];
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">{kind === "customer" ? "Customer ledger visibility" : "Supplier ledger visibility"}</h2>
-          <p className="mt-1 text-sm leading-6 text-steel">
-            Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte. Use the statement activity card when you need the dedicated statement route, then return here for customer or supplier workspace context.
-          </p>
-        </div>
-        <Link href={`/contacts/${contactId}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Open shared contact ledger
-        </Link>
-      </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <LedgerSection
+      title={kind === "customer" ? "Customer ledger visibility" : "Supplier ledger visibility"}
+      description="Balances and transaction counts are tenant-scoped from posted and draft records already available in LedgerByte. Use the statement activity card when you need the dedicated statement route, then return here for customer or supplier workspace context."
+      action={<LedgerButton href={`/contacts/${contactId}`}>Open shared contact ledger</LedgerButton>}
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
           <Link key={card.label} href={card.href} className="rounded-md border border-slate-200 px-4 py-3 hover:border-palm hover:bg-slate-50">
             <div className="flex items-start justify-between gap-3">
               <span className="text-sm font-semibold text-ink">{card.label}</span>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+              <LedgerStatusBadge tone="neutral">
                 {card.sourceType ? (counts.get(card.sourceType) ?? 0) : card.badgeLabel ?? "Report"}
-              </span>
+              </LedgerStatusBadge>
             </div>
-            {card.balance ? <div className="mt-2 font-mono text-xs text-steel">{formatMoneyAmount(card.balance, "SAR")}</div> : null}
+            {card.balance ? <div className="mt-2"><LedgerMoney>{formatMoneyAmount(card.balance, "SAR")}</LedgerMoney></div> : null}
           </Link>
         ))}
       </div>
-    </div>
+    </LedgerSection>
   );
 }
 
@@ -743,21 +730,18 @@ export function CustomerCollectionsPanel({
   const openCases = collectionCases.filter((collectionCase) => !["PAID", "CLOSED", "CANCELLED"].includes(collectionCase.status));
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Customer collections</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Collection cases are operational follow-up records. {collectionsSafeWording}
-          </p>
-        </div>
-        {canCreateCollectionCase ? (
-          <Link href={`/sales/collections/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(`/customers/${customerId}`)}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+    <LedgerSection
+      title="Customer collections"
+      description={<>Collection cases are operational follow-up records. {collectionsSafeWording}</>}
+      action={
+        canCreateCollectionCase ? (
+          <LedgerButton href={`/sales/collections/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(`/customers/${customerId}`)}`}>
             New collection case
-          </Link>
-        ) : null}
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+          </LedgerButton>
+        ) : null
+      }
+    >
+      <div className="grid gap-3 md:grid-cols-3">
         <BalanceLine label="Open receivable" value={formatMoneyAmount(openReceivableBalance, "SAR")} emphasized />
         <BalanceLine label="Open collection cases" value={String(openCases.length)} />
         <BalanceLine label="Collection amount effect" value="0.0000" />
@@ -765,9 +749,8 @@ export function CustomerCollectionsPanel({
       {loading ? <div className="mt-3"><StatusMessage type="loading">Loading customer collection cases...</StatusMessage></div> : null}
       {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">No collection cases are recorded for this customer.</p> : null}
       {collectionCases.length > 0 ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+        <LedgerDataTable minWidth="860px" className="mt-4">
+            <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Case</th>
                 <th className="px-3 py-2">Invoice</th>
@@ -784,33 +767,31 @@ export function CustomerCollectionsPanel({
                 <tr key={collectionCase.id}>
                   <td className="px-3 py-2 font-mono text-xs">{collectionCase.caseNumber}</td>
                   <td className="px-3 py-2 font-mono text-xs">{collectionCase.salesInvoice?.invoiceNumber ?? "Customer-level"}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{formatMoneyAmount(collectionCase.salesInvoice?.balanceDue ?? "0.0000", collectionCase.salesInvoice?.currency ?? "SAR")}</td>
+                  <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(collectionCase.salesInvoice?.balanceDue ?? "0.0000", collectionCase.salesInvoice?.currency ?? "SAR")}</LedgerMoney></td>
                   <td className="px-3 py-2">
                     <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{collectionStatusLabel(collectionCase.status)}</span>
                   </td>
                   <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? collectionActivityTypeLabel(collectionCase.activities[0].activityType) : "-"}</td>
-                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</td>
-                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.promisedPaymentDate, "-")}</td>
+                  <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</LedgerDate></td>
+                  <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(collectionCase.promisedPaymentDate, "-")}</LedgerDate></td>
                   <td className="px-3 py-2">
-                    <Link href={`/sales/collections/${collectionCase.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <LedgerButton href={`/sales/collections/${collectionCase.id}`} size="sm">
                       Open
-                    </Link>
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </div>
+    </LedgerSection>
   );
 }
 
 function PartyDetails({ contact, kind }: { contact: Contact; kind: PartyKind }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">{kind === "customer" ? "Customer Details" : "Supplier Details"}</h2>
-      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+    <LedgerSection title={kind === "customer" ? "Customer Details" : "Supplier Details"}>
+      <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
         <Summary label="Name" value={contact.name} />
         <Summary label="Display name" value={contact.displayName ?? "-"} />
         <Summary label="Type" value={contact.type} />
@@ -827,25 +808,26 @@ function PartyDetails({ contact, kind }: { contact: Contact; kind: PartyKind }) 
         <Summary label="Billing address" value={billingAddress(contact)} />
         {kind === "supplier" ? <Summary label="Bank details / payment notes" value="No bank details are recorded yet." /> : null}
       </div>
-    </div>
+    </LedgerSection>
   );
 }
 
 function PartyNotes({ detail, kind }: { detail: PartyDetail; kind: PartyKind }) {
   const text = kind === "customer" ? ("notes" in detail ? detail.notes : null) : "paymentNotes" in detail ? detail.paymentNotes : null;
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Notes</h2>
-      <p className="mt-3 text-sm leading-6 text-steel">{text?.trim() || `No ${kind === "customer" ? "customer notes" : "supplier payment notes"} are recorded yet.`}</p>
-    </div>
+    <LedgerSection title="Notes">
+      <p className="text-sm leading-6 text-steel">{text?.trim() || `No ${kind === "customer" ? "customer notes" : "supplier payment notes"} are recorded yet.`}</p>
+    </LedgerSection>
   );
 }
 
 function BalanceLine({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="rounded-md border border-line bg-mist px-3 py-2">
       <span className="text-sm text-steel">{label}</span>
-      <span className={`${emphasized ? "text-lg font-semibold" : "text-sm font-medium"} font-mono text-ink`}>{value}</span>
+      <div className={emphasized ? "mt-1 text-lg font-semibold text-ink" : "mt-1 text-sm font-medium text-ink"}>
+        <LedgerMoney>{value}</LedgerMoney>
+      </div>
     </div>
   );
 }
@@ -855,7 +837,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 }
 
 function ActiveStatusBadge({ isActive }: { isActive: boolean }) {
-  return <LedgerStatusBadge tone={isActive ? "success" : "muted"}>{isActive ? "Active" : "Inactive"}</LedgerStatusBadge>;
+  return <LedgerStatusBadge tone={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</LedgerStatusBadge>;
 }
 
 function Summary({ label, value }: { label: string; value: string }) {
@@ -900,7 +882,7 @@ function isOperationalNonPostingTransaction(transaction: PartyTransaction): bool
   return transaction.sourceType === "PurchaseOrder" || transaction.sourceType === "PurchaseReturn";
 }
 
-function transactionStatusTone(status: string): "success" | "warning" | "danger" | "muted" {
+function transactionStatusTone(status: string): LedgerStatusTone {
   const normalized = status.toUpperCase();
   if (normalized.includes("VOID") || normalized.includes("REVERSE") || normalized.includes("CANCEL")) {
     return "danger";
@@ -911,7 +893,7 @@ function transactionStatusTone(status: string): "success" | "warning" | "danger"
   if (normalized.includes("POST") || normalized.includes("FINAL") || normalized.includes("PAID") || normalized.includes("APPROVED")) {
     return "success";
   }
-  return "muted";
+  return "neutral";
 }
 
 function formatStatusLabel(status: string): string {
