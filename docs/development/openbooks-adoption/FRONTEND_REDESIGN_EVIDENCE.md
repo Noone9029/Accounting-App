@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-documents`
+Branch: `codex/ui-redesign-purchase-detail`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-returns` while PR #156 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-documents` while PR #157 is open
 
 ## Evidence Summary
 
@@ -30,6 +30,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-returns` while PR #156 is o
 | Sales inventory returns loop | `apps/web/src/app/(app)/sales/inventory-returns/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/new/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/[id]/page.tsx`, `apps/web/src/app/(app)/sales/inventory-returns/[id]/edit/page.tsx`, and `apps/web/src/components/forms/sales-inventory-return-form.tsx` use shared LedgerByte list, detail, form, movement-preview, status, alert, table, and action primitives while preserving operational stock-in return behavior, return-to behavior, lifecycle permissions, and no-credit-note/no-refund/no-journal/no-VAT/no-ZATCA/no-email/no-payment-link boundaries. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Purchase document form loop | `apps/web/src/app/(app)/purchases/bills/new/page.tsx`, `apps/web/src/app/(app)/purchases/bills/[id]/edit/page.tsx`, `apps/web/src/components/forms/purchase-bill-form.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/new/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-debit-note-form.tsx` use shared LedgerByte page, form, field, panel, table, alert, money, and action primitives while preserving AP draft save/update payloads, return-to handoffs, inventory-clearing/accountant warnings, debit-note supplier/original-bill prefill, and no provider/payment/tax-authority/compliance behavior. |
+| Purchase document detail loop | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx`, and `apps/web/src/components/ui/ledger-system.tsx` use shared LedgerByte page, header, panel, section, table, status, alert, money/date, form-field, and action primitives while preserving AP finalization/void/delete/download/apply/reverse handlers, return-to handoffs, receiving/matching/clearing/valuation preview surfaces, generated-document guidance, and no provider/payment-sending/tax-authority/compliance/valuation behavior changes. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -230,6 +231,24 @@ Base: stacked on `origin/codex/ui-redesign-inventory-returns` while PR #156 is o
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/refund-collections-banking-detail-polish.visual.spec.ts --grep "debit-note-new"`: PASS, 3 checks.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 599 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
+
+## 2026-06-22 Purchase Document Detail Loop Evidence
+
+- `/purchases/bills/[id]`: migrated the purchase bill detail shell, status badge, header actions, workflow guidance, bill snapshot, line table, totals, payment allocations, unapplied supplier payment applications, linked debit notes, debit-note allocations, receiving status, accounting preview, and clearing reconciliation panels to shared LedgerByte primitives.
+- `/purchases/debit-notes/[id]`: migrated the purchase debit-note detail shell, status badge, header actions, workflow guidance, AP adjustment snapshot, line table, totals, debit allocation table, apply-debit form, local ZATCA/readiness warning, and source-document guidance to shared LedgerByte primitives.
+- `LedgerPageHeader`: relaxed the action container from non-shrinking to wrapping so action-heavy detail pages do not create tablet document-level horizontal overflow.
+- Existing behavior remains frontend-only and unchanged: bill finalization/void/delete/PDF download, debit-note finalization/void/delete/PDF download, debit-note apply/reverse, setup loads, receiving/matching/clearing/valuation preview reads, permission gates, and supplier/report/dashboard links keep existing endpoints and semantics. No payment sending, provider calls, tax-authority submission, generated-document storage mutation beyond existing explicit downloads, valuation math, COGS posting, AP allocation math, inventory movement, hosted mutation, or compliance behavior was added.
+- Debit-note detail Back now honors an incoming `returnTo` query using the existing safe return helper, matching the bill detail continuity pattern.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/components/ui/ledger-system.test.tsx" "apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx" "apps/web/src/app/(app)/purchases/debit-notes/[id]/page.test.tsx"`: PASS, 3 suites, 16 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "(purchase bill .*detail visual QA|debit note .*detail visual QA|bill-line-items table visual QA)"`: initially failed purchase bill tablet states for document-level horizontal overflow; after allowing `LedgerPageHeader` actions to wrap and adding bill detail `min-w-0` grid containment, rerun PASS, 30 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep bill-line-items`: PASS, 2 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/refund-collections-banking-detail-polish.visual.spec.ts --grep debit-note`: initially failed two mobile checks because the migrated header stretched the destructive `Void` action to 189.53px; after constraining detail header action bars to content width on mobile, rerun PASS, 21 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "purchase bill"`: PASS, 18 checks after the final header action-bar sizing patch.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 599 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 

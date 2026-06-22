@@ -113,7 +113,7 @@ export function LedgerPageHeader({
   inverse = false,
 }: Readonly<{ eyebrow?: string; title: string; description?: ReactNode; badge?: ReactNode; actions?: ReactNode; inverse?: boolean }>) {
   return (
-    <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <header className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0">
         {eyebrow ? <div className={cn("mb-1 text-xs font-semibold uppercase tracking-wide", inverse ? "text-slate-300" : "text-steel")}>{eyebrow}</div> : null}
         <div className="flex flex-wrap items-center gap-2">
@@ -122,7 +122,7 @@ export function LedgerPageHeader({
         </div>
         {description ? <div className={cn("mt-1 max-w-3xl text-sm leading-6", inverse ? "text-slate-200" : "text-steel")}>{description}</div> : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex min-w-0 flex-wrap items-center gap-2 md:justify-end">{actions}</div> : null}
     </header>
   );
 }
