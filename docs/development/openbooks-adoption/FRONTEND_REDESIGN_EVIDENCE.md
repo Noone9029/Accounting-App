@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-customer-payments`
+Branch: `codex/ui-redesign-customer-payment-detail`
 
-Base: stacked on `origin/codex/ui-redesign-credit-notes` while PR #150 is open
+Base: stacked on `origin/codex/ui-redesign-customer-payments` while PR #151 is open
 
 ## Evidence Summary
 
@@ -23,6 +23,7 @@ Base: stacked on `origin/codex/ui-redesign-credit-notes` while PR #150 is open
 | Sales invoice detail loop | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` now uses shared LedgerByte page, section, metric, summary, data-table, date, money, status, panel, and action primitives while preserving finalization/void/delete/PDF/payment/credit-note/stock-issue/collection/compliance/ZATCA behavior. |
 | Sales credit notes loop | `apps/web/src/app/(app)/sales/credit-notes/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/credit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/credit-note-form.tsx` use shared LedgerByte list, detail, form, table, money/date, status, allocation, alert, and action primitives while preserving credit-note posting, allocation, PDF archive, UAE readiness, and return-to behavior. |
 | Sales customer payments/refunds loop | `apps/web/src/app/(app)/sales/customer-payments/page.tsx`, `apps/web/src/app/(app)/sales/customer-payments/new/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/page.tsx`, `apps/web/src/app/(app)/sales/customer-refunds/new/page.tsx`, and `apps/web/src/app/(app)/sales/customer-refunds/[id]/page.tsx` use shared LedgerByte list, form, table, metric, source, PDF-preview, alert, summary, money/date, status, and action primitives while preserving payment posting, refund posting, allocation, return-to, no-provider, and no-ZATCA behavior. |
+| Sales customer payment detail loop | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` uses shared LedgerByte page, workflow, metric, table, receipt archive, audit, apply-credit, modal, field, money/date, status, alert, and action primitives while preserving receipt preview/download, generated-document archive loading, audit log loading, void, refund handoff, unapplied allocation apply/reverse, and return-to behavior. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -111,6 +112,23 @@ Base: stacked on `origin/codex/ui-redesign-credit-notes` while PR #150 is open
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/refund-collections-banking-detail-polish.visual.spec.ts --grep "customer-refund"`: PASS, 15 checks.
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
+
+## 2026-06-22 Sales Customer Payment Detail Loop Evidence
+
+- `/sales/customer-payments/[id]`: migrated the customer payment detail shell, status badge, header actions, workflow guidance, payment state, accounting summary, receipt archive, audit status, direct allocations, unapplied applications, reverse-allocation confirmation, and apply-unapplied form from older route-local/button/table/badge markup to shared LedgerByte primitives.
+- Existing behavior remains frontend-only and unchanged: payment detail load, generated receipt archive load, audit log load, open-invoice load, void action, receipt preview, receipt PDF download/archive refresh, refund-unapplied handoff, direct invoice return-to links, customer/report/dashboard handoffs, unapplied allocation apply, unapplied allocation reverse, validation messages, and explicit no-automatic-receipt/no-extra-journal wording.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/customer-payments/[id]/page.test.tsx"`: PASS, 12 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification customer-payments`: PASS, 45 tests.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/authenticated-route-hardening.visual.spec.ts --grep "customer-payment-detail"`: PASS, 3 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "customer payment"`: PASS, 9 checks.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/detail-states-accountant-mobile-table-review.visual.spec.ts --grep "payment-"`: PASS, 4 checks. This grep also matched supplier-payment allocation table rows; customer-payment allocation table review passed at tablet and mobile.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --grep "customer-payment-success"`: no tests found because the spec groups assertion-only routes under a shared test title rather than slug-specific titles.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --grep "polished route group assertions"`: PASS, 1 grouped desktop assertion including `/sales/customer-payments/payment-1?recorded=1`.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2062 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 
