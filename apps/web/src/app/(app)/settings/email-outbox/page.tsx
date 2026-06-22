@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { EmailReadinessSafeStatus } from "@/components/email/email-readiness-safe-status";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
   LedgerEmptyState,
-  LedgerLoadingState,
   LedgerMetadataRow,
   LedgerPage,
   LedgerPageBody,
@@ -15,6 +14,7 @@ import {
   LedgerStatusBadge,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -704,11 +704,11 @@ export default function EmailOutboxPage() {
                   className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
-              <textarea
+              <Textarea
                 value={evidenceSummary}
                 onChange={(event) => setEvidenceSummary(event.target.value)}
                 placeholder="Short metadata summary, no secrets"
-                className="mt-2 min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-2 min-h-20"
               />
               <input
                 type="text"
@@ -726,7 +726,7 @@ export default function EmailOutboxPage() {
                 {evidenceLoading ? "Saving..." : "Create draft evidence"}
               </button>
               {senderEvidence.length > 0 ? (
-                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                <LedgerPanel className="mt-4 overflow-hidden p-0 shadow-none">
                   {senderEvidence.map((evidence) => (
                     <div key={evidence.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_110px_120px_160px]">
                       <div>
@@ -759,7 +759,7 @@ export default function EmailOutboxPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </LedgerPanel>
               ) : (
                 <p className="mt-3 text-sm text-steel">No sender-domain evidence captured yet.</p>
               )}
@@ -793,11 +793,11 @@ export default function EmailOutboxPage() {
                   className="min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
                 />
               </div>
-              <textarea
+              <Textarea
                 value={monitoringEvidenceSummary}
                 onChange={(event) => setMonitoringEvidenceSummary(event.target.value)}
                 placeholder="Short metadata summary, no secrets or recipients"
-                className="mt-2 min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="mt-2 min-h-20"
               />
               <input
                 type="text"
@@ -815,7 +815,7 @@ export default function EmailOutboxPage() {
                 {monitoringEvidenceLoading ? "Saving..." : "Create monitoring evidence"}
               </button>
               {monitoringEvidence.length > 0 ? (
-                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                <LedgerPanel className="mt-4 overflow-hidden p-0 shadow-none">
                   {monitoringEvidence.map((evidence) => (
                     <div key={evidence.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_110px_120px_160px]">
                       <div>
@@ -848,7 +848,7 @@ export default function EmailOutboxPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </LedgerPanel>
               ) : (
                 <p className="mt-3 text-sm text-steel">No delivery monitoring evidence captured yet.</p>
               )}
@@ -887,7 +887,7 @@ export default function EmailOutboxPage() {
               </div>
               {suppressionEmail && !suppressionEmailValid ? <p className="mt-2 text-sm text-rose-700">Enter a valid suppression email address.</p> : null}
               {suppressions.length > 0 ? (
-                <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+                <LedgerPanel className="mt-4 overflow-hidden p-0 shadow-none">
                   {suppressions.map((suppression) => (
                     <div key={suppression.id} className="grid gap-2 border-b border-slate-100 p-3 text-sm md:grid-cols-[1fr_130px_90px_110px]">
                       <div>
@@ -910,7 +910,7 @@ export default function EmailOutboxPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                </LedgerPanel>
               ) : (
                 <p className="mt-3 text-sm text-steel">No email suppressions captured yet.</p>
               )}
@@ -1003,17 +1003,4 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  if (type === "empty") {
-    return <LedgerEmptyState title="No email selected" description={children} />;
-  }
-  if (type === "error") {
-    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
-  }
-  return <LedgerAlert tone="info">{children}</LedgerAlert>;
 }
