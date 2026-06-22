@@ -2,7 +2,24 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerSummaryBand,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatInventoryQuantity, movementSummaryNetChange, stockMovementTypeLabel } from "@/lib/inventory";
@@ -75,27 +92,27 @@ export default function InventoryMovementSummaryReportPage() {
   const trackedItems = items.filter((item) => item.inventoryTracking);
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Movement summary</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Opening, inbound, outbound, and closing quantity by tracked item and warehouse.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory reports"
+        title="Movement summary"
+        description="Opening, inbound, outbound, and closing quantity by tracked item and warehouse."
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Operational movement reporting only. This does not create inventory journals, COGS, purchase receipts, purchase returns, or sales issues.
-      </div>
+      <LedgerPageBody>
+      <LedgerAlert tone="warning">Operational movement reporting only. This does not create inventory journals, COGS, purchase receipts, purchase returns, or sales issues.</LedgerAlert>
       <InventoryMovementReportGuidance />
 
-      <form onSubmit={refreshReport} className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <LedgerToolbar title="Report filters" description="Filter movement quantities by date, item, and warehouse.">
+      <form onSubmit={refreshReport}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <InputField label="From" type="date" value={filters.from} onChange={(value) => setFilters((current) => ({ ...current, from: value }))} />
           <InputField label="To" type="date" value={filters.to} onChange={(value) => setFilters((current) => ({ ...current, to: value }))} />
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Item</span>
-            <select
+          <LedgerFieldLabel>
+            <LedgerFieldText>Item</LedgerFieldText>
+            <LedgerSelect
               value={filters.itemId}
               onChange={(event) => setFilters((current) => ({ ...current, itemId: event.target.value }))}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               <option value="">All tracked items</option>
               {trackedItems.map((item) => (
@@ -103,14 +120,13 @@ export default function InventoryMovementSummaryReportPage() {
                   {item.name}{item.sku ? ` (${item.sku})` : ""}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Warehouse</span>
-            <select
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Warehouse</LedgerFieldText>
+            <LedgerSelect
               value={filters.warehouseId}
               onChange={(event) => setFilters((current) => ({ ...current, warehouseId: event.target.value }))}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
             >
               <option value="">All warehouses</option>
               {warehouses.map((warehouse) => (
@@ -118,43 +134,36 @@ export default function InventoryMovementSummaryReportPage() {
                   {warehouse.code} {warehouse.name}
                 </option>
               ))}
-            </select>
-          </label>
+            </LedgerSelect>
+          </LedgerFieldLabel>
           <div className="flex items-end">
-            <button type="submit" disabled={loading} className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:bg-slate-400">
+            <LedgerButton type="submit" variant="primary" disabled={loading} className="w-full">
               Apply
-            </button>
+            </LedgerButton>
           </div>
         </div>
       </form>
+      </LedgerToolbar>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load movement summaries.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading movement summary...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load movement summaries.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading movement summary" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
         {!loading && organizationId && report && report.rows.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-            <h2 className="font-semibold text-ink">No movement summary rows found.</h2>
-            <p className="mt-2 max-w-3xl leading-6 text-steel">
-              Try widening the date range or review the stock ledger after posting receipts, issues, adjustments, or transfers.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Link href="/inventory/stock-movements" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Stock movements
-              </Link>
-              <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Create adjustment
-              </Link>
-              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Dashboard
-              </Link>
-            </div>
-          </div>
+          <LedgerEmptyState
+            title="No movement summary rows found."
+            description="Try widening the date range or review the stock ledger after posting receipts, issues, adjustments, or transfers."
+            action={
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
+                <LedgerButton href="/inventory/adjustments/new">Create adjustment</LedgerButton>
+                <LedgerButton href="/dashboard">Dashboard</LedgerButton>
+              </div>
+            }
+          />
         ) : null}
-      </div>
 
       {report ? (
-        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <SummaryStat label="Opening" value={report.totals.openingQuantity} />
           <SummaryStat label="Inbound" value={report.totals.inboundQuantity} />
           <SummaryStat label="Outbound" value={report.totals.outboundQuantity} />
@@ -164,8 +173,7 @@ export default function InventoryMovementSummaryReportPage() {
       ) : null}
 
       {report && report.rows.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1120px] text-left text-sm">
+        <LedgerDataTable minWidth="1120px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Item</th>
@@ -188,11 +196,11 @@ export default function InventoryMovementSummaryReportPage() {
                   <td className="px-4 py-3 text-steel">
                     {row.warehouse.code} {row.warehouse.name}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(row.openingQuantity)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(row.inboundQuantity)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(row.outboundQuantity)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{movementSummaryNetChange(row)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(row.closingQuantity)}</td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(row.openingQuantity)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(row.inboundQuantity)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(row.outboundQuantity)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{movementSummaryNetChange(row)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(row.closingQuantity)}</LedgerMoney></td>
                   <td className="px-4 py-3 text-xs text-steel">
                     {row.movementBreakdown.length > 0
                       ? row.movementBreakdown.map((breakdown) => `${stockMovementTypeLabel(breakdown.type)} ${breakdown.netQuantity}`).join("; ")
@@ -201,16 +209,16 @@ export default function InventoryMovementSummaryReportPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </LedgerDataTable>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function InventoryMovementReportGuidance() {
   return (
-    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="success">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">How to read this report</h2>
@@ -230,18 +238,12 @@ export function InventoryMovementReportGuidance() {
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
-          <Link href="/inventory/stock-movements" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-            Stock ledger
-          </Link>
-          <Link href="/inventory/balances" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Balances
-          </Link>
-          <Link href="/inventory/reports/stock-valuation" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Valuation report
-          </Link>
+          <LedgerButton href="/inventory/stock-movements" variant="primary">Stock ledger</LedgerButton>
+          <LedgerButton href="/inventory/balances">Balances</LedgerButton>
+          <LedgerButton href="/inventory/reports/stock-valuation">Valuation report</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -257,23 +259,19 @@ function loadReport(filters: Filters) {
 
 function InputField({ label, type, value, onChange }: { label: string; type: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
       />
-    </label>
+    </LedgerFieldLabel>
   );
 }
 
 function SummaryStat({ label, value, raw = false }: { label: string; value: string; raw?: boolean }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 font-mono font-semibold text-ink">{raw ? value : formatInventoryQuantity(value)}</p>
-    </div>
+    <LedgerStatCard label={label} value={<LedgerMoney>{raw ? value : formatInventoryQuantity(value)}</LedgerMoney>} />
   );
 }
