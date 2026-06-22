@@ -14,6 +14,7 @@ import ReportsPage from "./reports/page";
 import SalesCreditNotesPage from "./sales/credit-notes/page";
 import SalesInvoicesPage from "./sales/invoices/page";
 import NewSalesInvoicePage from "./sales/invoices/new/page";
+import SalesInventoryReturnsPage from "./sales/inventory-returns/page";
 import SalesQuotesPage from "./sales/quotes/page";
 import BankingAccountingSettingsPage from "./settings/banking-accounting/page";
 import SettingsPage from "./settings/page";
@@ -189,12 +190,13 @@ describe("controlled beta route-load verification batch", () => {
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
-  it("loads the sales invoice, quote, and credit-note routes without workspace data", () => {
+  it("loads the sales invoice, quote, credit-note, and inventory-return routes without workspace data", () => {
     render(
       <>
         <SalesInvoicesPage />
         <SalesQuotesPage />
         <SalesCreditNotesPage />
+        <SalesInventoryReturnsPage />
       </>,
     );
 
@@ -207,6 +209,9 @@ describe("controlled beta route-load verification batch", () => {
     expect(screen.getByRole("heading", { name: "Sales credit notes" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create credit note" })).toHaveAttribute("href", "/sales/credit-notes/new");
     expect(screen.getByText("Log in and select an organization to load credit notes.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sales inventory returns" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create return" })).toHaveAttribute("href", "/sales/inventory-returns/new");
+    expect(screen.getByText("Log in and select an organization to load sales inventory returns.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 
