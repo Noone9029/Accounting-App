@@ -164,6 +164,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Added route-load coverage proving placeholder routes render as planned, non-actionable surfaces with a dashboard return link and no mutation buttons.
 - Preserved placeholder truth: no live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from the catch-all route.
 
+### 2026-06-22 Public Auth Polish Loop
+
+- Added a shared private-beta auth shell and migrated login, register, password reset request, password reset confirmation, and invite acceptance onto shared LedgerByte panel, header, badge, field, input, alert, help, and action primitives.
+- Added auth route render coverage for login/register, password reset request/confirm, and missing-token invite acceptance states.
+- Preserved auth behavior: endpoints, token storage, active organization selection, redirects, reset token validation, invite preview/acceptance flow, and real-email-not-configured wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -184,4 +190,4 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ## Recommended Next Goal
 
-Continue through public/auth polish and refreshed visual fixture coverage for the migrated route families.
+Continue through refreshed visual fixture coverage for the migrated route families and any regression polish found by review.
