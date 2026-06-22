@@ -1,14 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerInput,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
-  bankStatementImportStatusBadgeClass,
   bankStatementImportStatusLabel,
   buildStatementImportTemplateCsv,
   isXlsxStatementImportFile,
@@ -240,28 +254,27 @@ export default function BankStatementImportsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Statement imports</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} statement batches` : "Bank statement batches"}</p>
-        </div>
-        <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking / Manual import"
+        title="Statement imports"
+        description={profile ? `${profile.displayName} statement batches` : "Bank statement batches for manual review."}
+        actions={<LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>}
+      />
+      <LedgerSummaryBand tone="info">
+        Statement import is manual. LedgerByte parses rows for review; it does not store bank credentials, connect to live bank feeds, or automatically reconcile imported rows.
+      </LedgerSummaryBand>
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to import bank statements.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading statement imports...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
 
       {canImport ? (
-        <form onSubmit={submitImport} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <form onSubmit={submitImport} className="space-y-5">
           <StatementImportGuidance profileId={params.id} />
-          <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <LedgerPanel className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
             <label className="block rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
               <span className="text-sm font-semibold text-ink">Upload a manual statement file</span>
               <span className="mt-1 block text-sm leading-6 text-steel">
@@ -280,20 +293,21 @@ export default function BankStatementImportsPage() {
                 <li>XLSX first worksheet or OFX, CAMT XML, MT940 export rows</li>
               </ul>
             </div>
-          </div>
+          </LedgerPanel>
+          <LedgerSection title="Import details" description="Preview and import parsed statement rows for explicit review.">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Filename</span>
-              <input value={filename} onChange={(event) => setFilename(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Opening balance</span>
-              <input inputMode="decimal" value={openingStatementBalance} onChange={(event) => setOpeningStatementBalance(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Closing balance</span>
-              <input inputMode="decimal" value={closingStatementBalance} onChange={(event) => setClosingStatementBalance(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
+            <LedgerFieldLabel>
+              Filename
+              <LedgerInput value={filename} onChange={(event) => setFilename(event.target.value)} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              Opening balance
+              <LedgerInput inputMode="decimal" value={openingStatementBalance} onChange={(event) => setOpeningStatementBalance(event.target.value)} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              Closing balance
+              <LedgerInput inputMode="decimal" value={closingStatementBalance} onChange={(event) => setClosingStatementBalance(event.target.value)} />
+            </LedgerFieldLabel>
           </div>
           <label className="mt-4 block">
             <span className="text-sm font-medium text-slate-700">CSV text or JSON rows</span>
@@ -307,17 +321,18 @@ export default function BankStatementImportsPage() {
               <input type="checkbox" checked={allowPartial} onChange={(event) => setAllowPartial(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-palm focus:ring-palm" />
               Import valid rows only when invalid rows exist
             </label>
-            <div className="flex flex-wrap gap-2">
+            <LedgerActionBar>
               {canPreview ? (
-                <button type="button" disabled={previewing || submitting} onClick={() => void previewImport()} className="rounded-md border border-palm px-4 py-2 text-sm font-semibold text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton type="button" disabled={previewing || submitting} onClick={() => void previewImport()}>
                   {previewing ? "Previewing..." : "Preview import"}
-                </button>
+                </LedgerButton>
               ) : null}
-              <button type="submit" disabled={submitting || Boolean(preview && preview.validRows.length === 0)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              <LedgerButton type="submit" disabled={submitting || Boolean(preview && preview.validRows.length === 0)} variant="primary">
                 {submitting ? "Importing..." : "Import valid rows"}
-              </button>
-            </div>
+              </LedgerButton>
+            </LedgerActionBar>
           </div>
+          </LedgerSection>
 
           {clientPreview ? <ClientParserPreview preview={clientPreview} currency={profile?.currency ?? "SAR"} /> : null}
 
@@ -329,9 +344,9 @@ export default function BankStatementImportsPage() {
         </form>
       ) : null}
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+      <LedgerSection title="Import batches" description="Saved statement import metadata and row counts.">
+        <LedgerDataTable minWidth="900px" className="shadow-none">
+          <thead className="ledger-table-header">
             <tr>
               <th className="px-4 py-3">Filename</th>
               <th className="px-4 py-3">Statement period</th>
@@ -346,47 +361,44 @@ export default function BankStatementImportsPage() {
               <tr key={statementImport.id}>
                 <td className="px-4 py-3 font-medium text-ink">{statementImport.filename}</td>
                 <td className="px-4 py-3 text-steel">
-                  {formatOptionalDate(statementImport.statementStartDate, "-")} to {formatOptionalDate(statementImport.statementEndDate, "-")}
+                  <LedgerDate>{formatOptionalDate(statementImport.statementStartDate, "-")}</LedgerDate> to <LedgerDate>{formatOptionalDate(statementImport.statementEndDate, "-")}</LedgerDate>
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{statementImport.rowCount}</td>
                 <td className="px-4 py-3 text-right font-mono text-xs">{statementImport.closingStatementBalance ? formatMoneyAmount(statementImport.closingStatementBalance, profile?.currency ?? "SAR") : "-"}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementImportStatusBadgeClass(statementImport.status)}`}>
+                  <LedgerStatusBadge tone={statementImport.status === "IMPORTED" ? "success" : statementImport.status === "VOIDED" ? "danger" : "neutral"}>
                     {bankStatementImportStatusLabel(statementImport.status)}
-                  </span>
+                  </LedgerStatusBadge>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Link href={`/bank-accounts/${params.id}/statement-transactions`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      Rows
-                    </Link>
+                  <LedgerActionBar>
+                    <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions`} size="sm">Rows</LedgerButton>
                     {canManage && statementImport.status !== "VOIDED" ? (
-                      <button type="button" disabled={voidingId === statementImport.id} onClick={() => void voidImport(statementImport.id)} className="rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                      <LedgerButton type="button" disabled={voidingId === statementImport.id} onClick={() => void voidImport(statementImport.id)} size="sm" variant="danger">
                         {voidingId === statementImport.id ? "Voiding..." : "Void"}
-                      </button>
+                      </LedgerButton>
                     ) : null}
-                  </div>
+                  </LedgerActionBar>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </LedgerDataTable>
         {!loading && imports.length === 0 ? (
-          <div className="p-4">
-            <StatusMessage type="empty">No statement imports found.</StatusMessage>
-            <p className="mt-2 text-sm leading-6 text-steel">
-              Paste or upload dummy CSV, XLSX, JSON, OFX, CAMT XML, or MT940 rows to start a manual statement review. LedgerByte does not pull live transactions from your bank.
-            </p>
-          </div>
+          <LedgerEmptyState
+            title="No statement imports found"
+            description="Paste or upload dummy CSV, XLSX, JSON, OFX, CAMT XML, or MT940 rows to start a manual statement review. LedgerByte does not pull live transactions from your bank."
+          />
         ) : null}
-      </div>
-    </section>
+      </LedgerSection>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function StatementImportGuidance({ profileId }: { profileId: string }) {
   return (
-    <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">Manual statement import</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         Paste bank-provided CSV, XLSX, JSON, OFX, CAMT XML, and MT940 rows, preview them, then import valid rows for manual matching. Imports create statement review records only; they do not create accounting journals until a row is categorized, and they do not connect to a live bank feed.
@@ -397,15 +409,11 @@ export function StatementImportGuidance({ profileId }: { profileId: string }) {
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         OFX/CAMT/MT940 and bank-specific XLSX layouts have limited parser support for variants. Unsupported files fail safely. Raw bank file bodies are not archived in beta; LedgerByte keeps parsed rows and import metadata only.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Review unmatched rows
-        </Link>
-        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Reconciliation summary
-        </Link>
-      </div>
-    </div>
+      <LedgerActionBar className="mt-3">
+        <LedgerButton href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
+        <LedgerButton href={`/bank-accounts/${profileId}/reconciliation`}>Reconciliation summary</LedgerButton>
+      </LedgerActionBar>
+    </LedgerPanel>
   );
 }
 
@@ -416,9 +424,9 @@ export function StatementImportTemplateActions({ onDownload = downloadStatementT
       <p className="mt-1 text-sm leading-6 text-steel">
         Download the canonical CSV template, then upload it as CSV or copy the same columns into the first worksheet of an XLSX workbook. Manual import only; no live bank feed or credentials.
       </p>
-      <button type="button" onClick={onDownload} className="mt-3 rounded-md border border-palm px-3 py-2 text-sm font-semibold text-palm hover:bg-emerald-50">
+      <LedgerButton type="button" onClick={onDownload} className="mt-3">
         Download template
-      </button>
+      </LedgerButton>
     </div>
   );
 }
@@ -596,7 +604,7 @@ export function ImportResultPanel({ imported, profileId }: { imported: BankState
   const closedOverlapCount = imported.importSummary?.blockedByClosedReconciliationCount ?? 0;
   const warnings = imported.importSummary?.warnings ?? [];
   return (
-    <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+    <LedgerPanel className="mt-5 border-emerald-200 bg-emerald-50">
       <h2 className="text-base font-semibold text-emerald-900">Statement import saved</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-900">
         LedgerByte created a manual statement batch with {importedCount} rows{skippedCount > 0 ? ` and skipped ${skippedCount} rows` : ""}. These are statement review records only; matching and categorization remain manual steps.
@@ -613,18 +621,12 @@ export function ImportResultPanel({ imported, profileId }: { imported: BankState
           ))}
         </div>
       ) : null}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-          Review unmatched rows
-        </Link>
-        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-          Open reconciliation
-        </Link>
-        <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-          Bank account
-        </Link>
-      </div>
-    </div>
+      <LedgerActionBar className="mt-4">
+        <LedgerButton href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
+        <LedgerButton href={`/bank-accounts/${profileId}/reconciliation`}>Open reconciliation</LedgerButton>
+        <LedgerButton href={`/bank-accounts/${profileId}`}>Bank account</LedgerButton>
+      </LedgerActionBar>
+    </LedgerPanel>
   );
 }
 
