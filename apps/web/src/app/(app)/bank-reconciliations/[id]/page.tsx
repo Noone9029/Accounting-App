@@ -26,6 +26,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -277,7 +278,9 @@ export default function BankReconciliationDetailPage() {
                   This reconciliation is closed. Statement transactions in this period are locked until the reconciliation is voided.
                 </div>
               ) : null}
-              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">PDF reports are archived automatically.</div>
+              <div className="mt-4">
+                <LedgerAlert tone="info">PDF reports are archived automatically.</LedgerAlert>
+              </div>
             </LedgerSection>
 
             {(reconciliation.status === "PENDING_APPROVAL" || reconciliation.status === "APPROVED") && (canApprove || canReopen) ? (
@@ -286,12 +289,7 @@ export default function BankReconciliationDetailPage() {
                   <LedgerPanel>
                     <LedgerFieldLabel>
                       <LedgerFieldText>Approval notes</LedgerFieldText>
-                      <textarea
-                        value={approvalNotes}
-                        onChange={(event) => setApprovalNotes(event.target.value)}
-                        rows={3}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
-                      />
+                      <Textarea value={approvalNotes} onChange={(event) => setApprovalNotes(event.target.value)} rows={3} />
                     </LedgerFieldLabel>
                   </LedgerPanel>
                 ) : null}
@@ -299,12 +297,7 @@ export default function BankReconciliationDetailPage() {
                   <LedgerPanel>
                     <LedgerFieldLabel>
                       <LedgerFieldText>Reopen reason</LedgerFieldText>
-                      <textarea
-                        value={reopenReason}
-                        onChange={(event) => setReopenReason(event.target.value)}
-                        rows={3}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
-                      />
+                      <Textarea value={reopenReason} onChange={(event) => setReopenReason(event.target.value)} rows={3} />
                     </LedgerFieldLabel>
                   </LedgerPanel>
                 ) : null}

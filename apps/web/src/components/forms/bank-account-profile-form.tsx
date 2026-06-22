@@ -12,6 +12,7 @@ import {
   LedgerSelect,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel, bankAccountTypeLabel, hasPostedOpeningBalance } from "@/lib/bank-accounts";
@@ -224,7 +225,7 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
           </LedgerFieldLabel>
           <LedgerFieldLabel className="md:col-span-2">
             Notes
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink ledger-focus" />
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1" />
           </LedgerFieldLabel>
         <p className="mt-3 text-xs text-steel">
           Opening balance stays as setup metadata until it is posted from the bank account detail page. Once posted, the amount and date are locked.

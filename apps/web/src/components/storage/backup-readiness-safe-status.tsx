@@ -1,3 +1,4 @@
+import { LedgerPanel, LedgerStatusBadge } from "@/components/ui/ledger-system";
 import { backupReadinessLabel } from "@/lib/storage";
 import type { BackupReadinessResponse, RestoreDrillPlanResponse } from "@/lib/types";
 
@@ -9,15 +10,13 @@ export function BackupReadinessSafeStatus({
   restorePlan?: RestoreDrillPlanResponse | null;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Backup and restore readiness</h2>
           <p className="mt-1 text-sm text-steel">Metadata-only evidence and restore drill planning. No backup or restore is executed here.</p>
         </div>
-        <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-          {backupReadinessLabel(readiness.productionReady)}
-        </span>
+        <LedgerStatusBadge tone={readiness.productionReady ? "success" : "warning"}>{backupReadinessLabel(readiness.productionReady)}</LedgerStatusBadge>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -54,7 +53,7 @@ export function BackupReadinessSafeStatus({
           </ul>
         </div>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
