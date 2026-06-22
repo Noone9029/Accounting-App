@@ -3,9 +3,23 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSection,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -130,16 +144,14 @@ export default function InventoryVarianceProposalDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{proposal?.proposalNumber ?? "Inventory variance proposal"}</h1>
-          <p className="mt-1 text-sm text-steel">Review, approve, explicitly post, and reverse inventory variance proposals.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/variance-proposals" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory valuation"
+        title={proposal?.proposalNumber ?? "Inventory variance proposal"}
+        description="Review, approve, explicitly post, and reverse inventory variance proposals."
+        actions={
+          <>
+          <LedgerButton href="/inventory/variance-proposals">Back</LedgerButton>
           {proposal && canSubmitInventoryVarianceProposal(proposal.status, canCreate) ? (
             <ActionButton label="Submit" loading={actionLoading === "submit"} onClick={() => void runWorkflow("submit")} />
           ) : null}
@@ -155,56 +167,53 @@ export default function InventoryVarianceProposalDetailPage() {
           {proposal && canVoidInventoryVarianceProposal(proposal.status, canVoid) ? (
             <ActionButton label="Void" loading={actionLoading === "void"} onClick={() => void runWorkflow("void")} danger />
           ) : null}
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load variance proposal details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading variance proposal...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load variance proposal details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading variance proposal" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
       {proposal ? (
-        <div className="mt-5 space-y-5">
+        <div className="space-y-5">
           <AttachmentPanel linkedEntityType="INVENTORY_VARIANCE_PROPOSAL" linkedEntityId={proposal.id} />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Proposal summary</h2>
-                <p className="mt-1 text-sm text-steel">No journal exists unless this proposal reaches Approved and a permitted user posts it.</p>
-              </div>
-              <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryVarianceProposalStatusBadgeClass(proposal.status)}`}>
-                {inventoryVarianceProposalStatusLabel(proposal.status)}
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Summary label="Reason" value={inventoryVarianceReasonLabel(proposal.reason)} />
-              <Summary label="Source" value={proposal.sourceType.replaceAll("_", " ")} />
-              <Summary label="Proposal date" value={formatOptionalDate(proposal.proposalDate, "-")} />
-              <Summary label="Amount" value={formatMoneyAmount(proposal.amount, "SAR")} />
-              <Summary label="Debit account" value={proposal.debitAccount ? `${proposal.debitAccount.code} ${proposal.debitAccount.name}` : proposal.debitAccountId} />
-              <Summary label="Credit account" value={proposal.creditAccount ? `${proposal.creditAccount.code} ${proposal.creditAccount.name}` : proposal.creditAccountId} />
-              <Summary label="Journal" value={proposal.journalEntry?.entryNumber ?? proposal.journalEntryId ?? "-"} />
-              <Summary label="Reversal journal" value={proposal.reversalJournalEntry?.entryNumber ?? proposal.reversalJournalEntryId ?? "-"} />
-            </div>
+          <LedgerSection
+            title="Proposal summary"
+            description="No journal exists unless this proposal reaches Approved and a permitted user posts it."
+            action={<span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryVarianceProposalStatusBadgeClass(proposal.status)}`}>{inventoryVarianceProposalStatusLabel(proposal.status)}</span>}
+          >
+            <LedgerMetadataRow
+              items={[
+                { label: "Reason", value: inventoryVarianceReasonLabel(proposal.reason) },
+                { label: "Source", value: proposal.sourceType.replaceAll("_", " ") },
+                { label: "Proposal date", value: <LedgerDate>{formatOptionalDate(proposal.proposalDate, "-")}</LedgerDate> },
+                { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(proposal.amount, "SAR")}</LedgerMoney> },
+                { label: "Debit account", value: proposal.debitAccount ? `${proposal.debitAccount.code} ${proposal.debitAccount.name}` : proposal.debitAccountId },
+                { label: "Credit account", value: proposal.creditAccount ? `${proposal.creditAccount.code} ${proposal.creditAccount.name}` : proposal.creditAccountId },
+                { label: "Journal", value: proposal.journalEntry?.entryNumber ?? proposal.journalEntryId ?? "-" },
+                { label: "Reversal journal", value: proposal.reversalJournalEntry?.entryNumber ?? proposal.reversalJournalEntryId ?? "-" },
+              ]}
+            />
             {proposal.description ? <p className="mt-4 text-sm text-steel">{proposal.description}</p> : null}
-          </div>
+          </LedgerSection>
 
           <SourcePanel proposal={proposal} />
           {preview ? <AccountingPreviewPanel preview={preview} /> : null}
           <EventsPanel events={events} />
         </div>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function SourcePanel({ proposal }: { proposal: InventoryVarianceProposal }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Source</h2>
+    <LedgerSection title="Source">
       <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
         <Summary label="Supplier" value={proposal.supplier?.displayName ?? proposal.supplier?.name ?? "-"} />
         <div>
@@ -228,39 +237,35 @@ function SourcePanel({ proposal }: { proposal: InventoryVarianceProposal }) {
           )}
         </div>
       </div>
-    </div>
+    </LedgerSection>
   );
 }
 
 function AccountingPreviewPanel({ preview }: { preview: InventoryVarianceProposalAccountingPreview }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Accounting preview</h2>
-          <p className="mt-1 text-sm text-steel">Read-only journal preview. Posting requires explicit approval and action.</p>
-        </div>
-        <span className={preview.canPost ? "rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"}>
-          {preview.canPost ? "Can post" : "Blocked"}
-        </span>
-      </div>
+    <LedgerSection
+      title="Accounting preview"
+      description="Read-only journal preview. Posting requires explicit approval and action."
+      action={<LedgerStatusBadge tone={preview.canPost ? "success" : "neutral"}>{preview.canPost ? "Can post" : "Blocked"}</LedgerStatusBadge>}
+    >
 
-      <div className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryVarianceProposalFinancialReportWarning()}</div>
+      <LedgerAlert tone="warning">{inventoryVarianceProposalFinancialReportWarning()}</LedgerAlert>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-        <Summary label="Status" value={inventoryVarianceProposalStatusLabel(preview.status)} />
-        <Summary label="Amount" value={formatMoneyAmount(preview.amount, "SAR")} />
-        <Summary label="Debit" value={`${preview.debitAccount.code} ${preview.debitAccount.name}`} />
-        <Summary label="Credit" value={`${preview.creditAccount.code} ${preview.creditAccount.name}`} />
-      </div>
+      <LedgerMetadataRow
+        items={[
+          { label: "Status", value: inventoryVarianceProposalStatusLabel(preview.status) },
+          { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(preview.amount, "SAR")}</LedgerMoney> },
+          { label: "Debit", value: `${preview.debitAccount.code} ${preview.debitAccount.name}` },
+          { label: "Credit", value: `${preview.creditAccount.code} ${preview.creditAccount.name}` },
+        ]}
+      />
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <MessageList title="Blocking reasons" items={preview.blockingReasons} emptyText="No posting blockers." tone="slate" />
         <MessageList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
       </div>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[720px] text-left text-sm">
+      <LedgerDataTable minWidth="720px" className="mt-5">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Line</th>
@@ -277,21 +282,18 @@ function AccountingPreviewPanel({ preview }: { preview: InventoryVarianceProposa
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+        </LedgerDataTable>
+    </LedgerSection>
   );
 }
 
 function EventsPanel({ events }: { events: InventoryVarianceProposalEvent[] }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <h2 className="text-base font-semibold text-ink">Event timeline</h2>
+    <LedgerSection title="Event timeline">
       {events.length === 0 ? (
-        <p className="mt-3 text-sm text-steel">No events recorded.</p>
+        <LedgerEmptyState title="No events recorded." />
       ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm">
+        <LedgerDataTable minWidth="720px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Date</th>
@@ -304,7 +306,7 @@ function EventsPanel({ events }: { events: InventoryVarianceProposalEvent[] }) {
             <tbody className="divide-y divide-slate-100">
               {events.map((event) => (
                 <tr key={event.id}>
-                  <td className="px-3 py-2 text-steel">{formatOptionalDate(event.createdAt, "-")}</td>
+                  <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(event.createdAt, "-")}</LedgerDate></td>
                   <td className="px-3 py-2 text-ink">{event.action}</td>
                   <td className="px-3 py-2 text-steel">{event.fromStatus ? `${event.fromStatus} -> ${event.toStatus}` : event.toStatus}</td>
                   <td className="px-3 py-2 text-steel">{event.actorUser?.name ?? event.actorUser?.email ?? "-"}</td>
@@ -312,10 +314,9 @@ function EventsPanel({ events }: { events: InventoryVarianceProposalEvent[] }) {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </LedgerDataTable>
       )}
-    </div>
+    </LedgerSection>
   );
 }
 
@@ -332,15 +333,10 @@ function ActionButton({
   primary?: boolean;
   danger?: boolean;
 }) {
-  const className = primary
-    ? "rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-    : danger
-      ? "rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
-      : "rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400";
   return (
-    <button type="button" onClick={onClick} disabled={loading} className={className}>
+    <LedgerButton type="button" onClick={onClick} disabled={loading} variant={primary ? "primary" : danger ? "danger" : "secondary"}>
       {loading ? "Working..." : label}
-    </button>
+    </LedgerButton>
   );
 }
 

@@ -2,8 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -56,34 +67,27 @@ export default function InventoryVarianceProposalsPage() {
   }, [organizationId]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Inventory variance proposals</h1>
-          <p className="mt-1 text-sm text-steel">Accountant-reviewed clearing variance proposals. Journals post only from explicit approval actions.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/reports/clearing-variance" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Clearing variance
-          </Link>
-          {canCreate ? (
-            <Link href="/inventory/variance-proposals/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-              New proposal
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory valuation"
+        title="Inventory variance proposals"
+        description="Accountant-reviewed clearing variance proposals. Journals post only from explicit approval actions."
+        actions={
+          <>
+            <LedgerButton href="/inventory/reports/clearing-variance">Clearing variance</LedgerButton>
+            {canCreate ? <LedgerButton href="/inventory/variance-proposals/new" variant="primary">New proposal</LedgerButton> : null}
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load variance proposals.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading variance proposals...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && proposals.length === 0 ? <StatusMessage type="empty">No inventory variance proposals found.</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load variance proposals.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading variance proposals" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {!loading && organizationId && proposals.length === 0 ? <LedgerEmptyState title="No inventory variance proposals found." /> : null}
 
       {proposals.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1080px] text-left text-sm">
+        <LedgerDataTable minWidth="1080px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Proposal</th>
@@ -111,8 +115,8 @@ export default function InventoryVarianceProposalsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-steel">{inventoryVarianceReasonLabel(proposal.reason)}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(proposal.proposalDate, "-")}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(proposal.amount, "SAR")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(proposal.proposalDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(proposal.amount, "SAR")}</LedgerMoney></td>
                   <td className="px-4 py-3 text-steel">{proposal.supplier?.displayName ?? proposal.supplier?.name ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">
                     {proposal.purchaseBill ? (
@@ -131,9 +135,9 @@ export default function InventoryVarianceProposalsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </LedgerDataTable>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
