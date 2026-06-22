@@ -268,8 +268,8 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ### 2026-06-22 Final Token Polish Loop
 
-- Replaced the remaining app-shell and marketing preview `border-slate-200 bg-slate-50/bg-white` token pockets with shared `border-line`, `bg-mist`, and `bg-panel` tokens.
-- Preserved topbar context labeling and public marketing content/route behavior unchanged.
+- Replaced the remaining app-shell and marketing preview `border-slate-200 bg-slate-50/bg-white` token pockets with shared `border-line`, `bg-mist`, and `bg-panel` tokens, and removed the remaining app/dashboard fallback gradients and indigo bar palette pocket.
+- Preserved topbar context labeling, dashboard data behavior, financial scene behavior, app surface layout, and public marketing content/route behavior unchanged.
 
 ## Product Boundaries Preserved
 
