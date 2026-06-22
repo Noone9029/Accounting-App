@@ -1,10 +1,29 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerInput,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -162,39 +181,38 @@ export default function BankAccountDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? "Bank account"}</h1>
-          <p className="mt-1 text-sm text-steel">Ledger balance and posted transaction activity.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/bank-accounts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {profile && canManage ? (
-            <Link href={`/bank-accounts/${profile.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Edit
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking / Account profile"
+        title={profile?.displayName ?? "Bank account"}
+        description="Ledger balance, profile metadata, and posted transaction activity for the linked asset account."
+        badge={profile ? <BankAccountStatusPill status={profile.status} /> : null}
+        actions={
+          <LedgerActionBar className="sm:justify-end">
+            <LedgerButton href="/bank-accounts">Back</LedgerButton>
+            {profile && canManage ? <LedgerButton href={`/bank-accounts/${profile.id}/edit`}>Edit</LedgerButton> : null}
+          </LedgerActionBar>
+        }
+      />
 
-      <div className="space-y-3">
+      <LedgerSummaryBand tone="info">
+        This account view is manual-review banking. LedgerByte does not connect to live bank feeds, call external banking APIs, move money, or automatically reconcile statement rows from this page.
+      </LedgerSummaryBand>
+
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank account details.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading bank account...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
 
-      {profile ? (
+        {profile ? (
         <>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Ledger balance" value={formatMoneyAmount(profile.ledgerBalance, profile.currency)} />
-            <SummaryCard label="Transactions" value={String(profile.transactionCount)} />
-            <SummaryCard label="Type" value={bankAccountTypeLabel(profile.type)} />
-            <SummaryCard label="Status" value={bankAccountStatusLabel(profile.status)} />
-          </div>
+          <LedgerMetricGrid>
+            <LedgerStatCard label="Ledger balance" value={<LedgerMoney>{formatMoneyAmount(profile.ledgerBalance, profile.currency)}</LedgerMoney>} detail="Posted journal balance" />
+            <LedgerStatCard label="Transactions" value={String(profile.transactionCount)} detail="Posted journal lines" />
+            <LedgerStatCard label="Type" value={bankAccountTypeLabel(profile.type)} detail={profile.currency} />
+            <LedgerStatCard label="Status" value={<BankAccountStatusPill status={profile.status} />} detail="Profile availability" />
+          </LedgerMetricGrid>
 
           <BankAccountWorkflowGuidance
             profile={profile}
@@ -204,7 +222,7 @@ export default function BankAccountDetailPage() {
             canViewReconciliations={canViewReconciliations}
           />
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerSection title="Profile and posting setup" description="Chart-account linkage, opening-balance lock state, and manual banking destinations.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <Detail label="Chart account" value={`${profile.account.code} ${profile.account.name}`} />
               <Detail label="Currency" value={profile.currency} />
@@ -218,117 +236,93 @@ export default function BankAccountDetailPage() {
               <Detail label="Opening journal" value={profile.openingBalanceJournalEntry?.entryNumber ?? "-"} />
             </div>
             {profile.notes ? <p className="mt-4 text-sm text-steel">{profile.notes}</p> : null}
-            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <LedgerSummaryBand tone="warning">
               Opening balances create posted accounting journals. Once posted, the opening balance amount and date are locked.
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                General ledger
-              </Link>
+            </LedgerSummaryBand>
+            <LedgerActionBar className="mt-4">
+              <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>General ledger</LedgerButton>
               {canImportStatements ? (
-                <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Import statement
-                </Link>
+                <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement</LedgerButton>
               ) : null}
               {canViewStatements ? (
                 <>
-                  <Link href={`/bank-accounts/${profile.id}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Statement transactions
-                  </Link>
-                  <Link href={`/bank-accounts/${profile.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Bank rules
-                  </Link>
-                  <Link href={`/bank-accounts/${profile.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Deposit batches
-                  </Link>
-                  <Link href={`/bank-accounts/${profile.id}/card-settlements`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Card settlements
-                  </Link>
-                  <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Cheques
-                  </Link>
-                  <Link href={`/bank-accounts/${profile.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                    Reconciliation
-                  </Link>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/statement-transactions`}>Statement transactions</LedgerButton>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/rules`}>Bank rules</LedgerButton>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/deposits`}>Deposit batches</LedgerButton>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/card-settlements`}>Card settlements</LedgerButton>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/cheques`}>Cheques</LedgerButton>
+                  <LedgerButton href={`/bank-accounts/${profile.id}/reconciliation`}>Reconciliation</LedgerButton>
                 </>
               ) : null}
               {canViewReconciliations ? (
-                <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Reconciliations
-                </Link>
+                <LedgerButton href={`/bank-accounts/${profile.id}/reconciliations`}>Reconciliations</LedgerButton>
               ) : null}
               {canPostOpening && canPostOpeningBalance(profile) ? (
-                <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} variant="primary">
                   {postingOpeningBalance ? "Posting..." : "Post opening balance"}
-                </button>
+                </LedgerButton>
               ) : null}
               {hasPostedOpeningBalance(profile) ? (
-                <span className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">Opening balance posted</span>
+                <LedgerStatusBadge tone="success">Opening balance posted</LedgerStatusBadge>
               ) : null}
               {canManage && canArchiveBankAccount(profile.status) ? (
-                <button type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("archive")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("archive")}>
                   Archive
-                </button>
+                </LedgerButton>
               ) : null}
               {canManage && canReactivateBankAccount(profile.status) ? (
-                <button type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("reactivate")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <LedgerButton type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("reactivate")} variant="primary">
                   Reactivate
-                </button>
+                </LedgerButton>
               ) : null}
-            </div>
-          </div>
+            </LedgerActionBar>
+          </LedgerSection>
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Transactions</h2>
-                <p className="mt-1 text-sm text-steel">Posted journal lines for the linked asset account.</p>
-                <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
+          <LedgerSection
+            title="Transactions"
+            description={
+              <>
+                Posted journal lines for the linked asset account.
+                <span className="mt-1 block text-xs leading-5">
                   Debits increase this bank asset balance, credits reduce it, and the running balance follows posted LedgerByte journals. Imported statement rows are matched here only after you explicitly review or categorize them.
-                </p>
-              </div>
-              {canViewTransactions ? (
+                </span>
+              </>
+            }
+            action={
+              canViewTransactions ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-                    <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-                    <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
+                  <LedgerFieldLabel>
+                    From
+                    <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    To
+                    <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+                  </LedgerFieldLabel>
                 </div>
-              ) : null}
-            </div>
-
+              ) : null
+            }
+          >
             {!canViewTransactions ? <StatusMessage type="info">You can view the account profile, but transaction visibility requires bank transaction permission.</StatusMessage> : null}
             {loadingTransactions ? <StatusMessage type="loading">Loading transactions...</StatusMessage> : null}
             {transactionError ? <StatusMessage type="error">{transactionError}</StatusMessage> : null}
             {canViewTransactions && transactions && transactions.transactions.length === 0 ? (
-              <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
-                <StatusMessage type="empty">No posted transactions found for this date range.</StatusMessage>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {canImportStatements ? (
-                    <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
-                      Import statement rows
-                    </Link>
-                  ) : null}
-                  {canCreateTransfers ? (
-                    <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
-                      Create transfer
-                    </Link>
-                  ) : null}
-                  <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
-                    Open ledger
-                  </Link>
-                </div>
-              </div>
+              <LedgerEmptyState
+                title="No posted transactions found"
+                description="No linked journal lines were found for this date range. Statement imports remain manual review records until matched, categorized, or ignored."
+                action={
+                  <LedgerActionBar className="justify-center">
+                    {canImportStatements ? <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement rows</LedgerButton> : null}
+                    {canCreateTransfers ? <LedgerButton href="/bank-transfers/new">Create transfer</LedgerButton> : null}
+                    <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>Open ledger</LedgerButton>
+                  </LedgerActionBar>
+                }
+              />
             ) : null}
 
             {canViewTransactions && transactions && transactions.transactions.length > 0 ? (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[980px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <LedgerDataTable minWidth="980px" className="mt-4 shadow-none">
+                  <thead className="ledger-table-header">
                     <tr>
                       <th className="px-4 py-3">Date</th>
                       <th className="px-4 py-3">Entry</th>
@@ -343,24 +337,24 @@ export default function BankAccountDetailPage() {
                   <tbody className="divide-y divide-slate-100">
                     {transactions.transactions.map((transaction) => (
                       <tr key={transaction.id}>
-                        <td className="px-4 py-3 text-steel">{formatOptionalDate(transaction.date, "-")}</td>
+                        <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(transaction.date, "-")}</LedgerDate></td>
                         <td className="px-4 py-3 font-mono text-xs">{transaction.entryNumber}</td>
                         <td className="px-4 py-3 text-ink">{transaction.description}</td>
                         <td className="px-4 py-3 font-mono text-xs">{transaction.reference ?? "-"}</td>
                         <td className="px-4 py-3 text-steel">{bankTransactionSourceLabel(transaction)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.debit, profile.currency)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.credit, profile.currency)}</td>
-                        <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(transaction.runningBalance, profile.currency)}</td>
+                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.debit, profile.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.credit, profile.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.runningBalance, profile.currency)}</LedgerMoney></td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </LedgerDataTable>
             ) : null}
-          </div>
+          </LedgerSection>
         </>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -378,7 +372,7 @@ export function BankAccountWorkflowGuidance({
   canViewReconciliations: boolean;
 }) {
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <h2 className="text-base font-semibold text-ink">How to read this bank account</h2>
@@ -402,57 +396,40 @@ export function BankAccountWorkflowGuidance({
         </div>
         <div className="min-w-full lg:min-w-[260px]">
           <p className="text-xs font-medium uppercase tracking-wide text-steel">What to do next</p>
-          <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
+          <LedgerActionBar className="mt-2 lg:flex-col lg:items-stretch">
             {canImportStatements ? (
-              <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Import statement
-              </Link>
+              <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement</LedgerButton>
             ) : null}
             {canCreateTransfers ? (
-              <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Create transfer
-              </Link>
+              <LedgerButton href="/bank-transfers/new">Create transfer</LedgerButton>
             ) : null}
             {canViewStatements ? (
-              <Link href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Review unmatched rows
-              </Link>
+              <LedgerButton href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
             ) : null}
             {canViewStatements ? (
-              <Link href={`/bank-accounts/${profile.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Deposit batches
-              </Link>
+              <LedgerButton href={`/bank-accounts/${profile.id}/deposits`}>Deposit batches</LedgerButton>
             ) : null}
             {canViewStatements ? (
-              <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Cheques
-              </Link>
+              <LedgerButton href={`/bank-accounts/${profile.id}/cheques`}>Cheques</LedgerButton>
             ) : null}
-            <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              View bank ledger
-            </Link>
+            <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>View bank ledger</LedgerButton>
             {canViewReconciliations ? (
-              <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Reconciliation history
-              </Link>
+              <LedgerButton href={`/bank-accounts/${profile.id}/reconciliations`}>Reconciliation history</LedgerButton>
             ) : null}
-            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Dashboard
-            </Link>
-          </div>
+            <LedgerButton href="/dashboard">Dashboard</LedgerButton>
+          </LedgerActionBar>
         </div>
       </div>
-    </div>
+    </LedgerPanel>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
+function BankAccountStatusPill({ status }: Readonly<{ status: BankAccountSummary["status"] }>) {
+  return <LedgerStatusBadge tone={bankAccountStatusTone(status)}>{bankAccountStatusLabel(status)}</LedgerStatusBadge>;
+}
+
+function bankAccountStatusTone(status: BankAccountSummary["status"]): LedgerStatusTone {
+  return status === "ACTIVE" ? "success" : "neutral";
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

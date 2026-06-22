@@ -1,9 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel, bankAccountTypeLabel, hasPostedOpeningBalance } from "@/lib/bank-accounts";
@@ -144,16 +152,14 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Linked chart account</span>
-            <select
+      <LedgerFormSection title="Bank profile" description="Link an existing posting asset account and record manual banking metadata. Linking a profile does not connect a live bank feed.">
+          <LedgerFieldLabel className="md:col-span-2">
+            Linked chart account
+            <LedgerSelect
               value={accountId}
               onChange={(event) => setAccountId(event.target.value)}
               required
               disabled={Boolean(profile)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100"
             >
               <option value="">Select asset posting account</option>
               {linkableAccounts.map((account) => (
@@ -161,26 +167,25 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
                   {bankAccountOptionLabel(account, profiles)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Type</span>
-            <select value={type} onChange={(event) => setType(event.target.value as BankAccountType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Type
+            <LedgerSelect value={type} onChange={(event) => setType(event.target.value as BankAccountType)}>
               {BANK_ACCOUNT_TYPES.map((accountType) => (
                 <option key={accountType} value={accountType}>
                   {bankAccountTypeLabel(accountType)}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Currency</span>
-            <select
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Currency
+            <LedgerSelect
               value={currency}
               onChange={(event) => setCurrency(event.target.value)}
               aria-required="true"
               disabled={currencyLocked}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100"
             >
               <option value="">Select currency</option>
               {unsupportedProfileCurrency ? (
@@ -191,56 +196,55 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
                   {currencyOption.code} - {currencyOption.name}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Display name</span>
-            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Bank name</span>
-            <input value={bankName} onChange={(event) => setBankName(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Masked account number</span>
-            <input value={accountNumberMasked} onChange={(event) => setAccountNumberMasked(event.target.value)} placeholder="****1234" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Masked IBAN</span>
-            <input value={ibanMasked} onChange={(event) => setIbanMasked(event.target.value)} placeholder="SA****1234" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Opening balance</span>
-            <input inputMode="decimal" value={openingBalance} onChange={(event) => setOpeningBalance(event.target.value)} disabled={openingBalanceLocked} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100" />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">Opening balance date</span>
-            <input type="date" value={openingBalanceDate} onChange={(event) => setOpeningBalanceDate(event.target.value)} disabled={openingBalanceLocked} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100" />
-          </label>
-          <label className="block md:col-span-4">
-            <span className="text-sm font-medium text-slate-700">Notes</span>
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
+            </LedgerSelect>
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="md:col-span-2">
+            Display name
+            <LedgerInput value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="md:col-span-2">
+            Bank name
+            <LedgerInput value={bankName} onChange={(event) => setBankName(event.target.value)} />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Masked account number
+            <LedgerInput value={accountNumberMasked} onChange={(event) => setAccountNumberMasked(event.target.value)} placeholder="****1234" />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Masked IBAN
+            <LedgerInput value={ibanMasked} onChange={(event) => setIbanMasked(event.target.value)} placeholder="SA****1234" />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Opening balance
+            <LedgerInput inputMode="decimal" value={openingBalance} onChange={(event) => setOpeningBalance(event.target.value)} disabled={openingBalanceLocked} />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            Opening balance date
+            <LedgerInput type="date" value={openingBalanceDate} onChange={(event) => setOpeningBalanceDate(event.target.value)} disabled={openingBalanceLocked} />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel className="md:col-span-2">
+            Notes
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink ledger-focus" />
+          </LedgerFieldLabel>
         <p className="mt-3 text-xs text-steel">
           Opening balance stays as setup metadata until it is posted from the bank account detail page. Once posted, the amount and date are locked.
         </p>
         {openingBalanceLocked ? (
-          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <LedgerSummaryBand tone="warning">
             Opening balance has already been posted and cannot be changed without a future reversal workflow.
-          </p>
+          </LedgerSummaryBand>
         ) : null}
         {currencyLocked ? (
-          <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <LedgerSummaryBand tone="warning">
             Currency is locked after opening balance or transactions have been posted.
-          </p>
+          </LedgerSummaryBand>
         ) : null}
         {unsupportedProfileCurrency ? (
-          <p className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rosewood">
+          <LedgerSummaryBand tone="warning">
             This bank account has an unsupported currency value. Select a supported currency before saving.
-          </p>
+          </LedgerSummaryBand>
         ) : null}
-      </div>
+      </LedgerFormSection>
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage bank accounts.</StatusMessage> : null}
@@ -249,14 +253,12 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
-      <div className="flex justify-end gap-3">
-        <Link href={profile ? `/bank-accounts/${profile.id}` : "/bank-accounts"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Cancel
-        </Link>
-        <button type="submit" disabled={submitting || !organizationId || (!profile && !linkableAccounts.length)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+      <LedgerActionBar className="justify-end">
+        <LedgerButton href={profile ? `/bank-accounts/${profile.id}` : "/bank-accounts"}>Cancel</LedgerButton>
+        <LedgerButton type="submit" disabled={submitting || !organizationId || (!profile && !linkableAccounts.length)} variant="primary">
           {submitting ? "Saving..." : "Save profile"}
-        </button>
-      </div>
+        </LedgerButton>
+      </LedgerActionBar>
     </form>
   );
 }

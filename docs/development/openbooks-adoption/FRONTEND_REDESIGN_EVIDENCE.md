@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-returns`
+Branch: `codex/ui-redesign-bank-account-detail`
 
-Base: stacked on `origin/codex/ui-redesign-purchase-ap-dashboard` while PR #163 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-returns` while PR #164 is open
 
 ## Evidence Summary
 
@@ -38,6 +38,7 @@ Base: stacked on `origin/codex/ui-redesign-purchase-ap-dashboard` while PR #163 
 | Purchase AP dashboard loop | `apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx` uses shared LedgerByte page, header, summary, metric, stat, panel, section, table, empty/loading/alert, date, money, status, and action primitives while preserving supplier/AP dashboard loading, source/supplier/action links, permission gates, attention panels, recent activity, and read-only/no-journal/no-AP-adjustment/no-inventory/no-email/no-variance-booking boundaries. |
 | Purchase returns loop | `apps/web/src/app/(app)/purchases/returns/page.tsx`, `apps/web/src/app/(app)/purchases/returns/new/page.tsx`, `apps/web/src/app/(app)/purchases/returns/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/returns/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-return-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, loading, money/date, status, and action primitives while preserving purchase return lifecycle actions, inventory movement preview/posting handoff, source links, supplier links, valuation preview link, permissions, and no-posting/no-AP/no-automatic-inventory/no-debit-note/no-refund/no-variance/no-VAT/no-ZATCA boundaries. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
+| Banking account profile/detail loop | `apps/web/src/app/(app)/bank-accounts/new/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/edit/page.tsx`, and `apps/web/src/components/forms/bank-account-profile-form.tsx` use shared LedgerByte page, metric, panel, section, table, money/date/status, form field, alert, and action primitives while preserving profile create/update payloads, opening-balance posting/lock guidance, transaction visibility, permission-gated statement/reconciliation/transfer links, and manual banking boundaries. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
@@ -331,6 +332,20 @@ Base: stacked on `origin/codex/ui-redesign-purchase-ap-dashboard` while PR #163 
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - Purchase return visual checks were not run because fixture search found no existing Playwright visual route fixture for `/purchases/returns`, `/purchases/returns/new`, or purchase return detail/edit workflows.
+
+## 2026-06-22 Banking Account Profile/Detail Loop Evidence
+
+- `/bank-accounts/new`: migrated the account-profile route shell to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, and `LedgerButton` primitives while preserving the existing `BankAccountProfileForm` handoff.
+- `/bank-accounts/[id]`: migrated the bank account detail shell, profile metrics, manual banking guidance, posting setup, action group, transaction filters, empty state, and transaction table to shared Ledger primitives while preserving profile load, archive/reactivate actions, opening-balance posting action, transaction date filtering, general-ledger handoff, and permission-gated statement/import/rule/deposit/card/cheque/reconciliation links.
+- `/bank-accounts/[id]/edit`: migrated the edit route shell to shared page/header/body primitives while preserving profile load behavior and the shared form handoff.
+- `BankAccountProfileForm`: migrated linked-account/type/currency/profile/opening-balance fields, lock warnings, unsupported-currency warning, and cancel/save actions to shared Ledger form, field, select, input, summary, and action primitives. Existing setup-data loads, linkable account filtering, create/update payloads, supported-currency validation, opening-balance lock logic, and redirect behavior remain unchanged.
+- Existing behavior remains frontend-only and unchanged: bank profile endpoints, opening-balance posting endpoint, status endpoints, transaction reads, permission checks, linked account semantics, posted-journal balance display, and statement/reconciliation route links keep their existing semantics. No live bank feed, external bank API call, money movement, automatic reconciliation, statement import execution, match/categorize/ignore action, reconciliation close, provider call, schema change, storage change, VAT/ZATCA/compliance behavior, or hosted mutation was added.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- bank-accounts bank-account-profile-form`: PASS, 13 suites, 52 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- Final diff checks are run in the PR verification section for this branch.
+- Visual checks were not run in this slice before code verification because the next banking visual pass should cover the full detail/import/review/reconciliation chain together; existing prior banking visuals cover `/bank-accounts` list desktop/mobile and selected detail-state fixtures.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 
