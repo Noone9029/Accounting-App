@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { PurchaseDebitNoteForm } from "@/components/forms/purchase-debit-note-form";
+import { LedgerAlert, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { PurchaseDebitNote } from "@/lib/types";
@@ -47,16 +48,15 @@ export default function EditPurchaseDebitNotePage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Edit debit note</h1>
-        <p className="mt-1 text-sm text-steel">Only draft debit notes can be changed.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Purchases" title="Edit debit note" description="Only draft debit notes can be changed." />
+      <LedgerPageBody>
       <div className="space-y-3">
         {loading ? <StatusMessage type="loading">Loading debit note...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
       </div>
       {debitNote ? <PurchaseDebitNoteForm initialDebitNote={debitNote} /> : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }

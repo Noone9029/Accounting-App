@@ -10,6 +10,7 @@ import InventoryBalancesPage from "./inventory/balances/page";
 import PurchaseBillsPage from "./purchases/bills/page";
 import NewPurchaseBillPage from "./purchases/bills/new/page";
 import PurchaseDebitNotesPage from "./purchases/debit-notes/page";
+import NewPurchaseDebitNotePage from "./purchases/debit-notes/new/page";
 import ReportsPage from "./reports/page";
 import SalesCreditNotesPage from "./sales/credit-notes/page";
 import SalesInvoicesPage from "./sales/invoices/page";
@@ -82,6 +83,10 @@ jest.mock("@/components/forms/sales-invoice-form", () => ({
 
 jest.mock("@/components/forms/purchase-bill-form", () => ({
   PurchaseBillForm: () => <div data-testid="purchase-bill-form">purchase-bill-form</div>,
+}));
+
+jest.mock("@/components/forms/purchase-debit-note-form", () => ({
+  PurchaseDebitNoteForm: () => <div data-testid="purchase-debit-note-form">purchase-debit-note-form</div>,
 }));
 
 describe("controlled beta route-load verification batch", () => {
@@ -245,5 +250,12 @@ describe("controlled beta route-load verification batch", () => {
 
     expect(screen.getByRole("heading", { name: "Create purchase bill" })).toBeInTheDocument();
     expect(screen.getByTestId("purchase-bill-form")).toBeInTheDocument();
+  });
+
+  it("loads the new purchase debit-note route with its form shell", () => {
+    render(<NewPurchaseDebitNotePage />);
+
+    expect(screen.getByRole("heading", { name: "Create debit note" })).toBeInTheDocument();
+    expect(screen.getByTestId("purchase-debit-note-form")).toBeInTheDocument();
   });
 });

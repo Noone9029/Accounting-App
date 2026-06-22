@@ -70,7 +70,7 @@ New or migrated frontend routes should use the shared `ledger-system` primitives
 ## Current Route Adoption
 
 - Sales surfaces: `/sales/invoices`, `/sales/invoices/new`, `/sales/invoices/[id]`, `/sales/invoices/[id]/edit`, `/sales/quotes`, `/sales/quotes/new`, `/sales/quotes/[id]`, `/sales/quotes/[id]/edit`, `/sales/credit-notes`, `/sales/credit-notes/new`, `/sales/credit-notes/[id]`, `/sales/credit-notes/[id]/edit`, `/sales/customer-payments`, `/sales/customer-payments/new`, `/sales/customer-payments/[id]`, `/sales/customer-refunds`, `/sales/customer-refunds/new`, `/sales/customer-refunds/[id]`, `/sales/delivery-notes`, `/sales/delivery-notes/new`, `/sales/delivery-notes/[id]`, `/sales/delivery-notes/[id]/edit`, `/sales/recurring-invoices`, `/sales/recurring-invoices/new`, `/sales/recurring-invoices/[id]`, `/sales/recurring-invoices/[id]/edit`, `/sales/collections`, `/sales/collections/new`, `/sales/collections/[id]`, `/sales/collections/[id]/edit`, `/sales/inventory-returns`, `/sales/inventory-returns/new`, `/sales/inventory-returns/[id]`, and `/sales/inventory-returns/[id]/edit`.
-- Purchase list surfaces: `/purchases/bills` and `/purchases/debit-notes`.
+- Purchase surfaces: `/purchases/bills`, `/purchases/bills/new`, `/purchases/bills/[id]/edit`, `/purchases/debit-notes`, `/purchases/debit-notes/new`, and `/purchases/debit-notes/[id]/edit`.
 - Banking list surfaces: `/bank-accounts` and `/bank-transfers`.
 - Contacts surfaces: `/contacts`, `/customers/[id]`, `/suppliers/[id]`, `/customers/[id]/statement`, and `/suppliers/[id]/statement`.
 - Inventory balance surface: `/inventory/balances`.

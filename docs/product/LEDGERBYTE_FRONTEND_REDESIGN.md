@@ -2,7 +2,7 @@
 
 Date: 2026-06-22
 
-This branch continues the full LedgerByte frontend redesign from the PR #155 sales collections loop. It is intentionally stacked on `codex/ui-redesign-collections` while that PR is open so the next pass stays reviewable.
+This branch continues the full LedgerByte frontend redesign from the PR #156 sales inventory-returns loop. It is intentionally stacked on `codex/ui-redesign-inventory-returns` while that PR is open so the next pass stays reviewable.
 
 ## Scope Implemented In This Slice
 
@@ -11,6 +11,7 @@ This branch continues the full LedgerByte frontend redesign from the PR #155 sal
 - Migrated `/documents` onto shared page/header/filter/table/empty-state primitives while preserving existing generated-document archive behavior, filters, download wording, and local AP email outbox boundaries.
 - Migrated `/report-packs` onto shared page/header/metric/table/workflow/disabled-boundary primitives while preserving read-only preview behavior and all disabled execution boundaries.
 - Migrated `/purchases/bills` and `/purchases/debit-notes` list surfaces onto shared LedgerByte page/table/state primitives while preserving explicit AP posting and debit-note adjustment boundaries.
+- Migrated purchase bill/debit-note new/edit route shells and shared purchase bill/debit-note forms onto shared LedgerByte page/form/field/table/summary/action primitives while preserving draft save/update payloads, return-to handoffs, inventory-clearing/accountant warnings, and no provider/payment/tax-authority/compliance behavior.
 - Migrated `/bank-accounts` and `/bank-transfers` list surfaces onto shared LedgerByte page/table/state primitives while preserving manual banking and explicit transfer boundaries.
 - Migrated `/contacts` list/create surface onto shared LedgerByte page/panel/table/state primitives while preserving customer/supplier handoff links and conservative readiness wording.
 - Migrated customer/supplier detail workspaces and dedicated statement routes onto shared LedgerByte page/section/filter/metric/table/action primitives while preserving return-to handoffs, collections/AP summary, statement PDF behavior, and payment/report drilldown links.
@@ -104,6 +105,13 @@ This branch continues the full LedgerByte frontend redesign from the PR #155 sal
 - Migrated `/purchases/debit-notes` list layout, status badges, amount/date cells, action buttons, and empty states to the same shared system.
 - Preserved AP truth: bill finalization remains an explicit posting action, debit notes remain explicit supplier adjustments, and these list views do not send payments, execute provider approvals, move storage, or alter supplier balance math outside existing actions.
 
+### 2026-06-22 Purchase Document Form Loop
+
+- Migrated `/purchases/bills/new`, `/purchases/bills/[id]/edit`, and `PurchaseBillForm` to shared page/header/body, form, field, panel, input/select, alert, money, table, summary, and action primitives.
+- Migrated `/purchases/debit-notes/new`, `/purchases/debit-notes/[id]/edit`, and `PurchaseDebitNoteForm` to the same shared LedgerByte form language.
+- Preserved AP draft truth: bill and debit-note forms still create/update drafts only; finalization, supplier payment, AP allocation, purchase receiving, inventory movement, tax-authority reporting, ZATCA/UAE/Peppol submission, provider calls, generated-document archive writes, valuation, and COGS behavior remain outside the form save flow.
+- Purchase bill/debit-note detail pages remain a separate pass because they include AP actions, generated-document download/archive surfaces, allocations, receiving, matching, clearing reconciliation, and valuation variance panels.
+
 ### 2026-06-22 Banking Workspace List Loop
 
 - Migrated `/bank-accounts` list layout, status badges, date/money cells, action buttons, summary wording, and empty states to shared LedgerByte primitives.
@@ -138,7 +146,7 @@ This branch continues the full LedgerByte frontend redesign from the PR #155 sal
 
 ## Remaining Frontend Route Families
 
-- Purchase, Banking, Contacts, and Inventory detail/form/supporting flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
+- Purchase, Banking, Contacts, and Inventory detail/supporting flows need systematic conversion to `LedgerPage`, `LedgerToolbar`, `LedgerDataTable`, and shared form primitives.
 - Sales now has list surfaces, invoice/quote new/edit forms, invoice detail, quote detail, credit-note list/detail/form coverage, customer payment list/new/detail coverage, customer refund list/new/detail coverage, delivery-note list/new/detail/edit/form coverage, recurring-invoice list/new/detail/edit/form coverage, collections list/new/detail/edit/form coverage, and inventory-return list/new/detail/edit/form coverage.
 - Contacts now has customer/supplier detail and dedicated statement coverage; shared contact ledger tabs and visual QA remain.
 - Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
@@ -149,4 +157,4 @@ This branch continues the full LedgerByte frontend redesign from the PR #155 sal
 
 ## Recommended Next Goal
 
-Continue with purchase bill/debit-note detail and form workflows, then move through purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns before the heavier manual-banking redesign slice.
+Continue with purchase bill/debit-note detail workflows, then move through purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns before the heavier manual-banking redesign slice.
