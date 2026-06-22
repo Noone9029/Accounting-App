@@ -1,11 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PermissionMatrix } from "@/components/permissions/permission-matrix";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput, LedgerPageHeader, LedgerToolbar } from "@/components/ui/ledger-system";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  LedgerToolbar,
+  LedgerWorkflowCard,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PERMISSIONS, type Permission } from "@/lib/permissions";
@@ -55,7 +69,7 @@ export default function RolesSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <LedgerPage>
       <LedgerPageHeader
         eyebrow="Administration"
         title="Roles & Permissions"
@@ -67,58 +81,54 @@ export default function RolesSettingsPage() {
       {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       <BetaRoleGuidance />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {roles.map((role) => (
-          <Link key={role.id} href={`/settings/roles/${role.id}`} className="rounded-md border border-slate-200 bg-white p-4 hover:border-slate-300">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">{role.name}</h2>
-                <p className="mt-1 text-sm text-steel">{role.permissions.length} permissions</p>
-              </div>
-              {role.isSystem ? <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">System</span> : null}
-            </div>
-            <p className="mt-3 text-xs text-slate-500">{role.memberCount} members assigned</p>
-          </Link>
-        ))}
-      </section>
+      <LedgerPageBody>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {roles.map((role) => (
+            <LedgerWorkflowCard
+              key={role.id}
+              title={role.name}
+              href={`/settings/roles/${role.id}`}
+              status={role.isSystem ? <LedgerStatusBadge tone="neutral">System</LedgerStatusBadge> : null}
+              description={
+                <>
+                  {role.permissions.length} permissions. {role.memberCount} members assigned.
+                </>
+              }
+            />
+          ))}
+        </section>
 
-      {canManage ? (
-        <form onSubmit={createRole} className="space-y-4">
-          <LedgerToolbar
-            title="Create custom role"
-            description="Custom roles can be edited or deleted when no active members are assigned. For beta testers, add only the workflow permissions needed for the testing script."
-          >
-            <LedgerFieldLabel className="max-w-md">
-              <LedgerFieldText>Role name</LedgerFieldText>
-              <LedgerInput
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Reports reviewer"
-              />
-              <LedgerFieldHelp>Name roles by the beta workflow or review responsibility they unlock.</LedgerFieldHelp>
-            </LedgerFieldLabel>
-          </LedgerToolbar>
-          <PermissionMatrix selected={permissions} onToggle={togglePermission} />
-          <LedgerButton
-            type="submit"
-            disabled={saving || permissions.length === 0}
-            variant="primary"
-          >
-            Create role
-          </LedgerButton>
-        </form>
-      ) : (
-        <StatusMessage type="info">Your role can view permission matrices but cannot create or edit roles.</StatusMessage>
-      )}
-    </div>
+        {canManage ? (
+          <form onSubmit={createRole} className="space-y-4">
+            <LedgerToolbar
+              title="Create custom role"
+              description="Custom roles can be edited or deleted when no active members are assigned. For beta testers, add only the workflow permissions needed for the testing script."
+              actions={
+                <LedgerButton type="submit" disabled={saving || permissions.length === 0} variant="primary">
+                  Create role
+                </LedgerButton>
+              }
+            >
+              <LedgerFieldLabel className="max-w-md">
+                <LedgerFieldText>Role name</LedgerFieldText>
+                <LedgerInput required value={name} onChange={(event) => setName(event.target.value)} placeholder="Reports reviewer" />
+                <LedgerFieldHelp>Name roles by the beta workflow or review responsibility they unlock.</LedgerFieldHelp>
+              </LedgerFieldLabel>
+            </LedgerToolbar>
+            <PermissionMatrix selected={permissions} onToggle={togglePermission} />
+          </form>
+        ) : (
+          <StatusMessage type="info">Your role can view permission matrices but cannot create or edit roles.</StatusMessage>
+        )}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function BetaRoleGuidance() {
   return (
-    <section className="rounded-md border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800">
-      <h2 className="font-semibold text-sky-950">Beta role guidance</h2>
+    <LedgerSummaryBand tone="info">
+      <h2 className="font-semibold text-ink">Beta role guidance</h2>
       <div className="mt-2 grid gap-3 md:grid-cols-3">
         <p>Keep Owner/Admin roles for internal staff who manage access, settings, and revocation.</p>
         <p>Use Viewer for accountant/readability review, or a scoped role such as Sales/Purchases for workflow testing in dummy data only.</p>
@@ -127,16 +137,13 @@ export function BetaRoleGuidance() {
       <p className="mt-3 text-xs leading-5">
         Role changes do not enable real ZATCA submission, live bank feeds, production email sending, or production readiness.
       </p>
-    </section>
+    </LedgerSummaryBand>
   );
 }
 
 function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" }>) {
-  const classes = {
-    error: "border-rose-200 bg-rose-50 text-rose-700",
-    info: "border-sky-200 bg-sky-50 text-sky-700",
-    loading: "border-slate-200 bg-white text-steel",
-  };
-
-  return <div className={`rounded-md border px-4 py-3 text-sm ${classes[type]}`}>{children}</div>;
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  return <LedgerAlert tone={type === "error" ? "danger" : "info"}>{children}</LedgerAlert>;
 }

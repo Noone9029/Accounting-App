@@ -2,8 +2,25 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSidePanel,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -121,27 +138,28 @@ export default function NumberSequencesPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Number sequences</h1>
-        <p className="mt-1 text-sm text-steel">Review and safely edit future document numbering prefixes, next numbers, and padding.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Number sequences"
+        description="Review and safely edit future document numbering prefixes, next numbers, and padding."
+      />
 
-      <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <LedgerSummaryBand>
         <h2 className="text-base font-semibold text-ink">Numbering safety</h2>
         <p className="mt-2 text-sm leading-6 text-steel">
           Sequence changes affect future generated documents only. Existing invoices, receipts, statements, bills, debit
           notes, credit notes, and archived PDFs keep the numbers they already received.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href="/documents" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href="/documents" className="ledger-focus rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Open generated archive
           </Link>
-          <Link href="/settings/documents" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <Link href="/settings/documents" className="ledger-focus rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Document settings
           </Link>
         </div>
-      </div>
+      </LedgerSummaryBand>
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to view number sequences.</StatusMessage> : null}
@@ -151,97 +169,86 @@ export default function NumberSequencesPage() {
         {!canManage ? <StatusMessage type="info">Your role can view number sequences but cannot save changes.</StatusMessage> : null}
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
-        <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-panel">
-          <div className="border-b border-slate-200 px-4 py-3">
+      <LedgerPageBody className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)]">
+        <LedgerPanel className="p-0">
+          <div className="border-b border-line px-4 py-3">
             <h2 className="text-base font-semibold text-ink">Configured sequences</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-4 py-3">Document</th>
-                  <th className="px-4 py-3">Prefix</th>
-                  <th className="px-4 py-3">Next number</th>
-                  <th className="px-4 py-3">Padding</th>
-                  <th className="px-4 py-3">Example</th>
-                  <th className="px-4 py-3">Updated</th>
+          <LedgerDataTable minWidth="920px" className="border-0 shadow-none">
+            <thead className="border-b border-line bg-mist text-xs font-semibold uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Document</th>
+                <th className="px-4 py-3">Prefix</th>
+                <th className="px-4 py-3">Next number</th>
+                <th className="px-4 py-3">Padding</th>
+                <th className="px-4 py-3">Example</th>
+                <th className="px-4 py-3">Updated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sequences.map((sequence) => (
+                <tr key={sequence.id} className={sequence.id === selectedId ? "bg-emerald-50/70" : "hover:bg-slate-50"}>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => selectSequence(sequence)}
+                      className="ledger-focus text-left font-medium text-palm hover:text-palm-dark"
+                    >
+                      {numberSequenceScopeLabel(sequence.scope)}
+                    </button>
+                    <div className="mt-0.5 text-xs text-steel">{sequence.scope}</div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-ink">{sequence.prefix}</td>
+                  <td className="px-4 py-3 text-ink">{sequence.nextNumber}</td>
+                  <td className="px-4 py-3 text-ink">{sequence.padding}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-ink">{sequence.exampleNextNumber}</td>
+                  <td className="px-4 py-3 text-xs text-steel">{formatDateTime(sequence.updatedAt)}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {sequences.map((sequence) => (
-                  <tr
-                    key={sequence.id}
-                    className={sequence.id === selectedId ? "bg-emerald-50" : "hover:bg-slate-50"}
-                  >
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => selectSequence(sequence)}
-                        className="text-left font-medium text-palm hover:text-teal-800"
-                      >
-                        {numberSequenceScopeLabel(sequence.scope)}
-                      </button>
-                      <div className="mt-0.5 text-xs text-steel">{sequence.scope}</div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-ink">{sequence.prefix}</td>
-                    <td className="px-4 py-3 text-ink">{sequence.nextNumber}</td>
-                    <td className="px-4 py-3 text-ink">{sequence.padding}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-ink">{sequence.exampleNextNumber}</td>
-                    <td className="px-4 py-3 text-xs text-steel">{formatDateTime(sequence.updatedAt)}</td>
-                  </tr>
-                ))}
-                {!loading && sequences.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-steel">
-                      No number sequences found for this organization. Create or generate documents after setup to review numbering here.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </LedgerDataTable>
+          {!loading && sequences.length === 0 ? (
+            <LedgerEmptyState
+              title="No number sequences found"
+              description="Create or generate documents after setup to review numbering here."
+            />
+          ) : null}
+        </LedgerPanel>
 
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">Edit future numbering</h2>
-          <p className="mt-2 text-sm text-steel">
-            Changes affect future documents only. Existing document numbers are not changed. Lowering next number is blocked to avoid duplicates.
-          </p>
-
+        <LedgerSidePanel
+          title="Edit future numbering"
+          description="Changes affect future documents only. Existing document numbers are not changed. Lowering next number is blocked to avoid duplicates."
+        >
           {selected && form ? (
-            <form onSubmit={saveSequence} className="mt-5 space-y-4">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-steel">Selected sequence</div>
-                <div className="mt-1 text-sm font-semibold text-ink">{numberSequenceScopeLabel(selected.scope)}</div>
-                <div className="text-xs text-steel">{selected.scope}</div>
-              </div>
+            <form onSubmit={saveSequence} className="space-y-4">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Selected", value: numberSequenceScopeLabel(selected.scope) },
+                  { label: "Scope", value: selected.scope },
+                ]}
+              />
 
               <TextField label="Prefix" value={form.prefix} onChange={(value) => updateField("prefix", value)} />
               <TextField label="Next number" type="number" min="1" value={form.nextNumber} onChange={(value) => updateField("nextNumber", value)} />
               <TextField label="Padding" type="number" min="3" max="10" value={form.padding} onChange={(value) => updateField("padding", value)} />
 
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-md border border-line bg-mist p-3">
                 <div className="text-xs font-medium uppercase tracking-wide text-steel">Example next number</div>
                 <div className="mt-1 font-mono text-sm font-semibold text-ink">{clientExample || selected.exampleNextNumber}</div>
               </div>
 
               {canManage ? (
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
+                <LedgerButton type="submit" disabled={saving} variant="primary" className="w-full">
                   {saving ? "Saving..." : "Save sequence"}
-                </button>
+                </LedgerButton>
               ) : null}
             </form>
           ) : (
             <p className="mt-4 text-sm text-steel">Select a number sequence to review its settings.</p>
           )}
-        </div>
-      </div>
-    </section>
+        </LedgerSidePanel>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -261,20 +268,30 @@ function TextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         value={value}
         type={type}
         min={min}
         max={max}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
       />
-    </label>
+      <LedgerFieldHelp>Preview updates before saving to avoid duplicate future document numbers.</LedgerFieldHelp>
+    </LedgerFieldLabel>
   );
 }
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" | "success" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }

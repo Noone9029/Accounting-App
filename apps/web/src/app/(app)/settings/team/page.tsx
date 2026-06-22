@@ -6,6 +6,25 @@ import { apiRequest } from "@/lib/api";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { InviteOrganizationMemberResponse, MembershipStatus, OrganizationMember, Role } from "@/lib/types";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 
 export default function TeamSettingsPage() {
   const organizationId = useActiveOrganizationId();
@@ -102,11 +121,12 @@ export default function TeamSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-ink">Team Members</h1>
-        <p className="mt-1 text-sm text-steel">Manage organization member roles, mock invites, and account status.</p>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Team members"
+        description="Manage organization member roles, mock invites, and account status for controlled beta access."
+      />
 
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to manage team members.</StatusMessage> : null}
       {loading ? <StatusMessage type="loading">Loading team members...</StatusMessage> : null}
@@ -124,118 +144,116 @@ export default function TeamSettingsPage() {
         </StatusMessage>
       ) : null}
 
-      {canInvite ? (
-        <form onSubmit={inviteMember} className="rounded-md border border-slate-200 bg-white p-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_240px_auto]">
-            <label className="text-sm">
-              <span className="font-medium text-ink">Email</span>
-              <input
-                required
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                placeholder="new-user@example.com"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="font-medium text-ink">Name</span>
-              <input
-                value={inviteName}
-                onChange={(event) => setInviteName(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-                placeholder="Optional"
-              />
-            </label>
-            <label className="text-sm">
-              <span className="font-medium text-ink">Role</span>
-              <select
-                required
-                value={inviteRoleId}
-                onChange={(event) => setInviteRoleId(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-              >
-                {sortedRoles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              disabled={savingId === "invite" || !inviteRoleId}
-              className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+      <LedgerPageBody>
+        {canInvite ? (
+          <form onSubmit={inviteMember}>
+            <LedgerToolbar
+              title="Invite tester"
+              description="Invites are recorded in the mock email outbox until real delivery is explicitly configured."
+              actions={
+                <LedgerButton type="submit" disabled={savingId === "invite" || !inviteRoleId} variant="primary">
+                  Send mock invite
+                </LedgerButton>
+              }
             >
-              Send mock invite
-            </button>
-          </div>
-        </form>
-      ) : null}
-
-      <section aria-label="Team members table" className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <div className="grid min-w-[920px] grid-cols-[1.4fr_1.5fr_220px_130px_140px] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">
-          <div>Name</div>
-          <div>Email</div>
-          <div>Role</div>
-          <div>Status</div>
-          <div>Joined</div>
-        </div>
-        {members.map((member) => (
-          <div key={member.id} className="grid min-w-[920px] grid-cols-[1.4fr_1.5fr_220px_130px_140px] items-center border-b border-slate-100 px-4 py-3 text-sm last:border-b-0">
-            <div className="font-medium text-ink">{member.user.name}</div>
-            <div className="text-steel">{member.user.email}</div>
-            <div>
-              {canManage ? (
-                <select
-                  value={member.roleId}
-                  disabled={savingId === member.id}
-                  onChange={(event) => void updateRole(member, event.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-2 py-1.5"
-                >
-                  {sortedRoles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="text-ink">{member.role.name}</span>
-              )}
-            </div>
-            <div>
-              <span className={statusClass(member.status)}>{member.status}</span>
-            </div>
-            <div className="text-xs text-steel">{formatDate(member.createdAt)}</div>
-            {canManage ? (
-              <div className="col-span-5 mt-2 flex justify-end">
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="text-xs text-steel">
-                    {member.status === "ACTIVE" ? "Suspend after the beta session to revoke access." : "Reactivate only for another scheduled beta session."}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={savingId === member.id}
-                    onClick={() => void updateStatus(member, member.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}
-                    className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {member.status === "ACTIVE" ? "Suspend" : "Reactivate"}
-                  </button>
-                </div>
+              <div className="grid gap-3 lg:grid-cols-[1fr_1fr_240px]">
+                <LedgerFieldLabel>
+                  <LedgerFieldText>Email</LedgerFieldText>
+                  <LedgerInput
+                    required
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="new-user@example.com"
+                  />
+                </LedgerFieldLabel>
+                <LedgerFieldLabel>
+                  <LedgerFieldText>Name</LedgerFieldText>
+                  <LedgerInput value={inviteName} onChange={(event) => setInviteName(event.target.value)} placeholder="Optional" />
+                </LedgerFieldLabel>
+                <LedgerFieldLabel>
+                  <LedgerFieldText>Role</LedgerFieldText>
+                  <LedgerSelect required value={inviteRoleId} onChange={(event) => setInviteRoleId(event.target.value)}>
+                    {sortedRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </LedgerSelect>
+                </LedgerFieldLabel>
               </div>
-            ) : null}
+            </LedgerToolbar>
+          </form>
+        ) : null}
+
+        <LedgerPanel className="p-0">
+          <div aria-label="Team members table" className="overflow-x-auto">
+            <LedgerDataTable minWidth="1040px" className="border-0 shadow-none">
+              <thead className="border-b border-line bg-mist text-xs font-semibold uppercase text-steel">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Joined</th>
+                  <th className="px-4 py-3 text-right">Access</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {members.map((member) => (
+                  <tr key={member.id}>
+                    <td className="px-4 py-3 font-medium text-ink">{member.user.name}</td>
+                    <td className="px-4 py-3 text-steel">{member.user.email}</td>
+                    <td className="px-4 py-3">
+                      {canManage ? (
+                        <LedgerSelect value={member.roleId} disabled={savingId === member.id} onChange={(event) => void updateRole(member, event.target.value)}>
+                          {sortedRoles.map((role) => (
+                            <option key={role.id} value={role.id}>
+                              {role.name}
+                            </option>
+                          ))}
+                        </LedgerSelect>
+                      ) : (
+                        <span className="text-ink">{member.role.name}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <LedgerStatusBadge tone={statusTone(member.status)}>{member.status}</LedgerStatusBadge>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-steel">{formatDate(member.createdAt)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {canManage ? (
+                        <div className="flex flex-col items-end gap-2">
+                          <LedgerButton
+                            type="button"
+                            size="sm"
+                            disabled={savingId === member.id}
+                            onClick={() => void updateStatus(member, member.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}
+                          >
+                            {member.status === "ACTIVE" ? "Suspend" : "Reactivate"}
+                          </LedgerButton>
+                          <LedgerFieldHelp>
+                            {member.status === "ACTIVE" ? "Suspend after the beta session to revoke access." : "Reactivate only for another scheduled beta session."}
+                          </LedgerFieldHelp>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </LedgerDataTable>
           </div>
-        ))}
-        {!loading && members.length === 0 ? <div className="px-4 py-6 text-sm text-steel">No members found.</div> : null}
-      </section>
-    </div>
+          {!loading && members.length === 0 ? <LedgerEmptyState title="No members found" description="Invite a tester after selecting a role and beta workflow." /> : null}
+        </LedgerPanel>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function BetaAccessGuidance() {
   return (
-    <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-      <h2 className="font-semibold text-amber-950">Beta access guidance</h2>
+    <LedgerSummaryBand tone="warning">
+      <h2 className="font-semibold text-ink">Beta access guidance</h2>
       <div className="mt-2 grid gap-3 md:grid-cols-3">
         <p>
           Start with 3-5 selected testers in a labeled beta/test organization. Use dummy customers, suppliers, bank files, and documents only.
@@ -250,28 +268,27 @@ export function BetaAccessGuidance() {
       <p className="mt-3 text-xs leading-5">
         User testing does not enable production ZATCA submission, real customer email sending by default, live bank feeds, or production data use.
       </p>
-    </section>
+    </LedgerSummaryBand>
   );
 }
 
 function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" | "success" }>) {
-  const classes = {
-    error: "border-rose-200 bg-rose-50 text-rose-700",
-    info: "border-sky-200 bg-sky-50 text-sky-700",
-    loading: "border-slate-200 bg-white text-steel",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  };
-
-  return <div className={`rounded-md border px-4 py-3 text-sm ${classes[type]}`}>{children}</div>;
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
 
-function statusClass(status: MembershipStatus): string {
-  const classes: Record<MembershipStatus, string> = {
-    ACTIVE: "rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700",
-    INVITED: "rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700",
-    SUSPENDED: "rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700",
+function statusTone(status: MembershipStatus): "success" | "info" | "danger" {
+  const tones: Record<MembershipStatus, "success" | "info" | "danger"> = {
+    ACTIVE: "success",
+    INVITED: "info",
+    SUSPENDED: "danger",
   };
-  return classes[status];
+  return tones[status];
 }
 
 function formatDate(value: string): string {
