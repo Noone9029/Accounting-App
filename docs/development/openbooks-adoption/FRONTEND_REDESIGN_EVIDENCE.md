@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-supplier-settlement`
+Branch: `codex/ui-redesign-purchase-operations`
 
-Base: stacked on `origin/codex/ui-redesign-purchase-detail` while PR #158 is open
+Base: stacked on `origin/codex/ui-redesign-supplier-settlement` while PR #159 is open
 
 ## Evidence Summary
 
@@ -32,6 +32,7 @@ Base: stacked on `origin/codex/ui-redesign-purchase-detail` while PR #158 is ope
 | Purchase document form loop | `apps/web/src/app/(app)/purchases/bills/new/page.tsx`, `apps/web/src/app/(app)/purchases/bills/[id]/edit/page.tsx`, `apps/web/src/components/forms/purchase-bill-form.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/new/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-debit-note-form.tsx` use shared LedgerByte page, form, field, panel, table, alert, money, and action primitives while preserving AP draft save/update payloads, return-to handoffs, inventory-clearing/accountant warnings, debit-note supplier/original-bill prefill, and no provider/payment/tax-authority/compliance behavior. |
 | Purchase document detail loop | `apps/web/src/app/(app)/purchases/bills/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.tsx`, and `apps/web/src/components/ui/ledger-system.tsx` use shared LedgerByte page, header, panel, section, table, status, alert, money/date, form-field, and action primitives while preserving AP finalization/void/delete/download/apply/reverse handlers, return-to handoffs, receiving/matching/clearing/valuation preview surfaces, generated-document guidance, and no provider/payment-sending/tax-authority/compliance/valuation behavior changes. |
 | Purchase supplier settlement loop | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx`, and `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` use shared LedgerByte list, form, detail, table, field, panel, summary, alert, money/date, status, and action primitives while preserving supplier workspace return-to handoffs, bill allocations, unapplied apply/reverse behavior, voids, PDF downloads, manual refund source selection, no-bank/no-provider/no-ZATCA wording, and AP journal boundaries. |
+| Purchase order operations loop | `apps/web/src/app/(app)/purchases/purchase-orders/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/new/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-order-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving purchase order lifecycle handlers, receiving and converted-bill handoffs, supplier return-to context, non-posting wording, no payment-sending/no-tax-authority boundaries, and existing purchase order payload behavior. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -270,6 +271,17 @@ Base: stacked on `origin/codex/ui-redesign-purchase-detail` while PR #158 is ope
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 129 suites, 603 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2063 checked files, 0 blocked references, 0 forbidden claims.
 - Attempted to run supplier payment and polished workflow visual checks in parallel; the polished workflow command failed before Playwright started because both commands tried to start the shared visual web server on `127.0.0.1:3030`. The command was rerun alone and passed.
+
+## 2026-06-22 Purchase Order Operations Loop Evidence
+
+- `/purchases/purchase-orders`: migrated the purchase order list from route-local header/table/button/empty-state styling to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerDataTable`, `LedgerEmptyState`, `LedgerMoney`, `LedgerDate`, `LedgerStatusBadge`, `LedgerAlert`, and `LedgerButton` primitives while preserving create permission gating, view links, converted-bill links, and non-posting purchase order wording.
+- `/purchases/purchase-orders/new` and `/purchases/purchase-orders/[id]/edit`: migrated route shells to shared page/header/body primitives while preserving the shared form handoff, draft edit load behavior, and setup/back links.
+- `PurchaseOrderForm`: migrated order details, purchase order boundary guidance, line editor, account/tax selectors, totals panel, add/remove controls, error/loading states, and save/cancel actions to shared Ledger form, field, panel, summary, money, alert, and action primitives. Existing setup-data loads, supplier query prefill, fixed `SAR` currency behavior, validation, POST/PATCH payloads, draft-only edit guard, and return-to redirects remain unchanged. Edit routes now also read safe `returnTo` query values for cancel/save handoffs.
+- `/purchases/purchase-orders/[id]`: migrated the purchase order detail shell, status badge, action group, metadata, line table, receiving status, matching panel slot, totals, notes/terms, and attachment slot to shared Ledger primitives while preserving approve/mark-sent/convert/receive/close/void/delete/download handlers, generated-document permission checks, converted-bill links, supplier return-to context, and receiving return-to context.
+- Existing behavior remains frontend-only and unchanged: purchase order endpoints, lifecycle state machines, receiving-status reads, matching summary reads, conversion to draft bill, generated-document download side effects from existing explicit downloads, permission gates, and supplier/report/inventory handoffs keep their existing semantics. No AP posting, supplier payment sending, provider call, automatic receiving, valuation math, COGS posting, tax-authority submission, compliance behavior, schema change, or storage behavior was added.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- purchase-order-form purchase-orders`: PASS, 4 suites, 9 tests.
+- Purchase order visual checks were not run because fixture search found no existing Playwright visual fixture for `/purchases/purchase-orders`, `/purchases/purchase-orders/new`, or purchase order detail/edit workflows.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 
