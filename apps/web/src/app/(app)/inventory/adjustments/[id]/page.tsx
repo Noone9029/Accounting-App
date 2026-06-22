@@ -1,11 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDate,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -14,7 +29,6 @@ import {
   canEditInventoryAdjustment,
   canVoidInventoryAdjustment,
   formatInventoryQuantity,
-  inventoryAdjustmentStatusBadgeClass,
   inventoryAdjustmentStatusLabel,
   inventoryAdjustmentTypeLabel,
   inventoryOperationalWarning,
@@ -22,6 +36,17 @@ import {
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { InventoryAdjustment } from "@/lib/types";
+
+function adjustmentStatusTone(status: InventoryAdjustment["status"]): LedgerStatusTone {
+  switch (status) {
+    case "DRAFT":
+      return "warning";
+    case "APPROVED":
+      return "success";
+    case "VOIDED":
+      return "danger";
+  }
+}
 
 export default function InventoryAdjustmentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -126,112 +151,86 @@ export default function InventoryAdjustmentDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{adjustment?.adjustmentNumber ?? "Inventory adjustment"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Adjustment approval state and linked stock movement.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/adjustments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? (
-            <Link href={`/inventory/adjustments/${adjustment.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Edit
-            </Link>
-          ) : null}
-          {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? (
-            <button type="button" disabled={actionId === "delete"} onClick={() => void deleteAdjustment()} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {actionId === "delete" ? "Deleting..." : "Delete"}
-            </button>
-          ) : null}
-          {adjustment && canApprove && canApproveInventoryAdjustment(adjustment.status) ? (
-            <button type="button" disabled={actionId === "approve"} onClick={() => void approveAdjustment()} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-              {actionId === "approve" ? "Approving..." : "Approve"}
-            </button>
-          ) : null}
-          {adjustment && canVoid && canVoidInventoryAdjustment(adjustment.status) ? (
-            <button type="button" disabled={actionId === "void"} onClick={() => void voidAdjustment()} className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {actionId === "void" ? "Voiding..." : "Void"}
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title={adjustment?.adjustmentNumber ?? "Inventory adjustment"}
+        description="Adjustment approval state and linked stock movement."
+        badge={adjustment ? <LedgerStatusBadge tone={adjustmentStatusTone(adjustment.status)}>{inventoryAdjustmentStatusLabel(adjustment.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            <LedgerButton href="/inventory/adjustments">Back</LedgerButton>
+            {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? <LedgerButton href={`/inventory/adjustments/${adjustment.id}/edit`}>Edit</LedgerButton> : null}
+            {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? (
+              <LedgerButton type="button" disabled={actionId === "delete"} onClick={() => void deleteAdjustment()} variant="danger">
+                {actionId === "delete" ? "Deleting..." : "Delete"}
+              </LedgerButton>
+            ) : null}
+            {adjustment && canApprove && canApproveInventoryAdjustment(adjustment.status) ? (
+              <LedgerButton type="button" disabled={actionId === "approve"} onClick={() => void approveAdjustment()} variant="primary">
+                {actionId === "approve" ? "Approving..." : "Approve"}
+              </LedgerButton>
+            ) : null}
+            {adjustment && canVoid && canVoidInventoryAdjustment(adjustment.status) ? (
+              <LedgerButton type="button" disabled={actionId === "void"} onClick={() => void voidAdjustment()} variant="danger">
+                {actionId === "void" ? "Voiding..." : "Void"}
+              </LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load inventory adjustment details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading inventory adjustment...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load inventory adjustment details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading inventory adjustment" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      {adjustment ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="INVENTORY_ADJUSTMENT" linkedEntityId={adjustment.id} />
-          <InventoryAdjustmentWorkflowGuidance
-            adjustment={adjustment}
-            canApprove={canApprove}
-            canVoid={canVoid}
-            actionLoading={Boolean(actionId)}
-            onApprove={() => void approveAdjustment()}
-            onVoid={() => void voidAdjustment()}
-          />
+        {adjustment ? (
+          <>
+            <AttachmentPanel linkedEntityType="INVENTORY_ADJUSTMENT" linkedEntityId={adjustment.id} />
+            <InventoryAdjustmentWorkflowGuidance
+              adjustment={adjustment}
+              canApprove={canApprove}
+              canVoid={canVoid}
+              actionLoading={Boolean(actionId)}
+              onApprove={() => void approveAdjustment()}
+              onVoid={() => void voidAdjustment()}
+            />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Status" value={inventoryAdjustmentStatusLabel(adjustment.status)} />
-            <SummaryCard label="Type" value={inventoryAdjustmentTypeLabel(adjustment.type)} />
-            <SummaryCard label="Quantity" value={formatInventoryQuantity(adjustment.quantity)} />
-            <SummaryCard label="Date" value={formatOptionalDate(adjustment.adjustmentDate, "-")} />
-          </div>
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={adjustmentStatusTone(adjustment.status)}>{inventoryAdjustmentStatusLabel(adjustment.status)}</LedgerStatusBadge>} />
+              <LedgerStatCard label="Type" value={inventoryAdjustmentTypeLabel(adjustment.type)} />
+              <LedgerStatCard label="Quantity" value={formatInventoryQuantity(adjustment.quantity)} />
+              <LedgerStatCard label="Date" value={<LedgerDate>{formatOptionalDate(adjustment.adjustmentDate, "-")}</LedgerDate>} />
+            </LedgerMetricGrid>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Detail label="Item" value={adjustment.item ? `${adjustment.item.name}${adjustment.item.sku ? ` (${adjustment.item.sku})` : ""}` : adjustment.itemId} />
-              <Detail label="Warehouse" value={adjustment.warehouse ? `${adjustment.warehouse.code} ${adjustment.warehouse.name}` : adjustment.warehouseId} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-medium ${inventoryAdjustmentStatusBadgeClass(adjustment.status)}`}>
-                  {inventoryAdjustmentStatusLabel(adjustment.status)}
-                </span>
+            <LedgerSection title="Adjustment detail" description="Item, warehouse, cost, and approval metadata for this adjustment.">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Item", value: adjustment.item ? `${adjustment.item.name}${adjustment.item.sku ? ` (${adjustment.item.sku})` : ""}` : adjustment.itemId },
+                  { label: "Warehouse", value: adjustment.warehouse ? `${adjustment.warehouse.code} ${adjustment.warehouse.name}` : adjustment.warehouseId },
+                  { label: "Status", value: <LedgerStatusBadge tone={adjustmentStatusTone(adjustment.status)}>{inventoryAdjustmentStatusLabel(adjustment.status)}</LedgerStatusBadge> },
+                  { label: "Unit cost", value: adjustment.unitCost ? formatInventoryQuantity(adjustment.unitCost) : "-" },
+                  { label: "Total cost", value: adjustment.totalCost ? formatInventoryQuantity(adjustment.totalCost) : "-" },
+                  { label: "Approved at", value: <LedgerDate>{formatOptionalDate(adjustment.approvedAt, "-")}</LedgerDate> },
+                ]}
+              />
+              {adjustment.reason ? <p className="mt-4 text-sm leading-6 text-steel">{adjustment.reason}</p> : null}
+            </LedgerSection>
+
+            <LedgerSection title="Linked stock movements" description="Approval and void movements stay linked for audit review.">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <MovementDetail label="Approval movement" movement={adjustment.stockMovement} />
+                <MovementDetail label="Void movement" movement={adjustment.voidStockMovement} />
               </div>
-              <Detail label="Unit cost" value={adjustment.unitCost ? formatInventoryQuantity(adjustment.unitCost) : "-"} />
-              <Detail label="Total cost" value={adjustment.totalCost ? formatInventoryQuantity(adjustment.totalCost) : "-"} />
-              <Detail label="Approved at" value={formatOptionalDate(adjustment.approvedAt, "-")} />
-            </div>
-            {adjustment.reason ? <p className="mt-4 text-sm text-steel">{adjustment.reason}</p> : null}
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <h2 className="text-base font-semibold text-ink">Linked stock movements</h2>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <MovementDetail label="Approval movement" movement={adjustment.stockMovement} />
-              <MovementDetail label="Void movement" movement={adjustment.voidStockMovement} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
+            </LedgerSection>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -254,14 +253,12 @@ export function InventoryAdjustmentWorkflowGuidance({
   const warehouseLabel = adjustment.warehouse ? `${adjustment.warehouse.code} ${adjustment.warehouse.name}` : "the selected warehouse";
 
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="info">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryAdjustmentStatusBadgeClass(adjustment.status)}`}>
-              {inventoryAdjustmentStatusLabel(adjustment.status)}
-            </span>
+            <LedgerStatusBadge tone={adjustmentStatusTone(adjustment.status)}>{inventoryAdjustmentStatusLabel(adjustment.status)}</LedgerStatusBadge>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
@@ -282,35 +279,18 @@ export function InventoryAdjustmentWorkflowGuidance({
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
           {canApprove && canApproveInventoryAdjustment(adjustment.status) ? (
-            <button type="button" disabled={actionLoading} onClick={onApprove} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
-              Approve adjustment
-            </button>
+            <LedgerButton type="button" disabled={actionLoading} onClick={onApprove} variant="primary">Approve adjustment</LedgerButton>
           ) : null}
           {canVoid && canVoidInventoryAdjustment(adjustment.status) ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onVoid}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
-              Void adjustment
-            </button>
+            <LedgerButton type="button" disabled={actionLoading} onClick={onVoid} variant="danger">Void adjustment</LedgerButton>
           ) : null}
-          <Link href={`/inventory/warehouses/${adjustment.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            View warehouse
-          </Link>
-          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Stock movements
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Inventory report
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
+          <LedgerButton href={`/inventory/warehouses/${adjustment.warehouseId}`}>View warehouse</LedgerButton>
+          <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
+          <LedgerButton href="/inventory/reports/movement-summary">Inventory report</LedgerButton>
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -322,8 +302,8 @@ function MovementDetail({
   movement: InventoryAdjustment["stockMovement"];
 }) {
   return (
-    <div className="rounded-md border border-slate-100 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+    <LedgerPanel>
+      <p className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</p>
       {movement ? (
         <div className="mt-2 space-y-1 text-sm text-ink">
           <p>{stockMovementTypeLabel(movement.type)}</p>
@@ -333,6 +313,6 @@ function MovementDetail({
       ) : (
         <p className="mt-2 text-sm text-steel">-</p>
       )}
-    </div>
+    </LedgerPanel>
   );
 }

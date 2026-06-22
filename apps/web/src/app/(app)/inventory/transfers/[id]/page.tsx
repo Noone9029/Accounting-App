@@ -1,11 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDate,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -14,7 +29,6 @@ import {
   formatInventoryQuantity,
   inventoryOperationalWarning,
   stockMovementTypeLabel,
-  warehouseTransferStatusBadgeClass,
   warehouseTransferStatusLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -25,6 +39,10 @@ type TransferMovement =
   | WarehouseTransfer["toStockMovement"]
   | WarehouseTransfer["voidFromStockMovement"]
   | WarehouseTransfer["voidToStockMovement"];
+
+function transferStatusTone(status: WarehouseTransfer["status"]): LedgerStatusTone {
+  return status === "POSTED" ? "success" : "danger";
+}
 
 export default function WarehouseTransferDetailPage() {
   const params = useParams<{ id: string }>();
@@ -89,97 +107,75 @@ export default function WarehouseTransferDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{transfer?.transferNumber ?? "Warehouse transfer"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Transfer state and linked stock movements.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/transfers" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {transfer && canVoid && canVoidWarehouseTransfer(transfer.status) ? (
-            <button type="button" disabled={voiding} onClick={() => void voidTransfer()} className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {voiding ? "Voiding..." : "Void"}
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title={transfer?.transferNumber ?? "Warehouse transfer"}
+        description="Transfer state and linked stock movements."
+        badge={transfer ? <LedgerStatusBadge tone={transferStatusTone(transfer.status)}>{warehouseTransferStatusLabel(transfer.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            <LedgerButton href="/inventory/transfers">Back</LedgerButton>
+            {transfer && canVoid && canVoidWarehouseTransfer(transfer.status) ? (
+              <LedgerButton type="button" disabled={voiding} onClick={() => void voidTransfer()} variant="danger">
+                {voiding ? "Voiding..." : "Void"}
+              </LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load warehouse transfer details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading warehouse transfer...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load warehouse transfer details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading warehouse transfer" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      {transfer ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="WAREHOUSE_TRANSFER" linkedEntityId={transfer.id} />
-          <WarehouseTransferWorkflowGuidance
-            transfer={transfer}
-            canVoid={canVoid}
-            actionLoading={voiding}
-            onVoid={() => void voidTransfer()}
-          />
+        {transfer ? (
+          <>
+            <AttachmentPanel linkedEntityType="WAREHOUSE_TRANSFER" linkedEntityId={transfer.id} />
+            <WarehouseTransferWorkflowGuidance
+              transfer={transfer}
+              canVoid={canVoid}
+              actionLoading={voiding}
+              onVoid={() => void voidTransfer()}
+            />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Quantity" value={formatInventoryQuantity(transfer.quantity)} />
-            <SummaryCard label="Date" value={formatOptionalDate(transfer.transferDate, "-")} />
-            <SummaryCard label="Status" value={warehouseTransferStatusLabel(transfer.status)} />
-            <SummaryCard label="Posted at" value={formatOptionalDate(transfer.postedAt, "-")} />
-          </div>
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Quantity" value={formatInventoryQuantity(transfer.quantity)} />
+              <LedgerStatCard label="Date" value={<LedgerDate>{formatOptionalDate(transfer.transferDate, "-")}</LedgerDate>} />
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={transferStatusTone(transfer.status)}>{warehouseTransferStatusLabel(transfer.status)}</LedgerStatusBadge>} />
+              <LedgerStatCard label="Posted at" value={<LedgerDate>{formatOptionalDate(transfer.postedAt, "-")}</LedgerDate>} />
+            </LedgerMetricGrid>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Detail label="Item" value={transfer.item ? `${transfer.item.name}${transfer.item.sku ? ` (${transfer.item.sku})` : ""}` : transfer.itemId} />
-              <Detail label="From warehouse" value={transfer.fromWarehouse ? `${transfer.fromWarehouse.code} ${transfer.fromWarehouse.name}` : transfer.fromWarehouseId} />
-              <Detail label="To warehouse" value={transfer.toWarehouse ? `${transfer.toWarehouse.code} ${transfer.toWarehouse.name}` : transfer.toWarehouseId} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-medium ${warehouseTransferStatusBadgeClass(transfer.status)}`}>
-                  {warehouseTransferStatusLabel(transfer.status)}
-                </span>
+            <LedgerSection title="Transfer detail" description="Item, warehouse, and cost metadata for this transfer.">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Item", value: transfer.item ? `${transfer.item.name}${transfer.item.sku ? ` (${transfer.item.sku})` : ""}` : transfer.itemId },
+                  { label: "From warehouse", value: transfer.fromWarehouse ? `${transfer.fromWarehouse.code} ${transfer.fromWarehouse.name}` : transfer.fromWarehouseId },
+                  { label: "To warehouse", value: transfer.toWarehouse ? `${transfer.toWarehouse.code} ${transfer.toWarehouse.name}` : transfer.toWarehouseId },
+                  { label: "Status", value: <LedgerStatusBadge tone={transferStatusTone(transfer.status)}>{warehouseTransferStatusLabel(transfer.status)}</LedgerStatusBadge> },
+                  { label: "Unit cost", value: transfer.unitCost ? formatInventoryQuantity(transfer.unitCost) : "-" },
+                  { label: "Total cost", value: transfer.totalCost ? formatInventoryQuantity(transfer.totalCost) : "-" },
+                ]}
+              />
+              {transfer.description ? <p className="mt-4 text-sm leading-6 text-steel">{transfer.description}</p> : null}
+            </LedgerSection>
+
+            <LedgerSection title="Linked stock movements" description="Posted and void reversal rows stay linked for audit review.">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <MovementDetail label="Source movement" movement={transfer.fromStockMovement} />
+                <MovementDetail label="Destination movement" movement={transfer.toStockMovement} />
+                <MovementDetail label="Void source movement" movement={transfer.voidFromStockMovement} />
+                <MovementDetail label="Void destination movement" movement={transfer.voidToStockMovement} />
               </div>
-              <Detail label="Unit cost" value={transfer.unitCost ? formatInventoryQuantity(transfer.unitCost) : "-"} />
-              <Detail label="Total cost" value={transfer.totalCost ? formatInventoryQuantity(transfer.totalCost) : "-"} />
-            </div>
-            {transfer.description ? <p className="mt-4 text-sm text-steel">{transfer.description}</p> : null}
-          </div>
-
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <h2 className="text-base font-semibold text-ink">Linked stock movements</h2>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <MovementDetail label="Source movement" movement={transfer.fromStockMovement} />
-              <MovementDetail label="Destination movement" movement={transfer.toStockMovement} />
-              <MovementDetail label="Void source movement" movement={transfer.voidFromStockMovement} />
-              <MovementDetail label="Void destination movement" movement={transfer.voidToStockMovement} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
+            </LedgerSection>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -199,14 +195,12 @@ export function WarehouseTransferWorkflowGuidance({
   const toLabel = transfer.toWarehouse ? `${transfer.toWarehouse.code} ${transfer.toWarehouse.name}` : "the destination warehouse";
 
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="info">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${warehouseTransferStatusBadgeClass(transfer.status)}`}>
-              {warehouseTransferStatusLabel(transfer.status)}
-            </span>
+            <LedgerStatusBadge tone={transferStatusTone(transfer.status)}>{warehouseTransferStatusLabel(transfer.status)}</LedgerStatusBadge>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
@@ -229,40 +223,23 @@ export function WarehouseTransferWorkflowGuidance({
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
           {canVoid && canVoidWarehouseTransfer(transfer.status) ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onVoid}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
-              Void transfer
-            </button>
+            <LedgerButton type="button" disabled={actionLoading} onClick={onVoid} variant="danger">Void transfer</LedgerButton>
           ) : null}
-          <Link href={`/inventory/warehouses/${transfer.fromWarehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Source warehouse
-          </Link>
-          <Link href={`/inventory/warehouses/${transfer.toWarehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Destination warehouse
-          </Link>
-          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Stock movements
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Inventory report
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
+          <LedgerButton href={`/inventory/warehouses/${transfer.fromWarehouseId}`}>Source warehouse</LedgerButton>
+          <LedgerButton href={`/inventory/warehouses/${transfer.toWarehouseId}`}>Destination warehouse</LedgerButton>
+          <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
+          <LedgerButton href="/inventory/reports/movement-summary">Inventory report</LedgerButton>
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
 function MovementDetail({ label, movement }: { label: string; movement: TransferMovement }) {
   return (
-    <div className="rounded-md border border-slate-100 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+    <LedgerPanel>
+      <p className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</p>
       {movement ? (
         <div className="mt-2 space-y-1 text-sm text-ink">
           <p>{stockMovementTypeLabel(movement.type)}</p>
@@ -272,6 +249,6 @@ function MovementDetail({ label, movement }: { label: string; movement: Transfer
       ) : (
         <p className="mt-2 text-sm text-steel">-</p>
       )}
-    </div>
+    </LedgerPanel>
   );
 }

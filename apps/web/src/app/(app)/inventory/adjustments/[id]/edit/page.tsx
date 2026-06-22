@@ -1,20 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { inventoryAdjustmentTypeLabel, inventoryOperationalWarning } from "@/lib/inventory";
+import { inventoryOperationalWarning } from "@/lib/inventory";
 import type { InventoryAdjustment, InventoryAdjustmentType, Item, Warehouse } from "@/lib/types";
-
-const adjustmentTypes: InventoryAdjustmentType[] = ["INCREASE", "DECREASE"];
-
-function dateInputValue(value: string): string {
-  return value.slice(0, 10);
-}
+import { InventoryAdjustmentFormFields } from "../../new/page";
 
 export default function EditInventoryAdjustmentPage() {
   const params = useParams<{ id: string }>();
@@ -98,110 +99,35 @@ export default function EditInventoryAdjustmentPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit inventory adjustment</h1>
-          <p className="mt-1 text-sm text-steel">Draft adjustments can be edited before approval.</p>
-        </div>
-        <Link href={adjustment ? `/inventory/adjustments/${adjustment.id}` : "/inventory/adjustments"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="Edit inventory adjustment"
+        description="Draft adjustments can be edited before approval."
+        actions={<LedgerButton href={adjustment ? `/inventory/adjustments/${adjustment.id}` : "/inventory/adjustments"}>Back</LedgerButton>}
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit inventory adjustments.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading inventory adjustment...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {adjustment && adjustment.status !== "DRAFT" ? <StatusMessage type="error">Only draft inventory adjustments can be edited.</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to edit inventory adjustments.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading inventory adjustment" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {adjustment && adjustment.status !== "DRAFT" ? <LedgerAlert tone="danger">Only draft inventory adjustments can be edited.</LedgerAlert> : null}
 
-      {adjustment && adjustment.status === "DRAFT" ? (
-        <form onSubmit={updateAdjustment} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <SelectField name="itemId" label="Item" defaultValue={adjustment.itemId}>
-              {trackedItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}{item.sku ? ` (${item.sku})` : ""}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField name="warehouseId" label="Warehouse" defaultValue={adjustment.warehouseId}>
-              {activeWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} {warehouse.name}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField name="type" label="Type" defaultValue={adjustment.type}>
-              {adjustmentTypes.map((type) => (
-                <option key={type} value={type}>
-                  {inventoryAdjustmentTypeLabel(type)}
-                </option>
-              ))}
-            </SelectField>
-            <InputField name="adjustmentDate" label="Date" type="date" defaultValue={dateInputValue(adjustment.adjustmentDate)} />
-            <InputField name="quantity" label="Quantity" defaultValue={adjustment.quantity} />
-            <InputField name="unitCost" label="Unit cost" defaultValue={adjustment.unitCost ?? ""} required={false} />
-            <label className="block md:col-span-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason</span>
-              <input name="reason" defaultValue={adjustment.reason ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-          </div>
-          <div className="mt-5 flex justify-end gap-3">
-            <Link href={`/inventory/adjustments/${adjustment.id}`} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Cancel
-            </Link>
-            <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-              {submitting ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </section>
-  );
-}
-
-function SelectField({
-  name,
-  label,
-  defaultValue,
-  children,
-}: {
-  name: string;
-  label: string;
-  defaultValue: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <select name={name} required defaultValue={defaultValue} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-        {children}
-      </select>
-    </label>
-  );
-}
-
-function InputField({
-  name,
-  label,
-  type = "text",
-  defaultValue,
-  required = true,
-}: {
-  name: string;
-  label: string;
-  type?: string;
-  defaultValue?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input name={name} type={type} required={required} defaultValue={defaultValue} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+        {adjustment && adjustment.status === "DRAFT" ? (
+          <form onSubmit={updateAdjustment}>
+            <InventoryAdjustmentFormFields
+              trackedItems={trackedItems}
+              activeWarehouses={activeWarehouses}
+              submitting={submitting}
+              submitLabel={submitting ? "Saving..." : "Save"}
+              cancelHref={`/inventory/adjustments/${adjustment.id}`}
+              adjustment={adjustment}
+            />
+          </form>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }

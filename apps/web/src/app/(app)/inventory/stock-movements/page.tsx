@@ -1,10 +1,27 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -105,81 +122,77 @@ export default function StockMovementsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Stock movements</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Operational stock ledger entries from opening balances, approvals, transfers, returns, and voids.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap md:justify-end">
-          {canViewFifoPreview ? (
-            <Link href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null, warehouseId: filters.warehouseId || null })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              FIFO preview
-            </Link>
-          ) : null}
-          {canCreate ? (
-            <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-              New movement
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="Stock movements"
+        description="Operational stock ledger entries from opening balances, approvals, transfers, returns, and voids."
+        actions={
+          <>
+            {canViewFifoPreview ? <LedgerButton href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null, warehouseId: filters.warehouseId || null })}>FIFO preview</LedgerButton> : null}
+            {canCreate ? <LedgerButton href="/inventory/stock-movements/new" variant="primary">New movement</LedgerButton> : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
       <StockMovementLedgerGuidance canCreate={canCreate} canViewFifoPreview={canViewFifoPreview} />
 
-      <form onSubmit={updateFilters} className="mb-5 grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-6">
-        <input name="itemId" defaultValue={filters.itemId} placeholder="Item ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="warehouseId" defaultValue={filters.warehouseId} placeholder="Warehouse ID" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="from" type="date" defaultValue={filters.from} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <input name="to" type="date" defaultValue={filters.to} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-        <select name="type" defaultValue={filters.type} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-          <option value="">All types</option>
-          {movementTypes.map((type) => (
-            <option key={type} value={type}>
-              {stockMovementTypeLabel(type)}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Filter
-        </button>
-      </form>
+      <LedgerPageBody>
+        <LedgerPanel>
+          <form onSubmit={updateFilters}>
+            <LedgerFilterBar>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Item ID</LedgerFieldText>
+                <LedgerInput name="itemId" defaultValue={filters.itemId} />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Warehouse ID</LedgerFieldText>
+                <LedgerInput name="warehouseId" defaultValue={filters.warehouseId} />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>From</LedgerFieldText>
+                <LedgerInput name="from" type="date" defaultValue={filters.from} />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>To</LedgerFieldText>
+                <LedgerInput name="to" type="date" defaultValue={filters.to} />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Type</LedgerFieldText>
+                <LedgerSelect name="type" defaultValue={filters.type}>
+                  <option value="">All types</option>
+                  {movementTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {stockMovementTypeLabel(type)}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerButton type="submit">Filter</LedgerButton>
+            </LedgerFilterBar>
+          </form>
+        </LedgerPanel>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load stock movements.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading stock movements...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load stock movements.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading stock movements" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
         {!loading && organizationId && movements.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-            <h2 className="font-semibold text-ink">No stock movements found.</h2>
-            <p className="mt-2 max-w-3xl leading-6 text-steel">
-              Stock movements appear after opening balances, purchase receipts, sales stock issues, explicit purchase returns, approved adjustments, warehouse transfers, or void reversals.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {canCreate ? (
-                <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-                  Add opening movement
-                </Link>
-              ) : null}
-              {canCreateAdjustment ? (
-                <Link href="/inventory/adjustments/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Create adjustment
-                </Link>
-              ) : null}
-              {canCreateTransfer ? (
-                <Link href="/inventory/transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-                  Create transfer
-                </Link>
-              ) : null}
-            </div>
-          </div>
+          <LedgerEmptyState
+            title="No stock movements found."
+            description="Stock movements appear after opening balances, purchase receipts, sales stock issues, explicit purchase returns, approved adjustments, warehouse transfers, or void reversals."
+            action={
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {canCreate ? <LedgerButton href="/inventory/stock-movements/new" variant="primary">Add opening movement</LedgerButton> : null}
+                {canCreateAdjustment ? <LedgerButton href="/inventory/adjustments/new">Create adjustment</LedgerButton> : null}
+                {canCreateTransfer ? <LedgerButton href="/inventory/transfers/new">Create transfer</LedgerButton> : null}
+              </div>
+            }
+          />
         ) : null}
-      </div>
 
-      {movements.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1220px] text-left text-sm">
+        {movements.length > 0 ? (
+          <LedgerDataTable minWidth="1220px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Date</th>
@@ -198,7 +211,7 @@ export default function StockMovementsPage() {
             <tbody className="divide-y divide-slate-100">
               {movements.map((movement) => (
                 <tr key={movement.id}>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(movement.movementDate, "-")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(movement.movementDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 text-steel">{stockMovementTypeLabel(movement.type)}</td>
                   <td className="px-4 py-3 text-steel">{stockMovementDirectionLabel(movement.type)}</td>
                   <td className="px-4 py-3 text-ink">{movement.item ? `${movement.item.name}${movement.item.sku ? ` (${movement.item.sku})` : ""}` : movement.itemId}</td>
@@ -206,7 +219,7 @@ export default function StockMovementsPage() {
                     {movement.warehouse ? `${movement.warehouse.code} ${movement.warehouse.name} (${warehouseStatusLabel(movement.warehouse.status)})` : movement.warehouseId}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(movement.quantity)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{movement.unitCost ? formatInventoryQuantity(movement.unitCost) : "-"}</td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{movement.unitCost ? formatInventoryQuantity(movement.unitCost) : "-"}</LedgerMoney></td>
                   <td className="px-4 py-3 text-xs text-steel">
                     {[movement.batch?.batchNumber, movement.serialNumber?.serialNumber, movement.binLocation?.code ?? movement.fromBinLocation?.code ?? movement.toBinLocation?.code]
                       .filter(Boolean)
@@ -214,32 +227,24 @@ export default function StockMovementsPage() {
                   </td>
                   <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
                   {canViewFifoPreview ? (
-                    <td className="px-4 py-3 text-xs">
-                      <Link href={inventoryFifoPreviewUrl({ itemId: movement.itemId, warehouseId: movement.warehouseId })} className="font-medium text-palm hover:underline">
-                        FIFO preview
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-xs"><LedgerButton href={inventoryFifoPreviewUrl({ itemId: movement.itemId, warehouseId: movement.warehouseId })} size="sm">FIFO preview</LedgerButton></td>
                   ) : null}
                   {canViewFifoPreview ? (
-                    <td className="px-4 py-3 text-xs">
-                      <Link href={inventoryTraceabilityUrl(movement.itemId)} className="font-medium text-palm hover:underline">
-                        Traceability
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-xs"><LedgerButton href={inventoryTraceabilityUrl(movement.itemId)} size="sm">Traceability</LedgerButton></td>
                   ) : null}
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function StockMovementLedgerGuidance({ canCreate, canViewFifoPreview }: { canCreate: boolean; canViewFifoPreview: boolean }) {
   return (
-    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="info">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">How to read the stock ledger</h2>
@@ -259,27 +264,13 @@ export function StockMovementLedgerGuidance({ canCreate, canViewFifoPreview }: {
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
-          {canCreate ? (
-            <Link href="/inventory/stock-movements/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-              New movement
-            </Link>
-          ) : null}
-          <Link href="/inventory/balances" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Balances
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Movement report
-          </Link>
-          {canViewFifoPreview ? (
-            <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-              FIFO preview
-            </Link>
-          ) : null}
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
+          {canCreate ? <LedgerButton href="/inventory/stock-movements/new" variant="primary">New movement</LedgerButton> : null}
+          <LedgerButton href="/inventory/balances">Balances</LedgerButton>
+          <LedgerButton href="/inventory/reports/movement-summary">Movement report</LedgerButton>
+          {canViewFifoPreview ? <LedgerButton href={inventoryFifoPreviewUrl({})}>FIFO preview</LedgerButton> : null}
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
