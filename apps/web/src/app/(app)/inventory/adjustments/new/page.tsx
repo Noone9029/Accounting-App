@@ -1,10 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { inventoryAdjustmentTypeLabel, inventoryOperationalWarning } from "@/lib/inventory";
@@ -88,103 +99,108 @@ export default function NewInventoryAdjustmentPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New inventory adjustment</h1>
-          <p className="mt-1 text-sm text-steel">Create a draft adjustment for reviewer approval.</p>
-        </div>
-        <Link href="/inventory/adjustments" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="New inventory adjustment"
+        description="Create a draft adjustment for reviewer approval."
+        actions={<LedgerButton href="/inventory/adjustments">Back</LedgerButton>}
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to create inventory adjustments.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && trackedItems.length === 0 ? <StatusMessage type="empty">No active inventory-tracked items are available.</StatusMessage> : null}
-        {!loading && organizationId && activeWarehouses.length === 0 ? <StatusMessage type="empty">No active warehouses are available.</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to create inventory adjustments.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading form data" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {!loading && organizationId && trackedItems.length === 0 ? <LedgerAlert tone="info">No active inventory-tracked items are available.</LedgerAlert> : null}
+        {!loading && organizationId && activeWarehouses.length === 0 ? <LedgerAlert tone="info">No active warehouses are available.</LedgerAlert> : null}
 
-      <form onSubmit={createAdjustment} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SelectField name="itemId" label="Item">
-            <option value="">Select item</option>
-            {trackedItems.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}{item.sku ? ` (${item.sku})` : ""}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField name="warehouseId" label="Warehouse">
-            <option value="">Select warehouse</option>
-            {activeWarehouses.map((warehouse) => (
-              <option key={warehouse.id} value={warehouse.id}>
-                {warehouse.code} {warehouse.name}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField name="type" label="Type">
-            {adjustmentTypes.map((type) => (
-              <option key={type} value={type}>
-                {inventoryAdjustmentTypeLabel(type)}
-              </option>
-            ))}
-          </SelectField>
-          <InputField name="adjustmentDate" label="Date" type="date" defaultValue={todayInputValue()} />
-          <InputField name="quantity" label="Quantity" defaultValue="1.0000" />
-          <InputField name="unitCost" label="Unit cost" placeholder="Optional" required={false} />
-          <label className="block md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason</span>
-            <input name="reason" placeholder="Reason or memo" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-        <div className="mt-5 flex justify-end gap-3">
-          <Link href="/inventory/adjustments" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={submitting || trackedItems.length === 0 || activeWarehouses.length === 0} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Saving..." : "Save draft"}
-          </button>
-        </div>
-      </form>
-    </section>
+        <form onSubmit={createAdjustment}>
+          <InventoryAdjustmentFormFields
+            trackedItems={trackedItems}
+            activeWarehouses={activeWarehouses}
+            submitting={submitting}
+            submitLabel={submitting ? "Saving..." : "Save draft"}
+            cancelHref="/inventory/adjustments"
+          />
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
-function SelectField({ name, label, children }: { name: string; label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <select name={name} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-        {children}
-      </select>
-    </label>
-  );
-}
-
-function InputField({
-  name,
-  label,
-  type = "text",
-  defaultValue,
-  placeholder,
-  required = true,
+export function InventoryAdjustmentFormFields({
+  trackedItems,
+  activeWarehouses,
+  submitting,
+  submitLabel,
+  cancelHref,
+  adjustment,
 }: {
-  name: string;
-  label: string;
-  type?: string;
-  defaultValue?: string;
-  placeholder?: string;
-  required?: boolean;
+  trackedItems: Item[];
+  activeWarehouses: Warehouse[];
+  submitting: boolean;
+  submitLabel: string;
+  cancelHref: string;
+  adjustment?: InventoryAdjustment;
 }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input name={name} type={type} required={required} defaultValue={defaultValue} placeholder={placeholder} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+    <LedgerFormSection title="Adjustment details" description="Draft adjustments do not move stock until approval.">
+      <LedgerFieldLabel>
+        <LedgerFieldText>Item</LedgerFieldText>
+        <LedgerSelect name="itemId" required defaultValue={adjustment?.itemId}>
+          {!adjustment ? <option value="">Select item</option> : null}
+          {trackedItems.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}{item.sku ? ` (${item.sku})` : ""}
+            </option>
+          ))}
+        </LedgerSelect>
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Warehouse</LedgerFieldText>
+        <LedgerSelect name="warehouseId" required defaultValue={adjustment?.warehouseId}>
+          {!adjustment ? <option value="">Select warehouse</option> : null}
+          {activeWarehouses.map((warehouse) => (
+            <option key={warehouse.id} value={warehouse.id}>
+              {warehouse.code} {warehouse.name}
+            </option>
+          ))}
+        </LedgerSelect>
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Type</LedgerFieldText>
+        <LedgerSelect name="type" required defaultValue={adjustment?.type}>
+          {adjustmentTypes.map((type) => (
+            <option key={type} value={type}>
+              {inventoryAdjustmentTypeLabel(type)}
+            </option>
+          ))}
+        </LedgerSelect>
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Date</LedgerFieldText>
+        <LedgerInput name="adjustmentDate" type="date" required defaultValue={adjustment ? adjustment.adjustmentDate.slice(0, 10) : todayInputValue()} />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Quantity</LedgerFieldText>
+        <LedgerInput name="quantity" required defaultValue={adjustment?.quantity ?? "1.0000"} />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Unit cost</LedgerFieldText>
+        <LedgerInput name="unitCost" defaultValue={adjustment?.unitCost ?? ""} placeholder="Optional" />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel className="md:col-span-2">
+        <LedgerFieldText>Reason</LedgerFieldText>
+        <LedgerInput name="reason" defaultValue={adjustment?.reason ?? ""} placeholder="Reason or memo" />
+      </LedgerFieldLabel>
+      <div className="flex justify-end gap-3 md:col-span-2">
+        <LedgerButton href={cancelHref}>Cancel</LedgerButton>
+        <LedgerButton type="submit" disabled={submitting || trackedItems.length === 0 || activeWarehouses.length === 0} variant="primary">
+          {submitLabel}
+        </LedgerButton>
+      </div>
+    </LedgerFormSection>
   );
 }

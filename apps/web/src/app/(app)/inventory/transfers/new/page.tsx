@@ -1,9 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { inventoryOperationalWarning, validateWarehouseTransferInput } from "@/lib/inventory";
@@ -101,100 +113,91 @@ export default function NewWarehouseTransferPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New warehouse transfer</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Post a stock transfer between active warehouses.</p>
-        </div>
-        <Link href="/inventory/transfers" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="New warehouse transfer"
+        description="Post a stock transfer between active warehouses."
+        actions={<LedgerButton href="/inventory/transfers">Back</LedgerButton>}
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
       <NewWarehouseTransferGuidance />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to create warehouse transfers.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && trackedItems.length === 0 ? (
-          <StatusMessage type="empty">No active inventory-tracked items are available. Create a tracked product before transferring stock.</StatusMessage>
-        ) : null}
-        {!loading && organizationId && activeWarehouses.length < 2 ? (
-          <StatusMessage type="empty">At least two active warehouses are required before stock can move between locations.</StatusMessage>
-        ) : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to create warehouse transfers.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading form data" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {!loading && organizationId && trackedItems.length === 0 ? <LedgerAlert tone="info">No active inventory-tracked items are available. Create a tracked product before transferring stock.</LedgerAlert> : null}
+        {!loading && organizationId && activeWarehouses.length < 2 ? <LedgerAlert tone="info">At least two active warehouses are required before stock can move between locations.</LedgerAlert> : null}
 
-      <form onSubmit={createTransfer} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Item</span>
-            <select value={itemId} onChange={(event) => setItemId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select item</option>
-              {trackedItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}{item.sku ? ` (${item.sku})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">From warehouse</span>
-            <select value={fromWarehouseId} onChange={(event) => setFromWarehouseId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select source</option>
-              {activeWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} {warehouse.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">To warehouse</span>
-            <select value={toWarehouseId} onChange={(event) => setToWarehouseId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select destination</option>
-              {activeWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.code} {warehouse.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Transfer date</span>
-            <input name="transferDate" type="date" required defaultValue={todayInputValue()} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Quantity</span>
-            <input value={quantity} onChange={(event) => setQuantity(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Unit cost</span>
-            <input name="unitCost" placeholder="Optional" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Description</span>
-            <input name="description" placeholder="Memo" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-        <div className="mt-5 flex justify-end gap-3">
-          <Link href="/inventory/transfers" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={submitting || trackedItems.length === 0 || activeWarehouses.length < 2} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Posting..." : "Post transfer"}
-          </button>
-        </div>
-      </form>
-    </section>
+        <form onSubmit={createTransfer}>
+          <LedgerFormSection title="Transfer details" description="Posting creates one out movement and one in movement for the same quantity.">
+            <LedgerFieldLabel>
+              <LedgerFieldText>Item</LedgerFieldText>
+              <LedgerSelect value={itemId} onChange={(event) => setItemId(event.target.value)} required>
+                <option value="">Select item</option>
+                {trackedItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}{item.sku ? ` (${item.sku})` : ""}
+                  </option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>From warehouse</LedgerFieldText>
+              <LedgerSelect value={fromWarehouseId} onChange={(event) => setFromWarehouseId(event.target.value)} required>
+                <option value="">Select source</option>
+                {activeWarehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} {warehouse.name}
+                  </option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>To warehouse</LedgerFieldText>
+              <LedgerSelect value={toWarehouseId} onChange={(event) => setToWarehouseId(event.target.value)} required>
+                <option value="">Select destination</option>
+                {activeWarehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} {warehouse.name}
+                  </option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Transfer date</LedgerFieldText>
+              <LedgerInput name="transferDate" type="date" required defaultValue={todayInputValue()} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Quantity</LedgerFieldText>
+              <LedgerInput value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Unit cost</LedgerFieldText>
+              <LedgerInput name="unitCost" placeholder="Optional" />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Description</LedgerFieldText>
+              <LedgerInput name="description" placeholder="Memo" />
+            </LedgerFieldLabel>
+            <div className="flex justify-end gap-3 md:col-span-2">
+              <LedgerButton href="/inventory/transfers">Cancel</LedgerButton>
+              <LedgerButton type="submit" disabled={submitting || trackedItems.length === 0 || activeWarehouses.length < 2} variant="primary">
+                {submitting ? "Posting..." : "Post transfer"}
+              </LedgerButton>
+            </div>
+          </LedgerFormSection>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function NewWarehouseTransferGuidance() {
   return (
-    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="info">
       <h2 className="text-base font-semibold text-ink">Before you post</h2>
       <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div>
@@ -210,6 +213,6 @@ export function NewWarehouseTransferGuidance() {
           <p className="mt-1">Ledger rows are kept as stock movements. If the transfer is voided later, reversal rows are added instead of deleting history.</p>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }

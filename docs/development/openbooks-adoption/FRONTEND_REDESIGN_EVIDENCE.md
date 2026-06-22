@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-catalog-warehouse`
+Branch: `codex/ui-redesign-inventory-stock-operations`
 
-Base: stacked on `origin/codex/ui-redesign-bank-detail-close-routes` while PR #169 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-catalog-warehouse` while PR #170 is open
 
 ## Evidence Summary
 
@@ -47,6 +47,7 @@ Base: stacked on `origin/codex/ui-redesign-bank-detail-close-routes` while PR #1
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
 | Inventory catalog and warehouse loop | `apps/web/src/app/(app)/items/page.tsx`, `apps/web/src/app/(app)/inventory/warehouses/page.tsx`, and `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` use shared LedgerByte page, summary, form, field, filter, table, status, loading, empty, metadata, date, money, and action primitives while preserving item create/edit payloads, item traceability links, warehouse create/archive/reactivate actions, and warehouse stock guidance. |
+| Inventory stock operations loop | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx`, `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`, and `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` use shared LedgerByte page, summary, filter, table, form, metric, metadata, status, money/date, loading, empty, and action primitives while preserving stock movement filters/opening-balance payloads, adjustment lifecycle actions, transfer validation/create/void behavior, linked movement visibility, permissions, and stock/COGS/valuation boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -427,6 +428,22 @@ Base: stacked on `origin/codex/ui-redesign-bank-detail-close-routes` while PR #1
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
 - `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
+
+## 2026-06-22 Inventory Stock Operations Loop Evidence
+
+- `/inventory/stock-movements`: migrated the stock movement list, filters, running-balance display, source/reference links, status labels, and empty state to shared Ledger primitives while preserving existing query parameters, `/stock-movements` loading, movement direction/quantity formatting, `StockMovementLedgerGuidance`, and create-link visibility.
+- `/inventory/stock-movements/new`: migrated the opening-balance form to shared page, form, field, input, select, alert, and action primitives while preserving item/warehouse/stock account loading, opening-balance POST payload shape, required-field validation, and redirect behavior.
+- `/inventory/adjustments`: migrated the adjustment list, filter controls, table, status labels, and empty state to shared Ledger primitives while preserving existing filter state, `/inventory-adjustments` loading, detail links, `InventoryAdjustmentWorkflowGuidance`, and create permission visibility.
+- `/inventory/adjustments/new` and `/inventory/adjustments/[id]/edit`: migrated adjustment create/edit forms to shared page/form/field/table/action primitives while preserving draft-only edit guard, line validation, POST/PATCH payload shapes, redirect behavior, and item/warehouse/account loading.
+- `/inventory/adjustments/[id]`: migrated adjustment detail, metadata, line tables, linked stock movements, attachments, and lifecycle actions to shared page, summary, section, table, metadata, status, money/date, and action primitives while preserving approve, void, delete, edit, attachment, and permission checks.
+- `/inventory/transfers`, `/inventory/transfers/new`, and `/inventory/transfers/[id]`: migrated transfer list/new/detail surfaces to shared Ledger primitives while preserving warehouse transfer filters/loading, item/warehouse validation through `validateWarehouseTransferInput`, create payloads, linked stock movement visibility, void behavior, and `NewWarehouseTransferGuidance`/`WarehouseTransferWorkflowGuidance`.
+- Existing behavior remains frontend-only and unchanged: this pass does not add valuation math, automatic COGS, receipt posting, sales stock issue posting, FIFO output changes, schema changes, storage behavior, VAT/ZATCA/compliance behavior, provider calls, or hosted mutations.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- inventory-guidance stock-movements adjustments transfers`: PASS, 2 suites, 7 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover stock movement, adjustment, transfer, receipt, issue, and valuation routes together after the operational inventory stack lands.
 
 ## 2026-06-22 Inventory Catalog and Warehouse Loop Evidence
 
