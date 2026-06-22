@@ -1,16 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { EmailReadinessSafeStatus } from "@/components/email/email-readiness-safe-status";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   emailProviderLabel,
   emailProviderEventIngestionStatusLabel,
   emailProviderWarningText,
-  emailReadinessClass,
   emailReadinessLabel,
   emailDiagnosticsStatusLabel,
   emailMonitoringEvidenceStatusLabel,
@@ -435,11 +445,12 @@ export default function EmailOutboxPage() {
   const suppressionEmailValid = isValidTestEmailAddress(suppressionEmail);
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Email outbox</h1>
-        <p className="mt-1 text-sm text-steel">Mock/local invite and password reset email records.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Email outbox"
+        description="Mock/local invite and password reset email records."
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to review email outbox records.</StatusMessage> : null}
@@ -448,16 +459,17 @@ export default function EmailOutboxPage() {
         {readiness ? <StatusMessage type="info">{emailProviderWarningText(readiness.provider, readiness.mockMode, readiness.realSendingEnabled)}</StatusMessage> : null}
       </div>
 
+      <LedgerPageBody>
       {readiness ? (
-        <section className="mt-5 rounded-md border border-slate-200 bg-white p-5">
+        <LedgerPanel>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-base font-semibold text-ink">Email provider readiness</h2>
               <p className="mt-1 text-sm text-steel">Provider configuration and token-delivery safety checks.</p>
             </div>
-            <span className={`w-fit rounded-full px-2 py-1 text-xs font-medium ${emailReadinessClass(readiness.ready)}`}>
+            <LedgerStatusBadge tone={readiness.ready ? "success" : "warning"}>
               {emailReadinessLabel(readiness.ready)}
-            </span>
+            </LedgerStatusBadge>
           </div>
           <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
             <Detail label="Provider" value={emailProviderLabel(readiness.provider)} />
@@ -608,17 +620,21 @@ export default function EmailOutboxPage() {
             </div>
           ) : null}
           {(readiness.blockers.length > 0 || readiness.blockingReasons.length > 0) ? (
-            <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="mt-4">
+              <LedgerSummaryBand tone="warning">
               {(readiness.blockers.length > 0 ? readiness.blockers : readiness.blockingReasons).map((reason) => (
                 <div key={reason}>{reason}</div>
               ))}
+              </LedgerSummaryBand>
             </div>
           ) : null}
           {readiness.warnings.length > 0 ? (
-            <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-steel">
+            <div className="mt-4">
+              <LedgerSummaryBand>
               {readiness.warnings.map((warning) => (
                 <div key={warning}>{warning}</div>
               ))}
+              </LedgerSummaryBand>
             </div>
             ) : null}
           {canRunDiagnostics ? (
@@ -918,12 +934,13 @@ export default function EmailOutboxPage() {
               </span>
             ) : null}
           </div>
-        </section>
+        </LedgerPanel>
       ) : null}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-          <div className="grid grid-cols-[1fr_1fr_110px_150px] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">
+      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <LedgerPanel className="p-0">
+          <div aria-label="Email outbox table" className="overflow-x-auto">
+          <div className="grid min-w-[760px] grid-cols-[1fr_1fr_110px_150px] border-b border-line bg-mist px-4 py-2 text-xs font-semibold uppercase text-steel">
             <div>To</div>
             <div>Template</div>
             <div>Status</div>
@@ -934,7 +951,7 @@ export default function EmailOutboxPage() {
               key={email.id}
               type="button"
               onClick={() => void openDetail(email.id)}
-              className="grid w-full grid-cols-[1fr_1fr_110px_150px] items-center border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50"
+              className="ledger-focus grid w-full min-w-[760px] grid-cols-[1fr_1fr_110px_150px] items-center border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50"
             >
               <span className="truncate text-ink">{email.toEmail}</span>
               <span className="text-steel">{emailTemplateLabel(email.templateType)}</span>
@@ -944,36 +961,40 @@ export default function EmailOutboxPage() {
               <span className="text-xs text-steel">{formatDate(email.createdAt)}</span>
             </button>
           ))}
-          {!loading && emails.length === 0 ? <div className="px-4 py-6 text-sm text-steel">No email records found.</div> : null}
-        </section>
+          </div>
+          {!loading && emails.length === 0 ? <LedgerEmptyState title="No email records found" description="Mock invite and password reset email records will appear here." /> : null}
+        </LedgerPanel>
 
-        <section className="rounded-md border border-slate-200 bg-white p-5">
+        <LedgerPanel>
           {selected ? (
             <div className="space-y-4">
               <div>
                 <h2 className="text-base font-semibold text-ink">{selected.subject}</h2>
                 <p className="mt-1 text-sm text-steel">{selected.toEmail}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <Detail label="Template" value={emailTemplateLabel(selected.templateType)} />
-                <Detail label="Status" value={emailStatusLabel(selected.status)} />
-                <Detail label="Provider" value={selected.provider} />
-                <Detail label="Sent" value={selected.sentAt ? formatDate(selected.sentAt) : "-"} />
-              </div>
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm text-ink">{selected.bodyText}</pre>
+              <LedgerMetadataRow
+                items={[
+                  { label: "Template", value: emailTemplateLabel(selected.templateType) },
+                  { label: "Status", value: emailStatusLabel(selected.status) },
+                  { label: "Provider", value: selected.provider },
+                  { label: "Sent", value: selected.sentAt ? formatDate(selected.sentAt) : "-" },
+                ]}
+              />
+              <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-mist p-3 text-sm text-ink">{selected.bodyText}</pre>
             </div>
           ) : (
             <StatusMessage type="empty">Select an email to inspect the mock message body.</StatusMessage>
           )}
-        </section>
+        </LedgerPanel>
       </div>
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
+    <div className="rounded-md bg-mist px-3 py-2">
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 font-medium text-ink">{value}</div>
     </div>
@@ -982,4 +1003,17 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "empty") {
+    return <LedgerEmptyState title="No email selected" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone="info">{children}</LedgerAlert>;
 }
