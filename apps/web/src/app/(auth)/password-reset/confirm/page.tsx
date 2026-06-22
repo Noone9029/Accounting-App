@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { StatusMessage } from "@/components/common/status-message";
+import { KeyRound } from "lucide-react";
+import { AuthPageShell, AuthTextLink } from "@/components/auth/auth-page-shell";
+import { LedgerAlert, LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
 import { apiRequest } from "@/lib/api";
 import { isValidAuthPassword } from "@/lib/email";
 
@@ -39,42 +40,31 @@ export default function PasswordResetConfirmPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <section className="w-full max-w-md rounded-md border border-slate-200 bg-white p-6 shadow-panel">
-        <h1 className="text-xl font-semibold text-ink">Set new password</h1>
-        <p className="mt-1 text-sm text-steel">Complete your LedgerByte password reset.</p>
-        <div className="mt-5 space-y-3">
-          {!token ? <StatusMessage type="error">Password reset token is missing.</StatusMessage> : null}
-          {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
-          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        </div>
-        <form onSubmit={submit} className="mt-5 space-y-4">
-          <label className="block text-sm">
-            <span className="font-medium text-ink">New password</span>
-            <input
-              required
-              type="password"
-              minLength={8}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={!token || !isValidAuthPassword(password) || saving}
-            className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Reset password"}
-          </button>
-        </form>
-        <p className="mt-4 text-sm text-steel">
+    <AuthPageShell
+      title="Set new password"
+      description="Complete your LedgerByte password reset."
+      footer={
+        <p>
           Back to{" "}
-          <Link href="/login" className="font-medium text-palm">
-            log in
-          </Link>
+          <AuthTextLink href="/login">log in</AuthTextLink>
         </p>
-      </section>
-    </main>
+      }
+    >
+      <div className="space-y-3">
+        {!token ? <LedgerAlert tone="danger">Password reset token is missing.</LedgerAlert> : null}
+        {message ? <LedgerAlert tone="success">{message}</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      </div>
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <LedgerFieldLabel>
+          <LedgerFieldText>New password</LedgerFieldText>
+          <LedgerInput required type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} />
+          <LedgerFieldHelp>Use at least 8 characters.</LedgerFieldHelp>
+        </LedgerFieldLabel>
+        <LedgerButton type="submit" disabled={!token || !isValidAuthPassword(password) || saving} variant="primary" icon={KeyRound} className="w-full">
+          {saving ? "Saving..." : "Reset password"}
+        </LedgerButton>
+      </form>
+    </AuthPageShell>
   );
 }

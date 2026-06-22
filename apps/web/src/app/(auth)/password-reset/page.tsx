@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { StatusMessage } from "@/components/common/status-message";
+import { Mail } from "lucide-react";
+import { AuthPageShell, AuthTextLink } from "@/components/auth/auth-page-shell";
+import { LedgerAlert, LedgerButton, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
 import { apiRequest } from "@/lib/api";
 import { passwordResetGenericMessage } from "@/lib/email";
 
@@ -33,37 +34,30 @@ export default function PasswordResetRequestPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <section className="w-full max-w-md rounded-md border border-slate-200 bg-white p-6 shadow-panel">
-        <h1 className="text-xl font-semibold text-ink">Reset password</h1>
-        <p className="mt-1 text-sm text-steel">Request a mock/local password reset email.</p>
-        <div className="mt-5 space-y-3">
-          {message ? <StatusMessage type="success">{message}</StatusMessage> : null}
-          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-          <StatusMessage type="info">Real email delivery is not configured yet.</StatusMessage>
-        </div>
-        <form onSubmit={submit} className="mt-5 space-y-4">
-          <label className="block text-sm">
-            <span className="font-medium text-ink">Email</span>
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <button type="submit" disabled={saving} className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
-            {saving ? "Sending..." : "Send reset instructions"}
-          </button>
-        </form>
-        <p className="mt-4 text-sm text-steel">
+    <AuthPageShell
+      title="Reset password"
+      description="Request a mock/local password reset email."
+      footer={
+        <p>
           Remembered it?{" "}
-          <Link href="/login" className="font-medium text-palm">
-            Log in
-          </Link>
+          <AuthTextLink href="/login">Log in</AuthTextLink>
         </p>
-      </section>
-    </main>
+      }
+    >
+      <div className="space-y-3">
+        {message ? <LedgerAlert tone="success">{message}</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        <LedgerAlert tone="info">Real email delivery is not configured yet.</LedgerAlert>
+      </div>
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <LedgerFieldLabel>
+          <LedgerFieldText>Email</LedgerFieldText>
+          <LedgerInput required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </LedgerFieldLabel>
+        <LedgerButton type="submit" disabled={saving} variant="primary" icon={Mail} className="w-full">
+          {saving ? "Sending..." : "Send reset instructions"}
+        </LedgerButton>
+      </form>
+    </AuthPageShell>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { LogIn, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
+import { LedgerAlert, LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
 import { apiRequest, setAccessToken, setActiveOrganizationId } from "@/lib/api";
 import type { AuthResponse, MeResponse } from "@/lib/types";
 
@@ -15,11 +16,13 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState<string>("");
+  const [statusTone, setStatusTone] = useState<"info" | "warning" | "success">("info");
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
+    setStatusTone("info");
     setStatus("Submitting...");
 
     const formData = new FormData(event.currentTarget);
@@ -45,6 +48,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       setAccessToken(result.accessToken);
 
       if (mode === "register") {
+        setStatusTone("success");
         setStatus("Account created. Set up an organization next.");
         router.push("/organization/setup");
         return;
@@ -60,6 +64,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       router.push("/organization/setup");
     } catch (error) {
+      setStatusTone("warning");
       setStatus(error instanceof Error ? error.message : "Request failed.");
     } finally {
       setSubmitting(false);
@@ -83,10 +88,10 @@ export function AuthForm({ mode }: AuthFormProps) {
         <LedgerInput name="password" type="password" required minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} />
         <LedgerFieldHelp>{mode === "login" ? "Use your beta workspace credentials." : "Use at least 8 characters for beta access."}</LedgerFieldHelp>
       </LedgerFieldLabel>
-      <LedgerButton type="submit" disabled={submitting} variant="primary" className="w-full">
+      <LedgerButton type="submit" disabled={submitting} variant="primary" icon={mode === "login" ? LogIn : UserPlus} className="w-full">
         {submitting ? "Submitting..." : mode === "login" ? "Log in" : "Create account"}
       </LedgerButton>
-      {status ? <p className="text-sm text-steel">{status}</p> : null}
+      {status ? <LedgerAlert tone={statusTone}>{status}</LedgerAlert> : null}
     </form>
   );
 }
