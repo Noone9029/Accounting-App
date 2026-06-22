@@ -53,8 +53,8 @@ describe("PurchaseMatchingExceptionsPage", () => {
     render(<PurchaseMatchingExceptionsPage />);
 
     expect(await screen.findByText("Purchase Matching Exceptions")).toBeInTheDocument();
-    expect(screen.getByText(/This page is read-only/i)).toBeInTheDocument();
-    expect(screen.getByText(/does not post journals, update AP balances, change inventory quantities, or book variances/i)).toBeInTheDocument();
+    expect(screen.getByText(/Purchase matching is review-only/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not post journals, update AP balances, change inventory quantities, book variances, create returns, or contact suppliers/i)).toBeInTheDocument();
     expect(screen.getByText("Total exceptions")).toBeInTheDocument();
     expect(screen.getAllByText("Example Supplier").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: "Example Supplier" })[0]).toHaveAttribute("href", "/suppliers/supplier-1");
@@ -216,7 +216,8 @@ describe("PurchaseMatchingExceptionsPage", () => {
 
     render(<PurchaseMatchingExceptionsPage />);
 
-    expect(await screen.findByText("No purchase matching exceptions found for the selected filters.")).toBeInTheDocument();
+    expect(await screen.findByText("No purchase matching exceptions found")).toBeInTheDocument();
+    expect(screen.getByText(/Try a different supplier, review status, exception type, or document search/i)).toBeInTheDocument();
     expect(screen.queryByText(/accountant-approved|production-ready/i)).not.toBeInTheDocument();
   });
 

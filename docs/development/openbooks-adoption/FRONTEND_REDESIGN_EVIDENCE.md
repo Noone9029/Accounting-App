@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-purchase-cash-expenses`
+Branch: `codex/ui-redesign-purchase-matching`
 
-Base: stacked on `origin/codex/ui-redesign-purchase-operations` while PR #160 is open
+Base: stacked on `origin/codex/ui-redesign-purchase-cash-expenses` while PR #161 is open
 
 ## Evidence Summary
 
@@ -34,6 +34,7 @@ Base: stacked on `origin/codex/ui-redesign-purchase-operations` while PR #160 is
 | Purchase supplier settlement loop | `apps/web/src/app/(app)/purchases/supplier-payments/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/new/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-payments/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/page.tsx`, `apps/web/src/app/(app)/purchases/supplier-refunds/new/page.tsx`, and `apps/web/src/app/(app)/purchases/supplier-refunds/[id]/page.tsx` use shared LedgerByte list, form, detail, table, field, panel, summary, alert, money/date, status, and action primitives while preserving supplier workspace return-to handoffs, bill allocations, unapplied apply/reverse behavior, voids, PDF downloads, manual refund source selection, no-bank/no-provider/no-ZATCA wording, and AP journal boundaries. |
 | Purchase order operations loop | `apps/web/src/app/(app)/purchases/purchase-orders/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/new/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.tsx`, `apps/web/src/app/(app)/purchases/purchase-orders/[id]/edit/page.tsx`, and `apps/web/src/components/forms/purchase-order-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving purchase order lifecycle handlers, receiving and converted-bill handoffs, supplier return-to context, non-posting wording, no payment-sending/no-tax-authority boundaries, and existing purchase order payload behavior. |
 | Purchase cash expense loop | `apps/web/src/app/(app)/purchases/cash-expenses/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/new/page.tsx`, `apps/web/src/app/(app)/purchases/cash-expenses/[id]/page.tsx`, and `apps/web/src/components/forms/cash-expense-form.tsx` use shared LedgerByte list, detail, form, table, panel, summary, alert, money/date, status, and action primitives while preserving immediate cash expense posting, paid-through account behavior, void reversal action, PDF download, supplier return-to context, and no-AP/no-bank-transfer/no-tax-authority boundaries. |
+| Purchase matching loop | `apps/web/src/app/(app)/purchases/matching/page.tsx` and `apps/web/src/components/purchases/purchase-matching-panel.tsx` use shared LedgerByte page, filter, metric, panel, section, table, empty/loading/alert, date, status, summary, and action primitives while preserving read-only exception loading, review action endpoints, source links, purchase return follow-up links, valuation preview links, permissions, and no-posting/no-AP/no-inventory/no-variance/no-return-creation boundaries. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
@@ -294,6 +295,17 @@ Base: stacked on `origin/codex/ui-redesign-purchase-operations` while PR #160 is
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `corepack pnpm --filter @ledgerbyte/web test -- cash-expense cash-expenses`: PASS, 135 suites, 612 tests matched.
 - Cash expense visual checks were not run because fixture search found no existing Playwright visual fixture for `/purchases/cash-expenses`, `/purchases/cash-expenses/new`, or cash expense detail workflows.
+
+## 2026-06-22 Purchase Matching Loop Evidence
+
+- `/purchases/matching`: migrated the purchase matching exception workspace from route-local page/header/filter/card/table/status/button styling to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerPanel`, `LedgerFilterBar`, `LedgerFieldLabel`, `LedgerFieldText`, `LedgerInput`, `LedgerSelect`, `LedgerMetricGrid`, `LedgerStatCard`, `LedgerSection`, `LedgerDataTable`, `LedgerDate`, `LedgerStatusBadge`, `LedgerAlert`, `LedgerLoadingState`, `LedgerEmptyState`, `LedgerActionBar`, and `LedgerButton` primitives.
+- `PurchaseMatchingPanel`: migrated the reusable bill/order/receipt matching panel to shared `LedgerPanel`, `LedgerMetadataRow`, `LedgerSummaryBand`, `LedgerSection`, `LedgerDataTable`, `LedgerDate`, `LedgerStatusBadge`, and `LedgerActionBar` primitives while preserving source document links, supplier link, warnings, review status, valuation variance preview link, and linked purchase return link.
+- Existing behavior remains frontend-only and unchanged: exception loading uses `/purchase-matching/exceptions`, review creation and review action endpoints remain unchanged, filter query construction remains unchanged, source link permission handling remains unchanged, purchase return follow-up links remain explicit, and valuation preview links remain permission-gated. Review actions still only classify follow-up state; they do not post journals, update AP balances, change inventory quantities, book variances, create returns, contact suppliers, send provider calls, submit tax/compliance data, change schema, or mutate storage.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- purchase-matching matching`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- Purchase matching visual checks were not run because fixture search found no existing Playwright visual route fixture for `/purchases/matching`; matching references under `tests/visual/visual-fixtures.ts` are mocked API data consumed by other visual routes, not a route-level matching visual spec.
 
 ## 2026-06-22 Banking Workspace Loop Evidence
 

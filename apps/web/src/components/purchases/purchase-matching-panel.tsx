@@ -1,6 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import {
+  LedgerActionBar,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerMetadataRow,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, inventoryValuationVariancePreviewUrl } from "@/lib/inventory";
 import type { PurchaseMatchingDocumentRef, PurchaseMatchingReviewStatus, PurchaseMatchingStatusLabel, PurchaseMatchingSummary } from "@/lib/types";
@@ -14,7 +25,7 @@ export function PurchaseMatchingPanel({
 }) {
   const showVariancePreview = showValuationVariancePreviewLink && summary.reviewSummary?.reviewStatus === "NEEDS_VARIANCE_REVIEW";
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Purchase matching</h2>
@@ -22,25 +33,27 @@ export function PurchaseMatchingPanel({
             Read-only PO, bill, and receipt comparison. This view does not post journals, book variances, change AP balances, or move inventory.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <LedgerActionBar className="sm:justify-end">
           <Link href="/purchases/matching" className="text-sm font-medium text-palm hover:underline">
             View all purchase matching exceptions
           </Link>
-          <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseMatchingStatusBadgeClass(summary.status)}`}>
-            {summary.status}
-          </span>
-        </div>
+          <LedgerStatusBadge tone={purchaseMatchingStatusTone(summary.status)}>{summary.status}</LedgerStatusBadge>
+        </LedgerActionBar>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
-        <Summary label="Ordered" value={formatInventoryQuantity(summary.totals.orderedQuantity)} />
-        <Summary label="Billed" value={formatInventoryQuantity(summary.totals.billedQuantity)} />
-        <Summary label="Received" value={formatInventoryQuantity(summary.totals.receivedQuantity)} />
-        <Summary label="Remaining to bill" value={formatInventoryQuantity(summary.totals.remainingToBill)} />
-        <Summary label="Remaining to receive" value={formatInventoryQuantity(summary.totals.remainingToReceive)} />
-        <Summary label="Over billed" value={formatInventoryQuantity(summary.totals.overBilledQuantity)} />
-        <Summary label="Over received" value={formatInventoryQuantity(summary.totals.overReceivedQuantity)} />
-        <Summary label="Supplier" value={summary.supplier.displayName ?? summary.supplier.name} href={`/contacts/${summary.supplier.id}`} />
+      <div className="mt-4">
+        <LedgerMetadataRow
+          items={[
+            { label: "Ordered", value: formatInventoryQuantity(summary.totals.orderedQuantity) },
+            { label: "Billed", value: formatInventoryQuantity(summary.totals.billedQuantity) },
+            { label: "Received", value: formatInventoryQuantity(summary.totals.receivedQuantity) },
+            { label: "Remaining to bill", value: formatInventoryQuantity(summary.totals.remainingToBill) },
+            { label: "Remaining to receive", value: formatInventoryQuantity(summary.totals.remainingToReceive) },
+            { label: "Over billed", value: formatInventoryQuantity(summary.totals.overBilledQuantity) },
+            { label: "Over received", value: formatInventoryQuantity(summary.totals.overReceivedQuantity) },
+            { label: "Supplier", value: <Link href={`/contacts/${summary.supplier.id}`} className="font-medium text-palm hover:underline">{summary.supplier.displayName ?? summary.supplier.name}</Link> },
+          ]}
+        />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm lg:grid-cols-3">
@@ -49,13 +62,11 @@ export function PurchaseMatchingPanel({
         <DocumentSummary title="Purchase receipt" document={summary.purchaseReceipt ?? summary.relatedReceipts[0] ?? null} />
       </div>
 
-      <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm">
+      <div className="mt-4 rounded-md border border-line bg-mist p-3 text-sm">
         <div className="text-xs uppercase tracking-wide text-steel">Review workflow</div>
         {summary.reviewSummary ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseMatchingReviewBadgeClass(summary.reviewSummary.reviewStatus)}`}>
-              {purchaseMatchingReviewStatusLabel(summary.reviewSummary.reviewStatus)}
-            </span>
+            <LedgerStatusBadge tone={purchaseMatchingReviewTone(summary.reviewSummary.reviewStatus)}>{purchaseMatchingReviewStatusLabel(summary.reviewSummary.reviewStatus)}</LedgerStatusBadge>
             {summary.reviewSummary.reasonCode ? <span className="text-xs text-steel">{summary.reviewSummary.reasonCode.replaceAll("_", " ").toLowerCase()}</span> : null}
             <Link href="/purchases/matching" className="text-xs font-medium text-palm hover:underline">
               View matching exception review
@@ -79,7 +90,7 @@ export function PurchaseMatchingPanel({
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">No review started</span>
+            <LedgerStatusBadge>No review started</LedgerStatusBadge>
             <Link href="/purchases/matching" className="text-xs font-medium text-palm hover:underline">
               View all purchase matching exceptions
             </Link>
@@ -91,17 +102,17 @@ export function PurchaseMatchingPanel({
       </div>
 
       {summary.warnings.length > 0 ? (
-        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+        <LedgerSummaryBand tone="warning">
           <ul className="space-y-1">
             {summary.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
           </ul>
-        </div>
+        </LedgerSummaryBand>
       ) : null}
 
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-left text-sm">
+      <LedgerSection title="Matching lines" description="Line-level ordered, billed, received, and follow-up quantities." className="mt-4 p-0">
+        <LedgerDataTable minWidth="1040px" className="rounded-t-none border-0 shadow-none">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-3 py-2">Line</th>
@@ -124,9 +135,7 @@ export function PurchaseMatchingPanel({
                   {line.item ? <div className="text-xs text-steel">{line.description}</div> : null}
                 </td>
                 <td className="px-3 py-2">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseMatchingStatusBadgeClass(line.status)}`}>
-                    {line.status}
-                  </span>
+                  <LedgerStatusBadge tone={purchaseMatchingStatusTone(line.status)}>{line.status}</LedgerStatusBadge>
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-xs">{line.orderedQuantity === null ? "-" : formatInventoryQuantity(line.orderedQuantity)}</td>
                 <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity)}</td>
@@ -163,16 +172,16 @@ export function PurchaseMatchingPanel({
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+        </LedgerDataTable>
+      </LedgerSection>
+    </LedgerPanel>
   );
 }
 
 function DocumentSummary({ title, document }: { title: string; document: PurchaseMatchingDocumentRef | null }) {
   if (!document) {
     return (
-      <div className="rounded-md bg-slate-50 p-3">
+      <div className="rounded-md border border-line bg-mist p-3">
         <p className="text-xs uppercase tracking-wide text-steel">{title}</p>
         <p className="mt-1 text-sm font-medium text-ink">Not linked</p>
       </div>
@@ -184,30 +193,15 @@ function DocumentSummary({ title, document }: { title: string; document: Purchas
   const date = document.orderDate ?? document.billDate ?? document.receiptDate ?? null;
 
   return (
-    <div className="rounded-md bg-slate-50 p-3">
+    <div className="rounded-md border border-line bg-mist p-3">
       <p className="text-xs uppercase tracking-wide text-steel">{title}</p>
       <Link href={href} className="mt-1 block text-sm font-medium text-palm hover:underline">
         {label}
       </Link>
       <p className="mt-1 text-xs text-steel">
         {document.status}
-        {date ? ` · ${formatOptionalDate(date, "-")}` : ""}
+        {date ? <> · <LedgerDate>{formatOptionalDate(date, "-")}</LedgerDate></> : ""}
       </p>
-    </div>
-  );
-}
-
-function Summary({ label, value, href }: { label: string; value: string; href?: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      {href ? (
-        <Link href={href} className="mt-1 block font-medium text-palm hover:underline">
-          {value}
-        </Link>
-      ) : (
-        <div className="mt-1 font-medium text-ink">{value}</div>
-      )}
     </div>
   );
 }
@@ -219,22 +213,22 @@ function purchaseMatchingDocumentHref(document: PurchaseMatchingDocumentRef): st
   return "#";
 }
 
-function purchaseMatchingStatusBadgeClass(status: PurchaseMatchingStatusLabel): string {
+function purchaseMatchingStatusTone(status: PurchaseMatchingStatusLabel): LedgerStatusTone {
   switch (status) {
     case "Matched":
-      return "bg-emerald-50 text-emerald-700";
+      return "success";
     case "Partially matched":
     case "Bill pending receipt":
     case "Receipt pending bill":
-      return "bg-amber-50 text-amber-700";
+      return "warning";
     case "Not received":
     case "Not billed":
-      return "bg-slate-100 text-slate-700";
+      return "neutral";
     case "Over received":
     case "Over billed":
-      return "bg-rose-50 text-rose-700";
+      return "danger";
     case "Review required":
-      return "bg-orange-50 text-orange-700";
+      return "warning";
   }
 }
 
@@ -246,10 +240,10 @@ function purchaseMatchingReviewStatusLabel(status: PurchaseMatchingReviewStatus)
     .join(" ");
 }
 
-function purchaseMatchingReviewBadgeClass(status: PurchaseMatchingReviewStatus): string {
-  if (status === "RESOLVED") return "bg-emerald-50 text-emerald-700";
-  if (status === "CANCELLED") return "bg-slate-100 text-slate-700";
-  if (status === "NEEDS_VARIANCE_REVIEW" || status === "NEEDS_RETURN_REVIEW") return "bg-orange-50 text-orange-700";
-  if (status === "WAITING_FOR_SUPPLIER" || status === "WAITING_FOR_RECEIPT" || status === "WAITING_FOR_BILL") return "bg-amber-50 text-amber-700";
-  return "bg-blue-50 text-blue-700";
+function purchaseMatchingReviewTone(status: PurchaseMatchingReviewStatus): LedgerStatusTone {
+  if (status === "RESOLVED") return "success";
+  if (status === "CANCELLED") return "neutral";
+  if (status === "NEEDS_VARIANCE_REVIEW" || status === "NEEDS_RETURN_REVIEW") return "warning";
+  if (status === "WAITING_FOR_SUPPLIER" || status === "WAITING_FOR_RECEIPT" || status === "WAITING_FOR_BILL") return "warning";
+  return "info";
 }
