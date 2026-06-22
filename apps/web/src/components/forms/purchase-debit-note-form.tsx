@@ -8,6 +8,7 @@ import {
   LedgerActionBar,
   LedgerAlert,
   LedgerButton,
+  LedgerDataTable,
   LedgerFieldHelp,
   LedgerFieldLabel,
   LedgerFieldText,
@@ -336,9 +337,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
               Add line
             </LedgerButton>
           </div>
-          <div className="overflow-x-auto rounded-md border border-line">
-            <div style={{ minWidth: "1120px" }}>
-              <table className="w-full text-left text-sm">
+          <LedgerDataTable minWidth="1120px" className="shadow-none">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                   <tr>
                     <th className="px-3 py-2">Item</th>
@@ -411,9 +410,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
-          </div>
+          </LedgerDataTable>
         </LedgerPanel>
 
         <LedgerPanel className="min-w-0">

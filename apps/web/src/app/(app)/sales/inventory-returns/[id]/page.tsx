@@ -332,9 +332,7 @@ export function SalesInventoryReturnInventoryMovementPanel({
         <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{preview.blockingReasons.join(" ")}</div>
       ) : null}
 
-      <div className="mt-4 overflow-x-auto rounded-md border border-line">
-        <div style={{ minWidth: "920px" }}>
-          <table className="w-full text-left text-sm">
+      <LedgerDataTable minWidth="920px" className="mt-4 shadow-none">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Item</th>
@@ -351,9 +349,7 @@ export function SalesInventoryReturnInventoryMovementPanel({
                 <PreviewLineRow key={line.lineId} line={line} />
               ))}
             </tbody>
-          </table>
-        </div>
-      </div>
+      </LedgerDataTable>
 
       {showPostAction ? (
         <LedgerActionBar className="mt-4 justify-end">
