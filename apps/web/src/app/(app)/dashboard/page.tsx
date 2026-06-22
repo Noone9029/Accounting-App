@@ -784,7 +784,7 @@ function CashBalanceTrend({ points, currency }: Readonly<{ points: DashboardCash
   return (
     <ChartShell title="Cash balance trend" empty={!chartHasData(points, "balance")}>
       {points.map((point) => (
-        <BarRow key={point.date} label={point.date.slice(0, 7)} value={point.balance} max={max} currency={currency} barClassName="bg-indigo-500" />
+        <BarRow key={point.date} label={point.date.slice(0, 7)} value={point.balance} max={max} currency={currency} barClassName="bg-palm" />
       ))}
     </ChartShell>
   );

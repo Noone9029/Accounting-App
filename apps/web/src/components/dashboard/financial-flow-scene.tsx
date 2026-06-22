@@ -137,7 +137,7 @@ export function FinancialFlowScene() {
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
       {fallback ? (
-        <div className="size-full bg-[linear-gradient(115deg,rgba(15,118,110,0.14),rgba(37,99,235,0.08)_44%,rgba(255,255,255,0)_72%)]" />
+        <div className="size-full bg-white/5" />
       ) : null}
     </div>
   );

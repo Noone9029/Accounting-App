@@ -266,6 +266,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Replaced remaining passive `border-slate-200 bg-slate-50` info-panel shells in email readiness/outbox, security, contacts, reconciliation review, landed-cost metrics, and invoice ZATCA/storage panels with shared `border-line bg-mist` tokens.
 - Preserved behavior and truth: email diagnostics/evidence gates, security guidance, statement handoffs, reconciliation review, landed-cost planning, invoice ZATCA readiness, and signed-artifact metadata wording remain unchanged.
 
+### 2026-06-22 Final Token Polish Loop
+
+- Replaced the remaining app-shell and marketing preview `border-slate-200 bg-slate-50/bg-white` token pockets with shared `border-line`, `bg-mist`, and `bg-panel` tokens, and removed the remaining app/dashboard fallback gradients and indigo bar palette pocket.
+- Preserved topbar context labeling, dashboard data behavior, financial scene behavior, app surface layout, and public marketing content/route behavior unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
