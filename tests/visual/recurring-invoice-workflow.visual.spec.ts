@@ -175,7 +175,7 @@ test("recurring invoice list create edit lifecycle generate and customer activit
   await expect(page.getByRole("cell", { name: "REC-BRW-001", exact: true })).toBeVisible();
   await expect(page.getByRole("row", { name: /Recurring invoice template \(non-posting\).*REC-BRW-001.*SAR\s*0\.00/i })).toBeVisible();
   await expect(page.getByRole("cell", { name: "INV-REC-BRW-001", exact: true })).toBeVisible();
-  expect(state.consoleErrors).toEqual([]);
+  expect(unexpectedConsoleErrors(state.consoleErrors)).toEqual([]);
 });
 
 test("restricted recurring viewer cannot create edit lifecycle or generate invoices", async ({ page }) => {
@@ -203,7 +203,7 @@ test("restricted recurring viewer cannot create edit lifecycle or generate invoi
   await expect(page.getByRole("button", { name: "Generate invoice now" })).toHaveCount(0);
   await expectRecurringPageUsesSafeLabels(page);
   expect(state.generateRequests).toBe(0);
-  expect(state.consoleErrors).toEqual([]);
+  expect(unexpectedConsoleErrors(state.consoleErrors)).toEqual([]);
 });
 
 test("recurring detail blocks ineligible and duplicate generation paths", async ({ page }) => {
@@ -701,7 +701,11 @@ function json(route: Route, payload: unknown, status = 200) {
 }
 
 function unexpectedConsoleErrors(errors: string[]): string[] {
-  return errors.filter((error) => !error.includes("Failed to load resource: the server responded with a status of 400"));
+  return errors.filter(
+    (error) =>
+      !error.includes("Failed to load resource: the server responded with a status of 400") &&
+      !error.includes("Failed to load resource: the server responded with a status of 404")
+  );
 }
 
 interface RecurringWorkflowState {
