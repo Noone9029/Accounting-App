@@ -1092,7 +1092,7 @@ function appendReturnTo(href: string, returnToHref?: string): string {
 
 export function CustomerStatementDocumentGuidance() {
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel">
+    <div className="mt-3 rounded-md border border-line bg-mist p-3 text-xs leading-5 text-steel">
       <p>
         <span className="font-medium text-ink">Customer statement:</span> Customer statements show invoices that
         increase what customers owe you, plus payments, credit notes, refunds, and reversals that reduce or adjust that
@@ -1120,7 +1120,7 @@ export function CustomerStatementDocumentGuidance() {
 
 export function SupplierStatementDocumentGuidance() {
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel">
+    <div className="mt-3 rounded-md border border-line bg-mist p-3 text-xs leading-5 text-steel">
       <p>
         <span className="font-medium text-ink">Supplier statement:</span> Supplier statements show purchase bills that
         increase what you owe suppliers, while supplier payments and debit notes reduce or adjust that payable balance.
@@ -1149,7 +1149,7 @@ function ContactZatcaReadinessCard({ section }: { section: ZatcaReadinessSection
   const visibleChecks = section.checks.slice(0, 5);
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="mt-5 rounded-md border border-line bg-mist p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-ink">ZATCA buyer address readiness</h3>

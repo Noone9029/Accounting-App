@@ -63,17 +63,17 @@ export default function SecuritySettingsPage() {
               Password reset is available through the existing reset flow using your registered email.
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <article className="rounded-md border border-line bg-mist p-4">
             <h3 className="text-sm font-semibold text-slate-900">Team access</h3>
             <p className="mt-1 text-sm text-slate-700">
               Team and role controls are managed from Team members and Roles settings.
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <article className="rounded-md border border-line bg-mist p-4">
             <h3 className="text-sm font-semibold text-slate-900">Audit visibility</h3>
             <p className="mt-1 text-sm text-slate-700">Security-relevant events are visible in audit logs.</p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <article className="rounded-md border border-line bg-mist p-4">
             <h3 className="text-sm font-semibold text-slate-900">Organization posture</h3>
             <p className="mt-1 text-sm text-slate-700">Organization profile and setup controls live in setup routes.</p>
           </article>

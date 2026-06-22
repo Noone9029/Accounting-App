@@ -21,7 +21,7 @@ export function EmailReadinessSafeStatus({
 }) {
   const blockers = readiness.blockers.length > 0 ? readiness.blockers : readiness.blockingReasons;
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
+    <div className="rounded-md border border-line bg-mist p-4 text-sm">
       <div className="grid gap-3 md:grid-cols-3">
         <SafeStatusItem label="Production readiness" value={emailProductionReadinessLabel(readiness.productionReady)} />
         <SafeStatusItem label="Readiness sends email" value={readiness.noCustomerEmailSent ? "No customer email sent" : "Review required"} />
