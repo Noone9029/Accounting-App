@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SalesInvoiceForm } from "@/components/forms/sales-invoice-form";
+import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { SalesInvoice } from "@/lib/types";
@@ -48,16 +48,13 @@ export default function EditSalesInvoicePage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit sales invoice</h1>
-          <p className="mt-1 text-sm text-steel">Draft invoices can be edited before finalization.</p>
-        </div>
-        <Link href={invoice ? `/sales/invoices/${invoice.id}` : "/sales/invoices"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Sales invoice"
+        title="Edit sales invoice"
+        description="Draft invoices can be edited before finalization."
+        actions={<LedgerButton href={invoice ? `/sales/invoices/${invoice.id}` : "/sales/invoices"}>Back</LedgerButton>}
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit invoices.</StatusMessage> : null}
@@ -65,7 +62,11 @@ export default function EditSalesInvoicePage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
-      {invoice ? <div className="mt-5"><SalesInvoiceForm initialInvoice={invoice} /></div> : null}
-    </section>
+      {invoice ? (
+        <LedgerPageBody>
+          <SalesInvoiceForm initialInvoice={invoice} />
+        </LedgerPageBody>
+      ) : null}
+    </LedgerPage>
   );
 }

@@ -69,7 +69,7 @@ New or migrated frontend routes should use the shared `ledger-system` primitives
 
 ## Current Route Adoption
 
-- Sales list surfaces: `/sales/invoices` and `/sales/quotes`.
+- Sales surfaces: `/sales/invoices`, `/sales/invoices/new`, `/sales/invoices/[id]/edit`, `/sales/quotes`, `/sales/quotes/new`, `/sales/quotes/[id]`, and `/sales/quotes/[id]/edit`.
 - Purchase list surfaces: `/purchases/bills` and `/purchases/debit-notes`.
 - Banking list surfaces: `/bank-accounts` and `/bank-transfers`.
 - Contacts surfaces: `/contacts`, `/customers/[id]`, `/suppliers/[id]`, `/customers/[id]/statement`, and `/suppliers/[id]/statement`.
