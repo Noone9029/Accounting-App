@@ -1,11 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
-  LedgerAlert,
-  LedgerEmptyState,
-  LedgerLoadingState,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
@@ -2029,17 +2027,4 @@ function ChecklistGroup({ category, items }: { category: string; items: ZatcaChe
       </div>
     </div>
   );
-}
-
-function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" | "success" }>) {
-  if (type === "loading") {
-    return <LedgerLoadingState title="Loading" description={children} />;
-  }
-  if (type === "empty") {
-    return <LedgerEmptyState title="No records" description={children} />;
-  }
-  if (type === "error") {
-    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
-  }
-  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
