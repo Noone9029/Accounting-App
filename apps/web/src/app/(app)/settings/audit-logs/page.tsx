@@ -1,8 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerToolbar,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiBaseUrl, apiRequest, getAccessToken } from "@/lib/api";
 import {
@@ -227,11 +241,12 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Audit logs</h1>
-        <p className="mt-1 text-sm text-steel">Review high-risk accounting, security, document, bank, inventory, and ZATCA actions.</p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Audit logs"
+        description="Review high-risk accounting, security, document, bank, inventory, and ZATCA actions."
+      />
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to review audit logs.</StatusMessage> : null}
@@ -242,31 +257,46 @@ export default function AuditLogsPage() {
         <StatusMessage type="info">List/detail reads are not logged. CSV export and retention previews use sanitized metadata only.</StatusMessage>
       </div>
 
-      <form onSubmit={applyFilters} className="mt-5 grid gap-3 rounded-md border border-slate-200 bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
-        <FilterInput label="Action" value={filters.action} onChange={(value) => setFilters((current) => ({ ...current, action: value }))} placeholder="COGS_POSTED" />
-        <FilterInput label="Entity type" value={filters.entityType} onChange={(value) => setFilters((current) => ({ ...current, entityType: value }))} placeholder="SalesInvoice" />
-        <FilterInput label="Actor user ID" value={filters.actorUserId} onChange={(value) => setFilters((current) => ({ ...current, actorUserId: value }))} placeholder="user id" />
-        <FilterInput label="Search" value={filters.search} onChange={(value) => setFilters((current) => ({ ...current, search: value }))} placeholder="action, entity, actor" />
-        <FilterInput label="From" type="date" value={filters.from} onChange={(value) => setFilters((current) => ({ ...current, from: value }))} />
-        <FilterInput label="To" type="date" value={filters.to} onChange={(value) => setFilters((current) => ({ ...current, to: value }))} />
-        <div className="flex flex-wrap items-end gap-2 md:col-span-3 xl:col-span-6">
-          <button type="submit" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">
-            Apply filters
-          </button>
-          <button type="button" onClick={resetFilters} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink">
-            Reset
-          </button>
-          {canExport ? (
-            <button type="button" onClick={exportCsv} disabled={exporting} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:opacity-60">
-              {exporting ? "Exporting..." : "Export CSV"}
-            </button>
+      <form onSubmit={applyFilters}>
+        <LedgerToolbar
+          title="Filter evidence"
+          description="Filters drive both the on-screen log list and the CSV export."
+          actions={
+            <>
+              <LedgerButton type="submit" variant="primary">
+                Apply filters
+              </LedgerButton>
+              <LedgerButton type="button" onClick={resetFilters}>
+                Reset
+              </LedgerButton>
+              {canExport ? (
+                <LedgerButton type="button" onClick={exportCsv} disabled={exporting}>
+                  {exporting ? "Exporting..." : "Export CSV"}
+                </LedgerButton>
+              ) : null}
+            </>
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <FilterInput label="Action" value={filters.action} onChange={(value) => setFilters((current) => ({ ...current, action: value }))} placeholder="COGS_POSTED" />
+            <FilterInput label="Entity type" value={filters.entityType} onChange={(value) => setFilters((current) => ({ ...current, entityType: value }))} placeholder="SalesInvoice" />
+            <FilterInput label="Actor user ID" value={filters.actorUserId} onChange={(value) => setFilters((current) => ({ ...current, actorUserId: value }))} placeholder="user id" />
+            <FilterInput label="Search" value={filters.search} onChange={(value) => setFilters((current) => ({ ...current, search: value }))} placeholder="action, entity, actor" />
+            <FilterInput label="From" type="date" value={filters.from} onChange={(value) => setFilters((current) => ({ ...current, from: value }))} />
+            <FilterInput label="To" type="date" value={filters.to} onChange={(value) => setFilters((current) => ({ ...current, to: value }))} />
+          </div>
+          {pagination ? (
+            <div className="mt-3 text-sm text-steel">
+              {pagination.total} matching log{pagination.total === 1 ? "" : "s"}
+            </div>
           ) : null}
-          {pagination ? <span className="text-sm text-steel">{pagination.total} matching log{pagination.total === 1 ? "" : "s"}</span> : null}
-        </div>
+        </LedgerToolbar>
       </form>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <form onSubmit={saveRetentionSettings} className="rounded-md border border-slate-200 bg-white p-5">
+      <LedgerPageBody>
+        <div className="grid gap-5 xl:grid-cols-2">
+        <form onSubmit={saveRetentionSettings}>
+          <LedgerPanel>
           <div className="mb-4">
             <h2 className="text-base font-semibold text-ink">Retention settings</h2>
             <p className="mt-1 text-sm text-steel">Retention is configuration-only. There is no automatic purge job in this release.</p>
@@ -295,9 +325,9 @@ export default function AuditLogsPage() {
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {canManageRetention ? (
-              <button type="submit" disabled={retentionSaving} className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+              <LedgerButton type="submit" disabled={retentionSaving} variant="primary">
                 {retentionSaving ? "Saving..." : "Save retention settings"}
-              </button>
+              </LedgerButton>
             ) : (
               <span className="text-sm text-steel">Retention changes require audit retention management permission.</span>
             )}
@@ -308,21 +338,26 @@ export default function AuditLogsPage() {
               {warning}
             </p>
           ))}
+          </LedgerPanel>
         </form>
 
-        <section className="rounded-md border border-slate-200 bg-white p-5">
+        <LedgerPanel>
           <div className="mb-4">
             <h2 className="text-base font-semibold text-ink">Retention preview</h2>
             <p className="mt-1 text-sm text-steel">Dry-run only. No audit logs are deleted from this panel.</p>
           </div>
           {canManageRetention && retentionPreview ? (
-            <div className="grid gap-3 text-sm md:grid-cols-2">
-              <Detail label="Cutoff date" value={formatDate(retentionPreview.cutoffDate)} />
-              <Detail label="Older than cutoff" value={String(retentionPreview.logsOlderThanCutoff)} />
-              <Detail label="Total audit logs" value={String(retentionPreview.totalAuditLogs)} />
-              <Detail label="Dry run only" value={retentionPreview.dryRunOnly ? "Yes" : "No"} />
-              <Detail label="Oldest log" value={formatOptionalDate(retentionPreview.oldestLogDate)} />
-              <Detail label="Newest log" value={formatOptionalDate(retentionPreview.newestLogDate)} />
+            <div className="grid gap-3 text-sm">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Cutoff date", value: formatDate(retentionPreview.cutoffDate) },
+                  { label: "Older than cutoff", value: String(retentionPreview.logsOlderThanCutoff) },
+                  { label: "Total audit logs", value: String(retentionPreview.totalAuditLogs) },
+                  { label: "Dry run only", value: retentionPreview.dryRunOnly ? "Yes" : "No" },
+                  { label: "Oldest log", value: formatOptionalDate(retentionPreview.oldestLogDate) },
+                  { label: "Newest log", value: formatOptionalDate(retentionPreview.newestLogDate) },
+                ]}
+              />
               <p className="md:col-span-2 text-sm text-steel">{retentionPreviewSummary(retentionPreview.logsOlderThanCutoff)}</p>
               {retentionPreview.warnings.map((warning) => (
                 <p key={warning} className="md:col-span-2 text-sm text-amber-700">
@@ -333,12 +368,13 @@ export default function AuditLogsPage() {
           ) : (
             <StatusMessage type="info">Retention preview requires audit retention management permission.</StatusMessage>
           )}
-        </section>
-      </div>
+        </LedgerPanel>
+        </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <section className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <div className="grid min-w-[760px] grid-cols-[170px_180px_160px_1fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">
+        <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+        <LedgerPanel className="p-0">
+          <div aria-label="Audit log table" className="overflow-x-auto">
+          <div className="grid min-w-[760px] grid-cols-[170px_180px_160px_1fr] border-b border-line bg-mist px-4 py-2 text-xs font-semibold uppercase text-steel">
             <div>Timestamp</div>
             <div>Actor</div>
             <div>Action</div>
@@ -349,8 +385,8 @@ export default function AuditLogsPage() {
               key={log.id}
               type="button"
               onClick={() => setSelectedId(log.id)}
-              className={`grid w-full min-w-[760px] grid-cols-[170px_180px_160px_1fr] items-start border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50 ${
-                selectedId === log.id ? "bg-slate-50" : ""
+              className={`ledger-focus grid w-full min-w-[760px] grid-cols-[170px_180px_160px_1fr] items-start border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50 ${
+                selectedId === log.id ? "bg-blue-50/60" : ""
               }`}
             >
               <span className="text-xs text-steel">{formatDate(log.createdAt)}</span>
@@ -362,10 +398,11 @@ export default function AuditLogsPage() {
               </span>
             </button>
           ))}
-          {!loading && logs.length === 0 ? <div className="px-4 py-6 text-sm text-steel">No audit logs found.</div> : null}
-        </section>
+          </div>
+          {!loading && logs.length === 0 ? <LedgerEmptyState title="No audit logs found" description="Adjust filters or review activity after high-risk actions are recorded." /> : null}
+        </LedgerPanel>
 
-        <section className="rounded-md border border-slate-200 bg-white p-5">
+        <LedgerPanel>
           {detailLoading ? <StatusMessage type="loading">Loading audit detail...</StatusMessage> : null}
           {selected && !detailLoading ? (
             <div className="space-y-4">
@@ -375,20 +412,23 @@ export default function AuditLogsPage() {
                   {auditEntityTypeLabel(selected.entityType)} / {selected.entityId}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <Detail label="Actor" value={actorLabel(selected)} />
-                <Detail label="Timestamp" value={formatDate(selected.createdAt)} />
-                <Detail label="IP address" value={selected.ipAddress ?? "-"} />
-                <Detail label="User agent" value={selected.userAgent ?? "-"} />
-              </div>
+              <LedgerMetadataRow
+                items={[
+                  { label: "Actor", value: actorLabel(selected) },
+                  { label: "Timestamp", value: formatDate(selected.createdAt) },
+                  { label: "IP address", value: selected.ipAddress ?? "-" },
+                  { label: "User agent", value: selected.userAgent ?? "-" },
+                ]}
+              />
               <MetadataBlock title="Before" value={selected.before} />
               <MetadataBlock title="After" value={selected.after} />
             </div>
           ) : null}
           {!selected && !detailLoading ? <StatusMessage type="empty">Select an audit log to inspect sanitized metadata.</StatusMessage> : null}
-        </section>
-      </div>
-    </section>
+        </LedgerPanel>
+        </div>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -408,17 +448,16 @@ function FilterInput({
   disabled?: boolean;
 }) {
   return (
-    <label className="text-sm">
-      <span className="block text-xs font-semibold uppercase tracking-wide text-steel">{label}</span>
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-ink disabled:bg-slate-100 disabled:text-slate-500"
       />
-    </label>
+    </LedgerFieldLabel>
   );
 }
 
@@ -434,19 +473,10 @@ function CheckboxInput({
   disabled?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-ink">
+    <label className="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} className="h-4 w-4" />
       <span>{label}</span>
     </label>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-slate-50 px-3 py-2">
-      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 break-words font-medium text-ink">{value}</div>
-    </div>
   );
 }
 
@@ -454,7 +484,7 @@ function MetadataBlock({ title, value }: { title: string; value: unknown }) {
   return (
     <div>
       <h3 className="text-xs font-semibold uppercase tracking-wide text-steel">{title}</h3>
-      <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-slate-950 p-3 text-xs text-slate-50">
+      <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-ink p-3 text-xs text-white">
         {JSON.stringify(sanitizeMetadataForDisplay(value), null, 2)}
       </pre>
     </div>
@@ -476,4 +506,17 @@ function formatOptionalDate(value: string | null): string {
 function readDownloadFilename(contentDisposition: string | null): string {
   const match = contentDisposition?.match(/filename="?([^";]+)"?/i);
   return match?.[1] ?? `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "empty" | "error" | "info" | "loading" | "success" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "empty") {
+    return <LedgerEmptyState title="No audit detail selected" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
