@@ -371,37 +371,37 @@ export default function AuditLogsPage() {
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
-        <LedgerPanel className="p-0">
-          <div aria-label="Audit log table" className="overflow-x-auto">
-          <div className="grid min-w-[760px] grid-cols-[170px_180px_160px_1fr] border-b border-line bg-mist px-4 py-2 text-xs font-semibold uppercase text-steel">
-            <div>Timestamp</div>
-            <div>Actor</div>
-            <div>Action</div>
-            <div>Entity / summary</div>
-          </div>
-          {logs.map((log) => (
-            <button
-              key={log.id}
-              type="button"
-              onClick={() => setSelectedId(log.id)}
-              className={`ledger-focus grid w-full min-w-[760px] grid-cols-[170px_180px_160px_1fr] items-start border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50 ${
-                selectedId === log.id ? "bg-blue-50/60" : ""
-              }`}
-            >
-              <span className="text-xs text-steel">{formatDate(log.createdAt)}</span>
-              <span className="truncate text-steel">{actorLabel(log)}</span>
-              <span className="font-medium text-ink">{auditActionLabel(log.action)}</span>
-              <span className="min-w-0">
-                <span className="block font-medium text-ink">{auditEntityTypeLabel(log.entityType)}</span>
-                <span className="block truncate text-xs text-steel">{auditLogSummary(log.after, log.before)}</span>
-              </span>
-            </button>
-          ))}
-          </div>
-          {!loading && logs.length === 0 ? <LedgerEmptyState title="No audit logs found" description="Adjust filters or review activity after high-risk actions are recorded." /> : null}
-        </LedgerPanel>
+          <LedgerPanel className="min-w-0 p-0">
+            <div aria-label="Audit log table" className="overflow-x-auto">
+              <div className="grid min-w-[760px] grid-cols-[170px_180px_160px_1fr] border-b border-line bg-mist px-4 py-2 text-xs font-semibold uppercase text-steel">
+                <div>Timestamp</div>
+                <div>Actor</div>
+                <div>Action</div>
+                <div>Entity / summary</div>
+              </div>
+              {logs.map((log) => (
+                <button
+                  key={log.id}
+                  type="button"
+                  onClick={() => setSelectedId(log.id)}
+                  className={`ledger-focus grid w-full min-w-[760px] grid-cols-[170px_180px_160px_1fr] items-start border-b border-slate-100 px-4 py-3 text-left text-sm hover:bg-slate-50 ${
+                    selectedId === log.id ? "bg-blue-50/60" : ""
+                  }`}
+                >
+                  <span className="text-xs text-steel">{formatDate(log.createdAt)}</span>
+                  <span className="truncate text-steel">{actorLabel(log)}</span>
+                  <span className="font-medium text-ink">{auditActionLabel(log.action)}</span>
+                  <span className="min-w-0">
+                    <span className="block font-medium text-ink">{auditEntityTypeLabel(log.entityType)}</span>
+                    <span className="block truncate text-xs text-steel">{auditLogSummary(log.after, log.before)}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {!loading && logs.length === 0 ? <LedgerEmptyState title="No audit logs found" description="Adjust filters or review activity after high-risk actions are recorded." /> : null}
+          </LedgerPanel>
 
-        <LedgerPanel>
+          <LedgerPanel className="min-w-0">
           {detailLoading ? <StatusMessage type="loading">Loading audit detail...</StatusMessage> : null}
           {selected && !detailLoading ? (
             <div className="space-y-4">

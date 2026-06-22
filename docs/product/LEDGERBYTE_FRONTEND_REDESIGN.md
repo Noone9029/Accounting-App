@@ -278,6 +278,13 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Generated documents remain bounded by the existing archive and download API behavior. This branch does not claim object-storage or signed URL readiness.
 - Settings surfaces remain admin/review/configuration entry points. They do not execute provider or compliance operations.
 
+## 2026-06-22 Stabilization Evidence
+
+- `UI-REBUILD-STABILIZE-01` was run from merged `origin/main` at `d12535cd2fc608797bc4664543cbbb1920379406`.
+- Added route-load, visual QA, accessibility, responsive, truthfulness, permission/action, and beta-walkthrough evidence under `docs/development/UI_REDESIGN_*` and `docs/beta-testing/REDESIGNED_FRONTEND_BETA_WALKTHROUGH.md`.
+- Fixed confirmed frontend regressions only: tablet app-shell/topbar wrapping and audit-log page horizontal overflow. Updated stale authenticated visual expectations without changing app behavior.
+- Verified no backend/API/schema/provider/storage/compliance behavior changed in this stabilization slice.
+
 ## Remaining Frontend Route Families
 
 - PR #146 through PR #210 are merged into `main` at `cb34543d16389344ba45e69a2db277fce4c633ad`.
@@ -288,4 +295,4 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ## Recommended Next Goal
 
-`UI-REBUILD-STABILIZE-01`: run a post-merge frontend stabilization pass over final `main`, expanding visual fixtures and fixing only confirmed frontend regressions.
+`BETA-WALKTHROUGH-01`: execute the redesigned frontend beta walkthrough against a safe local or controlled beta environment, capture findings, and fix only concrete walkthrough regressions.

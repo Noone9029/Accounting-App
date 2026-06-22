@@ -10,6 +10,7 @@ Base: final merged `origin/main` at `cb34543d16389344ba45e69a2db277fce4c633ad`
 
 | Area | Evidence |
 | --- | --- |
+| 2026-06-22 stabilization | `codex/ui-rebuild-stabilize-01` starts from merged `origin/main` at `d12535cd2fc608797bc4664543cbbb1920379406` and records post-merge route-load, visual, accessibility, responsive, truthfulness, permission/action, and beta-walkthrough evidence in the `UI_REDESIGN_*` docs plus `docs/beta-testing/REDESIGNED_FRONTEND_BETA_WALKTHROUGH.md`. Confirmed code fixes are limited to topbar tablet wrapping and audit-log overflow; stale visual assertions were refreshed in the authenticated visual hardening spec. |
 | UI system | `apps/web/src/components/ui/ledger-system.tsx` adds shared layout, table, form, state, workflow, summary, and review primitives. |
 | UI system tests | `apps/web/src/components/ui/ledger-system.test.tsx` covers the new semantic roles and rendering contracts. |
 | Settings overview | `apps/web/src/app/(app)/settings/page.tsx` now renders a grouped admin overview instead of redirecting. |
@@ -625,3 +626,13 @@ Base: final merged `origin/main` at `cb34543d16389344ba45e69a2db277fce4c633ad`
 ## Mutation Boundary
 
 This redesign evidence is local frontend and documentation evidence only. It does not run hosted migrations, Supabase mutations, Vercel mutations/deploys, provider calls, storage moves, signed URL operations, compliance submissions, generated-document object-storage operations, seed/reset/delete commands, or shutdown actions.
+
+## 2026-06-22 UI-REBUILD-STABILIZE-01 Evidence Addendum
+
+- Baseline: final merged `origin/main` at `d12535cd2fc608797bc4664543cbbb1920379406`.
+- Route-load evidence: `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification` passed, and full web Jest/build coverage remained green during the stabilization run.
+- Visual evidence: focused polished workflow coverage passed after a transient reports rerun; authenticated route hardening passed after stale copy assertions were updated; audit-log tablet/mobile overflow was reproduced and fixed; a broader old-fixture visual run exposed fixture/mock debt rather than new product behavior changes.
+- Accessibility/responsive evidence: manual/code sweep found existing landmarks, skip-link, labels, keyboard focus styling, non-color-only statuses, and responsive table/form primitives. No axe automation exists in this branch.
+- Truthfulness and permission evidence: clean-room verification stayed green, no production/provider/compliance/storage claim was added, and action availability remains tied to existing permission gates.
+- Beta-readiness artifact: `docs/beta-testing/REDESIGNED_FRONTEND_BETA_WALKTHROUGH.md` gives the next controlled tester walkthrough, with explicit no-real-email/no-provider/no-compliance/no-hosted-mutation boundaries.
+- Production readiness remains unchanged; this is frontend stabilization and QA evidence only.

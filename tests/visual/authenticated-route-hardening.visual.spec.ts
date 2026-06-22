@@ -29,7 +29,7 @@ const routes = [
   { slug: "purchase-debit-notes", path: "/purchases/debit-notes", heading: /Debit notes/i, actionText: /Create debit note/i },
   { slug: "documents", path: "/documents", heading: /^Documents$/i, actionText: /Generated PDF archive/i },
   { slug: "reports", path: "/reports", heading: /^Reports$/i, actionText: /First report path/i },
-  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, actionText: /Controlled beta/i },
+  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, actionText: /VAT and accounting review|Generic compliance surfaces/i },
   { slug: "settings-storage", path: "/settings/storage", heading: /Storage/i, actionText: /readiness and dry-run planning only/i },
   { slug: "bank-accounts", path: "/bank-accounts", heading: /Bank accounts/i, actionText: /Cash and bank profiles/i },
 ] as const;
@@ -96,7 +96,7 @@ for (const route of routes) {
 async function expectAuthenticatedShell(page: Page, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
-  await expect(banner.getByText("Accounting workspace", { exact: true })).toBeVisible();
+  await expect(banner.getByText("Accounting workspace", { exact: true }).first()).toBeVisible();
   await expect(banner.getByLabel("Organization")).toBeVisible();
   await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
   if (viewportName === "desktop") {
@@ -129,7 +129,7 @@ async function expectDashboardSpecifics(page: Page) {
   const main = page.locator("main");
   await expect(main.getByText("Receivables", { exact: true })).toBeVisible();
   await expect(main.getByText("Payables", { exact: true })).toBeVisible();
-  await expect(main.getByText(/ASP validation not connected/i).first()).toBeVisible();
+  await expect(main.getByText(/Generic compliance surfaces stay limited to VAT and accounting review/i).first()).toBeVisible();
   await expect(page.getByTestId("financial-flow-scene")).toBeVisible();
   await expect(page.getByTestId("financial-flow-scene")).toHaveAttribute("data-fallback", "true");
 }
