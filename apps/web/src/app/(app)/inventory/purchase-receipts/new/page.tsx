@@ -1,9 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -172,118 +186,112 @@ export default function NewPurchaseReceiptPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New purchase receipt</h1>
-          <p className="mt-1 text-sm text-steel">Receive inventory into a warehouse without creating accounting journals.</p>
-        </div>
-        <Link href={returnTo || "/inventory/purchase-receipts"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="New purchase receipt"
+        description="Receive inventory into a warehouse without creating accounting journals."
+        actions={<LedgerButton href={returnTo || "/inventory/purchase-receipts"}>Back</LedgerButton>}
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to create purchase receipts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
-        {statusLoading ? <StatusMessage type="loading">Loading receivable lines...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to create purchase receipts.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading form data" /> : null}
+        {statusLoading ? <LedgerLoadingState title="Loading receivable lines" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      <form onSubmit={createReceipt} className="mt-5 space-y-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Source type</span>
-            <select
-              value={sourceType}
-              onChange={(event) => {
-                setSourceType(event.target.value as SourceType);
-                setSourceId("");
-                setStatus(null);
-              }}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-            >
-              <option value="purchaseOrder">{purchaseReceiptSourceTypeLabel("purchaseOrder")}</option>
-              <option value="purchaseBill">{purchaseReceiptSourceTypeLabel("purchaseBill")}</option>
-              <option value="standalone">{purchaseReceiptSourceTypeLabel("standalone")}</option>
-            </select>
-          </label>
+        <form onSubmit={createReceipt} className="space-y-5">
+          <LedgerFormSection title="Receipt source" description="Choose the purchase source, receiving warehouse, and receipt date.">
+            <LedgerFieldLabel>
+              <LedgerFieldText>Source type</LedgerFieldText>
+              <LedgerSelect
+                value={sourceType}
+                onChange={(event) => {
+                  setSourceType(event.target.value as SourceType);
+                  setSourceId("");
+                  setStatus(null);
+                }}
+              >
+                <option value="purchaseOrder">{purchaseReceiptSourceTypeLabel("purchaseOrder")}</option>
+                <option value="purchaseBill">{purchaseReceiptSourceTypeLabel("purchaseBill")}</option>
+                <option value="standalone">{purchaseReceiptSourceTypeLabel("standalone")}</option>
+              </LedgerSelect>
+            </LedgerFieldLabel>
 
-          {sourceType === "purchaseOrder" ? (
-            <SourceSelect label="Purchase order" value={sourceId} onChange={setSourceId} options={purchaseOrders.map((order) => ({ id: order.id, label: `${order.purchaseOrderNumber} - ${order.supplier?.displayName ?? order.supplier?.name ?? order.supplierId}` }))} />
-          ) : null}
-          {sourceType === "purchaseBill" ? (
-            <SourceSelect label="Purchase bill" value={sourceId} onChange={setSourceId} options={purchaseBills.map((bill) => ({ id: bill.id, label: `${bill.billNumber} - ${bill.supplier?.displayName ?? bill.supplier?.name ?? bill.supplierId}` }))} />
-          ) : null}
+            {sourceType === "purchaseOrder" ? (
+              <SourceSelect label="Purchase order" value={sourceId} onChange={setSourceId} options={purchaseOrders.map((order) => ({ id: order.id, label: `${order.purchaseOrderNumber} - ${order.supplier?.displayName ?? order.supplier?.name ?? order.supplierId}` }))} />
+            ) : null}
+            {sourceType === "purchaseBill" ? (
+              <SourceSelect label="Purchase bill" value={sourceId} onChange={setSourceId} options={purchaseBills.map((bill) => ({ id: bill.id, label: `${bill.billNumber} - ${bill.supplier?.displayName ?? bill.supplier?.name ?? bill.supplierId}` }))} />
+            ) : null}
+            {sourceType === "standalone" ? (
+              <SourceSelect label="Supplier" value={supplierId} onChange={setSupplierId} options={suppliers.map((supplier) => ({ id: supplier.id, label: supplier.displayName ?? supplier.name }))} />
+            ) : null}
+
+            <LedgerFieldLabel>
+              <LedgerFieldText>Warehouse</LedgerFieldText>
+              <LedgerSelect value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required>
+                <option value="">Select warehouse</option>
+                {activeWarehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+
+            <LedgerFieldLabel>
+              <LedgerFieldText>Receipt date</LedgerFieldText>
+              <LedgerInput name="receiptDate" type="date" required defaultValue={todayInputValue()} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Notes</LedgerFieldText>
+              <LedgerInput name="notes" placeholder="Optional" />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
+
           {sourceType === "standalone" ? (
-            <SourceSelect label="Supplier" value={supplierId} onChange={setSupplierId} options={suppliers.map((supplier) => ({ id: supplier.id, label: supplier.displayName ?? supplier.name }))} />
-          ) : null}
+            <LedgerFormSection title="Standalone receipt line">
+              <SourceSelect label="Item" value={standaloneItemId} onChange={setStandaloneItemId} options={trackedItems.map((item) => ({ id: item.id, label: `${item.name}${item.sku ? ` (${item.sku})` : ""}` }))} />
+              <LineInput label="Quantity" value={standaloneQuantity} onChange={setStandaloneQuantity} />
+              <LineInput label="Unit cost" value={standaloneUnitCost} onChange={setStandaloneUnitCost} placeholder="Optional" />
+            </LedgerFormSection>
+          ) : (
+            <ReceivableLines lines={sourceLines} quantities={lineQuantities} unitCosts={lineUnitCosts} setQuantity={setLineQuantities} setUnitCost={setLineUnitCosts} />
+          )}
 
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Warehouse</span>
-            <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select warehouse</option>
-              {activeWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Receipt date</span>
-            <input name="receiptDate" type="date" required defaultValue={todayInputValue()} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Notes</span>
-            <input name="notes" placeholder="Optional" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
-
-        {sourceType === "standalone" ? (
-          <div className="grid grid-cols-1 gap-4 border-t border-slate-200 pt-5 md:grid-cols-3">
-            <SourceSelect label="Item" value={standaloneItemId} onChange={setStandaloneItemId} options={trackedItems.map((item) => ({ id: item.id, label: `${item.name}${item.sku ? ` (${item.sku})` : ""}` }))} />
-            <LineInput label="Quantity" value={standaloneQuantity} onChange={setStandaloneQuantity} />
-            <LineInput label="Unit cost" value={standaloneUnitCost} onChange={setStandaloneUnitCost} placeholder="Optional" />
+          <div className="flex justify-end gap-3">
+            <LedgerButton href={returnTo || "/inventory/purchase-receipts"}>Cancel</LedgerButton>
+            <LedgerButton type="submit" disabled={submitting} variant="primary">
+              {submitting ? "Posting..." : "Post receipt"}
+            </LedgerButton>
           </div>
-        ) : (
-          <ReceivableLines lines={sourceLines} quantities={lineQuantities} unitCosts={lineUnitCosts} setQuantity={setLineQuantities} setUnitCost={setLineUnitCosts} />
-        )}
-
-        <div className="flex justify-end gap-3">
-          <Link href={returnTo || "/inventory/purchase-receipts"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Posting..." : "Post receipt"}
-          </button>
-        </div>
-      </form>
-    </section>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function SourceSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: Array<{ id: string; label: string }> }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerSelect value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select {label.toLowerCase()}</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>{option.label}</option>
         ))}
-      </select>
-    </label>
+      </LedgerSelect>
+    </LedgerFieldLabel>
   );
 }
 
 function LineInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-    </label>
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </LedgerFieldLabel>
   );
 }
 
@@ -301,12 +309,12 @@ function ReceivableLines({
   setUnitCost: (value: Record<string, string>) => void;
 }) {
   if (lines.length === 0) {
-    return <StatusMessage type="empty">No remaining inventory-tracked source lines are available to receive.</StatusMessage>;
+    return <LedgerAlert tone="info">No remaining inventory-tracked source lines are available to receive.</LedgerAlert>;
   }
 
   return (
-    <div className="overflow-x-auto border-t border-slate-200 pt-5">
-      <table className="w-full min-w-[760px] text-left text-sm">
+    <LedgerFormSection title="Receivable lines" description="Only inventory-tracked source lines with remaining quantity are shown." className="[&_>div]:block">
+      <LedgerDataTable minWidth="760px">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-3 py-2">Item</th>
@@ -321,19 +329,19 @@ function ReceivableLines({
           {lines.map((line) => (
             <tr key={line.lineId}>
               <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.sourceQuantity)}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.receivedQuantity)}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.sourceQuantity)}</LedgerMoney></td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.receivedQuantity)}</LedgerMoney></td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.remainingQuantity)}</LedgerMoney></td>
               <td className="px-3 py-2">
-                <input value={quantities[line.lineId] ?? ""} onChange={(event) => setQuantity({ ...quantities, [line.lineId]: event.target.value })} className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                <LedgerInput value={quantities[line.lineId] ?? ""} onChange={(event) => setQuantity({ ...quantities, [line.lineId]: event.target.value })} className="w-32" />
               </td>
               <td className="px-3 py-2">
-                <input value={unitCosts[line.lineId] ?? ""} onChange={(event) => setUnitCost({ ...unitCosts, [line.lineId]: event.target.value })} placeholder="Optional" className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                <LedgerInput value={unitCosts[line.lineId] ?? ""} onChange={(event) => setUnitCost({ ...unitCosts, [line.lineId]: event.target.value })} placeholder="Optional" className="w-32" />
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </LedgerDataTable>
+    </LedgerFormSection>
   );
 }

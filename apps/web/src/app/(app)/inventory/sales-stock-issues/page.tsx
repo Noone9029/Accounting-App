@@ -1,13 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatInventoryQuantity, inventoryOperationalWarning, stockDocumentStatusBadgeClass, stockDocumentStatusLabel } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryOperationalWarning, stockDocumentStatusLabel } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { SalesStockIssue } from "@/lib/types";
 
@@ -43,31 +56,27 @@ export default function SalesStockIssuesPage() {
   }, [organizationId]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Sales stock issues</h1>
-          <p className="mt-1 text-sm text-steel">Operational stock issues against finalized sales invoices.</p>
-        </div>
-        {canCreate ? (
-          <Link href="/inventory/sales-stock-issues/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            New issue
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="Sales stock issues"
+        description="Operational stock issues against finalized sales invoices."
+        actions={canCreate ? <LedgerButton href="/inventory/sales-stock-issues/new" variant="primary">New issue</LedgerButton> : null}
+      />
+
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
+
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load sales stock issues.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading sales stock issues" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+
+        {!loading && organizationId && issues.length === 0 ? (
+          <LedgerEmptyState title="No sales stock issues found" description="Operational stock issues for finalized sales invoices will appear here." />
         ) : null}
-      </div>
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
-
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load sales stock issues.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading sales stock issues...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && issues.length === 0 ? <StatusMessage type="empty">No sales stock issues found.</StatusMessage> : null}
-      </div>
-
-      {issues.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[980px] text-left text-sm">
+        {issues.length > 0 ? (
+          <LedgerDataTable minWidth="980px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Issue</th>
@@ -84,30 +93,35 @@ export default function SalesStockIssuesPage() {
               {issues.map((issue) => (
                 <tr key={issue.id}>
                   <td className="px-4 py-3 font-mono text-xs">{issue.issueNumber}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(issue.issueDate, "-")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(issue.issueDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 text-ink">{issue.customer?.displayName ?? issue.customer?.name ?? issue.customerId}</td>
                   <td className="px-4 py-3 text-steel">{issue.salesInvoice?.invoiceNumber ?? issue.salesInvoiceId}</td>
                   <td className="px-4 py-3 text-steel">{issue.warehouse ? `${issue.warehouse.code} ${issue.warehouse.name}` : issue.warehouseId}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(totalIssueQuantity(issue))}</td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(totalIssueQuantity(issue))}</LedgerMoney></td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(issue.status)}`}>{stockDocumentStatusLabel(issue.status)}</span>
+                    <LedgerStatusBadge tone={stockDocumentStatusTone(issue.status)}>{stockDocumentStatusLabel(issue.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/inventory/sales-stock-issues/${issue.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      View
-                    </Link>
+                    <LedgerButton href={`/inventory/sales-stock-issues/${issue.id}`} size="sm">View</LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 function totalIssueQuantity(issue: SalesStockIssue): string {
   const total = issue.lines?.reduce((sum, line) => sum + Number(line.quantity || 0), 0) ?? 0;
   return String(total);
+}
+
+function stockDocumentStatusTone(status: string): LedgerStatusTone {
+  if (status === "POSTED") return "success";
+  if (status === "VOIDED") return "danger";
+  if (status === "DRAFT") return "draft";
+  return "neutral";
 }

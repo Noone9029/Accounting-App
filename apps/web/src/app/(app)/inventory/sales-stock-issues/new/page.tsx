@@ -1,9 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryOperationalWarning, validateSalesStockIssueInput } from "@/lib/inventory";
@@ -134,70 +148,65 @@ export default function NewSalesStockIssuePage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New sales stock issue</h1>
-          <p className="mt-1 text-sm text-steel">Issue inventory for a finalized sales invoice without posting COGS.</p>
-        </div>
-        <Link href="/inventory/sales-stock-issues" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="New sales stock issue"
+        description="Issue inventory for a finalized sales invoice without posting COGS."
+        actions={<LedgerButton href="/inventory/sales-stock-issues">Back</LedgerButton>}
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to issue stock.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
-        {statusLoading ? <StatusMessage type="loading">Loading invoice issue status...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to issue stock.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading form data" /> : null}
+        {statusLoading ? <LedgerLoadingState title="Loading invoice issue status" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      <form onSubmit={createIssue} className="mt-5 space-y-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Sales invoice</span>
-            <select value={salesInvoiceId} onChange={(event) => setSalesInvoiceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select invoice</option>
-              {finalizedInvoices.map((invoice) => (
-                <option key={invoice.id} value={invoice.id}>
-                  {invoice.invoiceNumber} - {invoice.customer?.displayName ?? invoice.customer?.name ?? invoice.customerId}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Warehouse</span>
-            <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">Select warehouse</option>
-              {activeWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Issue date</span>
-            <input name="issueDate" type="date" required defaultValue={todayInputValue()} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-          <label className="block md:col-span-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-steel">Notes</span>
-            <input name="notes" placeholder="Optional" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          </label>
-        </div>
+        <form onSubmit={createIssue} className="space-y-5">
+          <LedgerFormSection title="Issue source" description="Choose the finalized invoice, issuing warehouse, and issue date.">
+            <LedgerFieldLabel>
+              <LedgerFieldText>Sales invoice</LedgerFieldText>
+              <LedgerSelect value={salesInvoiceId} onChange={(event) => setSalesInvoiceId(event.target.value)}>
+                <option value="">Select invoice</option>
+                {finalizedInvoices.map((invoice) => (
+                  <option key={invoice.id} value={invoice.id}>
+                    {invoice.invoiceNumber} - {invoice.customer?.displayName ?? invoice.customer?.name ?? invoice.customerId}
+                  </option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Warehouse</LedgerFieldText>
+              <LedgerSelect value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required>
+                <option value="">Select warehouse</option>
+                {activeWarehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>{warehouse.code} {warehouse.name}</option>
+                ))}
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Issue date</LedgerFieldText>
+              <LedgerInput name="issueDate" type="date" required defaultValue={todayInputValue()} />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Notes</LedgerFieldText>
+              <LedgerInput name="notes" placeholder="Optional" />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
 
-        <IssuableLines lines={issueLines} quantities={lineQuantities} unitCosts={lineUnitCosts} setQuantity={setLineQuantities} setUnitCost={setLineUnitCosts} />
+          <IssuableLines lines={issueLines} quantities={lineQuantities} unitCosts={lineUnitCosts} setQuantity={setLineQuantities} setUnitCost={setLineUnitCosts} />
 
-        <div className="flex justify-end gap-3">
-          <Link href="/inventory/sales-stock-issues" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Posting..." : "Post issue"}
-          </button>
-        </div>
-      </form>
-    </section>
+          <div className="flex justify-end gap-3">
+            <LedgerButton href="/inventory/sales-stock-issues">Cancel</LedgerButton>
+            <LedgerButton type="submit" disabled={submitting} variant="primary">
+              {submitting ? "Posting..." : "Post issue"}
+            </LedgerButton>
+          </div>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -215,12 +224,12 @@ function IssuableLines({
   setUnitCost: (value: Record<string, string>) => void;
 }) {
   if (lines.length === 0) {
-    return <StatusMessage type="empty">No remaining inventory-tracked sales invoice lines are available to issue.</StatusMessage>;
+    return <LedgerAlert tone="info">No remaining inventory-tracked sales invoice lines are available to issue.</LedgerAlert>;
   }
 
   return (
-    <div className="overflow-x-auto border-t border-slate-200 pt-5">
-      <table className="w-full min-w-[760px] text-left text-sm">
+    <LedgerFormSection title="Issuable lines" description="Only inventory-tracked invoice lines with remaining quantity are shown." className="[&_>div]:block">
+      <LedgerDataTable minWidth="760px">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-3 py-2">Item</th>
@@ -235,19 +244,19 @@ function IssuableLines({
           {lines.map((line) => (
             <tr key={line.lineId}>
               <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.invoicedQuantity)}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.issuedQuantity)}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.invoicedQuantity)}</LedgerMoney></td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.issuedQuantity)}</LedgerMoney></td>
+              <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.remainingQuantity)}</LedgerMoney></td>
               <td className="px-3 py-2">
-                <input value={quantities[line.lineId] ?? ""} onChange={(event) => setQuantity({ ...quantities, [line.lineId]: event.target.value })} className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                <LedgerInput value={quantities[line.lineId] ?? ""} onChange={(event) => setQuantity({ ...quantities, [line.lineId]: event.target.value })} className="w-32" />
               </td>
               <td className="px-3 py-2">
-                <input value={unitCosts[line.lineId] ?? ""} onChange={(event) => setUnitCost({ ...unitCosts, [line.lineId]: event.target.value })} placeholder="Optional" className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                <LedgerInput value={unitCosts[line.lineId] ?? ""} onChange={(event) => setUnitCost({ ...unitCosts, [line.lineId]: event.target.value })} placeholder="Optional" className="w-32" />
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </LedgerDataTable>
+    </LedgerFormSection>
   );
 }
