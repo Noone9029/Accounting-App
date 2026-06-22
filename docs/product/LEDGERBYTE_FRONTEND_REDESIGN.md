@@ -256,6 +256,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Tightened the shared auth shell spacing, footer divider, and focus treatment for auth text links, and cleaned up malformed auth page JSX indentation.
 - Preserved auth behavior: login/register/password-reset/invite endpoints, redirects, token handling, and mock/local email wording remain unchanged.
 
+### 2026-06-22 Marketing Surface Polish Loop
+
+- Reduced bespoke public-site card radii, removed the decorative radial page glow and product-preview orb, and aligned marketing CTAs/cards/previews with the LedgerByte panel shape.
+- Preserved public truth: private-beta, public-pricing-held, no-production-launch, no-provider, no-certification, and market-gated KSA/UAE wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
