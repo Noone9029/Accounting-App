@@ -737,7 +737,7 @@ function SalesPurchasesTrend({
       {sales.map((point, index) => {
         const purchasePoint = purchases[index] ?? { month: point.month, amount: "0.0000" };
         return (
-          <div key={point.month} className="grid grid-cols-[4.5rem_1fr] gap-3 text-xs">
+          <div key={point.month} className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3">
             <div className="font-medium text-steel">{point.month}</div>
             <div className="space-y-1.5">
               <BarRow label="Sales" value={point.amount} max={max} currency={currency} barClassName="bg-palm" />
@@ -856,7 +856,7 @@ function BarRow({
   barClassName,
 }: Readonly<{ label: string; value: string | number; max: number; currency: string; barClassName: string }>) {
   return (
-    <div className="grid grid-cols-[4.5rem_1fr_6.5rem] items-center gap-2 text-xs">
+    <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_5.75rem] items-center gap-1.5 text-xs sm:grid-cols-[4.5rem_minmax(0,1fr)_6.5rem] sm:gap-2">
       <div className="truncate font-medium text-steel">{label}</div>
       <div className="h-2 rounded-full bg-slate-100">
         <div className={`h-2 rounded-full ${barClassName}`} style={{ width: chartBarPercent(value, max) }} />

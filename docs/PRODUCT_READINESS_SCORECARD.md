@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-06-22 Frontend Redesign Full-Stack Merge Update
+
+- Usability baseline improves because the full frontend redesign PR stack #146 through #210 is merged into `main` at `cb34543d16389344ba45e69a2db277fce4c633ad`.
+- The merged baseline covers the scoped sales, purchase, banking, contacts/statements, inventory, accounting/admin, reports, documents/storage, settings/compliance, setup/onboarding, dashboard, public/auth, and placeholder route-family migrations tracked in the redesign checklist.
+- Final local verification passed with `verify:ci:local` and the OpenBooks clean-room guard. Focused visual coverage was refreshed and the dashboard/mobile workflow navigation overflow regression was fixed.
+- No production readiness score increase is taken for launch readiness. This merge does not add backend APIs, hosted migrations, Supabase mutations, Vercel deployments, provider calls, live banking, automated reconciliation, generated-document object storage, signed URLs, storage moves, ZATCA/UAE/Peppol/ASP production behavior, tax-authority submission, seed/reset/delete behavior, or shutdown behavior.
+- Next readiness work is `UI-REBUILD-STABILIZE-01`: expand visual fixtures and fix only confirmed frontend regressions on final `main`.
+
 ## 2026-06-22 Frontend Redesign Loop Engineering Update
 
 - Product usability improves because LedgerByte now has a full route-family frontend redesign checklist and the first Sales workspace list loop is in progress.

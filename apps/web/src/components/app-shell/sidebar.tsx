@@ -146,8 +146,8 @@ export function MobileWorkflowNav() {
   }
 
   return (
-    <nav className="border-b border-line bg-white px-4 py-2 lg:hidden" aria-label="First workflow navigation">
-      <div className="flex items-center gap-2">
+    <nav className="overflow-hidden border-b border-line bg-white px-4 py-2 lg:hidden" aria-label="First workflow navigation">
+      <div className="flex min-w-0 items-center gap-2">
         <Sheet>
           <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open navigation" />}>
             <Menu />
@@ -159,7 +159,7 @@ export function MobileWorkflowNav() {
             <SidebarContent compact />
           </SheetContent>
         </Sheet>
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+        <div className="flex min-w-0 w-0 flex-1 gap-2 overflow-x-auto pb-1">
         {visibleLinks.map((item) => {
           const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (

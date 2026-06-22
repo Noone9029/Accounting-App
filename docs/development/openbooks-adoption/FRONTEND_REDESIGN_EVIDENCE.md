@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-storage-readiness`
+Branch: merged into `main` through PR #210, with follow-up stabilization on `codex/ui-redesign-full-stack-merge-docs`
 
-Base: stacked on `origin/codex/ui-redesign-documents-storage-settings` while PR #180 is open
+Base: final merged `origin/main` at `cb34543d16389344ba45e69a2db277fce4c633ad`
 
 ## Evidence Summary
 
@@ -20,6 +20,8 @@ Base: stacked on `origin/codex/ui-redesign-documents-storage-settings` while PR 
 | Report drilldowns loop | `apps/web/src/components/reports/report-pages.tsx` drives `/reports`, General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, VAT Return, Aged Receivables, and Aged Payables through shared Ledger page, toolbar, field, alert, loading, empty, panel, stat, table, date, money, action, and workflow primitives while preserving report query filters, exports, return-to links, aging handoffs, and internal-review VAT wording. |
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
+| Full-stack merge | PR #146 through PR #210 were merged bottom-up into `main`; dependent PRs were retargeted to `main`; no PR head rebase or conflict resolution was required. |
+| Final verification | `corepack pnpm verify:ci:local`: PASS; `corepack pnpm verify:openbooks-clean-room`: PASS; focused `polished-workflows` visual suite passes after refreshing expected redesign baselines and fixing dashboard/mobile-nav overflow. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
 | Sales document workflow loop | `apps/web/src/components/forms/sales-invoice-form.tsx`, `apps/web/src/components/forms/sales-quote-form.tsx`, and sales invoice/quote new/edit/quote-detail route shells use shared LedgerByte page, field, table, metric, status, summary, and action primitives while preserving draft, posting, quote non-posting, PDF archive, and return-to behavior. |
 | Sales invoice detail loop | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` now uses shared LedgerByte page, section, metric, summary, data-table, date, money, status, panel, and action primitives while preserving finalization/void/delete/PDF/payment/credit-note/stock-issue/collection/compliance/ZATCA behavior. |

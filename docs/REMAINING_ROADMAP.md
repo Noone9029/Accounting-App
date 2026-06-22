@@ -1,5 +1,12 @@
 # Remaining Roadmap
 
+## 2026-06-22 Frontend Redesign Full-Stack Merge
+
+- PR #146 through PR #210 are merged into `main`; final stack SHA is `cb34543d16389344ba45e69a2db277fce4c633ad`.
+- The route-family redesign migration is no longer an open stacked PR queue.
+- Immediate remaining frontend work is stabilization, not new route migration: expand visual coverage, inspect migrated workflows on final `main`, and fix only confirmed frontend regressions.
+- Recommended next prompt: `UI-REBUILD-STABILIZE-01`.
+
 ## 2026-06-22 Frontend Redesign Loop Engineering
 
 - Branch `codex/ui-rebuild-loop-full-frontend` starts the full route-family loop from merged `origin/main`.
