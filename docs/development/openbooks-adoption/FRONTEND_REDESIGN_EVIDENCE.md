@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-variance-proposals`
+Branch: `codex/ui-redesign-inventory-reports-settings`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-valuation-flows` while PR #174 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-variance-proposals` while PR #175 is open
 
 ## Evidence Summary
 
@@ -52,6 +52,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-valuation-flows` while PR #
 | Inventory traceability loop | `apps/web/src/components/inventory/traceability-setup-pages.tsx` now drives `/inventory/batches`, `/inventory/batches/new`, `/inventory/batches/[id]`, `/inventory/serial-numbers`, `/inventory/serial-numbers/new`, `/inventory/serial-numbers/[id]`, `/inventory/bin-locations`, `/inventory/bin-locations/new`, `/inventory/bin-locations/[id]`, and `/inventory/traceability/items/[id]` with shared LedgerByte page, alert, loading, empty, field, metadata, status, summary, panel, and action primitives while preserving setup loads, create/update payloads, read-only item traceability, permissions, and no-mutation/no-posting/no-valuation/no-FIFO/no-COGS/no-VAT/no-ZATCA boundaries. |
 | Inventory valuation preview loop | `apps/web/src/app/(app)/inventory/fifo-preview/page.tsx`, `apps/web/src/app/(app)/inventory/landed-cost/page.tsx`, and `apps/web/src/app/(app)/inventory/valuation-variances/page.tsx` use shared LedgerByte page, header, toolbar, field, alert, loading, empty, metadata, stat, table, summary, and action primitives while preserving FIFO reconstruction output, landed cost preview payloads, valuation variance filters/source links, permissions, and no-posting/no-valuation/no-COGS/no-VAT/no-ZATCA/no-AP/no-AR boundaries. |
 | Inventory variance proposals loop | `apps/web/src/app/(app)/inventory/variance-proposals/page.tsx`, `apps/web/src/app/(app)/inventory/variance-proposals/new/page.tsx`, and `apps/web/src/app/(app)/inventory/variance-proposals/[id]/page.tsx` use shared LedgerByte page, header, panel, form field, select/input, alert, loading, empty, metadata, table, status, money/date, and action primitives while preserving proposal list loading, clearing-source/manual create payloads, workflow action guards, confirmation prompts, accounting preview, events, attachments, and explicit posting/reversal boundaries. |
+| Inventory report surfaces loop | `apps/web/src/app/(app)/inventory/reports/stock-valuation/page.tsx`, `apps/web/src/app/(app)/inventory/reports/low-stock/page.tsx`, and `apps/web/src/app/(app)/inventory/reports/movement-summary/page.tsx` use shared LedgerByte page, header, summary, alert, loading, empty, field, filter, stat, table, money, and action primitives while preserving read-only report loads, report guidance, filters, FIFO/traceability handoffs, and no-posting/no-accounting/no-COGS boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -475,6 +476,20 @@ Base: stacked on `origin/codex/ui-redesign-inventory-valuation-flows` while PR #
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - `git diff --cached --check`: PASS.
 - Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover variance proposal list/new/detail workflows together with the other valuation/report/settings routes.
+
+## 2026-06-22 Inventory Report Surfaces Loop Evidence
+
+- `/inventory/reports/stock-valuation`: migrated the report shell, warning/guidance panels, loading/error/empty states, valuation metric cards, valuation table, FIFO links, traceability links, and guidance actions to shared Ledger primitives while preserving `/inventory/reports/stock-valuation` loading, value display helpers, and operational-estimate/no-posting wording.
+- `/inventory/reports/low-stock`: migrated the report shell, planning warning, guidance panel, loading/error/empty states, low-stock count metric, and report table to shared Ledger primitives while preserving `/inventory/reports/low-stock` loading, reorder-point labels, and no-accounting-entry wording.
+- `/inventory/reports/movement-summary`: migrated the report shell, movement warning/guidance, filter form, loading/error/empty states, summary metrics, movement table, and action links to shared Ledger primitives while preserving `/items`, `/warehouses`, and `/inventory/reports/movement-summary` loading, query construction, and operational-only/no-journal/no-COGS/no-receipt/no-return/no-issue wording.
+- Existing behavior remains frontend-only and unchanged: this pass does not add report exports, posting, inventory valuation math, FIFO activation, landed cost posting, COGS entries, AP/AR effects, VAT/ZATCA/compliance behavior, schema changes, storage behavior, provider calls, or hosted mutations.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification inventory-guidance reports inventory`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- `git diff --cached --check`: PASS.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover stock valuation, low stock, movement summary, clearing reports, settings, and variance proposal workflows.
 
 ## 2026-06-22 Inventory Receipt and Issue Loop Evidence
 
