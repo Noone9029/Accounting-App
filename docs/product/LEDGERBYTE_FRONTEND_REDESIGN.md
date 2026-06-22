@@ -187,6 +187,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated permission boundary, permission matrix, banking accounting status, UAE eInvoice readiness, and valuation variance preview panels to shared LedgerByte panel, loading, error, empty, alert, summary, metric, table, status, and action primitives.
 - Preserved system-panel truth: access checks, permission toggles, banking accounting preflight/post callbacks, local UAE readiness validation actions, valuation preview links, and all no-provider/no-network/no-posting/no-compliance boundaries remain unchanged.
 
+### 2026-06-22 Inventory Traceability Panels Loop
+
+- Migrated inventory traceability setup lists, editor forms, item traceability metrics, linked batch/serial/bin sections, movement tables, and safe-limitation panels to shared LedgerByte panel, section, field, table, textarea, empty, loading, alert, status, and action primitives.
+- Preserved traceability truth: bin/location, batch/lot, serial-number, and item traceability loads and save payloads keep existing endpoints, permission gates, and query handoffs.
+- Preserved accounting/compliance/inventory boundaries: this pass adds no stock posting, FIFO/valuation change, COGS posting, VAT filing, ZATCA/UAE/Peppol submission, provider call, generated-document storage mutation, or historical movement mutation.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
