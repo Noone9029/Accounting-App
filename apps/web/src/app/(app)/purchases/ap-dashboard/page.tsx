@@ -3,8 +3,27 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  LedgerLoadingState,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
@@ -88,82 +107,67 @@ export default function SupplierApDashboardPage() {
   const summary = dashboard?.apSummary;
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Supplier/AP Dashboard</h1>
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-steel">{SAFE_HELPER_TEXT}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canViewMatchingLinks ? (
-            <Link href="/purchases/matching" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Matching exceptions
-            </Link>
-          ) : null}
-          {canViewVarianceLinks ? (
-            <>
-              <Link href="/inventory/landed-cost" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Landed cost preview
-              </Link>
-              <Link href="/inventory/valuation-variances" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Valuation variance preview
-              </Link>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load the Supplier/AP Dashboard.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading Supplier/AP Dashboard...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
-
-      {dashboard ? (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {summaryCards.map((card) => (
-              <div key={card.label} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-                <div className="text-xs font-semibold uppercase tracking-wide text-steel">{card.label}</div>
-                <div className="mt-2 text-2xl font-semibold text-ink">{card.value}</div>
-                <div className="mt-1 text-sm text-steel">{card.detail}</div>
-              </div>
-            ))}
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title="Supplier/AP Dashboard"
+        description="Supplier payables, matching exceptions, returns, variance previews, and operational follow-up in one read-only workspace."
+        actions={
+          <LedgerActionBar className="sm:justify-end">
+            {canViewMatchingLinks ? <LedgerButton href="/purchases/matching">Matching exceptions</LedgerButton> : null}
             {canViewVarianceLinks ? (
-              <Link href="/inventory/landed-cost" className="rounded-md border border-slate-200 bg-white p-4 shadow-panel hover:border-palm">
-                <div className="text-xs font-semibold uppercase tracking-wide text-steel">Landed cost preview</div>
-                <div className="mt-2 text-2xl font-semibold text-ink">Available</div>
-                <div className="mt-1 text-sm text-steel">Read-only landed cost allocation planning</div>
-              </Link>
+              <>
+                <LedgerButton href="/inventory/landed-cost">
+                  Landed cost preview
+                </LedgerButton>
+                <LedgerButton href="/inventory/valuation-variances">
+                  Valuation variance preview
+                </LedgerButton>
+              </>
             ) : null}
-          </div>
+          </LedgerActionBar>
+        }
+      />
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <TopSupplierPanel title="Top suppliers by payable balance" rows={summary?.topSuppliersByPayable ?? []} valueLabel="Open payables" canUseSupplierLinks={canViewSupplierLinks} />
-            <TopSupplierPanel title="Top suppliers by matching exception severity" rows={summary?.topSuppliersByExceptionSeverity ?? []} valueLabel="Exceptions" canUseSupplierLinks={canViewSupplierLinks} />
-            <TopSupplierPanel title="Suppliers with open returns" rows={summary?.suppliersWithOpenReturns ?? []} valueLabel="Open returns" canUseSupplierLinks={canViewSupplierLinks} />
-            <TopSupplierPanel title="Suppliers with variance previews" rows={summary?.suppliersWithVariancePreviews ?? []} valueLabel="Variance previews" canUseSupplierLinks={canViewSupplierLinks} />
-          </div>
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{SAFE_HELPER_TEXT}</LedgerSummaryBand>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <BillsAttentionList items={summary?.upcomingDueBills ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewBillLinks} />
-            <MatchingAttentionList items={summary?.matchingExceptionsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewMatchingLinks} />
-            <ReturnsAttentionList items={summary?.purchaseReturnsAwaitingAction ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewReturnLinks} />
-            <VarianceAttentionList items={summary?.variancePreviewsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewVarianceLinks} />
-          </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load the Supplier/AP Dashboard.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading Supplier/AP Dashboard" description="Fetching supplier payable totals, exceptions, returns, and variance previews." /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Recent supplier activity</h2>
-                <p className="mt-1 text-sm leading-6 text-steel">
-                  Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.
-                </p>
-              </div>
+        {dashboard ? (
+          <>
+            <LedgerMetricGrid className="sm:grid-cols-2 xl:grid-cols-3">
+              {summaryCards.map((card) => (
+                <LedgerStatCard key={card.label} label={card.label} value={card.value} detail={card.detail} />
+              ))}
+              {canViewVarianceLinks ? (
+                <LedgerStatCard label="Landed cost preview" value="Available" detail="Read-only landed cost allocation planning" href="/inventory/landed-cost" />
+              ) : null}
+            </LedgerMetricGrid>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <TopSupplierPanel title="Top suppliers by payable balance" rows={summary?.topSuppliersByPayable ?? []} valueLabel="Open payables" canUseSupplierLinks={canViewSupplierLinks} />
+              <TopSupplierPanel title="Top suppliers by matching exception severity" rows={summary?.topSuppliersByExceptionSeverity ?? []} valueLabel="Exceptions" canUseSupplierLinks={canViewSupplierLinks} />
+              <TopSupplierPanel title="Suppliers with open returns" rows={summary?.suppliersWithOpenReturns ?? []} valueLabel="Open returns" canUseSupplierLinks={canViewSupplierLinks} />
+              <TopSupplierPanel title="Suppliers with variance previews" rows={summary?.suppliersWithVariancePreviews ?? []} valueLabel="Variance previews" canUseSupplierLinks={canViewSupplierLinks} />
             </div>
-            {summary?.recentSupplierActivity.length ? (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[940px] text-left text-sm">
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <BillsAttentionList items={summary?.upcomingDueBills ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewBillLinks} />
+              <MatchingAttentionList items={summary?.matchingExceptionsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewMatchingLinks} />
+              <ReturnsAttentionList items={summary?.purchaseReturnsAwaitingAction ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewReturnLinks} />
+              <VarianceAttentionList items={summary?.variancePreviewsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewVarianceLinks} />
+            </div>
+
+            <LedgerSection
+              title="Recent supplier activity"
+              description="Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately."
+              className={summary?.recentSupplierActivity.length ? "p-0" : undefined}
+            >
+              {summary?.recentSupplierActivity.length ? (
+                <LedgerDataTable minWidth="940px" className="rounded-t-none border-0 shadow-none">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-3 py-2">Date</th>
@@ -178,28 +182,28 @@ export default function SupplierApDashboardPage() {
                   <tbody className="divide-y divide-slate-100">
                     {summary.recentSupplierActivity.map((activity) => (
                       <tr key={activity.id}>
-                        <td className="px-3 py-2 text-steel">{formatOptionalDate(activity.date, "-")}</td>
+                        <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(activity.date, "-")}</LedgerDate></td>
                         <td className="px-3 py-2">{supplierCell(activity.supplierName, activity.supplierHref, canViewSupplierLinks)}</td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-ink">{activity.label}</div>
                           <div className="font-mono text-xs text-steel">{activity.sourceNumber}</div>
                         </td>
-                        <td className="px-3 py-2 font-mono text-xs">{activity.amount ? formatMoneyAmount(activity.amount, "SAR") : "-"}</td>
+                        <td className="px-3 py-2">{activity.amount ? <LedgerMoney>{formatMoneyAmount(activity.amount, "SAR")}</LedgerMoney> : "-"}</td>
                         <td className="px-3 py-2"><StatusBadge label={activity.status} /></td>
-                        <td className="px-3 py-2">{activity.nonPosting ? <NonPostingBadge /> : <span className="text-xs font-medium text-slate-700">Financial posting</span>}</td>
+                        <td className="px-3 py-2">{activity.nonPosting ? <NonPostingBadge /> : <LedgerStatusBadge tone="success">Financial posting</LedgerStatusBadge>}</td>
                         <td className="px-3 py-2">{sourceCell("Open", activity.href, Boolean(activity.href))}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-steel">No recent supplier activity is available for the current permissions.</p>
-            )}
-          </div>
-        </>
-      ) : null}
-    </section>
+                </LedgerDataTable>
+              ) : (
+                <LedgerEmptyState title="No recent supplier activity" description="No recent supplier activity is available for the current permissions." />
+              )}
+            </LedgerSection>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -215,26 +219,28 @@ function TopSupplierPanel({
   canUseSupplierLinks: boolean;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">{title}</h2>
-      {rows.length === 0 ? <p className="mt-3 text-sm text-steel">No suppliers found for this attention view.</p> : null}
-      <div className="mt-3 space-y-3">
-        {rows.map((row) => (
-          <div key={`${title}-${row.supplierId}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-            <div>
-              {supplierCell(row.supplierName, row.href, canUseSupplierLinks)}
-              <div className="mt-1 text-xs text-steel">
-                {row.highestSeverity ? `${formatStatusLabel(row.highestSeverity)} severity` : valueLabel}
+      {rows.length === 0 ? <LedgerEmptyState title="No suppliers found" description="No suppliers found for this attention view." /> : null}
+      {rows.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {rows.map((row) => (
+            <div key={`${title}-${row.supplierId}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+              <div>
+                {supplierCell(row.supplierName, row.href, canUseSupplierLinks)}
+                <div className="mt-1 text-xs text-steel">
+                  {row.highestSeverity ? `${formatStatusLabel(row.highestSeverity)} severity` : valueLabel}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-sm font-semibold text-ink">{supplierRowValue(row)}</div>
+                <div className="text-xs text-steel">{valueLabel}</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="font-mono text-sm font-semibold text-ink">{supplierRowValue(row)}</div>
-              <div className="text-xs text-steel">{valueLabel}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      ) : null}
+    </LedgerPanel>
   );
 }
 
@@ -309,10 +315,10 @@ function VarianceAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }
 function AttentionPanel({ title, emptyLabel, children }: { title: string; emptyLabel: string; children: ReactNode }) {
   const childArray = Array.isArray(children) ? children : [children];
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">{title}</h2>
-      {childArray.length === 0 ? <p className="mt-3 text-sm text-steel">{emptyLabel}</p> : <div className="mt-3 space-y-3">{children}</div>}
-    </div>
+      {childArray.length === 0 ? <LedgerEmptyState title={emptyLabel} /> : <div className="mt-3 space-y-3">{children}</div>}
+    </LedgerPanel>
   );
 }
 
@@ -338,7 +344,7 @@ function AttentionRow({
       </div>
       <div className="text-left md:text-right">
         <div className="font-mono text-sm font-semibold text-ink">{value}</div>
-        <span className="mt-1 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{badge}</span>
+        <div className="mt-1"><LedgerStatusBadge tone={attentionBadgeTone(badge)}>{badge}</LedgerStatusBadge></div>
       </div>
     </div>
   );
@@ -375,11 +381,25 @@ function supplierRowValue(row: SupplierApTopSupplier): string {
 }
 
 function NonPostingBadge() {
-  return <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Non-posting</span>;
+  return <LedgerStatusBadge tone="info">Non-posting</LedgerStatusBadge>;
 }
 
 function StatusBadge({ label }: { label: string }) {
-  return <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{formatStatusLabel(label)}</span>;
+  return <LedgerStatusBadge tone={statusTone(label)}>{formatStatusLabel(label)}</LedgerStatusBadge>;
+}
+
+function statusTone(label: string): LedgerStatusTone {
+  if (label === "POSTED" || label === "PAID" || label === "COMPLETED") return "success";
+  if (label === "OVERDUE" || label === "CRITICAL") return "danger";
+  if (label === "SUBMITTED" || label === "HIGH" || label.includes("WAITING")) return "warning";
+  return "neutral";
+}
+
+function attentionBadgeTone(label: string): LedgerStatusTone {
+  if (label === "Overdue") return "danger";
+  if (label === "Due soon" || label === "Review needed" || label === "Valuation variance preview") return "warning";
+  if (label === "Non-posting") return "info";
+  return "neutral";
 }
 
 function formatStatusLabel(status: string): string {
