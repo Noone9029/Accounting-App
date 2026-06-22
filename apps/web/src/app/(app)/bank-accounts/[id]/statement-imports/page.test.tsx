@@ -104,7 +104,7 @@ describe("statement import guidance", () => {
     expect(screen.getByText("Row 2: Invalid date.")).toBeInTheDocument();
     expect(screen.getByText(/does not upload bank credentials or connect to a live bank feed/)).toBeInTheDocument();
     expect(screen.getByText(/unsupported bank-specific variants fail safely/)).toBeInTheDocument();
-    expect(screen.getByRole("table").parentElement).toHaveClass("overflow-x-auto");
+    expect(screen.getByRole("table").parentElement?.parentElement).toHaveClass("overflow-x-auto");
   });
 
   it("renders import result next actions without live bank wording", () => {

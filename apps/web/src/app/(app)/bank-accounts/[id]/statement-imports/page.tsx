@@ -6,20 +6,25 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
   LedgerActionBar,
+  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
   LedgerDate,
   LedgerEmptyState,
   LedgerFieldLabel,
+  LedgerFieldText,
   LedgerInput,
+  LedgerMetricGrid,
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
   LedgerPanel,
   LedgerSection,
+  LedgerStatCard,
   LedgerStatusBadge,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -282,7 +287,7 @@ export default function BankStatementImportsPage() {
               </span>
               <input type="file" accept={STATEMENT_IMPORT_FILE_ACCEPT} onChange={(event) => void handleFileChange(event)} className="mt-3 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-palm file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
             </label>
-            <div className="rounded-md border border-slate-200 bg-white p-4">
+            <div>
               <StatementImportTemplateActions />
               <p className="mt-4 text-sm font-semibold text-ink">Accepted row shapes</p>
               <ul className="mt-2 space-y-1 text-sm leading-6 text-steel">
@@ -297,25 +302,25 @@ export default function BankStatementImportsPage() {
           <LedgerSection title="Import details" description="Preview and import parsed statement rows for explicit review.">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <LedgerFieldLabel>
-              Filename
+              <LedgerFieldText>Filename</LedgerFieldText>
               <LedgerInput value={filename} onChange={(event) => setFilename(event.target.value)} />
             </LedgerFieldLabel>
             <LedgerFieldLabel>
-              Opening balance
+              <LedgerFieldText>Opening balance</LedgerFieldText>
               <LedgerInput inputMode="decimal" value={openingStatementBalance} onChange={(event) => setOpeningStatementBalance(event.target.value)} />
             </LedgerFieldLabel>
             <LedgerFieldLabel>
-              Closing balance
+              <LedgerFieldText>Closing balance</LedgerFieldText>
               <LedgerInput inputMode="decimal" value={closingStatementBalance} onChange={(event) => setClosingStatementBalance(event.target.value)} />
             </LedgerFieldLabel>
           </div>
-          <label className="mt-4 block">
-            <span className="text-sm font-medium text-slate-700">CSV text or JSON rows</span>
+          <LedgerFieldLabel className="mt-4">
+            <LedgerFieldText>CSV text or JSON rows</LedgerFieldText>
             <span className="mt-1 block text-xs leading-5 text-steel">
               Paste a bank export or use the sample. Signed amounts import as credits when positive and debits when negative. Debit/credit columns, OFX, CAMT XML, and MT940 parser previews are also supported. XLSX files use server preview from the uploaded workbook.
             </span>
-            <textarea value={rowsText} onChange={(event) => handleRowsTextChange(event.target.value)} rows={8} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-palm" />
-          </label>
+            <Textarea value={rowsText} onChange={(event) => handleRowsTextChange(event.target.value)} rows={8} className="mt-1 font-mono text-xs" />
+          </LedgerFieldLabel>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={allowPartial} onChange={(event) => setAllowPartial(event.target.checked)} className="h-4 w-4 rounded border-slate-300 text-palm focus:ring-palm" />
@@ -434,7 +439,7 @@ export function StatementImportTemplateActions({ onDownload = downloadStatementT
 export function ClientParserPreview({ preview, currency }: { preview: StatementImportClientPreview; currency: string }) {
   const visibleRows = preview.rows.slice(0, 8);
   return (
-    <div className="mt-5 space-y-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel className="mt-5 bg-mist">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">Local parser preview</h2>
@@ -444,32 +449,31 @@ export function ClientParserPreview({ preview, currency }: { preview: StatementI
         </div>
         <span className="rounded-md bg-white px-3 py-2 text-xs font-medium text-steel">{preview.format} input</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <LedgerMetricGrid className="grid-cols-2 lg:grid-cols-5">
         <PreviewStat label="Rows read" value={String(preview.rowCount)} />
         <PreviewStat label="Locally valid" value={String(preview.validRowCount)} />
         <PreviewStat label="Needs fixes" value={String(preview.invalidRowCount)} />
         <PreviewStat label="Duplicate candidates" value={String(preview.duplicateCandidateCount)} />
         <PreviewStat label="Detected columns" value={preview.detectedColumns.slice(0, 4).join(", ") || "-"} />
-      </div>
+      </LedgerMetricGrid>
       {preview.errors.length > 0 ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+        <LedgerAlert tone="danger">
           {preview.errors.slice(0, 6).map((issue) => (
             <p key={`error-${issue.rowNumber}-${issue.message}`}>Row {issue.rowNumber || "-"}: {issue.message}</p>
           ))}
           {preview.errors.length > 6 ? <p>{preview.errors.length - 6} more row issues hidden in this preview.</p> : null}
-        </div>
+        </LedgerAlert>
       ) : null}
       {preview.warnings.length > 0 ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <LedgerAlert tone="warning">
           {preview.warnings.slice(0, 6).map((issue) => (
             <p key={`warning-${issue.rowNumber}-${issue.message}`}>Row {issue.rowNumber || "-"}: {issue.message}</p>
           ))}
           {preview.warnings.length > 6 ? <p>{preview.warnings.length - 6} more warnings hidden in this preview.</p> : null}
-        </div>
+        </LedgerAlert>
       ) : null}
       {visibleRows.length > 0 ? (
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full min-w-[860px] text-left text-xs">
+        <LedgerDataTable minWidth="860px" className="shadow-none">
             <thead className="bg-slate-50 uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Row</th>
@@ -502,10 +506,9 @@ export function ClientParserPreview({ preview, currency }: { preview: StatementI
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </LedgerDataTable>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -515,7 +518,7 @@ export function ServerImportPreviewPanel({ preview, currency }: { preview: BankS
 
   return (
     <div className="mt-5 space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <LedgerMetricGrid className="grid-cols-2 lg:grid-cols-4">
         <PreviewStat label="Rows" value={String(preview.rowCount)} />
         <PreviewStat label="Valid" value={String(preview.validRows.length)} />
         <PreviewStat label="Invalid" value={String(preview.invalidRows.length)} />
@@ -524,13 +527,13 @@ export function ServerImportPreviewPanel({ preview, currency }: { preview: BankS
         <PreviewStat label="Existing duplicates" value={String(summary?.duplicateExistingCount ?? 0)} />
         <PreviewStat label="Closed overlaps" value={String(summary?.closedReconciliationOverlapCount ?? 0)} />
         <PreviewStat label="Open overlaps" value={String(summary?.openReconciliationOverlapCount ?? 0)} />
-      </div>
-      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-steel">
+      </LedgerMetricGrid>
+      <LedgerAlert tone="info">
         {statementImportPreviewSummary(preview)}
         {preview.sourceFormat ? ` Source ${preview.sourceFormat}${preview.sourceSheetName ? `, sheet ${preview.sourceSheetName}` : ""}.` : ""}
-      </div>
+      </LedgerAlert>
       {(preview.warnings.length > 0 || (preview.rowWarnings?.length ?? 0) > 0) ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <LedgerAlert tone="warning">
           {preview.warnings.map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
@@ -540,10 +543,9 @@ export function ServerImportPreviewPanel({ preview, currency }: { preview: BankS
               {warningLabel(warning.code)} - {warning.message} {warning.action}
             </p>
           ))}
-        </div>
+        </LedgerAlert>
       ) : null}
-      <div className="overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[920px] text-left text-xs">
+      <LedgerDataTable minWidth="920px" className="shadow-none">
           <thead className="bg-slate-50 uppercase tracking-wide text-steel">
             <tr>
               <th className="px-3 py-2">Row</th>
@@ -583,14 +585,13 @@ export function ServerImportPreviewPanel({ preview, currency }: { preview: BankS
               );
             })}
           </tbody>
-        </table>
-      </div>
+      </LedgerDataTable>
       {preview.invalidRows.length > 0 ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+        <LedgerAlert tone="danger">
           {preview.invalidRows.map((row) => (
             <p key={row.rowNumber}>Row {row.rowNumber}: {row.errors.join(" ")}</p>
           ))}
-        </div>
+        </LedgerAlert>
       ) : null}
     </div>
   );
@@ -615,10 +616,12 @@ export function ImportResultPanel({ imported, profileId }: { imported: BankState
         </p>
       ) : null}
       {warnings.length > 0 ? (
-        <div className="mt-3 rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-amber-900">
+        <div className="mt-3">
+          <LedgerAlert tone="warning">
           {warnings.slice(0, 4).map((warning) => (
             <p key={warning}>{warning}</p>
           ))}
+          </LedgerAlert>
         </div>
       ) : null}
       <LedgerActionBar className="mt-4">
@@ -663,12 +666,7 @@ function warningLabel(code: string): string {
 }
 
 function PreviewStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
+  return <LedgerStatCard label={label} value={<span className="truncate text-sm">{value}</span>} />;
 }
 
 function buildStatementImportPayload(filename: string, rowsText: string, xlsxBase64 = ""): { filename: string; csvText: string; xlsxBase64?: string } {

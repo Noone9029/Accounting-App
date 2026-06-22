@@ -1,9 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+} from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel, validateBankTransferInput } from "@/lib/bank-accounts";
@@ -96,77 +109,72 @@ export default function NewBankTransferPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">New bank transfer</h1>
-          <p className="mt-1 text-sm text-steel">Post a balanced journal between two active cash or bank profiles.</p>
-        </div>
-        <Link href="/bank-transfers" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="New bank transfer"
+        description="Post a balanced journal between two active cash or bank profiles."
+        actions={<LedgerButton href="/bank-transfers">Back</LedgerButton>}
+      />
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to create bank transfers.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading bank accounts...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && activeProfiles.length < 2 ? <StatusMessage type="empty">At least two active bank account profiles are required.</StatusMessage> : null}
-      </div>
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-5">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <form onSubmit={onSubmit} className="space-y-5">
+          <LedgerPanel>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">From</span>
-              <select value={fromBankAccountProfileId} onChange={(event) => setFromBankAccountProfileId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+            <LedgerFieldLabel>
+              <LedgerFieldText>From</LedgerFieldText>
+              <LedgerSelect value={fromBankAccountProfileId} onChange={(event) => setFromBankAccountProfileId(event.target.value)} required>
                 <option value="">Select source</option>
                 {activeProfiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>
                     {bankAccountOptionLabel(profile.account, profiles)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">To</span>
-              <select value={toBankAccountProfileId} onChange={(event) => setToBankAccountProfileId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>To</LedgerFieldText>
+              <LedgerSelect value={toBankAccountProfileId} onChange={(event) => setToBankAccountProfileId(event.target.value)} required>
                 <option value="">Select destination</option>
                 {activeProfiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>
                     {bankAccountOptionLabel(profile.account, profiles)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Transfer date</span>
-              <input type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Amount</span>
-              <input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Description</span>
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Transfer date</LedgerFieldText>
+              <LedgerInput type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Amount</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Description</LedgerFieldText>
+              <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+            </LedgerFieldLabel>
           </div>
-        </div>
+          </LedgerPanel>
 
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-steel">
+        <LedgerAlert tone="info">
           Transfers post a balanced accounting journal immediately: the source bank or cash account decreases and the destination account increases. Use statement matching later to reconcile imported bank rows against the posted movement.
-        </div>
+        </LedgerAlert>
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Link href="/bank-transfers" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-          <button type="submit" disabled={submitting || !organizationId || activeProfiles.length < 2} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <LedgerActionBar className="justify-end">
+          <LedgerButton href="/bank-transfers">Cancel</LedgerButton>
+          <LedgerButton type="submit" disabled={submitting || !organizationId || activeProfiles.length < 2} variant="primary">
             {submitting ? "Posting..." : "Post transfer"}
-          </button>
-        </div>
-      </form>
-    </section>
+          </LedgerButton>
+        </LedgerActionBar>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
