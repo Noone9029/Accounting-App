@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LedgerPanel, buttonClassName } from "@/components/ui/ledger-system";
 import { getLedgerByteEdition } from "@/lib/edition";
 
 interface GuidanceProps {
@@ -8,7 +9,7 @@ interface GuidanceProps {
 
 export function SourceDocumentGuidance({ className = "" }: GuidanceProps) {
   return (
-    <div className={`rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-steel ${className}`}>
+    <div className={`rounded-md border border-line bg-mist p-3 text-xs leading-5 text-steel ${className}`}>
       <p>
         <span className="font-medium text-ink">Document archive:</span> PDF downloads from source records are archived
         automatically so the same generated output can be reviewed later.
@@ -25,7 +26,7 @@ export function SourceDocumentGuidance({ className = "" }: GuidanceProps) {
 
 export function ArchiveDocumentGuidance({ className = "" }: GuidanceProps) {
   return (
-    <div className={`rounded-md border border-slate-200 bg-white p-4 shadow-panel ${className}`}>
+    <LedgerPanel className={className}>
       <h2 className="text-base font-semibold text-ink">How the archive works</h2>
       <p className="mt-2 text-sm leading-6 text-steel">
         This archive lists generated PDFs created from invoices, receipts, statements, reports, and similar source
@@ -37,13 +38,13 @@ export function ArchiveDocumentGuidance({ className = "" }: GuidanceProps) {
         <GuidanceLink href="/settings/number-sequences">Review numbering</GuidanceLink>
       </div>
       <ComplianceNote className="mt-3" />
-    </div>
+    </LedgerPanel>
   );
 }
 
 export function SettingsImpactGuidance({ className = "" }: GuidanceProps) {
   return (
-    <div className={`rounded-md border border-slate-200 bg-white p-4 shadow-panel ${className}`}>
+    <LedgerPanel className={className}>
       <h2 className="text-base font-semibold text-ink">What these settings affect</h2>
       <p className="mt-2 text-sm leading-6 text-steel">
         These defaults apply to PDFs generated after saving. Existing archived PDFs are kept as they were generated, and
@@ -54,7 +55,7 @@ export function SettingsImpactGuidance({ className = "" }: GuidanceProps) {
         <GuidanceLink href="/settings/number-sequences">Review number sequences</GuidanceLink>
       </div>
       <ComplianceNote className="mt-3" />
-    </div>
+    </LedgerPanel>
   );
 }
 
@@ -74,7 +75,7 @@ export function ComplianceNote({ className = "" }: GuidanceProps) {
 
 function GuidanceLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+    <Link href={href} className={buttonClassName({ variant: "secondary", size: "sm" })}>
       {children}
     </Link>
   );

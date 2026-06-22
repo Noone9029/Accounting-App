@@ -1,8 +1,21 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import { Download, Save, Trash2, Upload } from "lucide-react";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerErrorState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerPanel,
+  LedgerStatusBadge,
+  LedgerAlert,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -173,55 +186,52 @@ export function AttachmentPanel({
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <p className="mt-1 text-sm text-steel">Supporting files linked to this record.</p>
         </div>
-        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{attachments.length} active</span>
+        <LedgerStatusBadge tone="draft">{attachments.length} active</LedgerStatusBadge>
       </div>
 
       <div className="mt-4 space-y-3">
-        {loading ? <StatusMessage type="loading">Loading attachments...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {loading ? <LedgerLoadingState title="Loading attachments" /> : null}
+        {error ? <LedgerErrorState title="Attachment action failed" description={error} /> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
       </div>
 
       {canUpload ? (
-        <form onSubmit={(event) => void upload(event)} className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto]">
-          <input
-            type="file"
-            accept={attachmentAccept}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-          />
-          <input
-            type="text"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="Notes"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
-          />
-          <button
-            type="submit"
-            disabled={!file || actionLoading === "upload"}
-            className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-          >
-            {actionLoading === "upload" ? "Uploading..." : "Upload"}
-          </button>
+        <form onSubmit={(event) => void upload(event)} className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-mist p-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto]">
+          <LedgerFieldLabel>
+            <LedgerFieldText>File</LedgerFieldText>
+            <LedgerInput
+              type="file"
+              accept={attachmentAccept}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
+            />
+          </LedgerFieldLabel>
+          <LedgerFieldLabel>
+            <LedgerFieldText>Notes</LedgerFieldText>
+            <LedgerInput type="text" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" />
+          </LedgerFieldLabel>
+          <div className="flex items-end">
+            <LedgerButton type="submit" disabled={!file || actionLoading === "upload"} variant="primary" icon={Upload} className="w-full">
+              {actionLoading === "upload" ? "Uploading..." : "Upload"}
+            </LedgerButton>
+          </div>
         </form>
       ) : null}
 
       {attachments.length === 0 && !loading ? (
         <div className="mt-4">
-          <StatusMessage type="empty">No attachments uploaded.</StatusMessage>
+          <LedgerEmptyState title="No attachments uploaded" />
         </div>
       ) : null}
 
       {attachments.length > 0 ? (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+        <div className="mt-4">
+          <LedgerDataTable minWidth="820px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">File</th>
@@ -248,20 +258,21 @@ export function AttachmentPanel({
                   <td className="px-3 py-2">
                     {canManage ? (
                       <div className="flex gap-2">
-                        <input
+                        <LedgerInput
                           type="text"
                           value={noteDrafts[attachment.id] ?? ""}
                           onChange={(event) => setNoteDrafts((current) => ({ ...current, [attachment.id]: event.target.value }))}
-                          className="min-w-[180px] flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-palm"
+                          className="min-w-[180px] flex-1 px-2 py-1 text-xs"
                         />
-                        <button
+                        <LedgerButton
                           type="button"
                           onClick={() => void saveNotes(attachment)}
                           disabled={actionLoading === `notes-${attachment.id}`}
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          size="sm"
+                          icon={Save}
                         >
                           Save
-                        </button>
+                        </LedgerButton>
                       </div>
                     ) : (
                       <span className="text-steel">{attachment.notes ?? "-"}</span>
@@ -270,34 +281,37 @@ export function AttachmentPanel({
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       {canDownload ? (
-                        <button
+                        <LedgerButton
                           type="button"
                           onClick={() => void download(attachment)}
                           disabled={actionLoading === `download-${attachment.id}`}
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          size="sm"
+                          icon={Download}
                         >
                           Download
-                        </button>
+                        </LedgerButton>
                       ) : null}
                       {canDeleteAttachment(attachment, canDelete, allowDelete) ? (
-                        <button
+                        <LedgerButton
                           type="button"
                           onClick={() => void remove(attachment)}
                           disabled={actionLoading === `delete-${attachment.id}`}
-                          className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          variant="danger"
+                          size="sm"
+                          icon={Trash2}
                         >
                           Delete
-                        </button>
+                        </LedgerButton>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </LedgerDataTable>
         </div>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
