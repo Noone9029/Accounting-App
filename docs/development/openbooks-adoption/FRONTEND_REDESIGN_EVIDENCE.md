@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-bank-payment-instruments`
+Branch: `codex/ui-redesign-bank-reconciliation-detail`
 
-Base: stacked on `origin/codex/ui-redesign-bank-statement-review` while PR #166 is open
+Base: stacked on `origin/codex/ui-redesign-bank-payment-instruments` while PR #167 is open
 
 ## Evidence Summary
 
@@ -41,6 +41,7 @@ Base: stacked on `origin/codex/ui-redesign-bank-statement-review` while PR #166 
 | Banking account profile/detail loop | `apps/web/src/app/(app)/bank-accounts/new/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/edit/page.tsx`, and `apps/web/src/components/forms/bank-account-profile-form.tsx` use shared LedgerByte page, metric, panel, section, table, money/date/status, form field, alert, and action primitives while preserving profile create/update payloads, opening-balance posting/lock guidance, transaction visibility, permission-gated statement/reconciliation/transfer links, and manual banking boundaries. |
 | Banking manual statement review loop | `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx`, and `apps/web/src/app/(app)/bank-accounts/[id]/rules/page.tsx` use shared LedgerByte page, section, panel, form, table, status, empty-state, and action primitives while preserving manual import preview/import/void, explicit match/categorize/ignore, rule suggestion/dry-run behavior, and no-live-feed/no-auto-reconcile boundaries. |
 | Banking payment-instrument loop | `apps/web/src/app/(app)/bank-accounts/[id]/deposits/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/deposits/[depositId]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/cheques/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/cheques/[chequeId]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/card-settlements/page.tsx`, and `apps/web/src/app/(app)/bank-accounts/[id]/card-settlements/[settlementId]/page.tsx` use shared LedgerByte page, summary, panel, section, metric, table, metadata, form, status, and action primitives while preserving explicit create/post/match/unmatch/void/deposit/bounce flows, accounting preflight panels, operational-only caveats, and no-live-feed/no-bank-payment boundaries. |
+| Banking reconciliation entry loop | `apps/web/src/app/(app)/bank-accounts/[id]/reconciliation/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/page.tsx`, and `apps/web/src/app/(app)/bank-accounts/[id]/reconciliations/new/page.tsx` use shared LedgerByte page, summary, section, panel, metric, table, form, alert, loading, empty, date, money, status, and action primitives while preserving manual summary loading, history loading, new-draft payloads, close blockers, locked-period wording, and no-live-feed/no-auto-reconcile boundaries. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
@@ -348,6 +349,20 @@ Base: stacked on `origin/codex/ui-redesign-bank-statement-review` while PR #166 
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - Final diff checks are run in the PR verification section for this branch.
 - Visual checks were not run in this slice before code verification because the next banking visual pass should cover the full detail/import/review/reconciliation chain together; existing prior banking visuals cover `/bank-accounts` list desktop/mobile and selected detail-state fixtures.
+
+## 2026-06-22 Banking Reconciliation Entry Loop Evidence
+
+- `/bank-accounts/[id]/reconciliation`: migrated the reconciliation summary shell, manual close guidance, period filters, metrics, statement-row totals, and statement-import table from route-local controls to shared `LedgerPage`, `LedgerPageHeader`, `LedgerPageBody`, `LedgerSummaryBand`, `LedgerSection`, `LedgerPanel`, `LedgerMetricGrid`, `LedgerStatCard`, `LedgerDataTable`, `LedgerDate`, `LedgerMoney`, `LedgerStatusBadge`, `LedgerAlert`, `LedgerLoadingState`, `LedgerEmptyState`, `LedgerFieldLabel`, `LedgerInput`, and `LedgerButton` primitives.
+- `/bank-accounts/[id]/reconciliations`: migrated reconciliation history, close-period guidance, status table, empty state, and action links to shared Ledger primitives while preserving profile/history loading, detail links, summary links, and `PERMISSIONS.bankReconciliations.create` gating.
+- `/bank-accounts/[id]/reconciliations/new`: migrated the new close draft shell, bank-account summary cards, statement period form, notes field, warning band, and footer actions to shared Ledger primitives while preserving the existing required-field validation, create payload, and redirect to `/bank-reconciliations/[id]`.
+- Existing behavior remains frontend-only and unchanged: reconciliation summary endpoints, history endpoints, new-draft POST payloads, permission checks, zero-difference and unmatched-row close blockers, closed-period lock wording, and manual review posture keep their existing semantics. No live bank feed, external bank API call, credential collection, provider money movement, automatic reconciliation, silent posting, schema change, storage behavior change, VAT/ZATCA/compliance behavior, or hosted mutation was added.
+- `corepack pnpm --filter @ledgerbyte/web test -- reconciliation/page.test`: PASS, 1 suite, 2 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- bank-reconciliations`: PASS, 1 suite, 2 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; the remaining banking visual pass should cover reconciliation summary/history/new together with reconciliation detail/close, transfer detail, and standalone statement-row routes once those routes are migrated.
 
 ## 2026-06-22 Banking Payment-Instrument Loop Evidence
 
