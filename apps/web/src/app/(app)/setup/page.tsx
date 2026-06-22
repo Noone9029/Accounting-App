@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { SetupWizardContent, SetupWizardFallback } from "@/components/onboarding/setup-wizard";
+import { LedgerEmptyState, LedgerLoadingState, LedgerPage } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { setupWizardLoadFailureMessage } from "@/lib/dashboard";
@@ -47,11 +47,19 @@ export default function SetupPage() {
   }, [organizationId]);
 
   if (!organizationId) {
-    return <StatusMessage type="info">Log in and select an organization to open guided setup.</StatusMessage>;
+    return (
+      <LedgerPage>
+        <LedgerEmptyState title="Select an organization" description="Log in and select an organization to open guided setup." />
+      </LedgerPage>
+    );
   }
 
   if (loading) {
-    return <StatusMessage type="loading">Loading setup checklist...</StatusMessage>;
+    return (
+      <LedgerPage>
+        <LedgerLoadingState title="Loading setup checklist" description="Checking live workspace setup evidence." />
+      </LedgerPage>
+    );
   }
 
   if (error) {
@@ -59,7 +67,11 @@ export default function SetupPage() {
   }
 
   if (!checklist) {
-    return <StatusMessage type="empty">Setup checklist has not loaded yet.</StatusMessage>;
+    return (
+      <LedgerPage>
+        <LedgerEmptyState title="Setup checklist has not loaded yet" description="Refresh the page after the workspace checklist is available." />
+      </LedgerPage>
+    );
   }
 
   return <SetupWizardContent checklist={checklist} />;

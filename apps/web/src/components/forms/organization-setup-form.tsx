@@ -1,7 +1,16 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerSelect,
+} from "@/components/ui/ledger-system";
 import { apiRequest, setActiveOrganizationId } from "@/lib/api";
 import type { Organization } from "@/lib/types";
 
@@ -40,42 +49,42 @@ export function OrganizationSetupForm() {
 
   return (
     <form onSubmit={onSubmit} className="grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Organization name</span>
-        <input name="name" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Legal name</span>
-        <input name="legalName" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">VAT number</span>
-        <input name="taxNumber" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Country</span>
-        <select name="countryCode" defaultValue="AE" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+      <LedgerFieldLabel>
+        <LedgerFieldText>Organization name</LedgerFieldText>
+        <LedgerInput name="name" required />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Legal name</LedgerFieldText>
+        <LedgerInput name="legalName" />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>VAT number</LedgerFieldText>
+        <LedgerInput name="taxNumber" />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Country</LedgerFieldText>
+        <LedgerSelect name="countryCode" defaultValue="AE">
           <option value="AE">United Arab Emirates</option>
           <option value="SA">Saudi Arabia</option>
           <option value="BH">Bahrain</option>
           <option value="KW">Kuwait</option>
           <option value="OM">Oman</option>
           <option value="QA">Qatar</option>
-        </select>
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Base currency</span>
-        <input name="baseCurrency" defaultValue="AED" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Timezone</span>
-        <input name="timezone" defaultValue="Asia/Dubai" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-      </label>
-      <div className="md:col-span-2">
-        <button type="submit" disabled={submitting} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+        </LedgerSelect>
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Base currency</LedgerFieldText>
+        <LedgerInput name="baseCurrency" defaultValue="AED" />
+      </LedgerFieldLabel>
+      <LedgerFieldLabel>
+        <LedgerFieldText>Timezone</LedgerFieldText>
+        <LedgerInput name="timezone" defaultValue="Asia/Dubai" />
+      </LedgerFieldLabel>
+      <div className="space-y-3 md:col-span-2">
+        <LedgerButton type="submit" disabled={submitting} variant="primary" icon={Building2}>
           {submitting ? "Creating..." : "Create organization"}
-        </button>
-        {status ? <p className="mt-3 text-sm text-steel">{status}</p> : null}
+        </LedgerButton>
+        {status ? <LedgerAlert tone={status.startsWith("Organization ready") ? "success" : "warning"}>{status}</LedgerAlert> : null}
       </div>
     </form>
   );
