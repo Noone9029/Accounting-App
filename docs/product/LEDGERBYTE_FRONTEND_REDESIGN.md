@@ -226,6 +226,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated cash-expense, purchase bill, purchase debit-note, purchase order, sales inventory return form line tables, and sales inventory return movement preview tables to shared LedgerByte data-table shells.
 - Preserved line-item truth: existing item/account/tax selectors, quantity/price/discount inputs, preview totals, movement preview rows, and all create/update/post action behavior remain unchanged.
 
+### 2026-06-22 Small Panel Polish Loop
+
+- Migrated inventory balance item-total cards and sales invoice readiness section cards to shared LedgerByte stat, panel, and status primitives.
+- Preserved inventory and invoice truth: balance quantities, FIFO links, readiness checks, source-rule copy, and local-only compliance warnings remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.

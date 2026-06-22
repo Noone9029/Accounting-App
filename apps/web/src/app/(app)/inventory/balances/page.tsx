@@ -11,6 +11,7 @@ import {
   LedgerPage,
   LedgerPageBody,
   LedgerPageHeader,
+  LedgerStatCard,
   LedgerStatusBadge,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
@@ -133,11 +134,12 @@ export default function InventoryBalancesPage() {
         {Object.keys(totalsByItem).length > 0 ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {Object.entries(totalsByItem).map(([itemId, total]) => (
-              <div key={itemId} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">{total.sku ?? "Tracked item"}</p>
-                <p className="mt-1 font-medium text-ink">{total.name}</p>
-                <p className="mt-2 font-mono text-sm font-semibold text-ink">{formatInventoryQuantity(total.quantityUnits / 10000)}</p>
-              </div>
+              <LedgerStatCard
+                key={itemId}
+                label={total.sku ?? "Tracked item"}
+                value={formatInventoryQuantity(total.quantityUnits / 10000)}
+                detail={total.name}
+              />
             ))}
           </div>
         ) : null}
