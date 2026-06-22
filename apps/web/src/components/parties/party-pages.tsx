@@ -4,19 +4,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeftIcon, DownloadIcon, EditIcon, PrinterIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LedgerActionBar,
+  LedgerAlert,
   LedgerButton,
   LedgerDataTable,
   LedgerDate,
   LedgerEmptyState,
+  LedgerErrorState,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerFilterBar,
   LedgerInput,
+  LedgerLoadingState,
   LedgerMetricGrid,
   LedgerMoney,
   LedgerPage,
@@ -31,7 +33,7 @@ import {
 } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
+import { collectionActivityTypeLabel, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import {
@@ -136,13 +138,14 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
       />
 
       <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load {copy.pluralLower}.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading {copy.pluralLower}...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load {copy.pluralLower}.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title={`Loading ${copy.pluralLower}`} /> : null}
+        {error ? <LedgerErrorState title={`Unable to load ${copy.pluralLower}`} description={error} /> : null}
         {!loading && organizationId && rows.length === 0 ? (
-          <StatusMessage type="empty">
-            No {copy.pluralLower} yet. Add a {copy.singularLower} first; they can appear here before they have any transactions.
-          </StatusMessage>
+          <LedgerEmptyState
+            title={`No ${copy.pluralLower} yet`}
+            description={`Add a ${copy.singularLower} first; they can appear here before they have any transactions.`}
+          />
         ) : null}
       </div>
 
@@ -372,9 +375,9 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
       />
 
       <div className="flex flex-col gap-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this {copy.singularLower}.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading {copy.singularLower}...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load this {copy.singularLower}.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title={`Loading ${copy.singularLower}`} /> : null}
+        {error ? <LedgerErrorState title={`Unable to load ${copy.singularLower}`} description={error} /> : null}
       </div>
 
       {detail ? (
@@ -420,8 +423,8 @@ export function PartyDetailPage({ kind }: { kind: PartyKind }) {
 
           <PartyActivitySummary detail={detail} kind={kind} />
 
-          {kind === "supplier" && supplierApSummaryLoading ? <StatusMessage type="loading">Loading supplier AP summary...</StatusMessage> : null}
-          {kind === "supplier" && supplierApSummaryError ? <StatusMessage type="error">{supplierApSummaryError}</StatusMessage> : null}
+          {kind === "supplier" && supplierApSummaryLoading ? <LedgerLoadingState title="Loading supplier AP summary" /> : null}
+          {kind === "supplier" && supplierApSummaryError ? <LedgerErrorState title="Unable to load supplier AP summary" description={supplierApSummaryError} /> : null}
           {kind === "supplier" && supplierApSummary ? <SupplierApSummaryPanel summary={supplierApSummary} /> : null}
 
           {kind === "customer" && canViewCollections ? (
@@ -507,7 +510,7 @@ function PartyTransactionsTable({
   showPostingEffect?: boolean;
 }) {
   if (transactions.length === 0) {
-    return <StatusMessage type="empty">{emptyLabel}</StatusMessage>;
+    return <LedgerEmptyState title={emptyLabel} />;
   }
 
   return (
@@ -642,7 +645,7 @@ export function SupplierGroupedActivityTables({ transactions, emptyLabel }: { tr
   const operationalRows = transactions.filter(isOperationalNonPostingTransaction);
 
   if (transactions.length === 0) {
-    return <StatusMessage type="empty">{emptyLabel}</StatusMessage>;
+    return <LedgerEmptyState title={emptyLabel} />;
   }
 
   return (
@@ -699,7 +702,7 @@ export function PartyActivitySummary({ detail, kind }: { detail: PartyDetail; ki
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => (
-          <Link key={card.label} href={card.href} className="rounded-md border border-slate-200 px-4 py-3 hover:border-palm hover:bg-slate-50">
+          <Link key={card.label} href={card.href} className="block rounded-md border border-line bg-panel px-4 py-3 shadow-panel hover:border-palm/50">
             <div className="flex items-start justify-between gap-3">
               <span className="text-sm font-semibold text-ink">{card.label}</span>
               <LedgerStatusBadge tone="neutral">
@@ -746,7 +749,7 @@ export function CustomerCollectionsPanel({
         <BalanceLine label="Open collection cases" value={String(openCases.length)} />
         <BalanceLine label="Collection amount effect" value="0.0000" />
       </div>
-      {loading ? <div className="mt-3"><StatusMessage type="loading">Loading customer collection cases...</StatusMessage></div> : null}
+      {loading ? <div className="mt-3"><LedgerLoadingState title="Loading customer collection cases" /></div> : null}
       {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">No collection cases are recorded for this customer.</p> : null}
       {collectionCases.length > 0 ? (
         <LedgerDataTable minWidth="860px" className="mt-4">
@@ -769,7 +772,7 @@ export function CustomerCollectionsPanel({
                   <td className="px-3 py-2 font-mono text-xs">{collectionCase.salesInvoice?.invoiceNumber ?? "Customer-level"}</td>
                   <td className="px-3 py-2"><LedgerMoney>{formatMoneyAmount(collectionCase.salesInvoice?.balanceDue ?? "0.0000", collectionCase.salesInvoice?.currency ?? "SAR")}</LedgerMoney></td>
                   <td className="px-3 py-2">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{collectionStatusLabel(collectionCase.status)}</span>
+                    <LedgerStatusBadge tone={collectionStatusTone(collectionCase.status)}>{collectionStatusLabel(collectionCase.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? collectionActivityTypeLabel(collectionCase.activities[0].activityType) : "-"}</td>
                   <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</LedgerDate></td>
@@ -838,6 +841,25 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 function ActiveStatusBadge({ isActive }: { isActive: boolean }) {
   return <LedgerStatusBadge tone={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</LedgerStatusBadge>;
+}
+
+function collectionStatusTone(status: CollectionCase["status"]): LedgerStatusTone {
+  switch (status) {
+    case "PAID":
+    case "CLOSED":
+      return "success";
+    case "DISPUTED":
+      return "danger";
+    case "ON_HOLD":
+      return "warning";
+    case "PROMISED_TO_PAY":
+    case "IN_PROGRESS":
+      return "info";
+    case "CANCELLED":
+      return "neutral";
+    case "OPEN":
+      return "draft";
+  }
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

@@ -3,13 +3,15 @@
 import { useParams, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import {
+  LedgerAlert,
   LedgerButton,
+  LedgerErrorState,
   LedgerFieldLabel,
   LedgerFieldText,
   LedgerFilterBar,
   LedgerInput,
+  LedgerLoadingState,
   LedgerMetricGrid,
   LedgerPage,
   LedgerPageBody,
@@ -197,10 +199,10 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
 
       <div className="space-y-3">
         {!organizationId ? (
-          <StatusMessage type="info">Log in and select an organization to load this statement workspace.</StatusMessage>
+          <LedgerAlert tone="info">Log in and select an organization to load this statement workspace.</LedgerAlert>
         ) : null}
-        {loading ? <StatusMessage type="loading">Loading statement workspace...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {loading ? <LedgerLoadingState title="Loading statement workspace" /> : null}
+        {error ? <LedgerErrorState title="Unable to load statement workspace" description={error} /> : null}
       </div>
 
       {detail ? (
@@ -242,7 +244,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
             {kind === "customer" ? <CustomerStatementDocumentGuidance /> : <SupplierStatementDocumentGuidance />}
             {statementError ? (
               <div className="mt-3">
-                <StatusMessage type="error">{statementError}</StatusMessage>
+                <LedgerErrorState title={`Unable to load ${kind} statement`} description={statementError} />
               </div>
             ) : null}
           </LedgerSection>
