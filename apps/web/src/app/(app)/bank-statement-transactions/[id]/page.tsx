@@ -1,15 +1,34 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDate,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
-  bankStatementTransactionStatusBadgeClass,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   candidateScoreLabel,
@@ -19,6 +38,26 @@ import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Account, BankStatementMatchCandidate, BankStatementTransaction } from "@/lib/types";
+
+function statementTransactionStatusTone(status: BankStatementTransaction["status"]): LedgerStatusTone {
+  switch (status) {
+    case "UNMATCHED":
+      return "warning";
+    case "MATCHED":
+    case "CATEGORIZED":
+      return "success";
+    case "IGNORED":
+      return "draft";
+    case "VOIDED":
+      return "danger";
+  }
+}
+
+function candidateScoreTone(candidate: Pick<BankStatementMatchCandidate, "score">): LedgerStatusTone {
+  if (candidate.score >= 90) return "success";
+  if (candidate.score >= 75) return "info";
+  return "warning";
+}
 
 export default function BankStatementTransactionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -133,142 +172,136 @@ export default function BankStatementTransactionDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Statement transaction</h1>
-          <p className="mt-1 text-sm text-steel">Manual matching, categorization, and ignore controls.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {transaction?.bankAccountProfileId ? (
-            <Link href={`/bank-accounts/${transaction.bankAccountProfileId}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Back
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Statement transaction"
+        description="Manual matching, categorization, and ignore controls."
+        badge={transaction ? <LedgerStatusBadge tone={statementTransactionStatusTone(transaction.status)}>{bankStatementTransactionStatusLabel(transaction.status)}</LedgerStatusBadge> : null}
+        actions={transaction?.bankAccountProfileId ? <LedgerButton href={`/bank-accounts/${transaction.bankAccountProfileId}/statement-transactions`}>Back</LedgerButton> : null}
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this statement row.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading statement transaction...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Statement row review is manual. Match to posted accounting, categorize with an explicit journal, or ignore only rows that should stay out of reconciliation.
+      </LedgerSummaryBand>
 
-      {transaction ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="BANK_STATEMENT_TRANSACTION" linkedEntityId={transaction.id} />
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load this statement row.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading statement transaction" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Date" value={formatOptionalDate(transaction.transactionDate, "-")} />
-            <SummaryCard label="Type" value={bankStatementTransactionTypeLabel(transaction.type)} />
-            <SummaryCard label="Amount" value={formatMoneyAmount(transaction.amount, currency)} />
-            <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-              <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-              <span className={`mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
-                {bankStatementTransactionStatusLabel(transaction.status)}
-              </span>
-            </div>
-          </div>
+        {transaction ? (
+          <>
+            <AttachmentPanel linkedEntityType="BANK_STATEMENT_TRANSACTION" linkedEntityId={transaction.id} />
 
-          <StatementTransactionWorkflowGuidance transaction={transaction} canReconcile={canReconcile} lockedWarning={lockedWarning} />
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Date" value={<LedgerDate>{formatOptionalDate(transaction.transactionDate, "-")}</LedgerDate>} />
+              <LedgerStatCard label="Type" value={bankStatementTransactionTypeLabel(transaction.type)} />
+              <LedgerStatCard label="Amount" value={<LedgerMoney>{formatMoneyAmount(transaction.amount, currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={statementTransactionStatusTone(transaction.status)}>{bankStatementTransactionStatusLabel(transaction.status)}</LedgerStatusBadge>} />
+            </LedgerMetricGrid>
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Detail label="Description" value={transaction.description} />
-              <Detail label="Reference" value={transaction.reference ?? "-"} />
-              <Detail label="Import" value={transaction.import?.filename ?? "-"} />
-              <Detail label="Bank account" value={transaction.bankAccountProfile?.displayName ?? "-"} />
-              <Detail label="Matched journal" value={transaction.matchedJournalEntry?.entryNumber ?? transaction.createdJournalEntry?.entryNumber ?? "-"} />
-              <Detail label="Categorized account" value={transaction.categorizedAccount ? `${transaction.categorizedAccount.code} ${transaction.categorizedAccount.name}` : "-"} />
-            </div>
-            {transaction.ignoredReason ? <p className="mt-4 text-sm text-steel">Ignored reason: {transaction.ignoredReason}</p> : null}
-          </div>
+            <StatementTransactionWorkflowGuidance transaction={transaction} canReconcile={canReconcile} lockedWarning={lockedWarning} />
 
-          {lockedWarning ? <StatusMessage type="info">{lockedWarning}</StatusMessage> : null}
+            <LedgerSection title="Statement row detail" description="Imported row metadata and linked accounting references.">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Description", value: transaction.description },
+                  { label: "Reference", value: transaction.reference ?? "-" },
+                  { label: "Import", value: transaction.import?.filename ?? "-" },
+                  { label: "Bank account", value: transaction.bankAccountProfile?.displayName ?? "-" },
+                  { label: "Matched journal", value: transaction.matchedJournalEntry?.entryNumber ?? transaction.createdJournalEntry?.entryNumber ?? "-" },
+                  { label: "Categorized account", value: transaction.categorizedAccount ? `${transaction.categorizedAccount.code} ${transaction.categorizedAccount.name}` : "-" },
+                ]}
+              />
+              {transaction.ignoredReason ? <p className="mt-4 text-sm leading-6 text-steel">Ignored reason: {transaction.ignoredReason}</p> : null}
+            </LedgerSection>
 
-          {canReconcile && isUnmatched && !lockedWarning ? (
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                <h2 className="text-lg font-semibold text-ink">Match candidates</h2>
-                <p className="mt-1 text-sm leading-6 text-steel">
-                  Candidates are posted journal lines with the same direction and a nearby date. Matching links the statement row to accounting that already exists.
-                </p>
-                {loadingCandidates ? <StatusMessage type="loading">Loading match candidates...</StatusMessage> : null}
-                {!loadingCandidates && candidates.length === 0 ? <StatusMessage type="empty">No posted bank journal lines matched the amount and direction.</StatusMessage> : null}
-                <div className="mt-4 space-y-3">
-                  {candidates.map((candidate) => (
-                    <div key={candidate.journalLineId} className="rounded-md border border-slate-200 p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-ink">{candidate.entryNumber}</p>
-                          <p className="mt-1 text-xs text-steel">{formatOptionalDate(candidate.date, "-")} - {candidate.description}</p>
-                          <p className="mt-1 text-xs text-steel">{candidate.reason}</p>
-                        </div>
-                        <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">{candidateScoreLabel(candidate)}</span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-mono text-xs text-steel">
-                          Dr {formatMoneyAmount(candidate.debit, currency)} / Cr {formatMoneyAmount(candidate.credit, currency)}
-                        </p>
-                        <button type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("match", { journalLineId: candidate.journalLineId })} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                          {submitting === "match" ? "Matching..." : "Match"}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {lockedWarning ? <LedgerAlert tone="warning">{lockedWarning}</LedgerAlert> : null}
 
-              <div className="space-y-5">
-                <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                  <h2 className="text-lg font-semibold text-ink">Categorize</h2>
-                  <p className="mt-1 text-sm leading-6 text-steel">
-                    Use categorization only when no existing posted movement should be matched. It posts a manual journal using this statement row date.
-                  </p>
+            {canReconcile && isUnmatched && !lockedWarning ? (
+              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <LedgerSection
+                  title="Match candidates"
+                  description="Candidates are posted journal lines with the same direction and a nearby date. Matching links the statement row to accounting that already exists."
+                >
+                  {loadingCandidates ? <LedgerLoadingState title="Loading match candidates" /> : null}
+                  {!loadingCandidates && candidates.length === 0 ? <LedgerAlert tone="info">No posted bank journal lines matched the amount and direction.</LedgerAlert> : null}
                   <div className="mt-4 space-y-3">
-                    <label className="block">
-                      <span className="text-xs font-medium uppercase tracking-wide text-steel">Offset account</span>
-                      <select value={accountId} onChange={(event) => setAccountId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.code} {account.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-medium uppercase tracking-wide text-steel">Description</span>
-                      <input value={categoryDescription} onChange={(event) => setCategoryDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                    </label>
-                    <button type="button" disabled={Boolean(submitting) || !accountId} onClick={() => void submitAction("categorize", { accountId, description: categoryDescription || undefined })} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                      {submitting === "categorize" ? "Posting..." : "Post categorization journal"}
-                    </button>
+                    {candidates.map((candidate) => (
+                      <LedgerPanel key={candidate.journalLineId}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">{candidate.entryNumber}</p>
+                            <p className="mt-1 text-xs text-steel">{formatOptionalDate(candidate.date, "-")} - {candidate.description}</p>
+                            <p className="mt-1 text-xs text-steel">{candidate.reason}</p>
+                          </div>
+                          <LedgerStatusBadge tone={candidateScoreTone(candidate)}>{candidateScoreLabel(candidate)}</LedgerStatusBadge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                          <p className="font-mono text-xs text-steel">
+                            Dr {formatMoneyAmount(candidate.debit, currency)} / Cr {formatMoneyAmount(candidate.credit, currency)}
+                          </p>
+                          <LedgerButton type="button" disabled={Boolean(submitting)} onClick={() => void submitAction("match", { journalLineId: candidate.journalLineId })}>
+                            {submitting === "match" ? "Matching..." : "Match"}
+                          </LedgerButton>
+                        </div>
+                      </LedgerPanel>
+                    ))}
                   </div>
-                </div>
+                </LedgerSection>
 
-                <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                  <h2 className="text-lg font-semibold text-ink">Ignore</h2>
-                  <p className="mt-1 text-sm leading-6 text-steel">
-                    Ignore rows that should stay out of reconciliation, such as duplicates already represented by another imported row.
-                  </p>
-                  <label className="mt-4 block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Reason</span>
-                    <input value={ignoreReason} onChange={(event) => setIgnoreReason(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                  <button type="button" disabled={Boolean(submitting) || !ignoreReason.trim()} onClick={() => void submitAction("ignore", { reason: ignoreReason })} className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {submitting === "ignore" ? "Ignoring..." : "Ignore row"}
-                  </button>
+                <div className="space-y-5">
+                  <LedgerSection
+                    title="Categorize"
+                    description="Use categorization only when no existing posted movement should be matched. It posts a manual journal using this statement row date."
+                  >
+                    <div className="space-y-3">
+                      <LedgerFieldLabel>
+                        <LedgerFieldText>Offset account</LedgerFieldText>
+                        <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.code} {account.name}
+                            </option>
+                          ))}
+                        </LedgerSelect>
+                      </LedgerFieldLabel>
+                      <LedgerFieldLabel>
+                        <LedgerFieldText>Description</LedgerFieldText>
+                        <LedgerInput value={categoryDescription} onChange={(event) => setCategoryDescription(event.target.value)} />
+                      </LedgerFieldLabel>
+                      <LedgerButton type="button" disabled={Boolean(submitting) || !accountId} onClick={() => void submitAction("categorize", { accountId, description: categoryDescription || undefined })}>
+                        {submitting === "categorize" ? "Posting..." : "Post categorization journal"}
+                      </LedgerButton>
+                    </div>
+                  </LedgerSection>
+
+                  <LedgerSection
+                    title="Ignore"
+                    description="Ignore rows that should stay out of reconciliation, such as duplicates already represented by another imported row."
+                  >
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Reason</LedgerFieldText>
+                      <LedgerInput value={ignoreReason} onChange={(event) => setIgnoreReason(event.target.value)} />
+                    </LedgerFieldLabel>
+                    <div className="mt-3">
+                      <LedgerButton type="button" disabled={Boolean(submitting) || !ignoreReason.trim()} onClick={() => void submitAction("ignore", { reason: ignoreReason })}>
+                        {submitting === "ignore" ? "Ignoring..." : "Ignore row"}
+                      </LedgerButton>
+                    </div>
+                  </LedgerSection>
                 </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {!canReconcile ? <StatusMessage type="info">Your role can view statement rows, but reconciliation actions require bank statement reconcile permission.</StatusMessage> : null}
-          {canReconcile && !lockedWarning && !isUnmatched ? <StatusMessage type="info">Only unmatched rows can be matched, categorized, or ignored.</StatusMessage> : null}
-        </div>
-      ) : null}
-    </section>
+            {!canReconcile ? <LedgerAlert tone="info">Your role can view statement rows, but reconciliation actions require bank statement reconcile permission.</LedgerAlert> : null}
+            {canReconcile && !lockedWarning && !isUnmatched ? <LedgerAlert tone="info">Only unmatched rows can be matched, categorized, or ignored.</LedgerAlert> : null}
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -296,14 +329,12 @@ export function StatementTransactionWorkflowGuidance({
             : "This row is voided and remains visible for audit review.";
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">What this statement row means</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
-              {bankStatementTransactionStatusLabel(transaction.status)}
-            </span>
+            <LedgerStatusBadge tone={statementTransactionStatusTone(transaction.status)}>{bankStatementTransactionStatusLabel(transaction.status)}</LedgerStatusBadge>
           </div>
           <p className="mt-2 text-sm leading-6 text-steel">{statusCopy}</p>
           <p className="mt-2 text-xs leading-5 text-steel">
@@ -319,41 +350,15 @@ export function StatementTransactionWorkflowGuidance({
           ) : null}
         </div>
         <div className="min-w-full lg:min-w-[260px]">
-          <p className="text-xs font-medium uppercase tracking-wide text-steel">Next actions</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Next actions</p>
           <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
-            <Link href={profileHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Bank account
-            </Link>
-            <Link href={rowsHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Statement rows
-            </Link>
-            <Link href={reconciliationHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Reconciliation summary
-            </Link>
-            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Dashboard
-            </Link>
+            <LedgerButton href={profileHref}>Bank account</LedgerButton>
+            <LedgerButton href={rowsHref}>Statement rows</LedgerButton>
+            <LedgerButton href={reconciliationHref}>Reconciliation summary</LedgerButton>
+            <LedgerButton href="/dashboard">Dashboard</LedgerButton>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
+    </LedgerPanel>
   );
 }
