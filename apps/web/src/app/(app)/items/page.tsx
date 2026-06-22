@@ -1,9 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFilterBar,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -11,7 +30,6 @@ import {
   inventoryOperationalWarning,
   inventoryTraceabilityUrl,
   inventoryTrackingSafeHelperText,
-  itemStatusBadgeClass,
   itemStatusLabel,
   itemTrackingModeLabel,
   itemTypeLabel,
@@ -23,6 +41,10 @@ import type { Account, InventoryBalance, Item, ItemStatus, ItemTrackingMode, Ite
 const itemTypes: ItemType[] = ["SERVICE", "PRODUCT"];
 const itemStatuses: ItemStatus[] = ["ACTIVE", "DISABLED"];
 const itemTrackingModes: ItemTrackingMode[] = ["NONE", "SERIAL", "BATCH", "SERIAL_AND_BATCH"];
+
+function itemStatusTone(status: ItemStatus): LedgerStatusTone {
+  return status === "ACTIVE" ? "success" : "draft";
+}
 
 export default function ItemsPage() {
   const organizationId = useActiveOrganizationId();
@@ -200,195 +222,84 @@ export default function ItemsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Items</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-          Products and services used on sales invoices. Turn on inventory tracking only for stocked products that need warehouse quantity movement.
-        </p>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="Items"
+        description="Products and services used on sales invoices. Turn on inventory tracking only for stocked products that need warehouse quantity movement."
+      />
 
       <ItemsInventoryGuide canViewInventory={canViewInventory} />
 
-      {canManageItems ? (
-      <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <h2 className="text-base font-semibold text-ink">Create item</h2>
-        <form onSubmit={createItem} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <select name="type" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {itemTypes.map((type) => (
-              <option key={type} value={type}>
-                {itemTypeLabel(type)}
-              </option>
-            ))}
-          </select>
-          <select name="status" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {itemStatuses.map((status) => (
-              <option key={status} value={status}>
-                {itemStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-          <input name="name" required placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="sku" placeholder="SKU/code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="sellingPrice" required defaultValue="0.0000" placeholder="Selling price" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <select name="revenueAccountId" required className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            <option value="">Revenue account</option>
-            {revenueAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} {account.name}
-              </option>
-            ))}
-          </select>
-          <select name="salesTaxRateId" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            <option value="">No default tax</option>
-            {salesTaxRates.map((taxRate) => (
-              <option key={taxRate.id} value={taxRate.id}>
-                {taxRate.name}
-              </option>
-            ))}
-          </select>
-          <input name="description" placeholder="Description" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input name="inventoryTracking" type="checkbox" />
-            Track inventory
-          </label>
-          <select name="trackingMode" defaultValue="NONE" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-            {itemTrackingModes.map((mode) => (
-              <option key={mode} value={mode}>
-                Tracking: {itemTrackingModeLabel(mode)}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input name="expiryTrackingEnabled" type="checkbox" />
-            Expiry tracking
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input name="binTrackingEnabled" type="checkbox" />
-            Bin tracking
-          </label>
-          <input name="reorderPoint" placeholder="Reorder point" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <input name="reorderQuantity" placeholder="Reorder quantity" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-          <p className="text-xs leading-5 text-steel md:col-span-3">{inventoryTrackingSafeHelperText()}</p>
-          <button type="submit" disabled={!organizationId || revenueAccounts.length === 0} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            Add item
-          </button>
-        </form>
-      </div>
-      ) : null}
-
-      {editingItem && canManageItems ? (
-        <div className="mb-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">Edit item</h2>
-          <form key={editingItem.id} onSubmit={updateItem} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-            <select name="type" required defaultValue={editingItem.type} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              {itemTypes.map((type) => (
-                <option key={type} value={type}>{itemTypeLabel(type)}</option>
-              ))}
-            </select>
-            <select name="status" required defaultValue={editingItem.status} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              {itemStatuses.map((status) => (
-                <option key={status} value={status}>{itemStatusLabel(status)}</option>
-              ))}
-            </select>
-            <input name="name" required defaultValue={editingItem.name} placeholder="Name" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="sku" defaultValue={editingItem.sku ?? ""} placeholder="SKU/code" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="sellingPrice" required defaultValue={editingItem.sellingPrice} placeholder="Selling price" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <select name="revenueAccountId" required defaultValue={editingItem.revenueAccountId} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              {revenueAccounts.map((account) => (
-                <option key={account.id} value={account.id}>{account.code} {account.name}</option>
-              ))}
-            </select>
-            <select name="salesTaxRateId" defaultValue={editingItem.salesTaxRateId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              <option value="">No default tax</option>
-              {salesTaxRates.map((taxRate) => (
-                <option key={taxRate.id} value={taxRate.id}>{taxRate.name}</option>
-              ))}
-            </select>
-            <input name="description" defaultValue={editingItem.description ?? ""} placeholder="Description" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input name="inventoryTracking" type="checkbox" defaultChecked={editingItem.inventoryTracking} />
-              Track inventory
-            </label>
-            <select name="trackingMode" defaultValue={editingItem.trackingMode ?? "NONE"} className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-              {itemTrackingModes.map((mode) => (
-                <option key={mode} value={mode}>
-                  Tracking: {itemTrackingModeLabel(mode)}
-                </option>
-              ))}
-            </select>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input name="expiryTrackingEnabled" type="checkbox" defaultChecked={editingItem.expiryTrackingEnabled ?? false} />
-              Expiry tracking
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input name="binTrackingEnabled" type="checkbox" defaultChecked={editingItem.binTrackingEnabled ?? false} />
-              Bin tracking
-            </label>
-            <input name="reorderPoint" defaultValue={editingItem.reorderPoint ?? ""} placeholder="Reorder point" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <input name="reorderQuantity" defaultValue={editingItem.reorderQuantity ?? ""} placeholder="Reorder quantity" className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            <p className="text-xs leading-5 text-steel md:col-span-3">{inventoryTrackingSafeHelperText()}</p>
-            <div className="flex gap-2">
-              <button type="submit" className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">Save</button>
-              <button type="button" onClick={() => setEditingItem(null)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load items.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading items...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && items.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-            <h2 className="font-semibold text-ink">No items yet.</h2>
-            <p className="mt-2 max-w-3xl leading-6 text-steel">
-              Add a service for invoicing, or add a tracked product before posting purchase receipts, stock issues, adjustments, and warehouse transfers.
-            </p>
-          </div>
+      <LedgerPageBody>
+        {canManageItems ? (
+          <ItemForm
+            title="Create item"
+            mode="create"
+            onSubmit={createItem}
+            revenueAccounts={revenueAccounts}
+            salesTaxRates={salesTaxRates}
+            organizationId={organizationId}
+          />
         ) : null}
-      </div>
 
-      {items.length > 0 ? (
-        <div className="mt-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink">
-              Search products and services
-              <input
-                type="search"
-                aria-label="Search products and services"
-                value={itemSearch}
-                onChange={(event) => setItemSearch(event.target.value)}
-                placeholder="Name, SKU, description, type, or status"
-                className="h-10 rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-palm"
-              />
-            </label>
-            <div className="flex items-center gap-3 text-sm text-steel">
-              <span>
-                Showing {filteredItems.length} of {items.length}
-              </span>
-              {hasItemSearch ? (
-                <button type="button" onClick={() => setItemSearch("")} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
-                  Clear
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+        {editingItem && canManageItems ? (
+          <ItemForm
+            title="Edit item"
+            mode="edit"
+            item={editingItem}
+            onSubmit={updateItem}
+            onCancel={() => setEditingItem(null)}
+            revenueAccounts={revenueAccounts}
+            salesTaxRates={salesTaxRates}
+            organizationId={organizationId}
+          />
+        ) : null}
 
-      {items.length > 0 && filteredItems.length === 0 ? (
-        <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-          <h2 className="font-semibold text-ink">No matching products or services.</h2>
-          <p className="mt-2 text-steel">Clear the search or try a name, SKU, description, type, or status.</p>
-        </div>
-      ) : null}
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load items.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading items" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      {filteredItems.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1360px] text-left text-sm">
+        {!loading && organizationId && items.length === 0 ? (
+          <LedgerEmptyState
+            title="No items yet."
+            description="Add a service for invoicing, or add a tracked product before posting purchase receipts, stock issues, adjustments, and warehouse transfers."
+          />
+        ) : null}
+
+        {items.length > 0 ? (
+          <LedgerPanel>
+            <LedgerFilterBar>
+              <LedgerFieldLabel className="flex-1">
+                <LedgerFieldText>Search products and services</LedgerFieldText>
+                <LedgerInput
+                  type="search"
+                  aria-label="Search products and services"
+                  value={itemSearch}
+                  onChange={(event) => setItemSearch(event.target.value)}
+                  placeholder="Name, SKU, description, type, or status"
+                />
+              </LedgerFieldLabel>
+              <div className="flex items-center gap-3 text-sm text-steel">
+                <span>
+                  Showing {filteredItems.length} of {items.length}
+                </span>
+                {hasItemSearch ? <LedgerButton type="button" onClick={() => setItemSearch("")}>Clear</LedgerButton> : null}
+              </div>
+            </LedgerFilterBar>
+          </LedgerPanel>
+        ) : null}
+
+        {items.length > 0 && filteredItems.length === 0 ? (
+          <LedgerEmptyState
+            title="No matching products or services."
+            description="Clear the search or try a name, SKU, description, type, or status."
+          />
+        ) : null}
+
+        {filteredItems.length > 0 ? (
+          <LedgerDataTable minWidth="1360px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Name</th>
@@ -412,7 +323,7 @@ export default function ItemsPage() {
                   <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-steel">{item.sku ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{itemTypeLabel(item.type)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(item.sellingPrice)}</td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(item.sellingPrice)}</LedgerMoney></td>
                   <td className="px-4 py-3 text-steel">{item.revenueAccount ? `${item.revenueAccount.code} ${item.revenueAccount.name}` : "-"}</td>
                   <td className="px-4 py-3 text-steel">{item.salesTaxRate?.name ?? "No default tax"}</td>
                   <td className="px-4 py-3 text-steel">{item.inventoryTracking ? "Tracked" : "Not tracked"}</td>
@@ -423,26 +334,148 @@ export default function ItemsPage() {
                   <td className="px-4 py-3 font-mono text-xs">{item.inventoryTracking && canViewInventory ? totalQuantityForItem(item.id) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderPoint ? formatInventoryQuantity(item.reorderPoint) : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{item.reorderQuantity ? formatInventoryQuantity(item.reorderQuantity) : "-"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${itemStatusBadgeClass(item.status)}`}>{itemStatusLabel(item.status)}</span>
-                  </td>
+                  <td className="px-4 py-3"><LedgerStatusBadge tone={itemStatusTone(item.status)}>{itemStatusLabel(item.status)}</LedgerStatusBadge></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      {canManageItems ? <button type="button" onClick={() => setEditingItem(item)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button> : null}
-                      {canViewInventory ? <Link href={inventoryTraceabilityUrl(item.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Traceability</Link> : null}
+                      {canManageItems ? <LedgerButton type="button" onClick={() => setEditingItem(item)} size="sm">Edit</LedgerButton> : null}
+                      {canViewInventory ? <LedgerButton href={inventoryTraceabilityUrl(item.id)} size="sm">Traceability</LedgerButton> : null}
                       {item.status === "ACTIVE" && canManageItems ? (
-                        <button type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} className="rounded-md border border-amber px-2 py-1 text-xs font-medium text-amber hover:bg-amber-50 disabled:cursor-not-allowed disabled:text-slate-400">Disable</button>
+                        <LedgerButton type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} size="sm">
+                          Disable
+                        </LedgerButton>
                       ) : null}
-                      {canManageItems ? <button type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">Delete</button> : null}
+                      {canManageItems ? <LedgerButton type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} variant="danger" size="sm">Delete</LedgerButton> : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
+  );
+}
+
+function ItemForm({
+  title,
+  mode,
+  item,
+  onSubmit,
+  onCancel,
+  revenueAccounts,
+  salesTaxRates,
+  organizationId,
+}: {
+  title: string;
+  mode: "create" | "edit";
+  item?: Item;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel?: () => void;
+  revenueAccounts: Account[];
+  salesTaxRates: TaxRate[];
+  organizationId: string | null;
+}) {
+  return (
+    <form key={item?.id ?? "create"} onSubmit={onSubmit}>
+      <LedgerFormSection title={title}>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Type</LedgerFieldText>
+          <LedgerSelect name="type" required defaultValue={item?.type}>
+            {itemTypes.map((type) => (
+              <option key={type} value={type}>
+                {itemTypeLabel(type)}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Status</LedgerFieldText>
+          <LedgerSelect name="status" required defaultValue={item?.status}>
+            {itemStatuses.map((status) => (
+              <option key={status} value={status}>
+                {itemStatusLabel(status)}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Name</LedgerFieldText>
+          <LedgerInput name="name" required defaultValue={item?.name} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>SKU/code</LedgerFieldText>
+          <LedgerInput name="sku" defaultValue={item?.sku ?? ""} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Selling price</LedgerFieldText>
+          <LedgerInput name="sellingPrice" required defaultValue={item?.sellingPrice ?? "0.0000"} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Revenue account</LedgerFieldText>
+          <LedgerSelect name="revenueAccountId" required defaultValue={item?.revenueAccountId}>
+            <option value="">Revenue account</option>
+            {revenueAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.code} {account.name}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Sales tax rate</LedgerFieldText>
+          <LedgerSelect name="salesTaxRateId" defaultValue={item?.salesTaxRateId ?? ""}>
+            <option value="">No default tax</option>
+            {salesTaxRates.map((taxRate) => (
+              <option key={taxRate.id} value={taxRate.id}>
+                {taxRate.name}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Description</LedgerFieldText>
+          <LedgerInput name="description" defaultValue={item?.description ?? ""} />
+        </LedgerFieldLabel>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input name="inventoryTracking" type="checkbox" defaultChecked={item?.inventoryTracking ?? false} />
+          Track inventory
+        </label>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Tracking mode</LedgerFieldText>
+          <LedgerSelect name="trackingMode" defaultValue={item?.trackingMode ?? "NONE"}>
+            {itemTrackingModes.map((mode) => (
+              <option key={mode} value={mode}>
+                Tracking: {itemTrackingModeLabel(mode)}
+              </option>
+            ))}
+          </LedgerSelect>
+        </LedgerFieldLabel>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input name="expiryTrackingEnabled" type="checkbox" defaultChecked={item?.expiryTrackingEnabled ?? false} />
+          Expiry tracking
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input name="binTrackingEnabled" type="checkbox" defaultChecked={item?.binTrackingEnabled ?? false} />
+          Bin tracking
+        </label>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Reorder point</LedgerFieldText>
+          <LedgerInput name="reorderPoint" defaultValue={item?.reorderPoint ?? ""} />
+        </LedgerFieldLabel>
+        <LedgerFieldLabel>
+          <LedgerFieldText>Reorder quantity</LedgerFieldText>
+          <LedgerInput name="reorderQuantity" defaultValue={item?.reorderQuantity ?? ""} />
+        </LedgerFieldLabel>
+        <p className="text-xs leading-5 text-steel md:col-span-2">{inventoryTrackingSafeHelperText()}</p>
+        <div className="flex gap-2">
+          <LedgerButton type="submit" disabled={mode === "create" && (!organizationId || revenueAccounts.length === 0)} variant="primary">
+            {mode === "create" ? "Add item" : "Save"}
+          </LedgerButton>
+          {onCancel ? <LedgerButton type="button" onClick={onCancel}>Cancel</LedgerButton> : null}
         </div>
-      ) : null}
-    </section>
+      </LedgerFormSection>
+    </form>
   );
 }
 
@@ -472,31 +505,25 @@ function filterItems(items: readonly Item[], query: string): Item[] {
 
 export function ItemsInventoryGuide({ canViewInventory }: { canViewInventory: boolean }) {
   return (
-    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="warning">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">How inventory items work</h2>
           <p className="mt-1 max-w-3xl">
             Services can be invoiced without stock. Tracked products appear in warehouse balances and stock movements after receipts, issues, adjustments, or transfers.
           </p>
-          <p className="mt-2 text-xs leading-5 text-emerald-900">{inventoryOperationalWarning()}</p>
+          <p className="mt-2 text-xs leading-5">{inventoryOperationalWarning()}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
           {canViewInventory ? (
             <>
-              <Link href="/inventory/balances" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-                View balances
-              </Link>
-              <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-                Stock movements
-              </Link>
+              <LedgerButton href="/inventory/balances" variant="primary">View balances</LedgerButton>
+              <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
             </>
           ) : null}
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }

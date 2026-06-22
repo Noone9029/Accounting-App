@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-bank-detail-close-routes`
+Branch: `codex/ui-redesign-inventory-catalog-warehouse`
 
-Base: stacked on `origin/codex/ui-redesign-bank-reconciliation-detail` while PR #168 is open
+Base: stacked on `origin/codex/ui-redesign-bank-detail-close-routes` while PR #169 is open
 
 ## Evidence Summary
 
@@ -46,6 +46,7 @@ Base: stacked on `origin/codex/ui-redesign-bank-reconciliation-detail` while PR 
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
+| Inventory catalog and warehouse loop | `apps/web/src/app/(app)/items/page.tsx`, `apps/web/src/app/(app)/inventory/warehouses/page.tsx`, and `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` use shared LedgerByte page, summary, form, field, filter, table, status, loading, empty, metadata, date, money, and action primitives while preserving item create/edit payloads, item traceability links, warehouse create/archive/reactivate actions, and warehouse stock guidance. |
 
 ## PR #146 Foundation Verification Results
 
@@ -426,6 +427,19 @@ Base: stacked on `origin/codex/ui-redesign-bank-reconciliation-detail` while PR 
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
 - `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
+
+## 2026-06-22 Inventory Catalog and Warehouse Loop Evidence
+
+- `/items`: migrated the item catalog, create form, edit form, search/filter panel, item table, empty states, item status badges, and traceability links to shared Ledger primitives while preserving existing `/items`, `/accounts`, `/tax-rates`, and `/inventory/balances` loads, create/update/delete/disable payloads, form field names, search behavior, inventory tracking helper text, and traceability hrefs.
+- `/inventory/warehouses`: migrated warehouse list/create, operational warning, workflow guidance, create form, archive/reactivate actions, warehouse status labels, and empty state to shared Ledger primitives while preserving `/warehouses` loading, create payloads, status action endpoints, and `PERMISSIONS.warehouses.manage` visibility.
+- `/inventory/warehouses/[id]`: migrated warehouse detail, operational warning, stock guidance, profile metadata, balance table, movement table, recent adjustment/transfer tables, and empty-state action links to shared Ledger primitives while preserving warehouse, balance, movement, adjustment, and transfer load endpoints plus FIFO/adjustment/transfer permission-gated links.
+- Existing behavior remains frontend-only and unchanged: item catalog mutations, warehouse mutations, stock movement/balance reads, FIFO links, traceability links, and permission checks keep their existing semantics. No stock movement, valuation, COGS, receipt posting, transfer posting, schema change, storage behavior change, VAT/ZATCA/compliance behavior, or hosted mutation was added.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- items/page inventory/warehouses`: PASS, 1 suite, 3 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed inventory visual pass should cover items, warehouse list/detail, and later stock movement/valuation routes after the first inventory route group lands.
 
 ## 2026-06-22 Inventory Balances Loop Evidence
 

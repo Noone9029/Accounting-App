@@ -1,26 +1,45 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   formatInventoryQuantity,
-  inventoryBalanceDisplay,
   inventoryAdjustmentStatusLabel,
+  inventoryBalanceDisplay,
   inventoryFifoPreviewUrl,
   inventoryOperationalWarning,
   stockMovementTypeLabel,
-  warehouseTransferStatusLabel,
-  warehouseStatusBadgeClass,
   warehouseStatusLabel,
+  warehouseTransferStatusLabel,
 } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { InventoryAdjustment, InventoryBalance, StockMovement, Warehouse, WarehouseTransfer } from "@/lib/types";
+
+function warehouseStatusTone(status: Warehouse["status"]): LedgerStatusTone {
+  return status === "ACTIVE" ? "success" : "draft";
+}
 
 export default function WarehouseDetailPage() {
   const params = useParams<{ id: string }>();
@@ -85,193 +104,186 @@ export default function WarehouseDetailPage() {
   }, [canViewAdjustments, canViewTransfers, organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{warehouse ? `${warehouse.code} ${warehouse.name}` : "Warehouse"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Warehouse details, stock balances, and recent operational movements.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canViewFifoPreview ? (
-            <Link href={`/inventory/bin-locations?warehouseId=${warehouse?.id ?? params.id}`} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              Bin locations
-            </Link>
-          ) : null}
-          <Link href="/inventory/warehouses" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title={warehouse ? `${warehouse.code} ${warehouse.name}` : "Warehouse"}
+        description="Warehouse details, stock balances, and recent operational movements."
+        badge={warehouse ? <LedgerStatusBadge tone={warehouseStatusTone(warehouse.status)}>{warehouseStatusLabel(warehouse.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            {canViewFifoPreview ? <LedgerButton href={`/inventory/bin-locations?warehouseId=${warehouse?.id ?? params.id}`}>Bin locations</LedgerButton> : null}
+            <LedgerButton href="/inventory/warehouses">Back</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load warehouse details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading warehouse...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load warehouse details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading warehouse" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      {warehouse ? (
-        <div className="mt-5 space-y-5">
-          <WarehouseInventoryGuidance
-            warehouse={warehouse}
-            canCreateAdjustment={canCreateAdjustment}
-            canCreateTransfer={canCreateTransfer}
-            canViewFifoPreview={canViewFifoPreview}
-            hasBalances={balances.length > 0}
-            hasMovements={movements.length > 0}
+        {warehouse ? (
+          <>
+            <WarehouseInventoryGuidance
+              warehouse={warehouse}
+              canCreateAdjustment={canCreateAdjustment}
+              canCreateTransfer={canCreateTransfer}
+              canViewFifoPreview={canViewFifoPreview}
+              hasBalances={balances.length > 0}
+              hasMovements={movements.length > 0}
+            />
+
+            <LedgerSection title="Warehouse profile" description="Location metadata used by operational stock movements.">
+              <LedgerMetadataRow
+                items={[
+                  { label: "Code", value: warehouse.code },
+                  { label: "Name", value: warehouse.name },
+                  { label: "Status", value: <LedgerStatusBadge tone={warehouseStatusTone(warehouse.status)}>{warehouseStatusLabel(warehouse.status)}</LedgerStatusBadge> },
+                  { label: "Default", value: warehouse.isDefault ? "Yes" : "No" },
+                  { label: "Address", value: warehouse.addressLine1 ?? "-" },
+                  { label: "City", value: warehouse.city ?? "-" },
+                  { label: "Country", value: warehouse.countryCode },
+                  { label: "Phone", value: warehouse.phone ?? "-" },
+                ]}
+              />
+            </LedgerSection>
+          </>
+        ) : null}
+
+        {balances.length > 0 ? (
+          <LedgerSection title="Balances" description="On-hand quantity and operational value by item in this warehouse.">
+            <LedgerDataTable minWidth="820px">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3">SKU</th>
+                  <th className="px-4 py-3 text-right">Quantity on hand</th>
+                  <th className="px-4 py-3 text-right">Average cost</th>
+                  <th className="px-4 py-3 text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {balances.map((balance) => {
+                  const display = inventoryBalanceDisplay(balance);
+                  return (
+                    <tr key={`${balance.item.id}:${balance.warehouse.id}`}>
+                      <td className="px-4 py-3 font-medium text-ink">{balance.item.name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-steel">{balance.item.sku ?? "-"}</td>
+                      <td className="px-4 py-3 text-right font-mono text-xs">{display.quantity}</td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{display.averageUnitCost}</LedgerMoney></td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{display.inventoryValue}</LedgerMoney></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </LedgerDataTable>
+          </LedgerSection>
+        ) : warehouse && !loading ? (
+          <InventoryEmptyPanel
+            title="No stock balances in this warehouse yet."
+            body="Post a purchase receipt, approve an adjustment, or transfer stock into this warehouse to build an on-hand balance."
+            actions={[
+              canCreateAdjustment ? { href: "/inventory/adjustments/new", label: "Create adjustment" } : null,
+              canCreateTransfer ? { href: "/inventory/transfers/new", label: "Create transfer" } : null,
+            ]}
           />
+        ) : null}
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <Detail label="Code" value={warehouse.code} />
-              <Detail label="Name" value={warehouse.name} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-flex rounded-md px-2 py-1 text-xs font-medium ${warehouseStatusBadgeClass(warehouse.status)}`}>
-                  {warehouseStatusLabel(warehouse.status)}
-                </span>
-              </div>
-              <Detail label="Default" value={warehouse.isDefault ? "Yes" : "No"} />
-              <Detail label="Address" value={warehouse.addressLine1 ?? "-"} />
-              <Detail label="City" value={warehouse.city ?? "-"} />
-              <Detail label="Country" value={warehouse.countryCode} />
-              <Detail label="Phone" value={warehouse.phone ?? "-"} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {balances.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3">SKU</th>
-                <th className="px-4 py-3 text-right">Quantity on hand</th>
-                <th className="px-4 py-3 text-right">Average cost</th>
-                <th className="px-4 py-3 text-right">Value</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {balances.map((balance) => {
-                const display = inventoryBalanceDisplay(balance);
-                return (
-                  <tr key={`${balance.item.id}:${balance.warehouse.id}`}>
-                    <td className="px-4 py-3 font-medium text-ink">{balance.item.name}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-steel">{balance.item.sku ?? "-"}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{display.quantity}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{display.averageUnitCost}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{display.inventoryValue}</td>
+        {movements.length > 0 ? (
+          <LedgerSection title="Recent stock movements" description="Latest operational stock movement rows affecting this warehouse.">
+            <LedgerDataTable minWidth="840px">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3 text-right">Quantity</th>
+                  <th className="px-4 py-3">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {movements.map((movement) => (
+                  <tr key={movement.id}>
+                    <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(movement.movementDate, "-")}</LedgerDate></td>
+                    <td className="px-4 py-3 text-steel">{stockMovementTypeLabel(movement.type)}</td>
+                    <td className="px-4 py-3 text-ink">{movement.item ? movement.item.name : movement.itemId}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(movement.quantity)}</td>
+                    <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : warehouse && !loading ? (
-        <InventoryEmptyPanel
-          title="No stock balances in this warehouse yet."
-          body="Post a purchase receipt, approve an adjustment, or transfer stock into this warehouse to build an on-hand balance."
-          actions={[
-            canCreateAdjustment ? { href: "/inventory/adjustments/new", label: "Create adjustment" } : null,
-            canCreateTransfer ? { href: "/inventory/transfers/new", label: "Create transfer" } : null,
-          ]}
-        />
-      ) : null}
+                ))}
+              </tbody>
+            </LedgerDataTable>
+          </LedgerSection>
+        ) : warehouse && !loading ? (
+          <InventoryEmptyPanel
+            title="No stock movements recorded here yet."
+            body="Movements will appear after receipts, stock issues, approved adjustments, transfers, or void reversals affect this warehouse."
+            actions={[{ href: "/inventory/stock-movements", label: "Open stock ledger" }]}
+          />
+        ) : null}
 
-      {movements.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[840px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3">Description</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {movements.map((movement) => (
-                <tr key={movement.id}>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(movement.movementDate, "-")}</td>
-                  <td className="px-4 py-3 text-steel">{stockMovementTypeLabel(movement.type)}</td>
-                  <td className="px-4 py-3 text-ink">{movement.item ? movement.item.name : movement.itemId}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(movement.quantity)}</td>
-                  <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
+        {adjustments.length > 0 ? (
+          <LedgerSection title="Recent adjustments" description="Latest inventory adjustment rows for this warehouse.">
+            <LedgerDataTable minWidth="760px">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Adjustment</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3 text-right">Quantity</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : warehouse && !loading ? (
-        <InventoryEmptyPanel
-          title="No stock movements recorded here yet."
-          body="Movements will appear after receipts, stock issues, approved adjustments, transfers, or void reversals affect this warehouse."
-          actions={[{ href: "/inventory/stock-movements", label: "Open stock ledger" }]}
-        />
-      ) : null}
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {adjustments.map((adjustment) => (
+                  <tr key={adjustment.id}>
+                    <td className="px-4 py-3 font-mono text-xs">{adjustment.adjustmentNumber}</td>
+                    <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(adjustment.adjustmentDate, "-")}</LedgerDate></td>
+                    <td className="px-4 py-3 text-ink">{adjustment.item?.name ?? adjustment.itemId}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(adjustment.quantity)}</td>
+                    <td className="px-4 py-3 text-steel">{inventoryAdjustmentStatusLabel(adjustment.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </LedgerDataTable>
+          </LedgerSection>
+        ) : null}
 
-      {adjustments.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Adjustment</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {adjustments.map((adjustment) => (
-                <tr key={adjustment.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{adjustment.adjustmentNumber}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(adjustment.adjustmentDate, "-")}</td>
-                  <td className="px-4 py-3 text-ink">{adjustment.item?.name ?? adjustment.itemId}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(adjustment.quantity)}</td>
-                  <td className="px-4 py-3 text-steel">{inventoryAdjustmentStatusLabel(adjustment.status)}</td>
+        {transfers.length > 0 ? (
+          <LedgerSection title="Recent transfers" description="Latest transfer rows moving stock into or out of this warehouse.">
+            <LedgerDataTable minWidth="860px">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">Transfer</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3">From</th>
+                  <th className="px-4 py-3">To</th>
+                  <th className="px-4 py-3 text-right">Quantity</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {transfers.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Transfer</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3">From</th>
-                <th className="px-4 py-3">To</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transfers.map((transfer) => (
-                <tr key={transfer.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{transfer.transferNumber}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(transfer.transferDate, "-")}</td>
-                  <td className="px-4 py-3 text-ink">{transfer.item?.name ?? transfer.itemId}</td>
-                  <td className="px-4 py-3 text-steel">{transfer.fromWarehouse?.code ?? transfer.fromWarehouseId}</td>
-                  <td className="px-4 py-3 text-steel">{transfer.toWarehouse?.code ?? transfer.toWarehouseId}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(transfer.quantity)}</td>
-                  <td className="px-4 py-3 text-steel">{warehouseTransferStatusLabel(transfer.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {transfers.map((transfer) => (
+                  <tr key={transfer.id}>
+                    <td className="px-4 py-3 font-mono text-xs">{transfer.transferNumber}</td>
+                    <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(transfer.transferDate, "-")}</LedgerDate></td>
+                    <td className="px-4 py-3 text-ink">{transfer.item?.name ?? transfer.itemId}</td>
+                    <td className="px-4 py-3 text-steel">{transfer.fromWarehouse?.code ?? transfer.fromWarehouseId}</td>
+                    <td className="px-4 py-3 text-steel">{transfer.toWarehouse?.code ?? transfer.toWarehouseId}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(transfer.quantity)}</td>
+                    <td className="px-4 py-3 text-steel">{warehouseTransferStatusLabel(transfer.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </LedgerDataTable>
+          </LedgerSection>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -291,7 +303,7 @@ export function WarehouseInventoryGuidance({
   hasMovements: boolean;
 }) {
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="info">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-base font-semibold text-ink">How to read this warehouse</h2>
@@ -309,40 +321,22 @@ export function WarehouseInventoryGuidance({
               <p className="mt-1">Average cost and value are operational estimates unless a manual financial posting action is shown and used.</p>
             </div>
           </div>
-          <p className="mt-3 text-xs leading-5 text-emerald-900">
+          <p className="mt-3 text-xs leading-5">
             {hasBalances || hasMovements
               ? "Use the tables below to trace which item and movement changed this warehouse."
               : "This warehouse has no stock activity yet. Start with a receipt, adjustment, or transfer."}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
-          {canCreateAdjustment ? (
-            <Link href="/inventory/adjustments/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-              Create adjustment
-            </Link>
-          ) : null}
-          {canCreateTransfer ? (
-            <Link href="/inventory/transfers/new" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-              Create transfer
-            </Link>
-          ) : null}
-          <Link href={`/inventory/stock-movements?warehouseId=${warehouse.id}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Stock movements
-          </Link>
-          {canViewFifoPreview ? (
-            <Link href={inventoryFifoPreviewUrl({ warehouseId: warehouse.id })} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-              FIFO preview
-            </Link>
-          ) : null}
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Movement report
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
+          {canCreateAdjustment ? <LedgerButton href="/inventory/adjustments/new" variant="primary">Create adjustment</LedgerButton> : null}
+          {canCreateTransfer ? <LedgerButton href="/inventory/transfers/new">Create transfer</LedgerButton> : null}
+          <LedgerButton href={`/inventory/stock-movements?warehouseId=${warehouse.id}`}>Stock movements</LedgerButton>
+          {canViewFifoPreview ? <LedgerButton href={inventoryFifoPreviewUrl({ warehouseId: warehouse.id })}>FIFO preview</LedgerButton> : null}
+          <LedgerButton href="/inventory/reports/movement-summary">Movement report</LedgerButton>
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
         </div>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -357,27 +351,18 @@ function InventoryEmptyPanel({
 }) {
   const visibleActions = actions.filter(Boolean) as Array<{ href: string; label: string }>;
   return (
-    <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-      <h2 className="font-semibold text-ink">{title}</h2>
-      <p className="mt-2 max-w-3xl leading-6 text-steel">{body}</p>
-      {visibleActions.length > 0 ? (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {visibleActions.map((action) => (
-            <Link key={action.href} href={action.href} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
-              {action.label}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
+    <LedgerEmptyState
+      title={title}
+      description={body}
+      action={
+        visibleActions.length > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {visibleActions.map((action) => (
+              <LedgerButton key={action.href} href={action.href}>{action.label}</LedgerButton>
+            ))}
+          </div>
+        ) : null
+      }
+    />
   );
 }
