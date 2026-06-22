@@ -158,6 +158,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved dashboard truth: KPI values, drilldown links, workspace links, and quick actions still come from existing summary data and permission-filtered helper functions.
 - Preserved controlled-beta boundaries: dashboard attention remains read-only and does not send reminders, collect payments, post journals, file VAT, call ZATCA, move inventory, or imply provider/compliance readiness.
 
+### 2026-06-22 Placeholder Route Loop
+
+- Migrated `/(app)/[...placeholder]` to shared LedgerByte page, header, panel, metadata, status, summary, and action primitives.
+- Added route-load coverage proving placeholder routes render as planned, non-actionable surfaces with a dashboard return link and no mutation buttons.
+- Preserved placeholder truth: no live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from the catch-all route.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -178,4 +184,4 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 
 ## Recommended Next Goal
 
-Continue through public/auth polish, placeholder/future-route styling, and refreshed visual fixture coverage for the migrated route families.
+Continue through public/auth polish and refreshed visual fixture coverage for the migrated route families.

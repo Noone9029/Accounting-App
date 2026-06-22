@@ -23,6 +23,7 @@ import StorageSettingsPage from "./settings/storage/page";
 import SuppliersPage from "./suppliers/page";
 import SupplierDetailPage from "./suppliers/[id]/page";
 import SetupPage from "./setup/page";
+import PlaceholderPage from "./[...placeholder]/page";
 
 const apiRequestMock = jest.fn();
 const canMock = jest.fn((_: string) => true);
@@ -108,6 +109,17 @@ describe("controlled beta route-load verification batch", () => {
 
     expect(screen.getByText("Log in and select an organization to open guided setup.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads placeholder routes as planned and non-actionable", async () => {
+    render(await PlaceholderPage({ params: Promise.resolve({ placeholder: ["fixed-assets"] }) }));
+
+    expect(screen.getByRole("heading", { name: "Fixed assets" })).toBeInTheDocument();
+    expect(screen.getByText("Module not implemented yet")).toBeInTheDocument();
+    expect(screen.getByText(/No live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow/)).toBeInTheDocument();
+    expect(screen.getByText("No workflow execution")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("routes customer and supplier workspaces through the shared party pages", () => {

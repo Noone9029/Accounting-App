@@ -1,3 +1,15 @@
+import { ArrowRight, CircleDashed, ShieldAlert } from "lucide-react";
+import {
+  LedgerButton,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
+
 const titleMap: Record<string, string> = {
   "get-started": "Get started",
   inbox: "Inbox",
@@ -37,15 +49,47 @@ export default async function PlaceholderPage({ params }: { params: Promise<{ pl
   const title = titleMap[key] ?? "Module";
 
   return (
-    <section>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-        <p className="mt-1 text-sm text-steel">Planned module route scaffold. This page does not provide working module actions yet.</p>
-      </div>
-      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-        <div className="text-sm font-medium text-ink">Module not implemented yet</div>
-        <p className="mt-1 text-sm text-steel">The route scaffold is in place for future build-out. No live integration, payroll, bank-feed, billing, ZATCA, email, posting, or production workflow runs from this placeholder.</p>
-      </div>
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Planned route"
+        title={title}
+        badge={<LedgerStatusBadge tone="draft">Placeholder</LedgerStatusBadge>}
+        description="Planned module route scaffold. This page does not provide working module actions yet."
+        actions={<LedgerButton href="/dashboard" icon={ArrowRight}>Back to dashboard</LedgerButton>}
+      />
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">
+          The route scaffold is in place for future build-out. No live integration, payroll, bank-feed, billing, ZATCA,
+          email, posting, or production workflow runs from this placeholder.
+        </LedgerSummaryBand>
+
+        <LedgerPanel>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                <CircleDashed className="h-4 w-4 text-steel" aria-hidden="true" />
+                Module not implemented yet
+              </div>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
+                This authenticated app-shell route is intentionally non-actionable until the module is implemented and
+                connected to real permissions, tests, and review evidence.
+              </p>
+            </div>
+            <ShieldAlert className="h-5 w-5 flex-none text-amber-700" aria-hidden="true" />
+          </div>
+
+          <div className="mt-4">
+            <LedgerMetadataRow
+              items={[
+                { label: "Route", value: `/${key}` },
+                { label: "Status", value: "Planned placeholder" },
+                { label: "Actions", value: "Disabled" },
+                { label: "Runtime", value: "No workflow execution" },
+              ]}
+            />
+          </div>
+        </LedgerPanel>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
