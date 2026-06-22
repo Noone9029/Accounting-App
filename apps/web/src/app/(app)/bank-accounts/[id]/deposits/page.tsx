@@ -1,17 +1,37 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { bankDepositStatusBadgeClass, bankDepositStatusLabel } from "@/lib/bank-deposits";
+import { bankDepositStatusLabel } from "@/lib/bank-deposits";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankAccountSummary, BankDepositBatch } from "@/lib/types";
+import type { BankAccountSummary, BankDepositBatch, BankDepositBatchStatus } from "@/lib/types";
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -102,6 +122,7 @@ export default function BankDepositsPage() {
       setSuccess("Draft bank deposit batch created.");
       setMemo("");
       setDeposits((current) => [created, ...current]);
+      setReloadToken((current) => current + 1);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create bank deposit batch.");
     } finally {
@@ -110,107 +131,103 @@ export default function BankDepositsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Bank deposit batches</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} grouped receipt deposits` : "Grouped receipt deposits"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Bank deposit batches"
+        description={profile ? `${profile.displayName} grouped receipt deposits` : "Grouped receipt deposits"}
+        actions={
+          <>
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Statement rows</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank deposits.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading bank deposits...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!canManage ? <StatusMessage type="info">You can view deposit batches, but creating or editing drafts requires bank statement manage permission.</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Deposit batches are operational grouping records for explicit statement-credit matching and accountant-reviewed clearing-account posture.
+      </LedgerSummaryBand>
 
-      <BankDepositGuidance />
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load bank deposits.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading bank deposits" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!canManage ? <LedgerAlert tone="info">You can view deposit batches, but creating or editing drafts requires bank statement manage permission.</LedgerAlert> : null}
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <SummaryCard label="Batches" value={String(totals.count)} />
-        <SummaryCard label="Total grouped" value={formatMoneyAmount(totals.amount.toFixed(4), currency)} />
-        <SummaryCard label="Currency" value={currency} />
-      </div>
+        <BankDepositGuidance />
 
-      {canManage && profile ? (
-        <form onSubmit={createDeposit} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">Create draft deposit</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr_auto] md:items-end">
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Deposit date</span>
-              <input type="date" value={depositDate} onChange={(event) => setDepositDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Memo</span>
-              <input value={memo} onChange={(event) => setMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <button type="submit" disabled={creating} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-              {creating ? "Creating..." : "Create draft"}
-            </button>
-          </div>
-        </form>
-      ) : null}
+        <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-3">
+          <LedgerStatCard label="Batches" value={totals.count} />
+          <LedgerStatCard label="Total grouped" value={<LedgerMoney>{formatMoneyAmount(totals.amount.toFixed(4), currency)}</LedgerMoney>} />
+          <LedgerStatCard label="Currency" value={currency} />
+        </LedgerMetricGrid>
 
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-            <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Memo</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Total</th>
-              <th className="px-4 py-3">Statement row</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {deposits.map((deposit) => (
-              <tr key={deposit.id}>
-                <td className="px-4 py-3 text-steel">{formatOptionalDate(deposit.depositDate, "-")}</td>
-                <td className="px-4 py-3 text-ink">{deposit.memo ?? "-"}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankDepositStatusBadgeClass(deposit.status)}`}>
-                    {bankDepositStatusLabel(deposit.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(deposit.totalAmount, deposit.currency)}</td>
-                <td className="px-4 py-3 text-steel">
-                  {deposit.statementTransaction
-                    ? `${formatOptionalDate(deposit.statementTransaction.transactionDate, "-")} - ${deposit.statementTransaction.description}`
-                    : "Not matched"}
-                </td>
-                <td className="px-4 py-3">
-                  <Link href={`/bank-accounts/${params.id}/deposits/${deposit.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!loading && deposits.length === 0 ? (
-          <div className="p-4">
-            <StatusMessage type="empty">No bank deposit batches yet.</StatusMessage>
-          </div>
+        {canManage && profile ? (
+          <LedgerSection title="Create draft deposit" description="Draft batches are operational grouping records until explicitly posted and matched.">
+            <form onSubmit={createDeposit} className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr_auto] md:items-end">
+              <LedgerFieldLabel>
+                <LedgerFieldText>Deposit date</LedgerFieldText>
+                <LedgerInput type="date" value={depositDate} onChange={(event) => setDepositDate(event.target.value)} required />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Memo</LedgerFieldText>
+                <LedgerInput value={memo} onChange={(event) => setMemo(event.target.value)} />
+              </LedgerFieldLabel>
+              <LedgerButton type="submit" disabled={creating} variant="primary">
+                {creating ? "Creating..." : "Create draft"}
+              </LedgerButton>
+            </form>
+          </LedgerSection>
         ) : null}
-      </div>
-    </section>
+
+        <LedgerSection title="Deposit batches" description="Posted batches can be matched explicitly to imported statement credit rows.">
+          <LedgerDataTable minWidth="900px">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Memo</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3">Statement row</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {deposits.map((deposit) => (
+                <tr key={deposit.id}>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(deposit.depositDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3 text-ink">{deposit.memo ?? "-"}</td>
+                  <td className="px-4 py-3">
+                    <LedgerStatusBadge tone={bankDepositStatusTone(deposit.status)}>{bankDepositStatusLabel(deposit.status)}</LedgerStatusBadge>
+                  </td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(deposit.totalAmount, deposit.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-steel">
+                    {deposit.statementTransaction
+                      ? `${formatOptionalDate(deposit.statementTransaction.transactionDate, "-")} - ${deposit.statementTransaction.description}`
+                      : "Not matched"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <LedgerButton href={`/bank-accounts/${params.id}/deposits/${deposit.id}`} size="sm">Open</LedgerButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </LedgerDataTable>
+          {!loading && deposits.length === 0 ? (
+            <div className="mt-4">
+              <LedgerEmptyState title="No bank deposit batches yet." />
+            </div>
+          ) : null}
+        </LedgerSection>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function BankDepositGuidance() {
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">Manual treasury grouping</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         Deposit batches group receipt-like items so one posted batch can be explicitly matched to one imported bank statement credit row. This is manual banking only: no live bank feed, no bank API call, no bank payment is sent, and no payment initiation is enabled.
@@ -218,15 +235,13 @@ export function BankDepositGuidance() {
       <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
         Ledger-backed undeposited-funds movement is deferred until a clearing-account model is confirmed. Posting a deposit batch here changes only the operational deposit status and does not duplicate revenue, AR settlement, VAT, ZATCA, or bank journal behavior.
       </p>
-    </div>
+    </LedgerPanel>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
+function bankDepositStatusTone(status: BankDepositBatchStatus): LedgerStatusTone {
+  if (status === "MATCHED") return "success";
+  if (status === "POSTED") return "info";
+  if (status === "VOIDED") return "neutral";
+  return "draft";
 }

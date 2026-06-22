@@ -1,11 +1,31 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getCardSettlementAccountingPreflight, postCardSettlementJournal } from "@/lib/banking-accounting";
@@ -13,14 +33,13 @@ import {
   canMatchCardSettlement,
   canPostCardSettlement,
   canVoidCardSettlement,
-  cardSettlementStatusBadgeClass,
   cardSettlementStatusLabel,
   cardSettlementTypeLabel,
 } from "@/lib/card-settlements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankingAccountingPreflight, BankStatementTransaction, CardSettlement } from "@/lib/types";
+import type { BankingAccountingPreflight, BankStatementTransaction, CardSettlement, CardSettlementStatus } from "@/lib/types";
 
 export default function CardSettlementDetailPage() {
   const params = useParams<{ id: string; settlementId: string }>();
@@ -197,48 +216,47 @@ export default function CardSettlementDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Card settlement detail</h1>
-          <p className="mt-1 text-sm text-steel">{settlement ? cardSettlementTypeLabel(settlement.settlementType) : "Credit and prepaid card settlement"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/card-settlements`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Card settlements
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Card settlement detail"
+        description={settlement ? cardSettlementTypeLabel(settlement.settlementType) : "Credit and prepaid card settlement"}
+        actions={
+          <>
+            <LedgerButton href={`/bank-accounts/${params.id}/card-settlements`}>Card settlements</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Statement rows</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this card settlement.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading card settlement...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Card settlement posting, matching, and voiding remain explicit operator actions; credit-card credit offsets stay operational-only until policy is confirmed.
+      </LedgerSummaryBand>
 
-      {settlement ? (
-        <>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Status" value={cardSettlementStatusLabel(settlement.status)} badgeClass={cardSettlementStatusBadgeClass(settlement.status)} />
-            <SummaryCard label="Amount" value={formatMoneyAmount(settlement.amount, settlement.currency)} />
-            <SummaryCard label="Settlement date" value={formatOptionalDate(settlement.settlementDate, "-")} />
-            <SummaryCard label="Type" value={cardSettlementTypeLabel(settlement.settlementType)} />
-          </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load this card settlement.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading card settlement" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm leading-6 text-steel">
-              This is a manual card settlement record for reconciliation. No live bank feed is added, no bank API is called, no card credentials are collected, and no bank payment is sent.
-            </p>
-            <p className="mt-2 text-xs leading-5 text-steel">
-              Card paydowns and prepaid top-ups can be journal-posted only after clearing-account configuration passes preflight. Credit-card credits remain operational-only until an accountant-reviewed offset policy exists.
-            </p>
-          </div>
+        {settlement ? (
+          <>
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={cardSettlementStatusTone(settlement.status)}>{cardSettlementStatusLabel(settlement.status)}</LedgerStatusBadge>} />
+              <LedgerStatCard label="Amount" value={<LedgerMoney>{formatMoneyAmount(settlement.amount, settlement.currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Settlement date" value={<LedgerDate>{formatOptionalDate(settlement.settlementDate, "-")}</LedgerDate>} />
+              <LedgerStatCard label="Type" value={cardSettlementTypeLabel(settlement.settlementType)} />
+            </LedgerMetricGrid>
 
-          <div className="mt-5">
+            <LedgerPanel>
+              <p className="text-sm leading-6 text-steel">
+                This is a manual card settlement record for reconciliation. No live bank feed is added, no bank API is called, no card credentials are collected, and no bank payment is sent.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-steel">
+                Card paydowns and prepaid top-ups can be journal-posted only after clearing-account configuration passes preflight. Credit-card credits remain operational-only until an accountant-reviewed offset policy exists.
+              </p>
+            </LedgerPanel>
+
             <AccountingStatusPanel
               preflight={accountingPreflight}
               loading={accountingLoading}
@@ -247,101 +265,93 @@ export default function CardSettlementDetailPage() {
               onPost={() => void postAccountingJournal()}
               postLabel="Post card settlement journal"
             />
-          </div>
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Settlement metadata</h2>
-                <p className="mt-1 text-sm text-steel">{settlement.memo ?? "No memo"}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canReconcile && canPostCardSettlement(settlement.status) ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runSettlementAction("post")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "post" ? "Posting..." : "Post settlement"}
-                  </button>
-                ) : null}
-                {canReconcile && settlement.status === "MATCHED" ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runSettlementAction("unmatch-statement-transaction")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
-                  </button>
-                ) : null}
-                {canReconcile && canVoidCardSettlement(settlement.status) ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runSettlementAction("void")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "void" ? "Voiding..." : "Void"}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Detail label="Funding account" value={settlement.fundingBankAccountProfile?.displayName ?? "-"} />
-              <Detail label="Card account" value={settlement.cardAccountProfile?.displayName ?? "-"} />
-              <Detail label="Reference" value={settlement.reference ?? "-"} />
-              <Detail label="Posted at" value={formatOptionalDate(settlement.postedAt, "-")} />
-              <Detail label="Matched at" value={formatOptionalDate(settlement.matchedAt, "-")} />
-              <Detail label="Voided at" value={formatOptionalDate(settlement.voidedAt, "-")} />
-            </div>
-          </div>
-
-          {canReconcile && canMatchCardSettlement(settlement.status) ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Match statement row</h2>
-              <p className="mt-1 text-sm text-steel">
-                Matching is explicit. Paydowns and prepaid top-ups match funding-account debit rows; credit card credits match card-account credit rows.
-              </p>
-              {matchCandidates.length === 0 ? <StatusMessage type="empty">No matching statement rows found within the date window.</StatusMessage> : null}
-              {matchCandidates.length > 0 ? (
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Candidate row</span>
-                    <select value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                      {matchCandidates.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {candidate.type} - {formatMoneyAmount(candidate.amount, settlement.currency)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "match" ? "Matching..." : "Match card settlement"}
-                  </button>
+            <LedgerSection
+              title="Settlement metadata"
+              description={settlement.memo ?? "No memo"}
+              action={
+                <div className="flex flex-wrap gap-2">
+                  {canReconcile && canPostCardSettlement(settlement.status) ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runSettlementAction("post")}>
+                      {action === "post" ? "Posting..." : "Post settlement"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && settlement.status === "MATCHED" ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runSettlementAction("unmatch-statement-transaction")}>
+                      {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && canVoidCardSettlement(settlement.status) ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runSettlementAction("void")}>
+                      {action === "void" ? "Voiding..." : "Void"}
+                    </LedgerButton>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          ) : null}
+              }
+            >
+              <LedgerMetadataRow
+                items={[
+                  { label: "Funding account", value: settlement.fundingBankAccountProfile?.displayName ?? "-" },
+                  { label: "Card account", value: settlement.cardAccountProfile?.displayName ?? "-" },
+                  { label: "Reference", value: settlement.reference ?? "-" },
+                  { label: "Posted at", value: <LedgerDate>{formatOptionalDate(settlement.postedAt, "-")}</LedgerDate> },
+                  { label: "Matched at", value: <LedgerDate>{formatOptionalDate(settlement.matchedAt, "-")}</LedgerDate> },
+                  { label: "Voided at", value: <LedgerDate>{formatOptionalDate(settlement.voidedAt, "-")}</LedgerDate> },
+                ]}
+              />
+            </LedgerSection>
 
-          {settlement.statementTransaction ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Linked statement row</h2>
-              <p className="mt-2 text-sm text-steel">
-                {formatOptionalDate(settlement.statementTransaction.transactionDate, "-")} - {settlement.statementTransaction.description} -{" "}
-                {formatMoneyAmount(settlement.statementTransaction.amount, settlement.currency)}
-              </p>
-              <Link href={`/bank-statement-transactions/${settlement.statementTransaction.id}`} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Open statement row
-              </Link>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </section>
+            {canReconcile && canMatchCardSettlement(settlement.status) ? (
+              <LedgerSection
+                title="Match statement row"
+                description="Matching is explicit. Paydowns and prepaid top-ups match funding-account debit rows; credit card credits match card-account credit rows."
+              >
+                {matchCandidates.length === 0 ? <LedgerEmptyState title="No matching statement rows found within the date window." /> : null}
+                {matchCandidates.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Candidate row</LedgerFieldText>
+                      <LedgerSelect value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)}>
+                        {matchCandidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {candidate.type} - {formatMoneyAmount(candidate.amount, settlement.currency)}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </LedgerFieldLabel>
+                    <LedgerButton disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()}>
+                      {action === "match" ? "Matching..." : "Match card settlement"}
+                    </LedgerButton>
+                  </div>
+                ) : null}
+              </LedgerSection>
+            ) : null}
+
+            {settlement.statementTransaction ? (
+              <LedgerSection
+                title="Linked statement row"
+                description="The linked bank statement row remains available from the standalone statement detail route."
+                action={<LedgerButton href={`/bank-statement-transactions/${settlement.statementTransaction.id}`}>Open statement row</LedgerButton>}
+              >
+                <LedgerMetadataRow
+                  items={[
+                    { label: "Date", value: <LedgerDate>{formatOptionalDate(settlement.statementTransaction.transactionDate, "-")}</LedgerDate> },
+                    { label: "Description", value: settlement.statementTransaction.description },
+                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(settlement.statementTransaction.amount, settlement.currency)}</LedgerMoney> },
+                  ]}
+                />
+              </LedgerSection>
+            ) : null}
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, badgeClass }: { label: string; value: string; badgeClass?: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className={`mt-2 inline-flex rounded-md text-sm font-semibold ${badgeClass ? `${badgeClass} px-2 py-1` : "font-mono text-ink"}`}>{value}</p>
-    </div>
-  );
+function cardSettlementStatusTone(status: CardSettlementStatus): LedgerStatusTone {
+  if (status === "MATCHED") return "success";
+  if (status === "POSTED") return "info";
+  if (status === "VOIDED") return "neutral";
+  return "draft";
 }

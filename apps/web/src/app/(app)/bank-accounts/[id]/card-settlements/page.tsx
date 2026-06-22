@@ -1,17 +1,38 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { cardSettlementStatusBadgeClass, cardSettlementStatusLabel, cardSettlementTypeLabel, validateCardSettlementInput } from "@/lib/card-settlements";
+import { cardSettlementStatusLabel, cardSettlementTypeLabel, validateCardSettlementInput } from "@/lib/card-settlements";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankAccountSummary, CardSettlement, CardSettlementType } from "@/lib/types";
+import type { BankAccountSummary, CardSettlement, CardSettlementStatus, CardSettlementType } from "@/lib/types";
 
 const SETTLEMENT_TYPES: CardSettlementType[] = ["CREDIT_CARD_PAYDOWN", "CREDIT_CARD_CREDIT", "PREPAID_CARD_TOP_UP"];
 
@@ -143,155 +164,151 @@ export default function CardSettlementsPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Card settlements</h1>
-          <p className="mt-1 text-sm text-steel">{profile ? `${profile.displayName} settlement workflow` : "Credit and prepaid card settlement workflow"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Card settlements"
+        description={profile ? `${profile.displayName} settlement workflow` : "Credit and prepaid card settlement workflow"}
+        actions={
+          <>
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Statement rows</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load card settlements.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading card settlements...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!canManage ? <StatusMessage type="info">You can view card settlements, but creating or editing drafts requires bank statement manage permission.</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Card settlement records support explicit paydown, credit/refund, and prepaid top-up review without changing provider or payment behavior.
+      </LedgerSummaryBand>
 
-      <CardSettlementGuidance />
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load card settlements.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading card settlements" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {!canManage ? <LedgerAlert tone="info">You can view card settlements, but creating or editing drafts requires bank statement manage permission.</LedgerAlert> : null}
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <SummaryCard label="Settlements" value={String(totals.count)} />
-        <SummaryCard label="Total amount" value={formatMoneyAmount(totals.amount.toFixed(4), currency)} />
-        <SummaryCard label="Currency" value={currency} />
-      </div>
+        <CardSettlementGuidance />
 
-      {canManage ? (
-        <form onSubmit={createSettlement} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <h2 className="text-base font-semibold text-ink">Create draft settlement</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Settlement type</span>
-              <select value={settlementType} onChange={(event) => setSettlementType(event.target.value as CardSettlementType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                {SETTLEMENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {cardSettlementTypeLabel(type)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {settlementType !== "CREDIT_CARD_CREDIT" ? (
-              <label className="block">
-                <span className="text-xs font-medium uppercase tracking-wide text-steel">Funding bank account</span>
-                <select value={fundingBankAccountProfileId} onChange={(event) => setFundingBankAccountProfileId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                  <option value="">Select funding account</option>
-                  {fundingAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.displayName} - {account.currency}
+        <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-3">
+          <LedgerStatCard label="Settlements" value={totals.count} />
+          <LedgerStatCard label="Total amount" value={<LedgerMoney>{formatMoneyAmount(totals.amount.toFixed(4), currency)}</LedgerMoney>} />
+          <LedgerStatCard label="Currency" value={currency} />
+        </LedgerMetricGrid>
+
+        {canManage ? (
+          <LedgerSection title="Create draft settlement" description="Settlement records remain manual until explicitly posted, matched, or voided.">
+            <form onSubmit={createSettlement} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <LedgerFieldLabel>
+                <LedgerFieldText>Settlement type</LedgerFieldText>
+                <LedgerSelect value={settlementType} onChange={(event) => setSettlementType(event.target.value as CardSettlementType)}>
+                  {SETTLEMENT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {cardSettlementTypeLabel(type)}
                     </option>
                   ))}
-                </select>
-              </label>
-            ) : null}
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Card/prepaid account</span>
-              <select value={cardAccountProfileId} onChange={(event) => setCardAccountProfileId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                <option value="">Select card account</option>
-                {cardAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.displayName} - {account.type} - {account.currency}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Settlement date</span>
-              <input type="date" value={settlementDate} onChange={(event) => setSettlementDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount</span>
-              <input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Reference</span>
-              <input value={reference} onChange={(event) => setReference(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block lg:col-span-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-steel">Memo</span>
-              <input value={memo} onChange={(event) => setMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <div className="flex items-end">
-              <button type="submit" disabled={creating} className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-                {creating ? "Creating..." : "Create draft"}
-              </button>
-            </div>
-          </div>
-        </form>
-      ) : null}
-
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-        <table className="w-full min-w-[1040px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-            <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Funding account</th>
-              <th className="px-4 py-3">Card account</th>
-              <th className="px-4 py-3 text-right">Amount</th>
-              <th className="px-4 py-3">Statement row</th>
-              <th className="px-4 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {settlements.map((settlement) => (
-              <tr key={settlement.id}>
-                <td className="px-4 py-3 text-steel">{formatOptionalDate(settlement.settlementDate, "-")}</td>
-                <td className="px-4 py-3 text-ink">{cardSettlementTypeLabel(settlement.settlementType)}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded-md px-2 py-1 text-xs font-medium ${cardSettlementStatusBadgeClass(settlement.status)}`}>
-                    {cardSettlementStatusLabel(settlement.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-steel">{settlement.fundingBankAccountProfile?.displayName ?? "-"}</td>
-                <td className="px-4 py-3 text-steel">{settlement.cardAccountProfile?.displayName ?? "-"}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(settlement.amount, settlement.currency)}</td>
-                <td className="px-4 py-3 text-steel">
-                  {settlement.statementTransaction
-                    ? `${formatOptionalDate(settlement.statementTransaction.transactionDate, "-")} - ${settlement.statementTransaction.description}`
-                    : "Not matched"}
-                </td>
-                <td className="px-4 py-3">
-                  <Link href={`/bank-accounts/${params.id}/card-settlements/${settlement.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!loading && settlements.length === 0 ? (
-          <div className="p-4">
-            <StatusMessage type="empty">No card settlements yet.</StatusMessage>
-          </div>
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              {settlementType !== "CREDIT_CARD_CREDIT" ? (
+                <LedgerFieldLabel>
+                  <LedgerFieldText>Funding bank account</LedgerFieldText>
+                  <LedgerSelect value={fundingBankAccountProfileId} onChange={(event) => setFundingBankAccountProfileId(event.target.value)}>
+                    <option value="">Select funding account</option>
+                    {fundingAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.displayName} - {account.currency}
+                      </option>
+                    ))}
+                  </LedgerSelect>
+                </LedgerFieldLabel>
+              ) : null}
+              <LedgerFieldLabel>
+                <LedgerFieldText>Card/prepaid account</LedgerFieldText>
+                <LedgerSelect value={cardAccountProfileId} onChange={(event) => setCardAccountProfileId(event.target.value)}>
+                  <option value="">Select card account</option>
+                  {cardAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.displayName} - {account.type} - {account.currency}
+                    </option>
+                  ))}
+                </LedgerSelect>
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Settlement date</LedgerFieldText>
+                <LedgerInput type="date" value={settlementDate} onChange={(event) => setSettlementDate(event.target.value)} required />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Amount</LedgerFieldText>
+                <LedgerInput inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel>
+                <LedgerFieldText>Reference</LedgerFieldText>
+                <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} />
+              </LedgerFieldLabel>
+              <LedgerFieldLabel className="lg:col-span-2">
+                <LedgerFieldText>Memo</LedgerFieldText>
+                <LedgerInput value={memo} onChange={(event) => setMemo(event.target.value)} />
+              </LedgerFieldLabel>
+              <div className="flex items-end">
+                <LedgerButton type="submit" disabled={creating} variant="primary" className="w-full">
+                  {creating ? "Creating..." : "Create draft"}
+                </LedgerButton>
+              </div>
+            </form>
+          </LedgerSection>
         ) : null}
-      </div>
-    </section>
+
+        <LedgerSection title="Card settlement register" description="Operational settlement status and statement matching remain explicit.">
+          <LedgerDataTable minWidth="1040px">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Funding account</th>
+                <th className="px-4 py-3">Card account</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3">Statement row</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {settlements.map((settlement) => (
+                <tr key={settlement.id}>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(settlement.settlementDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3 text-ink">{cardSettlementTypeLabel(settlement.settlementType)}</td>
+                  <td className="px-4 py-3">
+                    <LedgerStatusBadge tone={cardSettlementStatusTone(settlement.status)}>{cardSettlementStatusLabel(settlement.status)}</LedgerStatusBadge>
+                  </td>
+                  <td className="px-4 py-3 text-steel">{settlement.fundingBankAccountProfile?.displayName ?? "-"}</td>
+                  <td className="px-4 py-3 text-steel">{settlement.cardAccountProfile?.displayName ?? "-"}</td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(settlement.amount, settlement.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-steel">
+                    {settlement.statementTransaction
+                      ? `${formatOptionalDate(settlement.statementTransaction.transactionDate, "-")} - ${settlement.statementTransaction.description}`
+                      : "Not matched"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <LedgerButton href={`/bank-accounts/${params.id}/card-settlements/${settlement.id}`} size="sm">Open</LedgerButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </LedgerDataTable>
+          {!loading && settlements.length === 0 ? (
+            <div className="mt-4">
+              <LedgerEmptyState title="No card settlements yet." />
+            </div>
+          ) : null}
+        </LedgerSection>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
 export function CardSettlementGuidance() {
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <LedgerPanel>
       <h2 className="text-base font-semibold text-ink">Manual card settlement workflow</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
         Card settlement records help reconcile credit card paydowns, credit/refund rows, and prepaid card top-ups. This is manual banking only: no live bank feed, no bank API call, no card credentials are collected, and no bank payment is sent.
@@ -299,15 +316,13 @@ export function CardSettlementGuidance() {
       <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
         Journal-backed card settlement posting is deferred until card liability, prepaid asset, and clearing-account classifications are explicitly confirmed. Posting a settlement here changes only operational settlement status.
       </p>
-    </div>
+    </LedgerPanel>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
+function cardSettlementStatusTone(status: CardSettlementStatus): LedgerStatusTone {
+  if (status === "MATCHED") return "success";
+  if (status === "POSTED") return "info";
+  if (status === "VOIDED") return "neutral";
+  return "draft";
 }

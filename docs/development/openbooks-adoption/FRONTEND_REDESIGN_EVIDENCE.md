@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-bank-statement-review`
+Branch: `codex/ui-redesign-bank-payment-instruments`
 
-Base: stacked on `origin/codex/ui-redesign-bank-account-detail` while PR #165 is open
+Base: stacked on `origin/codex/ui-redesign-bank-statement-review` while PR #166 is open
 
 ## Evidence Summary
 
@@ -40,6 +40,7 @@ Base: stacked on `origin/codex/ui-redesign-bank-account-detail` while PR #165 is
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Banking account profile/detail loop | `apps/web/src/app/(app)/bank-accounts/new/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/edit/page.tsx`, and `apps/web/src/components/forms/bank-account-profile-form.tsx` use shared LedgerByte page, metric, panel, section, table, money/date/status, form field, alert, and action primitives while preserving profile create/update payloads, opening-balance posting/lock guidance, transaction visibility, permission-gated statement/reconciliation/transfer links, and manual banking boundaries. |
 | Banking manual statement review loop | `apps/web/src/app/(app)/bank-accounts/[id]/statement-imports/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/statement-transactions/page.tsx`, and `apps/web/src/app/(app)/bank-accounts/[id]/rules/page.tsx` use shared LedgerByte page, section, panel, form, table, status, empty-state, and action primitives while preserving manual import preview/import/void, explicit match/categorize/ignore, rule suggestion/dry-run behavior, and no-live-feed/no-auto-reconcile boundaries. |
+| Banking payment-instrument loop | `apps/web/src/app/(app)/bank-accounts/[id]/deposits/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/deposits/[depositId]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/cheques/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/cheques/[chequeId]/page.tsx`, `apps/web/src/app/(app)/bank-accounts/[id]/card-settlements/page.tsx`, and `apps/web/src/app/(app)/bank-accounts/[id]/card-settlements/[settlementId]/page.tsx` use shared LedgerByte page, summary, panel, section, metric, table, metadata, form, status, and action primitives while preserving explicit create/post/match/unmatch/void/deposit/bounce flows, accounting preflight panels, operational-only caveats, and no-live-feed/no-bank-payment boundaries. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
 | Contacts detail/statement loop | `apps/web/src/components/parties/party-pages.tsx` and `apps/web/src/components/parties/party-statement-page.tsx` use shared LedgerByte detail, filter, metric, table, statement, and action primitives while preserving return-to, payment/report handoffs, collections, AP summary, and conservative controlled-beta wording. |
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
@@ -347,6 +348,19 @@ Base: stacked on `origin/codex/ui-redesign-bank-account-detail` while PR #165 is
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - Final diff checks are run in the PR verification section for this branch.
 - Visual checks were not run in this slice before code verification because the next banking visual pass should cover the full detail/import/review/reconciliation chain together; existing prior banking visuals cover `/bank-accounts` list desktop/mobile and selected detail-state fixtures.
+
+## 2026-06-22 Banking Payment-Instrument Loop Evidence
+
+- `/bank-accounts/[id]/deposits` and `/bank-accounts/[id]/deposits/[depositId]`: migrated deposit batch list/detail shells, manual treasury guidance, summary metrics, create form, line table, line-entry form, operational post/void/unmatch actions, statement-credit matching panel, linked statement row panel, and accounting preflight panel surroundings to shared Ledger primitives while preserving existing API payloads, explicit line add/remove, explicit match, explicit journal posting, permission gates, and no-live-feed/no-bank-payment/no-duplicate-revenue/VAT/ZATCA wording.
+- `/bank-accounts/[id]/cheques` and `/bank-accounts/[id]/cheques/[chequeId]`: migrated cheque register/detail shells, manual lifecycle guidance, create form, lifecycle metadata, deposit-to-batch panel, statement matching panel, bounce/stop and void reason panels, linked deposit/statement panels, and accounting preflight panel surroundings to shared Ledger primitives while preserving create/deposit/match/clear/bounce/void payloads, required reason guards, permission gates, explicit lifecycle actions, and operational-only cheque journal posture.
+- `/bank-accounts/[id]/card-settlements` and `/bank-accounts/[id]/card-settlements/[settlementId]`: migrated settlement register/detail shells, manual card settlement guidance, create form, settlement metadata, operational post/void/unmatch actions, explicit statement matching panel, linked statement row panel, and accounting preflight panel surroundings to shared Ledger primitives while preserving create/post/match/void payloads, permission gates, explicit operator review, card-credit operational-only caveat, and no-live-feed/no-card-credential/no-bank-payment wording.
+- Existing behavior remains frontend-only and unchanged: deposit, cheque, card-settlement, statement-match, and banking-accounting preflight/journal endpoints keep their existing semantics. No live bank feed, external bank API call, credential collection, provider money movement, automatic reconciliation, silent posting, schema change, storage behavior change, VAT/ZATCA/compliance behavior, or hosted mutation was added.
+- `corepack pnpm --filter @ledgerbyte/web test -- deposits cheques card-settlements`: PASS, 6 suites, 18 tests.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; the remaining banking visual pass should cover payment instruments together with statement review, reconciliation, transfer detail, and standalone statement row routes once those routes are migrated.
 
 ## 2026-06-22 Banking Manual Statement Review Loop Evidence
 
