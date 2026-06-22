@@ -165,7 +165,7 @@ export default function DashboardPage() {
 
   return (
     <LedgerPage>
-      <div className="relative overflow-hidden rounded-md border border-slate-900 bg-sidebar p-5 text-white shadow-panel">
+      <LedgerPanel className="relative overflow-hidden border-slate-900 bg-sidebar p-5 text-white">
         <FinancialFlowScene />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <LedgerPageHeader
@@ -202,7 +202,7 @@ export default function DashboardPage() {
           <span>{edition.showCountryCompliance ? edition.complianceReadinessLabel : "Neutral compliance review"}</span>
           <span>{edition.complianceDashboardNote}</span>
         </div>
-      </div>
+      </LedgerPanel>
 
       <LedgerPageBody>
         {!organizationId ? (

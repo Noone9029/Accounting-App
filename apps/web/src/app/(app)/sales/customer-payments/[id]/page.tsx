@@ -594,45 +594,47 @@ export default function CustomerPaymentDetailPage() {
                 aria-modal="true"
                 aria-labelledby="reverse-unapplied-title"
                 onSubmit={reverseUnappliedAllocation}
-                className="w-full max-w-lg rounded-md border border-line bg-panel p-5 shadow-panel"
+                className="w-full max-w-lg"
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 id="reverse-unapplied-title" className="text-base font-semibold text-ink">
-                      Reverse unapplied allocation
-                    </h2>
-                    <p className="mt-1 text-sm leading-6 text-steel">
-                      This restores payment credit and the invoice balance without creating another journal entry.
-                    </p>
+                <LedgerPanel className="p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h2 id="reverse-unapplied-title" className="text-base font-semibold text-ink">
+                        Reverse unapplied allocation
+                      </h2>
+                      <p className="mt-1 text-sm leading-6 text-steel">
+                        This restores payment credit and the invoice balance without creating another journal entry.
+                      </p>
+                    </div>
+                    <LedgerStatusBadge tone="danger">Confirmation required</LedgerStatusBadge>
                   </div>
-                  <LedgerStatusBadge tone="danger">Confirmation required</LedgerStatusBadge>
-                </div>
 
-                <LedgerMetadataRow
-                  items={[
-                    { label: "Invoice", value: pendingReverseAllocation.invoice?.invoiceNumber ?? pendingReverseAllocation.invoiceId },
-                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(pendingReverseAllocation.amountApplied, payment.currency)}</LedgerMoney> },
-                  ]}
-                />
-
-                <LedgerFieldLabel className="mt-4">
-                  <LedgerFieldText>Reason (optional)</LedgerFieldText>
-                  <Textarea
-                    value={reverseReason}
-                    onChange={(event) => setReverseReason(event.target.value)}
-                    rows={3}
-                    placeholder="Correction note for the audit trail"
+                  <LedgerMetadataRow
+                    items={[
+                      { label: "Invoice", value: pendingReverseAllocation.invoice?.invoiceNumber ?? pendingReverseAllocation.invoiceId },
+                      { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(pendingReverseAllocation.amountApplied, payment.currency)}</LedgerMoney> },
+                    ]}
                   />
-                </LedgerFieldLabel>
 
-                <LedgerActionBar className="mt-5 justify-end">
-                  <LedgerButton type="button" onClick={cancelReverseUnappliedAllocation} disabled={actionLoading}>
-                    Cancel
-                  </LedgerButton>
-                  <LedgerButton type="submit" variant="danger" icon={RotateCcw} disabled={actionLoading}>
-                    Confirm reversal
-                  </LedgerButton>
-                </LedgerActionBar>
+                  <LedgerFieldLabel className="mt-4">
+                    <LedgerFieldText>Reason (optional)</LedgerFieldText>
+                    <Textarea
+                      value={reverseReason}
+                      onChange={(event) => setReverseReason(event.target.value)}
+                      rows={3}
+                      placeholder="Correction note for the audit trail"
+                    />
+                  </LedgerFieldLabel>
+
+                  <LedgerActionBar className="mt-5 justify-end">
+                    <LedgerButton type="button" onClick={cancelReverseUnappliedAllocation} disabled={actionLoading}>
+                      Cancel
+                    </LedgerButton>
+                    <LedgerButton type="submit" variant="danger" icon={RotateCcw} disabled={actionLoading}>
+                      Confirm reversal
+                    </LedgerButton>
+                  </LedgerActionBar>
+                </LedgerPanel>
               </form>
             </div>
           ) : null}

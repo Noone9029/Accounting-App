@@ -246,6 +246,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated the ZATCA settings readiness, immutable signed-artifact policy, compliance checklist, seller profile, EGS units, recent logs, CSR preview/review, custody metadata, hash-chain, and checklist tables/cards onto shared LedgerByte panel/table tokens.
 - Preserved ZATCA truth: all metadata-only, local-only, no-real-network, no-CSID-request, no-signing, no-clearance/reporting, no-PDF/A-3, no-production-compliance wording and route behavior remain unchanged.
 
+### 2026-06-22 Direct Panel and Dialog Polish Loop
+
+- Migrated direct contact ledger guidance, supplier ledger guidance, inventory balance guidance, the dashboard hero container, and the customer payment reversal dialog shell onto shared LedgerByte panel primitives.
+- Preserved routing and operational truth: customer/supplier return links, inventory action availability, controlled-beta dashboard wording, financial scene behavior, and customer payment reversal behavior remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
