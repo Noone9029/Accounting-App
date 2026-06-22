@@ -2,8 +2,24 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, CircleDashed, ExternalLink, ShieldCheck } from "lucide-react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetricGrid,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { complianceStatusLabel, getComplianceReadiness, getOrganization, updateOrganization } from "@/lib/compliance";
 import { getLedgerByteEdition } from "@/lib/edition";
@@ -102,12 +118,9 @@ export default function ComplianceSettingsPage() {
 
   if (!edition.showUaeEinvoicing) {
     return (
-      <section className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold text-ink">Compliance readiness</h1>
-          <p className="mt-1 text-sm text-steel">{edition.complianceReadinessExplanation}</p>
-        </header>
-        <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <LedgerPage>
+        <LedgerPageHeader eyebrow="Administration" title="Compliance readiness" description={edition.complianceReadinessExplanation} />
+        <LedgerPanel>
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-palm" aria-hidden="true" />
             <div>
@@ -115,17 +128,18 @@ export default function ComplianceSettingsPage() {
               <p className="mt-1 text-sm leading-6 text-steel">{edition.complianceDashboardNote}</p>
             </div>
           </div>
-        </section>
-      </section>
+        </LedgerPanel>
+      </LedgerPage>
     );
   }
 
   return (
-    <section className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-ink">Compliance readiness</h1>
-        <p className="mt-1 text-sm text-steel">Track LedgerByte compliance-core status, UAE Peppol/PINT-AE data readiness, and disabled ASP connectivity.</p>
-      </header>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
+        title="Compliance readiness"
+        description="Track LedgerByte compliance-core status, UAE Peppol/PINT-AE data readiness, and disabled ASP connectivity."
+      />
 
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to view compliance readiness.</StatusMessage> : null}
       {loading ? <StatusMessage type="loading">Loading compliance readiness...</StatusMessage> : null}
@@ -133,32 +147,32 @@ export default function ComplianceSettingsPage() {
       {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
 
       {readiness ? (
-        <>
-          <section className="rounded-md border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900">
+        <LedgerPageBody>
+          <LedgerSummaryBand tone="info">
             <div className="flex items-start gap-3">
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
               <div>
-                <h2 className="font-semibold text-sky-950">Controlled beta compliance foundation</h2>
+                <h2 className="font-semibold text-ink">Controlled beta compliance foundation</h2>
                 <p className="mt-1">{readiness.claim}</p>
                 <p className="mt-1">No ASP, FTA, ZATCA, signing, clearance, reporting, or provider network call is enabled by default.</p>
               </div>
             </div>
-          </section>
+          </LedgerSummaryBand>
 
-          <section className="grid gap-4 lg:grid-cols-3">
-            <Metric label="Readiness" value={complianceStatusLabel(readiness.uae.readiness.status)} />
-            <Metric label="Checks passing" value={`${checkCounts.pass}/${readiness.uae.readiness.checks.length}`} />
-            <Metric label="Buyer endpoints" value={`${readiness.uae.buyerEndpointCoverage.buyerPeppolParticipantCount}/${readiness.uae.buyerEndpointCoverage.activeBuyerCount}`} />
-          </section>
+          <LedgerMetricGrid className="lg:grid-cols-3 xl:grid-cols-3">
+            <LedgerStatCard label="Readiness" value={complianceStatusLabel(readiness.uae.readiness.status)} />
+            <LedgerStatCard label="Checks passing" value={`${checkCounts.pass}/${readiness.uae.readiness.checks.length}`} />
+            <LedgerStatCard label="Buyer endpoints" value={`${readiness.uae.buyerEndpointCoverage.buyerPeppolParticipantCount}/${readiness.uae.buyerEndpointCoverage.activeBuyerCount}`} />
+          </LedgerMetricGrid>
 
           {organization ? (
-            <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-ink">UAE eInvoicing readiness fields</h2>
                   <p className="mt-1 text-sm text-steel">Peppol/PINT-AE readiness and ASP connectivity preparation fields. These do not submit to an ASP or report to the FTA.</p>
                 </div>
-                <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">Controlled beta</span>
+                <LedgerStatusBadge tone="draft">Controlled beta</LedgerStatusBadge>
               </div>
               <form onSubmit={saveOrganizationReadiness} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <ReadinessInput name="legalName" label="Legal name" defaultValue={organization.legalName} disabled={!canUpdateOrganization} />
@@ -175,34 +189,29 @@ export default function ComplianceSettingsPage() {
                 <ReadinessInput name="uaeAspSelected" label="ASP selected" defaultValue={organization.uaeAspSelected} disabled={!canUpdateOrganization} />
                 <ReadinessInput name="uaeAspOnboardingStatus" label="ASP onboarding status" defaultValue={organization.uaeAspOnboardingStatus} disabled={!canUpdateOrganization} />
                 <div className="md:col-span-3">
-                  <button type="submit" disabled={!canUpdateOrganization || saving} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                  <LedgerButton type="submit" disabled={!canUpdateOrganization || saving} variant="primary">
                     {saving ? "Saving..." : "Save UAE readiness fields"}
-                  </button>
+                  </LedgerButton>
                   {!canUpdateOrganization ? <span className="ml-3 text-xs text-amber-700">Requires organization update permission.</span> : null}
                 </div>
               </form>
-            </section>
+            </LedgerPanel>
           ) : null}
 
-          <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">UAE Peppol/PINT-AE checklist</h2>
-                <p className="mt-1 text-sm text-steel">{readiness.uae.framework}</p>
-              </div>
-              <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                {readiness.noNetworkByDefault ? "No network" : "Network configured"}
-              </span>
-            </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <LedgerSection
+            title="UAE Peppol/PINT-AE checklist"
+            description={readiness.uae.framework}
+            action={<LedgerStatusBadge tone={readiness.noNetworkByDefault ? "neutral" : "warning"}>{readiness.noNetworkByDefault ? "No network" : "Network configured"}</LedgerStatusBadge>}
+          >
+            <div className="grid gap-3 lg:grid-cols-2">
               {readiness.uae.readiness.checks.map((check) => (
                 <ReadinessCheckRow key={check.key} check={check} />
               ))}
             </div>
-          </section>
+          </LedgerSection>
 
           <section className="grid gap-4 lg:grid-cols-2">
-            <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <h2 className="text-base font-semibold text-ink">UAE rollout dates</h2>
               <div className="mt-3 space-y-3">
                 {readiness.uae.deadlines.map((deadline) => (
@@ -212,9 +221,9 @@ export default function ComplianceSettingsPage() {
                   </div>
                 ))}
               </div>
-            </section>
+            </LedgerPanel>
 
-            <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <LedgerPanel>
               <h2 className="text-base font-semibold text-ink">Official references</h2>
               <div className="mt-3 space-y-2">
                 {readiness.uae.sources.map((source) => (
@@ -224,10 +233,10 @@ export default function ComplianceSettingsPage() {
                   </a>
                 ))}
               </div>
-            </section>
+            </LedgerPanel>
           </section>
 
-          <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+          <LedgerSummaryBand tone="warning">
             <h2 className="font-semibold text-amber-950">Claims to avoid</h2>
             <p className="mt-1">{readiness.prohibitedClaims.join(", ")}.</p>
             {readiness.uae.readiness.warnings.map((warning) => (
@@ -235,33 +244,23 @@ export default function ComplianceSettingsPage() {
                 {warning}
               </p>
             ))}
-          </section>
-        </>
+          </LedgerSummaryBand>
+        </LedgerPageBody>
       ) : null}
-    </section>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-ink">{value}</p>
-    </div>
+    </LedgerPage>
   );
 }
 
 function ReadinessInput({ name, label, defaultValue, disabled }: { name: string; label: string; defaultValue?: string | null; disabled: boolean }) {
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-wide text-steel">{label}</span>
-      <input
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      <LedgerInput
         name={name}
         defaultValue={defaultValue ?? ""}
         disabled={disabled}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm disabled:bg-slate-100"
       />
-    </label>
+    </LedgerFieldLabel>
   );
 }
 
@@ -269,7 +268,7 @@ function ReadinessCheckRow({ check }: { check: ComplianceReadinessCheck }) {
   const Icon = check.status === "PASS" ? CheckCircle2 : check.status === "WARNING" ? AlertTriangle : CircleDashed;
   const color = check.status === "PASS" ? "text-palm" : check.status === "WARNING" ? "text-amber-700" : "text-slate-500";
   return (
-    <div className="flex gap-3 rounded-md border border-slate-200 p-3">
+    <div className="flex gap-3 rounded-md border border-line bg-mist p-3">
       <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} aria-hidden="true" />
       <div>
         <p className="text-sm font-semibold text-ink">{check.label}</p>
@@ -290,4 +289,14 @@ function sourceLabel(source: string): string {
     return "Ministerial Decision No. 244 of 2025";
   }
   return "MoF UAE Electronic Invoicing Guidelines";
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "error" | "info" | "loading" | "success" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  if (type === "error") {
+    return <LedgerAlert tone="danger">{children}</LedgerAlert>;
+  }
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
 }
