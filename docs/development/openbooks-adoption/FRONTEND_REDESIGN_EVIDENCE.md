@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-reports-settings`
+Branch: `codex/ui-redesign-inventory-clearing-settings`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-variance-proposals` while PR #175 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-reports-settings` while PR #176 is open
 
 ## Evidence Summary
 
@@ -53,6 +53,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-variance-proposals` while P
 | Inventory valuation preview loop | `apps/web/src/app/(app)/inventory/fifo-preview/page.tsx`, `apps/web/src/app/(app)/inventory/landed-cost/page.tsx`, and `apps/web/src/app/(app)/inventory/valuation-variances/page.tsx` use shared LedgerByte page, header, toolbar, field, alert, loading, empty, metadata, stat, table, summary, and action primitives while preserving FIFO reconstruction output, landed cost preview payloads, valuation variance filters/source links, permissions, and no-posting/no-valuation/no-COGS/no-VAT/no-ZATCA/no-AP/no-AR boundaries. |
 | Inventory variance proposals loop | `apps/web/src/app/(app)/inventory/variance-proposals/page.tsx`, `apps/web/src/app/(app)/inventory/variance-proposals/new/page.tsx`, and `apps/web/src/app/(app)/inventory/variance-proposals/[id]/page.tsx` use shared LedgerByte page, header, panel, form field, select/input, alert, loading, empty, metadata, table, status, money/date, and action primitives while preserving proposal list loading, clearing-source/manual create payloads, workflow action guards, confirmation prompts, accounting preview, events, attachments, and explicit posting/reversal boundaries. |
 | Inventory report surfaces loop | `apps/web/src/app/(app)/inventory/reports/stock-valuation/page.tsx`, `apps/web/src/app/(app)/inventory/reports/low-stock/page.tsx`, and `apps/web/src/app/(app)/inventory/reports/movement-summary/page.tsx` use shared LedgerByte page, header, summary, alert, loading, empty, field, filter, stat, table, money, and action primitives while preserving read-only report loads, report guidance, filters, FIFO/traceability handoffs, and no-posting/no-accounting/no-COGS boundaries. |
+| Inventory clearing/settings loop | `apps/web/src/app/(app)/inventory/reports/clearing-reconciliation/page.tsx`, `apps/web/src/app/(app)/inventory/reports/clearing-variance/page.tsx`, and `apps/web/src/app/(app)/inventory/settings/page.tsx` use shared LedgerByte page, header, toolbar, alert, loading, empty, form, field, panel, summary, stat, table, money, and action primitives while preserving clearing report filters/CSV downloads, variance proposal handoff, settings PATCH payloads, account mapping permissions, readiness audit display, and guarded/no-auto-posting wording. |
 
 ## PR #146 Foundation Verification Results
 
@@ -545,6 +546,19 @@ Base: stacked on `origin/codex/ui-redesign-inventory-variance-proposals` while P
 - `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification inventory/balances inventory-guidance ledger-system`: PASS, 26 tests.
 - `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
 - `/inventory/balances` visual check was not run because this branch has no existing visual fixture for that route; existing inventory visual slices cover `/items`, stock valuation, and warehouse detail.
+
+## 2026-06-22 Inventory Clearing And Settings Loop Evidence
+
+- `/inventory/reports/clearing-reconciliation`: migrated the clearing reconciliation report shell, CSV action, filters, status/error/loading/empty states, summary metrics, warning panel, and reconciliation table to shared Ledger primitives while preserving query construction, CSV download permission checks, bill/receipt links, and read-only/no-journal report behavior.
+- `/inventory/reports/clearing-variance`: migrated the clearing variance report shell, CSV action, filters, status/error/loading/empty states, summary metrics, warning panel, variance table, and variance proposal handoff to shared Ledger primitives while preserving query construction, proposal create permission checks, amount/reason labels, and read-only/no-variance-journal report behavior.
+- `/inventory/settings`: migrated the operational policy form, inventory accounting mappings, guarded accounting warning, mapping readiness, purchase receipt posting readiness audit, and save action to shared Ledger primitives while preserving both PATCH payloads, account loading permissions, readiness reload behavior, manual COGS/receipt-asset boundaries, and no-auto-posting wording.
+- Existing behavior remains frontend-only and unchanged: this pass does not add automatic inventory journals, automatic receipt posting, FIFO activation, valuation math, COGS automation, clearing variance posting, AP/AR effects, VAT/ZATCA/compliance behavior, schema changes, storage behavior, provider calls, or hosted mutations.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification inventory-guidance reports inventory settings`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover stock valuation, low stock, movement summary, clearing reconciliation, clearing variance, inventory settings, FIFO preview, landed cost, valuation variances, and variance proposal workflows together.
 
 ## Mutation Boundary
 
