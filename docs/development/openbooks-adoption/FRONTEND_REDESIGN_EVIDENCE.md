@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-documents-storage-settings`
+Branch: `codex/ui-redesign-storage-readiness`
 
-Base: stacked on `origin/codex/ui-redesign-report-drilldowns` while PR #179 is open
+Base: stacked on `origin/codex/ui-redesign-documents-storage-settings` while PR #180 is open
 
 ## Evidence Summary
 
@@ -606,6 +606,19 @@ Base: stacked on `origin/codex/ui-redesign-report-drilldowns` while PR #179 is o
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - Visual checks were not run in this slice; a refreshed documents/settings visual fixture pass should cover generated documents, document settings, storage readiness, and email outbox together after storage lands.
+
+## 2026-06-22 Storage Readiness Loop Evidence
+
+- `/settings/storage`: migrated the storage readiness shell, loading/error/success/warning states, attachment/generated-document readiness cards, S3 configuration checks, migration dry-run metrics, backup readiness permission fallback, backup evidence list, verify/revoke actions, and metadata capture form to shared Ledger primitives where applicable.
+- Existing storage behavior remains unchanged: readiness endpoints, migration-plan dry run, backup readiness reads, restore drill plan reads, backup evidence metadata POST/verify/revoke endpoints, no-run-backup wording, no-restore-action wording, and no-migration-execution wording are preserved.
+- Existing behavior remains frontend-only and unchanged: this pass does not add storage execution, backup execution, restore execution, provider calls, signed URL behavior, generated-document storage movement, attachment movement, schema changes, hosted mutations, seed/reset/delete commands, or deployments.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- storage backup-readiness documents`: PASS, 135 suites, 612 tests matched.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed documents/settings visual fixture pass should cover generated documents, document settings, storage readiness, backup evidence states, and email outbox together.
 
 ## Mutation Boundary
 
