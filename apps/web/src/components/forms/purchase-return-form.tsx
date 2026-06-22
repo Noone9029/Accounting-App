@@ -15,6 +15,7 @@ import {
   LedgerSummaryBand,
   LedgerLoadingState,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PURCHASE_RETURN_NON_EFFECT_TEXT } from "@/lib/purchase-returns";
@@ -233,7 +234,7 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
         </LedgerFieldLabel>
         <LedgerFieldLabel className="md:col-span-2">
           Notes
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm text-ink ledger-focus" />
+          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1" />
         </LedgerFieldLabel>
       </LedgerFormSection>
 

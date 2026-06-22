@@ -17,6 +17,7 @@ import {
   LedgerSelect,
   LedgerSummaryBand,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   collectionPriorities,
@@ -263,7 +264,7 @@ export function CollectionCaseForm({ initialCase }: CollectionCaseFormProps) {
         </LedgerFieldLabel>
         <LedgerFieldLabel className="md:col-span-3">
           <LedgerFieldText>Internal notes</LedgerFieldText>
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10 disabled:bg-slate-50 disabled:text-slate-400" />
+          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} />
         </LedgerFieldLabel>
 
         {selectedInvoice ? (

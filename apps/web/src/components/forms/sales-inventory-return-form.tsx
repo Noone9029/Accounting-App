@@ -15,6 +15,7 @@ import {
   LedgerPanel,
   LedgerSelect,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { safeReturnToFromSearch } from "@/lib/parties";
@@ -377,7 +378,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         </LedgerFieldLabel>
         <LedgerFieldLabel className="md:col-span-2">
           <LedgerFieldText>Notes</LedgerFieldText>
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10" />
+          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
         </LedgerFieldLabel>
       </LedgerFormSection>
 

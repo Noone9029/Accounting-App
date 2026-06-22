@@ -31,6 +31,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
@@ -616,11 +617,10 @@ export default function CustomerPaymentDetailPage() {
 
                 <LedgerFieldLabel className="mt-4">
                   <LedgerFieldText>Reason (optional)</LedgerFieldText>
-                  <textarea
+                  <Textarea
                     value={reverseReason}
                     onChange={(event) => setReverseReason(event.target.value)}
                     rows={3}
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10"
                     placeholder="Correction note for the audit trail"
                   />
                 </LedgerFieldLabel>

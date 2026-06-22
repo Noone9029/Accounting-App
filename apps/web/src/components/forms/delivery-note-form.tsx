@@ -17,6 +17,7 @@ import {
   LedgerSelect,
   LedgerTableShell,
 } from "@/components/ui/ledger-system";
+import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { safeReturnToFromSearch } from "@/lib/parties";
@@ -376,7 +377,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
         </LedgerFieldLabel>
         <LedgerFieldLabel className="md:col-span-2">
           <LedgerFieldText>Delivery address</LedgerFieldText>
-          <textarea value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} rows={3} className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-palm focus:ring-2 focus:ring-palm/10" />
+          <Textarea value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} rows={3} />
         </LedgerFieldLabel>
         <LedgerFieldLabel>
           <LedgerFieldText>Notes</LedgerFieldText>
