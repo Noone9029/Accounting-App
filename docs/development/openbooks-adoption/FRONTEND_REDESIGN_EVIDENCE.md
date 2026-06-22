@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-accounting-admin-workspaces`
+Branch: `codex/ui-redesign-report-drilldowns`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-clearing-settings` while PR #177 is open
+Base: stacked on `origin/codex/ui-redesign-accounting-admin-workspaces` while PR #178 is open
 
 ## Evidence Summary
 
@@ -16,6 +16,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-clearing-settings` while PR
 | Settings route test | `apps/web/src/app/(app)/route-load-verification.test.tsx` verifies `/settings` loads and links to existing settings routes. |
 | Documents archive | `apps/web/src/app/(app)/documents/page.tsx` uses shared page, filter, table, and empty-state primitives while preserving local archive behavior. |
 | Report packs | `apps/web/src/app/(app)/report-packs/page.tsx` uses shared preview, metric, table, and disabled-boundary primitives while preserving read-only behavior. |
+| Report drilldowns loop | `apps/web/src/components/reports/report-pages.tsx` drives `/reports`, General Ledger, Trial Balance, Profit & Loss, Balance Sheet, VAT Summary, VAT Return, Aged Receivables, and Aged Payables through shared Ledger page, toolbar, field, alert, loading, empty, panel, stat, table, date, money, action, and workflow primitives while preserving report query filters, exports, return-to links, aging handoffs, and internal-review VAT wording. |
 | Product docs | `docs/product/LEDGERBYTE_FRONTEND_REDESIGN_SYSTEM.md` and `docs/product/LEDGERBYTE_FRONTEND_REDESIGN.md` capture the shared system, adopted routes, boundaries, and remaining route families. |
 | Route-family checklist | `docs/product/FRONTEND_REDESIGN_ROUTE_FAMILY_CHECKLIST.md` now tracks every major frontend family, inspected routes, migration state, tests, visual/mobile/accessibility notes, permissions, and remaining gaps. |
 | Sales list loop | `apps/web/src/app/(app)/sales/invoices/page.tsx` and `apps/web/src/app/(app)/sales/quotes/page.tsx` use shared LedgerByte layout, filter, table, date, money, status, summary, and empty-state primitives while preserving invoice posting and non-posting quote truth. |
@@ -577,6 +578,19 @@ Base: stacked on `origin/codex/ui-redesign-inventory-clearing-settings` while PR
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
 - Visual checks were not run in this slice; a refreshed accounting/admin visual fixture pass should cover chart of accounts, manual journal list/new, tax rates, fiscal periods, and branches together.
+
+## 2026-06-22 Report Drilldowns Loop Evidence
+
+- `apps/web/src/components/reports/report-pages.tsx`: migrated the shared reports index, report shell, date/as-of filters, loading/error/empty states, export cards, VAT review context, VAT draft export card, summary metrics, account/amount tables, aging guide, aging handoff actions, and aging table to shared Ledger primitives.
+- `/reports/general-ledger`, `/reports/trial-balance`, `/reports/profit-and-loss`, `/reports/balance-sheet`, `/reports/vat-summary`, `/reports/vat-return`, `/reports/aged-receivables`, and `/reports/aged-payables` keep their existing API endpoints, query construction, export paths, return-to behavior, permission gates, and conservative internal-review/tax-authority wording.
+- Existing behavior remains frontend-only and unchanged: this pass does not add filing workflows, official tax authority submission, report generation backends, posting, journal mutations, VAT/ZATCA/compliance behavior, schema changes, provider calls, storage behavior, hosted mutations, seed/reset/delete commands, or deployments.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- report-pages reports vat-return vat-summary aged-receivables aged-payables general-ledger trial-balance profit-and-loss balance-sheet`: PASS, 2 suites, 20 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed report visual fixture pass should cover the report index, GL, trial balance, P&L, balance sheet, VAT summary/return, and aging reports together.
 
 ## Mutation Boundary
 

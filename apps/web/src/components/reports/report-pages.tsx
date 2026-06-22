@@ -4,9 +4,27 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { LedgerButton, LedgerPageHeader, LedgerToolbar } from "@/components/ui/ledger-system";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerStatCard,
+  LedgerSummaryBand,
+  LedgerToolbar,
+  LedgerWorkflowCard,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -46,7 +64,7 @@ export function ReportsIndexPage() {
   const groups = reportIndexGroups();
 
   return (
-    <section>
+    <LedgerPage>
       <LedgerPageHeader
         eyebrow="Accountant review"
         title="Reports"
@@ -69,23 +87,19 @@ export function ReportsIndexPage() {
           </p>
         </LedgerToolbar>
       </div>
-      <div className="space-y-6">
+      <LedgerPageBody>
         {groups.map((group) => (
           <section key={group.label}>
             <h2 className="mb-3 text-base font-semibold text-ink">{group.label}</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {group.links.map((link) => (
-                <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
-                  <div className="text-base font-semibold text-ink">{link.label}</div>
-                  <div className="mt-2 text-sm leading-6 text-steel">{link.description}</div>
-                  <div className="mt-4 text-sm font-medium text-palm">Open report</div>
-                </Link>
+                <LedgerWorkflowCard key={link.href} title={link.label} href={link.href} description={link.description} />
               ))}
             </div>
           </section>
         ))}
-      </div>
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -107,7 +121,7 @@ export function GeneralLedgerReportPage() {
       {report ? (
         <div className="space-y-5">
           {report.accounts.map((account) => (
-            <div key={account.accountId} className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <LedgerPanel key={account.accountId}>
               <div className="border-b border-slate-200 px-5 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -124,8 +138,7 @@ export function GeneralLedgerReportPage() {
                   </div>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] text-left text-sm">
+              <LedgerDataTable minWidth="980px" className="mt-4">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">Date</th>
@@ -157,9 +170,8 @@ export function GeneralLedgerReportPage() {
                       </tr>
                     ) : null}
                   </tbody>
-                </table>
-              </div>
-            </div>
+              </LedgerDataTable>
+            </LedgerPanel>
           ))}
         </div>
       ) : null}
@@ -184,11 +196,11 @@ export function TrialBalanceReportPage() {
       <ReportState loading={loading} error={error} empty={!report || report.accounts.length === 0} emptyText="No trial balance rows found." />
       {report ? (
         <div className="space-y-4">
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <span className={`rounded-md px-2 py-1 text-xs font-medium ${report.totals.balanced ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rosewood"}`}>
               {report.totals.balanced ? "Balanced" : "Out of balance"}
             </span>
-          </div>
+          </LedgerPanel>
           <AccountBalanceTable accounts={report.accounts} totals={report.totals} />
         </div>
       ) : null}
@@ -247,23 +259,23 @@ export function BalanceSheetReportPage() {
       <ReportState loading={loading} error={error} empty={!report} emptyText="No balance sheet data found." />
       {report ? (
         <div className="space-y-5">
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <LedgerPanel>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className={`rounded-md px-2 py-1 text-xs font-medium ${balanceSheetStatusClass(report)}`}>{balanceSheetStatusLabel(report)}</span>
               <div className="text-sm text-steel">
                 Total assets {formatMoneyAmount(report.totalAssets)} / Total liabilities and equity {formatMoneyAmount(report.totalLiabilitiesAndEquity)}
               </div>
             </div>
-          </div>
+          </LedgerPanel>
           <BalanceSheetSectionView title="Assets" section={report.assets} />
           <BalanceSheetSectionView title="Liabilities" section={report.liabilities} />
           <BalanceSheetSectionView title="Equity" section={report.equity} />
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel text-sm">
+          <LedgerPanel>
             <div className="flex justify-between gap-4 font-semibold text-ink">
               <span>Retained earnings</span>
-              <span className="font-mono text-xs">{formatMoneyAmount(report.retainedEarnings)}</span>
+              <LedgerMoney>{formatMoneyAmount(report.retainedEarnings)}</LedgerMoney>
             </div>
-          </div>
+          </LedgerPanel>
         </div>
       ) : null}
     </ReportSection>
@@ -300,9 +312,8 @@ export function VatSummaryReportPage() {
               ["Net payable", report.netVatPayable],
             ]}
           />
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{report.notes[0]}</div>
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[720px] text-left text-sm">
+          <LedgerAlert tone="warning">{report.notes[0]}</LedgerAlert>
+          <LedgerDataTable minWidth="720px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Category</th>
@@ -316,13 +327,12 @@ export function VatSummaryReportPage() {
                   <tr key={section.category}>
                     <td className="px-4 py-3 font-medium text-ink">{section.category.replaceAll("_", " ")}</td>
                     <td className="px-4 py-3 text-steel">{section.accountCode}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(section.amount)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(section.taxAmount)}</td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(section.amount)}</LedgerMoney></td>
+                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(section.taxAmount)}</LedgerMoney></td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </LedgerDataTable>
         </div>
       ) : null}
     </ReportSection>
@@ -350,9 +360,9 @@ export function VatReturnReportPage() {
         href="/reports/vat-summary"
         linkLabel="Open VAT Summary"
       />
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+      <LedgerAlert tone="warning">
         This draft view is for accountant or tax-advisor review during controlled beta. It does not submit to a tax authority, does not create a filing record, is not a government-format export, and does not prove ZATCA or GCC filing compliance.
-      </div>
+      </LedgerAlert>
       <VatReturnReviewExportCard params={{ from, to }} />
       <ReportState
         loading={loading}
@@ -371,16 +381,15 @@ export function VatReturnReportPage() {
               [Number.parseFloat(report.netVatRefundable) > 0 ? "Net refundable" : "Net payable", Number.parseFloat(report.netVatRefundable) > 0 ? report.netVatRefundable : report.netVatPayable],
             ]}
           />
-          <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+          <LedgerPanel>
             <p>
               <span className="font-semibold text-ink">Basis:</span> {report.basis === "FINALIZED_SOURCE_DOCUMENTS" ? "Finalized sales invoices and finalized purchase bills in the selected date range." : report.basis}
             </p>
             <p className="mt-2">
               <span className="font-semibold text-ink">Export status:</span> Internal draft review CSV only. Official filing format, submission workflow, authority exchange, and compliance approval are not implemented here.
             </p>
-          </div>
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[720px] text-left text-sm">
+          </LedgerPanel>
+          <LedgerDataTable minWidth="720px">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
                   <th className="px-4 py-3">Source</th>
@@ -394,25 +403,24 @@ export function VatReturnReportPage() {
                 <tr>
                   <td className="px-4 py-3 font-medium text-ink">Finalized sales invoices</td>
                   <td className="px-4 py-3 font-mono text-xs">{report.sales.documentCount}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.taxableAmount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.grossAmount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.sales.taxAmount)}</td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.sales.taxableAmount)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.sales.grossAmount)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.sales.taxAmount)}</LedgerMoney></td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3 font-medium text-ink">Finalized purchase bills</td>
                   <td className="px-4 py-3 font-mono text-xs">{report.purchases.documentCount}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.taxableAmount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.grossAmount)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(report.purchases.taxAmount)}</td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.purchases.taxableAmount)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.purchases.grossAmount)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(report.purchases.taxAmount)}</LedgerMoney></td>
                 </tr>
               </tbody>
-            </table>
-          </div>
-          <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+          </LedgerDataTable>
+          <LedgerPanel>
             {report.notes.map((note) => (
               <p key={note}>{note}</p>
             ))}
-          </div>
+          </LedgerPanel>
         </div>
       ) : null}
     </ReportSection>
@@ -451,9 +459,7 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
     <ReportSection title={title} description={description}>
       {returnTo ? (
         <div className="mb-4">
-          <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back to workspace
-          </Link>
+          <LedgerButton href={returnTo}>Back to workspace</LedgerButton>
         </div>
       ) : null}
       <AgingReportGuide kind={kind} returnToHref={reportReturnToHref} />
@@ -511,7 +517,7 @@ function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slu
   const [error, setError] = useState("");
 
   if (!canExportReports) {
-    return <StatusMessage type="info">Report export requires report export permission.</StatusMessage>;
+    return <LedgerAlert tone="info">Report export requires report export permission.</LedgerAlert>;
   }
 
   async function download(format: "csv" | "pdf") {
@@ -527,18 +533,18 @@ function ReportExportButtons({ endpoint, slug, params }: { endpoint: string; slu
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => void download("csv")} disabled={Boolean(downloading)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+        <LedgerButton type="button" onClick={() => void download("csv")} disabled={Boolean(downloading)}>
           {downloading === "csv" ? "Downloading CSV..." : "Download CSV"}
-        </button>
-        <button type="button" onClick={() => void download("pdf")} disabled={Boolean(downloading)} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+        </LedgerButton>
+        <LedgerButton type="button" onClick={() => void download("pdf")} disabled={Boolean(downloading)}>
           {downloading === "pdf" ? "Downloading PDF..." : "Download PDF"}
-        </button>
+        </LedgerButton>
       </div>
       <p className="text-xs leading-5 text-steel">Exports use the current report filters and are generated from posted accounting data. No request or response body is shown on this page.</p>
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-    </div>
+      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+    </LedgerPanel>
   );
 }
 
@@ -549,7 +555,7 @@ function VatReturnReviewExportCard({ params }: { params: Record<string, string |
   const [error, setError] = useState("");
 
   if (!canExportReports) {
-    return <StatusMessage type="info">Draft VAT review export requires report export permission.</StatusMessage>;
+    return <LedgerAlert tone="info">Draft VAT review export requires report export permission.</LedgerAlert>;
   }
 
   async function download() {
@@ -565,29 +571,29 @@ function VatReturnReviewExportCard({ params }: { params: Record<string, string |
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+    <LedgerPanel>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => void download()} disabled={downloading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+        <LedgerButton type="button" onClick={() => void download()} disabled={downloading}>
           {downloading ? "Downloading draft review CSV..." : "Download draft review CSV"}
-        </button>
+        </LedgerButton>
       </div>
       <p className="text-xs leading-5 text-steel">
         Internal review export only. This CSV reflects the current VAT Return filters, does not create a filing record, and is not an official tax authority submission format.
       </p>
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-    </div>
+      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+    </LedgerPanel>
   );
 }
 
 function VatReportReviewContext({ title, body, href, linkLabel }: { title: string; body: string; href: string; linkLabel: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+    <LedgerPanel>
       <div className="font-semibold text-ink">{title}</div>
       <p className="mt-2">{body}</p>
-      <Link href={href} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        {linkLabel}
-      </Link>
-    </div>
+      <div className="mt-3">
+        <LedgerButton href={href}>{linkLabel}</LedgerButton>
+      </div>
+    </LedgerPanel>
   );
 }
 
@@ -599,36 +605,28 @@ function VatReturnReviewActions() {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       {canCreateInvoice ? (
-        <Link href="/sales/invoices/new?returnTo=%2Freports%2Fvat-return" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+        <LedgerButton href="/sales/invoices/new?returnTo=%2Freports%2Fvat-return" variant="primary">
           Create invoice
-        </Link>
+        </LedgerButton>
       ) : null}
       {canCreateBill ? (
-        <Link href="/purchases/bills/new?returnTo=%2Freports%2Fvat-return" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+        <LedgerButton href="/purchases/bills/new?returnTo=%2Freports%2Fvat-return">
           Create bill
-        </Link>
+        </LedgerButton>
       ) : null}
-      <Link href="/reports/vat-summary" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <LedgerButton href="/reports/vat-summary">
         Open VAT Summary
-      </Link>
+      </LedgerButton>
     </div>
   );
 }
 
 function ReportSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-          <p className="mt-1 text-sm text-steel">{description}</p>
-        </div>
-        <Link href="/reports" className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Reports
-        </Link>
-      </div>
-      <div className="space-y-5">{children}</div>
-    </section>
+    <LedgerPage>
+      <LedgerPageHeader eyebrow="Reports" title={title} description={description} actions={<LedgerButton href="/reports">Reports</LedgerButton>} />
+      <LedgerPageBody>{children}</LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -653,22 +651,20 @@ function DateRangeForm({
         event.preventDefault();
         void onSubmit();
       }}
-      className="rounded-md border border-slate-200 bg-white p-5 shadow-panel"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">From</span>
-          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">To</span>
-          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
-        </label>
-        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
-          {loading ? "Loading..." : "Run report"}
-        </button>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-steel">Use the date range to focus on posted activity for the period you want to review.</p>
+      <LedgerToolbar description="Use the date range to focus on posted activity for the period you want to review.">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <Field label="From">
+            <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+          </Field>
+          <Field label="To">
+            <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+          </Field>
+          <LedgerButton type="submit" variant="primary" disabled={loading}>
+            {loading ? "Loading..." : "Run report"}
+          </LedgerButton>
+        </div>
+      </LedgerToolbar>
     </form>
   );
 }
@@ -680,19 +676,27 @@ function AsOfForm({ asOf, setAsOf, loading, onSubmit, helpText }: { asOf: string
         event.preventDefault();
         void onSubmit();
       }}
-      className="rounded-md border border-slate-200 bg-white p-5 shadow-panel"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-steel">As of</span>
-          <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
-        </label>
-        <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
-          {loading ? "Loading..." : "Run report"}
-        </button>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-steel">{helpText ?? "Use the date to review balances as they stood at that point."}</p>
+      <LedgerToolbar description={helpText ?? "Use the date to review balances as they stood at that point."}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <Field label="As of">
+            <LedgerInput type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
+          </Field>
+          <LedgerButton type="submit" variant="primary" disabled={loading}>
+            {loading ? "Loading..." : "Run report"}
+          </LedgerButton>
+        </div>
+      </LedgerToolbar>
     </form>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <LedgerFieldLabel>
+      <LedgerFieldText>{label}</LedgerFieldText>
+      {children}
+    </LedgerFieldLabel>
   );
 }
 
@@ -712,21 +716,13 @@ function ReportState({
   emptyActions?: ReactNode;
 }) {
   return (
-    <div className="space-y-3">
-      {loading ? <StatusMessage type="loading">Loading report...</StatusMessage> : null}
-      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    <>
+      {loading ? <LedgerLoadingState title="Loading report" /> : null}
+      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
       {!loading && !error && empty ? (
-        emptyHelp || emptyActions ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 text-sm shadow-panel">
-            <h2 className="font-semibold text-ink">{emptyText}</h2>
-            {emptyHelp ? <p className="mt-2 max-w-3xl leading-6 text-steel">{emptyHelp}</p> : null}
-            {emptyActions ? <div className="mt-4">{emptyActions}</div> : null}
-          </div>
-        ) : (
-          <StatusMessage type="empty">{emptyText}</StatusMessage>
-        )
+        <LedgerEmptyState title={emptyText} description={emptyHelp} action={emptyActions} />
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -734,10 +730,7 @@ function SummaryGrid({ items }: { items: Array<[string, string]> }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
       {items.map(([label, value]) => (
-        <div key={label} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-          <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-          <div className="mt-2 font-mono text-sm font-semibold text-ink">{formatMoneyAmount(value)}</div>
-        </div>
+        <LedgerStatCard key={label} label={label} value={<LedgerMoney>{formatMoneyAmount(value)}</LedgerMoney>} />
       ))}
     </div>
   );
@@ -745,8 +738,7 @@ function SummaryGrid({ items }: { items: Array<[string, string]> }) {
 
 function AccountBalanceTable({ accounts, totals }: { accounts: TrialBalanceReport["accounts"]; totals: TrialBalanceReport["totals"] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[1120px] text-left text-sm">
+    <LedgerDataTable minWidth="1120px">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-4 py-3">Account</th>
@@ -775,8 +767,7 @@ function AccountBalanceTable({ accounts, totals }: { accounts: TrialBalanceRepor
             <MoneyCells values={[totals.openingDebit, totals.openingCredit, totals.periodDebit, totals.periodCredit, totals.closingDebit, totals.closingCredit]} />
           </tr>
         </tbody>
-      </table>
-    </div>
+    </LedgerDataTable>
   );
 }
 
@@ -785,7 +776,7 @@ function MoneyCells({ values }: { values: string[] }) {
     <>
       {values.map((value, index) => (
         <td key={`${value}-${index}`} className="px-4 py-3 font-mono text-xs">
-          {formatMoneyAmount(value)}
+          <LedgerMoney>{formatMoneyAmount(value)}</LedgerMoney>
         </td>
       ))}
     </>
@@ -794,8 +785,7 @@ function MoneyCells({ values }: { values: string[] }) {
 
 function AmountSection({ title, total, accounts }: { title: string; total: string; accounts: Array<{ accountId: string; code: string; name: string; amount: string }> }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[720px] text-left text-sm">
+    <LedgerDataTable minWidth="720px">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-4 py-3">{title}</th>
@@ -808,16 +798,15 @@ function AmountSection({ title, total, accounts }: { title: string; total: strin
               <td className="px-4 py-3 font-medium text-ink">
                 {account.code} {account.name}
               </td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(account.amount)}</td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(account.amount)}</LedgerMoney></td>
             </tr>
           ))}
           <tr className="bg-slate-50 font-semibold text-ink">
             <td className="px-4 py-3">Total {title.toLowerCase()}</td>
-            <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(total)}</td>
+            <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(total)}</LedgerMoney></td>
           </tr>
         </tbody>
-      </table>
-    </div>
+    </LedgerDataTable>
   );
 }
 
@@ -828,7 +817,7 @@ function BalanceSheetSectionView({ title, section }: { title: string; section: B
 export function AgingReportGuide({ kind, returnToHref }: { kind: AgingReportKind; returnToHref?: string }) {
   const isReceivables = kind === "receivables";
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="success">
       <h2 className="text-base font-semibold text-ink">How to read this report</h2>
       <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div>
@@ -853,7 +842,7 @@ export function AgingReportGuide({ kind, returnToHref }: { kind: AgingReportKind
         </div>
       </div>
       <ReportActionLinks kind={kind} returnToHref={returnToHref} />
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -865,31 +854,20 @@ function ReportActionLinks({ kind, returnToHref }: { kind: AgingReportKind; retu
   const canRecordPayment = isReceivables ? can(PERMISSIONS.customerPayments.create) : can(PERMISSIONS.supplierPayments.create);
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-      <Link
-        href={isReceivables ? "/customers" : "/suppliers"}
-        className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
-      >
+      <LedgerButton href={isReceivables ? "/customers" : "/suppliers"}>
         {isReceivables ? "View customers" : "View suppliers"}
-      </Link>
+      </LedgerButton>
       {canCreateDocument ? (
-        <Link
-          href={`${isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"}?returnTo=${encodeURIComponent(returnTo)}`}
-          className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
-        >
+        <LedgerButton href={`${isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"}?returnTo=${encodeURIComponent(returnTo)}`} variant="primary">
           {isReceivables ? "Create invoice" : "Create bill"}
-        </Link>
+        </LedgerButton>
       ) : null}
       {canRecordPayment ? (
-        <Link
-          href={`${isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"}?returnTo=${encodeURIComponent(returnTo)}`}
-          className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
-        >
+        <LedgerButton href={`${isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"}?returnTo=${encodeURIComponent(returnTo)}`}>
           {isReceivables ? "Record payment" : "Record supplier payment"}
-        </Link>
+        </LedgerButton>
       ) : null}
-      <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-        Dashboard
-      </Link>
+      <LedgerButton href="/dashboard">Dashboard</LedgerButton>
     </div>
   );
 }
@@ -901,8 +879,7 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
   const isReceivables = kind === "receivables";
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[1120px] text-left text-sm">
+    <LedgerDataTable minWidth="1120px">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-4 py-3">Contact</th>
@@ -929,24 +906,23 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
                   {row.number}
                 </Link>
               </td>
-              <td className="px-4 py-3 text-steel">{formatOptionalDate(row.issueDate, "-")}</td>
-              <td className="px-4 py-3 text-steel">{formatOptionalDate(row.dueDate, "-")}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.total)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatMoneyAmount(row.balanceDue)}</td>
+              <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(row.issueDate, "-")}</LedgerDate></td>
+              <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(row.dueDate, "-")}</LedgerDate></td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(row.total)}</LedgerMoney></td>
+              <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(row.balanceDue)}</LedgerMoney></td>
               <td className="px-4 py-3 font-mono text-xs">{row.daysOverdue}</td>
               <td className="px-4 py-3">
                 <span className={`rounded-md px-2 py-1 text-xs font-medium ${agingBucketClass(row.bucket)}`}>{agingBucketLabel(row.bucket)}</span>
               </td>
               <td className="px-4 py-3">
-                <Link href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                <Link href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)} className="font-medium text-palm hover:underline">
                   {isReceivables ? "Open invoice" : "Open bill"}
                 </Link>
               </td>
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+    </LedgerDataTable>
   );
 }
 
