@@ -1,16 +1,31 @@
+import type { ReactNode } from "react";
+import { LedgerAlert, LedgerEmptyState, LedgerErrorState, LedgerLoadingState } from "@/components/ui/ledger-system";
+
 interface StatusMessageProps {
   type: "loading" | "empty" | "success" | "error" | "info";
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-const styles = {
-  loading: "border-slate-200 bg-white text-steel",
-  empty: "border-slate-200 bg-white text-steel",
-  success: "border-teal-200 bg-teal-50 text-teal-900",
-  error: "border-rose-200 bg-rose-50 text-rosewood",
-  info: "border-slate-200 bg-mist text-ink",
-};
-
 export function StatusMessage({ type, children }: StatusMessageProps) {
-  return <div className={`rounded-md border px-4 py-3 text-sm ${styles[type]}`}>{children}</div>;
+  if (type === "loading") {
+    return <LedgerLoadingState title={messageTitle(children, "Loading")} />;
+  }
+
+  if (type === "empty") {
+    return <LedgerEmptyState title={messageTitle(children, "No records found")} description={messageDescription(children)} />;
+  }
+
+  if (type === "error") {
+    return <LedgerErrorState title="Unable to continue" description={children} />;
+  }
+
+  return <LedgerAlert tone={type === "success" ? "success" : "info"}>{children}</LedgerAlert>;
+}
+
+function messageTitle(children: ReactNode, fallback: string): string {
+  return typeof children === "string" && children.trim() ? children.trim() : fallback;
+}
+
+function messageDescription(children: ReactNode): ReactNode | undefined {
+  return typeof children === "string" ? undefined : children;
 }
