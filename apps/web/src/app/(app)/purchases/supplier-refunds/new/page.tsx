@@ -1,9 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerFormSection,
+  LedgerInput,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSelect,
+  LedgerSummaryBand,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -187,105 +201,102 @@ export default function NewSupplierRefundPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Record supplier refund</h1>
-          <p className="mt-1 text-sm text-steel">Record money received back from a supplier against unapplied AP credit. No bank integration is called.</p>
-        </div>
-        <Link href="/purchases/supplier-refunds" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
+        title="Record supplier refund"
+        description="Record money received back from a supplier against unapplied AP credit. No bank integration is called."
+        actions={<LedgerButton href="/purchases/supplier-refunds">Back</LedgerButton>}
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to record supplier refunds.</StatusMessage> : null}
-        {loadingSetup ? <StatusMessage type="loading">Loading supplier refund setup data...</StatusMessage> : null}
-        {loadingSources ? <StatusMessage type="loading">Loading refundable supplier sources...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to record supplier refunds.</LedgerAlert> : null}
+        {loadingSetup ? <LedgerAlert tone="info">Loading supplier refund setup data...</LedgerAlert> : null}
+        {loadingSources ? <LedgerAlert tone="info">Loading refundable supplier sources...</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-5">
-        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Supplier</span>
-              <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <form onSubmit={onSubmit} className="space-y-5">
+          <LedgerFormSection title="Refund details" description="Choose the supplier, source credit, refund date, and received-into account.">
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Supplier</LedgerFieldText>
+              <LedgerSelect value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
                 <option value="">Select supplier</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.displayName ?? supplier.name}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Refund date</span>
-              <input type="date" value={refundDate} onChange={(event) => setRefundDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Amount refunded</span>
-              <input inputMode="decimal" value={amountRefunded} onChange={(event) => setAmountRefunded(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-slate-700">Source type</span>
-              <select value={sourceType} onChange={(event) => changeSourceType(event.target.value as SupplierRefundSourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Refund date</LedgerFieldText>
+              <LedgerInput type="date" value={refundDate} onChange={(event) => setRefundDate(event.target.value)} required />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Amount refunded</LedgerFieldText>
+              <LedgerInput inputMode="decimal" value={amountRefunded} onChange={(event) => setAmountRefunded(event.target.value)} required className="font-mono tabular-nums" />
+            </LedgerFieldLabel>
+            <LedgerFieldLabel>
+              <LedgerFieldText>Source type</LedgerFieldText>
+              <LedgerSelect value={sourceType} onChange={(event) => changeSourceType(event.target.value as SupplierRefundSourceType)}>
                 <option value="SUPPLIER_PAYMENT">Supplier payment</option>
                 <option value="PURCHASE_DEBIT_NOTE">Purchase debit note</option>
-              </select>
-            </label>
-            <label className="block md:col-span-3">
-              <span className="text-sm font-medium text-slate-700">Refund source</span>
-              <select value={sourceId} onChange={(event) => setSourceId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-3">
+              <LedgerFieldText>Refund source</LedgerFieldText>
+              <LedgerSelect value={sourceId} onChange={(event) => setSourceId(event.target.value)} required>
                 <option value="">Select {supplierRefundSourceTypeLabel(sourceType).toLowerCase()}</option>
                 {sourceOptions.map((source) => (
                   <option key={source.id} value={source.id}>
                     {supplierRefundableSourceLabel(sourceType, source)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Received-into account</span>
-              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Received-into account</LedgerFieldText>
+              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
                 <option value="">Select cash or bank account</option>
                 {receivedIntoAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </select>
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-medium text-slate-700">Description</span>
-              <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-            </label>
+              </LedgerSelect>
+            </LedgerFieldLabel>
+            <LedgerFieldLabel className="md:col-span-2">
+              <LedgerFieldText>Description</LedgerFieldText>
+              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
+            </LedgerFieldLabel>
+          </LedgerFormSection>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <LedgerSummaryBand tone="warning">
+              This records only the accounting refund journal. It does not call bank transfers, payment gateways, bank reconciliation, or ZATCA services.
+            </LedgerSummaryBand>
+            <LedgerPanel className="p-4">
+              <h2 className="text-base font-semibold text-ink">Refund source balance</h2>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <dt className="text-steel">Available source credit</dt>
+                <dd className="text-right"><LedgerMoney>{formatMoneyAmount(availableAmount, selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
+                <dt className="text-steel">Amount refunded</dt>
+                <dd className="text-right"><LedgerMoney>{formatMoneyAmount(amountRefunded || "0.0000", selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
+                <dt className="font-semibold text-ink">Remaining after refund</dt>
+                <dd className="text-right font-semibold"><LedgerMoney>{formatMoneyAmount(remainingAfterRefund, selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
+              </dl>
+            </LedgerPanel>
           </div>
-        </div>
 
-        <div className="ml-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
-          <span className="text-steel">Available source credit</span>
-          <span className="text-right font-mono">{formatMoneyAmount(availableAmount, selectedSource?.currency ?? "SAR")}</span>
-          <span className="text-steel">Amount refunded</span>
-          <span className="text-right font-mono">{formatMoneyAmount(amountRefunded || "0.0000", selectedSource?.currency ?? "SAR")}</span>
-          <span className="font-semibold text-ink">Remaining unapplied</span>
-          <span className="text-right font-mono font-semibold text-ink">{formatMoneyAmount(remainingAfterRefund, selectedSource?.currency ?? "SAR")}</span>
-        </div>
-
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          This records only the accounting refund journal. It does not call bank transfers, payment gateways, bank reconciliation, or ZATCA services.
-        </div>
-
-        <div className="flex gap-3">
-          <button type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-            {submitting ? "Recording..." : "Record refund"}
-          </button>
-          <Link href="/purchases/supplier-refunds" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cancel
-          </Link>
-        </div>
-      </form>
-    </section>
+          <LedgerActionBar>
+            <LedgerButton type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} variant="primary">
+              {submitting ? "Recording..." : "Record refund"}
+            </LedgerButton>
+            <LedgerButton href="/purchases/supplier-refunds">Cancel</LedgerButton>
+          </LedgerActionBar>
+        </form>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 

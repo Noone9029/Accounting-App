@@ -1,16 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DataTable } from "@/components/ui-ledger/data-table";
-import { EmptyState } from "@/components/ui-ledger/empty-state";
-import { PageHeader } from "@/components/ui-ledger/page-header";
 import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -100,8 +105,9 @@ export default function SupplierPaymentsPage() {
   }
 
   return (
-    <section>
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Purchases"
         title="Supplier payments"
         description={
           supplierId
@@ -109,87 +115,87 @@ export default function SupplierPaymentsPage() {
             : "Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions."
         }
         actions={
-          <>
+          <LedgerActionBar>
           {returnTo ? (
-            <Link href={returnTo} className={buttonVariants({ variant: "outline" })}>
+            <LedgerButton href={returnTo}>
               Back to workspace
-            </Link>
+            </LedgerButton>
           ) : null}
           {canCreatePayment ? (
-            <Link href={recordPaymentHref} className={buttonVariants()}>
+            <LedgerButton href={recordPaymentHref} variant="primary">
               Record payment
-            </Link>
+            </LedgerButton>
           ) : null}
-          </>
+          </LedgerActionBar>
         }
       />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load supplier payments.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading supplier payments...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load supplier payments.</LedgerAlert> : null}
+        {loading ? <LedgerAlert tone="info">Loading supplier payments...</LedgerAlert> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
         {!loading && organizationId && visiblePayments.length === 0 ? (
-          <EmptyState
+          <LedgerEmptyState
             title="No supplier payments found"
             description={
               supplierId
                 ? "No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance."
                 : "No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance."
             }
-            action={canCreatePayment ? <Link href={recordPaymentHref} className={buttonVariants()}>Record payment</Link> : null}
+            action={canCreatePayment ? <LedgerButton href={recordPaymentHref} variant="primary">Record payment</LedgerButton> : null}
           />
         ) : null}
-      </div>
 
       {visiblePayments.length > 0 ? (
-        <DataTable minWidth="min-w-[1080px]">
-          <TableHeader>
-              <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Unapplied</TableHead>
-                <TableHead>Paid through</TableHead>
-                <TableHead>Journal</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <LedgerDataTable minWidth="1080px">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">Number</th>
+                <th className="px-4 py-3">Supplier</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Unapplied</th>
+                <th className="px-4 py-3">Paid through</th>
+                <th className="px-4 py-3">Journal</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
               {visiblePayments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell className="font-mono text-xs">{payment.paymentNumber}</TableCell>
-                  <TableCell className="font-medium text-foreground">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatOptionalDate(payment.paymentDate, "-")}</TableCell>
-                  <TableCell>
+                <tr key={payment.id}>
+                  <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(payment.paymentDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3">
                     <PaymentStatusBadge status={payment.status} />
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums">{formatMoneyAmount(payment.amountPaid, payment.currency)}</TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums">{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</TableCell>
-                  <TableCell className="text-muted-foreground">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</TableCell>
-                  <TableCell className="font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Link
+                  </td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(payment.amountPaid, payment.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
+                  <td className="px-4 py-3">
+                    <LedgerActionBar>
+                      <LedgerButton
                         href={detailReturnTo ? `/purchases/supplier-payments/${payment.id}?returnTo=${encodeURIComponent(detailReturnTo)}` : `/purchases/supplier-payments/${payment.id}`}
-                        className={buttonVariants({ variant: "outline", size: "xs" })}
+                        size="sm"
                       >
                         View
-                      </Link>
+                      </LedgerButton>
                       {payment.status === "POSTED" && canVoidPayment ? (
-                        <Button type="button" variant="destructive" size="xs" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id}>
+                        <LedgerButton variant="danger" size="sm" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id}>
                           Void
-                        </Button>
+                        </LedgerButton>
                       ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </LedgerActionBar>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-        </DataTable>
+            </tbody>
+        </LedgerDataTable>
       ) : null}
-    </section>
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
