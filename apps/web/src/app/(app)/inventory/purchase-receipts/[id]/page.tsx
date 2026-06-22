@@ -1,25 +1,40 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
-import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import {
   accountingPreviewCanPost,
   accountingPreviewLineDisplay,
-  canVoidPostedStockDocument,
   canShowPostReceiptAssetAction,
   canShowReverseReceiptAssetAction,
+  canVoidPostedStockDocument,
   formatInventoryQuantity,
   inventoryClearingReportUrl,
-  inventoryClearingStatusBadgeClass,
   inventoryClearingStatusLabel,
   inventoryOperationalWarning,
   inventoryValuationVariancePreviewUrl,
@@ -28,7 +43,6 @@ import {
   purchaseReceiptPostingModeLabel,
   receiptAssetPostingFinancialReportWarning,
   receiptAssetPostingStatus,
-  stockDocumentStatusBadgeClass,
   stockDocumentStatusLabel,
   stockMovementTypeLabel,
 } from "@/lib/inventory";
@@ -158,130 +172,115 @@ export default function PurchaseReceiptDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{receipt?.receiptNumber ?? "Purchase receipt"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Receipt detail and linked operational stock movements.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/purchase-receipts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {receipt && canVoid && canVoidPostedStockDocument(receipt.status) ? (
-            <button type="button" disabled={voiding} onClick={() => void voidReceipt()} className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {voiding ? "Voiding..." : "Void"}
-            </button>
-          ) : null}
-          {receipt && canViewLandedCostPreview ? (
-            <Link href={landedCostPreviewUrl({ sourceType: "PURCHASE_RECEIPT", sourceId: receipt.id })} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
-              Preview landed cost
-            </Link>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title={receipt?.receiptNumber ?? "Purchase receipt"}
+        description="Receipt detail and linked operational stock movements."
+        badge={receipt ? <LedgerStatusBadge tone={stockDocumentStatusTone(receipt.status)}>{stockDocumentStatusLabel(receipt.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            <LedgerButton href="/inventory/purchase-receipts">Back</LedgerButton>
+            {receipt && canVoid && canVoidPostedStockDocument(receipt.status) ? (
+              <LedgerButton type="button" disabled={voiding} onClick={() => void voidReceipt()} variant="danger">
+                {voiding ? "Voiding..." : "Void"}
+              </LedgerButton>
+            ) : null}
+            {receipt && canViewLandedCostPreview ? (
+              <LedgerButton href={landedCostPreviewUrl({ sourceType: "PURCHASE_RECEIPT", sourceId: receipt.id })}>Preview landed cost</LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase receipt details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading purchase receipt...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase receipt details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading purchase receipt" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      {receipt ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="PURCHASE_RECEIPT" linkedEntityId={receipt.id} />
-          <PurchaseReceiptWorkflowGuidance
-            receipt={receipt}
-            preview={preview}
-            canVoid={canVoid}
-            canPostAsset={canPostAsset}
-            canReverseAsset={canReverseAsset}
-            onVoid={() => void voidReceipt()}
-            onPostAsset={() => void postInventoryAsset()}
-            onReverseAsset={() => void reverseInventoryAsset()}
-            actionLoading={voiding || postingAsset || reversingAsset}
-          />
-
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Detail label="Supplier" value={receipt.supplier?.displayName ?? receipt.supplier?.name ?? receipt.supplierId} />
-              <Detail label="Warehouse" value={receipt.warehouse ? `${receipt.warehouse.code} ${receipt.warehouse.name}` : receipt.warehouseId} />
-              <Detail label="Date" value={formatOptionalDate(receipt.receiptDate, "-")} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(receipt.status)}`}>
-                  {stockDocumentStatusLabel(receipt.status)}
-                </span>
-              </div>
-              <Detail label="Source PO" value={receipt.purchaseOrder?.purchaseOrderNumber ?? "-"} />
-              <Detail label="Source bill" value={receipt.purchaseBill?.billNumber ?? "-"} />
-              <Detail label="Posted at" value={formatOptionalDate(receipt.postedAt, "-")} />
-              <Detail label="Voided at" value={formatOptionalDate(receipt.voidedAt, "-")} />
-            </div>
-            {receipt.notes ? <p className="mt-4 text-sm text-steel">{receipt.notes}</p> : null}
-          </div>
-
-          {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
-          {canViewValuationVariances ? (
-            <ValuationVariancePreviewPanel
-              preview={valuationVariancePreview}
-              href={inventoryValuationVariancePreviewUrl({ purchaseReceiptId: receipt.id, sourceType: "purchaseReceipt" })}
+        {receipt ? (
+          <>
+            <AttachmentPanel linkedEntityType="PURCHASE_RECEIPT" linkedEntityId={receipt.id} />
+            <PurchaseReceiptWorkflowGuidance
+              receipt={receipt}
+              preview={preview}
+              canVoid={canVoid}
+              canPostAsset={canPostAsset}
+              canReverseAsset={canReverseAsset}
+              onVoid={() => void voidReceipt()}
+              onPostAsset={() => void postInventoryAsset()}
+              onReverseAsset={() => void reverseInventoryAsset()}
+              actionLoading={voiding || postingAsset || reversingAsset}
             />
-          ) : null}
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[920px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-4 py-3">Item</th>
-                  <th className="px-4 py-3">Source line</th>
-                  <th className="px-4 py-3 text-right">Quantity</th>
-                  <th className="px-4 py-3 text-right">Unit cost</th>
-                  <th className="px-4 py-3">Movement</th>
-                  <th className="px-4 py-3">Void movement</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {receipt.lines?.map((line) => (
-                  <tr key={line.id}>
-                    <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.itemId}</td>
-                    <td className="px-4 py-3 text-steel">{line.purchaseOrderLine?.description ?? line.purchaseBillLine?.description ?? "-"}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</td>
-                    <td className="px-4 py-3"><Movement line={line} kind="stockMovement" /></td>
-                    <td className="px-4 py-3"><Movement line={line} kind="voidStockMovement" /></td>
+            <LedgerSection title="Receipt profile" description={receipt.notes || "Operational receipt metadata for the linked supplier and warehouse."}>
+              <LedgerMetadataRow
+                items={[
+                  { label: "Supplier", value: receipt.supplier?.displayName ?? receipt.supplier?.name ?? receipt.supplierId },
+                  { label: "Warehouse", value: receipt.warehouse ? `${receipt.warehouse.code} ${receipt.warehouse.name}` : receipt.warehouseId },
+                  { label: "Date", value: <LedgerDate>{formatOptionalDate(receipt.receiptDate, "-")}</LedgerDate> },
+                  { label: "Status", value: <LedgerStatusBadge tone={stockDocumentStatusTone(receipt.status)}>{stockDocumentStatusLabel(receipt.status)}</LedgerStatusBadge> },
+                  { label: "Source PO", value: receipt.purchaseOrder?.purchaseOrderNumber ?? "-" },
+                  { label: "Source bill", value: receipt.purchaseBill?.billNumber ?? "-" },
+                  { label: "Posted at", value: <LedgerDate>{formatOptionalDate(receipt.postedAt, "-")}</LedgerDate> },
+                  { label: "Voided at", value: <LedgerDate>{formatOptionalDate(receipt.voidedAt, "-")}</LedgerDate> },
+                ]}
+              />
+            </LedgerSection>
+
+            {matchingSummary ? <PurchaseMatchingPanel summary={matchingSummary} showValuationVariancePreviewLink={canViewValuationVariances} /> : null}
+            {canViewValuationVariances ? (
+              <ValuationVariancePreviewPanel
+                preview={valuationVariancePreview}
+                href={inventoryValuationVariancePreviewUrl({ purchaseReceiptId: receipt.id, sourceType: "purchaseReceipt" })}
+              />
+            ) : null}
+
+            <LedgerSection title="Receipt lines" description="Operational stock movement references and optional void movement references for each line.">
+              <LedgerDataTable minWidth="920px">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3">Source line</th>
+                    <th className="px-4 py-3 text-right">Quantity</th>
+                    <th className="px-4 py-3 text-right">Unit cost</th>
+                    <th className="px-4 py-3">Movement</th>
+                    <th className="px-4 py-3">Void movement</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {receipt.lines?.map((line) => (
+                    <tr key={line.id}>
+                      <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.itemId}</td>
+                      <td className="px-4 py-3 text-steel">{line.purchaseOrderLine?.description ?? line.purchaseBillLine?.description ?? "-"}</td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.quantity)}</LedgerMoney></td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</LedgerMoney></td>
+                      <td className="px-4 py-3"><Movement line={line} kind="stockMovement" /></td>
+                      <td className="px-4 py-3"><Movement line={line} kind="voidStockMovement" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </LedgerDataTable>
+            </LedgerSection>
 
-          <PurchaseReceiptAccountingPreviewPanel
-            preview={preview}
-            error={previewError}
-            canPostAsset={canPostAsset}
-            canReverseAsset={canReverseAsset}
-            postingAsset={postingAsset}
-            reversingAsset={reversingAsset}
-            onPostAsset={() => void postInventoryAsset()}
-            onReverseAsset={() => void reverseInventoryAsset()}
-          />
-          <ReceiptClearingReconciliationPanel receipt={receipt} preview={preview} report={clearingReport} />
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 break-words text-sm text-ink">{value}</p>
-    </div>
+            <PurchaseReceiptAccountingPreviewPanel
+              preview={preview}
+              error={previewError}
+              canPostAsset={canPostAsset}
+              canReverseAsset={canReverseAsset}
+              postingAsset={postingAsset}
+              reversingAsset={reversingAsset}
+              onPostAsset={() => void postInventoryAsset()}
+              onReverseAsset={() => void reverseInventoryAsset()}
+            />
+            <ReceiptClearingReconciliationPanel receipt={receipt} preview={preview} report={clearingReport} />
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -325,14 +324,12 @@ export function PurchaseReceiptWorkflowGuidance({
   const warehouseLabel = receipt.warehouse ? `${receipt.warehouse.code} ${receipt.warehouse.name}` : "the receiving warehouse";
 
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="success">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(receipt.status)}`}>
-              {stockDocumentStatusLabel(receipt.status)}
-            </span>
+            <LedgerStatusBadge tone={stockDocumentStatusTone(receipt.status)}>{stockDocumentStatusLabel(receipt.status)}</LedgerStatusBadge>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
@@ -352,49 +349,31 @@ export function PurchaseReceiptWorkflowGuidance({
               <p className="mt-1">Use the line table for item quantities, stock movement IDs, void movements, and clearing reconciliation status.</p>
             </div>
           </div>
-          {!isPosted ? <p className="mt-3 text-xs leading-5 text-emerald-900">Voided receipts stay available for audit but should not be used as current stock activity.</p> : null}
+          {!isPosted ? <p className="mt-3 text-xs leading-5">Voided receipts stay available for audit but should not be used as current stock activity.</p> : null}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+        <LedgerActionBar className="lg:justify-end">
           {isPosted && canVoid ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onVoid}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" disabled={actionLoading} onClick={onVoid} variant="danger">
               Void receipt
-            </button>
+            </LedgerButton>
           ) : null}
           {showPostAsset ? (
-            <button type="button" disabled={actionLoading} onClick={onPostAsset} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+            <LedgerButton type="button" disabled={actionLoading} onClick={onPostAsset} variant="primary">
               Post asset journal
-            </button>
+            </LedgerButton>
           ) : null}
           {showReverseAsset ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onReverseAsset}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" disabled={actionLoading} onClick={onReverseAsset} variant="danger">
               Reverse asset journal
-            </button>
+            </LedgerButton>
           ) : null}
-          <Link href={`/inventory/warehouses/${receipt.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            View warehouse
-          </Link>
-          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Stock movements
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Inventory report
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Dashboard
-          </Link>
-        </div>
+          <LedgerButton href={`/inventory/warehouses/${receipt.warehouseId}`}>View warehouse</LedgerButton>
+          <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
+          <LedgerButton href="/inventory/reports/movement-summary">Inventory report</LedgerButton>
+          <LedgerButton href="/dashboard">Dashboard</LedgerButton>
+        </LedgerActionBar>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -415,49 +394,41 @@ function ReceiptClearingReconciliationPanel({
     receiptSummary?.assetPostingStatus ?? (receipt.inventoryAssetReversalJournalEntryId ? "REVERSED" : receipt.inventoryAssetJournalEntryId ? "POSTED" : "NOT_POSTED");
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Clearing reconciliation</h2>
-          <p className="mt-1 text-sm text-steel">Receipt asset posting state against the linked inventory-clearing purchase bill.</p>
-        </div>
-        {status ? (
-          <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryClearingStatusBadgeClass(status)}`}>
-            {inventoryClearingStatusLabel(status)}
-          </span>
+    <LedgerSection
+      title="Clearing reconciliation"
+      description="Receipt asset posting state against the linked inventory-clearing purchase bill."
+      action={status ? <LedgerStatusBadge tone={clearingStatusTone(status)}>{inventoryClearingStatusLabel(status)}</LedgerStatusBadge> : null}
+    >
+      <div className="space-y-5">
+        <LedgerMetadataRow
+          items={[
+            { label: "Linked bill mode", value: preview?.linkedBill?.inventoryPostingMode?.replaceAll("_", " ") ?? "No linked bill" },
+            { label: "Asset posting state", value: receiptStatus.replaceAll("_", " ") },
+            { label: "Receipt value", value: <LedgerMoney>{receiptSummary ? formatInventoryQuantity(receiptSummary.receiptValue) : preview ? formatInventoryQuantity(preview.receiptValue) : "-"}</LedgerMoney> },
+            { label: "Active clearing credit", value: <LedgerMoney>{receiptSummary ? formatInventoryQuantity(receiptSummary.activeClearingCredit) : "-"}</LedgerMoney> },
+            { label: "Bill clearing debit", value: <LedgerMoney>{row ? formatInventoryQuantity(row.billClearingDebit) : "-"}</LedgerMoney> },
+            { label: "Net difference", value: <LedgerMoney>{row ? formatInventoryQuantity(row.netClearingDifference) : "-"}</LedgerMoney> },
+            { label: "Asset journal", value: receipt.inventoryAssetJournalEntryId ?? "-" },
+            { label: "Reversal journal", value: receipt.inventoryAssetReversalJournalEntryId ?? "-" },
+          ]}
+        />
+
+        {row?.warnings.length ? (
+          <LedgerAlert tone="warning">
+            <ul className="space-y-1">
+              {row.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </LedgerAlert>
         ) : null}
-      </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
-        <Detail label="Linked bill mode" value={preview?.linkedBill?.inventoryPostingMode?.replaceAll("_", " ") ?? "No linked bill"} />
-        <Detail label="Asset posting state" value={receiptStatus.replaceAll("_", " ")} />
-        <Detail label="Receipt value" value={receiptSummary ? formatInventoryQuantity(receiptSummary.receiptValue) : preview ? formatInventoryQuantity(preview.receiptValue) : "-"} />
-        <Detail label="Active clearing credit" value={receiptSummary ? formatInventoryQuantity(receiptSummary.activeClearingCredit) : "-"} />
-        <Detail label="Bill clearing debit" value={row ? formatInventoryQuantity(row.billClearingDebit) : "-"} />
-        <Detail label="Net difference" value={row ? formatInventoryQuantity(row.netClearingDifference) : "-"} />
-        <Detail label="Asset journal" value={receipt.inventoryAssetJournalEntryId ?? "-"} />
-        <Detail label="Reversal journal" value={receipt.inventoryAssetReversalJournalEntryId ?? "-"} />
+        <LedgerActionBar>
+          <LedgerButton href={inventoryClearingReportUrl({ purchaseBillId: billId, purchaseReceiptId: receipt.id })}>Open clearing report</LedgerButton>
+          <LedgerButton href={`/inventory/reports/clearing-variance?purchaseReceiptId=${encodeURIComponent(receipt.id)}`}>Open variance report</LedgerButton>
+        </LedgerActionBar>
       </div>
-
-      {row?.warnings.length ? (
-        <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
-          <ul className="space-y-1">
-            {row.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap gap-3 text-sm">
-        <Link href={inventoryClearingReportUrl({ purchaseBillId: billId, purchaseReceiptId: receipt.id })} className="font-medium text-palm hover:underline">
-          Open clearing report
-        </Link>
-        <Link href={`/inventory/reports/clearing-variance?purchaseReceiptId=${encodeURIComponent(receipt.id)}`} className="font-medium text-palm hover:underline">
-          Open variance report
-        </Link>
-      </div>
-    </div>
+    </LedgerSection>
   );
 }
 
@@ -481,7 +452,7 @@ function PurchaseReceiptAccountingPreviewPanel({
   onReverseAsset: () => void;
 }) {
   if (error) {
-    return <StatusMessage type="error">{error}</StatusMessage>;
+    return <LedgerAlert tone="danger">{error}</LedgerAlert>;
   }
   if (!preview) {
     return null;
@@ -492,62 +463,50 @@ function PurchaseReceiptAccountingPreviewPanel({
   const showReverseAsset = canShowReverseReceiptAssetAction(preview, canReverseAsset);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Accounting Preview</h2>
-          <p className="mt-1 text-sm text-steel">Manual inventory asset preview for compatible inventory-clearing purchase bills.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-          <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
-          <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
-            {postable ? "Eligible" : "Blocked"}
-          </span>
+    <LedgerSection
+      title="Accounting Preview"
+      description="Manual inventory asset preview for compatible inventory-clearing purchase bills."
+      action={
+        <>
+          <LedgerStatusBadge tone="warning">{preview.postingStatus.replaceAll("_", " ")}</LedgerStatusBadge>
+          <LedgerStatusBadge tone={postable ? "success" : "neutral"}>{postable ? "Eligible" : "Blocked"}</LedgerStatusBadge>
           {showPostAsset ? (
-            <button
-              type="button"
-              onClick={onPostAsset}
-              disabled={postingAsset}
-              className="rounded-md bg-palm px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
+            <LedgerButton type="button" onClick={onPostAsset} disabled={postingAsset} variant="primary">
               {postingAsset ? "Posting..." : "Post Inventory Asset"}
-            </button>
+            </LedgerButton>
           ) : null}
           {showReverseAsset ? (
-            <button
-              type="button"
-              onClick={onReverseAsset}
-              disabled={reversingAsset}
-              className="rounded-md border border-rosewood px-3 py-1.5 text-xs font-semibold text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" onClick={onReverseAsset} disabled={reversingAsset} variant="danger">
               {reversingAsset ? "Reversing..." : "Reverse Inventory Asset Posting"}
-            </button>
+            </LedgerButton>
           ) : null}
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <LedgerSummaryBand tone="warning">{receiptAssetPostingFinancialReportWarning()}</LedgerSummaryBand>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
+          <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
         </div>
-      </div>
 
-      <div className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{receiptAssetPostingFinancialReportWarning()}</div>
+        <LedgerMetadataRow
+          items={[
+            { label: "Asset posting status", value: receiptAssetPostingStatus(preview) },
+            { label: "Posting mode", value: purchaseReceiptPostingModeLabel(preview.postingMode) },
+            { label: "Linked bill mode", value: preview.linkedBill ? preview.linkedBill.inventoryPostingMode.replaceAll("_", " ") : "No linked bill" },
+            { label: "Linked bill status", value: preview.linkedBill ? preview.linkedBill.status : "No linked bill" },
+            { label: "Receipt value", value: <LedgerMoney>{formatInventoryQuantity(preview.receiptValue)}</LedgerMoney> },
+            { label: "Matched bill value", value: <LedgerMoney>{formatInventoryQuantity(preview.matchedBillValue)}</LedgerMoney> },
+            { label: "Value difference", value: <LedgerMoney>{formatInventoryQuantity(preview.valueDifference)}</LedgerMoney> },
+            { label: "Asset journal", value: preview.journalEntryId ?? "-" },
+            { label: "Reversal journal", value: preview.reversalJournalEntryId ?? "-" },
+          ]}
+        />
+        <p className="text-sm text-steel">{linkedPurchaseBillModeWarning(preview.linkedBill?.inventoryPostingMode)}</p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
-        <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
-      </div>
-
-      <div className="mt-5 grid grid-cols-1 gap-3 text-sm md:grid-cols-4">
-        <Detail label="Asset posting status" value={receiptAssetPostingStatus(preview)} />
-        <Detail label="Posting mode" value={purchaseReceiptPostingModeLabel(preview.postingMode)} />
-        <Detail label="Linked bill mode" value={preview.linkedBill ? preview.linkedBill.inventoryPostingMode.replaceAll("_", " ") : "No linked bill"} />
-        <Detail label="Linked bill status" value={preview.linkedBill ? preview.linkedBill.status : "No linked bill"} />
-        <Detail label="Receipt value" value={formatInventoryQuantity(preview.receiptValue)} />
-        <Detail label="Matched bill value" value={formatInventoryQuantity(preview.matchedBillValue)} />
-        <Detail label="Value difference" value={formatInventoryQuantity(preview.valueDifference)} />
-        <Detail label="Asset journal" value={preview.journalEntryId ?? "-"} />
-        <Detail label="Reversal journal" value={preview.reversalJournalEntryId ?? "-"} />
-      </div>
-      <p className="mt-3 text-sm text-steel">{linkedPurchaseBillModeWarning(preview.linkedBill?.inventoryPostingMode)}</p>
-
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[920px] text-left text-sm">
+        <LedgerDataTable minWidth="920px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Item</th>
@@ -563,43 +522,46 @@ function PurchaseReceiptAccountingPreviewPanel({
             {preview.lines.map((line) => (
               <tr key={line.lineId}>
                 <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{line.lineValue ? formatInventoryQuantity(line.lineValue) : "-"}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedQuantity)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{line.matchedBillValue ? formatInventoryQuantity(line.matchedBillValue) : "-"}</td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.quantity)}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{line.lineValue ? formatInventoryQuantity(line.lineValue) : "-"}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.matchedQuantity)}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{line.matchedBillValue ? formatInventoryQuantity(line.matchedBillValue) : "-"}</LedgerMoney></td>
                 <td className="px-4 py-3 text-steel">{line.warnings.length > 0 ? line.warnings.join("; ") : "-"}</td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </LedgerDataTable>
+
+        <JournalPreview preview={preview} />
+        <MatchingSummary preview={preview} />
       </div>
-
-      <JournalPreview preview={preview} />
-
-      <MatchingSummary preview={preview} />
-    </div>
+    </LedgerSection>
   );
 }
 
 function MatchingSummary({ preview }: { preview: PurchaseReceiptAccountingPreview }) {
   return (
-    <div className="mt-5 rounded-md bg-slate-50 p-4">
+    <LedgerPanel>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-ink">Bill/receipt matching</h3>
           <p className="mt-1 text-sm text-steel">Operational comparison only. No purchase receipt journal is posted.</p>
         </div>
-        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{preview.matchingSummary.sourceType}</span>
+        <LedgerStatusBadge tone="neutral">{preview.matchingSummary.sourceType}</LedgerStatusBadge>
       </div>
-      <div className="mt-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Detail label="Matched quantity" value={formatInventoryQuantity(preview.matchingSummary.matchedQuantity)} />
-        <Detail label="Unmatched quantity" value={formatInventoryQuantity(preview.matchingSummary.unmatchedQuantity)} />
-        <Detail label="Unmatched receipt value" value={formatInventoryQuantity(preview.unmatchedReceiptValue)} />
+      <div className="mt-3">
+        <LedgerMetadataRow
+          items={[
+            { label: "Matched quantity", value: <LedgerMoney>{formatInventoryQuantity(preview.matchingSummary.matchedQuantity)}</LedgerMoney> },
+            { label: "Unmatched quantity", value: <LedgerMoney>{formatInventoryQuantity(preview.matchingSummary.unmatchedQuantity)}</LedgerMoney> },
+            { label: "Unmatched receipt value", value: <LedgerMoney>{formatInventoryQuantity(preview.unmatchedReceiptValue)}</LedgerMoney> },
+          ]}
+        />
       </div>
       {preview.matchingSummary.billLines.length > 0 ? (
-        <div className="mt-4 overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full min-w-[720px] text-left text-sm">
+        <div className="mt-4">
+          <LedgerDataTable minWidth="720px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-3 py-2">Bill line</th>
@@ -614,68 +576,78 @@ function MatchingSummary({ preview }: { preview: PurchaseReceiptAccountingPrevie
                 <tr key={line.lineId}>
                   <td className="px-3 py-2">{line.description}</td>
                   <td className="px-3 py-2 text-steel">{line.account.code} {line.account.name}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.billedQuantity)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedQuantity)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.matchedValue)}</td>
+                  <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.billedQuantity)}</LedgerMoney></td>
+                  <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.matchedQuantity)}</LedgerMoney></td>
+                  <td className="px-3 py-2 text-right"><LedgerMoney>{formatInventoryQuantity(line.matchedValue)}</LedgerMoney></td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </LedgerDataTable>
         </div>
       ) : null}
-    </div>
+    </LedgerPanel>
   );
 }
 
 function JournalPreview({ preview }: { preview: PurchaseReceiptAccountingPreview }) {
   return (
-    <div className="mt-5">
+    <LedgerPanel>
       <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
         <h3 className="text-sm font-semibold text-ink">Preview journal lines</h3>
         <p className="text-xs text-steel">
           Debit {formatInventoryQuantity(preview.journal.totalDebit)} / Credit {formatInventoryQuantity(preview.journal.totalCredit)}
         </p>
       </div>
-      <div className="overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-            <tr>
-              <th className="px-4 py-3">Line</th>
-              <th className="px-4 py-3">Preview</th>
-              <th className="px-4 py-3">Description</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {preview.journal.lines.length > 0 ? (
-              preview.journal.lines.map((line) => (
-                <tr key={`${line.side}-${line.lineNumber}`}>
-                  <td className="px-4 py-3 font-mono text-xs">{line.lineNumber}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{accountingPreviewLineDisplay(line)}</td>
-                  <td className="px-4 py-3 text-steel">{line.description}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="px-4 py-3 text-steel" colSpan={3}>
-                  No journal lines available until mappings and cost data are complete.
-                </td>
+      <LedgerDataTable minWidth="720px">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+          <tr>
+            <th className="px-4 py-3">Line</th>
+            <th className="px-4 py-3">Preview</th>
+            <th className="px-4 py-3">Description</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {preview.journal.lines.length > 0 ? (
+            preview.journal.lines.map((line) => (
+              <tr key={`${line.side}-${line.lineNumber}`}>
+                <td className="px-4 py-3 font-mono text-xs">{line.lineNumber}</td>
+                <td className="px-4 py-3 font-mono text-xs">{accountingPreviewLineDisplay(line)}</td>
+                <td className="px-4 py-3 text-steel">{line.description}</td>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            ))
+          ) : (
+            <tr>
+              <td className="px-4 py-3 text-steel" colSpan={3}>
+                No journal lines available until mappings and cost data are complete.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </LedgerDataTable>
+    </LedgerPanel>
   );
 }
 
 function PreviewList({ title, items, emptyText, tone }: { title: string; items: string[]; emptyText: string; tone: "amber" | "slate" }) {
-  const className = tone === "amber" ? "rounded-md bg-amber-50 p-4 text-sm text-amber-900" : "rounded-md bg-slate-50 p-4 text-sm text-steel";
   return (
-    <div className={className}>
+    <LedgerPanel className={tone === "amber" ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-steel"}>
       <p className="font-medium text-ink">{title}</p>
-      <ul className="mt-2 space-y-1">
+      <ul className="mt-2 space-y-1 text-sm">
         {items.length > 0 ? items.map((item) => <li key={item}>{item}</li>) : <li>{emptyText}</li>}
       </ul>
-    </div>
+    </LedgerPanel>
   );
+}
+
+function stockDocumentStatusTone(status: string): LedgerStatusTone {
+  if (status === "POSTED") return "success";
+  if (status === "VOIDED") return "danger";
+  if (status === "DRAFT") return "draft";
+  return "neutral";
+}
+
+function clearingStatusTone(status: string): LedgerStatusTone {
+  if (status === "MATCHED" || status === "RECONCILED") return "success";
+  if (status === "VARIANCE" || status === "MISMATCHED") return "warning";
+  return "neutral";
 }

@@ -1,13 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerLoadingState,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatInventoryQuantity, inventoryOperationalWarning, purchaseReceiptSourceTypeLabel, stockDocumentStatusBadgeClass, stockDocumentStatusLabel } from "@/lib/inventory";
+import { formatInventoryQuantity, inventoryOperationalWarning, purchaseReceiptSourceTypeLabel, stockDocumentStatusLabel } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { PurchaseReceipt } from "@/lib/types";
 
@@ -43,31 +56,27 @@ export default function PurchaseReceiptsPage() {
   }, [organizationId]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Purchase receipts</h1>
-          <p className="mt-1 text-sm text-steel">Operational stock receipts from purchase documents or standalone supplier receipts.</p>
-        </div>
-        {canCreate ? (
-          <Link href="/inventory/purchase-receipts/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-            New receipt
-          </Link>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title="Purchase receipts"
+        description="Operational stock receipts from purchase documents or standalone supplier receipts."
+        actions={canCreate ? <LedgerButton href="/inventory/purchase-receipts/new" variant="primary">New receipt</LedgerButton> : null}
+      />
+
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
+
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase receipts.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading purchase receipts" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+
+        {!loading && organizationId && receipts.length === 0 ? (
+          <LedgerEmptyState title="No purchase receipts found" description="Receipts posted from purchase orders, purchase bills, or standalone supplier receipts will appear here." />
         ) : null}
-      </div>
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
-
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load purchase receipts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading purchase receipts...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && receipts.length === 0 ? <StatusMessage type="empty">No purchase receipts found.</StatusMessage> : null}
-      </div>
-
-      {receipts.length > 0 ? (
-        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-          <table className="w-full min-w-[1060px] text-left text-sm">
+        {receipts.length > 0 ? (
+          <LedgerDataTable minWidth="1060px">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
                 <th className="px-4 py-3">Receipt</th>
@@ -84,28 +93,24 @@ export default function PurchaseReceiptsPage() {
               {receipts.map((receipt) => (
                 <tr key={receipt.id}>
                   <td className="px-4 py-3 font-mono text-xs">{receipt.receiptNumber}</td>
-                  <td className="px-4 py-3 text-steel">{formatOptionalDate(receipt.receiptDate, "-")}</td>
+                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(receipt.receiptDate, "-")}</LedgerDate></td>
                   <td className="px-4 py-3 text-ink">{receipt.supplier?.displayName ?? receipt.supplier?.name ?? receipt.supplierId}</td>
                   <td className="px-4 py-3 text-steel">{receiptSource(receipt)}</td>
                   <td className="px-4 py-3 text-steel">{receipt.warehouse ? `${receipt.warehouse.code} ${receipt.warehouse.name}` : receipt.warehouseId}</td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(totalReceiptQuantity(receipt))}</td>
+                  <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(totalReceiptQuantity(receipt))}</LedgerMoney></td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(receipt.status)}`}>
-                      {stockDocumentStatusLabel(receipt.status)}
-                    </span>
+                    <LedgerStatusBadge tone={stockDocumentStatusTone(receipt.status)}>{stockDocumentStatusLabel(receipt.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/inventory/purchase-receipts/${receipt.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                      View
-                    </Link>
+                    <LedgerButton href={`/inventory/purchase-receipts/${receipt.id}`} size="sm">View</LedgerButton>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      ) : null}
-    </section>
+          </LedgerDataTable>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -118,4 +123,11 @@ function receiptSource(receipt: PurchaseReceipt): string {
 function totalReceiptQuantity(receipt: PurchaseReceipt): string {
   const total = receipt.lines?.reduce((sum, line) => sum + Number(line.quantity || 0), 0) ?? 0;
   return String(total);
+}
+
+function stockDocumentStatusTone(status: string): LedgerStatusTone {
+  if (status === "POSTED") return "success";
+  if (status === "VOIDED") return "danger";
+  if (status === "DRAFT") return "draft";
+  return "neutral";
 }

@@ -1,11 +1,27 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerActionBar,
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -19,7 +35,6 @@ import {
   cogsPostingStatus,
   formatInventoryQuantity,
   inventoryOperationalWarning,
-  stockDocumentStatusBadgeClass,
   stockDocumentStatusLabel,
   stockMovementTypeLabel,
 } from "@/lib/inventory";
@@ -129,113 +144,102 @@ export default function SalesStockIssueDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">{issue?.issueNumber ?? "Sales stock issue"}</h1>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">Issue detail and linked operational stock movements.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/inventory/sales-stock-issues" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Back
-          </Link>
-          {issue && canVoid && canVoidPostedStockDocument(issue.status) ? (
-            <button type="button" disabled={voiding} onClick={() => void voidIssue()} className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400">
-              {voiding ? "Voiding..." : "Void"}
-            </button>
-          ) : null}
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Inventory"
+        title={issue?.issueNumber ?? "Sales stock issue"}
+        description="Issue detail and linked operational stock movements."
+        badge={issue ? <LedgerStatusBadge tone={stockDocumentStatusTone(issue.status)}>{stockDocumentStatusLabel(issue.status)}</LedgerStatusBadge> : null}
+        actions={
+          <>
+            <LedgerButton href="/inventory/sales-stock-issues">Back</LedgerButton>
+            {issue && canVoid && canVoidPostedStockDocument(issue.status) ? (
+              <LedgerButton type="button" disabled={voiding} onClick={() => void voidIssue()} variant="danger">
+                {voiding ? "Voiding..." : "Void"}
+              </LedgerButton>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{inventoryOperationalWarning()}</div>
+      <LedgerPageBody>
+        <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load sales stock issue details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading sales stock issue...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load sales stock issue details.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading sales stock issue" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-      {issue ? (
-        <div className="mt-5 space-y-5">
-          <AttachmentPanel linkedEntityType="SALES_STOCK_ISSUE" linkedEntityId={issue.id} />
-          <SalesStockIssueWorkflowGuidance
-            issue={issue}
-            preview={preview}
-            canVoid={canVoid}
-            canPostCogs={canPostCogs}
-            canReverseCogs={canReverseCogs}
-            onVoid={() => void voidIssue()}
-            onPostCogs={() => void postCogs()}
-            onReverseCogs={() => void reverseCogs()}
-            actionLoading={voiding || postingCogs || reversingCogs}
-          />
+        {issue ? (
+          <>
+            <AttachmentPanel linkedEntityType="SALES_STOCK_ISSUE" linkedEntityId={issue.id} />
+            <SalesStockIssueWorkflowGuidance
+              issue={issue}
+              preview={preview}
+              canVoid={canVoid}
+              canPostCogs={canPostCogs}
+              canReverseCogs={canReverseCogs}
+              onVoid={() => void voidIssue()}
+              onPostCogs={() => void postCogs()}
+              onReverseCogs={() => void reverseCogs()}
+              actionLoading={voiding || postingCogs || reversingCogs}
+            />
 
-          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Detail label="Customer" value={issue.customer?.displayName ?? issue.customer?.name ?? issue.customerId} />
-              <Detail label="Invoice" value={issue.salesInvoice?.invoiceNumber ?? issue.salesInvoiceId} />
-              <Detail label="Warehouse" value={issue.warehouse ? `${issue.warehouse.code} ${issue.warehouse.name}` : issue.warehouseId} />
-              <Detail label="Date" value={formatOptionalDate(issue.issueDate, "-")} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-steel">Status</p>
-                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(issue.status)}`}>{stockDocumentStatusLabel(issue.status)}</span>
-              </div>
-              <Detail label="Posted at" value={formatOptionalDate(issue.postedAt, "-")} />
-              <Detail label="Voided at" value={formatOptionalDate(issue.voidedAt, "-")} />
-            </div>
-            {issue.notes ? <p className="mt-4 text-sm text-steel">{issue.notes}</p> : null}
-          </div>
+            <LedgerSection title="Issue profile" description={issue.notes || "Operational issue metadata for the linked invoice and warehouse."}>
+              <LedgerMetadataRow
+                items={[
+                  { label: "Customer", value: issue.customer?.displayName ?? issue.customer?.name ?? issue.customerId },
+                  { label: "Invoice", value: issue.salesInvoice?.invoiceNumber ?? issue.salesInvoiceId },
+                  { label: "Warehouse", value: issue.warehouse ? `${issue.warehouse.code} ${issue.warehouse.name}` : issue.warehouseId },
+                  { label: "Date", value: <LedgerDate>{formatOptionalDate(issue.issueDate, "-")}</LedgerDate> },
+                  { label: "Status", value: <LedgerStatusBadge tone={stockDocumentStatusTone(issue.status)}>{stockDocumentStatusLabel(issue.status)}</LedgerStatusBadge> },
+                  { label: "Posted at", value: <LedgerDate>{formatOptionalDate(issue.postedAt, "-")}</LedgerDate> },
+                  { label: "Voided at", value: <LedgerDate>{formatOptionalDate(issue.voidedAt, "-")}</LedgerDate> },
+                ]}
+              />
+            </LedgerSection>
 
-          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-            <table className="w-full min-w-[920px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-4 py-3">Item</th>
-                  <th className="px-4 py-3">Invoice line</th>
-                  <th className="px-4 py-3 text-right">Quantity</th>
-                  <th className="px-4 py-3 text-right">Unit cost</th>
-                  <th className="px-4 py-3">Movement</th>
-                  <th className="px-4 py-3">Void movement</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {issue.lines?.map((line) => (
-                  <tr key={line.id}>
-                    <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.itemId}</td>
-                    <td className="px-4 py-3 text-steel">{line.salesInvoiceLine?.description ?? "-"}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs">{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</td>
-                    <td className="px-4 py-3"><Movement line={line} kind="stockMovement" /></td>
-                    <td className="px-4 py-3"><Movement line={line} kind="voidStockMovement" /></td>
+            <LedgerSection title="Issue lines" description="Operational stock movement references and optional void movement references for each line.">
+              <LedgerDataTable minWidth="920px">
+                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                  <tr>
+                    <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3">Invoice line</th>
+                    <th className="px-4 py-3 text-right">Quantity</th>
+                    <th className="px-4 py-3 text-right">Unit cost</th>
+                    <th className="px-4 py-3">Movement</th>
+                    <th className="px-4 py-3">Void movement</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {issue.lines?.map((line) => (
+                    <tr key={line.id}>
+                      <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.itemId}</td>
+                      <td className="px-4 py-3 text-steel">{line.salesInvoiceLine?.description ?? "-"}</td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.quantity)}</LedgerMoney></td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{line.unitCost ? formatInventoryQuantity(line.unitCost) : "-"}</LedgerMoney></td>
+                      <td className="px-4 py-3"><Movement line={line} kind="stockMovement" /></td>
+                      <td className="px-4 py-3"><Movement line={line} kind="voidStockMovement" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </LedgerDataTable>
+            </LedgerSection>
 
-          <SalesIssueAccountingPreviewPanel
-            preview={preview}
-            error={previewError}
-            canPostPermission={canPostCogs}
-            canReversePermission={canReverseCogs}
-            postingCogs={postingCogs}
-            reversingCogs={reversingCogs}
-            onPostCogs={() => void postCogs()}
-            onReverseCogs={() => void reverseCogs()}
-          />
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 break-words text-sm text-ink">{value}</p>
-    </div>
+            <SalesIssueAccountingPreviewPanel
+              preview={preview}
+              error={previewError}
+              canPostPermission={canPostCogs}
+              canReversePermission={canReverseCogs}
+              postingCogs={postingCogs}
+              reversingCogs={reversingCogs}
+              onPostCogs={() => void postCogs()}
+              onReverseCogs={() => void reverseCogs()}
+            />
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
@@ -279,14 +283,12 @@ export function SalesStockIssueWorkflowGuidance({
   const warehouseLabel = issue.warehouse ? `${issue.warehouse.code} ${issue.warehouse.name}` : "the issuing warehouse";
 
   return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-900 shadow-panel">
+    <LedgerSummaryBand tone="success">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <span className={`rounded-md px-2 py-1 text-xs font-medium ${stockDocumentStatusBadgeClass(issue.status)}`}>
-              {stockDocumentStatusLabel(issue.status)}
-            </span>
+            <LedgerStatusBadge tone={stockDocumentStatusTone(issue.status)}>{stockDocumentStatusLabel(issue.status)}</LedgerStatusBadge>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div>
@@ -306,49 +308,31 @@ export function SalesStockIssueWorkflowGuidance({
               <p className="mt-1">Use the lines below for item quantities, operational stock movement IDs, void movements, and COGS preview warnings.</p>
             </div>
           </div>
-          {!isPosted ? <p className="mt-3 text-xs leading-5 text-emerald-900">Voided issues stay available for audit but should not be treated as current stock demand.</p> : null}
+          {!isPosted ? <p className="mt-3 text-xs leading-5">Voided issues stay available for audit but should not be treated as current stock demand.</p> : null}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+        <LedgerActionBar className="lg:justify-end">
           {isPosted && canVoid ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onVoid}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" disabled={actionLoading} onClick={onVoid} variant="danger">
               Void issue
-            </button>
+            </LedgerButton>
           ) : null}
           {showPostAction ? (
-            <button type="button" disabled={actionLoading} onClick={onPostCogs} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+            <LedgerButton type="button" disabled={actionLoading} onClick={onPostCogs} variant="primary">
               Post COGS
-            </button>
+            </LedgerButton>
           ) : null}
           {showReverseAction ? (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={onReverseCogs}
-              className="rounded-md border border-rose-300 bg-white px-3 py-2 text-center text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" disabled={actionLoading} onClick={onReverseCogs} variant="danger">
               Reverse COGS
-            </button>
+            </LedgerButton>
           ) : null}
-          <Link href={`/sales/invoices/${issue.salesInvoiceId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            View invoice
-          </Link>
-          <Link href={`/inventory/warehouses/${issue.warehouseId}`} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            View warehouse
-          </Link>
-          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Stock movements
-          </Link>
-          <Link href="/inventory/reports/movement-summary" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-            Inventory report
-          </Link>
-        </div>
+          <LedgerButton href={`/sales/invoices/${issue.salesInvoiceId}`}>View invoice</LedgerButton>
+          <LedgerButton href={`/inventory/warehouses/${issue.warehouseId}`}>View warehouse</LedgerButton>
+          <LedgerButton href="/inventory/stock-movements">Stock movements</LedgerButton>
+          <LedgerButton href="/inventory/reports/movement-summary">Inventory report</LedgerButton>
+        </LedgerActionBar>
       </div>
-    </div>
+    </LedgerSummaryBand>
   );
 }
 
@@ -372,7 +356,7 @@ function SalesIssueAccountingPreviewPanel({
   onReverseCogs: () => void;
 }) {
   if (error) {
-    return <StatusMessage type="error">{error}</StatusMessage>;
+    return <LedgerAlert tone="danger">{error}</LedgerAlert>;
   }
   if (!preview) {
     return null;
@@ -385,65 +369,46 @@ function SalesIssueAccountingPreviewPanel({
   const showReverseAction = canShowReverseCogsAction(preview, canReversePermission);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">COGS Preview</h2>
-          <p className="mt-1 text-sm text-steel">Manual COGS posting preview from operational moving-average cost.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap gap-2 text-xs font-medium">
-            <span className="rounded-md bg-amber-50 px-2 py-1 text-amber-700">{preview.postingStatus.replaceAll("_", " ")}</span>
-            <span className={postable ? "rounded-md bg-emerald-50 px-2 py-1 text-emerald-700" : "rounded-md bg-slate-100 px-2 py-1 text-slate-700"}>
-              {postable ? "Manual post available" : "Preview only"}
-            </span>
-          </div>
+    <LedgerSection
+      title="COGS Preview"
+      description="Manual COGS posting preview from operational moving-average cost."
+      action={
+        <>
+          <LedgerStatusBadge tone="warning">{preview.postingStatus.replaceAll("_", " ")}</LedgerStatusBadge>
+          <LedgerStatusBadge tone={postable ? "success" : "neutral"}>{postable ? "Manual post available" : "Preview only"}</LedgerStatusBadge>
           {showPostAction ? (
-            <button
-              type="button"
-              disabled={postingCogs}
-              onClick={onPostCogs}
-              className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
+            <LedgerButton type="button" disabled={postingCogs} onClick={onPostCogs} variant="primary">
               {postingCogs ? "Posting..." : "Post COGS"}
-            </button>
+            </LedgerButton>
           ) : null}
           {showReverseAction ? (
-            <button
-              type="button"
-              disabled={reversingCogs}
-              onClick={onReverseCogs}
-              className="rounded-md border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-            >
+            <LedgerButton type="button" disabled={reversingCogs} onClick={onReverseCogs} variant="danger">
               {reversingCogs ? "Reversing..." : "Reverse COGS"}
-            </button>
+            </LedgerButton>
           ) : null}
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <LedgerSummaryBand tone="warning">{cogsPostingFinancialReportWarning()}</LedgerSummaryBand>
+
+        <LedgerMetadataRow
+          items={[
+            { label: "COGS status", value: cogsPostingStatus(preview) },
+            { label: "Estimated COGS", value: <LedgerMoney>{formatInventoryQuantity(preview.journal.totalDebit)}</LedgerMoney> },
+            { label: "COGS account", value: cogsLine?.accountCode ? `${cogsLine.accountCode} ${cogsLine.accountName}` : cogsLine?.accountName ?? "-" },
+            { label: "Inventory asset account", value: assetLine?.accountCode ? `${assetLine.accountCode} ${assetLine.accountName}` : assetLine?.accountName ?? "-" },
+            { label: "COGS journal", value: preview.journalEntryId ?? "-" },
+            { label: "COGS reversal journal", value: preview.reversalJournalEntryId ?? "-" },
+          ]}
+        />
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
+          <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
         </div>
-      </div>
 
-      <div className="mt-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900">{cogsPostingFinancialReportWarning()}</div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-        <Detail label="COGS status" value={cogsPostingStatus(preview)} />
-        <Detail label="Estimated COGS" value={formatInventoryQuantity(preview.journal.totalDebit)} />
-        <Detail label="COGS account" value={cogsLine?.accountCode ? `${cogsLine.accountCode} ${cogsLine.accountName}` : cogsLine?.accountName ?? "-"} />
-        <Detail label="Inventory asset account" value={assetLine?.accountCode ? `${assetLine.accountCode} ${assetLine.accountName}` : assetLine?.accountName ?? "-"} />
-      </div>
-
-      {preview.journalEntryId || preview.reversalJournalEntryId ? (
-        <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-          <Detail label="COGS journal" value={preview.journalEntryId ?? "-"} />
-          <Detail label="COGS reversal journal" value={preview.reversalJournalEntryId ?? "-"} />
-        </div>
-      ) : null}
-
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <PreviewList title="Blocking reasons" items={preview.blockingReasons} emptyText={preview.canPostReason} tone="slate" />
-        <PreviewList title="Warnings" items={preview.warnings} emptyText="No warnings." tone="amber" />
-      </div>
-
-      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <LedgerDataTable minWidth="760px">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">Item</th>
@@ -457,72 +422,74 @@ function SalesIssueAccountingPreviewPanel({
             {preview.lines.map((line) => (
               <tr key={line.lineId}>
                 <td className="px-4 py-3">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                <td className="px-4 py-3 text-right font-mono text-xs">
-                  {line.estimatedUnitCost ? formatInventoryQuantity(line.estimatedUnitCost) : "-"}
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-xs">{line.estimatedCOGS ? formatInventoryQuantity(line.estimatedCOGS) : "-"}</td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{formatInventoryQuantity(line.quantity)}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{line.estimatedUnitCost ? formatInventoryQuantity(line.estimatedUnitCost) : "-"}</LedgerMoney></td>
+                <td className="px-4 py-3 text-right"><LedgerMoney>{line.estimatedCOGS ? formatInventoryQuantity(line.estimatedCOGS) : "-"}</LedgerMoney></td>
                 <td className="px-4 py-3 text-steel">{line.warnings.length > 0 ? line.warnings.join("; ") : "-"}</td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </LedgerDataTable>
 
-      <JournalPreview preview={preview} />
-    </div>
+        <JournalPreview preview={preview} />
+      </div>
+    </LedgerSection>
   );
 }
 
 function JournalPreview({ preview }: { preview: SalesStockIssueAccountingPreview }) {
   return (
-    <div className="mt-5">
+    <LedgerPanel>
       <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
         <h3 className="text-sm font-semibold text-ink">Preview journal lines</h3>
         <p className="text-xs text-steel">
           Debit {formatInventoryQuantity(preview.journal.totalDebit)} / Credit {formatInventoryQuantity(preview.journal.totalCredit)}
         </p>
       </div>
-      <div className="overflow-x-auto rounded-md border border-slate-200">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-            <tr>
-              <th className="px-4 py-3">Line</th>
-              <th className="px-4 py-3">Preview</th>
-              <th className="px-4 py-3">Description</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {preview.journal.lines.length > 0 ? (
-              preview.journal.lines.map((line) => (
-                <tr key={`${line.side}-${line.lineNumber}`}>
-                  <td className="px-4 py-3 font-mono text-xs">{line.lineNumber}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{accountingPreviewLineDisplay(line)}</td>
-                  <td className="px-4 py-3 text-steel">{line.description}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="px-4 py-3 text-steel" colSpan={3}>
-                  No journal lines available until mappings and cost estimates are complete.
-                </td>
+      <LedgerDataTable minWidth="720px">
+        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+          <tr>
+            <th className="px-4 py-3">Line</th>
+            <th className="px-4 py-3">Preview</th>
+            <th className="px-4 py-3">Description</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {preview.journal.lines.length > 0 ? (
+            preview.journal.lines.map((line) => (
+              <tr key={`${line.side}-${line.lineNumber}`}>
+                <td className="px-4 py-3 font-mono text-xs">{line.lineNumber}</td>
+                <td className="px-4 py-3 font-mono text-xs">{accountingPreviewLineDisplay(line)}</td>
+                <td className="px-4 py-3 text-steel">{line.description}</td>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            ))
+          ) : (
+            <tr>
+              <td className="px-4 py-3 text-steel" colSpan={3}>
+                No journal lines available until mappings and cost estimates are complete.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </LedgerDataTable>
+    </LedgerPanel>
   );
 }
 
 function PreviewList({ title, items, emptyText, tone }: { title: string; items: string[]; emptyText: string; tone: "amber" | "slate" }) {
-  const className = tone === "amber" ? "rounded-md bg-amber-50 p-4 text-sm text-amber-900" : "rounded-md bg-slate-50 p-4 text-sm text-steel";
   return (
-    <div className={className}>
+    <LedgerPanel className={tone === "amber" ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-steel"}>
       <p className="font-medium text-ink">{title}</p>
-      <ul className="mt-2 space-y-1">
+      <ul className="mt-2 space-y-1 text-sm">
         {items.length > 0 ? items.map((item) => <li key={item}>{item}</li>) : <li>{emptyText}</li>}
       </ul>
-    </div>
+    </LedgerPanel>
   );
+}
+
+function stockDocumentStatusTone(status: string): LedgerStatusTone {
+  if (status === "POSTED") return "success";
+  if (status === "VOIDED") return "danger";
+  if (status === "DRAFT") return "draft";
+  return "neutral";
 }

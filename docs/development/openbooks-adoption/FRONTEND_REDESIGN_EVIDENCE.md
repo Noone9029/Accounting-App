@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-inventory-stock-operations`
+Branch: `codex/ui-redesign-inventory-receipt-issue-flows`
 
-Base: stacked on `origin/codex/ui-redesign-inventory-catalog-warehouse` while PR #170 is open
+Base: stacked on `origin/codex/ui-redesign-inventory-stock-operations` while PR #171 is open
 
 ## Evidence Summary
 
@@ -48,6 +48,7 @@ Base: stacked on `origin/codex/ui-redesign-inventory-catalog-warehouse` while PR
 | Inventory balances loop | `apps/web/src/app/(app)/inventory/balances/page.tsx` uses shared LedgerByte layout, warning, table, status, and empty-state primitives while preserving operational quantity, valuation, FIFO, and manual movement boundaries. |
 | Inventory catalog and warehouse loop | `apps/web/src/app/(app)/items/page.tsx`, `apps/web/src/app/(app)/inventory/warehouses/page.tsx`, and `apps/web/src/app/(app)/inventory/warehouses/[id]/page.tsx` use shared LedgerByte page, summary, form, field, filter, table, status, loading, empty, metadata, date, money, and action primitives while preserving item create/edit payloads, item traceability links, warehouse create/archive/reactivate actions, and warehouse stock guidance. |
 | Inventory stock operations loop | `apps/web/src/app/(app)/inventory/stock-movements/page.tsx`, `apps/web/src/app/(app)/inventory/stock-movements/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/new/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/adjustments/[id]/edit/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/page.tsx`, `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`, and `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` use shared LedgerByte page, summary, filter, table, form, metric, metadata, status, money/date, loading, empty, and action primitives while preserving stock movement filters/opening-balance payloads, adjustment lifecycle actions, transfer validation/create/void behavior, linked movement visibility, permissions, and stock/COGS/valuation boundaries. |
+| Inventory receipt and issue loop | `apps/web/src/app/(app)/inventory/purchase-receipts/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/new/page.tsx`, `apps/web/src/app/(app)/inventory/purchase-receipts/[id]/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/page.tsx`, `apps/web/src/app/(app)/inventory/sales-stock-issues/new/page.tsx`, and `apps/web/src/app/(app)/inventory/sales-stock-issues/[id]/page.tsx` use shared LedgerByte page, summary, form, field, table, metadata, status, loading, empty, preview, and action primitives while preserving purchase receipt source/receiving-status loading, receipt POST/void/manual asset posting/reversal, matching/clearing/valuation links, sales stock issue invoice-status loading, issue POST/void/manual COGS posting/reversal, permissions, and no-automatic-valuation/no-automatic-COGS boundaries. |
 
 ## PR #146 Foundation Verification Results
 
@@ -428,6 +429,23 @@ Base: stacked on `origin/codex/ui-redesign-inventory-catalog-warehouse` while PR
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep customers`: PASS, 9 checks.
 - `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/secondary-operational-route-polish.visual.spec.ts --grep suppliers`: PASS, 9 checks.
 - `/contacts` list visual check was not run because this branch has customer/supplier list and contact detail visual coverage, but no existing `/contacts` list fixture.
+
+## 2026-06-22 Inventory Receipt and Issue Loop Evidence
+
+- `/inventory/purchase-receipts`: migrated the receipt list, operational warning, loading/error/empty states, status labels, quantity totals, and detail actions to shared Ledger primitives while preserving `/purchase-receipts` loading, supplier/source/warehouse display, receipt source labels, create permission visibility, and detail links.
+- `/inventory/purchase-receipts/new`: migrated purchase receipt source selection, warehouse/date/notes fields, standalone receipt lines, source receivable line tables, and submit/cancel actions to shared Ledger primitives while preserving item/warehouse/contact/order/bill loading, receiving-status loading, `validatePurchaseReceiptInput`, return-to handling, and the existing `/purchase-receipts` POST payload shape.
+- `/inventory/purchase-receipts/[id]`: migrated receipt detail, workflow guidance, profile metadata, line movement table, manual asset accounting preview, matching summary, clearing reconciliation, valuation preview link, attachment panel placement, and action groups to shared Ledger primitives while preserving receipt load endpoints, accounting preview load, clearing/matching/valuation loads, void action, manual inventory asset post/reverse actions, landed cost handoff, and no automatic accounting behavior.
+- `/inventory/sales-stock-issues`: migrated the stock issue list, operational warning, loading/error/empty states, status labels, quantity totals, and detail actions to shared Ledger primitives while preserving `/sales-stock-issues` loading, customer/invoice/warehouse display, create permission visibility, and detail links.
+- `/inventory/sales-stock-issues/new`: migrated issue source fields, invoice status line table, submit/cancel actions, and warnings to shared Ledger primitives while preserving invoice/warehouse loading, sales invoice stock-issue-status loading, `validateSalesStockIssueInput`, and the existing `/sales-stock-issues` POST payload shape.
+- `/inventory/sales-stock-issues/[id]`: migrated issue detail, workflow guidance, profile metadata, line movement table, manual COGS preview, attachment panel placement, and action groups to shared Ledger primitives while preserving issue load endpoints, accounting preview load, void action, manual COGS post/reverse actions, and no automatic COGS behavior.
+- Existing behavior remains frontend-only and unchanged: this pass does not add valuation math, automatic COGS, automatic receipt asset posting, FIFO output changes, landed cost allocation changes, schema changes, storage behavior, VAT/ZATCA/compliance behavior, provider calls, or hosted mutations.
+- `corepack pnpm install --frozen-lockfile`: PASS, with standard ignored build scripts warning.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web test -- inventory-guidance purchase-receipts sales-stock-issues`: PASS, 1 suite, 5 tests.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 135 suites, 612 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2069 checked files, 0 blocked references, 0 forbidden claims.
+- `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+- Visual checks were not run in this slice; a refreshed inventory visual fixture pass should cover purchase receipts, sales stock issues, stock movement, adjustment, transfer, receipt, issue, and valuation routes together after the operational inventory stack lands.
 
 ## 2026-06-22 Inventory Stock Operations Loop Evidence
 
