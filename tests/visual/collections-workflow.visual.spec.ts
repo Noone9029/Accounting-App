@@ -244,8 +244,8 @@ test("collections activity timeline uses safe planned and note-only labels", asy
 
   await page.goto(`/sales/collections/${collectionCaseId}`);
   await expect(page.getByRole("heading", { name: "Activity timeline" })).toBeVisible();
-  const timeline = page.locator("div").filter({ has: page.getByRole("heading", { name: "Activity timeline" }) }).last();
-  for (const label of ["Note", "Call", "Reminder planned", "Email planned", "Promise to pay", "Dispute", "Escalation", "Payment received note", "Closed note"]) {
+  const timeline = page.locator("section").filter({ has: page.getByRole("heading", { name: "Activity timeline" }) }).last();
+  for (const label of ["Note", "Call", "Planned reminder", "Planned email", "Promise to pay", "Dispute", "Escalation", "Payment received note", "Closed note"]) {
     await expect(timeline.locator(".py-3", { hasText: label }).first()).toBeVisible();
   }
   await expect(page.getByText(/Payment received note is an internal note only/i)).toBeVisible();

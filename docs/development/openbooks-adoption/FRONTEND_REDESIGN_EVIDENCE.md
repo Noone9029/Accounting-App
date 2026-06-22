@@ -2,9 +2,9 @@
 
 Date: 2026-06-22
 
-Branch: `codex/ui-redesign-recurring-invoices`
+Branch: `codex/ui-redesign-collections`
 
-Base: stacked on `origin/codex/ui-redesign-delivery-notes` while PR #153 is open
+Base: stacked on `origin/codex/ui-redesign-recurring-invoices` while PR #154 is open
 
 ## Evidence Summary
 
@@ -26,6 +26,7 @@ Base: stacked on `origin/codex/ui-redesign-delivery-notes` while PR #153 is open
 | Sales customer payment detail loop | `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx` uses shared LedgerByte page, workflow, metric, table, receipt archive, audit, apply-credit, modal, field, money/date, status, alert, and action primitives while preserving receipt preview/download, generated-document archive loading, audit log loading, void, refund handoff, unapplied allocation apply/reverse, and return-to behavior. |
 | Sales delivery notes loop | `apps/web/src/app/(app)/sales/delivery-notes/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/new/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/page.tsx`, `apps/web/src/app/(app)/sales/delivery-notes/[id]/edit/page.tsx`, and `apps/web/src/components/forms/delivery-note-form.tsx` use shared LedgerByte list, detail, form, table, archive, status, alert, and action primitives while preserving non-posting fulfillment, source invoice/quote, PDF archive, lifecycle action, return-to, and no-stock/no-accounting mutation boundaries. |
 | Sales recurring invoices loop | `apps/web/src/app/(app)/sales/recurring-invoices/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/new/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/page.tsx`, `apps/web/src/app/(app)/sales/recurring-invoices/[id]/edit/page.tsx`, and `apps/web/src/components/forms/recurring-invoice-form.tsx` use shared LedgerByte list, detail, form, schedule, table, status, alert, money/date, and action primitives while preserving non-posting templates, manual draft-invoice generation, lifecycle permissions, return-to, and no-scheduler/no-send/no-payment/no-compliance boundaries. |
+| Sales collections loop | `apps/web/src/app/(app)/sales/collections/page.tsx`, `apps/web/src/app/(app)/sales/collections/new/page.tsx`, `apps/web/src/app/(app)/sales/collections/[id]/page.tsx`, `apps/web/src/app/(app)/sales/collections/[id]/edit/page.tsx`, and `apps/web/src/components/forms/collection-case-form.tsx` use shared LedgerByte list, detail, form, timeline, filter, status, alert, money/date, and action primitives while preserving collection follow-up metadata, permission-gated activities/actions, customer/invoice links, return-to behavior, and no-journal/no-allocation/no-send/no-payment-link/no-VAT/no-ZATCA/no-balance-change boundaries. |
 | Purchase list loop | `apps/web/src/app/(app)/purchases/bills/page.tsx` and `apps/web/src/app/(app)/purchases/debit-notes/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving explicit AP posting and supplier adjustment truth. |
 | Banking list loop | `apps/web/src/app/(app)/bank-accounts/page.tsx` and `apps/web/src/app/(app)/bank-transfers/page.tsx` use shared LedgerByte layout, table, date, money, status, summary, and empty-state primitives while preserving manual banking and explicit transfer truth. |
 | Contacts loop | `apps/web/src/app/(app)/contacts/page.tsx` uses shared LedgerByte layout, panel, table, status, summary, and empty-state primitives while preserving customer/supplier handoffs and conservative tax/compliance readiness wording. |
@@ -161,6 +162,21 @@ Base: stacked on `origin/codex/ui-redesign-delivery-notes` while PR #153 is open
 - `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
 - `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
 - `git diff --check`: PASS, with Git LF-to-CRLF working-copy warnings only.
+
+## 2026-06-22 Sales Collections Loop Evidence
+
+- `/sales/collections`: migrated the collections workspace list, summary metrics, top-overdue and aging panels, filters, empty states, status/priority badges, dates, money cells, and row actions to shared LedgerByte page/header/body, metric, panel, toolbar, filter, table, alert, empty-state, status, money/date, and button primitives.
+- `/sales/collections/new` and `/sales/collections/[id]/edit`: migrated route shells and load/error states to shared page/header/body, alert, and action primitives while preserving setup loads, terminal edit locks, and the shared collection-case form handoff.
+- `CollectionCaseForm`: migrated case number, customer, outstanding invoice, status, priority, follow-up, promise, summary, notes, linked-invoice warning, and save/cancel controls to shared Ledger form, field, input, select, summary, alert, and action primitives.
+- `/sales/collections/[id]`: migrated the detail shell, customer/invoice summary, accounting boundary, action controls, add-activity form, and activity timeline to shared LedgerByte page, panel, section, field, status, summary, money/date, alert, and action primitives.
+- Existing behavior remains frontend-only and unchanged: collection cases remain follow-up metadata only; start/promised/disputed/hold/close/cancel actions and activity creation call existing endpoints behind existing permissions; customer and invoice links keep existing href behavior; terminal cases hide edit/activity actions; no journals, payment allocations, credit notes, refunds, emails, reminders, payment links, VAT filings, ZATCA calls, invoice-balance changes, or provider behavior were added.
+- `corepack pnpm install --frozen-lockfile`: PASS.
+- `corepack pnpm --filter @ledgerbyte/web typecheck`: PASS.
+- `node .\apps\web\node_modules\jest\bin\jest.js --config .\apps\web\jest.config.cjs --runTestsByPath "apps/web/src/app/(app)/sales/collections/page.test.tsx" "apps/web/src/app/(app)/sales/collections/[id]/page.test.tsx" "apps/web/src/components/forms/collection-case-form.test.tsx"`: PASS, 3 suites, 7 tests.
+- `corepack pnpm --filter @ledgerbyte/web test -- route-load-verification collections collection-case-form`: PASS, 126 suites, 598 tests matched.
+- `corepack pnpm exec playwright test -c playwright.visual.config.ts tests/visual/collections-workflow.visual.spec.ts`: PASS, 3 checks, after updating the visual selector to target the migrated `LedgerSection` timeline and aligning planned activity labels with the shared label helper.
+- `corepack pnpm --filter @ledgerbyte/web test`: PASS, 126 suites, 598 tests.
+- `corepack pnpm verify:openbooks-clean-room`: PASS, 2060 checked files, 0 blocked references, 0 forbidden claims.
 
 ## 2026-06-22 Sales Workspace Loop Evidence
 
