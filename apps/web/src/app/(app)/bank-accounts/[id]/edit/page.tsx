@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { BankAccountProfileForm } from "@/components/forms/bank-account-profile-form";
+import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader, LedgerSummaryBand } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { BankAccountSummary } from "@/lib/types";
@@ -48,24 +48,22 @@ export default function EditBankAccountPage() {
   }, [organizationId, params.id]);
 
   return (
-    <section>
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Edit bank account</h1>
-          <p className="mt-1 text-sm text-steel">Update bank/cash metadata. The linked chart account cannot be changed.</p>
-        </div>
-        <Link href={profile ? `/bank-accounts/${profile.id}` : "/bank-accounts"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-          Back
-        </Link>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking / Account profile"
+        title="Edit bank account"
+        description="Update manual bank/cash metadata. The linked chart account cannot be changed."
+        actions={<LedgerButton href={profile ? `/bank-accounts/${profile.id}` : "/bank-accounts"}>Back</LedgerButton>}
+      />
+      <LedgerSummaryBand tone="warning">Opening balances and currency lock after posting activity. This edit page does not reverse journals, reconnect bank feeds, or alter reconciliation periods.</LedgerSummaryBand>
 
-      <div className="space-y-3">
+      <LedgerPageBody>
         {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit bank accounts.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading bank account...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-      </div>
 
-      {profile ? <BankAccountProfileForm profile={profile} /> : null}
-    </section>
+        {profile ? <BankAccountProfileForm profile={profile} /> : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
