@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Ban, CheckCircle2, Clock3 } from "lucide-react";
+import { LedgerPanel, LedgerStatusBadge, buttonClassName } from "@/components/ui/ledger-system";
 import { getAppRouteByKey } from "@/lib/app-routes";
 import {
   loadTypedOnboardingState,
@@ -109,60 +110,62 @@ export function TypedOnboardingChecklistPreview() {
   }
 
   return (
-    <section data-testid="typed-onboarding-preview" className="mb-5 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Setup profile previews</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
-            Preview archetype-aware setup checklist templates. Profile selection is saved through LedgerByte API when
-            available; planned or blocked capabilities stay non-actionable.
-          </p>
-          <p
-            role={statusTone === "error" ? "alert" : "status"}
-            aria-live={statusTone === "error" ? "assertive" : "polite"}
-            className={`mt-1 rounded-md border px-2 py-1 text-xs leading-5 ${statusMessageClassName(statusTone)}`}
-          >
-            {loadingSavedState ? "Loading saved setup profile... " : null}
-            {savingSelection ? "Saving selection... " : null}
-            {statusMessage}
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center text-xs text-steel sm:w-72">
-          <StatusCount label="Active" value={counts.active} />
-          <StatusCount label="Planned" value={counts.planned} />
-          <StatusCount label="Blocked" value={counts.blocked} />
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2" aria-label="Setup profile options">
-        {preview.options.map((option) => {
-          const selected = option.key === preview.selectedKey;
-          const selectable = option.status === "active";
-          return (
-            <button
-              key={option.key}
-              type="button"
-              aria-pressed={selected}
-              disabled={!selectable || controlsDisabled}
-              onClick={() => {
-                void selectArchetype(option.key);
-              }}
-              className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                selected
-                  ? "border-palm bg-emerald-50 text-emerald-900"
-                  : !selectable
-                    ? "border-slate-200 bg-slate-50 text-slate-400"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-palm/50 hover:bg-slate-50"
-              }`}
+    <LedgerPanel>
+      <section data-testid="typed-onboarding-preview">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Setup profile previews</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+              Preview archetype-aware setup checklist templates. Profile selection is saved through LedgerByte API when
+              available; planned or blocked capabilities stay non-actionable.
+            </p>
+            <p
+              role={statusTone === "error" ? "alert" : "status"}
+              aria-live={statusTone === "error" ? "assertive" : "polite"}
+              className={`mt-1 rounded-md border px-2 py-1 text-xs leading-5 ${statusMessageClassName(statusTone)}`}
             >
-              {option.title}
-            </button>
-          );
-        })}
-      </div>
+              {loadingSavedState ? "Loading saved setup profile... " : null}
+              {savingSelection ? "Saving selection... " : null}
+              {statusMessage}
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs text-steel sm:w-72">
+            <StatusCount label="Active" value={counts.active} />
+            <StatusCount label="Planned" value={counts.planned} />
+            <StatusCount label="Blocked" value={counts.blocked} />
+          </div>
+        </div>
 
-      <SelectedArchetypePreview archetype={preview.archetype} previewItems={preview.items} />
-    </section>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="Setup profile options">
+          {preview.options.map((option) => {
+            const selected = option.key === preview.selectedKey;
+            const selectable = option.status === "active";
+            return (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={selected}
+                disabled={!selectable || controlsDisabled}
+                onClick={() => {
+                  void selectArchetype(option.key);
+                }}
+                className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                  selected
+                    ? "border-palm bg-emerald-50 text-emerald-900"
+                    : !selectable
+                      ? "border-slate-200 bg-slate-50 text-slate-400"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-palm/50 hover:bg-slate-50"
+                }`}
+              >
+                {option.title}
+              </button>
+            );
+          })}
+        </div>
+
+        <SelectedArchetypePreview archetype={preview.archetype} previewItems={preview.items} />
+      </section>
+    </LedgerPanel>
   );
 }
 
@@ -195,9 +198,7 @@ function SelectedArchetypePreview({
         <p className="mt-1 text-sm leading-6 text-steel">{archetype.description}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {archetype.recommendedFor.map((label) => (
-            <span key={label} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-steel">
-              {label}
-            </span>
+            <LedgerStatusBadge key={label} tone="draft">{label}</LedgerStatusBadge>
           ))}
         </div>
       </div>
@@ -250,7 +251,7 @@ function GuidanceList({ title, items }: Readonly<{ title: string; items: string[
 function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingPreviewItem }>) {
   const action = templateItemAction(item);
   return (
-    <article data-testid={`typed-onboarding-item-${item.key}`} className="rounded-md border border-slate-200 bg-white px-3 py-3">
+    <article data-testid={`typed-onboarding-item-${item.key}`} className="rounded-md border border-line bg-panel px-3 py-3">
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 ${statusClassName(item.status)}`}>
           <StatusIcon status={item.status} />
@@ -268,7 +269,7 @@ function TemplateItemPreview({ item }: Readonly<{ item: TypedOnboardingPreviewIt
             <div className="mt-2 text-xs font-semibold uppercase text-slate-600">Saved state: {item.persistedStatusLabel}</div>
           ) : null}
           {action ? (
-            <Link href={action.href} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-palm hover:underline">
+            <Link href={action.href} className={buttonClassName({ variant: "secondary", size: "sm", className: "mt-3" })}>
               Open {item.title}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
@@ -319,7 +320,7 @@ function templateItemAction(item: TypedOnboardingChecklistTemplateItem): { href:
 
 function StatusCount({ label, value }: Readonly<{ label: string; value: number }>) {
   return (
-    <div className="rounded-md border border-slate-100 bg-slate-50 px-2 py-2">
+    <div className="rounded-md border border-line bg-mist px-2 py-2">
       <div className="font-mono text-base font-semibold text-ink">{value}</div>
       <div>{label}</div>
     </div>

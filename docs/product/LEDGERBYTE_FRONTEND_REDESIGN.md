@@ -146,6 +146,12 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Preserved inventory truth: this pass does not move stock, change valuation math, post COGS, alter FIFO links, post adjustments/transfers, or change receipt/variance behavior.
 - Item catalog forms, warehouse/detail, stock movement, adjustment, transfer, receipt, issue, FIFO, landed cost, valuation variance, and inventory report routes remain deferred for dedicated inventory loops.
 
+### 2026-06-22 Setup And Onboarding Loop
+
+- Migrated `/setup`, setup wizard panels, first accounting workflow prompts, typed onboarding preview cards, and `/organization/setup` to shared LedgerByte page, panel, summary, field, input, select, alert, status, and action primitives.
+- Preserved setup truth: the checklist remains read-only and evidence-backed, typed profile selection still loads/saves/recomputes through the existing API helpers, and planned or blocked capabilities remain non-actionable.
+- Preserved organization setup behavior: the form still posts to `/organizations`, stores the active organization id, and redirects to `/dashboard` without adding provider, compliance, storage, or tax-authority behavior.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
@@ -160,10 +166,10 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Contacts now has customer/supplier detail and dedicated statement coverage; shared contact ledger tabs and visual QA remain.
 - Purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns remain in the purchase family. Banking detail, statement import/review, rule review, deposit, cheque, clearing, and reconciliation-support routes need a dedicated manual-banking redesign slice that preserves non-live wording.
 - Reports and report drilldowns need a dense accounting-table redesign pass beyond the report-pack preview.
-- Existing settings subroutes need gradual migration to shared panels/forms while preserving each route's permission and mutation behavior.
-- Setup/onboarding and dashboard surfaces need final alignment with the ledger-system primitives after typed onboarding work settles.
+- Existing settings subroutes are migrated in the stacked settings/admin loop; they still need refreshed visual fixture coverage.
+- Setup/onboarding is migrated in the stacked onboarding loop; dashboard surfaces still need final attention queue, cash, AR/AP, banking, storage, and compliance snapshot alignment.
 - Auth and marketing-adjacent entry screens were not included in this operational app-shell slice.
 
 ## Recommended Next Goal
 
-Continue through purchase orders, supplier payments/refunds, cash expenses, matching, AP dashboard, and purchase returns before the heavier manual-banking redesign slice.
+Continue through dashboard, public/auth polish, placeholder/future-route styling, and refreshed visual fixture coverage for the migrated route families.
