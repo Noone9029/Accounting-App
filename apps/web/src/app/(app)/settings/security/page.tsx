@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, KeyRound, LockKeyhole, ShieldCheck, UsersRound } from "lucide-react";
-import { StatusMessage } from "@/components/common/status-message";
-import { ActionGrid } from "@/components/ui-ledger/action-grid";
-import { PageHeader } from "@/components/ui-ledger/page-header";
-import { PanelSection } from "@/components/ui-ledger/panel-section";
-import { StatusBadge } from "@/components/ui-ledger/status-badge";
+import { AlertTriangle, KeyRound, LockKeyhole, UsersRound } from "lucide-react";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerSection,
+  LedgerStatusBadge,
+} from "@/components/ui/ledger-system";
 
 const missingCapabilities = [
   { label: "Active session list", details: "Per-session activity tracking has not been implemented yet." },
@@ -35,15 +40,16 @@ export default function SecuritySettingsPage() {
   const roleName = activeMembership?.role?.name || "Role pending";
 
   return (
-    <section className="space-y-6">
-      <PageHeader
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Administration"
         title="Security settings"
         description="Read-only security overview of the controls and visibility that exist today."
       />
 
       {loading ? <StatusMessage type="loading">Loading account identity.</StatusMessage> : null}
 
-      <PanelSection
+      <LedgerSection
         title="Security overview"
         description="These capabilities are currently available through existing LedgerByte routes."
       >
@@ -73,44 +79,34 @@ export default function SecuritySettingsPage() {
             <p className="mt-1 text-sm text-slate-700">Organization profile and setup controls live in setup routes.</p>
           </article>
         </div>
-      </PanelSection>
+      </LedgerSection>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <PanelSection
+      <LedgerPageBody className="grid gap-4 lg:grid-cols-2">
+        <LedgerSection
           title="Account identity"
           description="Authenticated identity data from the current session."
           action={
-            <StatusBadge tone="success" className="h-6 rounded-full">
+            <LedgerStatusBadge tone="success">
               {loading ? "Loading" : "Session available"}
-            </StatusBadge>
+            </LedgerStatusBadge>
           }
         >
           {loading && !user ? <StatusMessage type="loading">Loading account identity.</StatusMessage> : null}
           {user ? (
-            <dl className="grid gap-2 text-sm text-slate-700">
-              <div className="flex items-start justify-between gap-3">
-                <dt className="font-medium text-slate-900">Signed in as</dt>
-                <dd>{identityName}</dd>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <dt className="font-medium text-slate-900">Email</dt>
-                <dd>{identityEmail}</dd>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <dt className="font-medium text-slate-900">Organization</dt>
-                <dd>{organizationName}</dd>
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <dt className="font-medium text-slate-900">Active role</dt>
-                <dd>{roleName}</dd>
-              </div>
-            </dl>
+            <LedgerMetadataRow
+              items={[
+                { label: "Signed in as", value: identityName },
+                { label: "Email", value: identityEmail },
+                { label: "Organization", value: organizationName },
+                { label: "Active role", value: roleName },
+              ]}
+            />
           ) : (
             <StatusMessage type="info">Sign in and an active organization are required to view account identity details.</StatusMessage>
           )}
-        </PanelSection>
+        </LedgerSection>
 
-        <PanelSection
+        <LedgerSection
           title="Password and sign-in guidance"
           description="Current guidance for account-safe authentication actions."
         >
@@ -128,22 +124,26 @@ export default function SecuritySettingsPage() {
               <span>No active fake security controls are presented in this read-only route.</span>
             </li>
           </ul>
-        </PanelSection>
-      </div>
+        </LedgerSection>
+      </LedgerPageBody>
 
-      <PanelSection title="Security route shortcuts" description="Open existing settings pages that already support these controls.">
-        <ActionGrid
-          items={[
+      <LedgerSection title="Security route shortcuts" description="Open existing settings pages that already support these controls.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {[
             { label: "Team settings", href: "/settings/team" },
             { label: "Roles and permissions", href: "/settings/roles" },
             { label: "Audit log shortcut", href: "/settings/audit-logs" },
             { label: "Guided setup", href: "/setup" },
             { label: "Organization setup", href: "/organization/setup" },
-          ]}
-        />
-      </PanelSection>
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="ledger-focus rounded-md border border-line bg-panel p-4 text-sm font-semibold text-ink shadow-panel hover:border-palm/50">
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </LedgerSection>
 
-      <PanelSection
+      <LedgerSection
         title="Not available yet"
         description="Planned controls below remain disabled until explicit backend and policy support is added."
       >
@@ -157,7 +157,14 @@ export default function SecuritySettingsPage() {
             </li>
           ))}
         </ul>
-      </PanelSection>
-    </section>
+      </LedgerSection>
+    </LedgerPage>
   );
+}
+
+function StatusMessage({ children, type }: Readonly<{ children: React.ReactNode; type: "info" | "loading" }>) {
+  if (type === "loading") {
+    return <LedgerLoadingState title="Loading" description={children} />;
+  }
+  return <LedgerAlert tone="info">{children}</LedgerAlert>;
 }
