@@ -236,6 +236,11 @@ This branch continues the full LedgerByte frontend redesign from the PR #157 pur
 - Migrated email outbox status messages, sender-domain evidence summaries, delivery monitoring summaries, and evidence/suppression list shells to shared LedgerByte status, textarea, and panel primitives.
 - Preserved email truth: readiness checks, evidence capture, monitoring evidence, suppressions, mock outbox inspection, and no-real-email/no-secret/no-provider-execution wording remain unchanged.
 
+### 2026-06-22 ZATCA Status Bridge Loop
+
+- Replaced the local ZATCA settings `StatusMessage` helper with the shared LedgerByte status bridge.
+- Preserved ZATCA truth: KSA edition gating, profile/EGS/CSR/CSID readiness messages, local-only SDK warnings, and no-production-submission/no-real-network wording remain unchanged.
+
 ## Product Boundaries Preserved
 
 - No hosted migration, Supabase mutation, Vercel mutation, provider call, ZATCA/UAE/Peppol/ASP action, banking execution, reconciliation execution, object-storage operation, signed URL operation, generated-document storage mutation, seed/reset/delete command, or shutdown action was added.
