@@ -1,17 +1,39 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDataTable,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldHelp,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getDepositAccountingPreflight, postDepositJournal } from "@/lib/banking-accounting";
 import {
   bankDepositSourceTypeLabel,
-  bankDepositStatusBadgeClass,
   bankDepositStatusLabel,
   canMatchBankDeposit,
   canPostBankDeposit,
@@ -24,6 +46,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import type {
   BankDepositBatch,
   BankDepositBatchLineSourceType,
+  BankDepositBatchStatus,
   BankDepositSourceCandidate,
   BankingAccountingPreflight,
   BankStatementTransaction,
@@ -299,48 +322,45 @@ export default function BankDepositDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Deposit batch detail</h1>
-          <p className="mt-1 text-sm text-steel">{deposit?.bankAccountProfile?.displayName ?? "Bank deposit batch"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Deposits
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cheques
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Deposit batch detail"
+        description={deposit?.bankAccountProfile?.displayName ?? "Bank deposit batch"}
+        actions={
+          <>
+            <LedgerButton href={`/bank-accounts/${params.id}/deposits`}>Deposits</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Statement rows</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/cheques`}>Cheques</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this deposit batch.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading deposit batch...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        This deposit batch groups receipts, cash, or clearing references for manual reconciliation. Accounting journal posting is separate, explicit, and limited to configured clearing-account paths.
+      </LedgerSummaryBand>
 
-      {deposit ? (
-        <>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Status" value={bankDepositStatusLabel(deposit.status)} badgeClass={bankDepositStatusBadgeClass(deposit.status)} />
-            <SummaryCard label="Total" value={formatMoneyAmount(deposit.totalAmount, deposit.currency)} />
-            <SummaryCard label="Lines" value={String(deposit.lines.length)} />
-            <SummaryCard label="Deposit date" value={formatOptionalDate(deposit.depositDate, "-")} />
-          </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load this deposit batch.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading deposit batch" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm leading-6 text-steel">
-              This deposit batch groups receipts, cash, or clearing references for manual reconciliation. No live bank feed is added, no bank API is called, and no bank payment is sent. Accounting journal posting is separate, explicit, and limited to configured clearing-account paths.
-            </p>
-          </div>
+        {deposit ? (
+          <>
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={bankDepositStatusTone(deposit.status)}>{bankDepositStatusLabel(deposit.status)}</LedgerStatusBadge>} />
+              <LedgerStatCard label="Total" value={<LedgerMoney>{formatMoneyAmount(deposit.totalAmount, deposit.currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Lines" value={deposit.lines.length} />
+              <LedgerStatCard label="Deposit date" value={<LedgerDate>{formatOptionalDate(deposit.depositDate, "-")}</LedgerDate>} />
+            </LedgerMetricGrid>
 
-          <div className="mt-5">
+            <LedgerPanel>
+              <p className="text-sm leading-6 text-steel">
+                This deposit batch groups receipts, cash, or clearing references for manual reconciliation. No live bank feed is added, no bank API is called, and no bank payment is sent. Accounting journal posting is separate, explicit, and limited to configured clearing-account paths.
+              </p>
+            </LedgerPanel>
+
             <AccountingStatusPanel
               preflight={accountingPreflight}
               loading={accountingLoading}
@@ -349,35 +369,31 @@ export default function BankDepositDetailPage() {
               onPost={() => void postAccountingJournal()}
               postLabel="Post deposit journal"
             />
-          </div>
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Lines</h2>
-                <p className="mt-1 text-sm text-steel">{deposit.memo ?? "No memo"}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canReconcile && canPostBankDeposit(deposit.status, deposit.totalAmount, deposit.lines.length) ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runDepositAction("post")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "post" ? "Posting..." : "Post batch"}
-                  </button>
-                ) : null}
-                {canReconcile && deposit.status === "MATCHED" ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runDepositAction("unmatch-statement-transaction")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
-                  </button>
-                ) : null}
-                {canReconcile && canVoidBankDeposit(deposit.status) ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runDepositAction("void")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "void" ? "Voiding..." : "Void"}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
+            <LedgerSection
+              title="Lines"
+              description={deposit.memo ?? "No memo"}
+              action={
+                <div className="flex flex-wrap gap-2">
+                  {canReconcile && canPostBankDeposit(deposit.status, deposit.totalAmount, deposit.lines.length) ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runDepositAction("post")}>
+                      {action === "post" ? "Posting..." : "Post batch"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && deposit.status === "MATCHED" ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runDepositAction("unmatch-statement-transaction")}>
+                      {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && canVoidBankDeposit(deposit.status) ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runDepositAction("void")}>
+                      {action === "void" ? "Voiding..." : "Void"}
+                    </LedgerButton>
+                  ) : null}
+                </div>
+              }
+            >
+              <LedgerDataTable minWidth="860px">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                   <tr>
                     <th className="px-4 py-3">Source</th>
@@ -395,12 +411,12 @@ export default function BankDepositDetailPage() {
                       <td className="px-4 py-3 font-mono text-xs">{line.reference ?? line.sourceId ?? "-"}</td>
                       <td className="px-4 py-3 text-ink">{line.counterpartyName ?? "-"}</td>
                       <td className="px-4 py-3 text-steel">{line.memo ?? "-"}</td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{formatMoneyAmount(line.amount, line.currency)}</td>
+                      <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(line.amount, line.currency)}</LedgerMoney></td>
                       <td className="px-4 py-3">
                         {canManage && deposit.status === "DRAFT" ? (
-                          <button type="button" disabled={Boolean(action)} onClick={() => void removeLine(line.id)} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          <LedgerButton disabled={Boolean(action)} onClick={() => void removeLine(line.id)} size="sm">
                             {action === line.id ? "Removing..." : "Remove"}
-                          </button>
+                          </LedgerButton>
                         ) : (
                           <span className="text-xs text-steel">Locked</span>
                         )}
@@ -408,123 +424,125 @@ export default function BankDepositDetailPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-              {deposit.lines.length === 0 ? <StatusMessage type="empty">No deposit lines yet.</StatusMessage> : null}
-            </div>
-          </div>
-
-          {canManage && deposit.status === "DRAFT" ? (
-            <form onSubmit={addLine} className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Add line</h2>
-              <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Source type</span>
-                  <select value={sourceType} onChange={(event) => setSourceType(event.target.value as BankDepositBatchLineSourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                    {SOURCE_TYPES.map((item) => (
-                      <option key={item} value={item}>
-                        {bankDepositSourceTypeLabel(item)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {sourceType === "CUSTOMER_PAYMENT" ? (
-                  <label className="block lg:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Customer payment</span>
-                    <select value={sourceId} onChange={(event) => chooseSource(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                      <option value="">Select customer payment</option>
-                      {sourceCandidates.map((candidate) => (
-                        <option key={candidate.sourceId} value={candidate.sourceId}>
-                          {candidate.reference} - {candidate.counterpartyName} - {formatMoneyAmount(candidate.amount, candidate.currency)}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedSource ? (
-                      <p className="mt-1 text-xs leading-5 text-steel">
-                        {selectedSource.depositReadiness === "ALREADY_POSTED_TO_THIS_BANK_ACCOUNT"
-                          ? "This payment is already posted to this bank account."
-                          : "Operational grouping only. Clearing-account journal movement is deferred."}
-                      </p>
-                    ) : null}
-                  </label>
-                ) : (
-                  <label className="block lg:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Source id</span>
-                    <input value={sourceId} onChange={(event) => setSourceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                  </label>
-                )}
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount</span>
-                  <input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Reference</span>
-                  <input value={reference} onChange={(event) => setReference(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Counterparty</span>
-                  <input value={counterpartyName} onChange={(event) => setCounterpartyName(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <label className="block lg:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-steel">Memo</span>
-                  <input value={memo} onChange={(event) => setMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                </label>
-                <div className="flex items-end">
-                  <button type="submit" disabled={Boolean(action)} className="w-full rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
-                    {action === "add-line" ? "Adding..." : "Add line"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          ) : null}
-
-          {canReconcile && canMatchBankDeposit(deposit.status) ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Match statement credit row</h2>
-              <p className="mt-1 text-sm text-steel">Matching is explicit and only accepts same-account credit rows with the same amount.</p>
-              {matchCandidates.length === 0 ? <StatusMessage type="empty">No matching statement credit rows found within the date window.</StatusMessage> : null}
-              {matchCandidates.length > 0 ? (
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Candidate row</span>
-                    <select value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                      {matchCandidates.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {formatMoneyAmount(candidate.amount, currency)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "match" ? "Matching..." : "Match deposit batch"}
-                  </button>
+              </LedgerDataTable>
+              {deposit.lines.length === 0 ? (
+                <div className="mt-4">
+                  <LedgerEmptyState title="No deposit lines yet." />
                 </div>
               ) : null}
-            </div>
-          ) : null}
+            </LedgerSection>
 
-          {deposit.statementTransaction ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Linked statement row</h2>
-              <p className="mt-2 text-sm text-steel">
-                {formatOptionalDate(deposit.statementTransaction.transactionDate, "-")} - {deposit.statementTransaction.description} -{" "}
-                {formatMoneyAmount(deposit.statementTransaction.amount, deposit.currency)}
-              </p>
-              <Link href={`/bank-statement-transactions/${deposit.statementTransaction.id}`} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Open statement row
-              </Link>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </section>
+            {canManage && deposit.status === "DRAFT" ? (
+              <LedgerSection title="Add line" description="Line additions only update this draft operational batch.">
+                <form onSubmit={addLine} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Source type</LedgerFieldText>
+                    <LedgerSelect value={sourceType} onChange={(event) => setSourceType(event.target.value as BankDepositBatchLineSourceType)}>
+                      {SOURCE_TYPES.map((item) => (
+                        <option key={item} value={item}>
+                          {bankDepositSourceTypeLabel(item)}
+                        </option>
+                      ))}
+                    </LedgerSelect>
+                  </LedgerFieldLabel>
+                  {sourceType === "CUSTOMER_PAYMENT" ? (
+                    <LedgerFieldLabel className="lg:col-span-2">
+                      <LedgerFieldText>Customer payment</LedgerFieldText>
+                      <LedgerSelect value={sourceId} onChange={(event) => chooseSource(event.target.value)}>
+                        <option value="">Select customer payment</option>
+                        {sourceCandidates.map((candidate) => (
+                          <option key={candidate.sourceId} value={candidate.sourceId}>
+                            {candidate.reference} - {candidate.counterpartyName} - {formatMoneyAmount(candidate.amount, candidate.currency)}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                      {selectedSource ? (
+                        <LedgerFieldHelp>
+                          {selectedSource.depositReadiness === "ALREADY_POSTED_TO_THIS_BANK_ACCOUNT"
+                            ? "This payment is already posted to this bank account."
+                            : "Operational grouping only. Clearing-account journal movement is deferred."}
+                        </LedgerFieldHelp>
+                      ) : null}
+                    </LedgerFieldLabel>
+                  ) : (
+                    <LedgerFieldLabel className="lg:col-span-2">
+                      <LedgerFieldText>Source id</LedgerFieldText>
+                      <LedgerInput value={sourceId} onChange={(event) => setSourceId(event.target.value)} />
+                    </LedgerFieldLabel>
+                  )}
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Amount</LedgerFieldText>
+                    <LedgerInput inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Reference</LedgerFieldText>
+                    <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Counterparty</LedgerFieldText>
+                    <LedgerInput value={counterpartyName} onChange={(event) => setCounterpartyName(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <LedgerFieldLabel className="lg:col-span-2">
+                    <LedgerFieldText>Memo</LedgerFieldText>
+                    <LedgerInput value={memo} onChange={(event) => setMemo(event.target.value)} />
+                  </LedgerFieldLabel>
+                  <div className="flex items-end">
+                    <LedgerButton type="submit" disabled={Boolean(action)} variant="primary" className="w-full">
+                      {action === "add-line" ? "Adding..." : "Add line"}
+                    </LedgerButton>
+                  </div>
+                </form>
+              </LedgerSection>
+            ) : null}
+
+            {canReconcile && canMatchBankDeposit(deposit.status) ? (
+              <LedgerSection title="Match statement credit row" description="Matching is explicit and only accepts same-account credit rows with the same amount.">
+                {matchCandidates.length === 0 ? <LedgerEmptyState title="No matching statement credit rows found within the date window." /> : null}
+                {matchCandidates.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Candidate row</LedgerFieldText>
+                      <LedgerSelect value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)}>
+                        {matchCandidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {formatMoneyAmount(candidate.amount, currency)}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </LedgerFieldLabel>
+                    <LedgerButton disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()}>
+                      {action === "match" ? "Matching..." : "Match deposit batch"}
+                    </LedgerButton>
+                  </div>
+                ) : null}
+              </LedgerSection>
+            ) : null}
+
+            {deposit.statementTransaction ? (
+              <LedgerSection
+                title="Linked statement row"
+                description="The linked bank statement row remains available from the standalone statement detail route."
+                action={<LedgerButton href={`/bank-statement-transactions/${deposit.statementTransaction.id}`}>Open statement row</LedgerButton>}
+              >
+                <LedgerMetadataRow
+                  items={[
+                    { label: "Date", value: <LedgerDate>{formatOptionalDate(deposit.statementTransaction.transactionDate, "-")}</LedgerDate> },
+                    { label: "Description", value: deposit.statementTransaction.description },
+                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(deposit.statementTransaction.amount, deposit.currency)}</LedgerMoney> },
+                  ]}
+                />
+              </LedgerSection>
+            ) : null}
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
-function SummaryCard({ label, value, badgeClass }: { label: string; value: string; badgeClass?: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className={`mt-2 inline-flex rounded-md text-sm font-semibold ${badgeClass ? `${badgeClass} px-2 py-1` : "font-mono text-ink"}`}>{value}</p>
-    </div>
-  );
+function bankDepositStatusTone(status: BankDepositBatchStatus): LedgerStatusTone {
+  if (status === "MATCHED") return "success";
+  if (status === "POSTED") return "info";
+  if (status === "VOIDED") return "neutral";
+  return "draft";
 }

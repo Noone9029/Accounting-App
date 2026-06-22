@@ -1,11 +1,32 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AccountingStatusPanel } from "@/components/banking/accounting-status-panel";
-import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import {
+  LedgerAlert,
+  LedgerButton,
+  LedgerDate,
+  LedgerEmptyState,
+  LedgerFieldLabel,
+  LedgerFieldText,
+  LedgerInput,
+  LedgerLoadingState,
+  LedgerMetadataRow,
+  LedgerMetricGrid,
+  LedgerMoney,
+  LedgerPage,
+  LedgerPageBody,
+  LedgerPageHeader,
+  LedgerPanel,
+  LedgerSection,
+  LedgerSelect,
+  LedgerStatCard,
+  LedgerStatusBadge,
+  LedgerSummaryBand,
+  type LedgerStatusTone,
+} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getChequeAccountingPreflight, postChequeJournal } from "@/lib/banking-accounting";
@@ -16,14 +37,13 @@ import {
   canMatchCheque,
   canOpenCheque,
   canVoidCheque,
-  chequeStatusBadgeClass,
   chequeStatusLabel,
   chequeTypeLabel,
 } from "@/lib/cheques";
 import { formatOptionalDate } from "@/lib/invoice-display";
 import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankingAccountingPreflight, BankDepositBatch, BankStatementTransaction, ChequeInstrument } from "@/lib/types";
+import type { BankingAccountingPreflight, BankDepositBatch, BankStatementTransaction, ChequeInstrument, ChequeInstrumentStatus } from "@/lib/types";
 
 export default function ChequeDetailPage() {
   const params = useParams<{ id: string; chequeId: string }>();
@@ -280,51 +300,48 @@ export default function ChequeDetailPage() {
   }
 
   return (
-    <section>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Cheque detail</h1>
-          <p className="mt-1 text-sm text-steel">{cheque ? `${cheque.chequeNumber} - ${chequeTypeLabel(cheque.chequeType)}` : "Manual cheque lifecycle"}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/bank-accounts/${params.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Cheques
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Deposits
-          </Link>
-          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            Statement rows
-          </Link>
-        </div>
-      </div>
+    <LedgerPage>
+      <LedgerPageHeader
+        eyebrow="Banking"
+        title="Cheque detail"
+        description={cheque ? `${cheque.chequeNumber} - ${chequeTypeLabel(cheque.chequeType)}` : "Manual cheque lifecycle"}
+        actions={
+          <>
+            <LedgerButton href={`/bank-accounts/${params.id}/cheques`}>Cheques</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/deposits`}>Deposits</LedgerButton>
+            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Statement rows</LedgerButton>
+          </>
+        }
+      />
 
-      <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load this cheque.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading cheque...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-      </div>
+      <LedgerSummaryBand tone="warning">
+        Cheque lifecycle, deposit links, statement matching, bounce, and void actions require explicit operator action.
+      </LedgerSummaryBand>
 
-      {cheque ? (
-        <>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <SummaryCard label="Status" value={chequeStatusLabel(cheque.status)} badgeClass={chequeStatusBadgeClass(cheque.status)} />
-            <SummaryCard label="Amount" value={formatMoneyAmount(cheque.amount, cheque.currency)} />
-            <SummaryCard label="Due date" value={formatOptionalDate(cheque.dueDate, "-")} />
-            <SummaryCard label="Type" value={chequeTypeLabel(cheque.chequeType)} />
-          </div>
+      <LedgerPageBody>
+        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load this cheque.</LedgerAlert> : null}
+        {loading ? <LedgerLoadingState title="Loading cheque" /> : null}
+        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm leading-6 text-steel">
-              This is a manual cheque record. No live bank feed is added, no bank API is called, no bank credentials are collected, and no bank payment is sent.
-            </p>
-            <p className="mt-2 text-xs leading-5 text-steel">
-              Direct cheque journal posting remains deferred unless a later accountant-reviewed source-accounting policy confirms cheque-in-hand or outstanding-cheque recognition. Matching and deposit links here require explicit user action.
-            </p>
-          </div>
+        {cheque ? (
+          <>
+            <LedgerMetricGrid>
+              <LedgerStatCard label="Status" value={<LedgerStatusBadge tone={chequeStatusTone(cheque.status)}>{chequeStatusLabel(cheque.status)}</LedgerStatusBadge>} />
+              <LedgerStatCard label="Amount" value={<LedgerMoney>{formatMoneyAmount(cheque.amount, cheque.currency)}</LedgerMoney>} />
+              <LedgerStatCard label="Due date" value={<LedgerDate>{formatOptionalDate(cheque.dueDate, "-")}</LedgerDate>} />
+              <LedgerStatCard label="Type" value={chequeTypeLabel(cheque.chequeType)} />
+            </LedgerMetricGrid>
 
-          <div className="mt-5">
+            <LedgerPanel>
+              <p className="text-sm leading-6 text-steel">
+                This is a manual cheque record. No live bank feed is added, no bank API is called, no bank credentials are collected, and no bank payment is sent.
+              </p>
+              <p className="mt-2 text-xs leading-5 text-steel">
+                Direct cheque journal posting remains deferred unless a later accountant-reviewed source-accounting policy confirms cheque-in-hand or outstanding-cheque recognition. Matching and deposit links here require explicit user action.
+              </p>
+            </LedgerPanel>
+
             <AccountingStatusPanel
               preflight={accountingPreflight}
               loading={accountingLoading}
@@ -333,165 +350,163 @@ export default function ChequeDetailPage() {
               onPost={() => void postAccountingJournal()}
               postLabel="Post cheque journal"
             />
-          </div>
 
-          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Lifecycle actions</h2>
-                <p className="mt-1 text-sm text-steel">{cheque.memo ?? "No memo"}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canManage && canOpenCheque(cheque.status) && cheque.chequeType === "RECEIVED" ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runAction("mark-received")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "mark-received" ? "Updating..." : "Mark received"}
-                  </button>
-                ) : null}
-                {canManage && canOpenCheque(cheque.status) && cheque.chequeType === "ISSUED" ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runAction("mark-issued")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "mark-issued" ? "Updating..." : "Mark issued"}
-                  </button>
-                ) : null}
-                {canReconcile && canClearCheque(cheque.status) ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runAction("clear")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "clear" ? "Clearing..." : "Clear"}
-                  </button>
-                ) : null}
-                {canReconcile && cheque.statementTransactionId ? (
-                  <button type="button" disabled={Boolean(action)} onClick={() => void runAction("unmatch-statement-transaction")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Detail label="Counterparty" value={cheque.counterpartyName} />
-              <Detail label="Drawer bank" value={cheque.drawerBankName ?? "-"} />
-              <Detail label="Payee" value={cheque.payeeName ?? "-"} />
-              <Detail label="Issue date" value={formatOptionalDate(cheque.issueDate, "-")} />
-              <Detail label="Received date" value={formatOptionalDate(cheque.receivedDate, "-")} />
-              <Detail label="Reference" value={cheque.reference ?? "-"} />
-              <Detail label="Deposited" value={formatOptionalDate(cheque.depositDate, "-")} />
-              <Detail label="Cleared" value={formatOptionalDate(cheque.clearedDate, "-")} />
-              <Detail label="Bounced" value={formatOptionalDate(cheque.bouncedDate, "-")} />
-            </div>
-          </div>
-
-          {canManage && canDepositCheque(cheque.chequeType, cheque.status) ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Deposit received cheque</h2>
-              <p className="mt-1 text-sm text-steel">Depositing creates one cheque source line in a draft deposit batch. It does not post a journal entry.</p>
-              {deposits.length === 0 ? <StatusMessage type="empty">No draft deposit batches are available for this bank account and currency.</StatusMessage> : null}
-              {deposits.length > 0 ? (
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Draft deposit batch</span>
-                    <select value={selectedDepositId} onChange={(event) => setSelectedDepositId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                      {deposits.map((deposit) => (
-                        <option key={deposit.id} value={deposit.id}>
-                          {formatOptionalDate(deposit.depositDate, "-")} - {formatMoneyAmount(deposit.totalAmount, deposit.currency)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" disabled={!selectedDepositId || Boolean(action)} onClick={() => void depositCheque()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "deposit" ? "Depositing..." : "Deposit cheque"}
-                  </button>
+            <LedgerSection
+              title="Lifecycle actions"
+              description={cheque.memo ?? "No memo"}
+              action={
+                <div className="flex flex-wrap gap-2">
+                  {canManage && canOpenCheque(cheque.status) && cheque.chequeType === "RECEIVED" ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runAction("mark-received")}>
+                      {action === "mark-received" ? "Updating..." : "Mark received"}
+                    </LedgerButton>
+                  ) : null}
+                  {canManage && canOpenCheque(cheque.status) && cheque.chequeType === "ISSUED" ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runAction("mark-issued")}>
+                      {action === "mark-issued" ? "Updating..." : "Mark issued"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && canClearCheque(cheque.status) ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runAction("clear")}>
+                      {action === "clear" ? "Clearing..." : "Clear"}
+                    </LedgerButton>
+                  ) : null}
+                  {canReconcile && cheque.statementTransactionId ? (
+                    <LedgerButton disabled={Boolean(action)} onClick={() => void runAction("unmatch-statement-transaction")}>
+                      {action === "unmatch-statement-transaction" ? "Unmatching..." : "Unmatch"}
+                    </LedgerButton>
+                  ) : null}
                 </div>
+              }
+            >
+              <LedgerMetadataRow
+                items={[
+                  { label: "Counterparty", value: cheque.counterpartyName },
+                  { label: "Drawer bank", value: cheque.drawerBankName ?? "-" },
+                  { label: "Payee", value: cheque.payeeName ?? "-" },
+                  { label: "Issue date", value: <LedgerDate>{formatOptionalDate(cheque.issueDate, "-")}</LedgerDate> },
+                  { label: "Received date", value: <LedgerDate>{formatOptionalDate(cheque.receivedDate, "-")}</LedgerDate> },
+                  { label: "Reference", value: cheque.reference ?? "-" },
+                  { label: "Deposited", value: <LedgerDate>{formatOptionalDate(cheque.depositDate, "-")}</LedgerDate> },
+                  { label: "Cleared", value: <LedgerDate>{formatOptionalDate(cheque.clearedDate, "-")}</LedgerDate> },
+                  { label: "Bounced", value: <LedgerDate>{formatOptionalDate(cheque.bouncedDate, "-")}</LedgerDate> },
+                ]}
+              />
+            </LedgerSection>
+
+            {canManage && canDepositCheque(cheque.chequeType, cheque.status) ? (
+              <LedgerSection title="Deposit received cheque" description="Depositing creates one cheque source line in a draft deposit batch. It does not post a journal entry.">
+                {deposits.length === 0 ? <LedgerEmptyState title="No draft deposit batches are available for this bank account and currency." /> : null}
+                {deposits.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Draft deposit batch</LedgerFieldText>
+                      <LedgerSelect value={selectedDepositId} onChange={(event) => setSelectedDepositId(event.target.value)}>
+                        {deposits.map((deposit) => (
+                          <option key={deposit.id} value={deposit.id}>
+                            {formatOptionalDate(deposit.depositDate, "-")} - {formatMoneyAmount(deposit.totalAmount, deposit.currency)}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </LedgerFieldLabel>
+                    <LedgerButton disabled={!selectedDepositId || Boolean(action)} onClick={() => void depositCheque()}>
+                      {action === "deposit" ? "Depositing..." : "Deposit cheque"}
+                    </LedgerButton>
+                  </div>
+                ) : null}
+              </LedgerSection>
+            ) : null}
+
+            {canReconcile && canMatchCheque(cheque.status) ? (
+              <LedgerSection title="Match statement row" description="Received cheques match credit rows. Issued cheques match debit rows. Matching is explicit.">
+                {matchCandidates.length === 0 ? <LedgerEmptyState title="No matching statement rows found within the date window." /> : null}
+                {matchCandidates.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <LedgerFieldLabel>
+                      <LedgerFieldText>Candidate row</LedgerFieldText>
+                      <LedgerSelect value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)}>
+                        {matchCandidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {candidate.type} - {formatMoneyAmount(candidate.amount, cheque.currency)}
+                          </option>
+                        ))}
+                      </LedgerSelect>
+                    </LedgerFieldLabel>
+                    <LedgerButton disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()}>
+                      {action === "match" ? "Matching..." : "Match cheque"}
+                    </LedgerButton>
+                  </div>
+                ) : null}
+              </LedgerSection>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {canReconcile && canBounceCheque(cheque.status) ? (
+                <LedgerSection title="Bounce or stop" description="A reason is required before the cheque status changes.">
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Reason</LedgerFieldText>
+                    <LedgerInput value={bounceReason} onChange={(event) => setBounceReason(event.target.value)} placeholder="Reason required" />
+                  </LedgerFieldLabel>
+                  <LedgerButton disabled={Boolean(action)} onClick={() => void bounceCheque()} className="mt-3">
+                    {action === "bounce" ? "Updating..." : "Bounce/stop cheque"}
+                  </LedgerButton>
+                </LedgerSection>
+              ) : null}
+              {canReconcile && canVoidCheque(cheque.status) ? (
+                <LedgerSection title="Void" description="A reason is required before the cheque is voided.">
+                  <LedgerFieldLabel>
+                    <LedgerFieldText>Reason</LedgerFieldText>
+                    <LedgerInput value={voidReason} onChange={(event) => setVoidReason(event.target.value)} placeholder="Reason required" />
+                  </LedgerFieldLabel>
+                  <LedgerButton disabled={Boolean(action)} onClick={() => void voidCheque()} className="mt-3">
+                    {action === "void" ? "Voiding..." : "Void cheque"}
+                  </LedgerButton>
+                </LedgerSection>
               ) : null}
             </div>
-          ) : null}
 
-          {canReconcile && canMatchCheque(cheque.status) ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Match statement row</h2>
-              <p className="mt-1 text-sm text-steel">Received cheques match credit rows. Issued cheques match debit rows. Matching is explicit.</p>
-              {matchCandidates.length === 0 ? <StatusMessage type="empty">No matching statement rows found within the date window.</StatusMessage> : null}
-              {matchCandidates.length > 0 ? (
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Candidate row</span>
-                    <select value={selectedStatementId} onChange={(event) => setSelectedStatementId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
-                      {matchCandidates.map((candidate) => (
-                        <option key={candidate.id} value={candidate.id}>
-                          {formatOptionalDate(candidate.transactionDate, "-")} - {candidate.description} - {candidate.type} - {formatMoneyAmount(candidate.amount, cheque.currency)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" disabled={!selectedStatementId || Boolean(action)} onClick={() => void matchStatementRow()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                    {action === "match" ? "Matching..." : "Match cheque"}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {canReconcile && canBounceCheque(cheque.status) ? (
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                <h2 className="text-base font-semibold text-ink">Bounce or stop</h2>
-                <input value={bounceReason} onChange={(event) => setBounceReason(event.target.value)} placeholder="Reason required" className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                <button type="button" disabled={Boolean(action)} onClick={() => void bounceCheque()} className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  {action === "bounce" ? "Updating..." : "Bounce/stop cheque"}
-                </button>
-              </div>
+            {cheque.depositBatch ? (
+              <LedgerSection
+                title="Linked deposit batch"
+                description="The linked draft or posted deposit remains available from its deposit detail route."
+                action={<LedgerButton href={`/bank-accounts/${params.id}/deposits/${cheque.depositBatch.id}`}>Open deposit</LedgerButton>}
+              >
+                <LedgerMetadataRow
+                  items={[
+                    { label: "Date", value: <LedgerDate>{formatOptionalDate(cheque.depositBatch.depositDate, "-")}</LedgerDate> },
+                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(cheque.depositBatch.totalAmount, cheque.currency)}</LedgerMoney> },
+                  ]}
+                />
+              </LedgerSection>
             ) : null}
-            {canReconcile && canVoidCheque(cheque.status) ? (
-              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-                <h2 className="text-base font-semibold text-ink">Void</h2>
-                <input value={voidReason} onChange={(event) => setVoidReason(event.target.value)} placeholder="Reason required" className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
-                <button type="button" disabled={Boolean(action)} onClick={() => void voidCheque()} className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
-                  {action === "void" ? "Voiding..." : "Void cheque"}
-                </button>
-              </div>
+
+            {cheque.statementTransaction ? (
+              <LedgerSection
+                title="Linked statement row"
+                description="The linked bank statement row remains available from the standalone statement detail route."
+                action={<LedgerButton href={`/bank-statement-transactions/${cheque.statementTransaction.id}`}>Open statement row</LedgerButton>}
+              >
+                <LedgerMetadataRow
+                  items={[
+                    { label: "Date", value: <LedgerDate>{formatOptionalDate(cheque.statementTransaction.transactionDate, "-")}</LedgerDate> },
+                    { label: "Description", value: cheque.statementTransaction.description },
+                    { label: "Amount", value: <LedgerMoney>{formatMoneyAmount(cheque.statementTransaction.amount, cheque.currency)}</LedgerMoney> },
+                  ]}
+                />
+              </LedgerSection>
             ) : null}
-          </div>
-
-          {cheque.depositBatch ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Linked deposit batch</h2>
-              <p className="mt-2 text-sm text-steel">
-                {formatOptionalDate(cheque.depositBatch.depositDate, "-")} - {formatMoneyAmount(cheque.depositBatch.totalAmount, cheque.currency)}
-              </p>
-              <Link href={`/bank-accounts/${params.id}/deposits/${cheque.depositBatch.id}`} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Open deposit
-              </Link>
-            </div>
-          ) : null}
-
-          {cheque.statementTransaction ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-              <h2 className="text-base font-semibold text-ink">Linked statement row</h2>
-              <p className="mt-2 text-sm text-steel">
-                {formatOptionalDate(cheque.statementTransaction.transactionDate, "-")} - {cheque.statementTransaction.description} - {formatMoneyAmount(cheque.statementTransaction.amount, cheque.currency)}
-              </p>
-              <Link href={`/bank-statement-transactions/${cheque.statementTransaction.id}`} className="mt-3 inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                Open statement row
-              </Link>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </LedgerPageBody>
+    </LedgerPage>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className="mt-1 text-sm text-ink">{value}</p>
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, badgeClass }: { label: string; value: string; badgeClass?: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
-      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
-      <p className={`mt-2 inline-flex rounded-md text-sm font-semibold ${badgeClass ? `${badgeClass} px-2 py-1` : "font-mono text-ink"}`}>{value}</p>
-    </div>
-  );
+function chequeStatusTone(status: ChequeInstrumentStatus): LedgerStatusTone {
+  if (status === "CLEARED") return "success";
+  if (status === "BOUNCED") return "danger";
+  if (status === "VOIDED") return "neutral";
+  if (status === "DEPOSITED") return "warning";
+  if (status === "RECEIVED" || status === "ISSUED") return "info";
+  return "draft";
 }
