@@ -1629,12 +1629,12 @@ function InvoiceReadinessSectionCard({ title, section }: { title: string; sectio
   const primaryCheck = section.checks.find((check) => check.severity === "ERROR") ?? section.checks.find((check) => check.severity === "WARNING") ?? section.checks[0];
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3">
+    <LedgerPanel className="p-3 shadow-none">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-steel">{title}</span>
-        <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${zatcaReadinessStatusBadgeClass(section.status)}`}>
+        <LedgerStatusBadge tone={section.status === "READY" ? "success" : section.status === "BLOCKED" ? "danger" : "warning"}>
           {zatcaReadinessStatusLabel(section.status)}
-        </span>
+        </LedgerStatusBadge>
       </div>
       {primaryCheck ? (
         <div className="mt-2 text-xs text-steel">
@@ -1645,7 +1645,7 @@ function InvoiceReadinessSectionCard({ title, section }: { title: string; sectio
       ) : (
         <p className="mt-2 text-xs text-emerald-700">No readiness issues detected.</p>
       )}
-    </div>
+    </LedgerPanel>
   );
 }
 
