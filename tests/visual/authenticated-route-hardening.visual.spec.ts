@@ -97,12 +97,19 @@ async function expectAuthenticatedShell(page: Page, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
   await expect(banner.getByText("Accounting workspace", { exact: true }).first()).toBeVisible();
-  await expect(banner.getByLabel("Organization")).toBeVisible();
-  await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await expect(banner.getByRole("link", { name: /New journal/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Notifications/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Help/i })).toBeVisible();
+  const accountButton = banner.getByRole("button", { name: /Account menu/i });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  const accountMenu = page.getByRole("dialog", { name: /Account menu/i });
+  await expect(accountMenu.getByText("Active organization")).toBeVisible();
+  await expect(accountMenu.getByRole("link", { name: /Organization settings/i })).toBeVisible();
+  await expect(accountMenu.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await page.keyboard.press("Escape");
   if (viewportName === "desktop") {
     await expect(page.getByRole("navigation").filter({ hasText: /Dashboard/i }).first()).toBeVisible();
-  } else {
-    await expect(page.getByRole("navigation").filter({ hasText: /Setup/i }).first()).toBeVisible();
   }
 }
 

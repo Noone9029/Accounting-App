@@ -1,5 +1,14 @@
 # Remaining Roadmap
 
+## 2026-06-23 BETA-FIX-01 Controlled Beta Evidence Closure
+
+- `BETA-FIX-01` closed the two beta evidence blockers from `BETA-WALKTHROUGH-01`.
+- Required visual shards now have completed evidence: 1,077/1,077 Playwright visual tests passed by direct specs or documented splits.
+- The deployed Vercel/Supabase test walkthrough passed 23/23 non-mutating checks, including login, topbar menus, sidebar accordion, sales/quotes/contacts/purchases/banking/reconciliation/inventory/reports/documents/settings/readiness routes, placeholder honesty, and mobile/tablet quick pass.
+- Remaining low evidence gap: public/marketing/auth desktop/tablet/mobile visual fixtures remain thinner than authenticated visual coverage.
+- Recommended next prompt: `CONTROLLED-BETA-LAUNCH-01`.
+- Production launch readiness, compliance readiness, provider readiness, object-storage readiness, signed URL readiness, payment/email readiness, and live-bank-feed readiness remain unchanged and restricted.
+
 ## 2026-06-23 Redesigned Frontend Beta Walkthrough Evidence
 
 - `BETA-WALKTHROUGH-01` captured local mocked redesigned frontend beta walkthrough evidence and issue logging on branch `codex/beta-walkthrough-01`.

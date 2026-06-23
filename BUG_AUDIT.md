@@ -4,6 +4,16 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-23 BETA-FIX-01 controlled beta evidence closure
+
+- Scope: frontend visual evidence stabilization plus non-mutating live Vercel/Supabase test walkthrough on branch `codex/beta-fix-01`.
+- Closed evidence blocker: broad remaining visual suites no longer block controlled beta evidence. Required shards passed 1,077/1,077 Playwright visual tests by direct specs or documented splits; timed-out full-file attempts were not counted as passes.
+- Closed evidence blocker: live walkthrough is no longer missing. The deployed test stack was checked non-mutatively, API readiness reported `database: ok`, login succeeded, seeded reconciliation history loaded, and live walkthrough checks passed 23/23.
+- Fixed test fixture issues only: stale shell/topbar/account-menu expectations, generic compliance/settings/account/documents/list text expectations, and security/settings route collector assumptions.
+- Remaining low issue: public/marketing/auth visual fixture depth remains thin, although live login screenshot evidence now exists.
+- No product blocker or high-severity frontend bug remains from this evidence pass.
+- No hosted state, production data, provider, payment, email, storage, signed URL, compliance, ZATCA/UAE/Peppol/ASP, seed/reset/delete, migration, accounting math, report math, VAT math, inventory valuation, banking, or reconciliation behavior was changed.
+
 ## 2026-06-23 Redesigned frontend beta walkthrough evidence
 
 - Scope: local mocked frontend walkthrough evidence only on branch `codex/beta-walkthrough-01`.

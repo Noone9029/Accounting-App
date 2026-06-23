@@ -4,6 +4,30 @@ Date: 2026-06-22
 
 Base: `d12535cd2fc608797bc4664543cbbb1920379406`
 
+## BETA-FIX-01 Visual Evidence Update - 2026-06-23
+
+Base: `bbd784e482c3e250ad75795570c8bcefebdbff82`
+
+Result: required redesigned frontend beta visual evidence passed with 1,077 completed Playwright visual tests. Timed-out full-file commands were not counted as passes; timed-out files were split and rerun.
+
+| Spec used | Result | Notes |
+| --- | --- | --- |
+| `polished-workflows.visual.spec.ts` | PASS 31/31 | Refreshed current PR #214 shell/sidebar screenshots, then reran clean. |
+| `authenticated-route-hardening.visual.spec.ts` | PASS 60/60 by splits | Updated current topbar/account assertions. |
+| `quote-workflow.visual.spec.ts` | PASS 3/3 | Current quote fixture stable. |
+| `delivery-note-workflow.visual.spec.ts` | PASS 4/4 | Exact heading assertion update. |
+| `recurring-invoice-workflow.visual.spec.ts` | PASS 3/3 | No changes needed. |
+| `collections-workflow.visual.spec.ts` | PASS 3/3 | No changes needed. |
+| `refund-collections-banking-detail-polish.visual.spec.ts` | PASS 168/168 by splits | Full-file timeout split by role/viewport. |
+| `owner-settings-generated-document-storage-evidence.visual.spec.ts` | PASS 147/147 by splits | Generic compliance/settings/account fixture updates. |
+| `report-drilldown-dense-entry-visual-qa.visual.spec.ts` | PASS 147/147 | Full spec passed. |
+| `role-filtered-route-polish.visual.spec.ts` | PASS 117/117 | Full spec passed. |
+| `secondary-operational-route-polish.visual.spec.ts` | PASS 147/147 by splits | Full-file timeout split by role/route groups; stale assertions updated. |
+| `detail-states-accountant-mobile-table-review.visual.spec.ts` | PASS 154/154 | Full spec passed. |
+| `owner-security-organization-settings-visual-qa.visual.spec.ts` | PASS 93/93 | Full spec passed after settings permission and route collector fixture updates. |
+
+Known remaining visual gap: public/marketing/auth desktop/tablet/mobile visual fixtures remain thinner than authenticated route evidence, although live login screenshot evidence was captured in `BETA-FIX-01`.
+
 ## Visual Runs
 
 | Spec used | Route/family | Viewport | Result | Screenshot updated | Blocker or note |

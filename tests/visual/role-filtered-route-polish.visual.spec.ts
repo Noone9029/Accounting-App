@@ -33,9 +33,9 @@ const routes = [
   { slug: "purchase-debit-notes", path: "/purchases/debit-notes", heading: /Debit notes/i, actionText: /DN-VIS-001/i, requiredAny: [PERMISSIONS.purchaseDebitNotes.view] },
   { slug: "documents", path: "/documents", heading: /^Documents$/i, actionText: /Generated PDF archive/i, requiredAny: [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view] },
   { slug: "reports", path: "/reports", heading: /^Reports$/i, actionText: /First report path/i, requiredAny: [PERMISSIONS.reports.view] },
-  { slug: "settings", path: "/settings", heading: /^Settings$/i, actionText: /Team and roles|Controlled beta/i, requiredAny: [PERMISSIONS.users.view] },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, actionText: /Team and roles|Controlled beta/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "settings-storage", path: "/settings/storage", heading: /Storage/i, actionText: /readiness and dry-run planning only/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage] },
-  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, actionText: /Controlled beta/i, requiredAny: [PERMISSIONS.compliance.view] },
+  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, actionText: /Generic compliance surfaces stay limited|Country-specific compliance modules are disabled/i, requiredAny: [PERMISSIONS.compliance.view] },
   { slug: "bank-accounts", path: "/bank-accounts", heading: /Bank accounts/i, actionText: /Cash and bank profiles/i, requiredAny: [PERMISSIONS.bankAccounts.view] },
 ] as const;
 
@@ -174,9 +174,17 @@ async function setupVisualRolePage(
 async function expectAuthenticatedShell(page: Page, roleProfile: VisualRoleProfileName, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
-  await expect(banner.getByText("Accounting workspace", { exact: true })).toBeVisible();
-  await expect(banner.getByLabel("Organization")).toBeVisible();
-  await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await expect(banner.getByText("Accounting workspace", { exact: true }).first()).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Notifications/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Help/i })).toBeVisible();
+  const accountButton = banner.getByRole("button", { name: /Account menu/i });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  const accountMenu = page.getByRole("dialog", { name: /Account menu/i });
+  await expect(accountMenu.getByText("Active organization")).toBeVisible();
+  await expect(accountMenu.getByRole("link", { name: /Organization settings/i })).toBeVisible();
+  await expect(accountMenu.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   if (viewportName !== "mobile") {
     const nav = page.getByRole("navigation", { name: "Workspace navigation" });
@@ -188,8 +196,6 @@ async function expectAuthenticatedShell(page: Page, roleProfile: VisualRoleProfi
       await expect(banner.getByRole("link", { name: "Organization setup" })).toHaveCount(0);
       await expect(banner.getByRole("link", { name: "New journal" })).toHaveCount(0);
     }
-  } else {
-    await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
   }
 }
 

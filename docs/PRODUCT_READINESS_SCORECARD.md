@@ -4,6 +4,15 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-06-23 BETA-FIX-01 Controlled Beta Evidence Closure
+
+- Controlled beta readiness improves to `GO with restrictions` because the two remaining beta evidence blockers were closed on branch `codex/beta-fix-01` at baseline `bbd784e482c3e250ad75795570c8bcefebdbff82`.
+- Visual evidence blocker: closed with 1,077/1,077 required Playwright visual tests passing by direct specs or documented splits. Timed-out full-file commands were not counted.
+- Live walkthrough blocker: closed against the deployed Vercel/Supabase test stack. API readiness returned `database: ok`, login succeeded, seeded reconciliation history loaded, and 23/23 walkthrough checks passed.
+- No production readiness score increase is taken. This remains controlled-beta/user-testing evidence, not production launch evidence.
+- Remaining restrictions: no provider/compliance production readiness, object storage readiness, signed URL readiness, live bank feed, payment collection, real email delivery, public production launch, or public/marketing/auth visual fixture completeness claim.
+- No backend APIs, Prisma schema changes, hosted migrations, Supabase mutations, Vercel env mutations, provider calls, storage/signed URL operations, payment/email actions, seed/reset/delete behavior, accounting/report/VAT/inventory valuation/banking/reconciliation logic, or production compliance claims changed.
+
 ## 2026-06-23 Redesigned Frontend Beta Walkthrough Evidence
 
 - Controlled beta frontend confidence improves because `BETA-WALKTHROUGH-01` completed the redesigned walkthrough through local mocked route/auth/visual evidence on branch `codex/beta-walkthrough-01` at baseline `31e932920d7a488f50baffba3dd651e567b8654f`.

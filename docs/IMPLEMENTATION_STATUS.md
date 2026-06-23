@@ -2,6 +2,17 @@
 
 Audit date: 2026-06-19
 
+BETA-FIX-01 controlled beta evidence closure (2026-06-23):
+
+- `BETA-FIX-01` runs on branch `codex/beta-fix-01` from merged `origin/main` at `bbd784e482c3e250ad75795570c8bcefebdbff82`.
+- Closed the remaining visual evidence blocker by completing all required visual shards: 1,077/1,077 Playwright visual tests passed by direct specs or documented splits.
+- Closed the live walkthrough evidence blocker against the deployed Vercel/Supabase test environment: API readiness returned `database: ok`, login worked, shell menus/sidebar and core route families loaded, and the live walkthrough passed 23/23 checks.
+- Active web deployment inspected: `dpl_67sfsGb68VXWUXwrrtbjgUVN8xub` from clean commit `bbd784e482c3e250ad75795570c8bcefebdbff82`; no active `gitDirty` metadata.
+- Active API deployment inspected: `dpl_68Vxdj6FNYwXgQRdBMwqr4N3Bk1i`; API behavior was not changed in this goal.
+- Decision: `GO with restrictions` for controlled beta. Restrictions remain around production launch, provider/compliance readiness, object storage, signed URLs, live bank feeds, payments, real email, and public/marketing/auth visual fixture depth.
+- No backend API, Prisma schema, hosted migration, Supabase mutation, Vercel env mutation, provider call, storage/signed-URL operation, payment/email action, seed/reset/delete, accounting/report/VAT/inventory valuation/banking/reconciliation logic change, or production compliance claim was made.
+- Next goal is `CONTROLLED-BETA-LAUNCH-01`.
+
 Redesigned frontend beta walkthrough evidence (2026-06-23):
 
 - `BETA-WALKTHROUGH-01` runs on branch `codex/beta-walkthrough-01` from merged `origin/main` at `31e932920d7a488f50baffba3dd651e567b8654f`.

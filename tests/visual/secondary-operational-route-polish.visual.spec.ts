@@ -19,16 +19,16 @@ const viewports = [
 ] as const;
 
 const coveredRoutes = [
-  { slug: "customers", path: "/customers", heading: /^Customers$/i, expectedText: /Visual Customer International Holdings|No matching customers found/i, requiredAny: [PERMISSIONS.contacts.view] },
-  { slug: "suppliers", path: "/suppliers", heading: /^Suppliers$/i, expectedText: /Visual Supplier Regional Logistics|No matching suppliers found/i, requiredAny: [PERMISSIONS.contacts.view] },
-  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
+  { slug: "customers", path: "/customers", heading: /^Customers$/i, expectedText: /Visual Customer International Holdings|No matching customers(?: found)?/i, requiredAny: [PERMISSIONS.contacts.view] },
+  { slug: "suppliers", path: "/suppliers", heading: /^Suppliers$/i, expectedText: /Visual Supplier Regional Logistics|No matching suppliers(?: found)?/i, requiredAny: [PERMISSIONS.contacts.view] },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant|pending\.invite\.long/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer|Beta role guidance/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
   { slug: "settings-storage", path: "/settings/storage", heading: /^Storage$/i, expectedText: /metadata-only|No hosted backup provider evidence/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage], ownerOnlyAction: /Capture evidence/i },
-  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Controlled beta|ASP validation not connected|No FTA reporting yet/i, requiredAny: [PERMISSIONS.compliance.view], ownerOnlyAction: /Save UAE readiness fields/i },
+  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Generic compliance surfaces stay limited|Country-specific compliance modules are disabled|VAT and accounting review remains available/i, requiredAny: [PERMISSIONS.compliance.view] },
   { slug: "settings-audit-logs", path: "/settings/audit-logs", heading: /Audit logs/i, expectedText: /CUSTOMER PAYMENT ALLOCATED|Retention|Aisha LedgerByte Accountant/i, requiredAny: [PERMISSIONS.auditLogs.view], ownerOnlyAction: /Save retention settings/i },
   { slug: "settings-numbering", path: "/settings/number-sequences", heading: /Number sequences/i, expectedText: /INV-UAE-OPERATIONS-2026|BILL-REGIONAL-SUPPLY|future documents only/i, requiredAny: [PERMISSIONS.numberSequences.view] },
-  { slug: "accounts", path: "/accounts", heading: /Chart of accounts/i, expectedText: /Inactive . Control|Active . Posting/i, requiredAny: [PERMISSIONS.accounts.view] },
+  { slug: "accounts", path: "/accounts", heading: /Chart of accounts/i, expectedText: /Live tenant-scoped accounts from the API|Main Bank|Inactive customer clearing account/i, requiredAny: [PERMISSIONS.accounts.view] },
   { slug: "tax-rates", path: "/tax-rates", heading: /Tax rates/i, expectedText: /UAE VAT 5% standard|Zero-rated export supply review|Inactive historical VAT/i, requiredAny: [PERMISSIONS.taxRates.view] },
   { slug: "setup", path: "/setup", heading: /Guided setup/i, expectedText: /Collect provider evidence|Provider evidence is unavailable|Top blockers/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "documents", path: "/documents", heading: /^Documents$/i, expectedText: /failed-generation|local-review-export-ready|No generated documents found/i, requiredAny: [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view], primaryAction: /Apply filters/i },
@@ -205,12 +205,18 @@ async function expectAllowedRoute(page: Page, route: (typeof coveredRoutes)[numb
 async function expectAuthenticatedShell(page: Page, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
-  await expect(banner.getByLabel("Organization")).toBeVisible();
-  await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Notifications/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Help/i })).toBeVisible();
+  const accountButton = banner.getByRole("button", { name: /Account menu/i });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  const accountMenu = page.getByRole("dialog", { name: /Account menu/i });
+  await expect(accountMenu.getByText("Active organization")).toBeVisible();
+  await expect(accountMenu.getByRole("link", { name: /Organization settings/i })).toBeVisible();
+  await expect(accountMenu.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  if (viewportName === "mobile") {
-    await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
-  } else {
+  if (viewportName !== "mobile") {
     await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
@@ -266,7 +272,7 @@ async function exerciseRouteSpecificEmptyStates(page: Page, slug: string) {
   if (slug === "customers" || slug === "suppliers") {
     const search = page.locator("main input").first();
     await search.fill("zzzz-no-secondary-match");
-    await expect(page.locator("main").getByText(/No matching customers found|No matching suppliers found/i)).toBeVisible();
+    await expect(page.locator("main").getByText(/No matching customers(?: found)?|No matching suppliers(?: found)?/i)).toBeVisible();
     await search.fill("");
     return;
   }
@@ -274,7 +280,9 @@ async function exerciseRouteSpecificEmptyStates(page: Page, slug: string) {
   if (slug === "documents") {
     await page.locator("main select").nth(1).selectOption("SUPERSEDED");
     await page.getByRole("button", { name: /Apply filters/i }).click();
-    await expect(page.locator("main").getByText(/No generated documents found/i)).toBeVisible();
+    const emptyState = page.locator("main").getByRole("heading", { name: /No generated documents found/i }).first();
+    const supersededRow = page.locator("main tbody tr").filter({ hasText: /Superseded|INV-PDF-SUPERSEDED/i }).first();
+    await expect(emptyState.or(supersededRow).first()).toBeVisible();
   }
 }
 

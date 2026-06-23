@@ -55,7 +55,7 @@ test("delivery note list create edit lifecycle PDF archive global search and cus
   const state = await installDeliveryNoteWorkflowMocks(page);
 
   await page.goto("/sales/delivery-notes");
-  await expect(page.getByRole("heading", { name: "Delivery notes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delivery notes", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create delivery note" })).toBeVisible();
   await expectDeliveryNotePageUsesSafeLabels(page);
 
@@ -242,7 +242,7 @@ test("restricted delivery note viewer and blocked statuses hide unsafe actions",
   });
 
   await page.goto("/sales/delivery-notes");
-  await expect(page.getByRole("heading", { name: "Delivery notes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delivery notes", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Create delivery note" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Create" }).click();
