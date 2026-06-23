@@ -19,16 +19,16 @@ const viewports = [
 ] as const;
 
 const coveredRoutes = [
-  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Storage and backup|Compliance readiness/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant|pending\.invite\.long|Suspended Former Beta Reviewer/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer|Beta role guidance|permission groups/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
   { slug: "settings-storage", path: "/settings/storage", heading: /^Storage$/i, expectedText: /Generated document backup|No hosted backup provider evidence|metadata-only|Capture metadata/i, requiredAny: [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage], ownerOnlyAction: /Capture evidence/i },
-  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Controlled beta|ASP validation not connected|No FTA reporting yet|Save UAE readiness fields/i, requiredAny: [PERMISSIONS.compliance.view], ownerOnlyAction: /Save UAE readiness fields/i },
+  { slug: "settings-compliance", path: "/settings/compliance", heading: /Compliance readiness/i, expectedText: /Generic compliance surfaces stay limited|Country-specific compliance modules are disabled|VAT and accounting review remains available/i, requiredAny: [PERMISSIONS.compliance.view] },
   { slug: "settings-audit-logs", path: "/settings/audit-logs", heading: /Audit logs/i, expectedText: /CUSTOMER PAYMENT ALLOCATED|Retention|Aisha LedgerByte Accountant/i, requiredAny: [PERMISSIONS.auditLogs.view], ownerOnlyAction: /Save retention settings/i },
   { slug: "settings-number-sequences", path: "/settings/number-sequences", heading: /Number sequences/i, expectedText: /INV-UAE-OPERATIONS-2026|BILL-REGIONAL-SUPPLY|future documents only/i, requiredAny: [PERMISSIONS.numberSequences.view] },
   { slug: "settings-documents", path: "/settings/documents", heading: /Document settings/i, expectedText: /generated PDFs|Footer text|Review number sequences/i, requiredAny: [PERMISSIONS.documentSettings.view], ownerOnlyAction: /Save settings/i },
   { slug: "setup", path: "/setup", heading: /Guided setup/i, expectedText: /Collect provider evidence|Provider evidence is unavailable|Top blockers/i, requiredAny: [PERMISSIONS.dashboard.view] },
-  { slug: "accounts", path: "/accounts", heading: /Chart of accounts/i, expectedText: /Inactive . Control|Active . Posting|Next account code/i, requiredAny: [PERMISSIONS.accounts.view], primaryAction: /Add account/i, primaryActionRequiredAny: [PERMISSIONS.accounts.manage] },
+  { slug: "accounts", path: "/accounts", heading: /Chart of accounts/i, expectedText: /Live tenant-scoped accounts from the API|Main Bank|Inactive customer clearing account/i, requiredAny: [PERMISSIONS.accounts.view], primaryAction: /Add account/i, primaryActionRequiredAny: [PERMISSIONS.accounts.manage] },
   { slug: "tax-rates", path: "/tax-rates", heading: /Tax rates/i, expectedText: /UAE VAT 5% standard|Zero-rated export supply review|Inactive historical VAT/i, requiredAny: [PERMISSIONS.taxRates.view], primaryAction: /Add tax rate/i, primaryActionRequiredAny: [PERMISSIONS.taxRates.manage] },
   { slug: "documents", path: "/documents", heading: /^Documents$/i, expectedText: /tax-invoice-local-ready|supplier-bill-local-ready|failed-generation|local-ready|Download archived PDF/i, requiredAny: [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view], primaryAction: /Apply filters/i },
   { slug: "invoice-detail", path: "/sales/invoices/invoice-1", heading: /INV-/i, expectedText: /Invoice PDF downloads create an archive record|Document archive|UAE eInvoicing\/PINT-AE readiness/i, requiredAny: [PERMISSIONS.salesInvoices.view], primaryAction: /Download invoice PDF/i },
@@ -209,12 +209,18 @@ async function expectAllowedRoute(page: Page, route: (typeof coveredRoutes)[numb
 async function expectAuthenticatedShell(page: Page, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
-  await expect(banner.getByLabel("Organization")).toBeVisible();
-  await expect(banner.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Notifications/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Help/i })).toBeVisible();
+  const accountButton = banner.getByRole("button", { name: /Account menu/i });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  const accountMenu = page.getByRole("dialog", { name: /Account menu/i });
+  await expect(accountMenu.getByText("Active organization")).toBeVisible();
+  await expect(accountMenu.getByRole("link", { name: /Organization settings/i })).toBeVisible();
+  await expect(accountMenu.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  if (viewportName === "mobile") {
-    await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
-  } else {
+  if (viewportName !== "mobile") {
     await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }

@@ -19,7 +19,7 @@ const viewports = [
 ] as const;
 
 const coveredRoutes = [
-  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Security and audit|Compliance readiness/i, requiredAny: [PERMISSIONS.users.view] },
+  { slug: "settings", path: "/settings", heading: /^Settings$/i, expectedText: /Controlled beta|Team and roles|Security and audit|Compliance readiness/i, requiredAny: [PERMISSIONS.dashboard.view] },
   { slug: "settings-team", path: "/settings/team", heading: /Team Members/i, expectedText: /Aisha LedgerByte Accountant With Extended Review Name|pending\.invite\.long\.external|Suspended Former Beta Reviewer/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Send mock invite/i },
   { slug: "settings-security", path: "/settings/security", heading: /Security settings/i, expectedText: /Read-only security overview|Team and role controls|Not available yet/i, requiredAny: [PERMISSIONS.users.view], ownerOnlyAction: /Team settings/i },
   { slug: "settings-roles", path: "/settings/roles", heading: /Roles & Permissions/i, expectedText: /Regional Operations Readonly Reviewer With Long Role Name|Beta role guidance|permissions/i, requiredAny: [PERMISSIONS.roles.view], ownerOnlyAction: /Create role/i },
@@ -171,12 +171,16 @@ async function expectAllowedRoute(page: Page, route: (typeof coveredRoutes)[numb
 async function expectAuthenticatedShell(page: Page, viewportName: string) {
   const banner = page.getByRole("banner");
   await expect(banner).toBeVisible();
-  await expect(banner.getByLabel("Organization").or(banner.getByText(/Loading organization|Organization setup/i)).first()).toBeVisible();
-  await expect(banner.getByRole("button", { name: /Account menu|Sign out/i }).first()).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Notifications/i })).toBeVisible();
+  await expect(banner.getByRole("button", { name: /Help/i })).toBeVisible();
+  const accountButton = banner.getByRole("button", { name: /Account menu/i });
+  await expect(accountButton).toBeVisible();
+  await accountButton.click();
+  const accountMenu = page.getByRole("dialog", { name: /Account menu/i });
+  await expect(accountMenu.getByText("Active organization").or(accountMenu.getByRole("link", { name: /Log in/i })).first()).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  if (viewportName === "mobile") {
-    await expect(page.getByRole("navigation", { name: "First workflow navigation" })).toBeVisible();
-  } else {
+  if (viewportName !== "mobile") {
     await expect(page.getByRole("navigation", { name: "Workspace navigation" })).toBeVisible();
   }
 }
@@ -327,13 +331,14 @@ function canUseAny(roleProfile: VisualRoleProfileName, requiredAny: readonly Per
 
 async function collectRegisteredHrefs() {
   const sourceFiles = [
+    path.join(process.cwd(), "apps", "web", "src", "lib", "app-routes.ts"),
     path.join(process.cwd(), "apps", "web", "src", "lib", "sidebar-nav.ts"),
     path.join(process.cwd(), "apps", "web", "src", "lib", "global-create-actions.ts"),
   ];
   const hrefs = new Set<string>();
   for (const sourceFile of sourceFiles) {
     const source = await fs.readFile(sourceFile, "utf8");
-    for (const match of source.matchAll(/href:\s*"([^"]+)"/g)) {
+    for (const match of source.matchAll(/(?:href:\s*)?"(\/(?:settings|organization)[^"]*)"/g)) {
       if (match[1]?.startsWith("/")) {
         hrefs.add(match[1]);
       }

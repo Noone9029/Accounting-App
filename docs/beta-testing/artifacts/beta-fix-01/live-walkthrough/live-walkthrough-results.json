@@ -1,0 +1,175 @@
+{
+  "base": "https://ledgerbyte-web-test.vercel.app",
+  "generatedAt": "2026-06-23T07:01:09.932Z",
+  "results": [
+    {
+      "name": "Login",
+      "status": "pass",
+      "route": "/login",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/02-dashboard-after-login.png"
+    },
+    {
+      "name": "Topbar Notifications",
+      "status": "pass",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/03-topbar-notifications.png"
+    },
+    {
+      "name": "Topbar Help",
+      "status": "pass",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/04-topbar-help.png"
+    },
+    {
+      "name": "Topbar Account menu",
+      "status": "pass",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/05-topbar-account.png"
+    },
+    {
+      "name": "Sidebar accordion",
+      "status": "pass",
+      "screenshots": [
+        "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/06-sidebar-sales-expanded.png",
+        "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/07-sidebar-purchases-expanded.png"
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "status": "pass",
+      "route": "/dashboard",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-dashboard.png"
+    },
+    {
+      "name": "Sales invoices",
+      "status": "pass",
+      "route": "/sales/invoices",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-sales-invoices.png"
+    },
+    {
+      "name": "Quotes",
+      "status": "pass",
+      "route": "/sales/quotes",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-quotes.png"
+    },
+    {
+      "name": "Customers",
+      "status": "pass",
+      "route": "/customers",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-customers.png"
+    },
+    {
+      "name": "Suppliers",
+      "status": "pass",
+      "route": "/suppliers",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-suppliers.png"
+    },
+    {
+      "name": "Purchases AP",
+      "status": "pass",
+      "route": "/purchases/bills",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-purchases-ap.png"
+    },
+    {
+      "name": "Banking accounts",
+      "status": "pass",
+      "route": "/bank-accounts",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-banking-accounts.png"
+    },
+    {
+      "name": "Known reconciliation history",
+      "status": "pass",
+      "route": "/bank-accounts/00000000-0000-0000-0000-000000002112/reconciliations",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-known-reconciliation-history.png"
+    },
+    {
+      "name": "Inventory",
+      "status": "pass",
+      "route": "/items",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-inventory.png"
+    },
+    {
+      "name": "Reports",
+      "status": "pass",
+      "route": "/reports",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-reports.png"
+    },
+    {
+      "name": "Documents",
+      "status": "pass",
+      "route": "/documents",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-documents.png"
+    },
+    {
+      "name": "Settings",
+      "status": "pass",
+      "route": "/settings",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-settings.png"
+    },
+    {
+      "name": "Storage readiness",
+      "status": "pass",
+      "route": "/settings/storage",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-storage-readiness.png"
+    },
+    {
+      "name": "Compliance readiness",
+      "status": "pass",
+      "route": "/settings/compliance",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-compliance-readiness.png"
+    },
+    {
+      "name": "Setup readiness",
+      "status": "pass",
+      "route": "/setup",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-setup-readiness.png"
+    },
+    {
+      "name": "Placeholder honesty",
+      "status": "pass",
+      "route": "/settings/security",
+      "httpStatus": 200,
+      "expectedTextSeen": true,
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/route-placeholder-honesty.png"
+    },
+    {
+      "name": "Tablet quick pass",
+      "status": "pass",
+      "route": "/dashboard",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/tablet-dashboard.png"
+    },
+    {
+      "name": "Mobile quick pass",
+      "status": "pass",
+      "route": "/dashboard",
+      "screenshot": "docs/beta-testing/artifacts/beta-fix-01/live-walkthrough/mobile-dashboard.png"
+    }
+  ]
+}
