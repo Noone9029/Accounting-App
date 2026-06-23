@@ -4,6 +4,7 @@ import {
   Archive,
   BarChart3,
   Calculator,
+  ChevronDown,
   FileText,
   Landmark,
   Menu,
@@ -15,13 +16,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { getLedgerByteEdition } from "@/lib/edition";
-import { filterSidebarNavItems } from "@/lib/sidebar-nav";
+import { filterSidebarNavItems, type SidebarNavChild, type SidebarNavItem } from "@/lib/sidebar-nav";
 import { getMobileShellRoutes } from "@/lib/app-routes";
 import { canViewNavItem } from "@/lib/permissions";
 import { GlobalCreateMenu } from "./global-create-menu";
@@ -50,7 +52,13 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
   const pathname = usePathname();
   const { activeMembership } = usePermissions();
   const edition = getLedgerByteEdition();
-  const visibleItems = filterSidebarNavItems(activeMembership);
+  const visibleItems = useMemo(() => filterSidebarNavItems(activeMembership), [activeMembership]);
+  const activeCategoryHref = useMemo(() => activeExpandableHref(visibleItems, pathname), [pathname, visibleItems]);
+  const [openCategoryHref, setOpenCategoryHref] = useState<string | null>(() => activeCategoryHref);
+
+  useEffect(() => {
+    setOpenCategoryHref(activeCategoryHref);
+  }, [activeCategoryHref]);
 
   return (
     <aside className={`${compact ? "h-full w-full" : "h-screen w-72"} flex shrink-0 flex-col bg-sidebar text-slate-100`}>
@@ -77,44 +85,20 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
         <nav className="px-3 py-4" aria-label="Workspace navigation">
           <div className="flex flex-col gap-1">
           {visibleItems.map((item, itemIndex) => {
-            const Icon = iconsByHref[item.href];
-            const activeBase = item.activePrefix ?? item.href;
-            const childActive = Boolean(item.children?.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`)));
-            const active = pathname === item.href || pathname.startsWith(`${activeBase}/`) || childActive;
             const section = sidebarSectionLabel(item.label);
             const previousItem = visibleItems[itemIndex - 1];
             const showSection = !previousItem || sidebarSectionLabel(previousItem.label) !== section;
+            const isExpanded = openCategoryHref === item.href;
             return (
               <div key={item.href}>
                 {showSection ? <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{section}</div> : null}
-                <Link
-                  href={item.href}
-                  className={`ledger-focus flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                    active ? "bg-blue-400/15 text-white ring-1 ring-blue-300/20" : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
-                  }`}
-                >
-                  {Icon ? <Icon className="size-4" aria-hidden="true" /> : null}
-                  <span>{item.label}</span>
-                </Link>
-                {item.children && item.children.length > 0 ? (
-                  <div className="mb-2 ml-5 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3">
-                    {item.children.map((child, index) => (
-                      <div key={`${child.group ?? "default"}-${child.href}-${child.label}`}>
-                        {child.group && child.group !== item.children?.[index - 1]?.group ? (
-                          <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{child.group}</div>
-                        ) : null}
-                        <Link
-                          href={child.href}
-                          className={`ledger-focus block rounded-md px-2 py-1.5 text-xs transition-colors ${
-                            pathname === child.href ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/[0.08] hover:text-white"
-                          }`}
-                        >
-                          {child.label}
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                <SidebarNavItemRow
+                  item={item}
+                  pathname={pathname}
+                  expanded={isExpanded}
+                  compact={compact}
+                  onToggle={() => setOpenCategoryHref((currentHref) => (currentHref === item.href ? null : item.href))}
+                />
               </div>
             );
           })}
@@ -126,6 +110,106 @@ function SidebarContent({ compact = false }: Readonly<{ compact?: boolean }>) {
       </div>
     </aside>
   );
+}
+
+function SidebarNavItemRow({
+  compact,
+  expanded,
+  item,
+  onToggle,
+  pathname,
+}: {
+  compact: boolean;
+  expanded: boolean;
+  item: SidebarNavItem;
+  onToggle: () => void;
+  pathname: string;
+}) {
+  const Icon = iconsByHref[item.href];
+  const children = expandableChildren(item);
+  const hasChildren = children.length > 0;
+  const active = isItemActive(item, pathname);
+  const panelId = navPanelId(item.href, compact ? "mobile" : "desktop");
+
+  if (!hasChildren) {
+    return (
+      <Link
+        href={item.href}
+        className={`ledger-focus flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          active ? "bg-blue-400/15 text-white ring-1 ring-blue-300/20" : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
+        }`}
+      >
+        {Icon ? <Icon className="size-4 shrink-0" aria-hidden="true" /> : null}
+        <span className="min-w-0">{item.label}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={onToggle}
+        className={`ledger-focus flex min-h-9 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+          active || expanded ? "bg-blue-400/15 text-white ring-1 ring-blue-300/20" : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
+        }`}
+      >
+        {Icon ? <Icon className="size-4 shrink-0" aria-hidden="true" /> : null}
+        <span className="min-w-0 flex-1">{item.label}</span>
+        <ChevronDown className={`size-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {expanded ? (
+        <div id={panelId} className="mb-2 ml-5 mt-1 flex flex-col gap-1 border-l border-white/10 pl-3">
+          {children.map((child, index) => {
+            const childActive = isHrefActive(pathname, child.href);
+            return (
+              <div key={`${child.group ?? "default"}-${child.href}-${child.label}`}>
+                {child.group && child.group !== children[index - 1]?.group ? (
+                  <div className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{child.group}</div>
+                ) : null}
+                <Link
+                  href={child.href}
+                  className={`ledger-focus block rounded-md px-2 py-1.5 text-xs transition-colors ${
+                    childActive ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/[0.08] hover:text-white"
+                  }`}
+                >
+                  {child.label}
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function expandableChildren(item: SidebarNavItem): readonly SidebarNavChild[] {
+  const children = item.children ?? [];
+  if (children.length === 0 || children.some((child) => child.href === item.href)) {
+    return children;
+  }
+
+  return [{ label: `${item.label} overview`, href: item.href, requiredAny: item.requiredAny ?? [] }, ...children];
+}
+
+function activeExpandableHref(items: readonly SidebarNavItem[], pathname: string): string | null {
+  return items.find((item) => expandableChildren(item).length > 0 && isItemActive(item, pathname))?.href ?? null;
+}
+
+function isItemActive(item: SidebarNavItem, pathname: string): boolean {
+  const activeBase = item.activePrefix ?? item.href;
+  return isHrefActive(pathname, item.href) || pathname.startsWith(`${activeBase}/`) || expandableChildren(item).some((child) => isHrefActive(pathname, child.href));
+}
+
+function isHrefActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function navPanelId(href: string, scope: "desktop" | "mobile"): string {
+  return `${scope}-sidebar-panel-${href.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function sidebarSectionLabel(label: string): string {

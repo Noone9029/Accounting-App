@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { MobileWorkflowNav, Sidebar } from "./sidebar";
 import { sidebarNavItemsForMarket } from "@/lib/sidebar-nav";
@@ -78,6 +78,69 @@ describe("sidebar create shortcut", () => {
     expect(screen.getByText("Operations")).toBeInTheDocument();
     expect(screen.getByText("Review")).toBeInTheDocument();
     expect(screen.getByText("Administration")).toBeInTheDocument();
+  });
+
+  it("keeps module children collapsed until a category is opened", () => {
+    render(<Sidebar />);
+
+    expect(screen.getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sales" }));
+
+    expect(screen.getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/sales/invoices");
+    expect(screen.getByRole("link", { name: "Credit notes" })).toHaveAttribute("href", "/sales/credit-notes");
+  });
+
+  it("keeps only one expandable category open at a time", () => {
+    render(<Sidebar />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sales" }));
+    expect(screen.getByRole("link", { name: "Invoices" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Purchases" }));
+
+    expect(screen.getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Purchases" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Bills" })).toHaveAttribute("href", "/purchases/bills");
+  });
+
+  it("auto-expands the category for the current route", () => {
+    mockPathname = "/sales/quotes";
+
+    render(<Sidebar />);
+
+    expect(screen.getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Quotes" })).toHaveAttribute("href", "/sales/quotes");
+  });
+
+  it("keeps permission-filtered children hidden from expanded categories", () => {
+    mockActiveMembership = { role: { permissions: ["salesInvoices.view"] } };
+
+    render(<Sidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "Sales" }));
+
+    expect(screen.getByRole("link", { name: "Invoices" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Quotes" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Credit notes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Customer payments" })).not.toBeInTheDocument();
+  });
+
+  it("uses collapsed module categories in the mobile navigation drawer", () => {
+    render(<MobileWorkflowNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const drawerNav = screen.getByRole("navigation", { name: "Workspace navigation" });
+
+    expect(within(drawerNav).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(drawerNav).queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(drawerNav).getByRole("button", { name: "Sales" }));
+
+    expect(within(drawerNav).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(drawerNav).getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/sales/invoices");
   });
 });
 

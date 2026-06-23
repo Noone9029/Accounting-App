@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { clearSession, getAccessToken, setActiveOrganizationId } from "@/lib/api";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { PERMISSIONS } from "@/lib/permissions";
 
-export function OrganizationSwitcher() {
-  const { activeMembership, error, loading, user } = usePermissions();
+interface AccountMenuContentProps {
+  onAction?: () => void;
+}
+
+export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
+  const router = useRouter();
+  const { activeMembership, can, error, loading, user } = usePermissions();
   const organizations = useMemo(() => user?.memberships.map((membership) => membership.organization) ?? [], [user]);
   const activeId = activeMembership?.organization.id ?? "";
 
@@ -16,39 +23,47 @@ export function OrganizationSwitcher() {
   );
 
   if (loading) {
-    return <div className="text-xs text-steel">Loading organization...</div>;
+    return <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-steel">Loading account...</div>;
   }
 
   if (!getAccessToken()) {
     return (
-      <Link href="/login" className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <Link href="/login" onClick={onAction} className="ledger-focus block rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
         Log in
       </Link>
     );
   }
 
   if (error) {
-    return <div className="max-w-72 truncate text-xs text-rosewood">{error}</div>;
+    return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-rosewood">{error}</div>;
   }
 
   if (organizations.length === 0) {
     return (
-      <Link href="/organization/setup" className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <Link href="/organization/setup" onClick={onAction} className="ledger-focus block rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
         Create organization
       </Link>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-      <label className="flex min-w-0 flex-col gap-1 text-xs text-steel sm:flex-row sm:items-center sm:gap-2">
-        <span>Organization</span>
+    <div className="space-y-4">
+      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+        <div className="text-sm font-semibold text-ink">{user?.name || user?.email}</div>
+        <div className="mt-0.5 truncate text-xs text-steel">{user?.email}</div>
+        <div className="mt-2 text-xs text-steel">
+          {activeMembership?.role.name ? <span>{activeMembership.role.name}</span> : null}
+          {activeOrganization ? <span> · {activeOrganization.baseCurrency} · {activeOrganization.countryCode}</span> : null}
+        </div>
+      </div>
+      <label className="block text-xs font-semibold uppercase tracking-wide text-steel">
+        <span>Active organization</span>
         <select
           value={activeId}
           onChange={(event) => {
             setActiveOrganizationId(event.target.value);
           }}
-          className="w-full min-w-0 rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15 sm:min-w-48"
+          className="mt-1 w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
         >
           {organizations.map((organization) => (
             <option key={organization.id} value={organization.id}>
@@ -57,19 +72,39 @@ export function OrganizationSwitcher() {
           ))}
         </select>
       </label>
-      <div className="hidden max-w-44 truncate text-xs text-steel lg:block">
-        {activeOrganization?.baseCurrency} · {activeOrganization?.countryCode}
+      <div className="grid gap-2">
+        <Link
+          href="/organization/setup"
+          onClick={onAction}
+          className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Organization settings
+        </Link>
+        {can(PERMISSIONS.users.view) ? (
+          <Link
+            href="/settings/team"
+            onClick={onAction}
+            className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Users and roles
+          </Link>
+        ) : null}
       </div>
       <button
         type="button"
         onClick={() => {
           clearSession();
-          window.location.href = "/login";
+          onAction?.();
+          router.replace("/login");
         }}
-        className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="ledger-focus w-full rounded-md border border-line px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
         Sign out
       </button>
     </div>
   );
+}
+
+export function OrganizationSwitcher() {
+  return <AccountMenuContent />;
 }
