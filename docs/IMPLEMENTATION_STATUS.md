@@ -2,6 +2,16 @@
 
 Audit date: 2026-06-19
 
+Redesigned frontend beta walkthrough evidence (2026-06-23):
+
+- `BETA-WALKTHROUGH-01` runs on branch `codex/beta-walkthrough-01` from merged `origin/main` at `31e932920d7a488f50baffba3dd651e567b8654f`.
+- Added local beta walkthrough results and issue-log evidence in `docs/beta-testing/BETA_WALKTHROUGH_01_RESULTS.md` and `docs/beta-testing/BETA_WALKTHROUGH_ISSUE_LOG.md`.
+- Completed local mocked route/auth/visual coverage for the redesigned walkthrough: 23 Jest tests and 272 completed Playwright visual tests passed after fixes.
+- Fixed a confirmed frontend-only tablet overflow on `/bank-accounts/[id]/reconciliations`; refreshed the quote visual fixture to match current related lookup behavior.
+- Remaining blocker is evidence, not a known product regression: broad remaining visual suites timed out before usable output, and no safe disposable live demo org/API walkthrough was run.
+- No backend API, Prisma schema, hosted state, provider, storage, signed URL, accounting/report/VAT/inventory valuation/banking behavior, email, payment, deployment, seed/reset/delete, migration, or compliance production behavior changed.
+- Next goal is `BETA-FIX-01`.
+
 Frontend redesign full-stack merge and stabilization (2026-06-22):
 
 - Merged the complete frontend redesign PR stack #146 through #210 into `main`; final merged stack SHA is `cb34543d16389344ba45e69a2db277fce4c633ad`.

@@ -4,6 +4,15 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-06-23 Redesigned frontend beta walkthrough evidence
+
+- Scope: local mocked frontend walkthrough evidence only on branch `codex/beta-walkthrough-01`.
+- Closed bug: `/bank-accounts/[id]/reconciliations` created document-level horizontal overflow at tablet width because its closed-period history panel switched to horizontal layout at `lg`. The fix keeps that panel stacked until `xl`.
+- Closed test fixture issue: quote workflow visual coverage was stale after redesigned quote/detail routes added related delivery and collection lookups. The fixture now covers those safe empty responses and uses exact page-heading assertions.
+- Evidence: 23 Jest tests passed; completed Playwright visual commands passed 272 tests after the fixes, including the full quote/delivery/recurring/collections/refund/banking batch at 181/181.
+- Remaining blocker: broad owner/settings/report/detail/secondary/role visual suite attempts timed out before usable output, and no safe disposable live demo org/API walkthrough was run. Track this in `BETA-FIX-01`.
+- No hosted state, production data, provider, payment, email, storage, signed URL, compliance, ZATCA/UAE/Peppol/ASP, seed/reset/delete, migration, accounting math, report math, VAT math, inventory valuation, or banking behavior was changed.
+
 ## 2026-06-19 Complete generated-document object adapter staging approval artifact intake
 
 - Evaluated the follow-up complete approval-artifact prompt after PR #87. Every required approval artifact field remained a placeholder or absent.
