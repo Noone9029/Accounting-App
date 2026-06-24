@@ -145,6 +145,7 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
       { key: "settings.numbering" },
       { key: "settings.documents" },
       { key: "settings.storage" },
+      { key: "settings.dataManagement" },
       { key: "settings.compliance" },
       { key: "settings.security" },
       { key: "settings.compliance", label: "API / provider setup" },
