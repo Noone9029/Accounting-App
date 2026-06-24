@@ -50,6 +50,12 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/dashboard/summary` | Business overview dashboard summary | Yes | Yes | Implemented | Requires `dashboard.view`; returns read-only sales, purchases, banking, inventory, report health, compliance/admin counts, attention items, last-six-month trend arrays, AR/AP aging buckets, cash balance trend points, and low-stock items for the active organization. Creates no journals and changes no accounting state. |
 
+## Automation
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/automation/proposal-boundary` | Automation and AI proposal boundary | Yes | Yes | Groundwork | Requires `dashboard.view`; read-only/no-mutation; reports proposal-only mode, human-confirmation and audit requirements, and blocked automatic posting/provider/hosted/compliance actions without executing automation, sending email, mutating providers, or making production-readiness claims. |
+
 ## Organizations
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
