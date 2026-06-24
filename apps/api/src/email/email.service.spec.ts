@@ -189,6 +189,89 @@ describe("EmailService", () => {
     expect(prisma.emailOutbox.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "email-1", organizationId: "org-1" } }));
   });
 
+  it("builds a read-only notification center summary without sending email or mutating outbox", async () => {
+    const { service, prisma, provider, audit } = makeService();
+    prisma.emailOutbox.count
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(5);
+    prisma.emailProviderEvent.count
+      .mockResolvedValueOnce(6)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(3);
+    prisma.emailSuppression.count.mockResolvedValue(7);
+    prisma.emailOutbox.findMany.mockResolvedValue([
+      {
+        id: "email-1",
+        templateType: EmailTemplateType.ORGANIZATION_INVITE,
+        status: EmailDeliveryStatus.QUEUED,
+        provider: "mock",
+        providerEventStatus: null,
+        attemptCount: 0,
+        maxAttempts: 3,
+        nextAttemptAt: null,
+        lastAttemptAt: null,
+        bouncedAt: null,
+        complainedAt: null,
+        deliveredAt: null,
+        createdAt: new Date("2026-05-15T00:00:00.000Z"),
+        updatedAt: new Date("2026-05-15T00:00:00.000Z"),
+      },
+    ]);
+
+    const summary = await service.notificationCenterSummary("org-1");
+
+    expect(summary).toMatchObject({
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      productionReady: false,
+      outboxCounts: {
+        queuedCount: 4,
+        sentMockCount: 3,
+        sentProviderCount: 2,
+        failedCount: 1,
+        dueRetryCount: 5,
+      },
+      providerEventCounts: {
+        deliveredCount: 6,
+        bouncedCount: 2,
+        complainedCount: 1,
+        failedEventCount: 3,
+      },
+      activeSuppressionCount: 7,
+      recentItems: [
+        expect.objectContaining({
+          id: "email-1",
+          templateType: EmailTemplateType.ORGANIZATION_INVITE,
+          status: EmailDeliveryStatus.QUEUED,
+        }),
+      ],
+      reviewNotice: expect.stringContaining("read-only"),
+    });
+    expect(summary.blockedActions.some((action) => action.includes("No email"))).toBe(true);
+    expect(summary.blockedActions.some((action) => action.includes("No retry"))).toBe(true);
+    expect(summary.blockedActions.some((action) => action.includes("No provider"))).toBe(true);
+    expect(JSON.stringify(summary)).not.toContain("customer@example.com");
+    expect(JSON.stringify(summary)).not.toContain("bodyText");
+    expect(JSON.stringify(summary)).not.toContain("bodyHtml");
+    expect(prisma.emailOutbox.count).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", status: EmailDeliveryStatus.QUEUED } }));
+    expect(prisma.emailProviderEvent.count).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", eventType: "DELIVERED" } }));
+    expect(prisma.emailOutbox.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1" },
+        select: expect.not.objectContaining({ toEmail: true, bodyText: true, bodyHtml: true }),
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.update).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it("returns provider readiness without secrets", async () => {
     const { service } = makeService({
       config: {

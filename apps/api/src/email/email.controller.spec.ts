@@ -34,6 +34,9 @@ describe("EmailController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).createApGeneratedDocumentOutbox)).toEqual([
       PERMISSIONS.emailOutbox.view,
     ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, (EmailController.prototype as any).notificationCenterSummary)).toEqual([
+      PERMISSIONS.emailOutbox.view,
+    ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.getOutbox)).toEqual([PERMISSIONS.emailOutbox.view]);
   });
