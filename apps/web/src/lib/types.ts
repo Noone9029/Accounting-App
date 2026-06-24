@@ -777,6 +777,45 @@ export interface InvitationPreviewResponse {
   consumed?: boolean;
 }
 
+export type DataExportManifestScopeKey =
+  | "organizationProfile"
+  | "accounts"
+  | "contacts"
+  | "items"
+  | "taxRates"
+  | "numberSequences"
+  | "generatedDocuments"
+  | "auditLogs";
+
+export interface DataExportManifestScope {
+  key: DataExportManifestScopeKey;
+  label: string;
+  permission: string;
+  requiresPermission: string;
+  exportFormat: "json" | string;
+  includes: string[];
+  excludes: string[];
+  state: "PLANNED" | string;
+  recordCount: number;
+}
+
+export interface DataExportManifestBlockedAction {
+  action: "downloadFullArchive" | "importData" | "backupRestore" | "providerSync" | string;
+  reason: string;
+}
+
+export interface DataExportManifest {
+  manifestVersion: string;
+  generatedAt: string;
+  organizationId: string;
+  status: "PLAN_ONLY" | string;
+  mode: "METADATA_MANIFEST_ONLY" | string;
+  exportNotStarted: boolean;
+  scopes: DataExportManifestScope[];
+  blockedActions: DataExportManifestBlockedAction[];
+  notes: string[];
+}
+
 export interface EmailOutboxEntry {
   id: string;
   organizationId: string | null;
