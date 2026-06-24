@@ -55,6 +55,12 @@ export class SalesInvoiceController {
     return this.salesInvoiceService.get(organizationId, id);
   }
 
+  @Get(":id/workflow-summary")
+  @RequirePermissions(PERMISSIONS.salesInvoices.view)
+  workflowSummary(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesInvoiceService.workflowSummary(organizationId, id);
+  }
+
   @Get(":id/pdf-data")
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
