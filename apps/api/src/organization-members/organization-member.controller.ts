@@ -24,6 +24,12 @@ export class OrganizationMemberController {
     return this.organizationMemberService.list(organizationId);
   }
 
+  @Get("workspace-summary")
+  @RequirePermissions(PERMISSIONS.users.view)
+  workspaceSummary(@CurrentOrganizationId() organizationId: string) {
+    return this.organizationMemberService.workspaceSummary(organizationId);
+  }
+
   @Get(":id")
   @RequirePermissions(PERMISSIONS.users.view)
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {

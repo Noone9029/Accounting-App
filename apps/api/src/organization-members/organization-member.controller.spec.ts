@@ -5,6 +5,7 @@ import { OrganizationMemberController } from "./organization-member.controller";
 describe("OrganizationMemberController permissions", () => {
   it("requires users.view for member reads", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, OrganizationMemberController.prototype.list)).toEqual([PERMISSIONS.users.view]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, OrganizationMemberController.prototype.workspaceSummary)).toEqual([PERMISSIONS.users.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, OrganizationMemberController.prototype.get)).toEqual([PERMISSIONS.users.view]);
   });
 
