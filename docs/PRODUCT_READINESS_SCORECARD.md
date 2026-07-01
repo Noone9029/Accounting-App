@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-07-01 CONTROLLED-BETA-PROVISION-01 Packet Preparation
+
+- Controlled beta readiness remains `GO with restrictions`; this pass prepares provisioning evidence but does not increase production readiness.
+- Approved tester identities were not provided, so real provisioning, invite delivery, email sending, and first tester onboarding are blocked.
+- Environment readiness for the documented Vercel/Supabase test stack passed by non-mutating GET checks, including API readiness with `database: ok`.
+- No backend APIs, Prisma schema changes, hosted migrations, Supabase mutations, Vercel env mutations, provider calls, storage/signed URL operations, payment/email actions, seed/reset/delete behavior, accounting/report/VAT/inventory valuation/banking/reconciliation logic, or production compliance claims changed.
+- Next required action is `CONTROLLED-BETA-APPROVAL-01`: owner provides approved tester list and explicit send/invite approval.
+
 ## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 Packet Preparation
 
 - Controlled beta readiness remains `GO with restrictions`; this pass prepares launch materials and does not increase production readiness.

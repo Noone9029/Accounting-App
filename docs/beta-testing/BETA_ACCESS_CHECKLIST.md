@@ -4,6 +4,10 @@ Date: 2026-07-01
 
 Status: Checklist only. Do not implement or mutate access from this document.
 
+## CONTROLLED-BETA-PROVISION-01 Current Status
+
+Provisioning execution is `BLOCKED` because approved tester identities were not provided. No account was created, no invite was sent, no email was sent, and no hosted state was mutated in this pass.
+
 ## Tester Approval
 
 - [ ] Tester approved by product owner.

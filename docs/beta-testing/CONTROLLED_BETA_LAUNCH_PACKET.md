@@ -2,7 +2,7 @@
 
 Date: 2026-07-01
 
-Status: Prepared for owner review. No real tester invite was sent, no production launch was performed, and no hosted system was mutated by this packet.
+Status: Prepared for owner review. Provisioning packet is now ready, but real tester provisioning is blocked until approved tester identities are provided. No real tester invite was sent, no production launch was performed, and no hosted system was mutated by this packet.
 
 ## Decision
 
@@ -50,6 +50,15 @@ This is a user-testing environment, not production.
 - [Access checklist](BETA_ACCESS_CHECKLIST.md)
 - [Revocation checklist](BETA_ACCESS_REVOCATION_CHECKLIST.md)
 - [Go/no-go checklist](CONTROLLED_BETA_GO_NO_GO_CHECKLIST.md)
+- [Provisioning plan](CONTROLLED_BETA_PROVISION_01_PLAN.md)
+- [Approved tester list](CONTROLLED_BETA_APPROVED_TESTERS.md)
+- [Invite email template](BETA_INVITE_EMAIL_TEMPLATE.md)
+- [Onboarding message template](BETA_ONBOARDING_MESSAGE_TEMPLATE.md)
+- [Provisioning dry run](CONTROLLED_BETA_PROVISIONING_DRY_RUN.md)
+- [Environment check](CONTROLLED_BETA_ENVIRONMENT_CHECK.md)
+- [First onboarding results](CONTROLLED_BETA_FIRST_ONBOARDING_RESULTS.md)
+- [Access revocation plan](CONTROLLED_BETA_ACCESS_REVOCATION_PLAN.md)
+- [Support readiness](CONTROLLED_BETA_SUPPORT_READY.md)
 
 ## Evidence Links
 
@@ -64,6 +73,7 @@ This is a user-testing environment, not production.
 
 ## Known Limitations
 
+- Approved tester identities have not been provided, so provisioning execution and first onboarding are blocked.
 - Public/marketing/auth desktop/tablet/mobile visual fixture depth remains thinner than authenticated route coverage.
 - Test environment is not production.
 - No paid SaaS launch.
@@ -88,4 +98,8 @@ Before inviting testers, the owner must approve:
 - Acknowledgement use.
 - Revocation owner.
 
-Next recommended goal: `CONTROLLED-BETA-PROVISION-01`.
+Next recommended goal: `CONTROLLED-BETA-APPROVAL-01`.
+
+## Provisioning Update
+
+`CONTROLLED-BETA-PROVISION-01` prepared the provisioning packet and ran non-mutating environment checks. Actual account creation, invite delivery, and first tester onboarding were not executed because approved tester identities were not provided.

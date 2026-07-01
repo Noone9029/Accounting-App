@@ -4,6 +4,15 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-07-01 CONTROLLED-BETA-PROVISION-01 provisioning packet preparation
+
+- Scope: docs-only controlled beta provisioning preparation on branch `codex/controlled-beta-provision-01`.
+- Prepared provisioning plan, approved tester list template, invite email template, onboarding message template, dry-run checklist, environment check, first onboarding result, access revocation plan, and support readiness doc.
+- Current blocker: approved tester identities were not provided, so accounts, invites, emails, and first real tester onboarding were not executed.
+- Non-mutating environment checks passed for the documented web/API test stack, including API readiness with `database: ok`.
+- No new product bug is closed by this pass; it prevents unsafe provisioning without approved tester data.
+- No hosted state, production data, provider, payment, email, storage, signed URL, compliance, ZATCA/UAE/Peppol/ASP, seed/reset/delete, migration, accounting math, report math, VAT math, inventory valuation, banking, or reconciliation behavior was changed.
+
 ## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 launch packet preparation
 
 - Scope: docs-only controlled beta launch packet and tester onboarding preparation on branch `codex/controlled-beta-launch-01`.
