@@ -1,5 +1,12 @@
 # Remaining Roadmap
 
+## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 Packet Preparation
+
+- Created the controlled beta launch packet and onboarding system needed before inviting the first 3 to 5 approved testers.
+- Added tester scope, restrictions, acknowledgement, onboarding, owner/accountant walkthrough scripts, feedback form, issue triage runbook, access checklist, revocation checklist, and go/no-go checklist.
+- Beta status remains `GO with restrictions`; this does not start public launch, production launch, paid SaaS launch, compliance launch, provider launch, live banking launch, payment launch, or production email launch.
+- Recommended next prompt: `CONTROLLED-BETA-PROVISION-01: Provision approved controlled beta testers and run first real tester onboarding, only after owner approval.`
+
 ## 2026-06-23 BETA-FIX-01 Controlled Beta Evidence Closure
 
 - `BETA-FIX-01` closed the two beta evidence blockers from `BETA-WALKTHROUGH-01`.

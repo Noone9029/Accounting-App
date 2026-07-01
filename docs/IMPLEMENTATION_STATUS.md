@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+CONTROLLED-BETA-LAUNCH-01 launch packet preparation (2026-07-01):
+
+- Added the controlled beta launch packet, tester profile, restrictions, acknowledgement template, onboarding guide, walkthrough scripts, feedback form, issue triage runbook, access checklist, revocation checklist, and go/no-go checklist under `docs/beta-testing/`.
+- Beta status remains `GO with restrictions` for a 3 to 5 tester controlled beta only.
+- No real tester invite was sent, no production launch was performed, and no paid SaaS, compliance, provider, live banking, payment, real email, object-storage, or signed-URL readiness claim was added.
+- Next step is actual tester provisioning/invite only after owner approval through `CONTROLLED-BETA-PROVISION-01`.
+
 BETA-FIX-01 controlled beta evidence closure (2026-06-23):
 
 - `BETA-FIX-01` runs on branch `codex/beta-fix-01` from merged `origin/main` at `bbd784e482c3e250ad75795570c8bcefebdbff82`.
