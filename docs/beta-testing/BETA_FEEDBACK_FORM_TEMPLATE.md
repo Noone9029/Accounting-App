@@ -4,76 +4,68 @@ Use one form entry per issue or observation. Do not include passwords, tokens, c
 
 ## Reporter
 
-- Tester name or identifier:
+- Tester name:
+- Tester role:
 - Date:
-- Organization/test account identifier:
-- Browser:
-- Device:
-- Screen width or device size:
+- Assigned organization/test account identifier:
+- Permission role:
+- Device/browser:
 - Operating system:
+- Screen width or device size:
 
 ## Location
 
-- Route/page:
+- Route:
 - Workflow step:
 - Record type, if relevant:
-- Screenshot/video reference, redacted:
+- Screenshot/video link, redacted:
+- Data sensitivity: yes/no
 
-## Issue Classification
+## Issue
 
+- Issue title:
 - Issue type:
-  - Blocker
   - Bug
   - UX confusion
-  - Accounting correctness concern
-  - PDF/document concern
+  - Accounting trust concern
   - Report wording concern
+  - Document/archive concern
+  - Mobile/tablet layout issue
   - Performance issue
-  - Mobile layout issue
+  - Access/permission issue
   - Security/privacy concern
-  - ZATCA/compliance wording concern
+  - Compliance/ZATCA/UAE/Peppol/ASP wording concern
+  - Banking/reconciliation concern
   - Other
 - Severity:
   - Blocker
   - High
   - Medium
   - Low
-- Does it block beta usage?
-- Must fix before beta?
-- Must fix before production?
+- Expected behavior:
+- Actual behavior:
+- Steps to reproduce:
+  1.
+  2.
+  3.
+- Business impact:
+- Suggested fix:
 
-## Expected Behavior
+## Safety Flags
 
-Describe what you expected to happen:
+- Does this block controlled beta continuation?
+- Could this mislead a tester about production readiness?
+- Could this affect accounting trust?
+- Could this affect security/privacy?
+- Could this imply ZATCA/UAE/Peppol/ASP compliance or provider connectivity?
+- Could this imply live bank feeds, automatic reconciliation, payment readiness, email readiness, object-storage readiness, or signed-URL readiness?
 
--
-
-## Actual Behavior
-
-Describe what actually happened:
-
--
-
-## Reproduction Steps
-
-1.
-2.
-3.
-
-## Notes
-
-- Recommended wording/layout change:
-- Accounting correctness concern:
-- Privacy/security concern:
-- ZATCA/compliance wording concern:
-- Additional notes:
-
-## Safety Check
+## Submission Safety Check
 
 Confirm before submitting:
 
-- [ ] No passwords, tokens, cookies, auth headers, database URLs, API keys, or secrets are included.
+- [ ] No passwords, tokens, cookies, auth headers, database URLs, API keys, reset links, invite links, or secrets are included.
 - [ ] No real customer-sensitive data is included.
 - [ ] No production invoice, statement, bank, tax, or compliance data is included.
-- [ ] No PDF body, document body, attachment body, signed XML, or QR payload body is included.
-- [ ] Screenshots/videos are redacted if they contain names, emails, phone numbers, document numbers, or financial details.
+- [ ] No PDF body, document body, attachment body, signed XML, QR payload body, or raw bank-file body is included.
+- [ ] Screenshots/videos are redacted if they contain names, emails, phone numbers, document numbers, bank details, or financial details.

@@ -4,6 +4,15 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 Packet Preparation
+
+- Controlled beta readiness remains `GO with restrictions`; this pass prepares launch materials and does not increase production readiness.
+- Added the controlled beta launch packet, tester profile, restrictions, acknowledgement template, onboarding guide, walkthrough scripts, feedback form, triage runbook, access checklist, revocation checklist, and go/no-go checklist.
+- Tester scope is limited to 3 to 5 approved friendly/internal/accountant/SME/operator testers using test/demo data unless separately approved.
+- Restrictions remain: no public launch, paid SaaS launch, production tax filing, ZATCA/UAE/Peppol/ASP production claim, real provider access, live bank feeds, real payment collection, production email guarantee, object-storage production proof, or signed-URL production proof.
+- No real tester invite was sent, no production launch was performed, and no hosted/Supabase/Vercel/provider/storage/compliance mutation was performed.
+- Next step is controlled beta provisioning only after owner approval.
+
 ## 2026-06-23 BETA-FIX-01 Controlled Beta Evidence Closure
 
 - Controlled beta readiness improves to `GO with restrictions` because the two remaining beta evidence blockers were closed on branch `codex/beta-fix-01` at baseline `bbd784e482c3e250ad75795570c8bcefebdbff82`.

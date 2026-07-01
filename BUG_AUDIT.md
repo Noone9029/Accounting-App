@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 launch packet preparation
+
+- Scope: docs-only controlled beta launch packet and tester onboarding preparation on branch `codex/controlled-beta-launch-01`.
+- Added controlled beta launch plan, tester profile, restrictions, acknowledgement template, onboarding guide, owner/accountant walkthrough scripts, feedback form, issue triage runbook, access checklist, revocation checklist, go/no-go checklist, and packet index.
+- Beta readiness decision remains `GO with restrictions`; no new product blocker is closed beyond preparing the launch process.
+- Remaining restriction: public/marketing/auth visual fixture depth remains a low issue, and production launch/compliance/provider/live banking/payment/email/storage/signed-URL readiness remains unproved.
+- No real tester invite was sent, no production launch was performed, and no backend API, Prisma schema, hosted migration, Supabase mutation, Vercel env mutation, provider call, storage/signed-URL operation, payment/email action, seed/reset/delete, accounting/report/VAT/inventory valuation/banking/reconciliation logic change, or production compliance claim changed.
+
 ## 2026-06-23 BETA-FIX-01 controlled beta evidence closure
 
 - Scope: frontend visual evidence stabilization plus non-mutating live Vercel/Supabase test walkthrough on branch `codex/beta-fix-01`.
