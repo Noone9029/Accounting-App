@@ -1,5 +1,12 @@
 # Remaining Roadmap
 
+## 2026-07-01 CONTROLLED-BETA-PROVISION-01 Packet Preparation
+
+- Prepared the controlled beta provisioning packet: plan, approved tester list template, invite template, onboarding message template, dry-run checklist, environment check, blocked first-onboarding result, access revocation plan, and support readiness.
+- Actual provisioning is blocked because approved tester identities were not provided.
+- No accounts, invites, emails, first tester login, hosted mutation, production launch, compliance launch, provider action, payment action, storage action, signed URL action, or seed/reset/delete action occurred.
+- Recommended next prompt: `CONTROLLED-BETA-APPROVAL-01: Owner provides approved tester list and send/invite approval.`
+
 ## 2026-07-01 CONTROLLED-BETA-LAUNCH-01 Packet Preparation
 
 - Created the controlled beta launch packet and onboarding system needed before inviting the first 3 to 5 approved testers.

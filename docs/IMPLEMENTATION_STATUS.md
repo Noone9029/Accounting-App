@@ -2,6 +2,14 @@
 
 Audit date: 2026-06-19
 
+CONTROLLED-BETA-PROVISION-01 provisioning packet preparation (2026-07-01):
+
+- Added controlled beta provisioning plan, approved tester list template, invite email template, onboarding message template, provisioning dry-run checklist, environment check, first onboarding result, access revocation plan, and support readiness docs under `docs/beta-testing/`.
+- Approved tester status is `BLOCKED`: no owner-approved tester identities with required role, email, environment, data, access-window, organization, and acknowledgement fields were provided.
+- Non-mutating environment readiness passed for API root, health, readiness, web login, dashboard, sales invoices, settings, storage settings, and compliance settings; API readiness returned `database: ok`.
+- No account was created, no invite or email was sent, no first tester login/onboarding was run, and no hosted/Supabase/Vercel/provider/storage/payment/compliance mutation was performed.
+- Next required action is `CONTROLLED-BETA-APPROVAL-01`: owner provides approved tester list and explicit send/invite approval.
+
 CONTROLLED-BETA-LAUNCH-01 launch packet preparation (2026-07-01):
 
 - Added the controlled beta launch packet, tester profile, restrictions, acknowledgement template, onboarding guide, walkthrough scripts, feedback form, issue triage runbook, access checklist, revocation checklist, and go/no-go checklist under `docs/beta-testing/`.

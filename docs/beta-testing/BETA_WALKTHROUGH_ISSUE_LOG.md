@@ -11,6 +11,7 @@ Date: 2026-06-23
 | BETA-WALK-003 | Remaining broad visual families | Medium | Fixed | Large remaining visual suite batches timed out before returning usable output, so owner/security/settings, report drilldown, detail-state, secondary operational, and role-filtered full-pass evidence was incomplete in `BETA-WALKTHROUGH-01`. | `BETA-FIX-01` split the timed-out files and completed all required shards: 1,077/1,077 Playwright visual tests passed by direct specs or documented splits. |
 | BETA-WALK-004 | Live disposable demo org | Medium | Fixed | A real authenticated local API/demo-org walkthrough was not run because no clearly disposable, safe org/runtime was available and the goal forbade seed/reset/delete or hosted mutation. | `BETA-FIX-01` used the deployed Vercel/Supabase test environment non-mutatively; API readiness reported database OK, login worked, and live walkthrough passed 23/23 checks. |
 | BETA-WALK-005 | Public/auth visual evidence | Low | Open | Auth and marketing Jest coverage passed, and `BETA-FIX-01` captured live login screenshot evidence, but first-class desktop/tablet/mobile Playwright visual fixtures for public/marketing/auth routes remain thinner than authenticated route coverage. | Add public/auth visual fixtures in a follow-up if beta entry screens require screenshot signoff. |
+| BETA-PROV-001 | First tester provisioning | Blocker | Blocked | Approved tester identities were not provided, so accounts, invites, emails, and first real tester onboarding cannot be safely executed. | `CONTROLLED-BETA-PROVISION-01` prepared provisioning docs/templates/checklists and non-mutating environment evidence. Next required goal is `CONTROLLED-BETA-APPROVAL-01`. |
 
 ## Closed Fix Evidence
 
@@ -22,3 +23,5 @@ Date: 2026-06-23
 ## Beta Readiness Decision
 
 After `BETA-FIX-01`, LedgerByte is `GO with restrictions` for controlled beta. No product-launch, production-compliance, provider, banking automation, payment, email, storage, signed URL, or production-readiness claim is made by this walkthrough.
+
+`CONTROLLED-BETA-PROVISION-01` does not change that decision. Provisioning is blocked only by missing approved tester identities, not by a new product regression.

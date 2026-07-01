@@ -4,6 +4,10 @@ Date: 2026-07-01
 
 Status: Checklist only. Do not execute access mutations from this document.
 
+## CONTROLLED-BETA-PROVISION-01 Current Status
+
+No tester access was provisioned in this pass, so no revocation action was required or executed. The revocation plan is captured in `CONTROLLED_BETA_ACCESS_REVOCATION_PLAN.md` for the first approved cohort.
+
 ## Revoke Access
 
 - [ ] Disable or suspend tester account.
