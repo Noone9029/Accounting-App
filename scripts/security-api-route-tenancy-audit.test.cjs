@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { buildAudit, classifySourceFile, formatMarkdown } = require("./security-api-route-tenancy-audit.cjs");
+const { applyReviewedApiTenancyFinding, buildAudit, classifySourceFile, formatMarkdown } = require("./security-api-route-tenancy-audit.cjs");
 
 test("classifies tenant guarded controllers", () => {
   const row = classifySourceFile(
@@ -68,4 +68,15 @@ export class ReportsService {
   assert.equal(report.suspiciousPatterns.length, 1);
   assert.match(markdown, /findMany-without-obvious-tenant-scope/);
   assert.doesNotMatch(JSON.stringify(report), /LEDGERBYTE_TEST_DATABASE_URL_PLACEHOLDER/);
+});
+
+test("only exact reviewed API findings are reclassified", () => {
+  const reviewed = applyReviewedApiTenancyFinding("apps/api/src/collections/collection.service.ts", ["findMany-without-obvious-tenant-scope"]);
+  assert.equal(reviewed.classification, "reviewed-tenant-safe");
+
+  const unreviewed = applyReviewedApiTenancyFinding("apps/api/src/collections/collection.service.ts", [
+    "findMany-without-obvious-tenant-scope",
+    "direct-prisma-query-in-controller",
+  ]);
+  assert.equal(unreviewed, null);
 });

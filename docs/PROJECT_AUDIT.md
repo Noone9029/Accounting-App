@@ -1027,3 +1027,11 @@ Recommended next step:
 - `/settings/team` now shows beta access guidance for 3-5 selected testers, dummy data only, Viewer/scoped role defaults, internal-only Owner/Admin access, password reset instead of credential sharing, and suspension after testing.
 - `/settings/roles` and `/settings/roles/:id` now show beta role guidance without changing permission logic.
 - This is visible guidance only. No auth architecture, role enforcement, security config, Supabase RLS, Vercel environment, database schema, migration, seed/reset/delete, real email, real ZATCA, full smoke, or full E2E changed.
+
+# Security diagnostic review update - 2026-07-02
+
+- Reviewed PR #222 diagnostic queues for API tenancy and safe-script safety.
+- Added exact reviewed classifications in the scanners and review evidence docs for cleared items.
+- API tenancy audit now has 0 risky review-needed files.
+- Safe-script audit still has 10 review-required dangerous-capable entries, retained intentionally for migration/seed/smoke/ZATCA validation/debug workflows.
+- No app runtime behavior, API behavior, Prisma schema, migration, hosted config, provider, storage, accounting/report/VAT/inventory valuation/banking, or compliance behavior changed.

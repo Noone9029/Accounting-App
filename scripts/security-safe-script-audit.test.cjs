@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { buildAudit, classifyContent, formatMarkdown } = require("./security-safe-script-audit.cjs");
+const { applyReviewedScriptFinding, buildAudit, classifyContent, formatMarkdown } = require("./security-safe-script-audit.cjs");
 
 test("detects seed reset delete and deploy patterns", () => {
   const result = classifyContent(`
@@ -60,4 +60,28 @@ test("audits package scripts and files without executing them or leaking values"
   } finally {
     process.chdir(cwd);
   }
+});
+
+test("reviewed safe script findings do not downgrade unrelated dangerous commands", () => {
+  const reviewed = applyReviewedScriptFinding({
+    source: "package-script",
+    path: "pre-asp:diagnostics",
+    dangerous: true,
+    dangers: ["compliance"],
+    guards: [],
+    guardStatus: "review-required",
+  });
+  assert.equal(reviewed.guardStatus, "guarded-or-dry-run");
+  assert.equal(reviewed.reviewStatus, "reviewed");
+
+  const unreviewed = applyReviewedScriptFinding({
+    source: "package-script",
+    path: "db:migrate",
+    dangerous: true,
+    dangers: ["migrate"],
+    guards: [],
+    guardStatus: "review-required",
+  });
+  assert.equal(unreviewed.guardStatus, "review-required");
+  assert.equal(unreviewed.reviewStatus, undefined);
 });

@@ -39,3 +39,13 @@ This document defines the role separation LedgerByte should use before paid beta
 - No `prisma migrate deploy`, `supabase db`, SQL role creation, or Vercel env mutation is part of this goal.
 - `SECURITY-EXECUTION-01` adds `security:env-separation-check`, which reports only whether runtime, migration/admin, read-only, Supabase, Vercel, SMTP, provider, ZATCA/ASP, and auth credential variable names are present. It never prints values and does not validate or connect using connection strings.
 - Current local evidence is `docs/security/evidence/ENV_SEPARATION_CHECK.md`. Runtime, migration/admin, and hosted credential separation still requires a reviewed hosted execution window before any secret-store change.
+
+## SECURITY-HARDENING-02 Safe-Script Review
+
+`SECURITY-HARDENING-02` did not create or modify any database role. It sharpened the safe-script diagnostic evidence so migration/seed commands remain visible as review-required:
+
+- `db:migrate`
+- `db:seed`
+- `demo:seed-workflows`
+
+These commands still require explicit owner approval and a controlled execution window before any hosted use.

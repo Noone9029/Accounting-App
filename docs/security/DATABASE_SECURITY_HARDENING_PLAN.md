@@ -75,3 +75,14 @@ Before hosted mutation:
 - Runtime-role creation and secret-store cutover.
 - RLS pilot policy design and staging validation.
 - Cross-tenant denial verification against hosted data.
+
+## SECURITY-HARDENING-02 Diagnostic Review Baseline
+
+`SECURITY-HARDENING-02` resolves the PR #222 diagnostic review queue without hosted or database mutation:
+
+- API tenancy audit now reports `NO_RISKY_ROUTES_DETECTED` after exact source reviews of the 8 prior review-required service files.
+- Safe-script audit now reports 10 review-required entries, reduced from 32 by clearing only exact reviewed local/read-only/guarded entries.
+- Remaining safe-script review items are intentionally retained for migration, seed, API smoke, and ZATCA validation/debug commands.
+- Evidence: `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
+
+This remains diagnostic evidence only. It does not create runtime roles, enable RLS, run migrations, mutate Supabase/Vercel, call providers, or prove hosted tenant isolation.
