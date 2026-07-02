@@ -30,6 +30,8 @@
     "test:backup-restore-proof": "node --test scripts/backup-restore-proof-harness.test.cjs",
     "tenant-isolation:proof": "corepack pnpm --filter @ledgerbyte/api tenant-isolation:proof",
     "test:tenant-isolation-proof": "corepack pnpm --filter @ledgerbyte/api test:tenant-isolation-proof",
+    "pre-asp:diagnostics": "node scripts/pre-asp-readiness-diagnostics.cjs --json",
+    "test:pre-asp-diagnostics": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
     "fixture:dev04:plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
     "fixture:dev04:dry-run": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
     "fixture:dev04:cleanup-plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",

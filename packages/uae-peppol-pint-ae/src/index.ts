@@ -1,3 +1,5 @@
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+
 export * from "./pint-ae/constants";
 export * from "./pint-ae/fixture-suite";
 export * from "./pint-ae/fixtures";
@@ -43,6 +45,64 @@ export interface AspProviderConfig {
   secret?: string | null;
   webhookSecret?: string | null;
   metadata?: Record<string, unknown> | null;
+}
+
+export type AspProviderOperation = "validate" | "submit" | "status" | "webhook" | "evidence";
+
+export interface AspIdempotencyKeyInput {
+  tenantId: string;
+  providerKey: AspProviderKey;
+  operation: AspProviderOperation;
+  documentId?: string | null;
+  documentNumber?: string | null;
+  payloadFingerprint?: string | null;
+}
+
+export interface AspSubmissionOutboxDraft {
+  tenantId: string;
+  providerKey: AspProviderKey;
+  documentId: string;
+  operation: AspProviderOperation;
+  idempotencyKey: string;
+  status: "DRAFT_ONLY" | "READY_FOR_FUTURE_PROVIDER";
+  noNetwork: true;
+  productionCompliance: false;
+}
+
+export interface AspWebhookSignatureInput {
+  payload: unknown;
+  signature: string | null | undefined;
+  secret: string | null | undefined;
+}
+
+export interface AspWebhookReplayResult {
+  accepted: boolean;
+  eventId: string;
+  reason: "RECORDED" | "DUPLICATE" | "MISSING_EVENT_ID";
+}
+
+export interface AspWebhookReplayGuard {
+  checkAndRemember(eventId: string | null | undefined): AspWebhookReplayResult;
+}
+
+export interface AspProviderErrorInput {
+  providerKey?: AspProviderKey | null;
+  statusCode?: number | null;
+  code?: string | null;
+  message?: string | null;
+  retryable?: boolean | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface AspProviderNormalizedError {
+  providerKey: AspProviderKey;
+  status: Extract<AspProviderNormalizedStatus, "RETRYABLE_ERROR" | "TERMINAL_ERROR">;
+  retryable: boolean;
+  code: string;
+  message: string;
+  details: Record<string, unknown> | null;
+  noNetwork: true;
+  productionCompliance: false;
 }
 
 export interface AspProviderOperationInput {
@@ -124,6 +184,79 @@ export const ASP_PROVIDER_STATUSES: AspProviderNormalizedStatus[] = [
   "ARCHIVED",
 ];
 export const DISABLED_PROVIDER_EMITTED_STATUSES: AspProviderNormalizedStatus[] = ["DISABLED", "NOT_CONFIGURED"];
+
+export function buildAspIdempotencyKey(input: AspIdempotencyKeyInput): string {
+  const material = [
+    input.tenantId,
+    input.providerKey,
+    input.operation,
+    input.documentId ?? "",
+    input.documentNumber ?? "",
+    input.payloadFingerprint ?? "",
+  ].join("|");
+  return `aspidem_${createHash("sha256").update(material).digest("hex").slice(0, 48)}`;
+}
+
+export function createAspSubmissionOutboxDraft(input: Omit<AspSubmissionOutboxDraft, "idempotencyKey" | "status" | "noNetwork" | "productionCompliance">): AspSubmissionOutboxDraft {
+  return {
+    ...input,
+    idempotencyKey: buildAspIdempotencyKey({
+      tenantId: input.tenantId,
+      providerKey: input.providerKey,
+      operation: input.operation,
+      documentId: input.documentId,
+    }),
+    status: "DRAFT_ONLY",
+    noNetwork: true,
+    productionCompliance: false,
+  };
+}
+
+export function signLocalAspWebhookPayload(payload: unknown, secret: string): string {
+  return `sha256=${createHmac("sha256", secret).update(stableJson(payload)).digest("hex")}`;
+}
+
+export function verifyLocalAspWebhookSignature(input: AspWebhookSignatureInput): boolean {
+  const webhookSecretValue = String(input.secret ?? "");
+  const signature = String(input.signature ?? "");
+  if (!webhookSecretValue || !signature) {
+    return false;
+  }
+  const expected = signLocalAspWebhookPayload(input.payload, webhookSecretValue);
+  const normalizedSignature = signature.startsWith("sha256=") ? signature : `sha256=${signature}`;
+  const expectedBytes = Buffer.from(expected);
+  const signatureBytes = Buffer.from(normalizedSignature);
+  return expectedBytes.length === signatureBytes.length && timingSafeEqual(expectedBytes, signatureBytes);
+}
+
+export function createInMemoryAspWebhookReplayGuard(initialEventIds: string[] = []): AspWebhookReplayGuard {
+  const seen = new Set(initialEventIds.filter((eventId) => eventId.trim()));
+  return {
+    checkAndRemember(eventId: string | null | undefined): AspWebhookReplayResult {
+      const normalizedEventId = String(eventId ?? "").trim();
+      if (!normalizedEventId) {
+        return { accepted: false, eventId: "", reason: "MISSING_EVENT_ID" };
+      }
+      if (seen.has(normalizedEventId)) {
+        return { accepted: false, eventId: normalizedEventId, reason: "DUPLICATE" };
+      }
+      seen.add(normalizedEventId);
+      return { accepted: true, eventId: normalizedEventId, reason: "RECORDED" };
+    },
+  };
+}
+
+export function normalizeAspProviderError(input: AspProviderErrorInput): AspProviderNormalizedError {
+  const retryable = input.retryable ?? isRetryableStatusCode(input.statusCode ?? null);
+  return baseResult({
+    providerKey: input.providerKey ?? "DISABLED",
+    status: retryable ? "RETRYABLE_ERROR" : "TERMINAL_ERROR",
+    retryable,
+    code: String(input.code ?? "ASP_PROVIDER_ERROR"),
+    message: String(input.message ?? "ASP provider error normalized locally; no production provider call was attempted."),
+    details: redactObject(input.details ?? null),
+  });
+}
 
 export class DisabledAspProviderAdapter implements AspProviderAdapter {
   readonly providerKey = "DISABLED" as const;
@@ -803,6 +936,23 @@ function stableMockReference(tenantId: string, documentId: string): string {
     hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   }
   return hash.toString(16).padStart(8, "0");
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function isRetryableStatusCode(statusCode: number | null): boolean {
+  return statusCode === 408 || statusCode === 429 || (statusCode !== null && statusCode >= 500 && statusCode <= 599);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

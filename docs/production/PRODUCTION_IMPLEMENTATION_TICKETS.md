@@ -12,6 +12,8 @@ PROD-A1 status: [ADR-001 final production hosting](adrs/ADR-001-final-production
 
 PROD-A2 status: [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision.md) is drafted/proposed. It recommends AWS ECS Fargate for the paid SaaS v1 API, with API and worker hosted as separate ECS Fargate services even if they share one image. Implementation has not started, the API provider/service is not provisioned, ECS/Fargate is not configured, worker hosting is not configured, no production API deploy was performed, no env vars were changed, and no database, Redis, storage, ZATCA, email, accounting logic, or customer data changes were performed. Vercel remains beta/user-testing/staging only, not final API production hosting.
 
+PRE-ASP-PRODUCTION-FOUNDATION-01 status: [PRE_ASP_PRODUCTION_FOUNDATION_TRACKER](PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md) now centralizes pre-ASP foundation evidence. It adds docs and local helper tests only; hosted execution tickets below remain the authority for any future production-affecting command, credential change, provider mutation, backup/restore, email send, payment action, or compliance network action.
+
 ## Ticket Field Guide
 
 - Stage: `controlled beta`, `paid private beta`, `public production`, or `ZATCA gate`.
