@@ -161,6 +161,62 @@ describe("SalesQuoteForm", () => {
     );
     expect(pushMock).toHaveBeenCalledWith("/sales/quotes/quote-1");
   });
+
+  it("uses returnTo from edit routes for cancel and post-save redirect", async () => {
+    window.history.pushState({}, "", "/sales/quotes/quote-1/edit?returnTo=/customers/customer-1");
+
+    render(<SalesQuoteForm initialQuote={salesQuoteFixture()} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Posting account for quote line 1")).toHaveValue("revenue-1"));
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-1");
+
+    fireEvent.submit(screen.getByRole("button", { name: "Save draft quote" }).closest("form")!);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/customers/customer-1"));
+  });
+
+  it("shows a customer empty state before saving quotes", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([]);
+      }
+      if (path === "/items") {
+        return Promise.resolve([]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([
+          {
+            id: "revenue-1",
+            code: "401",
+            name: "Sales revenue",
+            type: "REVENUE",
+            isActive: true,
+            allowPosting: true,
+          },
+        ]);
+      }
+      if (path === "/tax-rates") {
+        return Promise.resolve([]);
+      }
+      if (path === "/branches") {
+        return Promise.resolve([]);
+      }
+      if (path === "/sales-quotes/next-number") {
+        return Promise.resolve({
+          quoteNumber: "QUO-000043",
+          editable: false,
+          overrideAllowed: false,
+          helperText: "Assigned from the sales quote sequence when saved.",
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesQuoteForm />);
+
+    expect(await screen.findByText(/Add a customer before creating the first quote/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open customers" })).toHaveAttribute("href", "/customers");
+  });
 });
 
 function contactFixture(id: string, name: string) {

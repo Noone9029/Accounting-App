@@ -734,7 +734,7 @@ export default function BankStatementTransactionsPage() {
                           </LedgerButton>
                         </>
                       ) : null}
-                      <LedgerButton href={`/bank-statement-transactions/${transaction.id}`} size="sm">Detail</LedgerButton>
+                      <LedgerButton href={`/bank-statement-transactions/${transaction.id}`} size="sm">View row detail</LedgerButton>
                     </div>
                   </td>
                 </tr>

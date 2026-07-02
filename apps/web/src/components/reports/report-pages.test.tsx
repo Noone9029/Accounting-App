@@ -158,6 +158,13 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/customer-1");
   });
 
+  it("uses explicit back navigation on report detail headers", async () => {
+    render(<VatSummaryReportPage />);
+
+    expect(await screen.findByRole("link", { name: "Back to reports" })).toHaveAttribute("href", "/reports");
+    expect(screen.queryByRole("link", { name: "Reports" })).not.toBeInTheDocument();
+  });
+
   it("preserves dedicated statement return context through aging action links", () => {
     render(<AgingReportGuide kind="receivables" returnToHref="/reports/aged-receivables?asOf=2026-06-12&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1" />);
 

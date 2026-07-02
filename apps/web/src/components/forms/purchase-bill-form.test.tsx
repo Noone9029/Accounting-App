@@ -131,6 +131,20 @@ describe("PurchaseBillForm", () => {
     expect(screen.queryByText(/auto-post|supplier paid|payment scheduled|journal posted|VAT filed|ZATCA cleared/i)).not.toBeInTheDocument();
   });
 
+  it("labels bill line controls and disables the last remove action", async () => {
+    render(<PurchaseBillForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Item for bill line 1")).toBeInTheDocument());
+
+    expect(screen.getByLabelText("Description for bill line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Purchase account for bill line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantity for bill line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit price for bill line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Discount rate for bill line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tax rate for bill line 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+  });
+
   it("submits selected branch, account, and tax IDs instead of visible labels", async () => {
     render(<PurchaseBillForm />);
 

@@ -363,10 +363,15 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                {lines.map((line) => (
+                {lines.map((line, index) => (
                   <tr key={line.id}>
                     <td className="px-3 py-2">
-                      <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48">
+                      <LedgerSelect
+                        aria-label={`Item for bill line ${index + 1}`}
+                        value={line.itemId}
+                        onChange={(event) => selectItem(line.id, event.target.value)}
+                        className="w-48"
+                      >
                         <option value="">No item</option>
                         {activeItems.map((item) => (
                           <option key={item.id} value={item.id}>
@@ -376,10 +381,22 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
                       </LedgerSelect>
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64" />
+                      <LedgerInput
+                        aria-label={`Description for bill line ${index + 1}`}
+                        value={line.description}
+                        onChange={(event) => updateLine(line.id, { description: event.target.value })}
+                        required
+                        className="w-64"
+                      />
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerSelect value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="w-56">
+                      <LedgerSelect
+                        aria-label={`Purchase account for bill line ${index + 1}`}
+                        value={line.accountId}
+                        onChange={(event) => updateLine(line.id, { accountId: event.target.value })}
+                        required
+                        className="w-56"
+                      >
                         <option value="">Select account</option>
                         {postingPurchaseAccounts.map((account) => (
                           <option key={account.id} value={account.id}>
@@ -389,16 +406,41 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
                       </LedgerSelect>
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerInput inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required className="w-24" />
+                      <LedgerInput
+                        aria-label={`Quantity for bill line ${index + 1}`}
+                        inputMode="decimal"
+                        value={line.quantity}
+                        onChange={(event) => updateLine(line.id, { quantity: event.target.value })}
+                        required
+                        className="w-24"
+                      />
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerInput inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} required className="w-28" />
+                      <LedgerInput
+                        aria-label={`Unit price for bill line ${index + 1}`}
+                        inputMode="decimal"
+                        value={line.unitPrice}
+                        onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })}
+                        required
+                        className="w-28"
+                      />
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerInput inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
+                      <LedgerInput
+                        aria-label={`Discount rate for bill line ${index + 1}`}
+                        inputMode="decimal"
+                        value={line.discountRate}
+                        onChange={(event) => updateLine(line.id, { discountRate: event.target.value })}
+                        className="w-24"
+                      />
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerSelect value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="w-48">
+                      <LedgerSelect
+                        aria-label={`Tax rate for bill line ${index + 1}`}
+                        value={line.taxRateId}
+                        onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })}
+                        className="w-48"
+                      >
                         <option value="">No tax</option>
                         {activePurchaseTaxRates.map((taxRate) => (
                           <option key={taxRate.id} value={taxRate.id}>
@@ -408,7 +450,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
                       </LedgerSelect>
                     </td>
                     <td className="px-3 py-2">
-                      <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)}>
+                      <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
                         Remove
                       </LedgerButton>
                     </td>

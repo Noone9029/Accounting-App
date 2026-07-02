@@ -60,7 +60,8 @@ describe("BankStatementTransactionsPage", () => {
     expect(screen.getByText("Vendor payment")).toBeInTheDocument();
     expect(screen.getByText("Acme Trading")).toBeInTheDocument();
     expect(screen.getByText("BANK-REF-001")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Detail" })[0]).toHaveAttribute("href", "/bank-statement-transactions/row-1");
+    expect(screen.getAllByRole("link", { name: "View row detail" })[0]).toHaveAttribute("href", "/bank-statement-transactions/row-1");
+    expect(screen.queryByRole("link", { name: "Detail" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Debit" }));
     expect(screen.queryByText("Customer receipt")).not.toBeInTheDocument();

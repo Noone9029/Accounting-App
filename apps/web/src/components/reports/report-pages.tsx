@@ -624,7 +624,7 @@ function VatReturnReviewActions() {
 function ReportSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <LedgerPage>
-      <LedgerPageHeader eyebrow="Reports" title={title} description={description} actions={<LedgerButton href="/reports">Reports</LedgerButton>} />
+      <LedgerPageHeader eyebrow="Reports" title={title} description={description} actions={<LedgerButton href="/reports">Back to reports</LedgerButton>} />
       <LedgerPageBody>{children}</LedgerPageBody>
     </LedgerPage>
   );
