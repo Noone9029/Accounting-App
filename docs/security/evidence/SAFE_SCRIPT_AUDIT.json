@@ -1,16 +1,16 @@
 {
-  "status": "REVIEW_REQUIRED",
+  "status": "OWNER_APPROVAL_REQUIRED",
   "generatedBy": "scripts/security-safe-script-audit.cjs",
   "deterministic": true,
   "noScriptsExecuted": true,
   "noDatabaseConnection": true,
   "noNetwork": true,
   "noMutation": true,
-  "scannedEntries": 166,
+  "scannedEntries": 170,
   "counts": {
-    "guarded-or-dry-run": 102,
-    "not-dangerous": 54,
-    "review-required": 10
+    "guarded-or-dry-run": 104,
+    "not-dangerous": 56,
+    "owner-approval-required": 10
   },
   "dangerous": [
     {
@@ -243,8 +243,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "approvalGate",
+        "localOnlyDefault",
+        "productionRefusal"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: PIH debug wrapper now refuses production/remote API targets and requires explicit local API approval before delegating to hash-mode validation."
     },
     {
       "source": "file",
@@ -284,6 +290,22 @@
       "guards": [
         "dryRun",
         "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/monitoring-support-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
       ],
       "guardStatus": "guarded-or-dry-run"
     },
@@ -330,6 +352,21 @@
         "productionRefusal",
         "approvalGate",
         "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/safe-script-guards.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
       ],
       "guardStatus": "guarded-or-dry-run"
     },
@@ -419,8 +456,15 @@
         "provider",
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: generated invoice validation now refuses production/remote API targets, requires explicit local API approval, and redacts credentials/tokens/error payloads."
     },
     {
       "source": "file",
@@ -849,8 +893,13 @@
       "dangers": [
         "migrate"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma migrate deploy remains intentionally blocked without owner approval; no wrapper or execution was added."
     },
     {
       "source": "package-script",
@@ -860,8 +909,13 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma seed remains intentionally blocked without owner approval; no seed command was executed."
     },
     {
       "source": "package-script",
@@ -871,8 +925,14 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: demo workflow seed remains local-only by default and remote disposable targets require exact owner approval."
     },
     {
       "source": "package-script",
@@ -913,8 +973,15 @@
       "dangers": [
         "provider"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: banking smoke mutates smoke data only after local/default or exact disposable remote owner approval; route labels and credential handling are redacted."
     },
     {
       "source": "package-script",
@@ -924,8 +991,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: ZATCA-safe smoke phase mutates smoke API data only after local/default or exact disposable remote owner approval and keeps real ZATCA network disabled."
     },
     {
       "source": "package-script",
@@ -1347,8 +1421,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits debug-zatca-pih-chain local-only approval and production refusal."
     },
     {
       "source": "package-script",
@@ -1644,8 +1724,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits generated invoice validation local-only approval, production refusal, and redaction."
     },
     {
       "source": "package-script",
@@ -1655,11 +1742,18 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: hash-mode validation now refuses production/remote API targets and requires explicit local API approval before API workflow execution."
     }
   ],
-  "reviewRequired": [
+  "ownerApprovalRequired": [
     {
       "source": "file",
       "path": "scripts/debug-zatca-pih-chain.cjs",
@@ -1667,8 +1761,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "approvalGate",
+        "localOnlyDefault",
+        "productionRefusal"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: PIH debug wrapper now refuses production/remote API targets and requires explicit local API approval before delegating to hash-mode validation."
     },
     {
       "source": "file",
@@ -1678,8 +1778,15 @@
         "provider",
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: generated invoice validation now refuses production/remote API targets, requires explicit local API approval, and redacts credentials/tokens/error payloads."
     },
     {
       "source": "package-script",
@@ -1689,8 +1796,13 @@
       "dangers": [
         "migrate"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma migrate deploy remains intentionally blocked without owner approval; no wrapper or execution was added."
     },
     {
       "source": "package-script",
@@ -1700,8 +1812,13 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma seed remains intentionally blocked without owner approval; no seed command was executed."
     },
     {
       "source": "package-script",
@@ -1711,8 +1828,14 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: demo workflow seed remains local-only by default and remote disposable targets require exact owner approval."
     },
     {
       "source": "package-script",
@@ -1722,8 +1845,15 @@
       "dangers": [
         "provider"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: banking smoke mutates smoke data only after local/default or exact disposable remote owner approval; route labels and credential handling are redacted."
     },
     {
       "source": "package-script",
@@ -1733,8 +1863,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: ZATCA-safe smoke phase mutates smoke API data only after local/default or exact disposable remote owner approval and keeps real ZATCA network disabled."
     },
     {
       "source": "package-script",
@@ -1744,8 +1881,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits debug-zatca-pih-chain local-only approval and production refusal."
     },
     {
       "source": "package-script",
@@ -1755,8 +1898,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits generated invoice validation local-only approval, production refusal, and redaction."
     },
     {
       "source": "package-script",
@@ -1766,10 +1916,18 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: hash-mode validation now refuses production/remote API targets and requires explicit local API approval before API workflow execution."
     }
   ],
+  "reviewRequired": [],
   "rows": [
     {
       "source": "file",
@@ -1894,7 +2052,9 @@
       "path": "apps/api/scripts/smoke-banking.ts",
       "dangerous": false,
       "dangers": [],
-      "guards": [],
+      "guards": [
+        "approvalGate"
+      ],
       "guardStatus": "not-dangerous"
     },
     {
@@ -1902,7 +2062,10 @@
       "path": "apps/api/scripts/smoke-http.ts",
       "dangerous": false,
       "dangers": [],
-      "guards": [],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
       "guardStatus": "not-dangerous"
     },
     {
@@ -2027,8 +2190,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "approvalGate",
+        "localOnlyDefault",
+        "productionRefusal"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: PIH debug wrapper now refuses production/remote API targets and requires explicit local API approval before delegating to hash-mode validation."
     },
     {
       "source": "file",
@@ -2076,6 +2245,22 @@
       "guards": [
         "dryRun",
         "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/monitoring-support-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
       ],
       "guardStatus": "guarded-or-dry-run"
     },
@@ -2132,6 +2317,21 @@
       "dangers": [],
       "guards": [],
       "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "scripts/safe-script-guards.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
     },
     {
       "source": "file",
@@ -2229,8 +2429,15 @@
         "provider",
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: generated invoice validation now refuses production/remote API targets, requires explicit local API approval, and redacts credentials/tokens/error payloads."
     },
     {
       "source": "file",
@@ -2694,8 +2901,13 @@
       "dangers": [
         "migrate"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma migrate deploy remains intentionally blocked without owner approval; no wrapper or execution was added."
     },
     {
       "source": "package-script",
@@ -2705,8 +2917,13 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "ownerApprovalRequired",
+        "productionForbidden"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: Prisma seed remains intentionally blocked without owner approval; no seed command was executed."
     },
     {
       "source": "package-script",
@@ -2716,8 +2933,14 @@
       "dangers": [
         "seed"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: demo workflow seed remains local-only by default and remote disposable targets require exact owner approval."
     },
     {
       "source": "package-script",
@@ -2785,6 +3008,15 @@
       "source": "package-script",
       "path": "lint",
       "command": "corepack pnpm -r --if-present lint",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "monitoring:support-readiness",
+      "command": "node scripts/monitoring-support-readiness.cjs",
       "dangerous": false,
       "dangers": [],
       "guards": [],
@@ -2919,8 +3151,15 @@
       "dangers": [
         "provider"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: banking smoke mutates smoke data only after local/default or exact disposable remote owner approval; route labels and credential handling are redacted."
     },
     {
       "source": "package-script",
@@ -2957,8 +3196,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: ZATCA-safe smoke phase mutates smoke API data only after local/default or exact disposable remote owner approval and keeps real ZATCA network disabled."
     },
     {
       "source": "package-script",
@@ -3025,6 +3271,15 @@
     },
     {
       "source": "package-script",
+      "path": "test:monitoring-support-readiness",
+      "command": "node --test scripts/monitoring-support-readiness.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
       "path": "test:pre-asp-diagnostics",
       "command": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
       "dangerous": true,
@@ -3071,7 +3326,7 @@
     {
       "source": "package-script",
       "path": "test:security-safe-script-audit",
-      "command": "node --test scripts/security-safe-script-audit.test.cjs",
+      "command": "node --test scripts/security-safe-script-audit.test.cjs scripts/safe-script-guards.test.cjs",
       "dangerous": false,
       "dangers": [],
       "guards": [],
@@ -3596,8 +3851,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits debug-zatca-pih-chain local-only approval and production refusal."
     },
     {
       "source": "package-script",
@@ -3893,8 +4154,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits generated invoice validation local-only approval, production refusal, and redaction."
     },
     {
       "source": "package-script",
@@ -3904,8 +4172,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localOnlyDefault",
+        "productionRefusal",
+        "approvalGate",
+        "redaction"
+      ],
+      "guardStatus": "owner-approval-required",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-SAFE-SCRIPTS-03: hash-mode validation now refuses production/remote API targets and requires explicit local API approval before API workflow execution."
     }
   ]
 }

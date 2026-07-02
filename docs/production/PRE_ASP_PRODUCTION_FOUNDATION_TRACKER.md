@@ -47,6 +47,14 @@ These commands are read-only. They do not connect to a database, call a network 
 - New review evidence: `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
 - No production hosting, Supabase/Vercel mutation, migration, seed/reset/delete, provider call, storage operation, email/payment action, or compliance behavior changed.
 
+## SECURITY-SAFE-SCRIPTS-03 Safe-Script Guardrail Update
+
+- Safe-script diagnostic queue is now reduced from 10 review-required entries to 0 review-required entries.
+- The 10 retained dangerous-capable entries are reclassified as `owner-approval-required` with explicit local-only defaults, production/remote refusal, disposable non-production approval gates, and redaction tests where applicable.
+- New review evidence: `docs/security/evidence/SAFE_SCRIPT_REVIEW_03.md`; audit evidence regenerated at `docs/security/evidence/SAFE_SCRIPT_AUDIT.md` and `.json`.
+- This does not approve production execution. Migration, seed, demo seed, API smoke, and ZATCA validation/debug workflows remain blocked unless an owner explicitly approves a disposable non-production target.
+- No production hosting, Supabase/Vercel mutation, migration, seed/reset/delete, provider call, storage operation, email/payment action, or compliance behavior changed.
+
 ## MONITORING-SUPPORT-EXECUTION-01 Local Diagnostic Update
 
 - Added `corepack pnpm monitoring:support-readiness` and `corepack pnpm test:monitoring-support-readiness`.

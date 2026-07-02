@@ -2,6 +2,7 @@
 const { mkdir, writeFile } = require("node:fs/promises");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
+const { assertLocalOnlyApiTarget, redactSensitiveText } = require("./safe-script-guards.cjs");
 
 const apiUrl = trimTrailingSlash(process.env.LEDGERBYTE_API_URL || "http://localhost:4000");
 const email = process.env.LEDGERBYTE_E2E_EMAIL || "admin@example.com";
@@ -15,6 +16,8 @@ main().catch((error) => {
 });
 
 async function main() {
+  assertLocalOnlyApiTarget({ scriptName: "validate-generated-zatca-invoice", apiUrl, env: process.env, argv: process.argv });
+
   if (!invoiceId) {
     throw new Error("Provide --invoice-id <id> or ZATCA_INVOICE_ID to validate generated invoice XML.");
   }
@@ -60,7 +63,7 @@ async function main() {
 
   const summary = {
     ok: Boolean(validation.officialValidationAttempted && validation.success),
-    apiUrl,
+    apiUrl: redactSensitiveText(apiUrl),
     invoiceId,
     organizationId,
     metadataId: metadata.id ?? null,
@@ -109,7 +112,7 @@ async function requestJson(path, options) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(`${options.method || "GET"} ${path} failed with HTTP ${response.status}: ${JSON.stringify(payload)}`);
+    throw new Error(redactSensitiveText(`${options.method || "GET"} ${path} failed with HTTP ${response.status}: ${JSON.stringify(payload)}`, [password]));
   }
   return payload;
 }
@@ -118,7 +121,7 @@ async function requestText(path, options) {
   const response = await rawRequest(path, { ...options, method: "GET" });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`GET ${path} failed with HTTP ${response.status}: ${text.slice(0, 500)}`);
+    throw new Error(redactSensitiveText(`GET ${path} failed with HTTP ${response.status}: ${text.slice(0, 500)}`, [password]));
   }
   return text;
 }
@@ -140,5 +143,5 @@ async function rawRequest(path, options = {}) {
 }
 
 function safeError(error) {
-  return String(error?.message || error).replace(password, "[REDACTED]");
+  return redactSensitiveText(String(error?.message || error), [password]);
 }

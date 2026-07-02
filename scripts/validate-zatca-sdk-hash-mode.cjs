@@ -4,6 +4,7 @@ const { mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { assertLocalOnlyApiTarget, redactSensitiveText } = require("./safe-script-guards.cjs");
 
 const apiUrl = trimTrailingSlash(process.env.LEDGERBYTE_API_URL || "http://localhost:4000");
 const email = process.env.LEDGERBYTE_E2E_EMAIL || process.env.LEDGERBYTE_SMOKE_EMAIL || "admin@example.com";
@@ -18,6 +19,8 @@ main().catch((error) => {
 });
 
 async function main() {
+  assertLocalOnlyApiTarget({ scriptName: "validate-zatca-sdk-hash-mode", apiUrl, env: process.env, argv: process.argv });
+
   const sdkConfig = resolveSdkConfig();
   const java = await javaVersion(sdkConfig.javaBin);
   if (!java.supported) {
@@ -491,7 +494,7 @@ function extractValidationMessages(output) {
 }
 
 function sanitize(output) {
-  return String(output || "")
+  return redactSensitiveText(String(output || ""), [password])
     .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi, "[REDACTED]")
     .replace(new RegExp(escapeRegExp(password), "g"), "[REDACTED]")
     .replace(/(password|passwordHash|token|tokenHash|secret|apiKey|accessKey|privateKey|privateKeyPem|authorization|contentBase64)\s*[:=]\s*[^\s,;]+/gi, "$1=[REDACTED]")

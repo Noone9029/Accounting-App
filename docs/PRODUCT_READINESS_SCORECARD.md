@@ -1954,6 +1954,13 @@ Recommended next step:
 - Safe-script audit still reports `REVIEW_REQUIRED` with 10 intentionally retained dangerous-capable entries.
 - This does not prove hosted RLS, runtime-role cutover, provider/compliance readiness, or production tenant isolation.
 
+## 2026-07-03 Safe-script guardrail review
+
+- Security readiness evidence improves through clearer guard contracts, but no production-readiness score increase is taken.
+- Safe-script audit now reports `OWNER_APPROVAL_REQUIRED` with 0 review-required entries and 10 owner-approval-required dangerous-capable entries.
+- The retained migration, seed, demo seed, API smoke, and ZATCA validation/debug workflows now have explicit local-only defaults, production/remote refusal, disposable non-production owner-approval gates, and redaction coverage where applicable.
+- This does not prove hosted RLS, runtime-role cutover, provider/compliance readiness, production tenant isolation, production-safe migrations, hosted seed safety, or real ZATCA/UAE/Peppol/ASP readiness.
+
 ## 2026-07-02 UAE pre-ASP adapter readiness baseline
 
 - UAE adapter readiness improves for future ASP onboarding because the package now models official/readiness serializer separation, blocked provider submission, disabled/mock provider capabilities, typed idempotency/transmission/timeline records, fake webhook replay controls, and provider error normalization.

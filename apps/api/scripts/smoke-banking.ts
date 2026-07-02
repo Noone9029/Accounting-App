@@ -1,4 +1,4 @@
-import { fetchSmokeApi, parseSmokeRequestTimeout, safeRouteLabel, smokeProgressEnabled } from "./smoke-http";
+import { assertSmokeMutationTargetAllowed, fetchSmokeApi, parseSmokeRequestTimeout, safeRouteLabel, smokeProgressEnabled } from "./smoke-http";
 
 interface TestCredentialOptions {
   label: string;
@@ -82,6 +82,7 @@ class ApiError extends Error {
 }
 
 const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+assertSmokeMutationTargetAllowed(apiUrl);
 const smokeHttpOptions = {
   apiUrl,
   timeoutMs: parseSmokeRequestTimeout(process.env.LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS),

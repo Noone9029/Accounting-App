@@ -1,5 +1,5 @@
 import { Decimal } from "decimal.js";
-import { fetchSmokeApi, parseSmokeRequestTimeout, smokeProgressEnabled } from "./smoke-http";
+import { assertSmokeMutationTargetAllowed, fetchSmokeApi, parseSmokeRequestTimeout, smokeProgressEnabled } from "./smoke-http";
 
 interface TestCredentialOptions {
   label: string;
@@ -18,6 +18,7 @@ const { resolveTestCredentials } = require("../../../scripts/test-credential-env
 };
 
 const apiUrl = (process.env.LEDGERBYTE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+assertSmokeMutationTargetAllowed(apiUrl);
 const smokeHttpOptions = {
   apiUrl,
   timeoutMs: parseSmokeRequestTimeout(process.env.LEDGERBYTE_SMOKE_REQUEST_TIMEOUT_MS),

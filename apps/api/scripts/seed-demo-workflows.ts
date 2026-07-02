@@ -3,12 +3,16 @@ const DEFAULT_EMAIL = "admin@example.com";
 const DEFAULT_PASSWORD = "Password123!";
 const DEFAULT_ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 const DEMO_MARKER = "LEDGERBYTE_DEMO_WORKFLOW_SEED";
+export const OWNER_APPROVAL_PHRASE = "I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET";
 
 interface SeedOptions {
   apiUrl?: string;
   email?: string;
   password?: string;
   allowRemote?: boolean;
+  targetClass?: string;
+  ownerApproval?: string;
+  env?: Record<string, string | undefined>;
 }
 
 interface Session {
@@ -35,8 +39,11 @@ export async function seedDemoWorkflows(options: SeedOptions = {}): Promise<Demo
     options.password ?? process.env.LEDGERBYTE_E2E_PASSWORD ?? process.env.LEDGERBYTE_DEMO_SEED_PASSWORD ?? DEFAULT_PASSWORD;
   const organizationId = process.env.LEDGERBYTE_E2E_ORGANIZATION_ID ?? process.env.LEDGERBYTE_DEMO_SEED_ORGANIZATION_ID ?? DEFAULT_ORGANIZATION_ID;
   const allowRemote = options.allowRemote ?? process.env.LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE === "true";
+  const env = options.env ?? process.env;
+  const targetClass = options.targetClass ?? env.LEDGERBYTE_DEMO_SEED_TARGET_CLASS;
+  const ownerApproval = options.ownerApproval ?? env.LEDGERBYTE_DEMO_SEED_OWNER_APPROVAL;
 
-  assertSafeSeedTarget(apiUrl, allowRemote);
+  assertSafeSeedTarget(apiUrl, { allowRemote, targetClass, ownerApproval, env });
 
   const summary: DemoSeedSummary = { organizationId: "", created: [], reused: [], entities: {} };
   const session = await login(apiUrl, email, password, organizationId);
@@ -564,15 +571,38 @@ function normalizeApiUrl(value: string): string {
   return value.replace(/\/$/, "");
 }
 
-function assertSafeSeedTarget(apiUrl: string, allowRemote: boolean): void {
-  if (allowRemote) {
-    return;
+export function assertSafeSeedTarget(
+  apiUrl: string,
+  options: { allowRemote?: boolean; targetClass?: string; ownerApproval?: string; env?: Record<string, string | undefined> } = {},
+): void {
+  if (isProductionLikeEnvironment(options.env ?? process.env) || isProductionLikeUrl(apiUrl)) {
+    throw new Error("Demo workflow seeding refuses production-like environments and targets.");
   }
   const parsed = new URL(apiUrl);
   const hostname = parsed.hostname.toLowerCase();
   const isLocal = ["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname);
-  if (!isLocal) {
+  if (isLocal) {
+    return;
+  }
+  if (!options.allowRemote) {
     throw new Error("Demo workflow seeding is local-only by default. Set LEDGERBYTE_DEMO_SEED_ALLOW_REMOTE=true for disposable non-production targets.");
+  }
+  if (options.targetClass !== "disposable-non-production" || options.ownerApproval !== OWNER_APPROVAL_PHRASE) {
+    throw new Error(
+      `Demo workflow seeding remote targets require disposable non-production owner approval: LEDGERBYTE_DEMO_SEED_TARGET_CLASS=disposable-non-production and LEDGERBYTE_DEMO_SEED_OWNER_APPROVAL=${OWNER_APPROVAL_PHRASE}.`,
+    );
+  }
+}
+
+function isProductionLikeEnvironment(env: Record<string, string | undefined>): boolean {
+  return [env.NODE_ENV, env.VERCEL_ENV, env.LEDGERBYTE_ENV, env.LEDGERBYTE_DEPLOY_ENV, env.LEDGERBYTE_TARGET_ENV].some((value) => /^(prod|production)$/i.test(String(value ?? "")));
+}
+
+function isProductionLikeUrl(value: string): boolean {
+  try {
+    return /(^|[.-])(prod|production)([.-]|$)/i.test(new URL(value).hostname.toLowerCase());
+  } catch {
+    return false;
   }
 }
 
