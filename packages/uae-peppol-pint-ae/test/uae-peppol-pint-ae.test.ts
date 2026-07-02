@@ -16,7 +16,14 @@ import {
   UAE_TRANSMISSION_STATUSES,
   assertUaeTransmissionStatusAllowedForProviderMode,
   buildOfficialPintAeDraftPayload,
+  buildFakeWebhookDelivery,
+  buildFakeWebhookEvent,
+  buildProviderEnvelope,
   buildReadinessXml,
+  buildSandboxOnboardingChecklist,
+  canClaimCompliance,
+  canEnableNetwork,
+  canStartProviderSpecificImplementation,
   buildUaePintAeDraftCreditNote,
   buildUaePintAeDraftInvoice,
   UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
@@ -25,6 +32,7 @@ import {
   buildUaePintAeTransactionTypeFlagCode,
   buildAspIdempotencyKey,
   createAspSubmissionOutboxDraft,
+  createFakeUaeAspProvider,
   createInMemoryUaeWebhookReplayGuard,
   createInMemoryAspWebhookReplayGuard,
   createUaeTransmissionAttemptDraft,
@@ -41,7 +49,12 @@ import {
   isOfficialUaeProfileId,
   isProductionProviderSuccessStatus,
   isUaeMockTransmissionStatus,
+  listMissingSandboxPrerequisites,
+  listUnsupportedRequiredCapabilities,
+  normalizeFakeWebhookEventForTimeline,
   normalizeAspProviderError,
+  normalizeProviderCapabilities,
+  providerErrorFixtures,
   normalizeUaeEndpointId,
   normalizeUaeProviderError,
   parseWebhookEvent,
@@ -49,11 +62,24 @@ import {
   runUaePintAeFixtureSuite,
   serializeUaePintAeCreditNote,
   serializeUaePintAeInvoice,
+  simulateDuplicateDocument,
+  simulateEndpointNotRegistered,
+  simulateProviderRejection,
+  simulateRateLimit,
+  simulateReceiverNotFound,
+  simulateStatusPolling,
+  simulateSubmitCreditNote,
+  simulateSubmitInvoice,
+  simulateWebhookDelivery,
+  simulateWebhookReplay,
+  simulateWebhookStaleTimestamp,
   signFakeWebhookPayload,
   signLocalAspWebhookPayload,
   standardUaePintAeTaxCreditNoteFixture,
   standardUaePintAeTaxInvoiceFixture,
   summarizeUaePintAeFixtureResults,
+  summarizeProviderCapabilities,
+  summarizeSandboxOnboardingState,
   uaePintAeScenarioFixtureDefinitions,
   validateCreditNoteReferenceRequirement,
   validateNoNegativeInvoice,
@@ -70,6 +96,9 @@ import {
   validateUaeEndpointScheme,
   validateUaePintAeDocument,
   validateUaePintInput,
+  validateProviderCapabilities,
+  verifyFakeWebhookDelivery,
+  compareProviderCapabilitiesToLedgerByteRequirements,
   verifyWebhookSignature,
   verifyLocalAspWebhookSignature,
   normalizeWebhookEvent,
@@ -242,6 +271,166 @@ test("keeps official draft payloads blocked for disabled and mock providers", as
   assert.doesNotMatch(JSON.stringify(mockSubmission), /PROVIDER_ACCEPTED|FTA_REPORTED|DELIVERED_TO_BUYER/);
   assert.equal(normalized.details?.draftPayloadBody, "[REDACTED]");
   assert.equal(normalized.details?.apiToken, "[REDACTED]");
+});
+
+test("builds provider-neutral envelopes for draft invoices and credit notes without exposing raw bodies", () => {
+  const invoiceDraft = buildUaePintAeDraftInvoice(standardUaePintAeTaxInvoiceFixture());
+  const creditNoteDraft = buildUaePintAeDraftCreditNote(standardUaePintAeTaxCreditNoteFixture());
+
+  const invoiceEnvelope = buildProviderEnvelope({
+    organizationId: "org-secret",
+    documentId: "invoice-secret",
+    documentType: "invoice",
+    providerId: "MOCK",
+    providerEnvironment: "MOCK",
+    document: { documentId: "invoice-secret", documentNumber: "INV-0001", documentType: "invoice", body: invoiceDraft },
+    sensitivePayloadIncluded: true,
+    correlationId: "corr-1",
+  });
+  const creditNoteEnvelope = buildProviderEnvelope({
+    organizationId: "org-secret",
+    documentId: "credit-secret",
+    documentType: "credit-note",
+    providerId: "MOCK",
+    providerEnvironment: "MOCK",
+    document: { documentId: "credit-secret", documentNumber: "CN-0001", documentType: "credit-note", body: creditNoteDraft },
+  });
+
+  assert.equal(invoiceEnvelope.metadata.productionCompliance, false);
+  assert.equal(invoiceEnvelope.metadata.aspSubmissionReady, false);
+  assert.equal(invoiceEnvelope.metadata.networkReady, false);
+  assert.equal(invoiceEnvelope.metadata.localOnly, true);
+  assert.equal(invoiceEnvelope.metadata.sensitivePayloadIncluded, true);
+  assert.equal(invoiceEnvelope.document.body, "[REDACTED]");
+  assert.equal(invoiceEnvelope.metadata.idempotencyKey, buildProviderEnvelope({
+    organizationId: "org-secret",
+    documentId: "invoice-secret",
+    documentType: "invoice",
+    providerId: "MOCK",
+    providerEnvironment: "MOCK",
+  }).metadata.idempotencyKey);
+  assert.match(invoiceEnvelope.metadata.idempotencyKey, /^aspidem_/);
+  assert.equal(invoiceEnvelope.metadata.idempotencyKey.includes("org-secret"), false);
+  assert.equal(invoiceEnvelope.metadata.idempotencyKey.includes("invoice-secret"), false);
+  assert.equal(creditNoteEnvelope.document.documentType, "credit-note");
+  assert.equal(JSON.stringify(invoiceEnvelope).includes("Business Bay"), false);
+  assert.equal(JSON.stringify(invoiceEnvelope).includes("1234567890"), false);
+});
+
+test("summarizes sandbox onboarding state conservatively before credentials and docs exist", () => {
+  const blocked = buildSandboxOnboardingChecklist({ providerId: "FUTURE_GENERIC_ASP" });
+  const docsOnly = buildSandboxOnboardingChecklist({ providerId: "FUTURE_GENERIC_ASP", providerDocsPresent: true });
+  const credentialsOnly = buildSandboxOnboardingChecklist({ providerId: "FUTURE_GENERIC_ASP", sandboxCredentialsPresent: true });
+  const locallyReady = buildSandboxOnboardingChecklist({ providerId: "FUTURE_GENERIC_ASP", providerDocsPresent: true, sandboxCredentialsPresent: true });
+
+  assert.equal(blocked.state, "SANDBOX_BLOCKED_NO_CREDENTIALS");
+  assert.equal(docsOnly.state, "SANDBOX_CREDENTIALS_PENDING");
+  assert.equal(credentialsOnly.state, "PROVIDER_DOCS_PENDING");
+  assert.equal(locallyReady.state, "SANDBOX_READY_FOR_IMPLEMENTATION");
+  assert.deepEqual(listMissingSandboxPrerequisites(blocked), ["PROVIDER_DOCS_MISSING", "SANDBOX_CREDENTIALS_MISSING"]);
+  assert.equal(canStartProviderSpecificImplementation(blocked), false);
+  assert.equal(canStartProviderSpecificImplementation(locallyReady), true);
+  assert.equal(canEnableNetwork(locallyReady), false);
+  assert.equal(canClaimCompliance(locallyReady), false);
+  assert.match(summarizeSandboxOnboardingState(locallyReady).summary, /implementation planning/i);
+  assert.equal(summarizeSandboxOnboardingState(locallyReady).productionCompliance, false);
+});
+
+test("fake UAE ASP provider simulator is deterministic, local-only, and refuses production or external URLs", () => {
+  const provider = createFakeUaeAspProvider({ providerId: "MOCK", environment: "MOCK" });
+  const invoice = simulateSubmitInvoice(provider, { tenantId: "org-1", documentId: "doc-1", documentNumber: "INV-1" });
+  const invoiceRepeat = simulateSubmitInvoice(provider, { tenantId: "org-1", documentId: "doc-1", documentNumber: "INV-1" });
+  const creditNote = simulateSubmitCreditNote(provider, { tenantId: "org-1", documentId: "doc-2", documentNumber: "CN-1" });
+  const status = simulateStatusPolling(provider, { tenantId: "org-1", documentId: "doc-1" });
+  const rejection = simulateProviderRejection(provider, { tenantId: "org-1", documentId: "doc-1" });
+  const duplicate = simulateDuplicateDocument(provider, { tenantId: "org-1", documentId: "doc-1" });
+  const rateLimit = simulateRateLimit(provider, { tenantId: "org-1", documentId: "doc-1" });
+  const receiverMissing = simulateReceiverNotFound(provider, { tenantId: "org-1", documentId: "doc-1" });
+  const endpointMissing = simulateEndpointNotRegistered(provider, { tenantId: "org-1", documentId: "doc-1" });
+
+  assert.equal(invoice.status, "SUBMITTED_MOCK");
+  assert.equal(invoice.externalReference, invoiceRepeat.externalReference);
+  assert.equal(creditNote.status, "SUBMITTED_MOCK");
+  assert.equal(status.events.every((event) => event.status.endsWith("_MOCK")), true);
+  assert.equal(rejection.status, "REJECTED_MOCK");
+  assert.equal(duplicate.status, "DUPLICATE_DOCUMENT_MOCK");
+  assert.equal(rateLimit.status, "RATE_LIMITED_MOCK");
+  assert.equal(receiverMissing.status, "RECEIVER_NOT_FOUND_MOCK");
+  assert.equal(endpointMissing.status, "ENDPOINT_NOT_REGISTERED_MOCK");
+  assert.equal(JSON.stringify([invoice, status]).includes("PROVIDER_ACCEPTED"), false);
+  assert.equal(provider.localOnly, true);
+  assert.equal(provider.networkReady, false);
+  assert.equal(provider.productionCompliance, false);
+  assert.throws(() => createFakeUaeAspProvider({ providerId: "MOCK", environment: "PRODUCTION_BLOCKED" }), /Production ASP simulation is blocked/);
+  assert.throws(() => createFakeUaeAspProvider({ providerId: "MOCK", environment: "MOCK", endpointUrl: "https://provider.example.test" }), /External ASP provider URLs are disabled/);
+});
+
+test("fake webhook delivery verifies local signatures, rejects replay and stale events, and redacts timeline output", () => {
+  const event = buildFakeWebhookEvent({
+    eventId: "evt-1",
+    providerId: "MOCK",
+    status: "ACCEPTED_MOCK",
+    documentId: "doc-1",
+    payload: { rawBody: "<Invoice>private</Invoice>", apiToken: "plain-token", safe: "ok" },
+  });
+  const delivery = buildFakeWebhookDelivery({ event, secret: "local-test-secret", timestamp: "2026-07-02T00:00:00.000Z" });
+  const verified = verifyFakeWebhookDelivery({ delivery, secret: "local-test-secret", now: new Date("2026-07-02T00:01:00.000Z") });
+  const replayed = simulateWebhookReplay({ delivery, secret: "local-test-secret", now: new Date("2026-07-02T00:01:00.000Z") });
+  const stale = simulateWebhookStaleTimestamp({ delivery, secret: "local-test-secret", now: new Date("2026-07-02T01:00:00.000Z") });
+  const invalid = verifyFakeWebhookDelivery({ delivery: { ...delivery, signature: "sha256=bad" }, secret: "local-test-secret", now: new Date("2026-07-02T00:01:00.000Z") });
+  const normalized = normalizeFakeWebhookEventForTimeline(event);
+  const simulated = simulateWebhookDelivery(createFakeUaeAspProvider({ providerId: "MOCK", environment: "MOCK" }), { event, secret: "local-test-secret", timestamp: "2026-07-02T00:00:00.000Z" });
+
+  assert.equal(verified.accepted, true);
+  assert.equal(replayed.second.reason, "DUPLICATE");
+  assert.equal(stale.accepted, false);
+  assert.equal(stale.reason, "STALE_TIMESTAMP");
+  assert.equal(invalid.accepted, false);
+  assert.equal(invalid.reason, "SIGNATURE_INVALID");
+  assert.equal(normalized.localOnly, true);
+  assert.equal(normalized.mockOnly, true);
+  assert.equal(normalized.productionCompliance, false);
+  assert.equal(JSON.stringify(normalized).includes("private"), false);
+  assert.equal(JSON.stringify(normalized).includes("plain-token"), false);
+  assert.equal(simulated.status, "ACCEPTED_MOCK");
+});
+
+test("provider capability negotiation blocks unknowns and never implies production readiness", () => {
+  const unknown = normalizeProviderCapabilities({ providerId: "FUTURE_GENERIC_ASP" });
+  const mockReady = normalizeProviderCapabilities({
+    providerId: "MOCK",
+    capabilities: {
+      sandboxSupport: true,
+      webhooks: true,
+      statusPolling: true,
+      outboundInvoiceSubmission: true,
+      outboundCreditNoteSubmission: true,
+      errorCodeMapping: true,
+      idempotencyKeySupport: true,
+      payloadRedactionLoggingRules: true,
+    },
+    approvedForProduction: true,
+  });
+
+  assert.equal(validateProviderCapabilities(unknown).readyForProviderSpecificImplementation, false);
+  assert.equal(listUnsupportedRequiredCapabilities(unknown).includes("sandboxSupport"), true);
+  assert.equal(validateProviderCapabilities(mockReady).readyForMockImplementation, true);
+  assert.equal(validateProviderCapabilities(mockReady).productionEnabled, false);
+  assert.equal(listUnsupportedRequiredCapabilities(mockReady).length, 0);
+  assert.match(summarizeProviderCapabilities(unknown).summary, /unknown/i);
+  assert.match(compareProviderCapabilitiesToLedgerByteRequirements(unknown).unsupportedRequiredCapabilities.join(" "), /sandboxSupport/);
+});
+
+test("provider error fixture library normalizes stable safe errors without raw payloads", () => {
+  for (const fixture of Object.values(providerErrorFixtures())) {
+    const normalized = normalizeUaeProviderError(fixture.input);
+    assert.equal(normalized.code, fixture.expectedCode);
+    assert.equal(normalized.productionCompliance, false);
+    assert.doesNotMatch(normalized.userMessage, /certified|approved|compliant/i);
+    assert.doesNotMatch(normalized.operatorMessage, /plain-token|<Invoice>|secret/i);
+    assert.equal(JSON.stringify(normalized.details).includes("<Invoice>"), false);
+    assert.equal(JSON.stringify(normalized.details).includes("plain-token"), false);
+  }
 });
 
 test("builds readiness checks for organization and buyer endpoint data", () => {

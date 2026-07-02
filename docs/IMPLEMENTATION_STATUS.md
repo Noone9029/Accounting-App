@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+## 2026-07-02 - UAE fake provider sandbox harness added
+
+- UAE-PRE-ASP-ADAPTER-04 adds provider-neutral envelope contract skeletons, sandbox onboarding state-machine helpers, deterministic fake provider submission/status/webhook simulators, provider capability negotiation helpers, and provider error fixtures.
+- Added package tests proving envelope redaction, deterministic idempotency, blocked network/production flags, sandbox docs/credential state handling, fake webhook signature/replay/stale behavior, conservative capability negotiation, and safe error fixture normalization.
+- Added docs under `docs/uae-peppol/` for provider envelopes, sandbox onboarding simulation, fake provider harnesses, capability negotiation, and provider error fixtures.
+- The implementation remains local-only and no-network. There is still no ASP access, provider-specific envelope mapping, real provider docs, FTA reporting, Peppol transmission, production UAE compliance, production hosting, storage/signed-URL proof, or provider credential.
+
 MONITORING-SUPPORT-EXECUTION-01 local/read-only support diagnostics (2026-07-02):
 
 - Added `scripts/monitoring-support-readiness.cjs` and `scripts/monitoring-support-readiness.test.cjs`.

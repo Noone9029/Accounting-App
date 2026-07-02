@@ -4,6 +4,12 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-07-02 - UAE provider sandbox harness added
+
+- Added package-level tests for provider-neutral envelopes, sandbox onboarding states, fake provider simulations, fake webhook delivery/replay/stale handling, capability negotiation, and provider error fixture redaction.
+- Remaining risks are provider-specific: no real provider envelope docs, webhook docs, sandbox credentials, official conformance evidence, persistent outbox/replay schema, storage/retention proof, or legal/security approval.
+- No production provider status, ASP connection, Peppol/FTA call, production compliance claim, hosted mutation, storage operation, accounting behavior, report math, VAT math, invoice total, or ledger posting behavior changed.
+
 ## 2026-07-02 MONITORING-SUPPORT-EXECUTION-01
 
 - Scope: local/read-only monitoring and support readiness diagnostics on branch `codex/monitoring-support-execution-01`.

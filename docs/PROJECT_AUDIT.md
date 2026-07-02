@@ -2,6 +2,12 @@
 
 Audit date: 2026-05-15
 
+## 2026-07-02 - UAE provider sandbox harness audit update
+
+- Added provider-neutral envelope skeletons and deterministic fake provider simulators for future UAE ASP onboarding tests.
+- Added local sandbox onboarding, fake webhook delivery/replay/stale handling, provider capability negotiation, and provider error fixtures.
+- This reduces future integration ambiguity but does not prove provider access, ASP connectivity, Peppol delivery, FTA reporting, UAE compliance, production hosting, storage, signed URLs, or legal compliance evidence.
+
 Current commit audited: pending (`Add ZATCA SDK hash mode persistence groundwork`)
 
 See also:

@@ -54,3 +54,21 @@ Still open:
 - official conformance evidence.
 - ASP sandbox validation evidence.
 - production compliance review.
+
+## UAE-PRE-ASP-ADAPTER-04 Gap Movement
+
+Closed locally:
+
+- provider-neutral envelope skeleton for draft payload wrappers.
+- sandbox onboarding state-machine simulator.
+- fake local provider submission/status/webhook harness.
+- provider capability negotiation checklist.
+- provider error fixture library with redaction tests.
+
+Still open:
+
+- provider-specific envelope field mapping.
+- provider-specific authentication and header rules.
+- provider-specific webhook/event taxonomy.
+- provider-specific retry, idempotency, and evidence download rules.
+- real ASP sandbox credentials and conformance evidence.

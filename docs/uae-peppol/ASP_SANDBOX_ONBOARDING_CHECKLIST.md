@@ -53,3 +53,18 @@ Before any future sandbox URL, credential, or provider envelope is introduced, t
 - mock provider output uses only `_MOCK` statuses and remains local-only.
 
 The absence of complete official reference files and provider-specific docs remains a no-go for real ASP onboarding.
+
+## UAE-PRE-ASP-ADAPTER-04 Simulator Gate
+
+The onboarding checklist can now be represented in package tests with `buildSandboxOnboardingChecklist`.
+
+Current simulator rules:
+
+- no docs and no credentials: blocked.
+- docs without credentials: credentials pending.
+- credentials without docs: provider docs pending.
+- docs plus credentials: implementation planning only.
+- network enablement remains false.
+- compliance claim remains false.
+
+This does not request, store, or validate real credentials.

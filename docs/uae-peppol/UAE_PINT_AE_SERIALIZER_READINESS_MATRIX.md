@@ -40,3 +40,14 @@ This matrix tracks what LedgerByte can model locally before real UAE ASP access.
 - Provider submission payloads remain blocked.
 - Production-compliant eInvoices remain blocked.
 - All current serializer and validator outputs keep `productionCompliance=false`, `networkReady=false`, and `aspSubmissionReady=false`.
+
+## UAE-PRE-ASP-ADAPTER-04 Matrix Update
+
+| Requirement area | Current implementation | Current tests | Readiness status | Production claim allowed | Follow-up |
+|---|---|---|---|---|---|
+| Provider envelope skeleton | Provider-neutral metadata/document/party/attachment wrappers with body redaction. | Envelope tests for invoice and credit-note drafts. | implemented-local | no | Replace skeleton fields only from provider docs. |
+| Sandbox onboarding simulator | Local checklist states for docs/credential prerequisites. | Missing docs/credential matrix tests. | implemented-local | no | Wire to real onboarding evidence after provider access. |
+| Fake provider harness | Deterministic local submit/status/error simulations. | Mock status, duplicate, rejection, rate-limit, receiver, endpoint tests. | implemented-local | no | Add provider-specific contract tests after docs. |
+| Fake webhook simulator | Local fake signature, replay, stale timestamp, redaction, timeline helpers. | Valid, replay, stale, invalid signature, redaction tests. | implemented-local | no | Add persistent replay schema in separate goal. |
+| Capability negotiation | Conservative capability comparator; unknown does not imply support. | Unknown and mock-ready capability tests. | implemented-local | no | Populate with real provider capability docs later. |
+| Provider error fixtures | Stable fake normalized errors with redacted details. | Fixture normalization and redaction tests. | implemented-local | no | Map real provider error taxonomies later. |
