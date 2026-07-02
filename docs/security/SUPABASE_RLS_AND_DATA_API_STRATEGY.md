@@ -34,3 +34,14 @@ LedgerByte currently uses Supabase as managed Postgres behind the Nest API. The 
 - No safe hosted mutation is part of this PR.
 - Runtime role password creation and Vercel secret cutover require a separate reviewed execution window.
 - Existing Data API/default-privilege state must be re-audited live before changes.
+
+## SECURITY-EXECUTION-01 Evidence
+
+Phase 0 now includes local/source-only evidence under `docs/security/evidence/`:
+
+- Tenant model scope catalog.
+- API controller/service tenancy-risk catalog.
+- Environment separation name-presence check.
+- Seed/demo/cleanup/deploy/migration/provider/compliance script inventory.
+
+This does not enable RLS, inspect live hosted grants, mutate Supabase, mutate Vercel, or prove Data API posture.

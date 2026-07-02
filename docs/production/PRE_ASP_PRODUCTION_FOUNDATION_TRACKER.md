@@ -21,5 +21,21 @@ This tracker covers foundations that can be completed before final production ho
 
 - `corepack pnpm pre-asp:diagnostics`
 - `corepack pnpm test:pre-asp-diagnostics`
+- `corepack pnpm security:tenant-scope-audit`
+- `corepack pnpm test:security-tenant-scope-audit`
+- `corepack pnpm security:api-route-tenancy-audit`
+- `corepack pnpm test:security-api-route-tenancy-audit`
+- `corepack pnpm security:env-separation-check`
+- `corepack pnpm test:security-env-separation-check`
+- `corepack pnpm security:safe-script-audit`
+- `corepack pnpm test:security-safe-script-audit`
 
-Both commands are read-only. They do not connect to a database, call a network endpoint, print secret values, or mutate hosted infrastructure.
+These commands are read-only. They do not connect to a database, call a network endpoint, print secret values, run dangerous scripts, or mutate hosted infrastructure.
+
+## SECURITY-EXECUTION-01 Evidence Baseline
+
+- Tenant-scope audit: 112 Prisma models cataloged; 109 direct tenant-scoped, 3 indirect tenant-scoped, 0 risky unclassified. Unique constraint review queue: 55.
+- API tenancy audit: 144 controller/service files scanned; 126 tenant-guarded, 8 review-needed, 3 webhook, 1 auth-only, 1 system/admin, 5 public-safe.
+- Environment separation check: variable names only, no values printed.
+- Safe-script audit: 166 script/package entries scanned; 112 potentially dangerous entries inventoried, 80 guarded/dry-run, 32 review-required.
+- Hosted runtime role creation, Supabase RLS/Data API mutation, Vercel secret cutover, migrations, provider calls, storage operations, and production compliance remain pending.

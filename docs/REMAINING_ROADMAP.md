@@ -1,5 +1,12 @@
 # Remaining Roadmap
 
+## 2026-07-02 SECURITY-EXECUTION-01
+
+- Added read-only database/security diagnostics for tenant-scope modeling, API tenancy-risk scanning, environment separation, and safe-script guardrail inventory.
+- Evidence generated under `docs/security/evidence/` shows: 0 risky unclassified Prisma models, 8 API files requiring review, 55 unique constraints requiring tenant-scope review, and 32 dangerous script/package entries requiring guardrail follow-up.
+- Hosted runtime role cutover, RLS/Data API hardening, hosted grants audit, PITR/object-storage proof, monitoring provider/log drain, billing/legal review, payment provider integration, ASP access, and provider sandbox evidence remain future work.
+- Recommended next prompt: `BACKUP-STORAGE-PROOF-01` if non-production storage/PITR credentials are available; otherwise `MONITORING-SUPPORT-EXECUTION-01`.
+
 ## 2026-07-02 PRE-ASP-PRODUCTION-FOUNDATION-01
 
 - Added pre-ASP production foundation artifacts across database/security, backup/PITR/object storage, monitoring/support, billing/legal, and UAE ASP-ready adapter groundwork.

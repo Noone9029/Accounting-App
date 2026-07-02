@@ -1,0 +1,5754 @@
+{
+  "status": "REVIEW_REQUIRED",
+  "generatedBy": "scripts/security-api-route-tenancy-audit.cjs",
+  "deterministic": true,
+  "noDatabaseConnection": true,
+  "noNetwork": true,
+  "noMutation": true,
+  "sourceDir": "E:\\Worktrees\\Accounting-App\\security-execution-01\\apps\\api\\src",
+  "scannedFiles": 144,
+  "counts": {
+    "tenant-guarded": 126,
+    "public-safe": 5,
+    "risky-review-needed": 8,
+    "webhook": 3,
+    "auth-only": 1,
+    "system/admin": 1
+  },
+  "riskyReviewNeeded": [
+    {
+      "file": "apps/api/src/collections/collection.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "collectionCase",
+          "snippet": "prisma.collectionCase.findMany({ where, include: collectionCaseInclude, orderBy: [{ nextActionAt: \"asc\" }, { followUpDate: \"asc\" }, { updatedAt: \"desc\" }], })",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/compliance-core/compliance-core.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [
+        "webhook-without-obvious-signature-or-replay-wording"
+      ],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-receipts/purchase-receipt.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        },
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/purchase-returns/purchase-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReturn",
+          "snippet": "prisma.purchaseReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: { supplier: { select: { id: true",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/recurring-invoices/recurring-invoice.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "recurringInvoiceTemplate",
+          "snippet": "prisma.recurringInvoiceTemplate.findMany({ where, orderBy: [{ nextRunDate: \"asc\" }, { createdAt: \"desc\" }], include: { customer: { select: { id: true, name: tru",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-inventory-returns/sales-inventory-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesInventoryReturn",
+          "snippet": "prisma.salesInventoryReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: salesInventoryReturnInclud",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-quotes/sales-quote.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesQuote",
+          "snippet": "prisma.salesQuote.findMany({ where, orderBy: { issueDate: \"desc\" }, include: { customer: { select: { id: true, name: true, displayName: true } }, branch: { sele",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-stock-issues/sales-stock-issue.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesStockIssueLine",
+          "snippet": "prisma.salesStockIssueLine.findMany({ where: { salesInvoiceLineId: { in: lineIds }, issue: { salesInvoiceId: invoice.id, status: { not: SalesStockIssueStatus.VO",
+          "scoped": false
+        }
+      ]
+    }
+  ],
+  "suspiciousPatterns": [
+    {
+      "file": "apps/api/src/collections/collection.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "collectionCase",
+          "snippet": "prisma.collectionCase.findMany({ where, include: collectionCaseInclude, orderBy: [{ nextActionAt: \"asc\" }, { followUpDate: \"asc\" }, { updatedAt: \"desc\" }], })",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/compliance-core/compliance-core.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [
+        "webhook-without-obvious-signature-or-replay-wording"
+      ],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/health/health.controller.ts",
+      "kind": "controller",
+      "classification": "public-safe",
+      "reasons": [
+        "Known public/auth/health surface; still review auth flows separately."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/"
+        },
+        {
+          "method": "GET",
+          "path": "/health"
+        },
+        {
+          "method": "GET",
+          "path": "/readiness"
+        }
+      ],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": false,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "direct-prisma-query-in-controller"
+      ],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-receipts/purchase-receipt.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        },
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/purchase-returns/purchase-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReturn",
+          "snippet": "prisma.purchaseReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: { supplier: { select: { id: true",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/recurring-invoices/recurring-invoice.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "recurringInvoiceTemplate",
+          "snippet": "prisma.recurringInvoiceTemplate.findMany({ where, orderBy: [{ nextRunDate: \"asc\" }, { createdAt: \"desc\" }], include: { customer: { select: { id: true, name: tru",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-inventory-returns/sales-inventory-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesInventoryReturn",
+          "snippet": "prisma.salesInventoryReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: salesInventoryReturnInclud",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-quotes/sales-quote.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesQuote",
+          "snippet": "prisma.salesQuote.findMany({ where, orderBy: { issueDate: \"desc\" }, include: { customer: { select: { id: true, name: true, displayName: true } }, branch: { sele",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-stock-issues/sales-stock-issue.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesStockIssueLine",
+          "snippet": "prisma.salesStockIssueLine.findMany({ where: { salesInvoiceLineId: { in: lineIds }, issue: { salesInvoiceId: invoice.id, status: { not: SalesStockIssueStatus.VO",
+          "scoped": false
+        }
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "file": "apps/api/src/accounting/accounting.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "journal-entries/"
+        },
+        {
+          "method": "GET",
+          "path": "journal-entries/count"
+        },
+        {
+          "method": "POST",
+          "path": "journal-entries/"
+        },
+        {
+          "method": "GET",
+          "path": "journal-entries/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "journal-entries/:id"
+        },
+        {
+          "method": "POST",
+          "path": "journal-entries/:id/post"
+        },
+        {
+          "method": "POST",
+          "path": "journal-entries/:id/reverse"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/accounting/accounting.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/attachments/attachment-storage.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/attachments/attachment.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "attachments/"
+        },
+        {
+          "method": "POST",
+          "path": "attachments/"
+        },
+        {
+          "method": "GET",
+          "path": "attachments/:id"
+        },
+        {
+          "method": "GET",
+          "path": "attachments/:id/download"
+        },
+        {
+          "method": "PATCH",
+          "path": "attachments/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "attachments/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/attachments/attachment.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/audit-log/audit-log.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "audit-logs/"
+        },
+        {
+          "method": "GET",
+          "path": "audit-logs/export.csv"
+        },
+        {
+          "method": "GET",
+          "path": "audit-logs/retention-settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "audit-logs/retention-settings"
+        },
+        {
+          "method": "GET",
+          "path": "audit-logs/retention-preview"
+        },
+        {
+          "method": "POST",
+          "path": "audit-logs/retention-dry-run"
+        },
+        {
+          "method": "GET",
+          "path": "audit-logs/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/audit-log/audit-log.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/auth/auth-token-rate-limit.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/auth/auth-token.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/auth/auth.controller.ts",
+      "kind": "controller",
+      "classification": "public-safe",
+      "reasons": [
+        "Known public/auth/health surface; still review auth flows separately."
+      ],
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "auth/register"
+        },
+        {
+          "method": "POST",
+          "path": "auth/login"
+        },
+        {
+          "method": "GET",
+          "path": "auth/invitations/:token/preview"
+        },
+        {
+          "method": "POST",
+          "path": "auth/invitations/:token/accept"
+        },
+        {
+          "method": "POST",
+          "path": "auth/password-reset/request"
+        },
+        {
+          "method": "POST",
+          "path": "auth/password-reset/confirm"
+        },
+        {
+          "method": "POST",
+          "path": "auth/tokens/cleanup-expired"
+        },
+        {
+          "method": "GET",
+          "path": "auth/me"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/auth/auth.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-accounts/bank-account.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-accounts/"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/"
+        },
+        {
+          "method": "GET",
+          "path": "bank-accounts/:id/transactions"
+        },
+        {
+          "method": "GET",
+          "path": "bank-accounts/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "bank-accounts/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:id/archive"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:id/reactivate"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:id/post-opening-balance"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-accounts/bank-account.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-deposits/bank-deposit.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-deposits/"
+        },
+        {
+          "method": "GET",
+          "path": "bank-deposits/source-candidates"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/"
+        },
+        {
+          "method": "GET",
+          "path": "bank-deposits/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "bank-deposits/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/:id/lines"
+        },
+        {
+          "method": "DELETE",
+          "path": "bank-deposits/:id/lines/:lineId"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/:id/post"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/:id/void"
+        },
+        {
+          "method": "GET",
+          "path": "bank-deposits/:id/match-candidates"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/:id/match-statement-transaction"
+        },
+        {
+          "method": "POST",
+          "path": "bank-deposits/:id/unmatch-statement-transaction"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-deposits/bank-deposit.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-reconciliations/bank-account-reconciliation.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-accounts/:bankAccountProfileId/reconciliations/"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:bankAccountProfileId/reconciliations/"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-reconciliations/bank-reconciliation.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-reconciliations/:id/close"
+        },
+        {
+          "method": "POST",
+          "path": "bank-reconciliations/:id/submit"
+        },
+        {
+          "method": "POST",
+          "path": "bank-reconciliations/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "bank-reconciliations/:id/reopen"
+        },
+        {
+          "method": "POST",
+          "path": "bank-reconciliations/:id/void"
+        },
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id/items"
+        },
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id/review-events"
+        },
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id/report-data"
+        },
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id/report.csv"
+        },
+        {
+          "method": "GET",
+          "path": "bank-reconciliations/:id/report.pdf"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-reconciliations/bank-reconciliation.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-rules/bank-rules.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-rules/"
+        },
+        {
+          "method": "POST",
+          "path": "bank-rules/"
+        },
+        {
+          "method": "PATCH",
+          "path": "bank-rules/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "bank-rules/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-rules/:id/dry-run"
+        },
+        {
+          "method": "POST",
+          "path": "bank-rules/:id/rule-suggestions"
+        },
+        {
+          "method": "POST",
+          "path": "bank-rules/:id/apply-rule-suggestion"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-rules/bank-rules.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-statements/bank-account-statement.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-accounts/:bankAccountProfileId/statement-imports"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:bankAccountProfileId/statement-imports"
+        },
+        {
+          "method": "POST",
+          "path": "bank-accounts/:bankAccountProfileId/statement-imports/preview"
+        },
+        {
+          "method": "GET",
+          "path": "bank-accounts/:bankAccountProfileId/statement-transactions"
+        },
+        {
+          "method": "GET",
+          "path": "bank-accounts/:bankAccountProfileId/reconciliation-summary"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-statements/bank-statement-import.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-statement-imports/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-statement-imports/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-statements/bank-statement-transaction.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-statement-transactions/:id"
+        },
+        {
+          "method": "GET",
+          "path": "bank-statement-transactions/:id/match-candidates"
+        },
+        {
+          "method": "POST",
+          "path": "bank-statement-transactions/:id/match"
+        },
+        {
+          "method": "POST",
+          "path": "bank-statement-transactions/:id/categorize"
+        },
+        {
+          "method": "POST",
+          "path": "bank-statement-transactions/:id/ignore"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-statements/bank-statement.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-transfers/bank-transfer.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "bank-transfers/"
+        },
+        {
+          "method": "POST",
+          "path": "bank-transfers/"
+        },
+        {
+          "method": "GET",
+          "path": "bank-transfers/:id"
+        },
+        {
+          "method": "POST",
+          "path": "bank-transfers/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/bank-transfers/bank-transfer.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/banking-accounting/banking-accounting.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "banking-accounting/clearing-config"
+        },
+        {
+          "method": "PUT",
+          "path": "banking-accounting/clearing-config"
+        },
+        {
+          "method": "POST",
+          "path": "banking-accounting/clearing-config/validate"
+        },
+        {
+          "method": "GET",
+          "path": "banking-accounting/bank-deposits/:id/preflight"
+        },
+        {
+          "method": "POST",
+          "path": "banking-accounting/bank-deposits/:id/post-journal"
+        },
+        {
+          "method": "GET",
+          "path": "banking-accounting/card-settlements/:id/preflight"
+        },
+        {
+          "method": "POST",
+          "path": "banking-accounting/card-settlements/:id/post-journal"
+        },
+        {
+          "method": "GET",
+          "path": "banking-accounting/cheques/:id/preflight"
+        },
+        {
+          "method": "POST",
+          "path": "banking-accounting/cheques/:id/post-journal"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/banking-accounting/banking-accounting.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/branches/branch.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "branches/"
+        },
+        {
+          "method": "POST",
+          "path": "branches/"
+        },
+        {
+          "method": "PATCH",
+          "path": "branches/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/branches/branch.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/card-settlements/card-settlement.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "card-settlements/"
+        },
+        {
+          "method": "POST",
+          "path": "card-settlements/"
+        },
+        {
+          "method": "GET",
+          "path": "card-settlements/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "card-settlements/:id"
+        },
+        {
+          "method": "POST",
+          "path": "card-settlements/:id/post"
+        },
+        {
+          "method": "POST",
+          "path": "card-settlements/:id/void"
+        },
+        {
+          "method": "GET",
+          "path": "card-settlements/:id/match-candidates"
+        },
+        {
+          "method": "POST",
+          "path": "card-settlements/:id/match-statement-transaction"
+        },
+        {
+          "method": "POST",
+          "path": "card-settlements/:id/unmatch-statement-transaction"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/card-settlements/card-settlement.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/cash-expenses/cash-expense.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "cash-expenses/"
+        },
+        {
+          "method": "POST",
+          "path": "cash-expenses/"
+        },
+        {
+          "method": "GET",
+          "path": "cash-expenses/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "cash-expenses/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "cash-expenses/:id/generate-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "cash-expenses/:id"
+        },
+        {
+          "method": "POST",
+          "path": "cash-expenses/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "cash-expenses/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/cash-expenses/cash-expense.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/chart-of-accounts/chart-of-accounts.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "accounts/"
+        },
+        {
+          "method": "GET",
+          "path": "accounts/next-code"
+        },
+        {
+          "method": "POST",
+          "path": "accounts/"
+        },
+        {
+          "method": "GET",
+          "path": "accounts/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "accounts/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "accounts/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/chart-of-accounts/chart-of-accounts.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/cheques/cheque.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "cheques/"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/"
+        },
+        {
+          "method": "GET",
+          "path": "cheques/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "cheques/:id"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/mark-received"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/mark-issued"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/deposit"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/clear"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/bounce"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/void"
+        },
+        {
+          "method": "GET",
+          "path": "cheques/:id/match-candidates"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/match-statement-transaction"
+        },
+        {
+          "method": "POST",
+          "path": "cheques/:id/unmatch-statement-transaction"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/cheques/cheque.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/collections/collection.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "collections/"
+        },
+        {
+          "method": "GET",
+          "path": "collections/summary"
+        },
+        {
+          "method": "GET",
+          "path": "collections/next-number"
+        },
+        {
+          "method": "GET",
+          "path": "collections/customer/:customerId"
+        },
+        {
+          "method": "GET",
+          "path": "collections/invoice/:invoiceId"
+        },
+        {
+          "method": "POST",
+          "path": "collections/"
+        },
+        {
+          "method": "GET",
+          "path": "collections/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "collections/:id"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/start"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/mark-promised"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/mark-disputed"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/hold"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/close"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "collections/:id/activities"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/collections/collection.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "collectionCase",
+          "snippet": "prisma.collectionCase.findMany({ where, include: collectionCaseInclude, orderBy: [{ nextActionAt: \"asc\" }, { followUpDate: \"asc\" }, { updatedAt: \"desc\" }], })",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/compliance-core/compliance-core.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "compliance/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/documents"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/documents/:id/timeline"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/asp-provider/readiness"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/asp-provider/test-config"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/documents/:id/asp-transmission-preview"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/documents/:id/submit-mock-provider"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/documents/:id/provider-status-timeline"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/sales-invoices/:invoiceId/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "compliance/credit-notes/:creditNoteId/readiness"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/sales-invoices/:invoiceId/prepare"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/credit-notes/:creditNoteId/prepare"
+        },
+        {
+          "method": "POST",
+          "path": "compliance/documents/:id/validate"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/compliance-core/compliance-core.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [
+        "webhook-without-obvious-signature-or-replay-wording"
+      ],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/contacts/contact-ledger.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/contacts/contact.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "contacts/"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/customers"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/customers/:id"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/suppliers"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/suppliers/ap-dashboard"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/suppliers/:id/ap-summary"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/suppliers/:id"
+        },
+        {
+          "method": "POST",
+          "path": "contacts/"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/ledger"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/statement"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/statement-pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/statement.pdf"
+        },
+        {
+          "method": "POST",
+          "path": "contacts/:id/generate-statement-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/supplier-ledger"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/supplier-statement"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/supplier-statement-pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id/supplier-statement.pdf"
+        },
+        {
+          "method": "GET",
+          "path": "contacts/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "contacts/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/contacts/contact.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/contacts/supplier-ap-dashboard.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/credit-notes/credit-note.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "credit-notes/"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/"
+        },
+        {
+          "method": "GET",
+          "path": "credit-notes/:id"
+        },
+        {
+          "method": "GET",
+          "path": "credit-notes/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "credit-notes/:id/allocations"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/:id/apply"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/:id/allocations/:allocationId/reverse"
+        },
+        {
+          "method": "GET",
+          "path": "credit-notes/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "credit-notes/:id"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/:id/finalize"
+        },
+        {
+          "method": "POST",
+          "path": "credit-notes/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "credit-notes/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/credit-notes/credit-note.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/customer-payments/customer-payment.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "customer-payments/"
+        },
+        {
+          "method": "POST",
+          "path": "customer-payments/"
+        },
+        {
+          "method": "GET",
+          "path": "customer-payments/:id/receipt-data"
+        },
+        {
+          "method": "GET",
+          "path": "customer-payments/:id/receipt-pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "customer-payments/:id/receipt.pdf"
+        },
+        {
+          "method": "POST",
+          "path": "customer-payments/:id/generate-receipt-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "customer-payments/:id/unapplied-allocations"
+        },
+        {
+          "method": "POST",
+          "path": "customer-payments/:id/apply-unapplied"
+        },
+        {
+          "method": "POST",
+          "path": "customer-payments/:id/unapplied-allocations/:allocationId/reverse"
+        },
+        {
+          "method": "GET",
+          "path": "customer-payments/:id"
+        },
+        {
+          "method": "POST",
+          "path": "customer-payments/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "customer-payments/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/customer-payments/customer-payment.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/customer-refunds/customer-refund.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "customer-refunds/"
+        },
+        {
+          "method": "GET",
+          "path": "customer-refunds/refundable-sources"
+        },
+        {
+          "method": "POST",
+          "path": "customer-refunds/"
+        },
+        {
+          "method": "GET",
+          "path": "customer-refunds/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "customer-refunds/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "customer-refunds/:id/generate-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "customer-refunds/:id"
+        },
+        {
+          "method": "POST",
+          "path": "customer-refunds/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "customer-refunds/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/customer-refunds/customer-refund.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/dashboard/dashboard.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "dashboard/summary"
+        },
+        {
+          "method": "GET",
+          "path": "dashboard/onboarding-checklist"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/dashboard/dashboard.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/delivery-notes/delivery-note.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "delivery-notes/"
+        },
+        {
+          "method": "GET",
+          "path": "delivery-notes/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/"
+        },
+        {
+          "method": "GET",
+          "path": "delivery-notes/:id"
+        },
+        {
+          "method": "GET",
+          "path": "delivery-notes/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "delivery-notes/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "delivery-notes/:id"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/:id/issue"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/:id/mark-delivered"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "delivery-notes/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/delivery-notes/delivery-note.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/document-settings/organization-document-settings.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "organization-document-settings/"
+        },
+        {
+          "method": "PATCH",
+          "path": "organization-document-settings/"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/document-settings/organization-document-settings.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/email/email.controller.ts",
+      "kind": "controller",
+      "classification": "webhook",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "email/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "email/diagnostics-plan"
+        },
+        {
+          "method": "POST",
+          "path": "email/diagnostics"
+        },
+        {
+          "method": "GET",
+          "path": "email/retry-plan"
+        },
+        {
+          "method": "POST",
+          "path": "email/retry-process"
+        },
+        {
+          "method": "GET",
+          "path": "email/retry-worker/plan"
+        },
+        {
+          "method": "POST",
+          "path": "email/retry-worker/run"
+        },
+        {
+          "method": "GET",
+          "path": "email/monitoring-plan"
+        },
+        {
+          "method": "GET",
+          "path": "email/monitoring-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "email/monitoring-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "email/monitoring-evidence/:id/verify"
+        },
+        {
+          "method": "POST",
+          "path": "email/monitoring-evidence/:id/revoke"
+        },
+        {
+          "method": "GET",
+          "path": "email/provider-events/plan"
+        },
+        {
+          "method": "POST",
+          "path": "email/provider-events/mock"
+        },
+        {
+          "method": "GET",
+          "path": "email/provider-events/webhook-plan"
+        },
+        {
+          "method": "POST",
+          "path": "email/provider-events/webhook"
+        },
+        {
+          "method": "GET",
+          "path": "email/suppressions"
+        },
+        {
+          "method": "POST",
+          "path": "email/suppressions"
+        },
+        {
+          "method": "POST",
+          "path": "email/suppressions/:id/revoke"
+        },
+        {
+          "method": "GET",
+          "path": "email/sender-domain-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "email/sender-domain-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "email/sender-domain-evidence/:id/verify"
+        },
+        {
+          "method": "POST",
+          "path": "email/sender-domain-evidence/:id/revoke"
+        },
+        {
+          "method": "POST",
+          "path": "email/test-send"
+        },
+        {
+          "method": "POST",
+          "path": "email/ap-generated-documents/:generatedDocumentId/outbox"
+        },
+        {
+          "method": "GET",
+          "path": "email/outbox"
+        },
+        {
+          "method": "GET",
+          "path": "email/outbox/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/email/email.service.ts",
+      "kind": "service",
+      "classification": "webhook",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/fiscal-periods/fiscal-period-guard.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/fiscal-periods/fiscal-period.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "fiscal-periods/"
+        },
+        {
+          "method": "POST",
+          "path": "fiscal-periods/"
+        },
+        {
+          "method": "GET",
+          "path": "fiscal-periods/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "fiscal-periods/:id"
+        },
+        {
+          "method": "POST",
+          "path": "fiscal-periods/:id/close"
+        },
+        {
+          "method": "POST",
+          "path": "fiscal-periods/:id/reopen"
+        },
+        {
+          "method": "POST",
+          "path": "fiscal-periods/:id/lock"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/fiscal-periods/fiscal-period.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/generated-documents/generated-document.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "generated-documents/"
+        },
+        {
+          "method": "GET",
+          "path": "generated-documents/:id"
+        },
+        {
+          "method": "GET",
+          "path": "generated-documents/:id/download"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/generated-documents/generated-document.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/health/health.controller.ts",
+      "kind": "controller",
+      "classification": "public-safe",
+      "reasons": [
+        "Known public/auth/health surface; still review auth flows separately."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/"
+        },
+        {
+          "method": "GET",
+          "path": "/health"
+        },
+        {
+          "method": "GET",
+          "path": "/readiness"
+        }
+      ],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": false,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "direct-prisma-query-in-controller"
+      ],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory-adjustments/inventory-adjustment.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory-adjustments/"
+        },
+        {
+          "method": "POST",
+          "path": "inventory-adjustments/"
+        },
+        {
+          "method": "GET",
+          "path": "inventory-adjustments/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory-adjustments/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "inventory-adjustments/:id"
+        },
+        {
+          "method": "POST",
+          "path": "inventory-adjustments/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "inventory-adjustments/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory-adjustments/inventory-adjustment.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-accounting.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-clearing-report.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-fifo-preview.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/fifo-preview/"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/fifo-preview/items/:itemId"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/fifo-preview/warehouses/:warehouseId"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/fifo-preview/items/:itemId/warehouses/:warehouseId"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-fifo-preview.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-landed-cost-preview.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/landed-cost/preview"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/landed-cost/preview"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/landed-cost/purchase-receipts/:id/preview"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/landed-cost/purchase-bills/:id/preview"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-landed-cost-preview.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-traceability.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/traceability/items/:itemId"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/bin-locations"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/bin-locations"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/bin-locations/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory/bin-locations/:id"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/batches"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/batches"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/batches/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory/batches/:id"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/serial-numbers"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/serial-numbers"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/serial-numbers/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory/serial-numbers/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-traceability.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-valuation-variance-preview.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/valuation-variances/"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/valuation-variances/summary"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/valuation-variances/purchase-receipts/:id"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/valuation-variances/purchase-bills/:id"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/valuation-variances/matching-reviews/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-valuation-variance-preview.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-variance-proposal.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/variance-proposals/"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/from-clearing-variance"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/variance-proposals/:id"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/variance-proposals/:id/events"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/variance-proposals/:id/accounting-preview"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/:id/submit"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/:id/post"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/:id/reverse"
+        },
+        {
+          "method": "POST",
+          "path": "inventory/variance-proposals/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory-variance-proposal.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "inventory/settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory/settings"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/accounting-settings"
+        },
+        {
+          "method": "PATCH",
+          "path": "inventory/accounting-settings"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/purchase-receipt-posting-readiness"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/balances"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/reports/stock-valuation"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/reports/movement-summary"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/reports/low-stock"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/reports/clearing-reconciliation"
+        },
+        {
+          "method": "GET",
+          "path": "inventory/reports/clearing-variance"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/inventory/inventory.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/items/item.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "items/"
+        },
+        {
+          "method": "POST",
+          "path": "items/"
+        },
+        {
+          "method": "GET",
+          "path": "items/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "items/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "items/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/items/item.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/number-sequences/number-sequence.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "number-sequences/"
+        },
+        {
+          "method": "GET",
+          "path": "number-sequences/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "number-sequences/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/number-sequences/number-sequence.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/onboarding/onboarding.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "onboarding/profile"
+        },
+        {
+          "method": "PUT",
+          "path": "onboarding/profile"
+        },
+        {
+          "method": "GET",
+          "path": "onboarding/checklist"
+        },
+        {
+          "method": "POST",
+          "path": "onboarding/checklist/recompute"
+        },
+        {
+          "method": "POST",
+          "path": "onboarding/checklist/items/:itemKey/complete"
+        },
+        {
+          "method": "POST",
+          "path": "onboarding/checklist/items/:itemKey/skip"
+        },
+        {
+          "method": "POST",
+          "path": "onboarding/checklist/items/:itemKey/reopen"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/onboarding/onboarding.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/organization-members/organization-member.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "organization-members/"
+        },
+        {
+          "method": "GET",
+          "path": "organization-members/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "organization-members/:id/role"
+        },
+        {
+          "method": "PATCH",
+          "path": "organization-members/:id/status"
+        },
+        {
+          "method": "POST",
+          "path": "organization-members/invite"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/organization-members/organization-member.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/organizations/organization.controller.ts",
+      "kind": "controller",
+      "classification": "auth-only",
+      "reasons": [
+        "Authentication markers found, but tenant markers are not obvious in this file."
+      ],
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "organizations/"
+        },
+        {
+          "method": "GET",
+          "path": "organizations/"
+        },
+        {
+          "method": "GET",
+          "path": "organizations/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "organizations/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": false,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/organizations/organization.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/prisma/prisma.service.ts",
+      "kind": "service",
+      "classification": "public-safe",
+      "reasons": [
+        "Non-controller support file without business-route path markers."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": false,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-bills/purchase-bill.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-bills/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/open"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-bills/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/accounting-preview"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/debit-notes"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/debit-note-allocations"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/supplier-payment-unapplied-allocations"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-bills/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-bills/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "purchase-bills/:id"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-bills/:id/finalize"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-bills/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "purchase-bills/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-bills/purchase-bill.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-debit-notes/purchase-debit-note.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-debit-notes/"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-debit-notes/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-debit-notes/:id/allocations"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/:id/apply"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/:id/allocations/:allocationId/reverse"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-debit-notes/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-debit-notes/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "purchase-debit-notes/:id"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/:id/finalize"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-debit-notes/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "purchase-debit-notes/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-debit-notes/purchase-debit-note.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-matching/purchase-matching.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-matching/exceptions"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-matching/reviews"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-matching/reviews/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "purchase-matching/reviews/:id"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/start"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/mark-waiting-for-supplier"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/mark-timing-difference"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/mark-needs-variance-review"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/mark-needs-return-review"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/resolve"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-matching/reviews/:id/cancel"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-matching/purchase-orders/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-matching/purchase-bills/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-matching/purchase-receipts/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-matching/purchase-matching.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-orders/purchase-order.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-orders/"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-orders/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-orders/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-orders/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "purchase-orders/:id"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/mark-sent"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/close"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/void"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-orders/:id/convert-to-bill"
+        },
+        {
+          "method": "DELETE",
+          "path": "purchase-orders/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-orders/purchase-order.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-receipts/purchase-receipt.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-receipts/"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-receipts/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-receipts/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-receipts/:id/accounting-preview"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-receipts/:id/post-inventory-asset"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-receipts/:id/reverse-inventory-asset"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-receipts/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-receipts/purchase-receipt.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        },
+        {
+          "model": "purchaseReceiptLine",
+          "snippet": "prisma.purchaseReceiptLine.findMany({ where: { ...(sourceKind === \"purchaseOrder\" ? { purchaseOrderLineId: { in: lineIds } } : { purchaseBillLineId: { in: lineI",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/purchase-receipts/purchase-receiving-status.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/purchase-orders/:id/receiving-status"
+        },
+        {
+          "method": "GET",
+          "path": "/purchase-orders/:id/receipt-matching-status"
+        },
+        {
+          "method": "GET",
+          "path": "/purchase-bills/:id/receiving-status"
+        },
+        {
+          "method": "GET",
+          "path": "/purchase-bills/:id/receipt-matching-status"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-returns/purchase-return.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "purchase-returns/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-returns/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-returns/:id"
+        },
+        {
+          "method": "GET",
+          "path": "purchase-returns/:id/inventory-return-preview"
+        },
+        {
+          "method": "PATCH",
+          "path": "purchase-returns/:id"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/submit"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/complete"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/void"
+        },
+        {
+          "method": "POST",
+          "path": "purchase-returns/:id/post-inventory-return"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/purchase-returns/purchase-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "purchaseReturn",
+          "snippet": "prisma.purchaseReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: { supplier: { select: { id: true",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/recurring-invoices/recurring-invoice.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "recurring-invoices/"
+        },
+        {
+          "method": "GET",
+          "path": "recurring-invoices/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/"
+        },
+        {
+          "method": "GET",
+          "path": "recurring-invoices/:id"
+        },
+        {
+          "method": "GET",
+          "path": "recurring-invoices/:id/preview"
+        },
+        {
+          "method": "PATCH",
+          "path": "recurring-invoices/:id"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/activate"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/pause"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/resume"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/end"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "recurring-invoices/:id/generate-now"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/recurring-invoices/recurring-invoice.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "recurringInvoiceTemplate",
+          "snippet": "prisma.recurringInvoiceTemplate.findMany({ where, orderBy: [{ nextRunDate: \"asc\" }, { createdAt: \"desc\" }], include: { customer: { select: { id: true, name: tru",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/reports/reports.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "reports/general-ledger"
+        },
+        {
+          "method": "GET",
+          "path": "reports/general-ledger/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/trial-balance"
+        },
+        {
+          "method": "GET",
+          "path": "reports/trial-balance/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/profit-and-loss"
+        },
+        {
+          "method": "GET",
+          "path": "reports/profit-and-loss/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/balance-sheet"
+        },
+        {
+          "method": "GET",
+          "path": "reports/balance-sheet/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/vat-summary"
+        },
+        {
+          "method": "GET",
+          "path": "reports/vat-summary/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/vat-return"
+        },
+        {
+          "method": "GET",
+          "path": "reports/dashboard-summary"
+        },
+        {
+          "method": "GET",
+          "path": "reports/report-pack/manifest-preview"
+        },
+        {
+          "method": "GET",
+          "path": "reports/cash-flow"
+        },
+        {
+          "method": "GET",
+          "path": "reports/revenue-trend"
+        },
+        {
+          "method": "GET",
+          "path": "reports/top-customers"
+        },
+        {
+          "method": "GET",
+          "path": "reports/top-products-services"
+        },
+        {
+          "method": "GET",
+          "path": "reports/aged-receivables"
+        },
+        {
+          "method": "GET",
+          "path": "reports/aged-receivables/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "reports/aged-payables"
+        },
+        {
+          "method": "GET",
+          "path": "reports/aged-payables/pdf"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/reports/reports.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/roles/role.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "roles/"
+        },
+        {
+          "method": "GET",
+          "path": "roles/:id"
+        },
+        {
+          "method": "POST",
+          "path": "roles/"
+        },
+        {
+          "method": "PATCH",
+          "path": "roles/:id"
+        },
+        {
+          "method": "DELETE",
+          "path": "roles/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/roles/role.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-inventory-returns/sales-inventory-return.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "sales-inventory-returns/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-inventory-returns/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-inventory-returns/:id"
+        },
+        {
+          "method": "GET",
+          "path": "sales-inventory-returns/:id/inventory-return-preview"
+        },
+        {
+          "method": "PATCH",
+          "path": "sales-inventory-returns/:id"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/submit"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/receive"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/void"
+        },
+        {
+          "method": "POST",
+          "path": "sales-inventory-returns/:id/post-inventory-return"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-inventory-returns/sales-inventory-return.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesInventoryReturn",
+          "snippet": "prisma.salesInventoryReturn.findMany({ where, orderBy: [{ returnDate: \"desc\" }, { createdAt: \"desc\" }], take: filters.limit, include: salesInventoryReturnInclud",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-invoices/sales-invoice.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "sales-invoices/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/open"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "sales-invoices/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id/pdf"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id/credit-notes"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id/credit-note-allocations"
+        },
+        {
+          "method": "GET",
+          "path": "sales-invoices/:id/customer-payment-unapplied-allocations"
+        },
+        {
+          "method": "POST",
+          "path": "sales-invoices/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "sales-invoices/:id"
+        },
+        {
+          "method": "POST",
+          "path": "sales-invoices/:id/finalize"
+        },
+        {
+          "method": "POST",
+          "path": "sales-invoices/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "sales-invoices/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-invoices/sales-invoice.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-quotes/sales-quote.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "sales-quotes/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-quotes/next-number"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-quotes/:id"
+        },
+        {
+          "method": "GET",
+          "path": "sales-quotes/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "sales-quotes/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/generate-pdf"
+        },
+        {
+          "method": "PATCH",
+          "path": "sales-quotes/:id"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/mark-sent"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/accept"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/reject"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/expire"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/cancel"
+        },
+        {
+          "method": "POST",
+          "path": "sales-quotes/:id/convert-to-invoice"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-quotes/sales-quote.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesQuote",
+          "snippet": "prisma.salesQuote.findMany({ where, orderBy: { issueDate: \"desc\" }, include: { customer: { select: { id: true, name: true, displayName: true } }, branch: { sele",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/sales-stock-issues/sales-stock-issue-status.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/stock-issue-status"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-stock-issues/sales-stock-issue.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "sales-stock-issues/"
+        },
+        {
+          "method": "POST",
+          "path": "sales-stock-issues/"
+        },
+        {
+          "method": "GET",
+          "path": "sales-stock-issues/:id"
+        },
+        {
+          "method": "GET",
+          "path": "sales-stock-issues/:id/accounting-preview"
+        },
+        {
+          "method": "POST",
+          "path": "sales-stock-issues/:id/post-cogs"
+        },
+        {
+          "method": "POST",
+          "path": "sales-stock-issues/:id/reverse-cogs"
+        },
+        {
+          "method": "POST",
+          "path": "sales-stock-issues/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/sales-stock-issues/sales-stock-issue.service.ts",
+      "kind": "service",
+      "classification": "risky-review-needed",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [
+        "findMany-without-obvious-tenant-scope"
+      ],
+      "unscopedFindMany": [
+        {
+          "model": "salesStockIssueLine",
+          "snippet": "prisma.salesStockIssueLine.findMany({ where: { salesInvoiceLineId: { in: lineIds }, issue: { salesInvoiceId: invoice.id, status: { not: SalesStockIssueStatus.VO",
+          "scoped": false
+        }
+      ]
+    },
+    {
+      "file": "apps/api/src/search/search.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "search/"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/search/search.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/stock-movements/stock-movement.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "stock-movements/"
+        },
+        {
+          "method": "POST",
+          "path": "stock-movements/"
+        },
+        {
+          "method": "GET",
+          "path": "stock-movements/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/stock-movements/stock-movement.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/storage/storage-configuration.service.ts",
+      "kind": "service",
+      "classification": "public-safe",
+      "reasons": [
+        "Non-controller support file without business-route path markers."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": false,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/storage/storage.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "storage/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "storage/migration-plan"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/storage/storage.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/supplier-payments/supplier-payment.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "supplier-payments/"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-payments/"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id/allocations"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id/unapplied-allocations"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-payments/:id/apply-unapplied"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-payments/:id/unapplied-allocations/:allocationId/reverse"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id/receipt-data"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id/receipt-pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id/receipt.pdf"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-payments/:id/generate-receipt-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-payments/:id"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-payments/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "supplier-payments/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/supplier-payments/supplier-payment.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/supplier-refunds/supplier-refund.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "supplier-refunds/"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-refunds/refundable-sources"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-refunds/"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-refunds/:id/pdf-data"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-refunds/:id/pdf"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-refunds/:id/generate-pdf"
+        },
+        {
+          "method": "GET",
+          "path": "supplier-refunds/:id"
+        },
+        {
+          "method": "POST",
+          "path": "supplier-refunds/:id/void"
+        },
+        {
+          "method": "DELETE",
+          "path": "supplier-refunds/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/supplier-refunds/supplier-refund.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/system/backup-readiness.service.ts",
+      "kind": "service",
+      "classification": "public-safe",
+      "reasons": [
+        "Known public/auth/health surface; still review auth flows separately."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/system/system.controller.ts",
+      "kind": "controller",
+      "classification": "system/admin",
+      "reasons": [
+        "System/admin-readiness surface; should stay owner/admin gated."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "system/backup-readiness"
+        },
+        {
+          "method": "GET",
+          "path": "system/restore-drill-plan"
+        },
+        {
+          "method": "GET",
+          "path": "system/backup-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "system/backup-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "system/backup-evidence/:id/verify"
+        },
+        {
+          "method": "POST",
+          "path": "system/backup-evidence/:id/revoke"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/tax-rates/tax-rate.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "tax-rates/"
+        },
+        {
+          "method": "POST",
+          "path": "tax-rates/"
+        },
+        {
+          "method": "PATCH",
+          "path": "tax-rates/:id"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/tax-rates/tax-rate.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/warehouse-transfers/warehouse-transfer.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "warehouse-transfers/"
+        },
+        {
+          "method": "POST",
+          "path": "warehouse-transfers/"
+        },
+        {
+          "method": "GET",
+          "path": "warehouse-transfers/:id"
+        },
+        {
+          "method": "POST",
+          "path": "warehouse-transfers/:id/void"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/warehouse-transfers/warehouse-transfer.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/warehouses/warehouse.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "warehouses/"
+        },
+        {
+          "method": "POST",
+          "path": "warehouses/"
+        },
+        {
+          "method": "GET",
+          "path": "warehouses/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "warehouses/:id"
+        },
+        {
+          "method": "POST",
+          "path": "warehouses/:id/archive"
+        },
+        {
+          "method": "POST",
+          "path": "warehouses/:id/reactivate"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/warehouses/warehouse.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/zatca-sdk/zatca-sdk.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/zatca-sdk/readiness"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca-sdk/validate-xml-dry-run"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca-sdk/validate-xml-local"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca-sdk/validate-reference-fixture"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/sdk-validate"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/hash-compare"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/zatca-sdk/zatca-sdk.service.ts",
+      "kind": "service",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Tenant-scope markers found in service source."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": false,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/zatca/zatca.controller.ts",
+      "kind": "controller",
+      "classification": "tenant-guarded",
+      "reasons": [
+        "Guard and tenant markers found in source."
+      ],
+      "endpoints": [
+        {
+          "method": "GET",
+          "path": "/zatca/profile"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/adapter-config"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/compliance-checklist"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/xml-field-mapping"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/hash-chain-reset-plan"
+        },
+        {
+          "method": "PATCH",
+          "path": "/zatca/profile"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "/zatca/egs-units/:id"
+        },
+        {
+          "method": "PATCH",
+          "path": "/zatca/egs-units/:id/csr-fields"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/activate-dev"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/enable-sdk-hash-mode"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/generate-csr"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/csr-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/csr-config-preview"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/csr-config-reviews"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/csr-config-reviews"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/csr-config-reviews/:reviewId/approve"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/csr-config-reviews/:reviewId/revoke"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/csr-dry-run"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/csr-local-generate"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/compliance-csid-request-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/sandbox-csid-request-schema-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/sandbox-csid-response-custody-dry-run-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/sandbox-csid-execution-approval-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/compliance-csid-custody-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/compliance-csid-custody/provider-readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/compliance-csid-custody/provider-configuration-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/key-custody-lifecycle"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/key-custody-lifecycle"
+        },
+        {
+          "method": "PATCH",
+          "path": "/zatca/egs-units/:id/key-custody-lifecycle"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/key-custody-lifecycle/:id/disable"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/key-custody-lifecycle/:id/revoke"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/compliance-csid-custody-records"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/compliance-csid-custody-records"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/compliance-csid-custody-records/:id/revoke"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/compliance-csid-request-dry-run"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/csr"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/egs-units/:id/csr/download"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/request-compliance-csid"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/egs-units/:id/request-production-csid"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/signed-artifact-storage/probe-plan"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/probe"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/signed-artifact-storage/immutable-policy-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/signed-artifact-storage/policy-approvals"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/policy-approvals"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/policy-approvals/:id/approve"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/policy-approvals/:id/revoke"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/signed-artifact-storage/control-evidence"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/signed-artifact-storage/evidence-completeness"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/control-evidence"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/control-evidence/:id/verify"
+        },
+        {
+          "method": "POST",
+          "path": "/zatca/signed-artifact-storage/control-evidence/:id/revoke"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/signing-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/signed-xml-promotion-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/signed-artifact-storage-plan"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/signed-artifact-drafts"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/signed-artifact-drafts"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/local-signing-dry-run"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/local-signed-xml-validation-dry-run"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/generate"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/compliance-check"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/clearance"
+        },
+        {
+          "method": "POST",
+          "path": "/sales-invoices/:id/zatca/reporting"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/xml"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/xml-validation"
+        },
+        {
+          "method": "GET",
+          "path": "/sales-invoices/:id/zatca/qr"
+        },
+        {
+          "method": "GET",
+          "path": "/zatca/submissions"
+        }
+      ],
+      "markers": {
+        "hasGuards": true,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": true,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": false
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    },
+    {
+      "file": "apps/api/src/zatca/zatca.service.ts",
+      "kind": "service",
+      "classification": "webhook",
+      "reasons": [
+        "Webhook or provider-event surface; signature and replay handling require explicit review."
+      ],
+      "endpoints": [],
+      "markers": {
+        "hasGuards": false,
+        "hasTenantMarkers": true,
+        "hasAuthMarkers": false,
+        "hasRoleMarkers": true,
+        "hasWebhookMarkers": true
+      },
+      "suspicious": [],
+      "unscopedFindMany": []
+    }
+  ]
+}

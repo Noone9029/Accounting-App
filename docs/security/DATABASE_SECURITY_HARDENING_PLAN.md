@@ -46,6 +46,17 @@ corepack pnpm pre-asp:diagnostics
 corepack pnpm test:pre-asp-diagnostics
 ```
 
+## SECURITY-EXECUTION-01 Read-Only Evidence
+
+`SECURITY-EXECUTION-01` adds deeper read-only diagnostics without enabling RLS, changing roles, changing Prisma schema, running migrations, or mutating hosted state:
+
+- `corepack pnpm security:tenant-scope-audit` writes `docs/security/evidence/TENANT_SCOPE_AUDIT.md` and JSON evidence. Current result: 112 Prisma models cataloged, 109 direct tenant-scoped models, 3 indirect tenant-scoped models, 0 risky unclassified models, and 55 unique constraints flagged for review because they do not themselves include tenant scope.
+- `corepack pnpm security:api-route-tenancy-audit` writes `docs/security/evidence/API_TENANCY_AUDIT.md` and JSON evidence. Current result: 144 controller/service files scanned, 126 tenant-guarded files, 8 review-needed files, and explicit webhook/provider review items.
+- `corepack pnpm security:env-separation-check` writes `docs/security/evidence/ENV_SEPARATION_CHECK.md` and JSON evidence. It reports environment variable presence by name only and never prints, parses, or validates secret values.
+- `corepack pnpm security:safe-script-audit` writes `docs/security/evidence/SAFE_SCRIPT_AUDIT.md` and JSON evidence. It inventories seed/reset/delete/deploy/migrate/provider/compliance-capable scripts without executing them.
+
+These checks produce security-review evidence only. They do not prove hosted RLS, runtime role cutover, Data API grants, or production tenant isolation.
+
 ## Review Checklist
 
 Before hosted mutation:

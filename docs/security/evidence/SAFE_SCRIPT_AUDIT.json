@@ -1,0 +1,3906 @@
+{
+  "status": "REVIEW_REQUIRED",
+  "generatedBy": "scripts/security-safe-script-audit.cjs",
+  "deterministic": true,
+  "noScriptsExecuted": true,
+  "noDatabaseConnection": true,
+  "noNetwork": true,
+  "noMutation": true,
+  "scannedEntries": 166,
+  "counts": {
+    "guarded-or-dry-run": 80,
+    "not-dangerous": 54,
+    "review-required": 32
+  },
+  "dangerous": [
+    {
+      "source": "file",
+      "path": "apps/api/scripts/dev04-fixture-runner.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/dev08m-ap-cleanup-planner.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/sales-ar-walkthrough-fixture.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/seed-demo-workflows.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "provider"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-accounting-tail.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-accounting.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-compliance-csid-plan.ts",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-csr-dry-run.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-csr-local-generate.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-local-signed-xml-validate.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-local-signing-dry-run.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/backup-restore-proof-harness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/check-deployed-e2e-env.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/clean-room-clean-room-validate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generate-zatca-local-xml-fixtures.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generated-document-object-adapter-staging-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generated-document-object-adapter-staging-runner.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/object-storage-proof-validate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/pre-asp-readiness-diagnostics.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/production-trust-foundation-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-api-route-tenancy-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-env-separation-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-safe-script-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-tenant-scope-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/user-testing-cleanup-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/validate-zatca-sdk-hash-mode.cjs",
+      "dangerous": true,
+      "dangers": [
+        "reset",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/vercel-postinstall.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/verify-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "migrate",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-clearance-reporting-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-csid-response-custody-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-local-dummy-signing-dry-run.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-local-signed-xml-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-manual-otp-capture-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-pdf-a3-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-boundary-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-execution-approval.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-csid-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-csid-storage-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-network-request-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-request-body-creation-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-response-custody-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-response-processing-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-ci-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-validate-local-lib.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "email",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-validate-local.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-signing-phase2-qr-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "cleanup:dev08m:ap:dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --dry-run",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "cleanup:dev08m:ap:plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --plan",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "db:migrate",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:migrate",
+      "dangerous": true,
+      "dangers": [
+        "migrate"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "db:seed",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:seed",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "demo:seed-workflows",
+      "command": "corepack pnpm --filter @ledgerbyte/api demo:seed-workflows",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "fixture:dev04:cleanup-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "pre-asp:diagnostics",
+      "command": "node scripts/pre-asp-readiness-diagnostics.cjs --json",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:banking",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:banking",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:zatca-safe",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:zatca-safe",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:pre-asp-diagnostics",
+      "command": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:user-testing-cleanup-plan",
+      "command": "node --test scripts/user-testing-cleanup-plan.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-clearance-reporting-approval-gate",
+      "command": "node --test scripts/zatca-clearance-reporting-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-csid-response-custody-guard",
+      "command": "node --test scripts/zatca-csid-response-custody-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-local-dummy-signing-dry-run",
+      "command": "node --test scripts/zatca-local-dummy-signing-dry-run.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-local-signed-xml-plan",
+      "command": "node --test scripts/zatca-local-signed-xml-plan.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-manual-otp-capture-approval-gate",
+      "command": "node --test scripts/zatca-manual-otp-capture-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-pdf-a3-approval-gate",
+      "command": "node --test scripts/zatca-pdf-a3-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-access-otp-runbook-guard",
+      "command": "node --test scripts/zatca-sandbox-access-otp-runbook-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-boundary-check",
+      "command": "node --test scripts/zatca-sandbox-adapter-boundary-check.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-execution-approval",
+      "command": "node --test scripts/zatca-sandbox-adapter-execution-approval.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-no-network-contract",
+      "command": "node --test scripts/zatca-sandbox-adapter-no-network-contract.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-csid-preflight",
+      "command": "node --test scripts/zatca-sandbox-csid-preflight.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-csid-storage-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-network-request-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-network-request-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-request-body-creation-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-response-custody-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-response-custody-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-response-processing-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-response-processing-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-ci-readiness",
+      "command": "node --test scripts/zatca-sdk-ci-readiness.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-validate-local",
+      "command": "node --test scripts/zatca-sdk-validate-local.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-signing-phase2-qr-approval-gate",
+      "command": "node --test scripts/zatca-signing-phase2-qr-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "user-testing:cleanup-plan",
+      "command": "node scripts/user-testing-cleanup-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:clearance-reporting-approval-gate",
+      "command": "node scripts/zatca-clearance-reporting-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-custody-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-custody-plan",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-plan",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csid-response-custody-guard",
+      "command": "node scripts/zatca-csid-response-custody-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csr-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csr-local-generate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:debug-pih-chain",
+      "command": "node scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:generate-local-xml-fixtures",
+      "command": "corepack pnpm --filter @ledgerbyte/zatca-core build && node scripts/generate-zatca-local-xml-fixtures.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-dummy-signing-dry-run",
+      "command": "node scripts/zatca-local-dummy-signing-dry-run.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signed-xml-plan",
+      "command": "node scripts/zatca-local-signed-xml-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signed-xml-validate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signing-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signing-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:manual-otp-capture-approval-gate",
+      "command": "node scripts/zatca-manual-otp-capture-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:pdf-a3-approval-gate",
+      "command": "node scripts/zatca-pdf-a3-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-access-otp-runbook-guard",
+      "command": "node scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-boundary-check",
+      "command": "node scripts/zatca-sandbox-adapter-boundary-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-execution-approval",
+      "command": "node scripts/zatca-sandbox-adapter-execution-approval.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-no-network-contract",
+      "command": "node scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-csid-preflight",
+      "command": "node scripts/zatca-sandbox-csid-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-csid-storage-approval-gate",
+      "command": "node scripts/zatca-sandbox-csid-storage-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-network-request-approval-gate",
+      "command": "node scripts/zatca-sandbox-network-request-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-request-body-creation-approval-gate",
+      "command": "node scripts/zatca-sandbox-request-body-creation-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-response-custody-approval-gate",
+      "command": "node scripts/zatca-sandbox-response-custody-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-response-processing-approval-gate",
+      "command": "node scripts/zatca-sandbox-response-processing-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-ci-readiness",
+      "command": "node scripts/zatca-sdk-ci-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-validate-local",
+      "command": "node scripts/zatca-sdk-validate-local.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:signing-phase2-qr-approval-gate",
+      "command": "node scripts/zatca-signing-phase2-qr-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-generated",
+      "command": "node scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-sdk-hash-mode",
+      "command": "node scripts/validate-zatca-sdk-hash-mode.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    }
+  ],
+  "reviewRequired": [
+    {
+      "source": "file",
+      "path": "scripts/check-deployed-e2e-env.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/vercel-postinstall.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "db:migrate",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:migrate",
+      "dangerous": true,
+      "dangers": [
+        "migrate"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "db:seed",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:seed",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "demo:seed-workflows",
+      "command": "corepack pnpm --filter @ledgerbyte/api demo:seed-workflows",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "pre-asp:diagnostics",
+      "command": "node scripts/pre-asp-readiness-diagnostics.cjs --json",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:banking",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:banking",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:zatca-safe",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:zatca-safe",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:pre-asp-diagnostics",
+      "command": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-csid-response-custody-guard",
+      "command": "node --test scripts/zatca-csid-response-custody-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-access-otp-runbook-guard",
+      "command": "node --test scripts/zatca-sandbox-access-otp-runbook-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-boundary-check",
+      "command": "node --test scripts/zatca-sandbox-adapter-boundary-check.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-no-network-contract",
+      "command": "node --test scripts/zatca-sandbox-adapter-no-network-contract.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-csid-preflight",
+      "command": "node --test scripts/zatca-sandbox-csid-preflight.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-ci-readiness",
+      "command": "node --test scripts/zatca-sdk-ci-readiness.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-validate-local",
+      "command": "node --test scripts/zatca-sdk-validate-local.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csid-response-custody-guard",
+      "command": "node scripts/zatca-csid-response-custody-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csr-local-generate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:debug-pih-chain",
+      "command": "node scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:generate-local-xml-fixtures",
+      "command": "corepack pnpm --filter @ledgerbyte/zatca-core build && node scripts/generate-zatca-local-xml-fixtures.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signed-xml-validate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-access-otp-runbook-guard",
+      "command": "node scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-boundary-check",
+      "command": "node scripts/zatca-sandbox-adapter-boundary-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-no-network-contract",
+      "command": "node scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-csid-preflight",
+      "command": "node scripts/zatca-sandbox-csid-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-ci-readiness",
+      "command": "node scripts/zatca-sdk-ci-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-validate-local",
+      "command": "node scripts/zatca-sdk-validate-local.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-generated",
+      "command": "node scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-sdk-hash-mode",
+      "command": "node scripts/validate-zatca-sdk-hash-mode.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    }
+  ],
+  "rows": [
+    {
+      "source": "file",
+      "path": "apps/api/scripts/dev04-fixture-runner.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/dev08m-ap-cleanup-planner.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/hosted-tenant-isolation-proof.ts",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/sales-ar-walkthrough-fixture.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/seed-demo-workflows.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "provider"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-accounting-tail.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-accounting.ts",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-banking.ts",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/smoke-http.ts",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-compliance-csid-plan.ts",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-csr-dry-run.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-csr-local-generate.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-local-signed-xml-validate.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "apps/api/scripts/zatca-local-signing-dry-run.ts",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/backup-restore-proof-harness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/check-deployed-e2e-env.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/clean-room-clean-room-validate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/fix-api-dist-workspace-paths.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generate-zatca-local-xml-fixtures.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generated-document-object-adapter-staging-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/generated-document-object-adapter-staging-runner.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/object-storage-proof-validate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/pre-asp-readiness-diagnostics.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/production-trust-foundation-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/run-web-jest-by-paths.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-api-route-tenancy-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-env-separation-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-safe-script-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "productionRefusal",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/security-tenant-scope-audit.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/test-credential-env.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "scripts/user-testing-cleanup-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/validate-zatca-sdk-hash-mode.cjs",
+      "dangerous": true,
+      "dangers": [
+        "reset",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/vercel-postinstall.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/verify-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "migrate",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/write-commonjs-package-marker.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-clearance-reporting-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-csid-response-custody-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-local-dummy-signing-dry-run.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-local-signed-xml-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-manual-otp-capture-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-pdf-a3-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-boundary-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-execution-approval.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-csid-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-csid-storage-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-network-request-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-request-body-creation-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-response-custody-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sandbox-response-processing-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-ci-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "seed",
+        "reset",
+        "delete",
+        "deploy",
+        "migrate",
+        "email",
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "dryRun",
+        "approvalGate",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-validate-local-lib.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete",
+        "email",
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-sdk-validate-local.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "file",
+      "path": "scripts/zatca-signing-phase2-qr-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "provider",
+        "compliance"
+      ],
+      "guards": [
+        "productionRefusal",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "backup:restore-proof",
+      "command": "node scripts/backup-restore-proof-harness.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "build",
+      "command": "corepack pnpm -r --if-present build",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "cleanup:dev08m:ap:dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --dry-run",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "cleanup:dev08m:ap:plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api cleanup:dev08m:ap -- --plan",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "db:generate",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:generate",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "db:migrate",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:migrate",
+      "dangerous": true,
+      "dangers": [
+        "migrate"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "db:seed",
+      "command": "corepack pnpm --filter @ledgerbyte/api db:seed",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "demo:seed-workflows",
+      "command": "corepack pnpm --filter @ledgerbyte/api demo:seed-workflows",
+      "dangerous": true,
+      "dangers": [
+        "seed"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "dev",
+      "command": "corepack pnpm -r --parallel --if-present dev",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "e2e",
+      "command": "playwright test",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "e2e:headed",
+      "command": "playwright test --headed",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "fixture:dev04:cleanup-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "fixture:dev04:dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "fixture:dev04:plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "lint",
+      "command": "corepack pnpm -r --if-present lint",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "postinstall",
+      "command": "node scripts/vercel-postinstall.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "pre-asp:diagnostics",
+      "command": "node scripts/pre-asp-readiness-diagnostics.cjs --json",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "production:trust-foundation-gate",
+      "command": "node scripts/production-trust-foundation-gate.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "proof:generated-documents:object-staging-preflight",
+      "command": "node scripts/generated-document-object-adapter-staging-preflight.cjs --strict --dry-run",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "proof:generated-documents:object-staging-runner-plan",
+      "command": "node scripts/generated-document-object-adapter-staging-runner.cjs --mode plan --json",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "security:api-route-tenancy-audit",
+      "command": "node scripts/security-api-route-tenancy-audit.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "security:env-separation-check",
+      "command": "node scripts/security-env-separation-check.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "security:safe-script-audit",
+      "command": "node scripts/security-safe-script-audit.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "security:tenant-scope-audit",
+      "command": "node scripts/security-tenant-scope-audit.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:ap",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:ap",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:ar",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:ar",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:banking",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:banking",
+      "dangerous": true,
+      "dangers": [
+        "provider"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:documents",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:documents",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:reports",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:reports",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:tail",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:tail",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "smoke:accounting:zatca-safe",
+      "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:zatca-safe",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "storage:proof-validate",
+      "command": "node scripts/object-storage-proof-validate.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "tenant-isolation:proof",
+      "command": "corepack pnpm --filter @ledgerbyte/api tenant-isolation:proof",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test",
+      "command": "corepack pnpm -r --if-present test",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:backup-restore-proof",
+      "command": "node --test scripts/backup-restore-proof-harness.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:clean-room-adoption-guard",
+      "command": "node --test scripts/clean-room-clean-room-validate.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:generated-documents:object-staging-preflight",
+      "command": "node --test scripts/generated-document-object-adapter-staging-preflight.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:generated-documents:object-staging-runner",
+      "command": "node --test scripts/generated-document-object-adapter-staging-runner.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:pre-asp-diagnostics",
+      "command": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:production-trust-foundation-gate",
+      "command": "node --test scripts/production-trust-foundation-gate.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:security-api-route-tenancy-audit",
+      "command": "node --test scripts/security-api-route-tenancy-audit.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:security-env-separation-check",
+      "command": "node --test scripts/security-env-separation-check.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:security-safe-script-audit",
+      "command": "node --test scripts/security-safe-script-audit.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:security-tenant-scope-audit",
+      "command": "node --test scripts/security-tenant-scope-audit.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:storage-proof-validate",
+      "command": "node --test scripts/object-storage-proof-validate.test.cjs",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:tenant-isolation-proof",
+      "command": "corepack pnpm --filter @ledgerbyte/api test:tenant-isolation-proof",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:user-testing-cleanup-plan",
+      "command": "node --test scripts/user-testing-cleanup-plan.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:visual",
+      "command": "playwright test -c playwright.visual.config.ts",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-clearance-reporting-approval-gate",
+      "command": "node --test scripts/zatca-clearance-reporting-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-csid-response-custody-guard",
+      "command": "node --test scripts/zatca-csid-response-custody-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-local-dummy-signing-dry-run",
+      "command": "node --test scripts/zatca-local-dummy-signing-dry-run.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-local-signed-xml-plan",
+      "command": "node --test scripts/zatca-local-signed-xml-plan.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-manual-otp-capture-approval-gate",
+      "command": "node --test scripts/zatca-manual-otp-capture-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-pdf-a3-approval-gate",
+      "command": "node --test scripts/zatca-pdf-a3-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-access-otp-runbook-guard",
+      "command": "node --test scripts/zatca-sandbox-access-otp-runbook-guard.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-boundary-check",
+      "command": "node --test scripts/zatca-sandbox-adapter-boundary-check.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-execution-approval",
+      "command": "node --test scripts/zatca-sandbox-adapter-execution-approval.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-adapter-no-network-contract",
+      "command": "node --test scripts/zatca-sandbox-adapter-no-network-contract.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-csid-preflight",
+      "command": "node --test scripts/zatca-sandbox-csid-preflight.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-csid-storage-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-network-request-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-network-request-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-request-body-creation-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-request-body-creation-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-response-custody-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-response-custody-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sandbox-response-processing-approval-gate",
+      "command": "node --test scripts/zatca-sandbox-response-processing-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-ci-readiness",
+      "command": "node --test scripts/zatca-sdk-ci-readiness.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-sdk-validate-local",
+      "command": "node --test scripts/zatca-sdk-validate-local.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "test:zatca-signing-phase2-qr-approval-gate",
+      "command": "node --test scripts/zatca-signing-phase2-qr-approval-gate.test.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "typecheck",
+      "command": "corepack pnpm -r --if-present typecheck",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "user-testing:cleanup-plan",
+      "command": "node scripts/user-testing-cleanup-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "delete"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:ci:local",
+      "command": "node scripts/verify-gate.cjs verify:ci:local",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:clean-room-adoption",
+      "command": "node scripts/clean-room-clean-room-validate.cjs --strict",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:clean-room-clean-room",
+      "command": "node scripts/clean-room-clean-room-validate.cjs --strict",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:diff",
+      "command": "node scripts/verify-gate.cjs verify:diff",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:local:api",
+      "command": "node scripts/verify-gate.cjs verify:local:api",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:local:guards",
+      "command": "node scripts/verify-gate.cjs verify:local:guards",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:local:web",
+      "command": "node scripts/verify-gate.cjs verify:local:web",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "verify:repo",
+      "command": "node scripts/verify-gate.cjs verify:repo",
+      "dangerous": false,
+      "dangers": [],
+      "guards": [],
+      "guardStatus": "not-dangerous"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:clearance-reporting-approval-gate",
+      "command": "node scripts/zatca-clearance-reporting-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-custody-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-custody-plan",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:compliance-csid-plan",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:compliance-csid-plan",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csid-response-custody-guard",
+      "command": "node scripts/zatca-csid-response-custody-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csr-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:csr-local-generate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:debug-pih-chain",
+      "command": "node scripts/debug-zatca-pih-chain.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:generate-local-xml-fixtures",
+      "command": "corepack pnpm --filter @ledgerbyte/zatca-core build && node scripts/generate-zatca-local-xml-fixtures.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-dummy-signing-dry-run",
+      "command": "node scripts/zatca-local-dummy-signing-dry-run.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signed-xml-plan",
+      "command": "node scripts/zatca-local-signed-xml-plan.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signed-xml-validate",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:local-signing-dry-run",
+      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signing-dry-run",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "dryRun"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:manual-otp-capture-approval-gate",
+      "command": "node scripts/zatca-manual-otp-capture-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:pdf-a3-approval-gate",
+      "command": "node scripts/zatca-pdf-a3-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-access-otp-runbook-guard",
+      "command": "node scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-boundary-check",
+      "command": "node scripts/zatca-sandbox-adapter-boundary-check.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-execution-approval",
+      "command": "node scripts/zatca-sandbox-adapter-execution-approval.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-adapter-no-network-contract",
+      "command": "node scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-csid-preflight",
+      "command": "node scripts/zatca-sandbox-csid-preflight.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-csid-storage-approval-gate",
+      "command": "node scripts/zatca-sandbox-csid-storage-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-network-request-approval-gate",
+      "command": "node scripts/zatca-sandbox-network-request-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-request-body-creation-approval-gate",
+      "command": "node scripts/zatca-sandbox-request-body-creation-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-response-custody-approval-gate",
+      "command": "node scripts/zatca-sandbox-response-custody-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sandbox-response-processing-approval-gate",
+      "command": "node scripts/zatca-sandbox-response-processing-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-ci-readiness",
+      "command": "node scripts/zatca-sdk-ci-readiness.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:sdk-validate-local",
+      "command": "node scripts/zatca-sdk-validate-local.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:signing-phase2-qr-approval-gate",
+      "command": "node scripts/zatca-signing-phase2-qr-approval-gate.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-generated",
+      "command": "node scripts/validate-generated-zatca-invoice.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    },
+    {
+      "source": "package-script",
+      "path": "zatca:validate-sdk-hash-mode",
+      "command": "node scripts/validate-zatca-sdk-hash-mode.cjs",
+      "dangerous": true,
+      "dangers": [
+        "compliance"
+      ],
+      "guards": [],
+      "guardStatus": "review-required"
+    }
+  ]
+}
