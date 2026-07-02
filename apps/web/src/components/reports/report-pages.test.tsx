@@ -116,7 +116,7 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
-    expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByRole("link", { name: "Open invoice INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByText("1-30")).toBeInTheDocument();
   });
 
@@ -140,7 +140,7 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByRole("link", { name: "Beta Supplier" })).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getByRole("link", { name: "BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
-    expect(screen.getByRole("link", { name: "Open bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+    expect(screen.getByRole("link", { name: "Open bill BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
   });
 
   it("does not claim production ZATCA connectivity from report guidance", () => {
@@ -191,7 +191,7 @@ describe("reports index first-workflow guidance", () => {
       "href",
       "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
     );
-    expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open invoice INV-001" })).toHaveAttribute(
       "href",
       "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
     );

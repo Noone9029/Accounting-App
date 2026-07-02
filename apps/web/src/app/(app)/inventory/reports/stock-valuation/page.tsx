@@ -136,12 +136,16 @@ export default function InventoryStockValuationReportPage() {
                   <td className="px-4 py-3 text-right"><LedgerMoney>{inventoryReportValueDisplay(row.estimatedValue)}</LedgerMoney></td>
                   <td className="px-4 py-3 text-xs text-steel">{inventoryValuationWarningText(row)}</td>
                   <td className="px-4 py-3 text-xs">
-                    <Link href={inventoryFifoPreviewUrl({ itemId: row.item.id, warehouseId: row.warehouse.id })} className="font-medium text-palm hover:underline">
+                    <Link
+                      href={inventoryFifoPreviewUrl({ itemId: row.item.id, warehouseId: row.warehouse.id })}
+                      className="font-medium text-palm hover:underline"
+                      aria-label={`Open FIFO preview for ${row.item.name} in ${row.warehouse.code} ${row.warehouse.name}`}
+                    >
                       FIFO preview
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-xs">
-                    <Link href={inventoryTraceabilityUrl(row.item.id)} className="font-medium text-palm hover:underline">
+                    <Link href={inventoryTraceabilityUrl(row.item.id)} className="font-medium text-palm hover:underline" aria-label={`Open traceability for ${row.item.name}`}>
                       Traceability
                     </Link>
                   </td>

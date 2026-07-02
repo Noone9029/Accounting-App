@@ -107,7 +107,11 @@ export default function WarehouseTransfersPage() {
                   <td className="px-4 py-3 text-steel">{transfer.toWarehouse ? `${transfer.toWarehouse.code} ${transfer.toWarehouse.name}` : transfer.toWarehouseId}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(transfer.quantity)}</td>
                   <td className="px-4 py-3"><LedgerStatusBadge tone={transferStatusTone(transfer.status)}>{warehouseTransferStatusLabel(transfer.status)}</LedgerStatusBadge></td>
-                  <td className="px-4 py-3"><LedgerButton href={`/inventory/transfers/${transfer.id}`} size="sm">View</LedgerButton></td>
+                  <td className="px-4 py-3">
+                    <LedgerButton href={`/inventory/transfers/${transfer.id}`} size="sm" aria-label={`View transfer ${transfer.transferNumber}`}>
+                      View
+                    </LedgerButton>
+                  </td>
                 </tr>
               ))}
             </tbody>

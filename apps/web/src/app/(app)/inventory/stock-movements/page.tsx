@@ -227,10 +227,22 @@ export default function StockMovementsPage() {
                   </td>
                   <td className="px-4 py-3 text-steel">{movement.description ?? "-"}</td>
                   {canViewFifoPreview ? (
-                    <td className="px-4 py-3 text-xs"><LedgerButton href={inventoryFifoPreviewUrl({ itemId: movement.itemId, warehouseId: movement.warehouseId })} size="sm">FIFO preview</LedgerButton></td>
+                    <td className="px-4 py-3 text-xs">
+                      <LedgerButton
+                        href={inventoryFifoPreviewUrl({ itemId: movement.itemId, warehouseId: movement.warehouseId })}
+                        size="sm"
+                        aria-label={`Open FIFO preview for ${movement.item?.name ?? movement.itemId} in ${movement.warehouse?.code ?? movement.warehouseId}`}
+                      >
+                        FIFO preview
+                      </LedgerButton>
+                    </td>
                   ) : null}
                   {canViewFifoPreview ? (
-                    <td className="px-4 py-3 text-xs"><LedgerButton href={inventoryTraceabilityUrl(movement.itemId)} size="sm">Traceability</LedgerButton></td>
+                    <td className="px-4 py-3 text-xs">
+                      <LedgerButton href={inventoryTraceabilityUrl(movement.itemId)} size="sm" aria-label={`Open traceability for ${movement.item?.name ?? movement.itemId}`}>
+                        Traceability
+                      </LedgerButton>
+                    </td>
                   ) : null}
                 </tr>
               ))}

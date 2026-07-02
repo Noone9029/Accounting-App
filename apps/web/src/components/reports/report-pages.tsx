@@ -915,7 +915,11 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
                 <span className={`rounded-md px-2 py-1 text-xs font-medium ${agingBucketClass(row.bucket)}`}>{agingBucketLabel(row.bucket)}</span>
               </td>
               <td className="px-4 py-3">
-                <Link href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)} className="font-medium text-palm hover:underline">
+                <Link
+                  href={appendReturnTo(isReceivables ? `/sales/invoices/${row.id}` : `/purchases/bills/${row.id}`, returnToHref)}
+                  className="font-medium text-palm hover:underline"
+                  aria-label={isReceivables ? `Open invoice ${row.number}` : `Open bill ${row.number}`}
+                >
                   {isReceivables ? "Open invoice" : "Open bill"}
                 </Link>
               </td>
