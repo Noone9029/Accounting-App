@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-07-02 PRE-ASP-PRODUCTION-FOUNDATION-01
+
+- Production readiness improves only in foundation depth, not launch approval. This pass adds the master pre-ASP tracker, security hardening plans, backup/PITR/object-storage plans, monitoring/support runbooks, billing/legal drafts, and UAE pre-ASP adapter documents.
+- A new dry-run diagnostic catalogs Prisma tenant scope and secret env presence by name only. Current schema-shape evidence reports 112 Prisma models: 109 direct tenant-scoped models, 2 identity/tenant roots, and 1 global configuration model.
+- UAE pre-ASP adapter readiness improves through local-only helpers for idempotency, outbox draft shape, fake-secret webhook verification, in-memory replay guarding, and provider error normalization.
+- No score increase is taken for production launch, UAE compliance, Peppol certification, ASP connectivity, hosted PITR, object storage, signed URLs, payment collection, or production monitoring because those remain unproven or blocked.
+- No backend API behavior, Prisma schema, migration, hosted/Supabase/Vercel mutation, provider call, storage operation, payment/email action, accounting/report/VAT/inventory valuation/banking/reconciliation logic, or production compliance claim changed.
+
 ## 2026-07-01 CONTROLLED-BETA-PROVISION-01 Packet Preparation
 
 - Controlled beta readiness remains `GO with restrictions`; this pass prepares provisioning evidence but does not increase production readiness.

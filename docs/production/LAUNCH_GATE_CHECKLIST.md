@@ -12,6 +12,13 @@ Status values:
 
 Current practical stage: controlled beta/user-testing. Vercel is beta/user-testing only, not final production hosting. LedgerByte is not production-launched, and real ZATCA production compliance is not enabled.
 
+## 2026-07-02 Pre-ASP Foundation Note
+
+- `docs/production/PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md` now tracks database/security, backup/PITR, object storage, monitoring/support, billing/legal, UAE/PINT-AE pre-ASP adapter, evidence/retention, and launch-gate foundations.
+- Paid private beta gate improves from `not started` to `partial` for billing/legal/support planning, but legal review, payment provider selection, payment collection, support tooling, and SLA approval remain blocked.
+- Public production gate improves from `not started` to `partial` for monitoring/support/incident documentation, but no monitoring provider, log drain, production alert, hosted PITR, object storage proof, signed URL proof, or production hosting decision is complete.
+- Security gate gains read-only diagnostics and strategy docs; runtime DB role, RLS/Data API hardening, and hosted cross-tenant proof remain blocked.
+
 ## 2026-06-12 Production Trust Foundation Audit Note
 
 - `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
@@ -36,9 +43,9 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 
 | Gate | Status | Evidence | Remaining work |
 | --- | --- | --- | --- |
-| Pricing and plan boundaries | not started | No plan model or paid packaging exists. | Define paid private beta plan, limits, and billing model. |
-| Billing workflow | not started | No subscription or manual billing process exists. | Decide manual invoicing vs payment provider test/live path. |
-| Support workflow | partial | Beta access and triage docs exist. | Add support intake, severity, response targets, and escalation. |
+| Pricing and plan boundaries | partial | Draft pricing/plan gating exists under `docs/billing/`; not approved. | Define paid private beta plan, limits, and billing model with owner/legal review. |
+| Billing workflow | partial | Billing readiness plan and payment provider decision log exist. | Decide manual invoicing vs payment provider test/live path; do not collect payment until approved. |
+| Support workflow | partial | Beta access/triage docs plus operations support and incident runbooks exist. | Select support channel/tooling, owners, response targets, and escalation. |
 | Production foundation roadmap | done | `PRODUCTION_FOUNDATION_ROADMAP.md`, gap matrix, and launch gates exist. | Convert roadmap items into owned implementation tasks. |
 | Hosting decision | blocked | Vercel is documented as beta/user-testing only. | Select paid private beta hosting posture and rollback plan. |
 | Database runtime role | blocked | Least-privilege runtime role is designed but not cut over. | Establish safe env mutation path, then validate runtime role. |
@@ -46,7 +53,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Object storage proof | blocked | Local/mock object-storage proof harness plus synthetic backup/restore harness exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
 | Email production path | partial | SMTP adapter and monitoring evidence groundwork exist. | Validate non-production relay, provider webhook, scheduler, and monitoring. |
 | Accountant review | blocked | Packet exists. | Complete review and resolve blocker/high findings. |
-| Legal documents | not started | No ToS/privacy/customer policy package exists. | Draft legal package for review. |
+| Legal documents | partial | Draft ToS, privacy, retention notes, beta disclaimers, and cancellation/refund policy exist. | Counsel/commercial review and approval. |
 
 ## Public Production Gate
 
@@ -54,11 +61,11 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | --- | --- | --- | --- |
 | Final hosting architecture | blocked | Current Vercel deployment is user-testing only. | Approve production hosting, worker runtime, object storage, rollback, and monitoring. |
 | Production database security | blocked | API-layer tenancy exists; Data API grants mitigated in user-testing; RLS/runtime role incomplete. | Runtime role, migration credential split, Data API/RLS strategy, tenant isolation verification. |
-| Monitoring and alerting | not started | Health/readiness endpoints and runbooks exist. | Add uptime, API errors, workers, email, backups, storage, and support alerts. |
-| Incident response | not started | Deployment troubleshooting docs exist. | Add severity, ownership, rollback, customer communication, and postmortem process. |
+| Monitoring and alerting | partial | Monitoring/support plan, operational dashboard requirements, and alerting matrix exist. | Add uptime, API errors, workers, email, backups, storage, and support alerts in chosen provider. |
+| Incident response | partial | Incident response runbook exists with severity and first-response process. | Add owners, on-call/tooling, rollback/customer communication drill, and postmortem template. |
 | Backup/restore proof | blocked | Local non-production restore-count evidence and a synthetic backup/restore proof harness exist. | Hosted DB/PITR and object-storage restore drills with sanitized evidence. |
 | Production email operations | blocked | Mock/local default and opt-in SMTP groundwork exist. | Provider validation, signed webhooks, scheduler, suppression, alerts, invoice/statement sends. |
-| Billing/legal | not started | No subscription/billing/legal package exists. | Plans, payments, ToS, Privacy Policy, retention/deletion, refund/cancellation. |
+| Billing/legal | partial | Draft billing/legal package exists; no approval or implementation. | Plans, payments, ToS, Privacy Policy, retention/deletion, refund/cancellation approval. |
 | Product QA | partial | Visual regression and route docs exist. | Real beta feedback, full smoke, full E2E, mobile QA, PDF/accountant review. |
 | Security review | blocked | Some redaction and permission controls exist. | MFA/session hardening, runtime DB role, RLS/Data API strategy, secrets/KMS, external review. |
 | ZATCA production compliance | blocked | Local/mock/scaffold only. | Pass separate ZATCA compliance gate before any claim. |
@@ -85,7 +92,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Backend permission guards | done | Shared permission strings, guards, and frontend gating exist. | Continue coverage as modules grow. |
 | MFA/session controls | not started | Auth uses JWT; no MFA/advanced sessions. | Add MFA, refresh/session policy, invalidation, abuse monitoring. |
 | Runtime DB role | blocked | Plan exists; not created due safe env mutation gap. | Create/validate least-privilege runtime role. |
-| RLS/Data API strategy | blocked | User-testing grants mitigated; RLS disabled. | Disable Data API or design/test policies. |
+| RLS/Data API strategy | blocked | User-testing grants mitigated; RLS disabled; phased RLS/Data API strategy added. | Disable Data API or design/test policies in a dedicated hosted-security goal. |
 | Secrets/KMS | blocked | Redaction exists; ZATCA custody planning disabled. | Choose provider and enforce rotation/access policies. |
 | Attachment scanning | not started | Upload/download exists. | Add malware scanning path before broad production uploads. |
 | External security review | not started | No external review recorded. | Schedule before public launch. |

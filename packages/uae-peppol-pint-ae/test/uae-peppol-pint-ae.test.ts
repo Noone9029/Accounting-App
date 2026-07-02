@@ -13,21 +13,27 @@ import {
   UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
   buildUaeDocumentReadinessReport,
   buildUaePintAeTransactionTypeFlagCode,
+  buildAspIdempotencyKey,
+  createAspSubmissionOutboxDraft,
+  createInMemoryAspWebhookReplayGuard,
   buildUaePartyReadinessReport,
   buildUaePintXml,
   buildUaeReadinessReport,
   createAspProviderAdapter,
   deriveUaePeppolParticipantId,
+  normalizeAspProviderError,
   redactAspProviderConfig,
   runUaePintAeFixtureSuite,
   serializeUaePintAeCreditNote,
   serializeUaePintAeInvoice,
+  signLocalAspWebhookPayload,
   standardUaePintAeTaxCreditNoteFixture,
   standardUaePintAeTaxInvoiceFixture,
   summarizeUaePintAeFixtureResults,
   uaePintAeScenarioFixtureDefinitions,
   validateUaePintAeDocument,
   validateUaePintInput,
+  verifyLocalAspWebhookSignature,
 } from "../src";
 
 test("derives UAE Peppol participant ID from a 10-digit TIN", () => {
@@ -389,6 +395,87 @@ test("provider config redaction hides secrets and exposes capability/status cons
   assert.deepEqual(redacted.metadata, { token: "[REDACTED]", safeLabel: "Mock" });
   assert.equal(ASP_PROVIDER_STATUSES.includes("REPORTED_TO_FTA"), true);
   assert.equal(new MockAspProviderAdapter().listCapabilities().includes("MOCK_SUBMISSION"), true);
+});
+
+test("builds deterministic ASP idempotency keys without embedding document identifiers", () => {
+  const first = buildAspIdempotencyKey({
+    tenantId: "org-secret",
+    providerKey: "MOCK",
+    operation: "submit",
+    documentId: "invoice-123",
+    payloadFingerprint: "payload-v1",
+  });
+  const second = buildAspIdempotencyKey({
+    tenantId: "org-secret",
+    providerKey: "MOCK",
+    operation: "submit",
+    documentId: "invoice-123",
+    payloadFingerprint: "payload-v1",
+  });
+  const differentOperation = buildAspIdempotencyKey({
+    tenantId: "org-secret",
+    providerKey: "MOCK",
+    operation: "status",
+    documentId: "invoice-123",
+    payloadFingerprint: "payload-v1",
+  });
+
+  assert.equal(first, second);
+  assert.notEqual(first, differentOperation);
+  assert.match(first, /^aspidem_[a-f0-9]{48}$/);
+  assert.equal(first.includes("org-secret"), false);
+  assert.equal(first.includes("invoice-123"), false);
+});
+
+test("creates submission outbox drafts as local-only non-compliance records", () => {
+  const draft = createAspSubmissionOutboxDraft({
+    tenantId: "org-1",
+    providerKey: "MOCK",
+    documentId: "doc-1",
+    operation: "submit",
+  });
+
+  assert.equal(draft.status, "DRAFT_ONLY");
+  assert.equal(draft.noNetwork, true);
+  assert.equal(draft.productionCompliance, false);
+  assert.match(draft.idempotencyKey, /^aspidem_/);
+});
+
+test("verifies local ASP webhook signatures with fake secrets and rejects mismatches", () => {
+  const payload = { provider: "MOCK", eventId: "evt-1", status: "ASP_ACCEPTED" };
+  const signature = signLocalAspWebhookPayload(payload, "local-test-secret");
+
+  assert.equal(verifyLocalAspWebhookSignature({ payload, signature, secret: "local-test-secret" }), true);
+  assert.equal(verifyLocalAspWebhookSignature({ payload: { ...payload, status: "ASP_REJECTED" }, signature, secret: "local-test-secret" }), false);
+  assert.equal(verifyLocalAspWebhookSignature({ payload, signature, secret: "" }), false);
+});
+
+test("guards local webhook replay with an in-memory test double", () => {
+  const guard = createInMemoryAspWebhookReplayGuard(["evt-existing"]);
+
+  assert.deepEqual(guard.checkAndRemember(""), { accepted: false, eventId: "", reason: "MISSING_EVENT_ID" });
+  assert.deepEqual(guard.checkAndRemember("evt-existing"), { accepted: false, eventId: "evt-existing", reason: "DUPLICATE" });
+  assert.deepEqual(guard.checkAndRemember("evt-new"), { accepted: true, eventId: "evt-new", reason: "RECORDED" });
+  assert.deepEqual(guard.checkAndRemember("evt-new"), { accepted: false, eventId: "evt-new", reason: "DUPLICATE" });
+});
+
+test("normalizes ASP provider errors without leaking secret details or claiming compliance", () => {
+  const error = normalizeAspProviderError({
+    providerKey: "MOCK",
+    statusCode: 503,
+    code: "UPSTREAM_TIMEOUT",
+    message: "Provider unavailable",
+    details: {
+      token: "plain-token",
+      requestId: "req-1",
+    },
+  });
+
+  assert.equal(error.status, "RETRYABLE_ERROR");
+  assert.equal(error.retryable, true);
+  assert.equal(error.noNetwork, true);
+  assert.equal(error.productionCompliance, false);
+  assert.deepEqual(error.details, { token: "[REDACTED]", requestId: "req-1" });
 });
 
 function invoiceFixture() {

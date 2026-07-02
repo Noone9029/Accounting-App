@@ -2,6 +2,16 @@
 
 Audit date: 2026-06-19
 
+PRE-ASP-PRODUCTION-FOUNDATION-01 foundation pass (2026-07-02):
+
+- Added the master pre-ASP tracker at `docs/production/PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md`.
+- Added database/security hardening plans, Supabase RLS/Data API strategy, least-privilege runtime-role plan, and tenant-isolation verification plan.
+- Added read-only pre-ASP diagnostics for Prisma tenant-scope cataloging and secret environment presence by name only. The diagnostics do not connect to a database, call a network endpoint, print secret values, or mutate state.
+- Added backup/PITR/object-storage, restore evidence, document retention, monitoring, support, incident, dashboard, and alerting runbooks under `docs/operations/`.
+- Added billing/legal drafts under `docs/billing/` and `docs/legal/`; these remain drafts and require legal/commercial review before paid launch.
+- Strengthened the UAE pre-ASP package with local-only idempotency, outbox draft, fake-secret webhook signature verification, in-memory replay guard, and error normalization helpers. Disabled/mock provider boundaries remain no-network and `productionCompliance: false`.
+- Production hosting, hosted PITR, real object storage, signed URLs, billing collection, real email sending, ASP access, Peppol/FTA submission, UAE compliance, ZATCA/UAE/Peppol/ASP behavior, accounting logic, ledger posting, report math, VAT math, inventory valuation, and bank reconciliation behavior remain unchanged and unclaimed.
+
 CONTROLLED-BETA-PROVISION-01 provisioning packet preparation (2026-07-01):
 
 - Added controlled beta provisioning plan, approved tester list template, invite email template, onboarding message template, provisioning dry-run checklist, environment check, first onboarding result, access revocation plan, and support readiness docs under `docs/beta-testing/`.

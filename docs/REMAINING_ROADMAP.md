@@ -1,5 +1,11 @@
 # Remaining Roadmap
 
+## 2026-07-02 PRE-ASP-PRODUCTION-FOUNDATION-01
+
+- Added pre-ASP production foundation artifacts across database/security, backup/PITR/object storage, monitoring/support, billing/legal, and UAE ASP-ready adapter groundwork.
+- Current foundation status: improved and partially documented, but not production-ready. Hosted runtime role cutover, RLS/Data API hardening, hosted PITR/restore proof, object-storage proof, signed URL proof, monitoring provider/log drain, support SLA tooling, billing/legal review, payment provider integration, ASP access, and provider sandbox evidence remain future work.
+- Recommended next prompt: `PRODUCTION-FOUNDATION-EXECUTION-01: execute hosted security/storage/monitoring proof in a non-production environment after credentials, provider choices, and owner approvals are available.`
+
 ## 2026-07-01 CONTROLLED-BETA-PROVISION-01 Packet Preparation
 
 - Prepared the controlled beta provisioning packet: plan, approved tester list template, invite template, onboarding message template, dry-run checklist, environment check, blocked first-onboarding result, access revocation plan, and support readiness.
