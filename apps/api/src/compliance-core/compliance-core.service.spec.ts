@@ -227,7 +227,7 @@ describe("ComplianceCoreService", () => {
 
     expect(preview.noMutation).toBe(true);
     expect(preview.result.ok).toBe(false);
-    expect(preview.result.status).toBe("DISABLED");
+    expect(preview.result.status).toBe("BLOCKED_NO_ASP");
     expect(JSON.stringify(preview)).not.toContain("REPORTED_TO_FTA");
     expect(JSON.stringify(preview)).not.toContain("DELIVERED_TO_BUYER");
     expect(prisma.complianceTransmission.create).not.toHaveBeenCalled();

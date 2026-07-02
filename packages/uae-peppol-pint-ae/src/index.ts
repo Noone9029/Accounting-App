@@ -10,7 +10,7 @@ import {
   resolveUaePintAeTransactionTypeFlagCode,
 } from "./pint-ae/constants";
 import { serializeUaePintAeDocument } from "./pint-ae/serializer";
-import type { UaePintAeDocumentInput, UaePintAePredefinedEndpointScenario, UaePintAeTransactionTypeFlag } from "./pint-ae/types";
+import type { UaePintAeDocumentInput, UaePintAeLine, UaePintAeParty, UaePintAePredefinedEndpointScenario, UaePintAeTransactionTypeFlag } from "./pint-ae/types";
 
 export * from "./pint-ae/constants";
 export * from "./pint-ae/fixture-suite";
@@ -330,16 +330,25 @@ export interface UaeEndpointSchemeValidationResult {
 
 export interface UaeSerializerBoundaryResult {
   mode: UaePintAeSerializerMode;
+  serializerMode: UaePintAeSerializerMode;
   xml: string;
   validation: UaeValidationReport | ReturnType<typeof serializeUaePintAeDocument>["validation"];
+  officialIdentifiersUsed: boolean;
+  officialReferenceVerified: false;
   productionCompliance: false;
   networkReady: false;
   aspSubmissionReady: false;
   officialSerializerComplete: false;
+  providerRequired: boolean;
+  missingProviderAccess: boolean;
+  conformanceEvidenceAvailable: false;
+  warnings: string[];
+  errors: string[];
 }
 
 export interface UaeOfficialDraftPayload extends UaeSerializerBoundaryResult {
   mode: "OFFICIAL_DRAFT_LOCAL_ONLY";
+  serializerMode: "OFFICIAL_DRAFT_LOCAL_ONLY";
   metadata: ReturnType<typeof serializeUaePintAeDocument>["metadata"];
   submission: {
     mode: "PROVIDER_SUBMISSION_BLOCKED";
@@ -360,6 +369,115 @@ export interface UaeBusinessProcessMetadata {
   productionCompliance: false;
   noNetwork: true;
   noFtaReporting: true;
+}
+
+export type UaePintAeValidationIssueSeverity = "error" | "warning";
+
+export interface UaePintAeDraftValidationIssue {
+  code:
+    | "UAE_ENDPOINT_SCHEME_REQUIRED"
+    | "UAE_ENDPOINT_ID_REQUIRED"
+    | "UAE_PARTY_ADDRESS_REQUIRED"
+    | "UAE_TRN_OR_TIN_REQUIRED"
+    | "UAE_CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED"
+    | "UAE_CREDIT_NOTE_REASON_REQUIRED"
+    | "UAE_NEGATIVE_INVOICE_NOT_ALLOWED"
+    | "UAE_LINE_TOTAL_MISMATCH"
+    | "UAE_TAX_TOTAL_MISMATCH"
+    | "UAE_DOCUMENT_TOTAL_MISMATCH"
+    | "UAE_OFFICIAL_REFERENCE_NOT_VERIFIED"
+    | "UAE_PROVIDER_ACCESS_REQUIRED"
+    | "UAE_ASP_SUBMISSION_BLOCKED";
+  severity: UaePintAeValidationIssueSeverity;
+  fieldPath: string;
+  message: string;
+  source: "local-rule" | "official-reference-missing" | "provider-required-later";
+}
+
+export interface UaePintAeReadinessResult {
+  valid: boolean;
+  errors: UaePintAeDraftValidationIssue[];
+  warnings: UaePintAeDraftValidationIssue[];
+  productionCompliance: false;
+  networkReady: false;
+  aspSubmissionReady: false;
+  providerRequired: boolean;
+  missingProviderAccess: boolean;
+  officialReferenceVerified: false;
+  conformanceEvidenceAvailable: false;
+}
+
+export interface UaePintAeAddress {
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  emirate?: string | null;
+  countryCode?: string | null;
+}
+
+export interface UaePintAeTaxRegistration {
+  tin?: string | null;
+  trn?: string | null;
+}
+
+export interface UaePintAeDraftParty {
+  legalName?: string | null;
+  endpointSchemeId: typeof UAE_ELECTRONIC_ADDRESS_SCHEME_ID | "";
+  endpointId: string;
+  taxRegistration: UaePintAeTaxRegistration;
+  address: UaePintAeAddress;
+}
+
+export interface UaePintAeTaxTotal {
+  taxableAmount: string | number;
+  taxAmount: string | number;
+  currency: string;
+  taxCategory?: string | null;
+}
+
+export interface UaePintAePaymentTerms {
+  currency: string;
+  paymentDueDate?: string | null;
+  paymentMeansCode?: string | null;
+  note?: string | null;
+}
+
+export type UaePintAeBusinessProcessMetadata = UaeBusinessProcessMetadata & {
+  officialReferenceVerified: false;
+  warnings: string[];
+};
+
+export interface UaePintAeDraftDocumentBase {
+  serializerMode: "OFFICIAL_DRAFT_LOCAL_ONLY";
+  documentNumber: string;
+  issueDate: string;
+  currency: string;
+  supplier: UaePintAeDraftParty;
+  buyer: UaePintAeDraftParty;
+  lines: UaePintAeLine[];
+  taxTotals: UaePintAeTaxTotal[];
+  paymentTerms: UaePintAePaymentTerms;
+  businessProcess: UaePintAeBusinessProcessMetadata;
+  productionCompliance: false;
+  networkReady: false;
+  aspSubmissionReady: false;
+  officialReferenceVerified: false;
+  conformanceEvidenceAvailable: false;
+  submission: {
+    mode: "PROVIDER_SUBMISSION_BLOCKED";
+    canSubmit: false;
+    reason: "ASP_ACCESS_REQUIRED";
+  };
+}
+
+export interface UaePintAeDraftInvoice extends UaePintAeDraftDocumentBase {
+  kind: "invoice";
+}
+
+export interface UaePintAeDraftCreditNote extends UaePintAeDraftDocumentBase {
+  kind: "credit-note";
+  originalInvoiceNumber: string | null;
+  creditNoteReason: string | null;
 }
 
 export interface UaeTransmissionDraft {
@@ -508,30 +626,170 @@ export function buildUaeBusinessProcessMetadata(input: { predefinedEndpointScena
   };
 }
 
+export function validateUaePintAeAddress(address: UaePintAeAddress): UaePintAeReadinessResult {
+  const errors = [
+    hasText(address.addressLine1) && hasText(address.countryCode) ? null : validationIssue("UAE_PARTY_ADDRESS_REQUIRED", "error", "address", "UAE PINT-AE draft parties require address line 1 and country code.", "local-rule"),
+  ].filter(isDraftIssue);
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeTaxRegistration(registration: UaePintAeTaxRegistration): UaePintAeReadinessResult {
+  const errors = [
+    hasText(registration.tin) || hasText(registration.trn) ? null : validationIssue("UAE_TRN_OR_TIN_REQUIRED", "error", "taxRegistration", "UAE PINT-AE draft parties require a TRN or TIN.", "local-rule"),
+  ].filter(isDraftIssue);
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeParty(input: { role: "seller" | "supplier" | "buyer"; party: UaePintAeParty; endpointRequired?: boolean }): UaePintAeReadinessResult {
+  const endpoint = validateUaeEndpointScheme(input.party.peppolParticipantId ?? input.party.endpointId);
+  const errors: UaePintAeDraftValidationIssue[] = [];
+  if (input.endpointRequired !== false && !hasText(input.party.peppolParticipantId ?? input.party.endpointId)) {
+    errors.push(validationIssue("UAE_ENDPOINT_ID_REQUIRED", "error", `${input.role}.endpointId`, "UAE PINT-AE draft parties require an endpoint identifier.", "local-rule"));
+  } else if (hasText(input.party.peppolParticipantId ?? input.party.endpointId) && !endpoint.valid) {
+    errors.push(validationIssue("UAE_ENDPOINT_SCHEME_REQUIRED", "error", `${input.role}.endpointId`, "UAE PINT-AE draft party endpoint must use scheme 0235.", "local-rule"));
+  }
+  errors.push(...validateUaePintAeAddress(partyAddress(input.party)).errors.map((issue) => ({ ...issue, fieldPath: `${input.role}.${issue.fieldPath}` })));
+  errors.push(...validateUaePintAeTaxRegistration({ tin: input.party.tin ?? null, trn: input.party.trn ?? null }).errors.map((issue) => ({ ...issue, fieldPath: `${input.role}.${issue.fieldPath}` })));
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeLineAmounts(line: Pick<UaePintAeLine, "id" | "description" | "quantity" | "unitPrice" | "taxableAmount" | "taxAmount" | "lineTotal">): UaePintAeReadinessResult {
+  const taxableAmount = toNumber(line.taxableAmount);
+  const taxAmount = toNumber(line.taxAmount);
+  const lineTotal = toNumber(line.lineTotal);
+  const errors = nearlyEqual(taxableAmount + taxAmount, lineTotal)
+    ? []
+    : [validationIssue("UAE_LINE_TOTAL_MISMATCH", "error", `lines.${line.id || "unknown"}.lineTotal`, "Line total must equal taxable amount plus tax amount for the local draft model.", "local-rule")];
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeTaxTotals(taxTotals: UaePintAeTaxTotal[], document: { taxTotal: string | number }): UaePintAeReadinessResult {
+  const summedTax = taxTotals.reduce((sum, total) => sum + toNumber(total.taxAmount), 0);
+  const errors = nearlyEqual(summedTax, toNumber(document.taxTotal))
+    ? []
+    : [validationIssue("UAE_TAX_TOTAL_MISMATCH", "error", "taxTotal", "Document tax total must equal the sum of draft tax totals.", "local-rule")];
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeDocumentTotals(document: { subtotal: string | number; taxTotal: string | number; total: string | number; lines: Array<{ taxableAmount: string | number; taxAmount: string | number; lineTotal: string | number }> }): UaePintAeReadinessResult {
+  const lineSubtotal = document.lines.reduce((sum, line) => sum + toNumber(line.taxableAmount), 0);
+  const lineTax = document.lines.reduce((sum, line) => sum + toNumber(line.taxAmount), 0);
+  const lineTotal = document.lines.reduce((sum, line) => sum + toNumber(line.lineTotal), 0);
+  const valid = nearlyEqual(lineSubtotal, toNumber(document.subtotal)) && nearlyEqual(lineTax, toNumber(document.taxTotal)) && nearlyEqual(lineTotal, toNumber(document.total)) && nearlyEqual(toNumber(document.subtotal) + toNumber(document.taxTotal), toNumber(document.total));
+  const errors = valid
+    ? []
+    : [validationIssue("UAE_DOCUMENT_TOTAL_MISMATCH", "error", "total", "Document subtotal, tax total, and payable total must reconcile with draft lines.", "local-rule")];
+  return validationResult(errors, []);
+}
+
+export function validateUaePintAeBusinessProcessMetadata(_metadata: UaeBusinessProcessMetadata): UaePintAeReadinessResult {
+  return validationResult([], [
+    validationIssue("UAE_OFFICIAL_REFERENCE_NOT_VERIFIED", "warning", "businessProcess", "Official PINT-AE references are not fully committed in this repository, so conformance remains unverified.", "official-reference-missing"),
+  ]);
+}
+
+export function validateUaePintAeDraftInvoice(input: UaePintAeDocumentInput): UaePintAeReadinessResult {
+  const errors: UaePintAeDraftValidationIssue[] = [];
+  const warnings: UaePintAeDraftValidationIssue[] = [];
+  errors.push(...validateUaePintAeParty({ role: "supplier", party: input.supplier, endpointRequired: true }).errors);
+  errors.push(...validateUaePintAeParty({ role: "buyer", party: input.buyer, endpointRequired: true }).errors);
+  for (const line of input.lines) {
+    errors.push(...validateUaePintAeLineAmounts(line).errors);
+  }
+  errors.push(...validateUaePintAeTaxTotals(draftTaxTotals(input), input).errors);
+  errors.push(...validateUaePintAeDocumentTotals({ subtotal: input.subtotal, taxTotal: input.taxTotal, total: input.total, lines: input.lines }).errors);
+  if (!validateNoNegativeInvoice({ kind: "invoice", total: input.total }).valid) {
+    errors.push(validationIssue("UAE_NEGATIVE_INVOICE_NOT_ALLOWED", "error", "total", "Negative invoice payable totals are blocked in the UAE PINT-AE draft model.", "local-rule"));
+  }
+  warnings.push(...validateUaePintAeBusinessProcessMetadata(buildUaeBusinessProcessMetadata(input)).warnings);
+  return summarizeUaePintAeValidation([validationResult(errors, warnings)]);
+}
+
+export function validateUaePintAeDraftCreditNote(input: UaePintAeDocumentInput): UaePintAeReadinessResult {
+  const errors: UaePintAeDraftValidationIssue[] = [];
+  const reference = validateCreditNoteReferenceRequirement({
+    kind: "credit-note",
+    creditNoteReason: input.creditNoteReason ?? null,
+    originalInvoiceNumber: input.originalInvoiceNumber ?? null,
+  });
+  if (reference.issues.includes("CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED")) {
+    errors.push(validationIssue("UAE_CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED", "error", "originalInvoiceNumber", "UAE PINT-AE draft credit notes require the original invoice reference.", "local-rule"));
+  }
+  if (reference.issues.includes("CREDIT_NOTE_REASON_REQUIRED")) {
+    errors.push(validationIssue("UAE_CREDIT_NOTE_REASON_REQUIRED", "error", "creditNoteReason", "UAE PINT-AE draft credit notes require a reason.", "local-rule"));
+  }
+  const base = validateUaePintAeDraftInvoice({ ...input, kind: "invoice" });
+  return summarizeUaePintAeValidation([base, validationResult(errors, [])]);
+}
+
+export function summarizeUaePintAeValidation(results: UaePintAeReadinessResult[]): UaePintAeReadinessResult {
+  const errors = results.flatMap((result) => result.errors);
+  const warnings = results.flatMap((result) => result.warnings);
+  const hasProviderAccessWarning = warnings.some((issue) => issue.code === "UAE_PROVIDER_ACCESS_REQUIRED");
+  const hasSubmissionBlockedError = errors.some((issue) => issue.code === "UAE_ASP_SUBMISSION_BLOCKED");
+  if (!hasProviderAccessWarning) {
+    warnings.push(validationIssue("UAE_PROVIDER_ACCESS_REQUIRED", "warning", "provider", "Real ASP access and provider documentation are required before submission readiness can be claimed.", "provider-required-later"));
+  }
+  if (!hasSubmissionBlockedError) {
+    errors.push(validationIssue("UAE_ASP_SUBMISSION_BLOCKED", "error", "submission", "Provider submission remains blocked without approved ASP access.", "provider-required-later"));
+  }
+  return validationResult(errors, warnings);
+}
+
+export function buildUaePintAeDraftInvoice(input: UaePintAeDocumentInput): UaePintAeDraftInvoice {
+  return buildDraftDocument(input, "invoice");
+}
+
+export function buildUaePintAeDraftCreditNote(input: UaePintAeDocumentInput): UaePintAeDraftCreditNote {
+  return {
+    ...buildDraftDocument(input, "credit-note"),
+    kind: "credit-note",
+    originalInvoiceNumber: input.originalInvoiceNumber ?? null,
+    creditNoteReason: input.creditNoteReason ?? null,
+  };
+}
+
 export function buildReadinessXml(input: UaePintDocumentInput): UaeSerializerBoundaryResult {
   const result = buildUaePintXml(input);
   return {
     mode: UAE_PINT_AE_SERIALIZER_MODES.READINESS_ONLY,
+    serializerMode: UAE_PINT_AE_SERIALIZER_MODES.READINESS_ONLY,
     xml: result.xml,
     validation: result.validation,
+    officialIdentifiersUsed: false,
+    officialReferenceVerified: false,
     productionCompliance: false,
     networkReady: false,
     aspSubmissionReady: false,
     officialSerializerComplete: false,
+    providerRequired: false,
+    missingProviderAccess: false,
+    conformanceEvidenceAvailable: false,
+    warnings: ["UAE_OFFICIAL_REFERENCE_NOT_VERIFIED"],
+    errors: [],
   };
 }
 
 export function buildOfficialPintAeDraftPayload(input: UaePintAeDocumentInput): UaeOfficialDraftPayload {
   const result = serializeUaePintAeDocument(input);
+  const validation = input.kind === "credit-note" ? validateUaePintAeDraftCreditNote(input) : validateUaePintAeDraftInvoice(input);
   return {
     mode: UAE_PINT_AE_SERIALIZER_MODES.OFFICIAL_DRAFT_LOCAL_ONLY,
+    serializerMode: UAE_PINT_AE_SERIALIZER_MODES.OFFICIAL_DRAFT_LOCAL_ONLY,
     xml: result.xml,
     validation: result.validation,
     metadata: result.metadata,
+    officialIdentifiersUsed: true,
+    officialReferenceVerified: false,
     productionCompliance: false,
     networkReady: false,
     aspSubmissionReady: false,
     officialSerializerComplete: false,
+    providerRequired: true,
+    missingProviderAccess: true,
+    conformanceEvidenceAvailable: false,
+    warnings: uniqueStrings(validation.warnings.map((issue) => issue.code)),
+    errors: uniqueStrings(validation.errors.map((issue) => issue.code)),
     submission: {
       mode: UAE_PINT_AE_SERIALIZER_MODES.PROVIDER_SUBMISSION_BLOCKED,
       canSubmit: false,
@@ -838,11 +1096,11 @@ export class DisabledAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: "DISABLED",
+      status: "BLOCKED_NO_ASP",
       ok: false,
       mockOnly: false,
-      message: "ASP submission is blocked because no provider is configured.",
-      issues: ["ASP_SUBMISSION_DISABLED"],
+      message: "ASP submission is blocked because no approved provider access exists.",
+      issues: ["ASP_ACCESS_REQUIRED", "ASP_SUBMISSION_BLOCKED"],
       externalReference: null,
     });
   }
@@ -1507,6 +1765,139 @@ export function validateUaePintInput(input: UaePintDocumentInput): UaeValidation
   }
 
   return { valid: issues.every((issue) => issue.severity !== "ERROR"), issues };
+}
+
+function validationIssue(
+  code: UaePintAeDraftValidationIssue["code"],
+  severity: UaePintAeValidationIssueSeverity,
+  fieldPath: string,
+  message: string,
+  source: UaePintAeDraftValidationIssue["source"],
+): UaePintAeDraftValidationIssue {
+  return { code, severity, fieldPath, message, source };
+}
+
+function isDraftIssue(issue: UaePintAeDraftValidationIssue | null): issue is UaePintAeDraftValidationIssue {
+  return issue !== null;
+}
+
+function validationResult(errors: UaePintAeDraftValidationIssue[], warnings: UaePintAeDraftValidationIssue[]): UaePintAeReadinessResult {
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    productionCompliance: false,
+    networkReady: false,
+    aspSubmissionReady: false,
+    providerRequired: true,
+    missingProviderAccess: true,
+    officialReferenceVerified: false,
+    conformanceEvidenceAvailable: false,
+  };
+}
+
+function hasText(value: string | null | undefined): boolean {
+  return String(value ?? "").trim().length > 0;
+}
+
+function toNumber(value: string | number): number {
+  return Number(value);
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) < 0.0001;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function partyAddress(party: UaePintAeParty): UaePintAeAddress {
+  return {
+    addressLine1: party.addressLine1 ?? null,
+    addressLine2: party.addressLine2 ?? null,
+    city: party.city ?? null,
+    emirate: party.emirate ?? null,
+    countryCode: party.countryCode ?? null,
+  };
+}
+
+function draftTaxTotals(input: UaePintAeDocumentInput): UaePintAeTaxTotal[] {
+  return [
+    {
+      taxableAmount: input.subtotal,
+      taxAmount: input.taxTotal,
+      currency: input.currency,
+      taxCategory: input.lines[0]?.taxCategory ?? null,
+    },
+  ];
+}
+
+function draftParty(party: UaePintAeParty): UaePintAeDraftParty {
+  const endpoint = validateUaeEndpointScheme(party.peppolParticipantId ?? party.endpointId);
+  return {
+    legalName: party.legalName ?? null,
+    endpointSchemeId: endpoint.schemeId,
+    endpointId: endpoint.normalizedEndpointId,
+    taxRegistration: {
+      tin: party.tin ?? null,
+      trn: party.trn ?? null,
+    },
+    address: partyAddress(party),
+  };
+}
+
+function businessProcessForDraft(input: UaePintAeDocumentInput): UaePintAeBusinessProcessMetadata {
+  return {
+    ...buildUaeBusinessProcessMetadata(input),
+    officialReferenceVerified: false,
+    warnings: ["UAE_OFFICIAL_REFERENCE_NOT_VERIFIED"],
+  };
+}
+
+function blockedSubmissionBoundary(): UaePintAeDraftDocumentBase["submission"] {
+  return {
+    mode: UAE_PINT_AE_SERIALIZER_MODES.PROVIDER_SUBMISSION_BLOCKED,
+    canSubmit: false,
+    reason: "ASP_ACCESS_REQUIRED",
+  };
+}
+
+function buildDraftDocument(input: UaePintAeDocumentInput, kind: "invoice"): UaePintAeDraftInvoice;
+function buildDraftDocument(input: UaePintAeDocumentInput, kind: "credit-note"): UaePintAeDraftCreditNote;
+function buildDraftDocument(input: UaePintAeDocumentInput, kind: UaePintDocumentKind): UaePintAeDraftInvoice | UaePintAeDraftCreditNote {
+  const base: UaePintAeDraftDocumentBase = {
+    serializerMode: UAE_PINT_AE_SERIALIZER_MODES.OFFICIAL_DRAFT_LOCAL_ONLY,
+    documentNumber: input.documentNumber,
+    issueDate: input.issueDate,
+    currency: input.currency,
+    supplier: draftParty(input.supplier),
+    buyer: draftParty(input.buyer),
+    lines: input.lines,
+    taxTotals: draftTaxTotals(input),
+    paymentTerms: {
+      currency: input.currency,
+      paymentDueDate: input.paymentDueDate ?? null,
+      paymentMeansCode: null,
+      note: null,
+    },
+    businessProcess: businessProcessForDraft(input),
+    productionCompliance: false,
+    networkReady: false,
+    aspSubmissionReady: false,
+    officialReferenceVerified: false,
+    conformanceEvidenceAvailable: false,
+    submission: blockedSubmissionBoundary(),
+  };
+  if (kind === "credit-note") {
+    return {
+      ...base,
+      kind,
+      originalInvoiceNumber: input.originalInvoiceNumber ?? null,
+      creditNoteReason: input.creditNoteReason ?? null,
+    };
+  }
+  return { ...base, kind };
 }
 
 export function buildUaePintXml(input: UaePintDocumentInput): { xml: string; validation: UaeValidationReport } {

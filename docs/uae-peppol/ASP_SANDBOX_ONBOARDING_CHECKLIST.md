@@ -41,3 +41,15 @@ Before any future sandbox URL or credential is introduced, keep these local pack
 - error-normalization tests prove no raw request/response body, token, or secret is returned.
 
 If a provider asks for a status, evidence artifact, endpoint URL, certificate, or secret format that is not covered by these local contracts, update the package tests before enabling any integration path.
+
+## UAE-PRE-ASP-ADAPTER-03 Pre-Access Package Gates
+
+Before any future sandbox URL, credential, or provider envelope is introduced, these additional local gates must remain true:
+
+- draft invoice and draft credit-note helpers return `productionCompliance: false` and `aspSubmissionReady: false`.
+- draft validators return stable structured errors/warnings without throwing for normal validation failures.
+- serializer boundary metadata distinguishes readiness XML, official draft payloads, blocked provider submission, and production-compliant eInvoices.
+- disabled provider submission of official drafts returns `BLOCKED_NO_ASP`.
+- mock provider output uses only `_MOCK` statuses and remains local-only.
+
+The absence of complete official reference files and provider-specific docs remains a no-go for real ASP onboarding.

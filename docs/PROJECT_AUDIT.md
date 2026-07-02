@@ -1043,3 +1043,9 @@ Recommended next step:
 - The UAE package is more adapter-ready before ASP access: local official/readiness serializer boundaries are explicit, disabled/mock provider capability flags are test-covered, mock statuses cannot be mistaken for real provider acceptance, and webhook replay/error normalization helpers are local-only and redacted.
 - Evidence retention planning now identifies official XML, readiness XML, provider envelopes/responses, webhook hashes/events, transmission attempts, timeline, archive hash, delivery evidence, future FTA evidence, and future inbound evidence.
 - This audit update does not approve production UAE compliance. ASP access, provider docs, credentials, sandbox evidence, FTA reporting, production hosting, and legal/security sign-off remain required.
+
+# UAE official serializer readiness audit update - 2026-07-02
+
+- The UAE package now has local official draft invoice/credit-note models, structured draft validators, richer serializer metadata, and tests proving disabled/mock provider behavior remains blocked or mock-only for draft payloads.
+- `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` records implemented-local serializer readiness separately from documented gaps and official/provider blockers.
+- This audit update does not approve production UAE compliance. ASP access, provider docs, credentials, sandbox evidence, FTA reporting, production hosting, storage/retention proof, official conformance evidence, and legal/security sign-off remain required.

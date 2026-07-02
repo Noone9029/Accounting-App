@@ -5146,6 +5146,14 @@ Recommended next step:
 - Updated UAE pre-ASP and evidence-retention docs. This is preparation for future ASP access only.
 - No real ASP call, real provider URL, real credential, Peppol transmission, FTA reporting, production UAE compliance, accounting finalization, ledger posting, report math, VAT math, invoice total, hosted mutation, migration, seed/reset/delete, storage/signed-URL operation, email, payment, or deployment changed.
 
+# UAE official serializer readiness depth - 2026-07-02
+
+- No production compliance bug was fixed and no production provider behavior was enabled.
+- Added local official-draft invoice/credit-note model helpers and structured validator helpers for endpoints, addresses, TRN/TIN presence, line/tax/document totals, negative invoices, and credit-note reason/reference.
+- Added a serializer readiness matrix and expanded local fixture coverage for draft payload metadata and blocked provider behavior.
+- Remaining blockers: full official reference pack, provider envelope/webhook docs, ASP sandbox credentials, conformance evidence, storage/retention proof, and legal/security review.
+- No real ASP call, real provider URL, real credential, Peppol transmission, FTA reporting, production UAE compliance, accounting finalization, ledger posting, report math, VAT math, invoice total, hosted mutation, migration, seed/reset/delete, storage/signed-URL operation, email, payment, or deployment changed.
+
 # Refund collections banking detail visual polish - 2026-06-16
 
 - PR `#57` was merged first at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2`; this branch was created from the updated `origin/main`.

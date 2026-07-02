@@ -43,3 +43,11 @@ The package foundation now separates three local surfaces:
 Additional package helpers now cover official identifier checks, endpoint scheme `0235` validation, predefined endpoint scenario classification, business-process metadata, typed transmission drafts, mock-only timeline events, timestamped fake webhook replay protection, and typed provider error normalization.
 
 This does not change the future provider sequence. Persistent outbox/retry storage, provider-specific request envelopes, real webhook endpoints, provider URLs, credentials, and production retention rules remain deferred to a separate approved ASP-access goal.
+
+## UAE-PRE-ASP-ADAPTER-03 Official Draft Readiness Addendum
+
+The local package now includes explicit official-draft invoice and credit-note model helpers, structured draft validators, serializer boundary metadata, and fixture coverage for missing endpoints, missing address/tax registration, negative invoices, line/tax/document total mismatches, missing credit-note references/reasons, and blocked provider submission.
+
+The new `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` records implemented-local areas separately from documented gaps and blockers. Because the full official PINT-AE reference pack and provider envelope/webhook docs are not present in the repository, unresolved official rules remain documented gaps rather than guessed implementation.
+
+Provider submission payloads, real ASP calls, Peppol/FTA transmission, production provider endpoints, credentials, and production UAE compliance remain blocked.

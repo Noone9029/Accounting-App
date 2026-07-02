@@ -62,3 +62,11 @@ These commands are read-only. They do not connect to a database, call a network 
 - Disabled providers still return blocked/no-network states. Mock providers now emit explicit `_MOCK` statuses such as `ACCEPTED_MOCK` and `REJECTED_MOCK`; real-provider statuses remain future contract values only.
 - Evidence/retention mapping now covers official XML, readiness XML, provider envelopes/responses, webhook hashes/events, attempts, timeline, archive hashes, delivery evidence, future FTA evidence, and future inbound invoice evidence.
 - No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.
+
+## UAE-PRE-ASP-ADAPTER-03 Local Official Draft Readiness Update
+
+- Added local official-draft invoice and credit-note model helpers plus structured validators for party, address, tax registration, line, tax, document total, credit-note, and business-process metadata readiness.
+- Added `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` to separate implemented-local coverage from documented gaps and official/provider blockers.
+- Serializer outputs now expose explicit metadata for mode, official identifier use, official-reference verification, provider requirement, missing provider access, conformance evidence availability, warnings, and errors.
+- Disabled/mock provider behavior remains local-only: disabled returns `BLOCKED_NO_ASP`; mock returns `_MOCK` statuses only.
+- No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.

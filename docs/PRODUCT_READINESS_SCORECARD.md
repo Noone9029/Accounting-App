@@ -1952,3 +1952,9 @@ Recommended next step:
 - UAE adapter readiness improves for future ASP onboarding because the package now models official/readiness serializer separation, blocked provider submission, disabled/mock provider capabilities, typed idempotency/transmission/timeline records, fake webhook replay controls, and provider error normalization.
 - No production-readiness score increase is taken. These are local contract and test improvements only.
 - Remaining blockers are unchanged: real ASP sandbox access, provider-specific payload/envelope docs, provider credentials, legal/security review, persistent outbox/replay schema, object-storage/retention proof, FTA reporting evidence, production hosting, and official compliance review.
+
+## 2026-07-02 UAE official serializer readiness depth
+
+- UAE package readiness improves for future ASP onboarding because official draft invoice/credit-note models, draft validators, serializer output metadata, and blocked provider behavior are now explicit and test-covered.
+- No production-readiness score increase is taken. This remains local draft/readiness modeling only.
+- Remaining blockers are unchanged: full official reference pack, provider-specific payload/envelope docs, sandbox credentials, legal/security review, persistent outbox/replay schema, object-storage/retention proof, FTA reporting evidence, production hosting, and official compliance review.
