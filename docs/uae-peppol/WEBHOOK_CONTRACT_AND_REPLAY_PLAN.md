@@ -53,3 +53,17 @@ This helper rejects missing event IDs, invalid timestamps, stale timestamps, and
 Official draft payloads can appear only in local package tests and blocked/mock adapter calls. Provider error normalization redacts draft payload bodies, raw bodies, payload fields, tokens, credentials, and secrets before returning details.
 
 Real webhook statuses, provider delivery statuses, FTA reporting statuses, and persistent replay storage remain blocked until provider-specific docs, real ASP access, schema approval, and legal/security review exist.
+
+## UAE-PRE-ASP-ADAPTER-04 Fake Webhook Harness
+
+The local package now includes fake webhook event and delivery helpers:
+
+- `buildFakeWebhookEvent`
+- `buildFakeWebhookDelivery`
+- `verifyFakeWebhookDelivery`
+- `simulateWebhookDelivery`
+- `simulateWebhookReplay`
+- `simulateWebhookStaleTimestamp`
+- `normalizeFakeWebhookEventForTimeline`
+
+The harness uses fake local signatures only, rejects replay/stale/invalid-signature cases, redacts normalized payloads, and emits mock/local statuses only. It does not create a live webhook endpoint or persistent replay store.

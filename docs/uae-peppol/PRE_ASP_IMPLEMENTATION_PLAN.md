@@ -51,3 +51,11 @@ The local package now includes explicit official-draft invoice and credit-note m
 The new `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` records implemented-local areas separately from documented gaps and blockers. Because the full official PINT-AE reference pack and provider envelope/webhook docs are not present in the repository, unresolved official rules remain documented gaps rather than guessed implementation.
 
 Provider submission payloads, real ASP calls, Peppol/FTA transmission, production provider endpoints, credentials, and production UAE compliance remain blocked.
+
+## UAE-PRE-ASP-ADAPTER-04 Provider Harness Addendum
+
+The package now includes provider-neutral envelope contract skeletons, a sandbox onboarding state-machine simulator, deterministic fake provider submission/status/webhook simulators, conservative capability negotiation helpers, and a provider error fixture library.
+
+These helpers prepare the integration shape for future ASP onboarding while keeping all results local-only. They do not add provider-specific payload fields, provider URLs, credentials, network calls, Peppol/FTA transmission, production compliance, persistent outbox storage, object storage, signed URLs, or hosted behavior.
+
+Provider-specific implementation remains blocked until provider envelope docs, webhook docs, sandbox credentials, legal/security review, and conformance evidence exist.

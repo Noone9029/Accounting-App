@@ -62,3 +62,16 @@ Official draft payloads are still local artifacts. They can be passed to disable
 - provider submission payloads remain blocked until approved ASP access and provider docs exist.
 
 No provider URL, credential, network path, delivery status, FTA reporting status, or production compliance flag is enabled by this contract update.
+
+## UAE-PRE-ASP-ADAPTER-04 Provider Envelope Skeleton
+
+The provider-agnostic package contract now adds:
+
+- provider-neutral envelope metadata and redaction policy types.
+- `buildProviderEnvelope` for local draft invoice/credit-note wrappers.
+- sandbox onboarding checklist/state helpers.
+- fake provider submission, status polling, webhook delivery, and provider error simulators.
+- provider capability negotiation helpers.
+- provider error fixture helpers with stable normalized codes.
+
+All helpers keep `productionCompliance: false`, `networkReady: false`, and `aspSubmissionReady: false`. Raw document bodies, payload bodies, tokens, credentials, and secrets are redacted from helper outputs.

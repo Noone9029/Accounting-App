@@ -1,5 +1,11 @@
 # Remaining Roadmap
 
+## 2026-07-02 - UAE fake provider sandbox harness follow-up
+
+- Completed local-only provider envelope skeletons, sandbox onboarding simulator, fake provider submission/status/webhook harness, provider capability negotiation, and provider error fixtures.
+- Remaining UAE ASP work is blocked on real provider docs, sandbox credentials, provider-specific envelope/webhook/error taxonomies, official conformance evidence, persistent outbox/replay schema, storage/retention proof, and legal/security review.
+- Do not start real ASP integration, Peppol/FTA submission, or production compliance work from these helpers alone.
+
 ## 2026-07-02 MONITORING-SUPPORT-EXECUTION-01
 
 - Added local/read-only monitoring/support readiness diagnostics and generated evidence under `docs/operations/evidence/`.

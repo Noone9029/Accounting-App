@@ -297,6 +297,276 @@ export interface AspProviderAdapter {
   healthCheck(): Promise<AspProviderHealthResult>;
 }
 
+export type UaeAspProviderEnvironment = "DISABLED" | "MOCK" | "SANDBOX_PENDING" | "SANDBOX" | "PRODUCTION_BLOCKED";
+export type UaeAspProviderEnvelopeDocumentType = "invoice" | "credit-note";
+
+export interface UaeAspProviderEnvelopeMetadata {
+  tenantId: string;
+  organizationId: string;
+  documentId: string;
+  documentType: UaeAspProviderEnvelopeDocumentType;
+  serializerMode: UaePintAeSerializerMode;
+  providerId: AspProviderKey;
+  providerEnvironment: UaeAspProviderEnvironment;
+  idempotencyKey: string;
+  correlationId: string;
+  createdAt: string;
+  localOnly: boolean;
+  productionCompliance: false;
+  aspSubmissionReady: false;
+  networkReady: false;
+  sensitivePayloadIncluded: boolean;
+}
+
+export interface UaeAspProviderEnvelopeParty {
+  role: "supplier" | "buyer" | "receiver" | "sender";
+  legalName?: string | null;
+  endpointId?: string | null;
+  taxRegistrationId?: string | null;
+}
+
+export interface UaeAspProviderEnvelopeAttachment {
+  name: string;
+  mediaType: string;
+  body: "[REDACTED]" | null;
+  hash?: string | null;
+}
+
+export interface UaeAspProviderEnvelopeDocument {
+  documentId: string;
+  documentNumber?: string | null;
+  documentType: UaeAspProviderEnvelopeDocumentType;
+  body?: unknown;
+  bodyHash?: string | null;
+}
+
+export interface UaeAspProviderEnvelope {
+  metadata: UaeAspProviderEnvelopeMetadata;
+  document: Omit<UaeAspProviderEnvelopeDocument, "body"> & { body: "[REDACTED]" | null };
+  parties: UaeAspProviderEnvelopeParty[];
+  attachments: UaeAspProviderEnvelopeAttachment[];
+  redactionPolicy: UaeAspProviderRedactionPolicy;
+}
+
+export interface UaeAspProviderSubmissionRequest {
+  envelope: UaeAspProviderEnvelope;
+  operation: Extract<AspProviderOperation, "submit">;
+  localOnly: true;
+}
+
+export interface UaeAspProviderSubmissionResponse {
+  providerId: AspProviderKey;
+  status: FakeUaeAspProviderEventStatus | "BLOCKED_NO_ASP";
+  externalReference: string | null;
+  localOnly: true;
+  productionCompliance: false;
+  networkReady: false;
+  redactedEnvelope: UaeAspProviderEnvelope;
+}
+
+export interface UaeAspProviderStatusRequest {
+  providerId: AspProviderKey;
+  documentId: string;
+  idempotencyKey: string;
+  localOnly: true;
+}
+
+export interface UaeAspProviderStatusResponse {
+  providerId: AspProviderKey;
+  status: FakeUaeAspProviderEventStatus;
+  events: FakeUaeAspProviderWebhookEvent[];
+  localOnly: true;
+  productionCompliance: false;
+}
+
+export interface UaeAspProviderWebhookEnvelope {
+  event: FakeUaeAspProviderWebhookEvent;
+  delivery: FakeUaeAspProviderWebhookDelivery;
+  localOnly: true;
+  productionCompliance: false;
+}
+
+export type UaeAspProviderWebhookEvent = FakeUaeAspProviderWebhookEvent;
+
+export interface UaeAspProviderErrorEnvelope {
+  code: AspProviderErrorCode;
+  input: AspProviderErrorInput;
+  expectedCode: AspProviderErrorCode;
+  userMessage: string;
+  operatorMessage: string;
+  localOnly: true;
+  productionCompliance: false;
+}
+
+export interface UaeAspProviderRedactionPolicy {
+  redactDocumentBody: true;
+  redactSecrets: true;
+  redactRawPayloads: true;
+  bodyStorageAllowed: false;
+}
+
+export type UaeAspSandboxOnboardingState =
+  | "NOT_STARTED"
+  | "PROVIDER_SHORTLISTED"
+  | "NDA_OR_COMMERCIAL_PENDING"
+  | "SANDBOX_ACCESS_REQUESTED"
+  | "SANDBOX_CREDENTIALS_PENDING"
+  | "PROVIDER_DOCS_PENDING"
+  | "LOCAL_CONTRACT_READY"
+  | "SANDBOX_BLOCKED_NO_CREDENTIALS"
+  | "SANDBOX_READY_FOR_IMPLEMENTATION"
+  | "PRODUCTION_BLOCKED";
+
+export type UaeAspSandboxBlockingReason =
+  | "PROVIDER_DOCS_MISSING"
+  | "SANDBOX_CREDENTIALS_MISSING"
+  | "COMPLIANCE_SIGNOFF_MISSING"
+  | "PRODUCTION_BLOCKED";
+
+export interface UaeAspSandboxCredentialRequirement {
+  key: string;
+  label: string;
+  present: boolean;
+  secretValueStored: false;
+}
+
+export interface UaeAspSandboxDocumentRequirement {
+  key: string;
+  label: string;
+  present: boolean;
+}
+
+export interface UaeAspSandboxOnboardingStep {
+  key: string;
+  label: string;
+  complete: boolean;
+  blockingReasons: UaeAspSandboxBlockingReason[];
+}
+
+export interface UaeAspSandboxOnboardingChecklist {
+  providerId: AspProviderKey;
+  state: UaeAspSandboxOnboardingState;
+  steps: UaeAspSandboxOnboardingStep[];
+  credentialRequirements: UaeAspSandboxCredentialRequirement[];
+  documentRequirements: UaeAspSandboxDocumentRequirement[];
+  blockingReasons: UaeAspSandboxBlockingReason[];
+  localOnly: true;
+  productionCompliance: false;
+  networkReady: false;
+}
+
+export type FakeUaeAspProviderEventStatus =
+  | "SUBMISSION_RECEIVED_MOCK"
+  | "VALIDATION_FAILED_MOCK"
+  | "ACCEPTED_MOCK"
+  | "REJECTED_MOCK"
+  | "DUPLICATE_DOCUMENT_MOCK"
+  | "RATE_LIMITED_MOCK"
+  | "RECEIVER_NOT_FOUND_MOCK"
+  | "ENDPOINT_NOT_REGISTERED_MOCK"
+  | "PROVIDER_UNAVAILABLE_MOCK"
+  | "SUBMITTED_MOCK";
+
+export interface FakeUaeAspProvider {
+  providerId: AspProviderKey;
+  environment: Extract<UaeAspProviderEnvironment, "DISABLED" | "MOCK" | "SANDBOX_PENDING" | "SANDBOX">;
+  localOnly: true;
+  noNetwork: true;
+  networkReady: false;
+  productionCompliance: false;
+  redactsPayloadsByDefault: true;
+}
+
+export interface FakeUaeAspProviderInput {
+  tenantId: string;
+  documentId: string;
+  documentNumber?: string | null;
+  payload?: unknown;
+}
+
+export interface FakeUaeAspProviderResult {
+  providerId: AspProviderKey;
+  status: FakeUaeAspProviderEventStatus;
+  externalReference: string;
+  events: FakeUaeAspProviderWebhookEvent[];
+  localOnly: true;
+  mockOnly: true;
+  noNetwork: true;
+  productionCompliance: false;
+  redactedPayload: Record<string, unknown> | null;
+}
+
+export interface FakeUaeAspProviderWebhookEvent {
+  providerId: AspProviderKey;
+  eventId: string;
+  status: FakeUaeAspProviderEventStatus;
+  documentId: string;
+  occurredAt: string;
+  payload: Record<string, unknown>;
+  localOnly: true;
+  mockOnly: true;
+  productionCompliance: false;
+}
+
+export interface FakeUaeAspProviderWebhookDelivery {
+  event: FakeUaeAspProviderWebhookEvent;
+  signature: string;
+  timestamp: string;
+  localOnly: true;
+  productionCompliance: false;
+}
+
+export interface FakeUaeAspProviderWebhookVerification {
+  accepted: boolean;
+  reason: "ACCEPTED" | "SIGNATURE_INVALID" | AspWebhookReplayResult["reason"];
+  eventId: string;
+  localOnly: true;
+  productionCompliance: false;
+}
+
+export interface FakeUaeAspProviderTimelineEvent {
+  providerId: AspProviderKey;
+  eventId: string;
+  status: FakeUaeAspProviderEventStatus;
+  documentId: string;
+  redactedPayload: Record<string, unknown>;
+  localOnly: true;
+  mockOnly: true;
+  productionCompliance: false;
+}
+
+export interface UaeAspProviderCapabilityInput {
+  providerId: AspProviderKey;
+  capabilities?: Partial<Record<UaeAspProviderCapabilityName, boolean | "UNKNOWN">> | null;
+  approvedForProduction?: boolean | null;
+}
+
+export type UaeAspProviderCapabilityName =
+  | "sandboxSupport"
+  | "webhooks"
+  | "statusPolling"
+  | "outboundInvoiceSubmission"
+  | "outboundCreditNoteSubmission"
+  | "errorCodeMapping"
+  | "idempotencyKeySupport"
+  | "payloadRedactionLoggingRules"
+  | "inboundInvoiceSupport"
+  | "taxDataReportingSupport"
+  | "clientCertificateRequirement"
+  | "hmacSignatureRequirement";
+
+export interface UaeAspProviderCapabilitySummary {
+  providerId: AspProviderKey;
+  capabilities: Record<UaeAspProviderCapabilityName, boolean | "UNKNOWN">;
+  unsupportedRequiredCapabilities: UaeAspProviderCapabilityName[];
+  readyForMockImplementation: boolean;
+  readyForProviderSpecificImplementation: boolean;
+  productionEnabled: false;
+  summary: string;
+  localOnly: true;
+  productionCompliance: false;
+}
+
 export const ASP_PROVIDER_KEYS: AspProviderKey[] = ["DISABLED", "MOCK", "FUTURE_COMPLYANCE", "FUTURE_CLEARTAX", "FUTURE_EDICOM", "FUTURE_GENERIC_ASP"];
 export const ASP_PROVIDER_STATUSES: AspProviderNormalizedStatus[] = [
   "DISABLED",
@@ -550,6 +820,7 @@ export interface UaeProviderNormalizedError {
   code: AspProviderErrorCode;
   retryable: boolean;
   userMessage: string;
+  operatorMessage: string;
   details: Record<string, unknown> | null;
   noNetwork: true;
   productionCompliance: false;
@@ -888,6 +1159,352 @@ export function createAspSubmissionOutboxDraft(input: Omit<AspSubmissionOutboxDr
   };
 }
 
+export function buildProviderEnvelope(input: {
+  tenantId?: string | null;
+  organizationId: string;
+  documentId: string;
+  documentType: UaeAspProviderEnvelopeDocumentType;
+  serializerMode?: UaePintAeSerializerMode | null;
+  providerId: AspProviderKey;
+  providerEnvironment: UaeAspProviderEnvironment;
+  idempotencyKey?: string | null;
+  correlationId?: string | null;
+  createdAt?: string | null;
+  sensitivePayloadIncluded?: boolean | null;
+  document?: UaeAspProviderEnvelopeDocument | null;
+  parties?: UaeAspProviderEnvelopeParty[] | null;
+  attachments?: Array<Omit<UaeAspProviderEnvelopeAttachment, "body"> & { body?: unknown }> | null;
+}): UaeAspProviderEnvelope {
+  const tenantId = String(input.tenantId ?? input.organizationId);
+  const idempotencyKey =
+    input.idempotencyKey ??
+    buildAspIdempotencyKey({
+      tenantId,
+      providerKey: input.providerId,
+      operation: "submit",
+      documentId: input.documentId,
+      payloadFingerprint: input.document?.bodyHash ?? null,
+    });
+  const document = input.document ?? { documentId: input.documentId, documentType: input.documentType };
+  return {
+    metadata: {
+      tenantId,
+      organizationId: input.organizationId,
+      documentId: input.documentId,
+      documentType: input.documentType,
+      serializerMode: input.serializerMode ?? UAE_PINT_AE_SERIALIZER_MODES.OFFICIAL_DRAFT_LOCAL_ONLY,
+      providerId: input.providerId,
+      providerEnvironment: input.providerEnvironment,
+      idempotencyKey,
+      correlationId: input.correlationId ?? `corr_${createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 24)}`,
+      createdAt: input.createdAt ?? new Date(0).toISOString(),
+      localOnly: input.providerEnvironment !== "SANDBOX",
+      productionCompliance: false,
+      aspSubmissionReady: false,
+      networkReady: false,
+      sensitivePayloadIncluded: input.sensitivePayloadIncluded === true,
+    },
+    document: {
+      documentId: document.documentId,
+      documentNumber: document.documentNumber ?? null,
+      documentType: document.documentType,
+      bodyHash: document.bodyHash ?? (document.body === undefined ? null : createHash("sha256").update(stableJson(document.body)).digest("hex")),
+      body: document.body === undefined || document.body === null ? null : "[REDACTED]",
+    },
+    parties: input.parties ?? [],
+    attachments: (input.attachments ?? []).map((attachment) => ({
+      name: attachment.name,
+      mediaType: attachment.mediaType,
+      hash: attachment.hash ?? (attachment.body === undefined ? null : createHash("sha256").update(stableJson(attachment.body)).digest("hex")),
+      body: attachment.body === undefined || attachment.body === null ? null : "[REDACTED]",
+    })),
+    redactionPolicy: providerRedactionPolicy(),
+  };
+}
+
+export function buildSandboxOnboardingChecklist(input: {
+  providerId: AspProviderKey;
+  providerDocsPresent?: boolean | null;
+  sandboxCredentialsPresent?: boolean | null;
+  ndaOrCommercialComplete?: boolean | null;
+  sandboxAccessRequested?: boolean | null;
+  complianceSignoffComplete?: boolean | null;
+}): UaeAspSandboxOnboardingChecklist {
+  const docsPresent = input.providerDocsPresent === true;
+  const credentialsPresent = input.sandboxCredentialsPresent === true;
+  const blockingReasons = [
+    ...(docsPresent ? [] : ["PROVIDER_DOCS_MISSING" as const]),
+    ...(credentialsPresent ? [] : ["SANDBOX_CREDENTIALS_MISSING" as const]),
+    "COMPLIANCE_SIGNOFF_MISSING" as const,
+    "PRODUCTION_BLOCKED" as const,
+  ];
+  const state: UaeAspSandboxOnboardingState =
+    docsPresent && credentialsPresent
+      ? "SANDBOX_READY_FOR_IMPLEMENTATION"
+      : docsPresent
+        ? "SANDBOX_CREDENTIALS_PENDING"
+        : credentialsPresent
+          ? "PROVIDER_DOCS_PENDING"
+          : "SANDBOX_BLOCKED_NO_CREDENTIALS";
+  const documentRequirements: UaeAspSandboxDocumentRequirement[] = [
+    { key: "provider-envelope-docs", label: "Provider envelope documentation", present: docsPresent },
+    { key: "webhook-docs", label: "Provider webhook documentation", present: docsPresent },
+    { key: "error-code-docs", label: "Provider error-code documentation", present: docsPresent },
+  ];
+  const credentialRequirements: UaeAspSandboxCredentialRequirement[] = [
+    { key: "sandbox-api-key", label: "Sandbox API credential", present: credentialsPresent, secretValueStored: false },
+    { key: "webhook-secret", label: "Sandbox webhook secret", present: credentialsPresent, secretValueStored: false },
+  ];
+  return {
+    providerId: input.providerId,
+    state,
+    steps: [
+      { key: "provider-docs", label: "Provider docs received", complete: docsPresent, blockingReasons: docsPresent ? [] : ["PROVIDER_DOCS_MISSING"] },
+      { key: "sandbox-credentials", label: "Sandbox credentials approved", complete: credentialsPresent, blockingReasons: credentialsPresent ? [] : ["SANDBOX_CREDENTIALS_MISSING"] },
+      { key: "production-signoff", label: "Production compliance signoff", complete: false, blockingReasons: ["COMPLIANCE_SIGNOFF_MISSING", "PRODUCTION_BLOCKED"] },
+    ],
+    credentialRequirements,
+    documentRequirements,
+    blockingReasons,
+    localOnly: true,
+    productionCompliance: false,
+    networkReady: false,
+  };
+}
+
+export function listMissingSandboxPrerequisites(checklist: UaeAspSandboxOnboardingChecklist): UaeAspSandboxBlockingReason[] {
+  return checklist.blockingReasons.filter((reason) => reason === "PROVIDER_DOCS_MISSING" || reason === "SANDBOX_CREDENTIALS_MISSING");
+}
+
+export function canStartProviderSpecificImplementation(checklist: UaeAspSandboxOnboardingChecklist): boolean {
+  return !checklist.blockingReasons.includes("PROVIDER_DOCS_MISSING") && !checklist.blockingReasons.includes("SANDBOX_CREDENTIALS_MISSING");
+}
+
+export function canEnableNetwork(_checklist: UaeAspSandboxOnboardingChecklist): false {
+  return false;
+}
+
+export function canClaimCompliance(_checklist: UaeAspSandboxOnboardingChecklist): false {
+  return false;
+}
+
+export function summarizeSandboxOnboardingState(checklist: UaeAspSandboxOnboardingChecklist): { state: UaeAspSandboxOnboardingState; summary: string; productionCompliance: false; networkReady: false } {
+  const summary = canStartProviderSpecificImplementation(checklist)
+    ? "Sandbox docs and credentials allow provider-specific implementation planning only; network and production compliance remain blocked."
+    : `Sandbox onboarding is blocked by ${listMissingSandboxPrerequisites(checklist).join(", ") || "production signoff"}.`;
+  return { state: checklist.state, summary, productionCompliance: false, networkReady: false };
+}
+
+export function createFakeUaeAspProvider(input: { providerId?: AspProviderKey | null; environment?: UaeAspProviderEnvironment | null; endpointUrl?: string | null } = {}): FakeUaeAspProvider {
+  if (input.environment === "PRODUCTION_BLOCKED") {
+    throw new Error("Production ASP simulation is blocked until approved provider access and compliance signoff exist.");
+  }
+  assertNoExternalProviderUrl({ endpointUrl: input.endpointUrl ?? null });
+  return {
+    providerId: input.providerId ?? "MOCK",
+    environment: (input.environment ?? "MOCK") as FakeUaeAspProvider["environment"],
+    localOnly: true,
+    noNetwork: true,
+    networkReady: false,
+    productionCompliance: false,
+    redactsPayloadsByDefault: true,
+  };
+}
+
+export function simulateSubmitInvoice(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "SUBMITTED_MOCK");
+}
+
+export function simulateSubmitCreditNote(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "SUBMITTED_MOCK");
+}
+
+export function simulateStatusPolling(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): UaeAspProviderStatusResponse {
+  return {
+    providerId: provider.providerId,
+    status: "SUBMITTED_MOCK",
+    events: [
+      buildFakeWebhookEvent({ providerId: provider.providerId, eventId: `${input.documentId}:received`, status: "SUBMISSION_RECEIVED_MOCK", documentId: input.documentId }),
+      buildFakeWebhookEvent({ providerId: provider.providerId, eventId: `${input.documentId}:submitted`, status: "SUBMITTED_MOCK", documentId: input.documentId }),
+    ],
+    localOnly: true,
+    productionCompliance: false,
+  };
+}
+
+export function simulateProviderRejection(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "REJECTED_MOCK");
+}
+
+export function simulateRateLimit(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "RATE_LIMITED_MOCK");
+}
+
+export function simulateDuplicateDocument(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "DUPLICATE_DOCUMENT_MOCK");
+}
+
+export function simulateReceiverNotFound(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "RECEIVER_NOT_FOUND_MOCK");
+}
+
+export function simulateEndpointNotRegistered(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput): FakeUaeAspProviderResult {
+  return fakeProviderResult(provider, input, "ENDPOINT_NOT_REGISTERED_MOCK");
+}
+
+export function buildFakeWebhookEvent(input: {
+  providerId?: AspProviderKey | null;
+  eventId: string;
+  status: FakeUaeAspProviderEventStatus;
+  documentId: string;
+  occurredAt?: string | null;
+  payload?: Record<string, unknown> | null;
+}): FakeUaeAspProviderWebhookEvent {
+  return {
+    providerId: input.providerId ?? "MOCK",
+    eventId: input.eventId,
+    status: input.status,
+    documentId: input.documentId,
+    occurredAt: input.occurredAt ?? new Date(0).toISOString(),
+    payload: input.payload ?? {},
+    localOnly: true,
+    mockOnly: true,
+    productionCompliance: false,
+  };
+}
+
+export function buildFakeWebhookDelivery(input: { event: FakeUaeAspProviderWebhookEvent; secret: string; timestamp?: string | null }): FakeUaeAspProviderWebhookDelivery {
+  const timestamp = input.timestamp ?? new Date(0).toISOString();
+  return {
+    event: input.event,
+    signature: signFakeWebhookPayload({ payload: input.event, secret: input.secret, timestamp }),
+    timestamp,
+    localOnly: true,
+    productionCompliance: false,
+  };
+}
+
+export function verifyFakeWebhookDelivery(input: {
+  delivery: FakeUaeAspProviderWebhookDelivery;
+  secret: string;
+  now?: Date | null;
+  replayGuard?: UaeWebhookReplayGuard | null;
+  maxAgeSeconds?: number | null;
+}): FakeUaeAspProviderWebhookVerification {
+  const signatureValid = verifyWebhookSignature({ payload: input.delivery.event, signature: input.delivery.signature, secret: input.secret, timestamp: input.delivery.timestamp });
+  if (!signatureValid) {
+    return fakeWebhookVerification(false, "SIGNATURE_INVALID", input.delivery.event.eventId);
+  }
+  const guard = input.replayGuard ?? createInMemoryUaeWebhookReplayGuard({ now: input.now ?? new Date(), maxAgeSeconds: input.maxAgeSeconds ?? 300 });
+  const replay = guard.checkAndRemember({
+    eventId: input.delivery.event.eventId,
+    timestamp: input.delivery.timestamp,
+    signatureHash: createHash("sha256").update(input.delivery.signature).digest("hex"),
+  });
+  return fakeWebhookVerification(replay.accepted, replay.accepted ? "ACCEPTED" : replay.reason, replay.eventId);
+}
+
+export function simulateWebhookDelivery(provider: FakeUaeAspProvider, input: { event: FakeUaeAspProviderWebhookEvent; secret: string; timestamp?: string | null }): FakeUaeAspProviderResult {
+  const delivery = buildFakeWebhookDelivery(input);
+  return {
+    providerId: provider.providerId,
+    status: delivery.event.status,
+    externalReference: `fake-webhook-${stableMockReference(provider.providerId, delivery.event.eventId)}`,
+    events: [delivery.event],
+    localOnly: true,
+    mockOnly: true,
+    noNetwork: true,
+    productionCompliance: false,
+    redactedPayload: normalizeFakeWebhookEventForTimeline(delivery.event).redactedPayload,
+  };
+}
+
+export function simulateWebhookReplay(input: { delivery: FakeUaeAspProviderWebhookDelivery; secret: string; now?: Date | null }): { first: FakeUaeAspProviderWebhookVerification; second: FakeUaeAspProviderWebhookVerification } {
+  const guard = createInMemoryUaeWebhookReplayGuard({ now: input.now ?? new Date(), maxAgeSeconds: 300 });
+  const first = verifyFakeWebhookDelivery({ ...input, replayGuard: guard });
+  const second = verifyFakeWebhookDelivery({ ...input, replayGuard: guard });
+  return { first, second };
+}
+
+export function simulateWebhookStaleTimestamp(input: { delivery: FakeUaeAspProviderWebhookDelivery; secret: string; now: Date }): FakeUaeAspProviderWebhookVerification {
+  return verifyFakeWebhookDelivery({ ...input, maxAgeSeconds: 300 });
+}
+
+export function normalizeFakeWebhookEventForTimeline(event: FakeUaeAspProviderWebhookEvent): FakeUaeAspProviderTimelineEvent {
+  return {
+    providerId: event.providerId,
+    eventId: event.eventId,
+    status: event.status,
+    documentId: event.documentId,
+    redactedPayload: redactObject(event.payload) ?? {},
+    localOnly: true,
+    mockOnly: true,
+    productionCompliance: false,
+  };
+}
+
+export function normalizeProviderCapabilities(input: UaeAspProviderCapabilityInput): UaeAspProviderCapabilitySummary {
+  const required: UaeAspProviderCapabilityName[] = [
+    "sandboxSupport",
+    "webhooks",
+    "statusPolling",
+    "outboundInvoiceSubmission",
+    "outboundCreditNoteSubmission",
+    "errorCodeMapping",
+    "idempotencyKeySupport",
+    "payloadRedactionLoggingRules",
+  ];
+  const optional: UaeAspProviderCapabilityName[] = ["inboundInvoiceSupport", "taxDataReportingSupport", "clientCertificateRequirement", "hmacSignatureRequirement"];
+  const capabilities = Object.fromEntries([...required, ...optional].map((key) => [key, input.capabilities?.[key] ?? "UNKNOWN"])) as Record<UaeAspProviderCapabilityName, boolean | "UNKNOWN">;
+  const unsupportedRequiredCapabilities = required.filter((key) => capabilities[key] !== true);
+  const readyForMockImplementation = unsupportedRequiredCapabilities.length === 0;
+  return {
+    providerId: input.providerId,
+    capabilities,
+    unsupportedRequiredCapabilities,
+    readyForMockImplementation,
+    readyForProviderSpecificImplementation: readyForMockImplementation,
+    productionEnabled: false,
+    summary: unsupportedRequiredCapabilities.length
+      ? `Provider capabilities are unknown or unsupported for: ${unsupportedRequiredCapabilities.join(", ")}.`
+      : "Required provider capabilities are present for mock/local implementation planning only.",
+    localOnly: true,
+    productionCompliance: false,
+  };
+}
+
+export function validateProviderCapabilities(summary: UaeAspProviderCapabilitySummary): UaeAspProviderCapabilitySummary {
+  return { ...summary, productionEnabled: false, productionCompliance: false };
+}
+
+export function summarizeProviderCapabilities(summary: UaeAspProviderCapabilitySummary): { summary: string; productionEnabled: false; productionCompliance: false } {
+  return { summary: summary.summary, productionEnabled: false, productionCompliance: false };
+}
+
+export function compareProviderCapabilitiesToLedgerByteRequirements(summary: UaeAspProviderCapabilitySummary): UaeAspProviderCapabilitySummary {
+  return validateProviderCapabilities(summary);
+}
+
+export function listUnsupportedRequiredCapabilities(summary: UaeAspProviderCapabilitySummary): UaeAspProviderCapabilityName[] {
+  return [...summary.unsupportedRequiredCapabilities];
+}
+
+export function providerErrorFixtures(): Record<string, UaeAspProviderErrorEnvelope> {
+  return {
+    authenticationFailure: providerErrorFixture("AUTHENTICATION_FAILED", { statusCode: 401, code: "AUTH_FAILED", message: "Authentication failed", details: sensitiveFixtureDetails() }),
+    missingCredentials: providerErrorFixture("CONFIGURATION_MISSING", { statusCode: 400, code: "missing_config", message: "Missing provider configuration", details: sensitiveFixtureDetails() }),
+    invalidEndpoint: providerErrorFixture("ENDPOINT_NOT_REGISTERED", { statusCode: 422, code: "ENDPOINT_NOT_REGISTERED", message: "Endpoint not registered", details: sensitiveFixtureDetails() }),
+    unknownReceiver: providerErrorFixture("RECEIVER_NOT_FOUND", { statusCode: 404, code: "RECEIVER_NOT_FOUND", message: "Receiver not found", details: sensitiveFixtureDetails() }),
+    duplicateDocument: providerErrorFixture("DUPLICATE_DOCUMENT", { statusCode: 409, code: "DUPLICATE_DOCUMENT", message: "Duplicate document", details: sensitiveFixtureDetails() }),
+    providerUnavailable: providerErrorFixture("PROVIDER_UNAVAILABLE", { statusCode: 503, code: "PROVIDER_UNAVAILABLE", message: "Provider unavailable", details: sensitiveFixtureDetails() }),
+    rateLimited: providerErrorFixture("RATE_LIMITED", { statusCode: 429, code: "RATE_LIMITED", message: "Rate limited", details: sensitiveFixtureDetails() }),
+    invalidSignature: providerErrorFixture("SIGNATURE_INVALID", { statusCode: 400, code: "SIGNATURE_INVALID", message: "Invalid signature", details: sensitiveFixtureDetails() }),
+    replayDetected: providerErrorFixture("REPLAY_DETECTED", { statusCode: 400, code: "REPLAY_DETECTED", message: "Replay detected", details: sensitiveFixtureDetails() }),
+    validationError: providerErrorFixture("VALIDATION_FAILED", { statusCode: 422, code: "VALIDATION_FAILED", message: "Validation failed", details: sensitiveFixtureDetails() }),
+    unknownProviderError: providerErrorFixture("UNKNOWN_PROVIDER_ERROR", { statusCode: 418, code: "UNEXPECTED", message: "Unexpected provider error", details: sensitiveFixtureDetails() }),
+  };
+}
+
 export function signLocalAspWebhookPayload(payload: unknown, secret: string): string {
   return `sha256=${createHmac("sha256", secret).update(stableJson(payload)).digest("hex")}`;
 }
@@ -1017,6 +1634,7 @@ export function normalizeUaeProviderError(input: AspProviderErrorInput): UaeProv
     code,
     retryable: code === "RATE_LIMITED" || code === "PROVIDER_UNAVAILABLE" || isRetryableStatusCode(input.statusCode ?? null),
     userMessage: providerUserMessage(code),
+    operatorMessage: providerOperatorMessage(code),
     details: redactObject(input.details ?? null),
     noNetwork: true,
     productionCompliance: false,
@@ -2029,6 +2647,68 @@ function baseResult<T extends object>(result: T): T & { noNetwork: true; product
   return { ...result, noNetwork: true, productionCompliance: false };
 }
 
+function providerRedactionPolicy(): UaeAspProviderRedactionPolicy {
+  return {
+    redactDocumentBody: true,
+    redactSecrets: true,
+    redactRawPayloads: true,
+    bodyStorageAllowed: false,
+  };
+}
+
+function fakeProviderResult(provider: FakeUaeAspProvider, input: FakeUaeAspProviderInput, status: FakeUaeAspProviderEventStatus): FakeUaeAspProviderResult {
+  const documentId = String(input.documentId || input.documentNumber || "document");
+  const event = buildFakeWebhookEvent({
+    providerId: provider.providerId,
+    eventId: `${documentId}:${status.toLowerCase()}`,
+    status,
+    documentId,
+    payload: isRecord(input.payload) ? input.payload : {},
+  });
+  return {
+    providerId: provider.providerId,
+    status,
+    externalReference: `fake-asp-${stableMockReference(input.tenantId, documentId)}`,
+    events: [event],
+    localOnly: true,
+    mockOnly: true,
+    noNetwork: true,
+    productionCompliance: false,
+    redactedPayload: isRecord(input.payload) ? redactObject(input.payload) : null,
+  };
+}
+
+function fakeWebhookVerification(accepted: boolean, reason: FakeUaeAspProviderWebhookVerification["reason"], eventId: string): FakeUaeAspProviderWebhookVerification {
+  return {
+    accepted,
+    reason,
+    eventId,
+    localOnly: true,
+    productionCompliance: false,
+  };
+}
+
+function providerErrorFixture(expectedCode: AspProviderErrorCode, input: Omit<AspProviderErrorInput, "providerKey">): UaeAspProviderErrorEnvelope {
+  return {
+    code: expectedCode,
+    input: { providerKey: "MOCK", ...input },
+    expectedCode,
+    userMessage: providerUserMessage(expectedCode),
+    operatorMessage: providerOperatorMessage(expectedCode),
+    localOnly: true,
+    productionCompliance: false,
+  };
+}
+
+function sensitiveFixtureDetails(): Record<string, unknown> {
+  return {
+    rawRequestBody: "<Invoice>private</Invoice>",
+    apiToken: "plain-token",
+    secret: "plain-secret",
+    requestId: "req-local-fixture",
+  };
+}
+
 function assertNoExternalProviderUrl(config?: AspProviderConfig | null): void {
   if (String(config?.endpointUrl ?? "").trim()) {
     throw new Error("External ASP provider URLs are disabled in this branch.");
@@ -2102,7 +2782,7 @@ function classifyProviderErrorCode(input: AspProviderErrorInput): AspProviderErr
 function providerUserMessage(code: AspProviderErrorCode): string {
   switch (code) {
     case "AUTHENTICATION_FAILED":
-      return "Provider authentication failed in local normalization; review credentials only after ASP access is approved.";
+      return "Provider authentication failed in local normalization; review credentials only after ASP access is formally available.";
     case "RATE_LIMITED":
       return "Provider rate limit was normalized locally; retry policy must be provider-reviewed.";
     case "VALIDATION_FAILED":
@@ -2126,6 +2806,36 @@ function providerUserMessage(code: AspProviderErrorCode): string {
     case "UNKNOWN_PROVIDER_ERROR":
     default:
       return "Unknown provider error normalized safely; no provider success or compliance state is inferred.";
+  }
+}
+
+function providerOperatorMessage(code: AspProviderErrorCode): string {
+  switch (code) {
+    case "AUTHENTICATION_FAILED":
+      return "Local fixture normalized an authentication failure; use only a reviewed credential path after ASP access exists.";
+    case "RATE_LIMITED":
+      return "Local fixture normalized provider throttling; retry timing remains provider-doc dependent.";
+    case "VALIDATION_FAILED":
+      return "Local fixture normalized validation failure; inspect redacted payload metadata and official gap list.";
+    case "DUPLICATE_DOCUMENT":
+      return "Local fixture normalized duplicate document handling; verify idempotency keys and document references.";
+    case "RECEIVER_NOT_FOUND":
+      return "Local fixture normalized receiver lookup failure; endpoint registration evidence is still required.";
+    case "ENDPOINT_NOT_REGISTERED":
+      return "Local fixture normalized endpoint registration failure; provider directory behavior remains unverified.";
+    case "PROVIDER_UNAVAILABLE":
+      return "Local fixture normalized provider outage; no live provider health state is inferred.";
+    case "SIGNATURE_INVALID":
+      return "Local fixture normalized webhook signature failure using fake local signatures only.";
+    case "REPLAY_DETECTED":
+      return "Local fixture normalized replay rejection using in-memory local replay protection only.";
+    case "CONFIGURATION_MISSING":
+      return "Local fixture normalized missing configuration; do not add credentials until approved.";
+    case "ASP_ACCESS_REQUIRED":
+      return "Local fixture blocked the provider path because ASP access is required.";
+    case "UNKNOWN_PROVIDER_ERROR":
+    default:
+      return "Local fixture normalized an unknown provider error without inferring success or compliance.";
   }
 }
 

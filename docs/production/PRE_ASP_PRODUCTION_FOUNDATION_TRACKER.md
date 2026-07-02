@@ -70,3 +70,10 @@ These commands are read-only. They do not connect to a database, call a network 
 - Serializer outputs now expose explicit metadata for mode, official identifier use, official-reference verification, provider requirement, missing provider access, conformance evidence availability, warnings, and errors.
 - Disabled/mock provider behavior remains local-only: disabled returns `BLOCKED_NO_ASP`; mock returns `_MOCK` statuses only.
 - No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.
+
+## UAE-PRE-ASP-ADAPTER-04 Provider Harness Update
+
+- Added provider-neutral envelope skeletons, sandbox onboarding state helpers, deterministic fake provider submission/status/webhook simulators, provider capability negotiation, and provider error fixtures to `@ledgerbyte/uae-peppol-pint-ae`.
+- Added docs for the provider envelope skeleton, sandbox onboarding simulator, fake provider test harness, capability negotiation, and provider error fixture library.
+- The harness is local-only and no-network. It rejects production simulation and external provider URLs, emits mock/local statuses only, and redacts document bodies, payloads, tokens, credentials, and secrets.
+- No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.

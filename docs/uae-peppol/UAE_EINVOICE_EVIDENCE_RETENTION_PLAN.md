@@ -58,3 +58,9 @@ No object storage, signed URL, provider evidence download, or immutable retentio
 Official draft model and validator outputs are local readiness evidence only. They may be retained as metadata, hashes, and test results, but they are not provider receipts, FTA reports, production tax evidence, or legal compliance evidence.
 
 Draft payload bodies can contain business document data and must remain redacted from provider error details and support artifacts unless a later legal/security-approved storage goal explicitly permits body retention. No object storage, signed URL, immutable retention, provider evidence download, or production retention behavior is enabled by this pass.
+
+## UAE-PRE-ASP-ADAPTER-04 Envelope And Simulator Evidence
+
+Provider envelopes, fake provider events, fake webhook deliveries, capability summaries, and provider error fixtures are local evidence only. They are suitable for package tests and future contract planning, not legal tax evidence, provider receipts, FTA reports, buyer delivery receipts, or production archive records.
+
+Envelope and webhook helpers redact document bodies, raw bodies, payloads, tokens, credentials, and secrets by default. No object storage, signed URL, immutable retention, provider evidence download, persistent replay storage, or production retention behavior is enabled.
