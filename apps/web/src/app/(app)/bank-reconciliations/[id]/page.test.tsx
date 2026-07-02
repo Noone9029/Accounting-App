@@ -1,8 +1,12 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { BankReconciliationWorkflowGuidance, ReconciliationReportReviewPanels } from "./page";
-import type { BankReconciliation, BankReconciliationReportData } from "@/lib/types";
+import BankReconciliationDetailPage, { BankReconciliationWorkflowGuidance, ReconciliationReportReviewPanels } from "./page";
+import { PERMISSIONS, type Permission } from "@/lib/permissions";
+import type { BankReconciliation, BankReconciliationItem, BankReconciliationReportData } from "@/lib/types";
+
+const mockApiRequest = jest.fn();
+let mockPermissions = new Set<Permission>();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -17,7 +21,34 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "rec-1" }),
+}));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganizationId: () => "org-1",
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: (...args: unknown[]) => mockApiRequest(...args),
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    can: (permission: Permission) => mockPermissions.has(permission),
+  }),
+}));
+
+jest.mock("@/components/attachments/attachment-panel", () => ({
+  AttachmentPanel: () => <div data-testid="attachment-panel" />,
+}));
+
 describe("bank reconciliation workflow guidance", () => {
+  beforeEach(() => {
+    mockApiRequest.mockReset();
+    mockPermissions = new Set([PERMISSIONS.bankReconciliations.close, PERMISSIONS.reports.export]);
+  });
+
   it("explains closed reconciliation locks and links to review surfaces", () => {
     render(
       <BankReconciliationWorkflowGuidance
@@ -52,6 +83,22 @@ describe("bank reconciliation workflow guidance", () => {
     expect(screen.getByText("Audit timeline")).toBeInTheDocument();
     expect(screen.getByText("Statement row matched")).toBeInTheDocument();
     expect(screen.getByText("Export CSV for the full timeline.")).toBeInTheDocument();
+  });
+
+  it("labels captured statement row drilldowns with a specific action", async () => {
+    mockApiRequest
+      .mockResolvedValueOnce(reconciliationFixture({ status: "CLOSED", closedAt: "2026-05-31T00:00:00.000Z" }))
+      .mockResolvedValueOnce([reconciliationItemFixture()])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(reportFixture());
+
+    render(<BankReconciliationDetailPage />);
+
+    expect(await screen.findByRole("link", { name: "Open statement row" })).toHaveAttribute(
+      "href",
+      "/bank-statement-transactions/statement-1",
+    );
+    expect(screen.queryByRole("link", { name: "Row" })).not.toBeInTheDocument();
   });
 });
 
@@ -96,6 +143,27 @@ function reconciliationFixture(overrides: Partial<BankReconciliation> = {}): Ban
     _count: { items: 1 },
     ...overrides,
   };
+}
+
+function reconciliationItemFixture(overrides: Partial<BankReconciliationItem> = {}): BankReconciliationItem {
+  return {
+    id: "item-1",
+    reconciliationId: "rec-1",
+    statementTransactionId: "statement-1",
+    type: "CREDIT",
+    amount: "100.0000",
+    statusAtClose: "MATCHED",
+    createdAt: "2026-05-31T00:00:00.000Z",
+    statementTransaction: {
+      id: "statement-1",
+      transactionDate: "2026-05-10T00:00:00.000Z",
+      description: "Customer receipt",
+      reference: "REF-1",
+      matchedJournalEntry: { id: "journal-1", entryNumber: "JE-0001" },
+      createdJournalEntry: null,
+    },
+    ...overrides,
+  } as BankReconciliationItem;
 }
 
 function reportFixture(): BankReconciliationReportData {

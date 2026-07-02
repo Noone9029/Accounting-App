@@ -124,15 +124,20 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
   );
 
   useEffect(() => {
-    if (initialQuote || initialCustomerId || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
+
+    setReturnTo(safeReturnToFromSearch(window.location.search));
+    if (initialQuote || initialCustomerId) {
+      return;
+    }
+
     const query = new URLSearchParams(window.location.search);
     const queryCustomerId = query.get("customerId") ?? "";
     if (queryCustomerId) {
       setCustomerId(queryCustomerId);
     }
-    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, [initialCustomerId, initialQuote]);
 
   useEffect(() => {
@@ -342,6 +347,15 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
         {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating sales quotes.</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">Loading quote setup data...</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!loading && organizationId && customers.length === 0 ? (
+          <StatusMessage type="empty">
+            Add a customer before creating the first quote.{" "}
+            <Link href="/customers" className="font-semibold text-palm hover:underline">
+              Open customers
+            </Link>
+            .
+          </StatusMessage>
+        ) : null}
         {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
           <StatusMessage type="empty">
             Add or activate a posting revenue account before saving quote lines.{" "}

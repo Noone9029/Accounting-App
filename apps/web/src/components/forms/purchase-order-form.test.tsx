@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { PurchaseOrderForm } from "./purchase-order-form";
 import type { PurchaseOrder } from "@/lib/types";
@@ -70,6 +70,20 @@ describe("PurchaseOrderForm", () => {
     expect(screen.queryByText(/auto.?approve|auto.?send|supplier paid|payment scheduled|journal posted|VAT filed|ZATCA cleared/i)).not.toBeInTheDocument();
   });
 
+  it("labels order line controls and disables the last remove action", async () => {
+    render(<PurchaseOrderForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Item for purchase order line 1")).toBeInTheDocument());
+
+    expect(screen.getByLabelText("Description for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Purchase account for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantity for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit price for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Discount rate for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tax rate for purchase order line 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+  });
+
   it("uses returnTo from edit routes for cancel handoffs", async () => {
     window.history.pushState({}, "", "/purchases/purchase-orders/po-1/edit?returnTo=/suppliers/supplier-1");
 
@@ -77,6 +91,38 @@ describe("PurchaseOrderForm", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-1"));
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/suppliers/supplier-1");
+  });
+
+  it("uses returnTo from edit routes for post-save redirect", async () => {
+    window.history.pushState({}, "", "/purchases/purchase-orders/po-1/edit?returnTo=/suppliers/supplier-1");
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/contacts") {
+        return Promise.resolve([contactFixture("supplier-1", "Beta Supplier")]);
+      }
+      if (path === "/items") {
+        return Promise.resolve([]);
+      }
+      if (path === "/accounts") {
+        return Promise.resolve([{ id: "account-1", code: "5100", name: "Purchases", type: "EXPENSE", isActive: true, allowPosting: true }]);
+      }
+      if (path === "/tax-rates") {
+        return Promise.resolve([{ id: "tax-1", name: "VAT 15%", rate: "15.0000", scope: "PURCHASES", category: "STANDARD", isActive: true }]);
+      }
+      if (path === "/branches") {
+        return Promise.resolve([]);
+      }
+      if (path === "/purchase-orders/po-1" && options?.method === "PATCH") {
+        return Promise.resolve({ id: "po-1" });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<PurchaseOrderForm initialOrder={purchaseOrderFixture()} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-1"));
+    fireEvent.submit(screen.getByRole("button", { name: "Save changes" }).closest("form")!);
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/suppliers/supplier-1"));
   });
 });
 

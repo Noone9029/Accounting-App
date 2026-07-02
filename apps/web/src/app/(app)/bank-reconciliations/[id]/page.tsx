@@ -355,7 +355,7 @@ export default function BankReconciliationDetailPage() {
                         {item.statementTransaction?.matchedJournalEntry?.entryNumber ?? item.statementTransaction?.createdJournalEntry?.entryNumber ?? "-"}
                       </td>
                       <td className="px-4 py-3">
-                        <LedgerButton href={`/bank-statement-transactions/${item.statementTransactionId}`} size="sm">Row</LedgerButton>
+                        <LedgerButton href={`/bank-statement-transactions/${item.statementTransactionId}`} size="sm">Open statement row</LedgerButton>
                       </td>
                     </tr>
                   ))}
