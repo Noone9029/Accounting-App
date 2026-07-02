@@ -2,6 +2,16 @@
 
 Audit date: 2026-06-19
 
+MONITORING-SUPPORT-EXECUTION-01 local/read-only support diagnostics (2026-07-02):
+
+- Added `scripts/monitoring-support-readiness.cjs` and `scripts/monitoring-support-readiness.test.cjs`.
+- Added package commands `monitoring:support-readiness` and `test:monitoring-support-readiness`.
+- Generated evidence under `docs/operations/evidence/`: `MONITORING_SUPPORT_READINESS.md` and `MONITORING_SUPPORT_READINESS.json`.
+- Current status is `MONITORING_SUPPORT_PARTIAL_READY`: 13 available signals, 5 partial signals, and 0 blocked signals.
+- Added controlled-beta support incident simulations, response templates, and support checklist under `docs/operations/`.
+- Production monitoring provider/log drain, provider-backed alerting, support SLA tooling, object-storage proof, signed-URL proof, and UAE ASP access remain blocked or partial.
+- No database connection, network call, hosted/Supabase/Vercel mutation, migration, seed/reset/delete, email send, provider call, storage/signed-URL operation, ZATCA/UAE/Peppol/ASP behavior, payment action, accounting/report/VAT/inventory valuation/banking/reconciliation logic change, or production monitoring/compliance claim was added.
+
 SECURITY-EXECUTION-01 read-only database security diagnostics (2026-07-02):
 
 - Added read-only security diagnostics for tenant-scope model cataloging, API route tenancy-risk cataloging, environment separation checks, and safe-script inventory.

@@ -1,5 +1,13 @@
 # Remaining Roadmap
 
+## 2026-07-02 MONITORING-SUPPORT-EXECUTION-01
+
+- Added local/read-only monitoring/support readiness diagnostics and generated evidence under `docs/operations/evidence/`.
+- Added controlled-beta support incident simulations, response templates, and support checklist.
+- Updated alerting and dashboard requirements with current availability, proof sources, owners, responses, and blocked/future provider dependencies.
+- Remaining gaps: production monitoring provider/log drain, support SLA tooling, provider-backed alerting, object-storage and signed-URL proof, hosted PITR/restore proof, and UAE ASP access.
+- Recommended next prompt: `BACKUP-STORAGE-PROOF-01` if non-production storage/PITR credentials are available; otherwise `UAE-PRE-ASP-ADAPTER-02`.
+
 ## 2026-07-02 SECURITY-EXECUTION-01
 
 - Added read-only database/security diagnostics for tenant-scope modeling, API tenancy-risk scanning, environment separation, and safe-script guardrail inventory.

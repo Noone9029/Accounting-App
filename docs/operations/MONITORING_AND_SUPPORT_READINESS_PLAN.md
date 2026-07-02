@@ -37,3 +37,22 @@ Prepare the operational signals and support process needed for controlled beta e
 - No monitoring vendor selected.
 - No production alerts created.
 - No customer-support automation or real email sending enabled.
+
+## Local Diagnostics Added
+
+- Command: `corepack pnpm monitoring:support-readiness`
+- Test: `corepack pnpm test:monitoring-support-readiness`
+- Evidence: `docs/operations/evidence/MONITORING_SUPPORT_READINESS.md`
+- JSON evidence: `docs/operations/evidence/MONITORING_SUPPORT_READINESS.json`
+
+Current diagnostic status: `MONITORING_SUPPORT_PARTIAL_READY`.
+
+The diagnostic is deterministic and source/docs-only. It does not start the app server, connect to a database, call a network endpoint, send email, call providers, run storage/signed-URL operations, print secrets, print customer data, or mutate hosted infrastructure.
+
+## Current Partial Areas
+
+- Web route monitoring remains documented smoke coverage, not production uptime monitoring.
+- Email outbox monitoring exists as readiness/metadata surfaces, but provider-backed alerting is blocked.
+- Queue/worker readiness is limited to email retry-worker planning; generic queue monitoring is future work.
+- Object storage proof remains blocked until approved non-production bucket credentials and proof execution exist.
+- UAE ASP readiness remains provider-blocked; no real ASP access or network behavior is active.

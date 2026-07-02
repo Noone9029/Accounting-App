@@ -4,6 +4,16 @@ Date: 2026-07-01
 
 Status: Controlled-beta triage process. This does not invite testers or mutate access.
 
+Monitoring/support evidence:
+
+- Local diagnostic: `corepack pnpm monitoring:support-readiness`
+- Evidence: `docs/operations/evidence/MONITORING_SUPPORT_READINESS.md`
+- Support runbook: `docs/operations/SUPPORT_TRIAGE_RUNBOOK.md`
+- Incident simulations: `docs/operations/SUPPORT_INCIDENT_SIMULATION_PLAYBOOK.md`
+- Response templates: `docs/operations/SUPPORT_RESPONSE_TEMPLATES.md`
+
+These artifacts do not claim production monitoring, production support SLA, live alerting, hosted log drains, provider readiness, or unrestricted beta readiness.
+
 ## Triage Owner
 
 Primary triage owner: `<CONTROLLED_BETA_TRIAGE_OWNER>`
