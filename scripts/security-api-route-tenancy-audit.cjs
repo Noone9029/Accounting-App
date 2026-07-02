@@ -35,6 +35,49 @@ const BUSINESS_PATH_PATTERNS = [
   /zatca/i,
 ];
 
+const REVIEWED_API_TENANCY_FINDINGS = {
+  "apps/api/src/collections/collection.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: collection list/summary/customer/invoice queries use organizationId directly or through a local where variable.",
+  },
+  "apps/api/src/compliance-core/compliance-core.service.ts": {
+    classification: "reviewed-local-provider-surface",
+    suspicious: ["webhook-without-obvious-signature-or-replay-wording"],
+    reason: "SECURITY-HARDENING-02: compliance provider paths are disabled/mock/local-only surfaces with noNetwork/noRealAspCalls and productionCompliance false; real webhook handling remains a future provider task.",
+  },
+  "apps/api/src/purchase-receipts/purchase-receipt.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: receipt helpers derive line ids from organization-scoped purchase order/bill sources or use organizationId directly.",
+  },
+  "apps/api/src/purchase-returns/purchase-return.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: purchase return list, existing-line, and stock movement queries use organizationId directly or through a local where variable.",
+  },
+  "apps/api/src/recurring-invoices/recurring-invoice.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: recurring invoice list and validation queries use organizationId directly or through a local where variable.",
+  },
+  "apps/api/src/sales-inventory-returns/sales-inventory-return.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: sales inventory return list/source-line/stock movement queries use organizationId directly or through a local where variable.",
+  },
+  "apps/api/src/sales-quotes/sales-quote.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: sales quote list and validation queries use organizationId directly or through a local where variable.",
+  },
+  "apps/api/src/sales-stock-issues/sales-stock-issue.service.ts": {
+    classification: "reviewed-tenant-safe",
+    suspicious: ["findMany-without-obvious-tenant-scope"],
+    reason: "SECURITY-HARDENING-02: stock issue helpers derive line ids from organization-scoped invoices or use organizationId directly.",
+  },
+};
+
 function parseArgs(argv = process.argv) {
   const options = {
     sourceDir: DEFAULT_SOURCE_DIR,
@@ -171,6 +214,12 @@ function classifySourceFile(filePath, content, sourceDir = DEFAULT_SOURCE_DIR) {
     classification = "risky-review-needed";
   }
 
+  const reviewedFinding = applyReviewedApiTenancyFinding(relativePath, suspicious);
+  if (reviewedFinding && classification === "risky-review-needed") {
+    classification = reviewedFinding.classification;
+    reasons.push(reviewedFinding.reason);
+  }
+
   return {
     file: relativePath,
     kind: isController ? "controller" : isService ? "service" : "source",
@@ -186,6 +235,23 @@ function classifySourceFile(filePath, content, sourceDir = DEFAULT_SOURCE_DIR) {
     },
     suspicious,
     unscopedFindMany,
+    reviewedFinding,
+  };
+}
+
+function applyReviewedApiTenancyFinding(relativePath, suspicious) {
+  const reviewed = REVIEWED_API_TENANCY_FINDINGS[relativePath];
+  if (!reviewed || suspicious.length === 0) {
+    return null;
+  }
+  const onlyReviewedSuspiciousMarkers = suspicious.every((marker) => reviewed.suspicious.includes(marker));
+  if (!onlyReviewedSuspiciousMarkers) {
+    return null;
+  }
+  return {
+    status: "reviewed",
+    classification: reviewed.classification,
+    reason: reviewed.reason,
   };
 }
 
@@ -254,11 +320,12 @@ function formatMarkdown(report) {
     "",
     "## Full File Catalog",
     "",
-    "| File | Kind | Classification | Suspicious markers | Endpoints |",
-    "| --- | --- | --- | --- | --- |",
+    "| File | Kind | Classification | Suspicious markers | Review | Endpoints |",
+    "| --- | --- | --- | --- | --- | --- |",
     ...report.rows.map((row) => {
       const endpoints = row.endpoints.map((endpoint) => `${endpoint.method} ${endpoint.path}`).join("<br>") || "-";
-      return `| ${row.file} | ${row.kind} | ${row.classification} | ${row.suspicious.join(", ") || "-"} | ${escapeMarkdown(endpoints)} |`;
+      const review = row.reviewedFinding?.reason || "-";
+      return `| ${row.file} | ${row.kind} | ${row.classification} | ${row.suspicious.join(", ") || "-"} | ${escapeMarkdown(review)} | ${escapeMarkdown(endpoints)} |`;
     }),
     "",
   ];
@@ -311,6 +378,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  applyReviewedApiTenancyFinding,
   buildAudit,
   classifySourceFile,
   extractControllerEndpoints,

@@ -54,3 +54,9 @@ These diagnostics are source-shape evidence only. They do not replace API-level 
 - Expand API-level cross-tenant denial tests for all listed families.
 - Add route-load verification for high-risk ID handoffs.
 - Run hosted read-only checks after runtime-role cutover.
+
+## SECURITY-HARDENING-02 API Diagnostic Review
+
+`SECURITY-HARDENING-02` reviewed the 8 API tenancy audit findings from PR #222 and regenerated `docs/security/evidence/API_TENANCY_AUDIT.md` with status `NO_RISKY_ROUTES_DETECTED`.
+
+The resolved findings were static scanner review items, mostly local `where` variable reuse and parent-source line helper flows. This does not replace API-level cross-tenant denial tests or hosted runtime-role/RLS proof.

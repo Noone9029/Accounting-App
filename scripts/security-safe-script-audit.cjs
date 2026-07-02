@@ -25,6 +25,51 @@ const GUARD_PATTERNS = {
   noNetwork: /noNetwork|no network|network.*disabled|NO_NETWORK/i,
 };
 
+const REVIEWED_SCRIPT_FINDINGS = {
+  "file:scripts/check-deployed-e2e-env.cjs": reviewedScript(
+    "guarded-or-dry-run",
+    ["readOnlyHttp", "redaction", "noMutation"],
+    "SECURITY-HARDENING-02: deployed E2E preflight performs GET reachability checks only and redacts credential presence.",
+  ),
+  "file:scripts/vercel-postinstall.cjs": reviewedScript(
+    "guarded-or-dry-run",
+    ["deploymentScopeGate", "buildOnly", "noMigration"],
+    "SECURITY-HARDENING-02: postinstall exits unless VERCEL=1 and LEDGERBYTE_DEPLOY_TARGET=api, then runs package builds and prisma generate only.",
+  ),
+  "file:scripts/zatca-sdk-readiness.cjs": reviewedScript(
+    "guarded-or-dry-run",
+    ["localReadiness", "noNetwork", "noMutation"],
+    "SECURITY-HARDENING-02: readiness script checks local Java/SDK paths and emits metadata only.",
+  ),
+  "package-script:pre-asp:diagnostics": reviewedScript(
+    "guarded-or-dry-run",
+    ["readOnlyDiagnostic", "noDatabaseConnection", "noNetwork", "noMutation"],
+    "SECURITY-HARDENING-02: pre-ASP diagnostics parse schema/env-key presence only and do not connect or mutate.",
+  ),
+  "package-script:test:pre-asp-diagnostics": reviewedScript(
+    "guarded-or-dry-run",
+    ["testOnly", "noDatabaseConnection", "noNetwork", "noMutation"],
+    "SECURITY-HARDENING-02: node --test wrapper for read-only pre-ASP diagnostics.",
+  ),
+  "package-script:test:zatca-csid-response-custody-guard": reviewedScript("guarded-or-dry-run", ["testOnly", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for custody guard behavior."),
+  "package-script:test:zatca-sandbox-access-otp-runbook-guard": reviewedScript("guarded-or-dry-run", ["testOnly", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for OTP runbook guard behavior."),
+  "package-script:test:zatca-sandbox-adapter-boundary-check": reviewedScript("guarded-or-dry-run", ["testOnly", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for adapter boundary checks."),
+  "package-script:test:zatca-sandbox-adapter-no-network-contract": reviewedScript("guarded-or-dry-run", ["testOnly", "noNetwork", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for no-network adapter contract."),
+  "package-script:test:zatca-sandbox-csid-preflight": reviewedScript("guarded-or-dry-run", ["testOnly", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for sandbox CSID preflight guard."),
+  "package-script:test:zatca-sdk-ci-readiness": reviewedScript("guarded-or-dry-run", ["testOnly", "noNetwork", "localReadiness"], "SECURITY-HARDENING-02: node --test wrapper for SDK CI readiness metadata."),
+  "package-script:test:zatca-sdk-validate-local": reviewedScript("guarded-or-dry-run", ["testOnly", "localValidation"], "SECURITY-HARDENING-02: node --test wrapper for local SDK validation harness."),
+  "package-script:zatca:csid-response-custody-guard": reviewedScript("guarded-or-dry-run", ["guardContract", "noCredentialCustody"], "SECURITY-HARDENING-02: custody guard command reports blockers and does not create CSID custody."),
+  "package-script:zatca:csr-local-generate": reviewedScript("guarded-or-dry-run", ["executionDisabledByDefault", "approvalGate", "noCsidRequest"], "SECURITY-HARDENING-02: API CSR local generation wrapper is disabled by default and requires explicit local execution gates."),
+  "package-script:zatca:generate-local-xml-fixtures": reviewedScript("guarded-or-dry-run", ["localFixtureGeneration", "noNetwork", "noDatabaseConnection"], "SECURITY-HARDENING-02: generates local deterministic XML fixtures only; no provider, DB, or hosted mutation."),
+  "package-script:zatca:local-signed-xml-validate": reviewedScript("guarded-or-dry-run", ["executionDisabledByDefault", "approvalGate", "noClearanceReporting"], "SECURITY-HARDENING-02: local signed XML validation wrapper is disabled by default and blocks ZATCA network/clearance/reporting."),
+  "package-script:zatca:sandbox-access-otp-runbook-guard": reviewedScript("guarded-or-dry-run", ["guardContract", "approvalGate"], "SECURITY-HARDENING-02: OTP access command is a runbook guard and does not capture OTP by default."),
+  "package-script:zatca:sandbox-adapter-boundary-check": reviewedScript("guarded-or-dry-run", ["guardContract", "noNetwork"], "SECURITY-HARDENING-02: adapter boundary check is metadata/contract-only."),
+  "package-script:zatca:sandbox-adapter-no-network-contract": reviewedScript("guarded-or-dry-run", ["guardContract", "noNetwork"], "SECURITY-HARDENING-02: no-network contract explicitly asserts no provider network."),
+  "package-script:zatca:sandbox-csid-preflight": reviewedScript("guarded-or-dry-run", ["guardContract", "approvalGate"], "SECURITY-HARDENING-02: sandbox CSID preflight remains a guard unless future execution approval is implemented."),
+  "package-script:zatca:sdk-ci-readiness": reviewedScript("guarded-or-dry-run", ["localReadiness", "noNetwork"], "SECURITY-HARDENING-02: SDK CI readiness requires no-network metadata mode and does not validate invoices or contact ZATCA."),
+  "package-script:zatca:sdk-validate-local": reviewedScript("guarded-or-dry-run", ["localValidation", "noProviderNetwork"], "SECURITY-HARDENING-02: local SDK validation uses local fixtures/SDK only and does not call ZATCA."),
+};
+
 function parseArgs(argv = process.argv) {
   const options = { json: false, markdown: false, write: true, evidencePath: DEFAULT_EVIDENCE_PATH, jsonPath: DEFAULT_JSON_PATH };
   for (let index = 2; index < argv.length; index += 1) {
@@ -98,21 +143,27 @@ function classifyContent(content) {
   };
 }
 
+function reviewedScript(guardStatus, guards, reason) {
+  return { guardStatus, guards, reason };
+}
+
 function buildAudit(options = {}) {
   const scriptRows = listScriptFiles(options.roots || DEFAULT_SCAN_ROOTS).map((file) => {
     const content = fs.readFileSync(file, "utf8");
-    return {
+    return applyReviewedScriptFinding({
       source: "file",
       path: sanitizeEvidenceText(path.relative(process.cwd(), file).replace(/\\/g, "/")),
       ...classifyContent(content),
-    };
+    });
   });
-  const packageRows = readPackageScripts(options.packageJsonPath).map((script) => ({
-    source: "package-script",
-    path: sanitizeEvidenceText(script.name),
-    command: sanitizeEvidenceText(script.command),
-    ...classifyContent(script.content),
-  }));
+  const packageRows = readPackageScripts(options.packageJsonPath).map((script) =>
+    applyReviewedScriptFinding({
+      source: "package-script",
+      path: sanitizeEvidenceText(script.name),
+      command: sanitizeEvidenceText(script.command),
+      ...classifyContent(script.content),
+    }),
+  );
   const rows = [...scriptRows, ...packageRows].sort((a, b) => `${a.source}:${a.path}`.localeCompare(`${b.source}:${b.path}`));
   const dangerous = rows.filter((row) => row.dangerous);
   const reviewRequired = dangerous.filter((row) => row.guardStatus === "review-required");
@@ -134,6 +185,20 @@ function buildAudit(options = {}) {
     dangerous,
     reviewRequired,
     rows,
+  };
+}
+
+function applyReviewedScriptFinding(row) {
+  const review = REVIEWED_SCRIPT_FINDINGS[`${row.source}:${row.path}`];
+  if (!review || row.guardStatus !== "review-required") {
+    return row;
+  }
+  return {
+    ...row,
+    guardStatus: review.guardStatus,
+    guards: unique([...(row.guards || []), ...review.guards]),
+    reviewStatus: "reviewed",
+    reviewReason: review.reason,
   };
 }
 
@@ -167,7 +232,7 @@ function formatMarkdown(report) {
     "",
     "## Dangerous Script Inventory",
     "",
-    ...formatRows(report.dangerous, ["source", "path", "guardStatus", "dangers", "guards"]),
+    ...formatRows(report.dangerous, ["source", "path", "guardStatus", "dangers", "guards", "reviewReason"]),
     "",
   ];
   return `${lines.join("\n").replace(/\n+$/, "")}\n`;
@@ -185,6 +250,7 @@ function formatRows(rows, columns) {
         ...row,
         dangers: row.dangers?.join(", ") || "-",
         guards: row.guards?.join(", ") || "-",
+        reviewReason: row.reviewReason || "-",
       };
       return `| ${columns.map((column) => escapeMarkdown(String(enriched[column] || "-"))).join(" | ")} |`;
     }),
@@ -198,6 +264,10 @@ function escapeMarkdown(value) {
 function sanitizeEvidenceText(value) {
   const legacyReferencePattern = new RegExp(`open${"books?"}`, "gi");
   return String(value).replace(legacyReferencePattern, "clean-room");
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function writeEvidence(report, options = {}) {
@@ -224,6 +294,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  applyReviewedScriptFinding,
   buildAudit,
   classifyContent,
   formatMarkdown,

@@ -8,9 +8,9 @@
   "noMutation": true,
   "scannedEntries": 166,
   "counts": {
-    "guarded-or-dry-run": 80,
+    "guarded-or-dry-run": 102,
     "not-dangerous": 54,
-    "review-required": 32
+    "review-required": 10
   },
   "dangerous": [
     {
@@ -213,8 +213,14 @@
       "dangers": [
         "provider"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "readOnlyHttp",
+        "redaction",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: deployed E2E preflight performs GET reachability checks only and redacts credential presence."
     },
     {
       "source": "file",
@@ -440,8 +446,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "deploymentScopeGate",
+        "buildOnly",
+        "noMigration"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: postinstall exits unless VERCEL=1 and LEDGERBYTE_DEPLOY_TARGET=api, then runs package builds and prisma generate only."
     },
     {
       "source": "file",
@@ -754,8 +766,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localReadiness",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: readiness script checks local Java/SDK paths and emits metadata only."
     },
     {
       "source": "file",
@@ -877,8 +895,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "readOnlyDiagnostic",
+        "noDatabaseConnection",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: pre-ASP diagnostics parse schema/env-key presence only and do not connect or mutate."
     },
     {
       "source": "package-script",
@@ -910,8 +935,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noDatabaseConnection",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for read-only pre-ASP diagnostics."
     },
     {
       "source": "package-script",
@@ -947,8 +979,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for custody guard behavior."
     },
     {
       "source": "package-script",
@@ -1010,8 +1047,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for OTP runbook guard behavior."
     },
     {
       "source": "package-script",
@@ -1021,8 +1063,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for adapter boundary checks."
     },
     {
       "source": "package-script",
@@ -1045,8 +1092,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noNetwork",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for no-network adapter contract."
     },
     {
       "source": "package-script",
@@ -1056,8 +1109,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for sandbox CSID preflight guard."
     },
     {
       "source": "package-script",
@@ -1132,8 +1190,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noNetwork",
+        "localReadiness"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for SDK CI readiness metadata."
     },
     {
       "source": "package-script",
@@ -1143,8 +1207,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "localValidation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for local SDK validation harness."
     },
     {
       "source": "package-script",
@@ -1232,8 +1301,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noCredentialCustody"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: custody guard command reports blockers and does not create CSID custody."
     },
     {
       "source": "package-script",
@@ -1256,8 +1330,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "executionDisabledByDefault",
+        "approvalGate",
+        "noCsidRequest"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: API CSR local generation wrapper is disabled by default and requires explicit local execution gates."
     },
     {
       "source": "package-script",
@@ -1278,8 +1358,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localFixtureGeneration",
+        "noNetwork",
+        "noDatabaseConnection"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: generates local deterministic XML fixtures only; no provider, DB, or hosted mutation."
     },
     {
       "source": "package-script",
@@ -1315,8 +1401,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "executionDisabledByDefault",
+        "approvalGate",
+        "noClearanceReporting"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: local signed XML validation wrapper is disabled by default and blocks ZATCA network/clearance/reporting."
     },
     {
       "source": "package-script",
@@ -1365,8 +1457,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: OTP access command is a runbook guard and does not capture OTP by default."
     },
     {
       "source": "package-script",
@@ -1376,8 +1473,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: adapter boundary check is metadata/contract-only."
     },
     {
       "source": "package-script",
@@ -1400,8 +1502,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: no-network contract explicitly asserts no provider network."
     },
     {
       "source": "package-script",
@@ -1411,8 +1518,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: sandbox CSID preflight remains a guard unless future execution approval is implemented."
     },
     {
       "source": "package-script",
@@ -1487,8 +1599,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localReadiness",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: SDK CI readiness requires no-network metadata mode and does not validate invoices or contact ZATCA."
     },
     {
       "source": "package-script",
@@ -1498,8 +1615,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localValidation",
+        "noProviderNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: local SDK validation uses local fixtures/SDK only and does not call ZATCA."
     },
     {
       "source": "package-script",
@@ -1540,16 +1662,6 @@
   "reviewRequired": [
     {
       "source": "file",
-      "path": "scripts/check-deployed-e2e-env.cjs",
-      "dangerous": true,
-      "dangers": [
-        "provider"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "file",
       "path": "scripts/debug-zatca-pih-chain.cjs",
       "dangerous": true,
       "dangers": [
@@ -1564,26 +1676,6 @@
       "dangerous": true,
       "dangers": [
         "provider",
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "file",
-      "path": "scripts/vercel-postinstall.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "file",
-      "path": "scripts/zatca-sdk-readiness.cjs",
-      "dangerous": true,
-      "dangers": [
         "compliance"
       ],
       "guards": [],
@@ -1624,17 +1716,6 @@
     },
     {
       "source": "package-script",
-      "path": "pre-asp:diagnostics",
-      "command": "node scripts/pre-asp-readiness-diagnostics.cjs --json",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
       "path": "smoke:accounting:banking",
       "command": "corepack pnpm --filter @ledgerbyte/api smoke:accounting:banking",
       "dangerous": true,
@@ -1657,206 +1738,8 @@
     },
     {
       "source": "package-script",
-      "path": "test:pre-asp-diagnostics",
-      "command": "node --test scripts/pre-asp-readiness-diagnostics.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-csid-response-custody-guard",
-      "command": "node --test scripts/zatca-csid-response-custody-guard.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sandbox-access-otp-runbook-guard",
-      "command": "node --test scripts/zatca-sandbox-access-otp-runbook-guard.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sandbox-adapter-boundary-check",
-      "command": "node --test scripts/zatca-sandbox-adapter-boundary-check.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sandbox-adapter-no-network-contract",
-      "command": "node --test scripts/zatca-sandbox-adapter-no-network-contract.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sandbox-csid-preflight",
-      "command": "node --test scripts/zatca-sandbox-csid-preflight.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sdk-ci-readiness",
-      "command": "node --test scripts/zatca-sdk-ci-readiness.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "test:zatca-sdk-validate-local",
-      "command": "node --test scripts/zatca-sdk-validate-local.test.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:csid-response-custody-guard",
-      "command": "node scripts/zatca-csid-response-custody-guard.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:csr-local-generate",
-      "command": "corepack pnpm --filter @ledgerbyte/api zatca:csr-local-generate",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
       "path": "zatca:debug-pih-chain",
       "command": "node scripts/debug-zatca-pih-chain.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:generate-local-xml-fixtures",
-      "command": "corepack pnpm --filter @ledgerbyte/zatca-core build && node scripts/generate-zatca-local-xml-fixtures.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:local-signed-xml-validate",
-      "command": "corepack pnpm --filter @ledgerbyte/api zatca:local-signed-xml-validate",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sandbox-access-otp-runbook-guard",
-      "command": "node scripts/zatca-sandbox-access-otp-runbook-guard.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sandbox-adapter-boundary-check",
-      "command": "node scripts/zatca-sandbox-adapter-boundary-check.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sandbox-adapter-no-network-contract",
-      "command": "node scripts/zatca-sandbox-adapter-no-network-contract.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sandbox-csid-preflight",
-      "command": "node scripts/zatca-sandbox-csid-preflight.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sdk-ci-readiness",
-      "command": "node scripts/zatca-sdk-ci-readiness.cjs",
-      "dangerous": true,
-      "dangers": [
-        "compliance"
-      ],
-      "guards": [],
-      "guardStatus": "review-required"
-    },
-    {
-      "source": "package-script",
-      "path": "zatca:sdk-validate-local",
-      "command": "node scripts/zatca-sdk-validate-local.cjs",
       "dangerous": true,
       "dangers": [
         "compliance"
@@ -2114,8 +1997,14 @@
       "dangers": [
         "provider"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "readOnlyHttp",
+        "redaction",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: deployed E2E preflight performs GET reachability checks only and redacts credential presence."
     },
     {
       "source": "file",
@@ -2367,8 +2256,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "deploymentScopeGate",
+        "buildOnly",
+        "noMigration"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: postinstall exits unless VERCEL=1 and LEDGERBYTE_DEPLOY_TARGET=api, then runs package builds and prisma generate only."
     },
     {
       "source": "file",
@@ -2689,8 +2584,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localReadiness",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: readiness script checks local Java/SDK paths and emits metadata only."
     },
     {
       "source": "file",
@@ -2906,8 +2807,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "readOnlyDiagnostic",
+        "noDatabaseConnection",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: pre-ASP diagnostics parse schema/env-key presence only and do not connect or mutate."
     },
     {
       "source": "package-script",
@@ -3123,8 +3031,15 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noDatabaseConnection",
+        "noNetwork",
+        "noMutation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for read-only pre-ASP diagnostics."
     },
     {
       "source": "package-script",
@@ -3232,8 +3147,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for custody guard behavior."
     },
     {
       "source": "package-script",
@@ -3295,8 +3215,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for OTP runbook guard behavior."
     },
     {
       "source": "package-script",
@@ -3306,8 +3231,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for adapter boundary checks."
     },
     {
       "source": "package-script",
@@ -3330,8 +3260,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noNetwork",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for no-network adapter contract."
     },
     {
       "source": "package-script",
@@ -3341,8 +3277,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "guardContract"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for sandbox CSID preflight guard."
     },
     {
       "source": "package-script",
@@ -3417,8 +3358,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "noNetwork",
+        "localReadiness"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for SDK CI readiness metadata."
     },
     {
       "source": "package-script",
@@ -3428,8 +3375,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "testOnly",
+        "localValidation"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: node --test wrapper for local SDK validation harness."
     },
     {
       "source": "package-script",
@@ -3598,8 +3550,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noCredentialCustody"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: custody guard command reports blockers and does not create CSID custody."
     },
     {
       "source": "package-script",
@@ -3622,8 +3579,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "executionDisabledByDefault",
+        "approvalGate",
+        "noCsidRequest"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: API CSR local generation wrapper is disabled by default and requires explicit local execution gates."
     },
     {
       "source": "package-script",
@@ -3644,8 +3607,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localFixtureGeneration",
+        "noNetwork",
+        "noDatabaseConnection"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: generates local deterministic XML fixtures only; no provider, DB, or hosted mutation."
     },
     {
       "source": "package-script",
@@ -3681,8 +3650,14 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "executionDisabledByDefault",
+        "approvalGate",
+        "noClearanceReporting"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: local signed XML validation wrapper is disabled by default and blocks ZATCA network/clearance/reporting."
     },
     {
       "source": "package-script",
@@ -3731,8 +3706,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: OTP access command is a runbook guard and does not capture OTP by default."
     },
     {
       "source": "package-script",
@@ -3742,8 +3722,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: adapter boundary check is metadata/contract-only."
     },
     {
       "source": "package-script",
@@ -3766,8 +3751,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: no-network contract explicitly asserts no provider network."
     },
     {
       "source": "package-script",
@@ -3777,8 +3767,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "guardContract",
+        "approvalGate"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: sandbox CSID preflight remains a guard unless future execution approval is implemented."
     },
     {
       "source": "package-script",
@@ -3853,8 +3848,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localReadiness",
+        "noNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: SDK CI readiness requires no-network metadata mode and does not validate invoices or contact ZATCA."
     },
     {
       "source": "package-script",
@@ -3864,8 +3864,13 @@
       "dangers": [
         "compliance"
       ],
-      "guards": [],
-      "guardStatus": "review-required"
+      "guards": [
+        "localValidation",
+        "noProviderNetwork"
+      ],
+      "guardStatus": "guarded-or-dry-run",
+      "reviewStatus": "reviewed",
+      "reviewReason": "SECURITY-HARDENING-02: local SDK validation uses local fixtures/SDK only and does not call ZATCA."
     },
     {
       "source": "package-script",

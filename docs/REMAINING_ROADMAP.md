@@ -2387,3 +2387,9 @@ Recommended next step:
 - The execute flag remains blocked as `BLOCKED_EXECUTION_NOT_IMPLEMENTED_OR_NOT_APPROVED`.
 - No OTP, CSID request, network call, sandbox adapter execution, request body, response body, secret persistence, signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.
 - Remaining roadmap items: key custody, CSID response custody, real sandbox adapter execution, actual OTP capture approval, compliance CSID request execution approval, compliance invoice checks, production CSID lifecycle, production signing/Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
+
+# Security diagnostic review follow-up - 2026-07-02
+
+- SECURITY-HARDENING-02 resolves the static API tenancy review queue and narrows the safe-script review queue.
+- Remaining security roadmap work: add API-level cross-tenant denial tests, execute hosted read-only grants/default-privilege checks, design and stage RLS policies, create/cut over least-privilege runtime DB role, and add explicit owner approval gates before hosted migration/seed/smoke/ZATCA validation scripts are used.
+- Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, provider/ZATCA production execution, storage/signed-URL proof, or production compliance.

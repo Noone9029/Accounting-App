@@ -5121,6 +5121,14 @@ Recommended next step:
 - No OTP, CSID request, network call, sandbox adapter execution, mock adapter execution, disabled adapter execution, request body creation, response body processing, DB connection/write, env value output, secret/body exposure, signing, clearance/reporting, PDF-A3, migration, seed/reset/delete, deployment, email, or production compliance behavior occurred.
 - Remaining blockers: sandbox CSID dry-run request body schema planning, CSID response custody provider approval, legacy raw PEM-capable fields, OTP capture approval, CSID request approval, real network approval, adapter execution approval, production CSID lifecycle, production signing, Phase 2 QR proof, clearance/reporting, PDF-A3, retry queue, signed-artifact storage, official/legal/accounting review, repeatable SDK CI, and production compliance.
 
+# Security diagnostic review findings - 2026-07-02
+
+- No production bug was fixed and no production security behavior was enabled.
+- Resolved the API tenancy diagnostic review queue by documenting exact static-source review conclusions and adding exact scanner classifications.
+- Reduced the safe-script diagnostic review queue from 32 to 10 by clearing only reviewed local/read-only/guarded entries.
+- Remaining retained entries are not false positives: DB migration/seed/demo seed, API smoke flows, and ZATCA validation/debug wrappers remain dangerous-capable and require explicit owner approval before any execution window.
+- No migration, seed/reset/delete, DB connection, hosted mutation, provider call, storage operation, email, payment, accounting/report/VAT/inventory valuation/banking logic, or compliance behavior changed.
+
 # Refund collections banking detail visual polish - 2026-06-16
 
 - PR `#57` was merged first at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2`; this branch was created from the updated `origin/main`.

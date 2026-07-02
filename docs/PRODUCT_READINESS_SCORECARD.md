@@ -1931,3 +1931,10 @@ Recommended next step:
 - Added root package scripts `zatca:manual-otp-capture-approval-gate` and `test:zatca-manual-otp-capture-approval-gate`.
 - No score increase is taken: default status is `MANUAL_OTP_CAPTURE_APPROVAL_BLOCKED`, and the exact approval phrase plus `--metadata-only` still returns `MANUAL_OTP_CAPTURE_APPROVAL_RECOGNIZED_BUT_EXECUTION_BLOCKED`.
 - No OTP was captured, no OTP value was stored, no OTP value was shared with Codex, no CSID was requested, no ZATCA network call was made, no request body was created, no response body was processed, and no signing, clearance/reporting, PDF-A3, or production compliance behavior occurred.
+
+## 2026-07-02 Security diagnostic review baseline
+
+- Security readiness evidence improved, but no production-readiness score increase is taken.
+- API tenancy diagnostic review queue is resolved in static evidence: `docs/security/evidence/API_TENANCY_AUDIT.md` reports `NO_RISKY_ROUTES_DETECTED`.
+- Safe-script audit still reports `REVIEW_REQUIRED` with 10 intentionally retained dangerous-capable entries.
+- This does not prove hosted RLS, runtime-role cutover, provider/compliance readiness, or production tenant isolation.

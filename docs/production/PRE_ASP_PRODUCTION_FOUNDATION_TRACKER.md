@@ -39,3 +39,10 @@ These commands are read-only. They do not connect to a database, call a network 
 - Environment separation check: variable names only, no values printed.
 - Safe-script audit: 166 script/package entries scanned; 112 potentially dangerous entries inventoried, 80 guarded/dry-run, 32 review-required.
 - Hosted runtime role creation, Supabase RLS/Data API mutation, Vercel secret cutover, migrations, provider calls, storage operations, and production compliance remain pending.
+
+## SECURITY-HARDENING-02 Diagnostic Review Update
+
+- API tenancy diagnostic queue from PR #222 was reviewed and resolved: `docs/security/evidence/API_TENANCY_AUDIT.md` now reports `NO_RISKY_ROUTES_DETECTED`.
+- Safe-script diagnostic queue was reduced from 32 to 10 review-required entries. The remaining entries are intentionally retained for DB migration/seed, demo seed, API smoke, and ZATCA validation/debug commands.
+- New review evidence: `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
+- No production hosting, Supabase/Vercel mutation, migration, seed/reset/delete, provider call, storage operation, email/payment action, or compliance behavior changed.
