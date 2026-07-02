@@ -5139,6 +5139,13 @@ Recommended next step:
 - Remaining retained entries are not false positives: DB migration/seed/demo seed, API smoke flows, and ZATCA validation/debug wrappers remain dangerous-capable and require explicit owner approval before any execution window.
 - No migration, seed/reset/delete, DB connection, hosted mutation, provider call, storage operation, email, payment, accounting/report/VAT/inventory valuation/banking logic, or compliance behavior changed.
 
+# UAE pre-ASP adapter foundation - 2026-07-02
+
+- No production compliance bug was fixed and no production provider behavior was enabled.
+- Strengthened local UAE pre-ASP package contracts: official endpoint/identifier helpers, serializer mode separation, disabled/mock provider capabilities, `_MOCK` statuses, typed transmission draft/attempt/timeline helpers, fake timestamped webhook replay guard, and safe provider error normalization.
+- Updated UAE pre-ASP and evidence-retention docs. This is preparation for future ASP access only.
+- No real ASP call, real provider URL, real credential, Peppol transmission, FTA reporting, production UAE compliance, accounting finalization, ledger posting, report math, VAT math, invoice total, hosted mutation, migration, seed/reset/delete, storage/signed-URL operation, email, payment, or deployment changed.
+
 # Refund collections banking detail visual polish - 2026-06-16
 
 - PR `#57` was merged first at `c62a1a0f2232aca7fbffcf0400fed66f67d392b2`; this branch was created from the updated `origin/main`.

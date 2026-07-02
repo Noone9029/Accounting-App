@@ -35,3 +35,15 @@ Persistent webhook handling should store:
 - Valid event: process idempotently through an outbox/worker path.
 
 Persistent replay protection requires schema migration and is intentionally deferred.
+
+## UAE-PRE-ASP-ADAPTER-02 Local Replay Helper
+
+The local package now has a timestamp-aware fake replay guard for tests:
+
+- `signFakeWebhookPayload({ payload, secret, timestamp })`
+- `verifyWebhookSignature({ payload, signature, secret, timestamp })`
+- `parseWebhookEvent(payload)`
+- `normalizeWebhookEvent(event)`
+- `createInMemoryUaeWebhookReplayGuard({ now, maxAgeSeconds })`
+
+This helper rejects missing event IDs, invalid timestamps, stale timestamps, and duplicate event/signature pairs. It stores only in memory and is not a production replay store. Normalized events include hashes and redacted payload metadata only; raw bodies and secrets are not returned.

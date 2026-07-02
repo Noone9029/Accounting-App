@@ -240,7 +240,7 @@ export class ComplianceCoreService {
         channel: "mock-asp-local-only",
         externalReference: result.externalReference,
         submittedAt: new Date(),
-        confirmedAt: result.status === "ASP_ACCEPTED" || result.status === "ASP_REJECTED" ? new Date() : undefined,
+        confirmedAt: result.status === "ACCEPTED_MOCK" || result.status === "REJECTED_MOCK" ? new Date() : undefined,
         metadataJson: toInputJson({
           providerKey: "MOCK",
           mockOnly: true,
@@ -862,10 +862,10 @@ function aspProviderModeFromRecord(providerType: string, metadata: Record<string
 }
 
 function transmissionStatusForAspResult(result: AspProviderSubmissionResult): ComplianceTransmissionStatus {
-  if (result.status === "ASP_ACCEPTED") {
+  if (result.status === "ACCEPTED_MOCK") {
     return ComplianceTransmissionStatus.ACCEPTED;
   }
-  if (result.status === "ASP_REJECTED") {
+  if (result.status === "REJECTED_MOCK") {
     return ComplianceTransmissionStatus.REJECTED;
   }
   return ComplianceTransmissionStatus.FAILED;

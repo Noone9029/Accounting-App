@@ -1,4 +1,16 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import {
+  UAE_ELECTRONIC_ADDRESS_SCHEME_ID,
+  UAE_PINT_AE_CUSTOMIZATION_ID,
+  UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES,
+  UAE_PINT_AE_PROFILE_ID,
+  buildUaePintAeTransactionTypeFlagCode,
+  deriveUaePintAeEndpointId,
+  isValidUaePintAeEndpointId,
+  resolveUaePintAeTransactionTypeFlagCode,
+} from "./pint-ae/constants";
+import { serializeUaePintAeDocument } from "./pint-ae/serializer";
+import type { UaePintAeDocumentInput, UaePintAePredefinedEndpointScenario, UaePintAeTransactionTypeFlag } from "./pint-ae/types";
 
 export * from "./pint-ae/constants";
 export * from "./pint-ae/fixture-suite";
@@ -23,15 +35,18 @@ export type AspProviderNormalizedStatus =
   | "NOT_CONFIGURED"
   | "READY_FOR_LOCAL_VALIDATION"
   | "LOCAL_VALIDATION_FAILED"
-  | "READY_FOR_ASP"
-  | "QUEUED_FOR_ASP"
-  | "SENT_TO_ASP"
-  | "ASP_ACCEPTED"
-  | "ASP_REJECTED"
-  | "REPORTED_TO_FTA"
-  | "FTA_REJECTED"
-  | "DELIVERED_TO_BUYER"
-  | "BUYER_REJECTED"
+  | "READY_LOCAL_ONLY"
+  | "BLOCKED_NO_ASP"
+  | "QUEUED_MOCK"
+  | "SUBMITTED_MOCK"
+  | "ACCEPTED_MOCK"
+  | "REJECTED_MOCK"
+  | "FAILED_MOCK"
+  | "PROVIDER_PENDING"
+  | "PROVIDER_REJECTED"
+  | "PROVIDER_ACCEPTED"
+  | "FTA_REPORTED"
+  | "INBOUND_RECEIVED"
   | "RETRYABLE_ERROR"
   | "TERMINAL_ERROR"
   | "ARCHIVED";
@@ -46,6 +61,112 @@ export interface AspProviderConfig {
   webhookSecret?: string | null;
   metadata?: Record<string, unknown> | null;
 }
+
+export const UAE_PINT_AE_SERIALIZER_MODES = {
+  READINESS_ONLY: "READINESS_ONLY",
+  OFFICIAL_DRAFT_LOCAL_ONLY: "OFFICIAL_DRAFT_LOCAL_ONLY",
+  PROVIDER_SUBMISSION_BLOCKED: "PROVIDER_SUBMISSION_BLOCKED",
+} as const;
+
+export type UaePintAeSerializerMode = (typeof UAE_PINT_AE_SERIALIZER_MODES)[keyof typeof UAE_PINT_AE_SERIALIZER_MODES];
+
+export type UaeTransmissionStatus =
+  | "DRAFT"
+  | "VALIDATION_FAILED"
+  | "READY_LOCAL_ONLY"
+  | "BLOCKED_NO_ASP"
+  | "QUEUED_MOCK"
+  | "SUBMITTED_MOCK"
+  | "ACCEPTED_MOCK"
+  | "REJECTED_MOCK"
+  | "FAILED_MOCK"
+  | "PROVIDER_PENDING"
+  | "PROVIDER_REJECTED"
+  | "PROVIDER_ACCEPTED"
+  | "FTA_REPORTED"
+  | "INBOUND_RECEIVED";
+
+export const UAE_TRANSMISSION_STATUSES: UaeTransmissionStatus[] = [
+  "DRAFT",
+  "VALIDATION_FAILED",
+  "READY_LOCAL_ONLY",
+  "BLOCKED_NO_ASP",
+  "QUEUED_MOCK",
+  "SUBMITTED_MOCK",
+  "ACCEPTED_MOCK",
+  "REJECTED_MOCK",
+  "FAILED_MOCK",
+  "PROVIDER_PENDING",
+  "PROVIDER_REJECTED",
+  "PROVIDER_ACCEPTED",
+  "FTA_REPORTED",
+  "INBOUND_RECEIVED",
+];
+
+export const ASP_PROVIDER_ERROR_CODES = [
+  "AUTHENTICATION_FAILED",
+  "RATE_LIMITED",
+  "VALIDATION_FAILED",
+  "DUPLICATE_DOCUMENT",
+  "RECEIVER_NOT_FOUND",
+  "ENDPOINT_NOT_REGISTERED",
+  "PROVIDER_UNAVAILABLE",
+  "SIGNATURE_INVALID",
+  "REPLAY_DETECTED",
+  "UNKNOWN_PROVIDER_ERROR",
+  "CONFIGURATION_MISSING",
+  "ASP_ACCESS_REQUIRED",
+] as const;
+
+export type AspProviderErrorCode = (typeof ASP_PROVIDER_ERROR_CODES)[number];
+
+export interface UaeAspProviderCapabilityFlags {
+  supportsSandbox: boolean;
+  supportsWebhooks: boolean;
+  supportsInboundInvoices: boolean;
+  supportsStatusPolling: boolean;
+  supportsTaxDataReporting: boolean;
+  requiresClientCertificate: boolean;
+  requiresHmacSignature: boolean;
+  networkEnabled: false;
+  productionEnabled: false;
+}
+
+export const UAE_ASP_PROVIDER_CAPABILITY_FLAGS: Record<"disabled" | "mock" | "future", UaeAspProviderCapabilityFlags> = {
+  disabled: {
+    supportsSandbox: false,
+    supportsWebhooks: false,
+    supportsInboundInvoices: false,
+    supportsStatusPolling: false,
+    supportsTaxDataReporting: false,
+    requiresClientCertificate: false,
+    requiresHmacSignature: false,
+    networkEnabled: false,
+    productionEnabled: false,
+  },
+  mock: {
+    supportsSandbox: true,
+    supportsWebhooks: true,
+    supportsInboundInvoices: false,
+    supportsStatusPolling: true,
+    supportsTaxDataReporting: false,
+    requiresClientCertificate: false,
+    requiresHmacSignature: true,
+    networkEnabled: false,
+    productionEnabled: false,
+  },
+  future: {
+    supportsSandbox: false,
+    supportsWebhooks: false,
+    supportsInboundInvoices: false,
+    supportsStatusPolling: false,
+    supportsTaxDataReporting: false,
+    requiresClientCertificate: false,
+    requiresHmacSignature: false,
+    networkEnabled: false,
+    productionEnabled: false,
+  },
+};
 
 export type AspProviderOperation = "validate" | "submit" | "status" | "webhook" | "evidence";
 
@@ -78,7 +199,7 @@ export interface AspWebhookSignatureInput {
 export interface AspWebhookReplayResult {
   accepted: boolean;
   eventId: string;
-  reason: "RECORDED" | "DUPLICATE" | "MISSING_EVENT_ID";
+  reason: "RECORDED" | "DUPLICATE" | "MISSING_EVENT_ID" | "STALE_TIMESTAMP" | "INVALID_TIMESTAMP";
 }
 
 export interface AspWebhookReplayGuard {
@@ -154,12 +275,24 @@ export interface AspProviderHealthResult extends AspProviderBaseResult {
 export interface AspProviderAdapter {
   readonly providerKey: AspProviderKey;
   readonly mode: AspProviderMode;
+  getProviderId(): AspProviderKey;
+  getDisplayName(): string;
   listCapabilities(): AspProviderCapability[];
+  getCapabilities(): UaeAspProviderCapabilityFlags;
+  validateConfig(config?: AspProviderConfig | null): AspProviderValidationResult;
+  prepareSubmission(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult>;
+  submitInvoice(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult>;
+  submitCreditNote(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult>;
   validateDocument(input: AspProviderOperationInput): Promise<AspProviderValidationResult>;
   submitDocument(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult>;
+  getTransmissionStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult>;
   getDocumentStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult>;
   parseWebhook(payload: unknown): Promise<AspProviderWebhookResult>;
   verifyWebhookSignature(payload: unknown, signature: string | null | undefined): Promise<boolean>;
+  normalizeWebhookEvent(payload: unknown): NormalizedUaeWebhookEvent;
+  normalizeError(input: AspProviderErrorInput): UaeProviderNormalizedError;
+  redactConfig(config?: AspProviderConfig | null): Record<string, unknown>;
+  isNetworkEnabled(): false;
   downloadEvidence(input: AspProviderOperationInput): Promise<AspProviderEvidenceResult>;
   healthCheck(): Promise<AspProviderHealthResult>;
 }
@@ -170,20 +303,305 @@ export const ASP_PROVIDER_STATUSES: AspProviderNormalizedStatus[] = [
   "NOT_CONFIGURED",
   "READY_FOR_LOCAL_VALIDATION",
   "LOCAL_VALIDATION_FAILED",
-  "READY_FOR_ASP",
-  "QUEUED_FOR_ASP",
-  "SENT_TO_ASP",
-  "ASP_ACCEPTED",
-  "ASP_REJECTED",
-  "REPORTED_TO_FTA",
-  "FTA_REJECTED",
-  "DELIVERED_TO_BUYER",
-  "BUYER_REJECTED",
+  "READY_LOCAL_ONLY",
+  "BLOCKED_NO_ASP",
+  "QUEUED_MOCK",
+  "SUBMITTED_MOCK",
+  "ACCEPTED_MOCK",
+  "REJECTED_MOCK",
+  "FAILED_MOCK",
+  "PROVIDER_PENDING",
+  "PROVIDER_REJECTED",
+  "PROVIDER_ACCEPTED",
+  "FTA_REPORTED",
+  "INBOUND_RECEIVED",
   "RETRYABLE_ERROR",
   "TERMINAL_ERROR",
   "ARCHIVED",
 ];
 export const DISABLED_PROVIDER_EMITTED_STATUSES: AspProviderNormalizedStatus[] = ["DISABLED", "NOT_CONFIGURED"];
+
+export interface UaeEndpointSchemeValidationResult {
+  valid: boolean;
+  schemeId: typeof UAE_ELECTRONIC_ADDRESS_SCHEME_ID | "";
+  normalizedEndpointId: string;
+  issues: string[];
+}
+
+export interface UaeSerializerBoundaryResult {
+  mode: UaePintAeSerializerMode;
+  xml: string;
+  validation: UaeValidationReport | ReturnType<typeof serializeUaePintAeDocument>["validation"];
+  productionCompliance: false;
+  networkReady: false;
+  aspSubmissionReady: false;
+  officialSerializerComplete: false;
+}
+
+export interface UaeOfficialDraftPayload extends UaeSerializerBoundaryResult {
+  mode: "OFFICIAL_DRAFT_LOCAL_ONLY";
+  metadata: ReturnType<typeof serializeUaePintAeDocument>["metadata"];
+  submission: {
+    mode: "PROVIDER_SUBMISSION_BLOCKED";
+    canSubmit: false;
+    reason: "ASP_ACCESS_REQUIRED";
+  };
+}
+
+export interface UaeBusinessProcessMetadata {
+  customizationId: typeof UAE_PINT_AE_CUSTOMIZATION_ID;
+  profileId: typeof UAE_PINT_AE_PROFILE_ID;
+  endpointSchemeId: typeof UAE_ELECTRONIC_ADDRESS_SCHEME_ID;
+  endpoint: {
+    scenario: UaePintAePredefinedEndpointScenario | null;
+    value: string | null;
+  };
+  transactionTypeFlagCode: string;
+  productionCompliance: false;
+  noNetwork: true;
+  noFtaReporting: true;
+}
+
+export interface UaeTransmissionDraft {
+  tenantId: string;
+  documentId: string;
+  documentNumber?: string | null;
+  providerKey: AspProviderKey;
+  status: Extract<UaeTransmissionStatus, "DRAFT">;
+  idempotencyKey: string;
+  noNetwork: true;
+  productionCompliance: false;
+}
+
+export interface UaeTransmissionAttemptDraft {
+  draftIdempotencyKey: string;
+  attemptNumber: number;
+  status: UaeTransmissionStatus;
+  noNetwork: true;
+  productionCompliance: false;
+}
+
+export interface UaeTransmissionTimelineEvent {
+  status: UaeTransmissionStatus;
+  providerKey: AspProviderKey;
+  message: string;
+  mockOnly: boolean;
+  productionCompliance: false;
+  noNetwork: true;
+}
+
+export interface UaeWebhookReplayGuardInput {
+  eventId: string | null | undefined;
+  timestamp: string | Date | null | undefined;
+  signatureHash: string | null | undefined;
+}
+
+export interface UaeWebhookReplayGuardOptions {
+  now?: Date;
+  maxAgeSeconds?: number;
+  initialEventKeys?: string[];
+}
+
+export interface UaeWebhookReplayGuard {
+  checkAndRemember(input: UaeWebhookReplayGuardInput): AspWebhookReplayResult;
+}
+
+export interface ParsedUaeWebhookEvent {
+  providerKey: AspProviderKey;
+  eventId: string;
+  status: UaeTransmissionStatus;
+  documentId: string | null;
+  receivedAt: string;
+  payload: Record<string, unknown>;
+}
+
+export interface NormalizedUaeWebhookEvent {
+  providerKey: AspProviderKey;
+  eventId: string;
+  status: UaeTransmissionStatus;
+  documentId: string | null;
+  rawBodyHash: string;
+  signatureHash: string;
+  redactedPayload: Record<string, unknown>;
+  productionCompliance: false;
+  noNetwork: true;
+}
+
+export interface UaeProviderNormalizedError {
+  providerKey: AspProviderKey;
+  code: AspProviderErrorCode;
+  retryable: boolean;
+  userMessage: string;
+  details: Record<string, unknown> | null;
+  noNetwork: true;
+  productionCompliance: false;
+}
+
+export function isOfficialUaeCustomizationId(value: string | null | undefined): boolean {
+  return String(value ?? "").trim() === UAE_PINT_AE_CUSTOMIZATION_ID;
+}
+
+export function isOfficialUaeProfileId(value: string | null | undefined): boolean {
+  return String(value ?? "").trim() === UAE_PINT_AE_PROFILE_ID;
+}
+
+export function normalizeUaeEndpointId(value: string | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+  const digits = raw.replace(/\D/g, "");
+  return digits.startsWith(UAE_ELECTRONIC_ADDRESS_SCHEME_ID) ? digits : raw;
+}
+
+export function deriveUaeParticipantIdFromTin(tin: string | null | undefined): string {
+  return deriveUaePintAeEndpointId(tin);
+}
+
+export function validateUaeEndpointScheme(value: string | null | undefined): UaeEndpointSchemeValidationResult {
+  const normalizedEndpointId = normalizeUaeEndpointId(value);
+  const valid = isValidUaePintAeEndpointId(normalizedEndpointId);
+  return {
+    valid,
+    schemeId: valid ? UAE_ELECTRONIC_ADDRESS_SCHEME_ID : "",
+    normalizedEndpointId,
+    issues: valid ? [] : ["UAE_ENDPOINT_SCHEME_0235_REQUIRED"],
+  };
+}
+
+export function validateCreditNoteReferenceRequirement(input: { kind: UaePintDocumentKind; creditNoteReason?: string | null; originalInvoiceNumber?: string | null }): { valid: boolean; issues: string[] } {
+  if (input.kind !== "credit-note") {
+    return { valid: true, issues: [] };
+  }
+  const issues = [
+    String(input.creditNoteReason ?? "").trim() ? null : "CREDIT_NOTE_REASON_REQUIRED",
+    String(input.originalInvoiceNumber ?? "").trim() ? null : "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED",
+  ].filter((issue): issue is string => Boolean(issue));
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateNoNegativeInvoice(input: { kind: UaePintDocumentKind; total: string | number }): { valid: boolean; issues: string[] } {
+  const invalid = input.kind === "invoice" && Number(input.total) < 0;
+  return { valid: !invalid, issues: invalid ? ["NEGATIVE_INVOICE_TOTAL_BLOCKED"] : [] };
+}
+
+export function classifyUaePredefinedEndpointScenario(value: string | null | undefined): UaePintAePredefinedEndpointScenario | null {
+  const normalized = String(value ?? "").trim();
+  const found = Object.entries(UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES).find(([, endpointValue]) => endpointValue === normalized);
+  return found ? (found[0] as UaePintAePredefinedEndpointScenario) : null;
+}
+
+export function buildUaeBusinessProcessMetadata(input: { predefinedEndpointScenario?: UaePintAePredefinedEndpointScenario | null; transactionTypeFlags?: UaePintAeTransactionTypeFlag[] | null; transactionTypeFlagCode?: string | null }): UaeBusinessProcessMetadata {
+  const scenario = input.predefinedEndpointScenario ?? null;
+  return {
+    customizationId: UAE_PINT_AE_CUSTOMIZATION_ID,
+    profileId: UAE_PINT_AE_PROFILE_ID,
+    endpointSchemeId: UAE_ELECTRONIC_ADDRESS_SCHEME_ID,
+    endpoint: {
+      scenario,
+      value: scenario ? UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES[scenario] : null,
+    },
+    transactionTypeFlagCode: input.transactionTypeFlagCode?.trim() || buildUaePintAeTransactionTypeFlagCode(input.transactionTypeFlags),
+    productionCompliance: false,
+    noNetwork: true,
+    noFtaReporting: true,
+  };
+}
+
+export function buildReadinessXml(input: UaePintDocumentInput): UaeSerializerBoundaryResult {
+  const result = buildUaePintXml(input);
+  return {
+    mode: UAE_PINT_AE_SERIALIZER_MODES.READINESS_ONLY,
+    xml: result.xml,
+    validation: result.validation,
+    productionCompliance: false,
+    networkReady: false,
+    aspSubmissionReady: false,
+    officialSerializerComplete: false,
+  };
+}
+
+export function buildOfficialPintAeDraftPayload(input: UaePintAeDocumentInput): UaeOfficialDraftPayload {
+  const result = serializeUaePintAeDocument(input);
+  return {
+    mode: UAE_PINT_AE_SERIALIZER_MODES.OFFICIAL_DRAFT_LOCAL_ONLY,
+    xml: result.xml,
+    validation: result.validation,
+    metadata: result.metadata,
+    productionCompliance: false,
+    networkReady: false,
+    aspSubmissionReady: false,
+    officialSerializerComplete: false,
+    submission: {
+      mode: UAE_PINT_AE_SERIALIZER_MODES.PROVIDER_SUBMISSION_BLOCKED,
+      canSubmit: false,
+      reason: "ASP_ACCESS_REQUIRED",
+    },
+  };
+}
+
+export function isUaeMockTransmissionStatus(status: string): boolean {
+  return status === "QUEUED_MOCK" || status === "SUBMITTED_MOCK" || status === "ACCEPTED_MOCK" || status === "REJECTED_MOCK" || status === "FAILED_MOCK";
+}
+
+export function isProductionProviderSuccessStatus(status: string): boolean {
+  return status === "PROVIDER_ACCEPTED" || status === "FTA_REPORTED" || status === "INBOUND_RECEIVED";
+}
+
+export function assertUaeTransmissionStatusAllowedForProviderMode(mode: AspProviderMode, status: UaeTransmissionStatus): { allowed: boolean; reason: string | null } {
+  if (mode === "DISABLED") {
+    return status === "BLOCKED_NO_ASP" || status === "DRAFT" || status === "VALIDATION_FAILED" || status === "READY_LOCAL_ONLY"
+      ? { allowed: true, reason: null }
+      : { allowed: false, reason: "DISABLED_PROVIDER_CANNOT_EMIT_PROVIDER_OR_MOCK_STATUS" };
+  }
+  if (mode === "MOCK") {
+    return isProductionProviderSuccessStatus(status) || status === "PROVIDER_PENDING" || status === "PROVIDER_REJECTED"
+      ? { allowed: false, reason: "MOCK_PROVIDER_CANNOT_EMIT_REAL_PROVIDER_STATUS" }
+      : { allowed: true, reason: null };
+  }
+  return { allowed: false, reason: "REAL_PROVIDER_MODE_REQUIRES_APPROVED_ASP_ACCESS" };
+}
+
+export function createUaeTransmissionDraft(input: { tenantId: string; documentId: string; documentNumber?: string | null; providerKey: AspProviderKey; payloadFingerprint?: string | null }): UaeTransmissionDraft {
+  return {
+    tenantId: input.tenantId,
+    documentId: input.documentId,
+    documentNumber: input.documentNumber ?? null,
+    providerKey: input.providerKey,
+    status: "DRAFT",
+    idempotencyKey: buildAspIdempotencyKey({
+      tenantId: input.tenantId,
+      providerKey: input.providerKey,
+      operation: "submit",
+      documentId: input.documentId,
+      documentNumber: input.documentNumber ?? null,
+      payloadFingerprint: input.payloadFingerprint ?? null,
+    }),
+    noNetwork: true,
+    productionCompliance: false,
+  };
+}
+
+export function createUaeTransmissionAttemptDraft(input: { draft: UaeTransmissionDraft; attemptNumber: number; status?: UaeTransmissionStatus }): UaeTransmissionAttemptDraft {
+  return {
+    draftIdempotencyKey: input.draft.idempotencyKey,
+    attemptNumber: input.attemptNumber,
+    status: input.status ?? "QUEUED_MOCK",
+    noNetwork: true,
+    productionCompliance: false,
+  };
+}
+
+export function createUaeTransmissionTimelineEvent(input: { status: UaeTransmissionStatus; providerKey: AspProviderKey; message: string }): UaeTransmissionTimelineEvent {
+  return {
+    status: input.status,
+    providerKey: input.providerKey,
+    message: input.message,
+    mockOnly: isUaeMockTransmissionStatus(input.status),
+    noNetwork: true,
+    productionCompliance: false,
+  };
+}
 
 export function buildAspIdempotencyKey(input: AspIdempotencyKeyInput): string {
   const material = [
@@ -216,6 +634,10 @@ export function signLocalAspWebhookPayload(payload: unknown, secret: string): st
   return `sha256=${createHmac("sha256", secret).update(stableJson(payload)).digest("hex")}`;
 }
 
+export function signFakeWebhookPayload(input: { payload: unknown; secret: string; timestamp: string }): string {
+  return `sha256=${createHmac("sha256", input.secret).update(`${input.timestamp}.${stableJson(input.payload)}`).digest("hex")}`;
+}
+
 export function verifyLocalAspWebhookSignature(input: AspWebhookSignatureInput): boolean {
   const webhookSecretValue = String(input.secret ?? "");
   const signature = String(input.signature ?? "");
@@ -223,6 +645,20 @@ export function verifyLocalAspWebhookSignature(input: AspWebhookSignatureInput):
     return false;
   }
   const expected = signLocalAspWebhookPayload(input.payload, webhookSecretValue);
+  const normalizedSignature = signature.startsWith("sha256=") ? signature : `sha256=${signature}`;
+  const expectedBytes = Buffer.from(expected);
+  const signatureBytes = Buffer.from(normalizedSignature);
+  return expectedBytes.length === signatureBytes.length && timingSafeEqual(expectedBytes, signatureBytes);
+}
+
+export function verifyWebhookSignature(input: { payload: unknown; signature: string | null | undefined; secret: string | null | undefined; timestamp: string | null | undefined }): boolean {
+  const webhookSecretValue = String(input.secret ?? "");
+  const signature = String(input.signature ?? "");
+  const timestamp = String(input.timestamp ?? "");
+  if (!webhookSecretValue || !signature || !timestamp) {
+    return false;
+  }
+  const expected = signFakeWebhookPayload({ payload: input.payload, secret: webhookSecretValue, timestamp });
   const normalizedSignature = signature.startsWith("sha256=") ? signature : `sha256=${signature}`;
   const expectedBytes = Buffer.from(expected);
   const signatureBytes = Buffer.from(normalizedSignature);
@@ -246,6 +682,64 @@ export function createInMemoryAspWebhookReplayGuard(initialEventIds: string[] = 
   };
 }
 
+export function createInMemoryUaeWebhookReplayGuard(options: UaeWebhookReplayGuardOptions = {}): UaeWebhookReplayGuard {
+  const seen = new Set(options.initialEventKeys ?? []);
+  const now = options.now ?? new Date();
+  const maxAgeSeconds = options.maxAgeSeconds ?? 300;
+  return {
+    checkAndRemember(input: UaeWebhookReplayGuardInput): AspWebhookReplayResult {
+      const eventId = String(input.eventId ?? "").trim();
+      if (!eventId) {
+        return { accepted: false, eventId: "", reason: "MISSING_EVENT_ID" };
+      }
+      const timestamp = input.timestamp instanceof Date ? input.timestamp : new Date(String(input.timestamp ?? ""));
+      if (Number.isNaN(timestamp.getTime())) {
+        return { accepted: false, eventId, reason: "INVALID_TIMESTAMP" };
+      }
+      const ageSeconds = Math.abs(now.getTime() - timestamp.getTime()) / 1000;
+      if (ageSeconds > maxAgeSeconds) {
+        return { accepted: false, eventId, reason: "STALE_TIMESTAMP" };
+      }
+      const key = `${eventId}:${String(input.signatureHash ?? "")}`;
+      if (seen.has(key)) {
+        return { accepted: false, eventId, reason: "DUPLICATE" };
+      }
+      seen.add(key);
+      return { accepted: true, eventId, reason: "RECORDED" };
+    },
+  };
+}
+
+export function parseWebhookEvent(payload: unknown): ParsedUaeWebhookEvent {
+  const record = isRecord(payload) ? payload : {};
+  const providerKey = record.provider === "MOCK" ? "MOCK" : "DISABLED";
+  const status = typeof record.status === "string" && UAE_TRANSMISSION_STATUSES.includes(record.status as UaeTransmissionStatus) ? (record.status as UaeTransmissionStatus) : "FAILED_MOCK";
+  return {
+    providerKey,
+    eventId: String(record.eventId ?? ""),
+    status,
+    documentId: typeof record.documentId === "string" ? record.documentId : null,
+    receivedAt: typeof record.receivedAt === "string" ? record.receivedAt : "1970-01-01T00:00:00.000Z",
+    payload: record,
+  };
+}
+
+export function normalizeWebhookEvent(event: ParsedUaeWebhookEvent): NormalizedUaeWebhookEvent {
+  const rawBody = typeof event.payload.rawBody === "string" ? event.payload.rawBody : stableJson(event.payload);
+  const signatureSource = `${event.eventId}:${event.status}:${rawBody}`;
+  return {
+    providerKey: event.providerKey,
+    eventId: event.eventId,
+    status: event.status,
+    documentId: event.documentId,
+    rawBodyHash: createHash("sha256").update(rawBody).digest("hex"),
+    signatureHash: createHash("sha256").update(signatureSource).digest("hex"),
+    redactedPayload: redactObject(event.payload) ?? {},
+    productionCompliance: false,
+    noNetwork: true,
+  };
+}
+
 export function normalizeAspProviderError(input: AspProviderErrorInput): AspProviderNormalizedError {
   const retryable = input.retryable ?? isRetryableStatusCode(input.statusCode ?? null);
   return baseResult({
@@ -258,15 +752,76 @@ export function normalizeAspProviderError(input: AspProviderErrorInput): AspProv
   });
 }
 
+export function normalizeUaeProviderError(input: AspProviderErrorInput): UaeProviderNormalizedError {
+  const code = classifyProviderErrorCode(input);
+  return {
+    providerKey: input.providerKey ?? "DISABLED",
+    code,
+    retryable: code === "RATE_LIMITED" || code === "PROVIDER_UNAVAILABLE" || isRetryableStatusCode(input.statusCode ?? null),
+    userMessage: providerUserMessage(code),
+    details: redactObject(input.details ?? null),
+    noNetwork: true,
+    productionCompliance: false,
+  };
+}
+
 export class DisabledAspProviderAdapter implements AspProviderAdapter {
   readonly providerKey = "DISABLED" as const;
   readonly mode = "DISABLED" as const;
+
+  getProviderId(): AspProviderKey {
+    return this.providerKey;
+  }
+
+  getDisplayName(): string {
+    return "Disabled UAE ASP provider";
+  }
 
   listCapabilities(): AspProviderCapability[] {
     return ["LOCAL_READINESS_VALIDATION"];
   }
 
-  async validateDocument(): Promise<AspProviderValidationResult> {
+  getCapabilities(): UaeAspProviderCapabilityFlags {
+    return UAE_ASP_PROVIDER_CAPABILITY_FLAGS.disabled;
+  }
+
+  validateConfig(config?: AspProviderConfig | null): AspProviderValidationResult {
+    const hasEndpoint = Boolean(String(config?.endpointUrl ?? "").trim());
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: hasEndpoint ? "TERMINAL_ERROR" : "BLOCKED_NO_ASP",
+      ok: !hasEndpoint,
+      valid: !hasEndpoint,
+      mockOnly: false,
+      message: hasEndpoint ? "External ASP provider URLs are blocked until ASP access is approved." : "ASP access is required before provider configuration can be enabled.",
+      issues: hasEndpoint ? ["EXTERNAL_PROVIDER_URL_BLOCKED"] : ["ASP_ACCESS_REQUIRED"],
+      validatorKey: "uae-asp-disabled-config",
+    });
+  }
+
+  async prepareSubmission(): Promise<AspProviderSubmissionResult> {
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "BLOCKED_NO_ASP",
+      ok: false,
+      mockOnly: false,
+      message: "Provider submission is blocked until approved UAE ASP access exists.",
+      issues: ["ASP_ACCESS_REQUIRED"],
+      externalReference: null,
+    });
+  }
+
+  submitInvoice(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
+  }
+
+  submitCreditNote(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
+  }
+
+  async validateDocument(_input: AspProviderOperationInput): Promise<AspProviderValidationResult> {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
@@ -279,7 +834,7 @@ export class DisabledAspProviderAdapter implements AspProviderAdapter {
     });
   }
 
-  async submitDocument(): Promise<AspProviderSubmissionResult> {
+  async submitDocument(_input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
@@ -292,17 +847,21 @@ export class DisabledAspProviderAdapter implements AspProviderAdapter {
     });
   }
 
-  async getDocumentStatus(): Promise<AspProviderStatusResult> {
+  async getDocumentStatus(_input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: "NOT_CONFIGURED",
+      status: "BLOCKED_NO_ASP",
       ok: false,
       mockOnly: false,
       message: "No ASP status is available while the provider is disabled.",
       issues: ["ASP_PROVIDER_DISABLED"],
-      timeline: [{ status: "NOT_CONFIGURED", message: "Provider disabled; no ASP timeline exists." }],
+      timeline: [{ status: "BLOCKED_NO_ASP", message: "Provider disabled; no ASP timeline exists." }],
     });
+  }
+
+  getTransmissionStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
+    return this.getDocumentStatus(input);
   }
 
   async parseWebhook(): Promise<AspProviderWebhookResult> {
@@ -319,6 +878,22 @@ export class DisabledAspProviderAdapter implements AspProviderAdapter {
   }
 
   async verifyWebhookSignature(): Promise<boolean> {
+    return false;
+  }
+
+  normalizeWebhookEvent(payload: unknown): NormalizedUaeWebhookEvent {
+    return normalizeWebhookEvent(parseWebhookEvent(payload));
+  }
+
+  normalizeError(input: AspProviderErrorInput): UaeProviderNormalizedError {
+    return normalizeUaeProviderError(input);
+  }
+
+  redactConfig(config?: AspProviderConfig | null): Record<string, unknown> {
+    return redactAspProviderConfig(config);
+  }
+
+  isNetworkEnabled(): false {
     return false;
   }
 
@@ -354,8 +929,68 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
   readonly providerKey = "MOCK" as const;
   readonly mode = "MOCK" as const;
 
+  getProviderId(): AspProviderKey {
+    return this.providerKey;
+  }
+
+  getDisplayName(): string {
+    return "Local mock UAE ASP provider";
+  }
+
   listCapabilities(): AspProviderCapability[] {
     return ["LOCAL_READINESS_VALIDATION", "MOCK_VALIDATION", "MOCK_SUBMISSION", "STATUS_LOOKUP", "WEBHOOK_SIGNATURE_VERIFICATION", "EVIDENCE_DOWNLOAD"];
+  }
+
+  getCapabilities(): UaeAspProviderCapabilityFlags {
+    return UAE_ASP_PROVIDER_CAPABILITY_FLAGS.mock;
+  }
+
+  validateConfig(config?: AspProviderConfig | null): AspProviderValidationResult {
+    const valid = config?.providerKey === "MOCK" && config.mode === "MOCK" && config.mockModeEnabled === true && !String(config.endpointUrl ?? "").trim();
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: valid ? "READY_LOCAL_ONLY" : "LOCAL_VALIDATION_FAILED",
+      ok: valid,
+      valid,
+      mockOnly: true,
+      message: valid ? "Mock ASP configuration is valid for local contract tests only." : "Mock ASP configuration requires explicit local mock mode and no endpoint URL.",
+      issues: valid ? [] : ["MOCK_CONFIG_NOT_LOCAL_ONLY"],
+      validatorKey: "uae-asp-mock-config",
+    });
+  }
+
+  async prepareSubmission(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    if (input.explicitMockMode !== true) {
+      return baseResult({
+        providerKey: this.providerKey,
+        mode: this.mode,
+        status: "BLOCKED_NO_ASP",
+        ok: false,
+        mockOnly: true,
+        message: "Mock submission preparation requires explicit mock mode.",
+        issues: ["MOCK_MODE_NOT_EXPLICIT"],
+        externalReference: null,
+      });
+    }
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "QUEUED_MOCK",
+      ok: true,
+      mockOnly: true,
+      message: "Mock submission prepared locally; no provider network call is available.",
+      issues: [],
+      externalReference: `mock-asp-${stableMockReference(input.tenantId, String(input.documentId ?? input.documentNumber ?? "document"))}`,
+    });
+  }
+
+  submitInvoice(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
+  }
+
+  submitCreditNote(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
   }
 
   async validateDocument(input: AspProviderOperationInput): Promise<AspProviderValidationResult> {
@@ -363,7 +998,7 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: failed ? "LOCAL_VALIDATION_FAILED" : "READY_FOR_ASP",
+      status: failed ? "LOCAL_VALIDATION_FAILED" : "READY_LOCAL_ONLY",
       ok: !failed,
       mockOnly: true,
       message: failed ? "Mock ASP validation failed for local contract testing only." : "Mock ASP validation passed for local contract testing only.",
@@ -390,7 +1025,7 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: rejected ? "ASP_REJECTED" : "ASP_ACCEPTED",
+      status: rejected ? "REJECTED_MOCK" : "ACCEPTED_MOCK",
       ok: !rejected,
       mockOnly: true,
       message: rejected ? "Mock ASP rejected the document for local contract testing only." : "Mock ASP accepted the document for local contract testing only.",
@@ -404,16 +1039,20 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: "READY_FOR_ASP",
+      status: "SUBMITTED_MOCK",
       ok: true,
       mockOnly: true,
       message: "Mock ASP status is deterministic and local-only.",
       issues: [],
       timeline: [
-        { status: "READY_FOR_LOCAL_VALIDATION", message: "Local readiness prepared." },
-        { status: "READY_FOR_ASP", message: `Mock status reference ${stableMockReference(input.tenantId, documentId)}.` },
+        { status: "READY_LOCAL_ONLY", message: "Local readiness prepared." },
+        { status: "SUBMITTED_MOCK", message: `Mock status reference ${stableMockReference(input.tenantId, documentId)}.` },
       ],
     });
+  }
+
+  getTransmissionStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
+    return this.getDocumentStatus(input);
   }
 
   async parseWebhook(payload: unknown): Promise<AspProviderWebhookResult> {
@@ -421,7 +1060,7 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: isMockPayload ? "READY_FOR_ASP" : "TERMINAL_ERROR",
+      status: isMockPayload ? "ACCEPTED_MOCK" : "TERMINAL_ERROR",
       ok: isMockPayload,
       mockOnly: true,
       message: isMockPayload ? "Mock webhook parsed for local tests only." : "Only explicit mock webhook payloads are accepted.",
@@ -434,11 +1073,27 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return signature === "mock-signature";
   }
 
+  normalizeWebhookEvent(payload: unknown): NormalizedUaeWebhookEvent {
+    return normalizeWebhookEvent(parseWebhookEvent(payload));
+  }
+
+  normalizeError(input: AspProviderErrorInput): UaeProviderNormalizedError {
+    return normalizeUaeProviderError(input);
+  }
+
+  redactConfig(config?: AspProviderConfig | null): Record<string, unknown> {
+    return redactAspProviderConfig(config);
+  }
+
+  isNetworkEnabled(): false {
+    return false;
+  }
+
   async downloadEvidence(input: AspProviderOperationInput): Promise<AspProviderEvidenceResult> {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: "READY_FOR_ASP",
+      status: "READY_LOCAL_ONLY",
       ok: true,
       mockOnly: true,
       message: "Mock evidence metadata is available for local contract testing only.",
@@ -452,7 +1107,7 @@ export class MockAspProviderAdapter implements AspProviderAdapter {
     return baseResult({
       providerKey: this.providerKey,
       mode: this.mode,
-      status: "READY_FOR_ASP",
+      status: "READY_LOCAL_ONLY",
       ok: true,
       mockOnly: true,
       message: "Mock ASP adapter is healthy; no network health check was attempted.",
@@ -467,20 +1122,63 @@ export class FutureAspProviderAdapter implements AspProviderAdapter {
 
   constructor(readonly providerKey: Exclude<AspProviderKey, "DISABLED" | "MOCK">) {}
 
+  getProviderId(): AspProviderKey {
+    return this.providerKey;
+  }
+
+  getDisplayName(): string {
+    return `${this.providerKey} placeholder`;
+  }
+
   listCapabilities(): AspProviderCapability[] {
     return [];
   }
 
-  async validateDocument(): Promise<AspProviderValidationResult> {
+  getCapabilities(): UaeAspProviderCapabilityFlags {
+    return UAE_ASP_PROVIDER_CAPABILITY_FLAGS.future;
+  }
+
+  validateConfig(config?: AspProviderConfig | null): AspProviderValidationResult {
+    const hasEndpoint = Boolean(String(config?.endpointUrl ?? "").trim());
+    return baseResult({
+      providerKey: this.providerKey,
+      mode: this.mode,
+      status: "BLOCKED_NO_ASP",
+      ok: false,
+      valid: false,
+      mockOnly: false,
+      message: hasEndpoint ? "Future ASP provider URLs require approved ASP access and security review first." : "Future ASP provider remains blocked until API documentation and access exist.",
+      issues: hasEndpoint ? ["EXTERNAL_PROVIDER_URL_BLOCKED"] : ["ASP_ACCESS_REQUIRED"],
+      validatorKey: `uae-asp-${this.providerKey.toLowerCase()}-config`,
+    });
+  }
+
+  prepareSubmission(_input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.notImplemented("prepareSubmission", { status: "BLOCKED_NO_ASP" as const, externalReference: null });
+  }
+
+  submitInvoice(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
+  }
+
+  submitCreditNote(input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
+    return this.submitDocument(input);
+  }
+
+  async validateDocument(_input: AspProviderOperationInput): Promise<AspProviderValidationResult> {
     return this.notImplemented("validateDocument", { validatorKey: `uae-asp-${this.providerKey.toLowerCase()}` });
   }
 
-  async submitDocument(): Promise<AspProviderSubmissionResult> {
+  async submitDocument(_input: AspProviderOperationInput): Promise<AspProviderSubmissionResult> {
     return this.notImplemented("submitDocument", { externalReference: null });
   }
 
-  async getDocumentStatus(): Promise<AspProviderStatusResult> {
+  async getDocumentStatus(_input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
     return this.notImplemented("getDocumentStatus", { timeline: [] });
+  }
+
+  getTransmissionStatus(input: AspProviderOperationInput): Promise<AspProviderStatusResult> {
+    return this.getDocumentStatus(input);
   }
 
   async parseWebhook(): Promise<AspProviderWebhookResult> {
@@ -488,6 +1186,22 @@ export class FutureAspProviderAdapter implements AspProviderAdapter {
   }
 
   async verifyWebhookSignature(): Promise<boolean> {
+    return false;
+  }
+
+  normalizeWebhookEvent(payload: unknown): NormalizedUaeWebhookEvent {
+    return normalizeWebhookEvent(parseWebhookEvent(payload));
+  }
+
+  normalizeError(input: AspProviderErrorInput): UaeProviderNormalizedError {
+    return normalizeUaeProviderError(input);
+  }
+
+  redactConfig(config?: AspProviderConfig | null): Record<string, unknown> {
+    return redactAspProviderConfig(config);
+  }
+
+  isNetworkEnabled(): false {
     return false;
   }
 
@@ -504,7 +1218,7 @@ export class FutureAspProviderAdapter implements AspProviderAdapter {
       baseResult({
         providerKey: this.providerKey,
         mode: this.mode,
-        status: "NOT_CONFIGURED",
+        status: "BLOCKED_NO_ASP",
         ok: false,
         mockOnly: false,
         message: `${this.providerKey} ${operation} is not implemented; provider selection and API review are required first.`,
@@ -955,6 +1669,75 @@ function isRetryableStatusCode(statusCode: number | null): boolean {
   return statusCode === 408 || statusCode === 429 || (statusCode !== null && statusCode >= 500 && statusCode <= 599);
 }
 
+function classifyProviderErrorCode(input: AspProviderErrorInput): AspProviderErrorCode {
+  const code = String(input.code ?? "").toLowerCase();
+  const message = String(input.message ?? "").toLowerCase();
+  if (input.statusCode === 401 || input.statusCode === 403 || /auth|credential/.test(code)) {
+    return "AUTHENTICATION_FAILED";
+  }
+  if (input.statusCode === 429 || /rate/.test(code)) {
+    return "RATE_LIMITED";
+  }
+  if (input.statusCode === 409 || /duplicate/.test(code)) {
+    return "DUPLICATE_DOCUMENT";
+  }
+  if (/receiver.*not.*found|receiver_not_found/.test(`${code} ${message}`)) {
+    return "RECEIVER_NOT_FOUND";
+  }
+  if (/endpoint.*not.*registered|endpoint_not_registered/.test(`${code} ${message}`)) {
+    return "ENDPOINT_NOT_REGISTERED";
+  }
+  if (/signature/.test(`${code} ${message}`)) {
+    return "SIGNATURE_INVALID";
+  }
+  if (/replay/.test(`${code} ${message}`)) {
+    return "REPLAY_DETECTED";
+  }
+  if (/configuration|missing_config|config/.test(`${code} ${message}`)) {
+    return "CONFIGURATION_MISSING";
+  }
+  if (/asp.*access|required|access_required/.test(`${code} ${message}`)) {
+    return "ASP_ACCESS_REQUIRED";
+  }
+  if (input.statusCode === 400 || input.statusCode === 422 || /validation/.test(code)) {
+    return "VALIDATION_FAILED";
+  }
+  if (isRetryableStatusCode(input.statusCode ?? null)) {
+    return "PROVIDER_UNAVAILABLE";
+  }
+  return "UNKNOWN_PROVIDER_ERROR";
+}
+
+function providerUserMessage(code: AspProviderErrorCode): string {
+  switch (code) {
+    case "AUTHENTICATION_FAILED":
+      return "Provider authentication failed in local normalization; review credentials only after ASP access is approved.";
+    case "RATE_LIMITED":
+      return "Provider rate limit was normalized locally; retry policy must be provider-reviewed.";
+    case "VALIDATION_FAILED":
+      return "Provider validation failed; review the local payload and official PINT-AE gaps.";
+    case "DUPLICATE_DOCUMENT":
+      return "Provider duplicate-document response was normalized; check idempotency and document references.";
+    case "RECEIVER_NOT_FOUND":
+      return "Receiver endpoint was not found or not available in provider evidence.";
+    case "ENDPOINT_NOT_REGISTERED":
+      return "Receiver endpoint registration is missing or unverified.";
+    case "PROVIDER_UNAVAILABLE":
+      return "Provider unavailable; no production submission state is inferred.";
+    case "SIGNATURE_INVALID":
+      return "Webhook signature validation failed.";
+    case "REPLAY_DETECTED":
+      return "Webhook replay was detected by local replay protection.";
+    case "CONFIGURATION_MISSING":
+      return "ASP provider configuration is missing.";
+    case "ASP_ACCESS_REQUIRED":
+      return "Approved ASP access is required before real provider behavior can run.";
+    case "UNKNOWN_PROVIDER_ERROR":
+    default:
+      return "Unknown provider error normalized safely; no provider success or compliance state is inferred.";
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -965,7 +1748,7 @@ function redactObject(value: Record<string, unknown> | null): Record<string, unk
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, nestedValue]) => {
-      return /api|key|secret|token|password|credential/i.test(key) ? [key, nestedValue ? "[REDACTED]" : nestedValue] : [key, nestedValue];
+      return /api|key|secret|token|password|credential|raw.*body|body|payload/i.test(key) ? [key, nestedValue ? "[REDACTED]" : nestedValue] : [key, nestedValue];
     }),
   );
 }

@@ -194,7 +194,7 @@ describe("ComplianceCoreService", () => {
     expect(result.provider.providerKey).toBe("MOCK");
     expect(result.documentStatusUnchanged).toBe(true);
     expect(result.result.mockOnly).toBe(true);
-    expect(result.result.status).toBe("ASP_ACCEPTED");
+    expect(result.result.status).toBe("ACCEPTED_MOCK");
     expect(prisma.complianceTransmission.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

@@ -31,3 +31,15 @@ Make future ASP onboarding plug-and-play without connecting to a real ASP, calli
 - No Peppol certification.
 - No FTA reporting.
 - No production serializer completion beyond current local tested scope.
+
+## UAE-PRE-ASP-ADAPTER-02 Addendum
+
+The package foundation now separates three local surfaces:
+
+- `READINESS_ONLY` XML for data-readiness checks.
+- `OFFICIAL_DRAFT_LOCAL_ONLY` payloads for local PINT-AE draft serialization.
+- `PROVIDER_SUBMISSION_BLOCKED` for every path that would require ASP access.
+
+Additional package helpers now cover official identifier checks, endpoint scheme `0235` validation, predefined endpoint scenario classification, business-process metadata, typed transmission drafts, mock-only timeline events, timestamped fake webhook replay protection, and typed provider error normalization.
+
+This does not change the future provider sequence. Persistent outbox/retry storage, provider-specific request envelopes, real webhook endpoints, provider URLs, credentials, and production retention rules remain deferred to a separate approved ASP-access goal.

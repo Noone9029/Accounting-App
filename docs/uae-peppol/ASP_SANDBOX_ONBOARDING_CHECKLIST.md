@@ -29,3 +29,15 @@ Do not start this checklist until ASP access is available and approved.
 ## Go/No-Go
 
 Go requires successful sandbox validation, contract tests, evidence capture, support runbook, legal review, and conservative UI wording. No-go if any provider behavior is undocumented or requires unreviewed production credentials.
+
+## Pre-Access Package Gates
+
+Before any future sandbox URL or credential is introduced, keep these local package gates passing:
+
+- official/readiness serializer mode tests prove readiness XML is not treated as provider-submittable output.
+- disabled provider tests prove `BLOCKED_NO_ASP` and no network.
+- mock provider tests prove deterministic local IDs and `_MOCK` statuses only.
+- webhook tests use fake local secrets, timestamp freshness, duplicate rejection, and redacted normalized payloads.
+- error-normalization tests prove no raw request/response body, token, or secret is returned.
+
+If a provider asks for a status, evidence artifact, endpoint URL, certificate, or secret format that is not covered by these local contracts, update the package tests before enabling any integration path.

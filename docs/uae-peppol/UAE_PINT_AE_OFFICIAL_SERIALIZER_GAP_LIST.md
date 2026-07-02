@@ -26,3 +26,13 @@ Date: 2026-07-02
 ## Claim Boundary
 
 The package can claim local readiness and tested local serializer coverage for the listed fixtures. It cannot claim UAE compliance, Peppol certification, FTA reporting, ASP acceptance, or production serializer completion.
+
+## UAE-PRE-ASP-ADAPTER-02 Serializer Boundary Update
+
+The package now exposes explicit serializer modes:
+
+- `READINESS_ONLY`: local readiness XML, uses the LedgerByte readiness customization ID.
+- `OFFICIAL_DRAFT_LOCAL_ONLY`: local official-draft serialization with `productionCompliance: false`, `noNetwork: true`, `noAspValidation: true`, and `noFtaReporting: true`.
+- `PROVIDER_SUBMISSION_BLOCKED`: provider submission is blocked until real ASP access, provider docs, legal/security review, and contract tests exist.
+
+The official draft serializer remains partial. The new mode metadata prevents the readiness serializer and official-draft serializer from being represented as certified, approved, production compliant, provider accepted, or FTA reported.

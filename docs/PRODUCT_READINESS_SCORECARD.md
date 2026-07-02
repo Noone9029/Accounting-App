@@ -1946,3 +1946,9 @@ Recommended next step:
 - API tenancy diagnostic review queue is resolved in static evidence: `docs/security/evidence/API_TENANCY_AUDIT.md` reports `NO_RISKY_ROUTES_DETECTED`.
 - Safe-script audit still reports `REVIEW_REQUIRED` with 10 intentionally retained dangerous-capable entries.
 - This does not prove hosted RLS, runtime-role cutover, provider/compliance readiness, or production tenant isolation.
+
+## 2026-07-02 UAE pre-ASP adapter readiness baseline
+
+- UAE adapter readiness improves for future ASP onboarding because the package now models official/readiness serializer separation, blocked provider submission, disabled/mock provider capabilities, typed idempotency/transmission/timeline records, fake webhook replay controls, and provider error normalization.
+- No production-readiness score increase is taken. These are local contract and test improvements only.
+- Remaining blockers are unchanged: real ASP sandbox access, provider-specific payload/envelope docs, provider credentials, legal/security review, persistent outbox/replay schema, object-storage/retention proof, FTA reporting evidence, production hosting, and official compliance review.
