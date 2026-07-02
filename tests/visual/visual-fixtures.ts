@@ -1784,6 +1784,17 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
     });
   }
 
+  const invitationPreviewMatch = pathname.match(/^\/auth\/invitations\/([^/]+)\/preview$/);
+  if (invitationPreviewMatch) {
+    return json({
+      valid: invitationPreviewMatch[1] === "visual-invite",
+      email: "visual.invite@example.test",
+      organization: { id: org.id, name: org.name },
+      role: { id: "role-accountant", name: "Accountant" },
+      expiresAt: "2026-06-01T00:00:00.000Z",
+    });
+  }
+
   if (pathname === "/dashboard/onboarding-checklist") {
     return json(checklist());
   }
