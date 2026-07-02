@@ -52,3 +52,9 @@ Keep evidence for at least the accounting document retention period, subject to 
 | inbound invoice evidence | future | yes | inbound document evidence | redact raw provider payload by default | inbound payload hash and normalized metadata | high |
 
 No object storage, signed URL, provider evidence download, or immutable retention behavior is implemented by this mapping.
+
+## UAE-PRE-ASP-ADAPTER-03 Evidence Boundary
+
+Official draft model and validator outputs are local readiness evidence only. They may be retained as metadata, hashes, and test results, but they are not provider receipts, FTA reports, production tax evidence, or legal compliance evidence.
+
+Draft payload bodies can contain business document data and must remain redacted from provider error details and support artifacts unless a later legal/security-approved storage goal explicitly permits body retention. No object storage, signed URL, immutable retention, provider evidence download, or production retention behavior is enabled by this pass.

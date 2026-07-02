@@ -47,3 +47,9 @@ The local package now has a timestamp-aware fake replay guard for tests:
 - `createInMemoryUaeWebhookReplayGuard({ now, maxAgeSeconds })`
 
 This helper rejects missing event IDs, invalid timestamps, stale timestamps, and duplicate event/signature pairs. It stores only in memory and is not a production replay store. Normalized events include hashes and redacted payload metadata only; raw bodies and secrets are not returned.
+
+## UAE-PRE-ASP-ADAPTER-03 Draft Payload Redaction Boundary
+
+Official draft payloads can appear only in local package tests and blocked/mock adapter calls. Provider error normalization redacts draft payload bodies, raw bodies, payload fields, tokens, credentials, and secrets before returning details.
+
+Real webhook statuses, provider delivery statuses, FTA reporting statuses, and persistent replay storage remain blocked until provider-specific docs, real ASP access, schema approval, and legal/security review exist.

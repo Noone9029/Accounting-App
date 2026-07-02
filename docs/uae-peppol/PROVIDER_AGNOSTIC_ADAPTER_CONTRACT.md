@@ -51,3 +51,14 @@ The adapter contract now also exposes:
 - config redaction, provider error normalization, webhook event normalization, and `isNetworkEnabled()`.
 
 Mock provider success uses explicit mock statuses such as `ACCEPTED_MOCK` and `REJECTED_MOCK`. Real-provider statuses such as `PROVIDER_ACCEPTED`, `FTA_REPORTED`, and `INBOUND_RECEIVED` are modeled for future contracts but are rejected for disabled/mock provider modes.
+
+## UAE-PRE-ASP-ADAPTER-03 Draft Payload Boundary
+
+Official draft payloads are still local artifacts. They can be passed to disabled/mock adapters only to prove blocked or mock-only behavior:
+
+- disabled adapter submission returns `BLOCKED_NO_ASP`.
+- mock adapter submission returns `_MOCK` statuses only.
+- draft payload/error details are redacted by provider error normalization.
+- provider submission payloads remain blocked until approved ASP access and provider docs exist.
+
+No provider URL, credential, network path, delivery status, FTA reporting status, or production compliance flag is enabled by this contract update.

@@ -2407,3 +2407,9 @@ Recommended next step:
 - Completed local package strengthening for future UAE ASP onboarding: explicit serializer modes, official ID/endpoint helpers, provider capability flags, mock-only statuses, typed draft/attempt/timeline helpers, timestamped fake webhook replay guard, and provider error normalization.
 - Remaining UAE work: deeper official serializer gap closure, provider-specific request/response envelope contracts after real ASP docs, persistent outbox/retry/replay schema in a migration goal, evidence storage/retention implementation, sandbox validation evidence, FTA/provider reporting evidence, and legal/security review.
 - Still not done: real ASP call, Peppol transmission, FTA reporting, production UAE compliance, production provider endpoint, real credentials, storage/signed-URL operation, hosted mutation, migration, or deployment.
+
+# UAE official serializer readiness follow-up - 2026-07-02
+
+- Completed another local-only gap closure step for future UAE ASP onboarding: official draft invoice/credit-note models, draft validators, serializer readiness metadata, local fixture coverage, and a serializer readiness matrix.
+- Remaining UAE work: full official reference review, code-list completion, provider-envelope contract skeletons after real docs exist, persistent outbox/replay schema in a migration goal, evidence storage/retention implementation, sandbox validation evidence, FTA/provider reporting evidence, and legal/security review.
+- Still not done: real ASP call, Peppol transmission, FTA reporting, production UAE compliance, production provider endpoint, real credentials, storage/signed-URL operation, hosted mutation, migration, or deployment.

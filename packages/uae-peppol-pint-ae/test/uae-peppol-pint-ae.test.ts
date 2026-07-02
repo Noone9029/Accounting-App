@@ -17,6 +17,8 @@ import {
   assertUaeTransmissionStatusAllowedForProviderMode,
   buildOfficialPintAeDraftPayload,
   buildReadinessXml,
+  buildUaePintAeDraftCreditNote,
+  buildUaePintAeDraftInvoice,
   UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
   buildUaeBusinessProcessMetadata,
   buildUaeDocumentReadinessReport,
@@ -55,6 +57,16 @@ import {
   uaePintAeScenarioFixtureDefinitions,
   validateCreditNoteReferenceRequirement,
   validateNoNegativeInvoice,
+  summarizeUaePintAeValidation,
+  validateUaePintAeAddress,
+  validateUaePintAeBusinessProcessMetadata,
+  validateUaePintAeDraftCreditNote,
+  validateUaePintAeDraftInvoice,
+  validateUaePintAeDocumentTotals,
+  validateUaePintAeLineAmounts,
+  validateUaePintAeParty,
+  validateUaePintAeTaxRegistration,
+  validateUaePintAeTaxTotals,
   validateUaeEndpointScheme,
   validateUaePintAeDocument,
   validateUaePintInput,
@@ -95,18 +107,141 @@ test("keeps readiness XML and official draft payloads explicitly separated from 
 
   assert.equal(UAE_PINT_AE_SERIALIZER_MODES.READINESS_ONLY, "READINESS_ONLY");
   assert.equal(readiness.mode, "READINESS_ONLY");
+  assert.equal(readiness.serializerMode, "READINESS_ONLY");
   assert.equal(readiness.productionCompliance, false);
   assert.equal(readiness.officialSerializerComplete, false);
+  assert.equal(readiness.officialIdentifiersUsed, false);
+  assert.equal(readiness.officialReferenceVerified, false);
+  assert.equal(readiness.providerRequired, false);
+  assert.equal(readiness.missingProviderAccess, false);
+  assert.equal(readiness.conformanceEvidenceAvailable, false);
   assert.equal(readiness.xml.includes(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), true);
 
   assert.equal(officialDraft.mode, "OFFICIAL_DRAFT_LOCAL_ONLY");
+  assert.equal(officialDraft.serializerMode, "OFFICIAL_DRAFT_LOCAL_ONLY");
   assert.equal(officialDraft.submission.mode, "PROVIDER_SUBMISSION_BLOCKED");
   assert.equal(officialDraft.productionCompliance, false);
   assert.equal(officialDraft.networkReady, false);
   assert.equal(officialDraft.aspSubmissionReady, false);
   assert.equal(officialDraft.officialSerializerComplete, false);
+  assert.equal(officialDraft.officialIdentifiersUsed, true);
+  assert.equal(officialDraft.officialReferenceVerified, false);
+  assert.equal(officialDraft.providerRequired, true);
+  assert.equal(officialDraft.missingProviderAccess, true);
+  assert.equal(officialDraft.conformanceEvidenceAvailable, false);
   assert.equal(officialDraft.submission.canSubmit, false);
+  assert.deepEqual(officialDraft.errors, ["UAE_ASP_SUBMISSION_BLOCKED"]);
+  assert.equal(officialDraft.warnings.includes("UAE_OFFICIAL_REFERENCE_NOT_VERIFIED"), true);
   assert.doesNotMatch(JSON.stringify(officialDraft), /certified|approved|production compliant/i);
+});
+
+test("builds local official draft invoice and credit-note models with non-submittable metadata", () => {
+  const invoiceDraft = buildUaePintAeDraftInvoice(standardUaePintAeTaxInvoiceFixture());
+  const creditNoteDraft = buildUaePintAeDraftCreditNote(standardUaePintAeTaxCreditNoteFixture());
+
+  assert.equal(invoiceDraft.kind, "invoice");
+  assert.equal(invoiceDraft.serializerMode, "OFFICIAL_DRAFT_LOCAL_ONLY");
+  assert.equal(invoiceDraft.productionCompliance, false);
+  assert.equal(invoiceDraft.aspSubmissionReady, false);
+  assert.equal(invoiceDraft.submission.canSubmit, false);
+  assert.equal(invoiceDraft.businessProcess.customizationId, UAE_PINT_AE_CUSTOMIZATION_ID);
+  assert.equal(invoiceDraft.supplier.taxRegistration.tin, "1234567890");
+  assert.equal(invoiceDraft.paymentTerms.currency, "AED");
+  assert.equal(invoiceDraft.taxTotals[0]?.taxAmount, "50");
+
+  assert.equal(creditNoteDraft.kind, "credit-note");
+  assert.equal(creditNoteDraft.originalInvoiceNumber, "INV-0001");
+  assert.equal(creditNoteDraft.creditNoteReason, "Billing adjustment");
+  assert.equal(creditNoteDraft.productionCompliance, false);
+  assert.equal(creditNoteDraft.submission.reason, "ASP_ACCESS_REQUIRED");
+});
+
+test("validates UAE PINT-AE draft parties, totals, and business-process metadata with stable codes", () => {
+  const missingEndpoint = validateUaePintAeParty({
+    role: "buyer",
+    party: { legalName: "Buyer LLC", tin: "2234567890", addressLine1: "Al Reem Island", countryCode: "AE" },
+    endpointRequired: true,
+  });
+  const missingAddress = validateUaePintAeAddress({ legalName: "Supplier LLC", tin: "1234567890", peppolParticipantId: "02351234567890" });
+  const missingTaxRegistration = validateUaePintAeTaxRegistration({ legalName: "Buyer LLC", peppolParticipantId: "02352234567890", addressLine1: "Street", countryCode: "AE" });
+  const lineMismatch = validateUaePintAeLineAmounts({
+    id: "1",
+    description: "Service",
+    quantity: "2",
+    unitPrice: "100",
+    taxableAmount: "200",
+    taxAmount: "10",
+    lineTotal: "205",
+  });
+  const taxMismatch = validateUaePintAeTaxTotals([{ taxableAmount: "100", taxAmount: "4", currency: "AED" }], { taxTotal: "5" });
+  const totalMismatch = validateUaePintAeDocumentTotals({
+    subtotal: "100",
+    taxTotal: "5",
+    total: "104",
+    lines: [{ taxableAmount: "100", taxAmount: "5", lineTotal: "105" }],
+  });
+  const processMetadata = validateUaePintAeBusinessProcessMetadata(buildUaeBusinessProcessMetadata({ predefinedEndpointScenario: "deemed-supply" }));
+
+  assert.equal(missingEndpoint.valid, false);
+  assert.equal(missingEndpoint.errors.some((issue) => issue.code === "UAE_ENDPOINT_ID_REQUIRED"), true);
+  assert.equal(missingAddress.errors.some((issue) => issue.code === "UAE_PARTY_ADDRESS_REQUIRED"), true);
+  assert.equal(missingTaxRegistration.errors.some((issue) => issue.code === "UAE_TRN_OR_TIN_REQUIRED"), true);
+  assert.equal(lineMismatch.errors.some((issue) => issue.code === "UAE_LINE_TOTAL_MISMATCH"), true);
+  assert.equal(taxMismatch.errors.some((issue) => issue.code === "UAE_TAX_TOTAL_MISMATCH"), true);
+  assert.equal(totalMismatch.errors.some((issue) => issue.code === "UAE_DOCUMENT_TOTAL_MISMATCH"), true);
+  assert.equal(processMetadata.warnings.some((issue) => issue.code === "UAE_OFFICIAL_REFERENCE_NOT_VERIFIED"), true);
+  assert.equal(processMetadata.productionCompliance, false);
+
+  const summary = summarizeUaePintAeValidation([missingEndpoint, missingAddress, lineMismatch, processMetadata]);
+  assert.equal(summary.valid, false);
+  assert.equal(summary.productionCompliance, false);
+  assert.equal(summary.aspSubmissionReady, false);
+  assert.equal(summary.errors.some((issue) => issue.code === "UAE_ASP_SUBMISSION_BLOCKED"), true);
+  assert.equal(summary.warnings.some((issue) => issue.code === "UAE_PROVIDER_ACCESS_REQUIRED"), true);
+});
+
+test("validates draft invoices and credit notes without throwing for normal failures", () => {
+  const negativeInvoice = validateUaePintAeDraftInvoice({
+    ...standardUaePintAeTaxInvoiceFixture(),
+    total: "-1",
+  });
+  const creditNoteMissingReference = validateUaePintAeDraftCreditNote({
+    ...standardUaePintAeTaxCreditNoteFixture(),
+    originalInvoiceNumber: "",
+    creditNoteReason: "",
+  });
+
+  assert.equal(negativeInvoice.valid, false);
+  assert.equal(negativeInvoice.errors.some((issue) => issue.code === "UAE_NEGATIVE_INVOICE_NOT_ALLOWED"), true);
+  assert.equal(creditNoteMissingReference.valid, false);
+  assert.equal(creditNoteMissingReference.errors.some((issue) => issue.code === "UAE_CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED"), true);
+  assert.equal(creditNoteMissingReference.errors.some((issue) => issue.code === "UAE_CREDIT_NOTE_REASON_REQUIRED"), true);
+  assert.equal(negativeInvoice.productionCompliance, false);
+  assert.equal(creditNoteMissingReference.aspSubmissionReady, false);
+});
+
+test("keeps official draft payloads blocked for disabled and mock providers", async () => {
+  const officialDraft = buildOfficialPintAeDraftPayload(standardUaePintAeTaxInvoiceFixture());
+  const disabled = new DisabledAspProviderAdapter();
+  const mock = new MockAspProviderAdapter();
+
+  const disabledInvoice = await disabled.submitInvoice({ tenantId: "org-1", documentId: "doc-1", payload: officialDraft });
+  const disabledCreditNote = await disabled.submitCreditNote({ tenantId: "org-1", documentId: "doc-2", payload: buildOfficialPintAeDraftPayload(standardUaePintAeTaxCreditNoteFixture()) });
+  const mockSubmission = await mock.submitInvoice({ tenantId: "org-1", documentId: "doc-3", payload: officialDraft, scenario: "SUBMISSION_ACCEPTED", explicitMockMode: true });
+  const normalized = normalizeUaeProviderError({
+    providerKey: "MOCK",
+    code: "VALIDATION_FAILED",
+    details: { draftPayloadBody: officialDraft, apiToken: "plain-token" },
+  });
+
+  assert.equal(disabledInvoice.status, "BLOCKED_NO_ASP");
+  assert.equal(disabledCreditNote.status, "BLOCKED_NO_ASP");
+  assert.equal(mockSubmission.status, "ACCEPTED_MOCK");
+  assert.equal(mockSubmission.mockOnly, true);
+  assert.equal(mockSubmission.productionCompliance, false);
+  assert.doesNotMatch(JSON.stringify(mockSubmission), /PROVIDER_ACCEPTED|FTA_REPORTED|DELIVERED_TO_BUYER/);
+  assert.equal(normalized.details?.draftPayloadBody, "[REDACTED]");
+  assert.equal(normalized.details?.apiToken, "[REDACTED]");
 });
 
 test("builds readiness checks for organization and buyer endpoint data", () => {

@@ -36,3 +36,21 @@ The package now exposes explicit serializer modes:
 - `PROVIDER_SUBMISSION_BLOCKED`: provider submission is blocked until real ASP access, provider docs, legal/security review, and contract tests exist.
 
 The official draft serializer remains partial. The new mode metadata prevents the readiness serializer and official-draft serializer from being represented as certified, approved, production compliant, provider accepted, or FTA reported.
+
+## UAE-PRE-ASP-ADAPTER-03 Gap Closure
+
+Closed locally:
+
+- official draft invoice and credit-note model helpers.
+- structured draft validators for party endpoint/address/tax registration, line totals, tax totals, document totals, credit-note reference/reason, and negative invoice totals.
+- serializer output metadata for serializer mode, official identifier use, official-reference verification status, provider requirement, missing provider access, conformance evidence availability, warnings, and errors.
+- fixture coverage for valid-ish local drafts, negative invoice, missing endpoint/address/reference/reason, line/tax mismatches, predefined endpoint scenarios, readiness-vs-official boundaries, and disabled/mock provider submission safety.
+
+Still open:
+
+- complete official reference pack review.
+- full official code-list enforcement.
+- provider-specific request/response envelope mapping.
+- official conformance evidence.
+- ASP sandbox validation evidence.
+- production compliance review.

@@ -2377,3 +2377,9 @@ Recommended next step:
 - UAE-PRE-ASP-ADAPTER-02 strengthened `@ledgerbyte/uae-peppol-pint-ae` before ASP access: official identifier/endpoint helpers, serializer mode separation, provider capability flags, `_MOCK` transmission statuses, local transmission draft/timeline helpers, timestamped fake webhook replay guard, and typed provider error normalization.
 - Updated UAE pre-ASP docs and retention mapping to show what is stored now versus future provider/legal evidence.
 - The implementation remains local-only and no-network. There is still no ASP access, no real provider connection, no FTA reporting, no Peppol transmission, no production UAE compliance, no production hosting, and no storage/signed-URL proof.
+
+## 2026-07-02 - UAE official serializer readiness deepened
+
+- UAE-PRE-ASP-ADAPTER-03 deepens local official-draft readiness without ASP access: draft invoice and credit-note model helpers, structured validators, richer serializer metadata, and expanded package fixture coverage.
+- Added `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` to track implemented-local areas, partial coverage, documented gaps, and official/provider blockers.
+- The implementation remains local-only and no-network. There is still no ASP access, provider envelope, official conformance evidence, FTA reporting, Peppol transmission, production UAE compliance, production hosting, storage/signed-URL proof, or provider credential.
