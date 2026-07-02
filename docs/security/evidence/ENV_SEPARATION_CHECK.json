@@ -1,0 +1,173 @@
+{
+  "status": "NO_ENV_SEPARATION_WARNINGS",
+  "generatedBy": "scripts/security-env-separation-check.cjs",
+  "deterministic": true,
+  "noDatabaseConnection": true,
+  "noNetwork": true,
+  "noMutation": true,
+  "valuesPrinted": false,
+  "groups": {
+    "runtime": [
+      {
+        "name": "DATABASE_URL",
+        "present": false
+      }
+    ],
+    "migrationAdmin": [
+      {
+        "name": "DIRECT_URL",
+        "present": false
+      },
+      {
+        "name": "MIGRATION_DATABASE_URL",
+        "present": false
+      },
+      {
+        "name": "PRISMA_MIGRATION_DATABASE_URL",
+        "present": false
+      }
+    ],
+    "readOnly": [
+      {
+        "name": "READONLY_DATABASE_URL",
+        "present": false
+      },
+      {
+        "name": "REPORTING_DATABASE_URL",
+        "present": false
+      }
+    ],
+    "supabase": [
+      {
+        "name": "SUPABASE_URL",
+        "present": false
+      },
+      {
+        "name": "SUPABASE_ANON_KEY",
+        "present": false
+      },
+      {
+        "name": "SUPABASE_SERVICE_ROLE_KEY",
+        "present": false
+      },
+      {
+        "name": "SUPABASE_ACCESS_TOKEN",
+        "present": false
+      }
+    ],
+    "vercel": [
+      {
+        "name": "VERCEL",
+        "present": false
+      },
+      {
+        "name": "VERCEL_ENV",
+        "present": false
+      },
+      {
+        "name": "VERCEL_URL",
+        "present": false
+      },
+      {
+        "name": "VERCEL_TOKEN",
+        "present": false
+      },
+      {
+        "name": "VERCEL_ORG_ID",
+        "present": false
+      },
+      {
+        "name": "VERCEL_PROJECT_ID",
+        "present": false
+      }
+    ],
+    "smtp": [
+      {
+        "name": "SMTP_HOST",
+        "present": false
+      },
+      {
+        "name": "SMTP_USER",
+        "present": false
+      },
+      {
+        "name": "SMTP_PASSWORD",
+        "present": false
+      },
+      {
+        "name": "SMTP_PORT",
+        "present": false
+      },
+      {
+        "name": "RESEND_API_KEY",
+        "present": false
+      }
+    ],
+    "providers": [
+      {
+        "name": "STRIPE_SECRET_KEY",
+        "present": false
+      },
+      {
+        "name": "PAYMENT_PROVIDER_API_KEY",
+        "present": false
+      },
+      {
+        "name": "BANK_PROVIDER_API_KEY",
+        "present": false
+      },
+      {
+        "name": "S3_ACCESS_KEY_ID",
+        "present": false
+      },
+      {
+        "name": "S3_SECRET_ACCESS_KEY",
+        "present": false
+      }
+    ],
+    "compliance": [
+      {
+        "name": "ZATCA_PRIVATE_KEY",
+        "present": false
+      },
+      {
+        "name": "ZATCA_OTP",
+        "present": false
+      },
+      {
+        "name": "UAE_ASP_API_KEY",
+        "present": false
+      },
+      {
+        "name": "UAE_ASP_WEBHOOK_SECRET",
+        "present": false
+      },
+      {
+        "name": "PEPPOL_PROVIDER_API_KEY",
+        "present": false
+      }
+    ],
+    "auth": [
+      {
+        "name": "JWT_SECRET",
+        "present": false
+      },
+      {
+        "name": "SESSION_SECRET",
+        "present": false
+      },
+      {
+        "name": "AUTH_SECRET",
+        "present": false
+      }
+    ]
+  },
+  "presentNames": [],
+  "warnings": [],
+  "idealSeparation": [
+    "API runtime should use DATABASE_URL with a least-privilege runtime role.",
+    "Migration/admin work should use DIRECT_URL or MIGRATION_DATABASE_URL only in controlled migration windows.",
+    "Read-only diagnostics should use READONLY_DATABASE_URL only after explicit non-production approval.",
+    "Browser/web runtime must not receive service-role, DIRECT_URL, private key, ASP, ZATCA, SMTP, payment, or storage secret values."
+  ]
+}

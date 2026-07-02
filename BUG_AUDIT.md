@@ -4,6 +4,15 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-07-02 SECURITY-EXECUTION-01
+
+- Scope: read-only database/security diagnostics and generated evidence on branch `codex/security-execution-01`.
+- Reduced security evidence gap: tenant-scope audit now catalogs every Prisma model into direct/indirect/global/auth/system/risky classes; current result has 0 risky unclassified models.
+- New review queues: 55 unique constraints require tenant-scope review, 8 API files require tenancy/security review, and 32 dangerous script/package entries require guardrail follow-up.
+- Evidence files: `docs/security/evidence/TENANT_SCOPE_AUDIT.md`, `docs/security/evidence/API_TENANCY_AUDIT.md`, `docs/security/evidence/ENV_SEPARATION_CHECK.md`, and `docs/security/evidence/SAFE_SCRIPT_AUDIT.md`.
+- No product bug is automatically closed by this pass; it converts security risk areas into testable evidence and explicit review queues.
+- No hosted state, production data, provider call, payment collection, real email, storage/signed URL operation, compliance activation, ZATCA/UAE/Peppol/ASP live behavior, seed/reset/delete, migration, Prisma schema change, accounting math, report math, VAT math, inventory valuation, banking, or reconciliation behavior changed.
+
 ## 2026-07-02 PRE-ASP-PRODUCTION-FOUNDATION-01
 
 - Scope: pre-ASP foundation docs plus safe local diagnostics/helpers on branch `codex/pre-asp-production-foundation-01`.

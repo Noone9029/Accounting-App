@@ -2,6 +2,15 @@
 
 Audit date: 2026-06-19
 
+SECURITY-EXECUTION-01 read-only database security diagnostics (2026-07-02):
+
+- Added read-only security diagnostics for tenant-scope model cataloging, API route tenancy-risk cataloging, environment separation checks, and safe-script inventory.
+- Generated evidence under `docs/security/evidence/`: `TENANT_SCOPE_AUDIT.md`, `API_TENANCY_AUDIT.md`, `ENV_SEPARATION_CHECK.md`, and `SAFE_SCRIPT_AUDIT.md`.
+- Current tenant-scope evidence catalogs 112 Prisma models: 109 direct tenant-scoped, 3 indirect tenant-scoped, and 0 risky unclassified. It flags 55 unique constraints for tenant-scope review.
+- Current API tenancy evidence scans 144 controller/service files: 126 tenant-guarded, 8 review-needed, 3 webhook, 1 auth-only, 1 system/admin, and 5 public-safe.
+- Current safe-script evidence inventories 166 script/package entries, with 112 potentially dangerous entries and 32 review-required guardrail follow-ups.
+- No database mutation, Supabase mutation, Vercel mutation, migration, Prisma schema change, provider call, storage/signed-URL operation, ZATCA/UAE/Peppol/ASP behavior, accounting/report/VAT/inventory/banking logic change, or production compliance claim was added.
+
 PRE-ASP-PRODUCTION-FOUNDATION-01 foundation pass (2026-07-02):
 
 - Added the master pre-ASP tracker at `docs/production/PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md`.

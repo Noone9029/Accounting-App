@@ -4,6 +4,14 @@ Audit date: 2026-06-19
 
 Latest commit audited: `a2863e5fcf89b7894914f17be4e196a013eb65f0` (`origin/main` after Goal 12 merge/stabilization) plus the typed onboarding persistence schema/API service foundation branches.
 
+## 2026-07-02 SECURITY-EXECUTION-01
+
+- Database/security readiness improves through local/source-only diagnostics and evidence, not through hosted execution.
+- Tenant-scope audit catalogs 112 Prisma models: 109 direct tenant-scoped, 3 indirect tenant-scoped, and 0 risky unclassified. It adds a 55-item unique-constraint tenant-scope review queue.
+- API route tenancy audit scans 144 controller/service files and reports 126 tenant-guarded files plus 8 review-needed files for manual follow-up.
+- Environment separation and safe-script audits add no-secret/no-execution evidence for credential name separation and dangerous script inventory.
+- No score increase is taken for production launch, runtime role cutover, Supabase RLS/Data API posture, hosted PITR, object storage, signed URLs, ASP connectivity, provider readiness, payment collection, or compliance readiness because those remain unexecuted.
+
 ## 2026-07-02 PRE-ASP-PRODUCTION-FOUNDATION-01
 
 - Production readiness improves only in foundation depth, not launch approval. This pass adds the master pre-ASP tracker, security hardening plans, backup/PITR/object-storage plans, monitoring/support runbooks, billing/legal drafts, and UAE pre-ASP adapter documents.

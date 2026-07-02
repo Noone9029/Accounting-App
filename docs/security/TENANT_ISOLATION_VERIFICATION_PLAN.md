@@ -41,6 +41,14 @@ This is schema-shape evidence only. It does not prove every service method enfor
 
 The pre-ASP diagnostic is a static schema catalog. It must stay read-only and must not be used as the only tenant-isolation proof.
 
+`SECURITY-EXECUTION-01` expands the static evidence:
+
+- `docs/security/evidence/TENANT_SCOPE_AUDIT.md` catalogs all 112 Prisma models into tenant-scope classifications. Current result: 109 direct tenant-scoped models, 3 indirect tenant-scoped models, and 0 risky unclassified models.
+- The same audit flags 55 unique constraints for review because the individual unique constraint does not include tenant scope. This is a review queue, not an automatic defect list.
+- `docs/security/evidence/API_TENANCY_AUDIT.md` scans 144 API controller/service files. Current result: 126 tenant-guarded files, 8 review-needed files, 3 webhook files, 1 auth-only file, 1 system/admin file, and 5 public-safe files.
+
+These diagnostics are source-shape evidence only. They do not replace API-level cross-tenant denial tests or hosted read-only proof.
+
 ## Remaining Work
 
 - Expand API-level cross-tenant denial tests for all listed families.
