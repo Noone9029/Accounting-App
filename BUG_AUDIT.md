@@ -4,6 +4,16 @@ Audit date: 2026-06-19
 
 Latest commit audited: `e01aab5e54e37f63724c81c4763e4b7384f0be90` (`origin/main` after PR #87 merge) plus this complete generated-document object adapter staging approval artifacts branch.
 
+## 2026-07-02 MONITORING-SUPPORT-EXECUTION-01
+
+- Scope: local/read-only monitoring and support readiness diagnostics on branch `codex/monitoring-support-execution-01`.
+- Reduced operational-readiness gap: support can now run `corepack pnpm monitoring:support-readiness` and review generated evidence for API/web/database/email/outbox/queue/backup/restore/storage/compliance/support signals.
+- New support artifacts: incident simulation playbook, response templates, controlled-beta support checklist, strengthened alerting matrix, dashboard requirements, support triage runbook, and beta triage cross-links.
+- Current diagnostic result: `MONITORING_SUPPORT_PARTIAL_READY`, with 13 available signals, 5 partial signals, and 0 blocked signals.
+- Remaining blockers: production monitoring provider/log drain, provider-backed alerting, production support SLA tooling, hosted backup/restore proof, object-storage and signed-URL proof, generic queue monitoring, and UAE ASP access.
+- No product bug is automatically closed by this pass; it converts operational risk areas into repeatable local evidence and support runbooks.
+- No hosted state, production data, database connection, provider call, payment collection, real email, storage/signed URL operation, compliance activation, ZATCA/UAE/Peppol/ASP live behavior, seed/reset/delete, migration, Prisma schema change, accounting math, report math, VAT math, inventory valuation, banking, or reconciliation behavior changed.
+
 ## 2026-07-02 SECURITY-EXECUTION-01
 
 - Scope: read-only database/security diagnostics and generated evidence on branch `codex/security-execution-01`.

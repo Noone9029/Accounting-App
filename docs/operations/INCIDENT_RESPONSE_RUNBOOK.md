@@ -20,6 +20,14 @@ Date: 2026-07-02
 4. Identify whether accounting, VAT, inventory valuation, banking, compliance, storage, or provider behavior is affected.
 5. Do not promise compliance/production status.
 
+## Monitoring/Support Evidence
+
+- Run `corepack pnpm monitoring:support-readiness` only as a local/source diagnostic.
+- Use `docs/operations/evidence/MONITORING_SUPPORT_READINESS.md` to confirm which signals are available, partial, or blocked.
+- Use `docs/operations/SUPPORT_INCIDENT_SIMULATION_PLAYBOOK.md` for tabletop drills and incident-specific first checks.
+- Use `docs/operations/SUPPORT_RESPONSE_TEMPLATES.md` for conservative beta communications.
+- Do not run migrations, seed/reset/delete commands, provider calls, email sends, object storage operations, signed URL checks, ZATCA/UAE/Peppol/ASP actions, payment actions, or production deployment commands as part of incident triage unless a separate approved remediation plan exists.
+
 ## Data or Tenant Isolation Concern
 
 - Treat as SEV-1.

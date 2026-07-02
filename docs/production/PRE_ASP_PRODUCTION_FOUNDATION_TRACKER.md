@@ -46,3 +46,12 @@ These commands are read-only. They do not connect to a database, call a network 
 - Safe-script diagnostic queue was reduced from 32 to 10 review-required entries. The remaining entries are intentionally retained for DB migration/seed, demo seed, API smoke, and ZATCA validation/debug commands.
 - New review evidence: `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
 - No production hosting, Supabase/Vercel mutation, migration, seed/reset/delete, provider call, storage operation, email/payment action, or compliance behavior changed.
+
+## MONITORING-SUPPORT-EXECUTION-01 Local Diagnostic Update
+
+- Added `corepack pnpm monitoring:support-readiness` and `corepack pnpm test:monitoring-support-readiness`.
+- Generated local/read-only evidence at `docs/operations/evidence/MONITORING_SUPPORT_READINESS.md` and `.json`.
+- Current status: `MONITORING_SUPPORT_PARTIAL_READY` with 13 available signals, 5 partial signals, and 0 blocked signals.
+- Partial areas remain production-provider dependent: web uptime monitoring, email outbox provider alerting, generic queue/worker monitoring, object-storage proof, and UAE ASP readiness.
+- Added controlled-beta support incident simulations, response templates, and support checklist under `docs/operations/`.
+- No production monitoring provider, hosted log drain, production SLA, real email sending, provider call, storage/signed-URL operation, Supabase/Vercel mutation, migration, seed/reset/delete, or compliance behavior changed.

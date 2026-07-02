@@ -1,20 +1,22 @@
 # Alerting Matrix
 
-Status: draft
+Status: draft, provider-neutral
 Date: 2026-07-02
 
-| Signal | Warning | Critical | Notes |
-| --- | --- | --- | --- |
-| API health | intermittent failures | sustained non-200 readiness | Include deployment SHA. |
-| Web health | login route slow/failing | app shell unavailable | Preview first, production later. |
-| database readiness | connection pool pressure | no DB connectivity | Avoid printing connection strings. |
-| Redis/queue readiness | queue lag rising | queue unavailable | Only active once queues are deployed. |
-| email outbox | retries increasing | failed email spike | No real email sending changes in this PR. |
-| failed email rate | >5% rolling window | >20% or complaints | Requires provider evidence. |
-| backup readiness | stale evidence | missing backup evidence | Hosted proof pending. |
-| restore evidence age | older than target RTO review | no restore drill | Hosted restore pending. |
-| storage readiness | config incomplete | private object access failure | Provider proof pending. |
-| ZATCA status | sandbox blocked | live behavior enabled unexpectedly | ZATCA remains controlled/disabled unless approved. |
-| UAE ASP status | provider disabled | network call attempted unexpectedly | Any real ASP call is a critical breach pre-access. |
-| error logs | error burst | repeated 5xx/customer data risk | Correlate with deployment SHA. |
-| support inbox | aging SEV-2 | SEV-1 unacknowledged | Manual process until tool selected. |
+This matrix defines future alert rules and current local/read-only evidence. No alert provider, production log drain, production SLA, or 24/7 support claim is active from this document.
+
+| Signal | Source | Current availability | Threshold | Severity | Owner | Response | Current status | Proof command or doc link |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| API health failure | `/health` and API deployment status | Local/source evidence; hosted checks only when explicitly configured | Non-200 or timeout for assigned beta environment | SEV-1 if total outage; SEV-2 if degraded | Engineering owner | Check SHA, pause affected workflows, capture route/status evidence | available | `corepack pnpm monitoring:support-readiness`; `apps/api/src/health/health.controller.ts` |
+| Readiness database failure | `/readiness` database check | Local/source evidence plus approved non-mutating environment checks | `checks.database != ok` | SEV-1 if data integrity uncertain; SEV-2 otherwise | Engineering/data owner | Stop data-entry testing until safe | available | `apps/api/src/health/health.controller.ts`; `docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md` |
+| Failed login spike | Auth logs or future support dashboard | Not automated yet | Future: repeated login failures for same org/user/window | SEV-2 or SEV-1 if attack suspected | Support/security owner | Confirm access impact, avoid password requests, check rate-limit evidence | future | `docs/operations/OPERATIONAL_DASHBOARD_REQUIREMENTS.md` |
+| Email outbox stuck | Email readiness/outbox/monitoring evidence | Partial; metadata exists, provider monitoring blocked | Oldest queued item over target window or repeated failures | SEV-3; SEV-2 for invites/password reset | Support owner | Inspect metadata only; do not send or retry without approval | partial | `apps/api/src/email/email.controller.ts`; `docs/operations/evidence/MONITORING_SUPPORT_READINESS.md` |
+| Backup readiness missing | Backup readiness and restore evidence index | Partial; hosted PITR proof pending | Missing or stale backup/restore evidence before expansion | SEV-2 | Data owner | Block beta expansion, capture evidence age, do not run destructive restore | partial | `docs/operations/RESTORE_DRILL_EVIDENCE_INDEX.md` |
+| Restore evidence stale | Restore drill evidence index | Partial; hosted restore drill pending | Evidence older than approved review window | SEV-2 before expansion; SEV-3 otherwise | Data owner | Schedule approved restore proof goal | partial | `docs/operations/RESTORE_DRILL_EVIDENCE_INDEX.md` |
+| Storage readiness blocked | Storage readiness and object-storage proof docs | Partial; object storage/signed URL proof blocked | Provider proof missing or private object access failure | SEV-3; SEV-2 if document workflow blocked | Storage owner | Use metadata only; do not run object operations | partial | `scripts/object-storage-proof-validate.cjs`; `docs/operations/OBJECT_STORAGE_VALIDATION_PLAN.md` |
+| ZATCA network attempted unexpectedly | ZATCA no-network guards and logs | Source evidence only | Any real ZATCA call before approval | SEV-1 | Compliance/security owner | Stop affected workflow, preserve sanitized evidence | available | `scripts/zatca-sandbox-adapter-no-network-contract.cjs` |
+| UAE ASP network attempted unexpectedly | Compliance ASP readiness/no-network evidence | Partial; ASP access unavailable | Any real ASP call before approval | SEV-1 | Compliance/security owner | Stop affected workflow, preserve sanitized evidence | partial | `apps/api/src/compliance-core/compliance-core.controller.ts`; `docs/production/PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md` |
+| Suspicious tenant boundary alert | Support report, API tenancy audit, screenshots | Manual support detection; automated alert future | Any unauthorized organization data visible | SEV-1 | Security owner | Pause beta route, capture sanitized metadata, revoke if needed | partial | `docs/security/evidence/API_TENANCY_AUDIT.md`; `docs/operations/SUPPORT_INCIDENT_SIMULATION_PLAYBOOK.md` |
+| Unsafe script attempted in non-local env | Safe-script audit and command review | Source evidence; no runtime hook in this PR | Seed/reset/delete/migrate/provider command attempted without approval | SEV-1 or SEV-2 | Engineering/security owner | Stop command path, preserve shell metadata, review guardrails | partial | `docs/security/evidence/SAFE_SCRIPT_AUDIT.md` |
+| Queue lag/failure | Future queue dashboard; email retry-worker plan now | Partial for email retry worker; generic queues future | Oldest job exceeds target or worker unavailable | SEV-3; SEV-2 if core workflow blocked | Engineering owner | Inspect plan/status only; do not force process without approval | partial | `apps/api/src/email/email.controller.ts` |
+| Beta blocker issue filed | Beta issue log/triage runbook | Manual process | Any blocker remains unresolved | SEV-1 or SEV-2 | Support owner | Pause affected testing and escalate | available | `docs/beta-testing/BETA_ISSUE_TRIAGE_RUNBOOK.md` |

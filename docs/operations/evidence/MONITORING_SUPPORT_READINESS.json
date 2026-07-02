@@ -1,0 +1,303 @@
+{
+  "status": "MONITORING_SUPPORT_PARTIAL_READY",
+  "generatedBy": "scripts/monitoring-support-readiness.cjs",
+  "generatedAt": "2026-07-02T00:00:00.000Z",
+  "deterministic": true,
+  "noDatabaseConnection": true,
+  "noNetwork": true,
+  "noMutation": true,
+  "noEmailSend": true,
+  "noProviderCall": true,
+  "noStorageOperation": true,
+  "noSecretsPrinted": true,
+  "noCustomerDataPrinted": true,
+  "counts": {
+    "available": 13,
+    "partial": 5
+  },
+  "checks": [
+    {
+      "id": "api-health-endpoint",
+      "category": "api",
+      "label": "API health endpoint exists",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/health/health.controller.ts",
+      "response": "Use `/health` for basic API process availability checks.",
+      "existingFiles": [
+        "apps/api/src/health/health.controller.ts"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "api-readiness-endpoint",
+      "category": "api",
+      "label": "API readiness endpoint exists",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/health/health.controller.ts",
+      "response": "Use `/readiness` for API plus database reachability in safe environments.",
+      "existingFiles": [
+        "apps/api/src/health/health.controller.ts"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "web-health-documented",
+      "category": "web",
+      "label": "Web health/check routes documented",
+      "status": "partial",
+      "detected": true,
+      "proof": "docs/deployment/DEPLOYED_E2E_RUNBOOK.md",
+      "response": "Use documented route smoke checks until production uptime checks exist.",
+      "existingFiles": [
+        "docs/deployment/DEPLOYED_E2E_RUNBOOK.md",
+        "docs/beta-testing/BETA_FIX_01_LIVE_ENVIRONMENT_CHECK.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "database-readiness-signal",
+      "category": "database",
+      "label": "Database readiness signal documented",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/health/health.controller.ts",
+      "response": "Treat readiness database failure as SEV-2 or SEV-1 if data integrity is uncertain.",
+      "existingFiles": [
+        "apps/api/src/health/health.controller.ts",
+        "docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "email-readiness-diagnostics",
+      "category": "email",
+      "label": "Email readiness diagnostics exist",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/email/email.controller.ts",
+      "response": "Use email readiness and diagnostics-plan endpoints; do not send test emails during this local diagnostic.",
+      "existingFiles": [
+        "apps/api/src/email/email.controller.ts"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "email-outbox-monitoring",
+      "category": "email",
+      "label": "Email outbox monitoring exists or blocked",
+      "status": "partial",
+      "detected": true,
+      "proof": "apps/api/src/email/email.controller.ts",
+      "response": "Monitor outbox backlog manually until a hosted alert provider is selected.",
+      "existingFiles": [
+        "apps/api/src/email/email.controller.ts",
+        "docs/operations/ALERTING_MATRIX.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "queue-worker-readiness",
+      "category": "jobs",
+      "label": "Queue/worker readiness exists or blocked",
+      "status": "partial",
+      "detected": true,
+      "proof": "apps/api/src/email/email.controller.ts",
+      "response": "Only email retry-worker readiness is visible now; generic queues remain future/blocked until deployed.",
+      "existingFiles": [
+        "apps/api/src/email/email.controller.ts",
+        "docs/operations/MONITORING_AND_SUPPORT_READINESS_PLAN.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "backup-readiness",
+      "category": "backup",
+      "label": "Backup readiness endpoint/docs exist",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/system/system.controller.ts",
+      "response": "Use backup readiness evidence; do not run destructive restore commands in support triage.",
+      "existingFiles": [
+        "apps/api/src/system/system.controller.ts",
+        "docs/operations/BACKUP_PITR_OBJECT_STORAGE_PRE_ASP_PLAN.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "restore-evidence",
+      "category": "backup",
+      "label": "Restore evidence docs exist",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/operations/RESTORE_DRILL_EVIDENCE_INDEX.md",
+      "response": "Track restore evidence age and escalate when evidence is stale or missing.",
+      "existingFiles": [
+        "docs/operations/RESTORE_DRILL_EVIDENCE_INDEX.md",
+        "docs/production/BACKUP_RESTORE_PROOF_HARNESS.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "object-storage-proof",
+      "category": "storage",
+      "label": "Object storage proof exists or blocked",
+      "status": "partial",
+      "detected": true,
+      "proof": "scripts/object-storage-proof-validate.cjs",
+      "response": "Storage proof remains local/dry-run until a non-production bucket is approved.",
+      "existingFiles": [
+        "scripts/object-storage-proof-validate.cjs",
+        "docs/operations/OBJECT_STORAGE_VALIDATION_PLAN.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "storage-readiness",
+      "category": "storage",
+      "label": "Storage readiness UI/docs exist",
+      "status": "available",
+      "detected": true,
+      "proof": "apps/api/src/storage/storage.controller.ts",
+      "response": "Use storage readiness state; do not run object operations or signed URL checks here.",
+      "existingFiles": [
+        "apps/api/src/storage/storage.controller.ts",
+        "docs/operations/DOCUMENT_ARCHIVE_RETENTION_PLAN.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "zatca-no-network",
+      "category": "compliance",
+      "label": "ZATCA disabled/no-network status exists",
+      "status": "available",
+      "detected": true,
+      "proof": "scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+      "response": "Any unexpected ZATCA network attempt is critical before explicit approval.",
+      "existingFiles": [
+        "scripts/zatca-sandbox-adapter-no-network-contract.cjs",
+        "scripts/zatca-sdk-ci-readiness.cjs"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "uae-asp-no-network",
+      "category": "compliance",
+      "label": "UAE ASP disabled/no-network status exists",
+      "status": "partial",
+      "detected": true,
+      "proof": "apps/api/src/compliance-core/compliance-core.controller.ts",
+      "response": "Treat real ASP calls as blocked until provider access and approvals exist.",
+      "existingFiles": [
+        "apps/api/src/compliance-core/compliance-core.controller.ts",
+        "docs/production/PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "support-triage-runbook",
+      "category": "support",
+      "label": "Support triage runbook exists",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/operations/SUPPORT_TRIAGE_RUNBOOK.md",
+      "response": "Use the support triage runbook for intake, severity, and escalation.",
+      "existingFiles": [
+        "docs/operations/SUPPORT_TRIAGE_RUNBOOK.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "incident-response-runbook",
+      "category": "support",
+      "label": "Incident response runbook exists",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/operations/INCIDENT_RESPONSE_RUNBOOK.md",
+      "response": "Use the incident runbook for SEV classification and first-response discipline.",
+      "existingFiles": [
+        "docs/operations/INCIDENT_RESPONSE_RUNBOOK.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "alerting-matrix",
+      "category": "monitoring",
+      "label": "Alerting matrix exists",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/operations/ALERTING_MATRIX.md",
+      "response": "Use the matrix as the source for future provider alert rules.",
+      "existingFiles": [
+        "docs/operations/ALERTING_MATRIX.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "operational-dashboard-requirements",
+      "category": "monitoring",
+      "label": "Operational dashboard requirements exist",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/operations/OPERATIONAL_DASHBOARD_REQUIREMENTS.md",
+      "response": "Use requirements only; no live dashboard is claimed by this diagnostic.",
+      "existingFiles": [
+        "docs/operations/OPERATIONAL_DASHBOARD_REQUIREMENTS.md"
+      ],
+      "missingFiles": []
+    },
+    {
+      "id": "beta-support-process",
+      "category": "support",
+      "label": "Beta support process exists",
+      "status": "available",
+      "detected": true,
+      "proof": "docs/beta-testing/CONTROLLED_BETA_SUPPORT_READY.md",
+      "response": "Use controlled-beta support docs and issue log for tester-facing support.",
+      "existingFiles": [
+        "docs/beta-testing/CONTROLLED_BETA_SUPPORT_READY.md",
+        "docs/beta-testing/BETA_ISSUE_TRIAGE_RUNBOOK.md"
+      ],
+      "missingFiles": []
+    }
+  ],
+  "blocked": [],
+  "partial": [
+    {
+      "id": "web-health-documented",
+      "label": "Web health/check routes documented",
+      "status": "partial",
+      "proof": "docs/deployment/DEPLOYED_E2E_RUNBOOK.md",
+      "missingFiles": []
+    },
+    {
+      "id": "email-outbox-monitoring",
+      "label": "Email outbox monitoring exists or blocked",
+      "status": "partial",
+      "proof": "apps/api/src/email/email.controller.ts",
+      "missingFiles": []
+    },
+    {
+      "id": "queue-worker-readiness",
+      "label": "Queue/worker readiness exists or blocked",
+      "status": "partial",
+      "proof": "apps/api/src/email/email.controller.ts",
+      "missingFiles": []
+    },
+    {
+      "id": "object-storage-proof",
+      "label": "Object storage proof exists or blocked",
+      "status": "partial",
+      "proof": "scripts/object-storage-proof-validate.cjs",
+      "missingFiles": []
+    },
+    {
+      "id": "uae-asp-no-network",
+      "label": "UAE ASP disabled/no-network status exists",
+      "status": "partial",
+      "proof": "apps/api/src/compliance-core/compliance-core.controller.ts",
+      "missingFiles": []
+    }
+  ]
+}
