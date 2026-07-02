@@ -128,6 +128,22 @@ describe("sidebar create shortcut", () => {
     expect(screen.queryByRole("link", { name: "Customer payments" })).not.toBeInTheDocument();
   });
 
+  it("keeps banking child links specific instead of repeating the same destination as separate workflows", () => {
+    const banking = sidebarNavItemsForMarket("GENERIC").find((item) => item.label === "Banking");
+
+    expect(banking?.children?.map((child) => ({ label: child.label, href: child.href }))).toEqual([
+      { label: "Bank accounts", href: "/bank-accounts" },
+      { label: "Bank transfers", href: "/bank-transfers" },
+    ]);
+  });
+
+  it("does not duplicate settings child destinations with different labels", () => {
+    const settings = sidebarNavItemsForMarket("GENERIC").find((item) => item.label === "Settings");
+    const hrefs = settings?.children?.map((child) => child.href) ?? [];
+
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
   it("uses collapsed module categories in the mobile navigation drawer", () => {
     render(<MobileWorkflowNav />);
 

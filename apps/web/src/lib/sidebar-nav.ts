@@ -69,9 +69,6 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
     label: "Banking",
     children: [
       { key: "banking.bankAccounts" },
-      { key: "banking.bankAccounts", label: "Bank transactions" },
-      { key: "banking.bankAccounts", label: "Reconciliation", requiredAny: [PERMISSIONS.bankReconciliations.view] },
-      { key: "banking.bankAccounts", label: "Cheques" },
       { key: "banking.bankTransfers" },
     ],
   },
@@ -147,7 +144,6 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
       { key: "settings.storage" },
       { key: "settings.compliance" },
       { key: "settings.security" },
-      { key: "settings.compliance", label: "API / provider setup" },
       { key: "settings.branches" },
       { key: "settings.roles" },
       { key: "settings.bankingAccounting" },
