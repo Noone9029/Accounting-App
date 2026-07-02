@@ -80,10 +80,11 @@ export function LedgerButton({
     </>
   );
   const classes = buttonClassName({ variant, size, className });
+  const linkAriaLabel = buttonProps["aria-label"];
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} aria-label={linkAriaLabel}>
         {content}
       </Link>
     );

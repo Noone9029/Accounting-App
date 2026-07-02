@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -178,9 +177,14 @@ export default function InventoryBalancesPage() {
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.averageUnitCost}</td>
                     <td className="px-4 py-3 text-right font-mono text-xs">{display.inventoryValue}</td>
                     <td className="px-4 py-3 text-xs">
-                      <Link href={inventoryFifoPreviewUrl({ itemId: balance.item.id, warehouseId: balance.warehouse.id })} className="font-medium text-palm hover:underline">
+                      <LedgerButton
+                        href={inventoryFifoPreviewUrl({ itemId: balance.item.id, warehouseId: balance.warehouse.id })}
+                        size="sm"
+                        variant="quiet"
+                        aria-label={`Open FIFO preview for ${balance.item.name} in ${balance.warehouse.code} ${balance.warehouse.name}`}
+                      >
                         FIFO preview
-                      </Link>
+                      </LedgerButton>
                     </td>
                   </tr>
                 );
@@ -216,24 +220,24 @@ export function InventoryBalanceGuidance({ canCreateAdjustment, canCreateTransfe
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
           {canCreateAdjustment ? (
-            <Link href="/inventory/adjustments/new" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+            <LedgerButton href="/inventory/adjustments/new" variant="primary">
               Create adjustment
-            </Link>
+            </LedgerButton>
           ) : null}
           {canCreateTransfer ? (
-            <Link href="/inventory/transfers/new" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+            <LedgerButton href="/inventory/transfers/new">
               Create transfer
-            </Link>
+            </LedgerButton>
           ) : null}
-          <Link href="/inventory/stock-movements" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          <LedgerButton href="/inventory/stock-movements">
             Stock movements
-          </Link>
-          <Link href={inventoryFifoPreviewUrl({})} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          </LedgerButton>
+          <LedgerButton href={inventoryFifoPreviewUrl({})}>
             FIFO preview
-          </Link>
-          <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          </LedgerButton>
+          <LedgerButton href="/dashboard">
             Dashboard
-          </Link>
+          </LedgerButton>
         </div>
       </div>
     </LedgerPanel>

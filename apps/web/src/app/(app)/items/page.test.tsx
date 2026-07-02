@@ -87,7 +87,10 @@ describe("ItemsPage traceability settings", () => {
     expect(screen.getByRole("checkbox", { name: "Bin tracking" })).toBeInTheDocument();
     expect(screen.getAllByText("Serial and batch").length).toBeGreaterThan(0);
     expect(screen.getByText("Expiry, Bin")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Traceability" })[0]).toHaveAttribute("href", "/inventory/traceability/items/item-1");
+    expect(screen.getByRole("link", { name: "Open traceability for Tracked Item" })).toHaveAttribute("href", "/inventory/traceability/items/item-1");
+    expect(screen.getByRole("button", { name: "Edit Tracked Item" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Disable Tracked Item" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Tracked Item" })).toBeInTheDocument();
   });
 
   it("filters the catalog by SKU, description, type, and status without reloading items", async () => {

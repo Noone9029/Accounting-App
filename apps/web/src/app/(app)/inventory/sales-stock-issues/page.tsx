@@ -102,7 +102,9 @@ export default function SalesStockIssuesPage() {
                     <LedgerStatusBadge tone={stockDocumentStatusTone(issue.status)}>{stockDocumentStatusLabel(issue.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3">
-                    <LedgerButton href={`/inventory/sales-stock-issues/${issue.id}`} size="sm">View</LedgerButton>
+                    <LedgerButton href={`/inventory/sales-stock-issues/${issue.id}`} size="sm" aria-label={`View stock issue ${issue.issueNumber}`}>
+                      View
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}

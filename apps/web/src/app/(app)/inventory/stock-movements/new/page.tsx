@@ -106,7 +106,7 @@ export default function NewStockMovementPage() {
         eyebrow="Inventory"
         title="New stock movement"
         description="Create a manual opening balance for a tracked item."
-        actions={<LedgerButton href="/inventory/stock-movements">Back</LedgerButton>}
+        actions={<LedgerButton href="/inventory/stock-movements">Back to stock movements</LedgerButton>}
       />
 
       <LedgerSummaryBand tone="warning">{inventoryOperationalWarning()}</LedgerSummaryBand>

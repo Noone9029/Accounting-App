@@ -202,14 +202,28 @@ export default function WarehousesPage() {
                   <td className="px-4 py-3 font-mono text-xs">{warehouse.countryCode}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <LedgerButton href={`/inventory/warehouses/${warehouse.id}`} size="sm">View</LedgerButton>
+                      <LedgerButton href={`/inventory/warehouses/${warehouse.id}`} size="sm" aria-label={`View warehouse ${warehouse.code} ${warehouse.name}`}>
+                        View
+                      </LedgerButton>
                       {canManage && warehouse.status === "ACTIVE" ? (
-                        <LedgerButton type="button" disabled={actionId === warehouse.id} onClick={() => void changeStatus(warehouse, "archive")} size="sm">
+                        <LedgerButton
+                          type="button"
+                          disabled={actionId === warehouse.id}
+                          onClick={() => void changeStatus(warehouse, "archive")}
+                          size="sm"
+                          aria-label={`Archive warehouse ${warehouse.code} ${warehouse.name}`}
+                        >
                           Archive
                         </LedgerButton>
                       ) : null}
                       {canManage && warehouse.status === "ARCHIVED" ? (
-                        <LedgerButton type="button" disabled={actionId === warehouse.id} onClick={() => void changeStatus(warehouse, "reactivate")} size="sm">
+                        <LedgerButton
+                          type="button"
+                          disabled={actionId === warehouse.id}
+                          onClick={() => void changeStatus(warehouse, "reactivate")}
+                          size="sm"
+                          aria-label={`Reactivate warehouse ${warehouse.code} ${warehouse.name}`}
+                        >
                           Reactivate
                         </LedgerButton>
                       ) : null}

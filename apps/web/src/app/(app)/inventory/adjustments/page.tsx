@@ -119,7 +119,11 @@ export default function InventoryAdjustmentsPage() {
                   <td className="px-4 py-3 text-steel">{inventoryAdjustmentTypeLabel(adjustment.type)}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">{formatInventoryQuantity(adjustment.quantity)}</td>
                   <td className="px-4 py-3"><LedgerStatusBadge tone={adjustmentStatusTone(adjustment.status)}>{inventoryAdjustmentStatusLabel(adjustment.status)}</LedgerStatusBadge></td>
-                  <td className="px-4 py-3"><LedgerButton href={`/inventory/adjustments/${adjustment.id}`} size="sm">View</LedgerButton></td>
+                  <td className="px-4 py-3">
+                    <LedgerButton href={`/inventory/adjustments/${adjustment.id}`} size="sm" aria-label={`View adjustment ${adjustment.adjustmentNumber}`}>
+                      View
+                    </LedgerButton>
+                  </td>
                 </tr>
               ))}
             </tbody>

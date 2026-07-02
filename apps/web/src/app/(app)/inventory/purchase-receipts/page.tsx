@@ -102,7 +102,9 @@ export default function PurchaseReceiptsPage() {
                     <LedgerStatusBadge tone={stockDocumentStatusTone(receipt.status)}>{stockDocumentStatusLabel(receipt.status)}</LedgerStatusBadge>
                   </td>
                   <td className="px-4 py-3">
-                    <LedgerButton href={`/inventory/purchase-receipts/${receipt.id}`} size="sm">View</LedgerButton>
+                    <LedgerButton href={`/inventory/purchase-receipts/${receipt.id}`} size="sm" aria-label={`View purchase receipt ${receipt.receiptNumber}`}>
+                      View
+                    </LedgerButton>
                   </td>
                 </tr>
               ))}

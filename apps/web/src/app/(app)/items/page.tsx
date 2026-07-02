@@ -337,14 +337,26 @@ export default function ItemsPage() {
                   <td className="px-4 py-3"><LedgerStatusBadge tone={itemStatusTone(item.status)}>{itemStatusLabel(item.status)}</LedgerStatusBadge></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      {canManageItems ? <LedgerButton type="button" onClick={() => setEditingItem(item)} size="sm">Edit</LedgerButton> : null}
-                      {canViewInventory ? <LedgerButton href={inventoryTraceabilityUrl(item.id)} size="sm">Traceability</LedgerButton> : null}
+                      {canManageItems ? (
+                        <LedgerButton type="button" onClick={() => setEditingItem(item)} size="sm" aria-label={`Edit ${item.name}`}>
+                          Edit
+                        </LedgerButton>
+                      ) : null}
+                      {canViewInventory ? (
+                        <LedgerButton href={inventoryTraceabilityUrl(item.id)} size="sm" aria-label={`Open traceability for ${item.name}`}>
+                          Traceability
+                        </LedgerButton>
+                      ) : null}
                       {item.status === "ACTIVE" && canManageItems ? (
-                        <LedgerButton type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} size="sm">
+                        <LedgerButton type="button" onClick={() => void disableItem(item)} disabled={actionId === item.id} size="sm" aria-label={`Disable ${item.name}`}>
                           Disable
                         </LedgerButton>
                       ) : null}
-                      {canManageItems ? <LedgerButton type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} variant="danger" size="sm">Delete</LedgerButton> : null}
+                      {canManageItems ? (
+                        <LedgerButton type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} variant="danger" size="sm" aria-label={`Delete ${item.name}`}>
+                          Delete
+                        </LedgerButton>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
