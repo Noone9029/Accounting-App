@@ -2401,3 +2401,9 @@ Recommended next step:
 - SECURITY-HARDENING-02 resolves the static API tenancy review queue and narrows the safe-script review queue.
 - Remaining security roadmap work: add API-level cross-tenant denial tests, execute hosted read-only grants/default-privilege checks, design and stage RLS policies, create/cut over least-privilege runtime DB role, and add explicit owner approval gates before hosted migration/seed/smoke/ZATCA validation scripts are used.
 - Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, provider/ZATCA production execution, storage/signed-URL proof, or production compliance.
+
+# UAE pre-ASP adapter foundation follow-up - 2026-07-02
+
+- Completed local package strengthening for future UAE ASP onboarding: explicit serializer modes, official ID/endpoint helpers, provider capability flags, mock-only statuses, typed draft/attempt/timeline helpers, timestamped fake webhook replay guard, and provider error normalization.
+- Remaining UAE work: deeper official serializer gap closure, provider-specific request/response envelope contracts after real ASP docs, persistent outbox/retry/replay schema in a migration goal, evidence storage/retention implementation, sandbox validation evidence, FTA/provider reporting evidence, and legal/security review.
+- Still not done: real ASP call, Peppol transmission, FTA reporting, production UAE compliance, production provider endpoint, real credentials, storage/signed-URL operation, hosted mutation, migration, or deployment.

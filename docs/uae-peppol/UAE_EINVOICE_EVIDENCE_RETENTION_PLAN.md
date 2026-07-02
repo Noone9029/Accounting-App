@@ -33,3 +33,22 @@ Keep evidence for at least the accounting document retention period, subject to 
 - certified payload/response formats
 - production retention obligations
 - FTA/provider confirmation storage rules
+
+## UAE-PRE-ASP-ADAPTER-02 Evidence Mapping
+
+| Evidence artifact | Stored now | Contains sensitive data | Retention class | Redaction rule | Restore evidence needed | Legal hold relevance |
+| --- | --- | --- | --- | --- | --- | --- |
+| official XML payload | metadata/hash only | yes, if body stored later | tax document evidence | do not expose XML body in support or tests | hash, size, source document, archive pointer | high |
+| readiness XML payload | local test output only | possible sample data | readiness evidence | keep sample-only or hash-only | test fixture hash and mode metadata | medium |
+| provider request envelope | future | yes | provider submission evidence | redact headers, tokens, certificates, and body by default | envelope hash, provider correlation ID | high |
+| provider response | future | yes | provider response evidence | redact raw body unless legal/security approves body storage | response hash, status, received timestamp | high |
+| webhook raw body hash | future | no body, hash only | webhook integrity evidence | store hash, never raw body by default | raw body hash plus signature hash | high |
+| webhook normalized event | local helper shape only | low after redaction | webhook processing evidence | redact payload/body/secret/token fields | event ID, status, document ID, signature hash | high |
+| transmission attempt | package type only | no, if metadata-only | operational audit evidence | no customer body or secret fields | idempotency key, status, provider key | medium |
+| status timeline | package type only | low | operational timeline evidence | mock statuses must remain `_MOCK`; real statuses require provider evidence | ordered events and actor/source metadata | medium |
+| archive hash | metadata only | no body | archive integrity evidence | store hash/size/provider pointer only | hash, size, storage provider, source reference | high |
+| receipt/delivery evidence | future | yes | delivery evidence | redact provider body and receiver details unless approved | provider receipt hash/correlation ID | high |
+| FTA reporting evidence | future | yes | tax authority evidence | disabled until provider/legal requirements exist | authority/provider confirmation hash | high |
+| inbound invoice evidence | future | yes | inbound document evidence | redact raw provider payload by default | inbound payload hash and normalized metadata | high |
+
+No object storage, signed URL, provider evidence download, or immutable retention behavior is implemented by this mapping.

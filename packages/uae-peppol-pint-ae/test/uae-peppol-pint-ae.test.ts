@@ -2,42 +2,111 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ASP_PROVIDER_STATUSES,
+  ASP_PROVIDER_ERROR_CODES,
   DISABLED_PROVIDER_EMITTED_STATUSES,
   DisabledAspProviderAdapter,
   MockAspProviderAdapter,
+  UAE_ASP_PROVIDER_CAPABILITY_FLAGS,
   UAE_ELECTRONIC_ADDRESS_SCHEME_ID,
   UAE_PINT_AE_CUSTOMIZATION_ID,
   UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES,
   UAE_PINT_AE_PROFILE_ID,
   UAE_PINT_AE_READINESS_CUSTOMIZATION_ID,
+  UAE_PINT_AE_SERIALIZER_MODES,
+  UAE_TRANSMISSION_STATUSES,
+  assertUaeTransmissionStatusAllowedForProviderMode,
+  buildOfficialPintAeDraftPayload,
+  buildReadinessXml,
   UAE_PINT_AE_TRANSACTION_TYPE_FLAG_VALUES,
+  buildUaeBusinessProcessMetadata,
   buildUaeDocumentReadinessReport,
   buildUaePintAeTransactionTypeFlagCode,
   buildAspIdempotencyKey,
   createAspSubmissionOutboxDraft,
+  createInMemoryUaeWebhookReplayGuard,
   createInMemoryAspWebhookReplayGuard,
+  createUaeTransmissionAttemptDraft,
+  createUaeTransmissionDraft,
+  createUaeTransmissionTimelineEvent,
+  classifyUaePredefinedEndpointScenario,
   buildUaePartyReadinessReport,
   buildUaePintXml,
   buildUaeReadinessReport,
   createAspProviderAdapter,
+  deriveUaeParticipantIdFromTin,
   deriveUaePeppolParticipantId,
+  isOfficialUaeCustomizationId,
+  isOfficialUaeProfileId,
+  isProductionProviderSuccessStatus,
+  isUaeMockTransmissionStatus,
   normalizeAspProviderError,
+  normalizeUaeEndpointId,
+  normalizeUaeProviderError,
+  parseWebhookEvent,
   redactAspProviderConfig,
   runUaePintAeFixtureSuite,
   serializeUaePintAeCreditNote,
   serializeUaePintAeInvoice,
+  signFakeWebhookPayload,
   signLocalAspWebhookPayload,
   standardUaePintAeTaxCreditNoteFixture,
   standardUaePintAeTaxInvoiceFixture,
   summarizeUaePintAeFixtureResults,
   uaePintAeScenarioFixtureDefinitions,
+  validateCreditNoteReferenceRequirement,
+  validateNoNegativeInvoice,
+  validateUaeEndpointScheme,
   validateUaePintAeDocument,
   validateUaePintInput,
+  verifyWebhookSignature,
   verifyLocalAspWebhookSignature,
+  normalizeWebhookEvent,
 } from "../src";
 
 test("derives UAE Peppol participant ID from a 10-digit TIN", () => {
   assert.equal(deriveUaePeppolParticipantId("1234567890"), "02351234567890");
+});
+
+test("exposes official UAE PINT-AE identifiers and endpoint validation helpers without production claims", () => {
+  assert.equal(isOfficialUaeCustomizationId(UAE_PINT_AE_CUSTOMIZATION_ID), true);
+  assert.equal(isOfficialUaeCustomizationId(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), false);
+  assert.equal(isOfficialUaeProfileId(UAE_PINT_AE_PROFILE_ID), true);
+  assert.equal(normalizeUaeEndpointId(" 0235 1234567890 "), "02351234567890");
+  assert.equal(deriveUaeParticipantIdFromTin("123-456-7890"), "02351234567890");
+
+  assert.deepEqual(validateUaeEndpointScheme("02351234567890"), { valid: true, schemeId: "0235", normalizedEndpointId: "02351234567890", issues: [] });
+  assert.equal(validateUaeEndpointScheme("9900000099").valid, false);
+  assert.deepEqual(validateCreditNoteReferenceRequirement({ kind: "credit-note", creditNoteReason: "", originalInvoiceNumber: "" }).issues, [
+    "CREDIT_NOTE_REASON_REQUIRED",
+    "CREDIT_NOTE_ORIGINAL_REFERENCE_REQUIRED",
+  ]);
+  assert.equal(validateNoNegativeInvoice({ kind: "invoice", total: "-1" }).valid, false);
+
+  const metadata = buildUaeBusinessProcessMetadata({ predefinedEndpointScenario: "deemed-supply", transactionTypeFlags: ["deemed-supply"] });
+  assert.equal(metadata.productionCompliance, false);
+  assert.equal(metadata.endpoint.scenario, "deemed-supply");
+  assert.equal(metadata.endpoint.value, UAE_PINT_AE_PREDEFINED_ENDPOINT_VALUES["deemed-supply"]);
+  assert.equal(classifyUaePredefinedEndpointScenario("9900000099"), "export-receiver-not-registered");
+});
+
+test("keeps readiness XML and official draft payloads explicitly separated from provider submission", () => {
+  const readiness = buildReadinessXml(invoiceFixture());
+  const officialDraft = buildOfficialPintAeDraftPayload(standardUaePintAeTaxInvoiceFixture());
+
+  assert.equal(UAE_PINT_AE_SERIALIZER_MODES.READINESS_ONLY, "READINESS_ONLY");
+  assert.equal(readiness.mode, "READINESS_ONLY");
+  assert.equal(readiness.productionCompliance, false);
+  assert.equal(readiness.officialSerializerComplete, false);
+  assert.equal(readiness.xml.includes(UAE_PINT_AE_READINESS_CUSTOMIZATION_ID), true);
+
+  assert.equal(officialDraft.mode, "OFFICIAL_DRAFT_LOCAL_ONLY");
+  assert.equal(officialDraft.submission.mode, "PROVIDER_SUBMISSION_BLOCKED");
+  assert.equal(officialDraft.productionCompliance, false);
+  assert.equal(officialDraft.networkReady, false);
+  assert.equal(officialDraft.aspSubmissionReady, false);
+  assert.equal(officialDraft.officialSerializerComplete, false);
+  assert.equal(officialDraft.submission.canSubmit, false);
+  assert.doesNotMatch(JSON.stringify(officialDraft), /certified|approved|production compliant/i);
 });
 
 test("builds readiness checks for organization and buyer endpoint data", () => {
@@ -323,13 +392,17 @@ test("disabled ASP adapter blocks submission and never emits future delivery sta
   const validation = await adapter.validateDocument({ tenantId: "org-1", documentId: "doc-1" });
   const submission = await adapter.submitDocument({ tenantId: "org-1", documentId: "doc-1" });
   const status = await adapter.getDocumentStatus({ tenantId: "org-1", documentId: "doc-1" });
+  const prepared = await adapter.prepareSubmission({ tenantId: "org-1", documentId: "doc-1" });
 
   assert.equal(validation.ok, false);
   assert.equal(validation.noNetwork, true);
   assert.equal(submission.ok, false);
   assert.equal(submission.externalReference, null);
-  assert.equal(status.timeline.some((item) => item.status === "REPORTED_TO_FTA" || item.status === "DELIVERED_TO_BUYER" || item.status === "SENT_TO_ASP"), false);
-  assert.equal(DISABLED_PROVIDER_EMITTED_STATUSES.includes("REPORTED_TO_FTA"), false);
+  assert.equal(prepared.status, "BLOCKED_NO_ASP");
+  assert.equal(status.timeline.some((item) => item.status === "PROVIDER_ACCEPTED" || item.status === "FTA_REPORTED" || item.status === "INBOUND_RECEIVED"), false);
+  assert.equal(DISABLED_PROVIDER_EMITTED_STATUSES.includes("FTA_REPORTED"), false);
+  assert.equal(adapter.isNetworkEnabled(), false);
+  assert.equal(adapter.getCapabilities().productionEnabled, false);
 });
 
 test("disabled and mock adapters do not perform network calls", async () => {
@@ -359,9 +432,26 @@ test("mock ASP adapter is deterministic and marks responses as test-only", async
   assert.equal(first.externalReference, second.externalReference);
   assert.equal(first.mockOnly, true);
   assert.equal(first.productionCompliance, false);
-  assert.equal(first.status, "ASP_ACCEPTED");
-  assert.equal(rejected.status, "ASP_REJECTED");
+  assert.equal(first.status, "ACCEPTED_MOCK");
+  assert.equal(rejected.status, "REJECTED_MOCK");
+  assert.equal(isUaeMockTransmissionStatus(first.status), true);
+  assert.equal(isProductionProviderSuccessStatus(first.status), false);
+  assert.equal(adapter.getCapabilities().networkEnabled, false);
+  assert.equal(adapter.getCapabilities().productionEnabled, false);
   assert.match(first.message, /local contract testing only/i);
+});
+
+test("provider capability objects and config validation stay disabled or mock-only", () => {
+  const disabled = new DisabledAspProviderAdapter();
+  const mock = new MockAspProviderAdapter();
+
+  assert.equal(disabled.getProviderId(), "DISABLED");
+  assert.equal(mock.getProviderId(), "MOCK");
+  assert.equal(disabled.validateConfig({ endpointUrl: "https://provider.example.test" }).valid, false);
+  assert.equal(mock.validateConfig({ providerKey: "MOCK", mode: "MOCK", mockModeEnabled: true }).valid, true);
+  assert.deepEqual(UAE_ASP_PROVIDER_CAPABILITY_FLAGS.disabled, disabled.getCapabilities());
+  assert.equal(UAE_ASP_PROVIDER_CAPABILITY_FLAGS.mock.productionEnabled, false);
+  assert.equal(mock.redactConfig({ apiKey: "plain", secret: "plain", webhookSecret: "plain" }).apiKey, "[REDACTED]");
 });
 
 test("provider factory falls back safely and blocks future providers and external URLs", async () => {
@@ -393,7 +483,7 @@ test("provider config redaction hides secrets and exposes capability/status cons
   assert.equal(redacted.secret, "[REDACTED]");
   assert.equal(redacted.webhookSecret, "[REDACTED]");
   assert.deepEqual(redacted.metadata, { token: "[REDACTED]", safeLabel: "Mock" });
-  assert.equal(ASP_PROVIDER_STATUSES.includes("REPORTED_TO_FTA"), true);
+  assert.equal(ASP_PROVIDER_STATUSES.includes("FTA_REPORTED"), true);
   assert.equal(new MockAspProviderAdapter().listCapabilities().includes("MOCK_SUBMISSION"), true);
 });
 
@@ -427,6 +517,29 @@ test("builds deterministic ASP idempotency keys without embedding document ident
   assert.equal(first.includes("invoice-123"), false);
 });
 
+test("models UAE transmission drafts, attempts, and timeline events without production status leakage", () => {
+  const draft = createUaeTransmissionDraft({
+    tenantId: "org-secret",
+    documentId: "invoice-123",
+    providerKey: "MOCK",
+    documentNumber: "INV-100",
+    payloadFingerprint: "fingerprint",
+  });
+  const attempt = createUaeTransmissionAttemptDraft({ draft, attemptNumber: 1, status: "QUEUED_MOCK" });
+  const event = createUaeTransmissionTimelineEvent({ status: "ACCEPTED_MOCK", providerKey: "MOCK", message: "Accepted by local mock." });
+
+  assert.equal(draft.status, "DRAFT");
+  assert.equal(draft.productionCompliance, false);
+  assert.equal(draft.idempotencyKey.includes("org-secret"), false);
+  assert.equal(draft.idempotencyKey.includes("invoice-123"), false);
+  assert.equal(attempt.noNetwork, true);
+  assert.equal(event.mockOnly, true);
+  assert.equal(UAE_TRANSMISSION_STATUSES.includes("FTA_REPORTED"), true);
+  assert.equal(assertUaeTransmissionStatusAllowedForProviderMode("DISABLED", "FTA_REPORTED").allowed, false);
+  assert.equal(assertUaeTransmissionStatusAllowedForProviderMode("MOCK", "ACCEPTED_MOCK").allowed, true);
+  assert.equal(assertUaeTransmissionStatusAllowedForProviderMode("MOCK", "PROVIDER_ACCEPTED").allowed, false);
+});
+
 test("creates submission outbox drafts as local-only non-compliance records", () => {
   const draft = createAspSubmissionOutboxDraft({
     tenantId: "org-1",
@@ -442,12 +555,30 @@ test("creates submission outbox drafts as local-only non-compliance records", ()
 });
 
 test("verifies local ASP webhook signatures with fake secrets and rejects mismatches", () => {
-  const payload = { provider: "MOCK", eventId: "evt-1", status: "ASP_ACCEPTED" };
+  const payload = { provider: "MOCK", eventId: "evt-1", status: "ACCEPTED_MOCK" };
   const signature = signLocalAspWebhookPayload(payload, "local-test-secret");
 
   assert.equal(verifyLocalAspWebhookSignature({ payload, signature, secret: "local-test-secret" }), true);
-  assert.equal(verifyLocalAspWebhookSignature({ payload: { ...payload, status: "ASP_REJECTED" }, signature, secret: "local-test-secret" }), false);
+  assert.equal(verifyLocalAspWebhookSignature({ payload: { ...payload, status: "REJECTED_MOCK" }, signature, secret: "local-test-secret" }), false);
   assert.equal(verifyLocalAspWebhookSignature({ payload, signature, secret: "" }), false);
+});
+
+test("parses and normalizes fake webhook events with timestamped replay protection", () => {
+  const payload = { provider: "MOCK", eventId: "evt-1", status: "ACCEPTED_MOCK", documentId: "doc-1", rawBody: "private-body", secret: "plain" };
+  const timestamp = "2026-07-02T00:00:00.000Z";
+  const signature = signFakeWebhookPayload({ payload, secret: "local-test-secret", timestamp });
+  const parsed = parseWebhookEvent(payload);
+  const normalized = normalizeWebhookEvent(parsed);
+  const guard = createInMemoryUaeWebhookReplayGuard({ now: new Date("2026-07-02T00:01:00.000Z"), maxAgeSeconds: 300 });
+
+  assert.equal(verifyWebhookSignature({ payload, signature, secret: "local-test-secret", timestamp }), true);
+  assert.equal(parsed.eventId, "evt-1");
+  assert.equal(normalized.rawBodyHash.length, 64);
+  assert.equal(JSON.stringify(normalized).includes("private-body"), false);
+  assert.equal(JSON.stringify(normalized).includes("plain"), false);
+  assert.equal(guard.checkAndRemember({ eventId: "evt-1", timestamp, signatureHash: normalized.signatureHash }).reason, "RECORDED");
+  assert.equal(guard.checkAndRemember({ eventId: "evt-1", timestamp, signatureHash: normalized.signatureHash }).reason, "DUPLICATE");
+  assert.equal(guard.checkAndRemember({ eventId: "evt-2", timestamp: "2026-07-01T23:00:00.000Z", signatureHash: "abc" }).reason, "STALE_TIMESTAMP");
 });
 
 test("guards local webhook replay with an in-memory test double", () => {
@@ -476,6 +607,29 @@ test("normalizes ASP provider errors without leaking secret details or claiming 
   assert.equal(error.noNetwork, true);
   assert.equal(error.productionCompliance, false);
   assert.deepEqual(error.details, { token: "[REDACTED]", requestId: "req-1" });
+});
+
+test("normalizes typed UAE provider errors deterministically without raw request bodies", () => {
+  assert.equal(ASP_PROVIDER_ERROR_CODES.includes("ASP_ACCESS_REQUIRED"), true);
+  const validation = normalizeUaeProviderError({
+    providerKey: "MOCK",
+    statusCode: 422,
+    code: "receiver_not_found",
+    message: "Receiver not found",
+    details: {
+      rawRequestBody: "<Invoice>private</Invoice>",
+      apiToken: "plain-token",
+      requestId: "req-1",
+    },
+  });
+  const unknown = normalizeUaeProviderError({ providerKey: "MOCK", statusCode: 418, message: "Unexpected provider body" });
+
+  assert.equal(validation.code, "RECEIVER_NOT_FOUND");
+  assert.equal(validation.retryable, false);
+  assert.equal(validation.productionCompliance, false);
+  assert.deepEqual(validation.details, { rawRequestBody: "[REDACTED]", apiToken: "[REDACTED]", requestId: "req-1" });
+  assert.equal(unknown.code, "UNKNOWN_PROVIDER_ERROR");
+  assert.doesNotMatch(unknown.userMessage, /certified|approved|compliant/i);
 });
 
 function invoiceFixture() {

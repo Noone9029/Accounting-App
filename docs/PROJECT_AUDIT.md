@@ -1037,3 +1037,9 @@ Recommended next step:
 - API tenancy audit now has 0 risky review-needed files.
 - Safe-script audit still has 10 review-required dangerous-capable entries, retained intentionally for migration/seed/smoke/ZATCA validation/debug workflows.
 - No app runtime behavior, API behavior, Prisma schema, migration, hosted config, provider, storage, accounting/report/VAT/inventory valuation/banking, or compliance behavior changed.
+
+# UAE pre-ASP adapter audit update - 2026-07-02
+
+- The UAE package is more adapter-ready before ASP access: local official/readiness serializer boundaries are explicit, disabled/mock provider capability flags are test-covered, mock statuses cannot be mistaken for real provider acceptance, and webhook replay/error normalization helpers are local-only and redacted.
+- Evidence retention planning now identifies official XML, readiness XML, provider envelopes/responses, webhook hashes/events, transmission attempts, timeline, archive hash, delivery evidence, future FTA evidence, and future inbound evidence.
+- This audit update does not approve production UAE compliance. ASP access, provider docs, credentials, sandbox evidence, FTA reporting, production hosting, and legal/security sign-off remain required.

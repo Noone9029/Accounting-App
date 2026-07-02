@@ -55,3 +55,10 @@ These commands are read-only. They do not connect to a database, call a network 
 - Partial areas remain production-provider dependent: web uptime monitoring, email outbox provider alerting, generic queue/worker monitoring, object-storage proof, and UAE ASP readiness.
 - Added controlled-beta support incident simulations, response templates, and support checklist under `docs/operations/`.
 - No production monitoring provider, hosted log drain, production SLA, real email sending, provider call, storage/signed-URL operation, Supabase/Vercel mutation, migration, seed/reset/delete, or compliance behavior changed.
+
+## UAE-PRE-ASP-ADAPTER-02 Local Adapter Readiness Update
+
+- Strengthened package-level UAE PINT-AE and ASP adapter foundations: official identifier helpers, endpoint scheme validation, readiness-vs-official serializer modes, typed transmission drafts/timeline events, provider capability flags, timestamped fake webhook replay protection, and typed provider error normalization.
+- Disabled providers still return blocked/no-network states. Mock providers now emit explicit `_MOCK` statuses such as `ACCEPTED_MOCK` and `REJECTED_MOCK`; real-provider statuses remain future contract values only.
+- Evidence/retention mapping now covers official XML, readiness XML, provider envelopes/responses, webhook hashes/events, attempts, timeline, archive hashes, delivery evidence, future FTA evidence, and future inbound invoice evidence.
+- No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.

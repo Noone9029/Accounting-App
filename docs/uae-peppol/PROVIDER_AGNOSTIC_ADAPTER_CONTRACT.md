@@ -39,3 +39,15 @@ All disabled/mock/future adapter results must expose:
 - Mock submission requires explicit mock mode.
 - Disabled provider must never emit live statuses such as FTA reporting or buyer delivery.
 - Secrets must be redacted in config/error output.
+
+## UAE-PRE-ASP-ADAPTER-02 Contract Strengthening
+
+The adapter contract now also exposes:
+
+- provider identity/display helpers: `getProviderId()` and `getDisplayName()`.
+- boolean capability flags: sandbox, webhooks, inbound invoices, status polling, tax data reporting, client certificate, HMAC signature, `networkEnabled`, and `productionEnabled`.
+- local config validation with `valid` and `ok` values.
+- `prepareSubmission`, `submitInvoice`, `submitCreditNote`, and `getTransmissionStatus` aliases for future provider parity.
+- config redaction, provider error normalization, webhook event normalization, and `isNetworkEnabled()`.
+
+Mock provider success uses explicit mock statuses such as `ACCEPTED_MOCK` and `REJECTED_MOCK`. Real-provider statuses such as `PROVIDER_ACCEPTED`, `FTA_REPORTED`, and `INBOUND_RECEIVED` are modeled for future contracts but are rejected for disabled/mock provider modes.
