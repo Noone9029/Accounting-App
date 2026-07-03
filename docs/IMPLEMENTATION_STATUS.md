@@ -2398,3 +2398,12 @@ Recommended next step:
 - UAE-PRE-ASP-ADAPTER-03 deepens local official-draft readiness without ASP access: draft invoice and credit-note model helpers, structured validators, richer serializer metadata, and expanded package fixture coverage.
 - Added `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` to track implemented-local areas, partial coverage, documented gaps, and official/provider blockers.
 - The implementation remains local-only and no-network. There is still no ASP access, provider envelope, official conformance evidence, FTA reporting, Peppol transmission, production UAE compliance, production hosting, storage/signed-URL proof, or provider credential.
+
+## 2026-07-03 - Tenant isolation evidence diagnostics
+
+- SECURITY-TENANT-ISOLATION-04 strengthens static tenant-isolation evidence after the Arabic RTL UI merge; Arabic UI is now baseline and no longer blocks this security lane.
+- Added read-only diagnostics for tenant relationship graph, tenant index review, and API query scope audit.
+- Generated evidence under `docs/security/evidence/`: `TENANT_RELATIONSHIP_GRAPH`, `TENANT_INDEX_REVIEW`, and `API_QUERY_SCOPE_AUDIT` Markdown/JSON.
+- Added `docs/security/CROSS_TENANT_TEST_FIXTURE_PLAN.md`, `docs/security/SUPABASE_RLS_POLICY_READINESS_MATRIX.md`, and `docs/security/RUNTIME_DB_ROLE_READINESS_EVIDENCE.md`.
+- Current diagnostic results: relationship graph `RELATIONSHIP_GRAPH_READY` for 112 models; tenant index review `TENANT_INDEX_REVIEW_ITEMS` with 784 constraints and 370 review items; API query scope audit `QUERY_SCOPE_REVIEW_REQUIRED` with 72 query files and 740 Prisma query calls inventoried.
+- No database was mutated, no RLS was enabled, no DB role changed, no migration ran, no Prisma schema changed, no hosted mutation occurred, and no provider/storage/email/payment/compliance behavior changed.

@@ -96,3 +96,17 @@ This remains diagnostic evidence only. It does not create runtime roles, enable 
 - Evidence: `docs/security/evidence/SAFE_SCRIPT_REVIEW_03.md` and regenerated `docs/security/evidence/SAFE_SCRIPT_AUDIT.md`/JSON.
 
 This remains guardrail evidence only. It does not authorize migration, seed, smoke, ZATCA validation/debug, hosted execution, provider calls, Supabase/Vercel mutation, or production compliance behavior.
+
+## SECURITY-TENANT-ISOLATION-04 Tenant-Isolation Evidence Update
+
+This goal strengthens database-security review evidence without changing database behavior:
+
+- Tenant relationship graph: 112 models, status `RELATIONSHIP_GRAPH_READY`.
+- Tenant index review: 784 constraints inventoried, 370 review items retained for human tenant-aware uniqueness/index review.
+- API query scope audit: 72 files with Prisma queries, 740 query calls inventoried, status `QUERY_SCOPE_REVIEW_REQUIRED`.
+- RLS readiness matrix: every model is mapped to draft policy-design status, parent-path review, global-reference, or system/admin-only handling.
+- Runtime DB role readiness evidence: desired runtime, migration/admin, and read-only diagnostic roles are documented as future execution targets.
+
+No Prisma schema change, migration, role creation, RLS policy, Supabase mutation, Vercel mutation, hosted command, seed/reset/delete, provider call, storage operation, email/payment action, accounting logic change, report/VAT math change, inventory valuation change, or banking behavior change is included.
+
+Remaining blockers are unchanged: hosted grants/default-privilege inspection, least-privilege runtime-role cutover, RLS pilot policy execution, cross-tenant API denial tests against disposable fixtures, and production infrastructure proof.

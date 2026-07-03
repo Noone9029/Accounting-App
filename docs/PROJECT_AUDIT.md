@@ -1061,3 +1061,12 @@ Recommended next step:
 - The UAE package now has local official draft invoice/credit-note models, structured draft validators, richer serializer metadata, and tests proving disabled/mock provider behavior remains blocked or mock-only for draft payloads.
 - `docs/uae-peppol/UAE_PINT_AE_SERIALIZER_READINESS_MATRIX.md` records implemented-local serializer readiness separately from documented gaps and official/provider blockers.
 - This audit update does not approve production UAE compliance. ASP access, provider docs, credentials, sandbox evidence, FTA reporting, production hosting, storage/retention proof, official conformance evidence, and legal/security sign-off remain required.
+
+# Tenant isolation evidence audit update - 2026-07-03
+
+- Added static tenant relationship graph, tenant index review, and API query scope audit scripts with `node --test` coverage.
+- Relationship graph evidence catalogs all 112 Prisma models and reports `RELATIONSHIP_GRAPH_READY`.
+- Tenant index review inventories 784 constraints and retains 370 conservative tenant-aware review items.
+- API query scope audit inventories 740 Prisma query calls across 72 files and retains 42 review-needed files for human review.
+- Added cross-tenant fixture planning, RLS policy readiness matrix, and runtime DB role readiness evidence.
+- No production security behavior was enabled. No database connection, RLS enablement, role mutation, migration, Prisma schema change, hosted mutation, provider call, storage operation, email/payment action, or compliance behavior occurred.

@@ -5179,3 +5179,10 @@ Recommended next step:
 - No backend API, schema, migration, seed/reset/delete, hosted/customer-data mutation, payment/accounting/business logic, AR/AP state-machine behavior, UAE PINT-AE behavior, ZATCA behavior, provider integration, Vercel/Supabase command, production infrastructure command, fake automation, fake bank feed, fake AI, bank-feed claim, reconciliation automation claim, or production compliance claim was added.
 - Provider evidence remains unavailable: no sandbox docs, credentials, provider response, or commercial terms.
 - Remaining risk: this is local visual/readability evidence only. Refund, collections, banking, reconciliation, reports, and documents still need accountant review, hosted/customer-data proof, broader E2E/smoke/full-test coverage, and production-foundation work before paid SaaS readiness.
+
+# Tenant isolation evidence diagnostics - 2026-07-03
+
+- No runtime bug was fixed and no production security behavior was enabled.
+- Added static/source diagnostics for tenant relationship mapping, tenant-aware uniqueness/index review, and API query scope inventory.
+- The highest-risk findings are review queues: 370 tenant index review items and 42 API query scope review-needed files. These require human/security review and later cross-tenant denial tests; they are not automatically confirmed vulnerabilities.
+- No database connection, RLS enablement, DB role mutation, migration, Prisma schema change, hosted mutation, provider call, storage/signed-URL operation, email, payment, accounting/report/VAT/inventory valuation/banking behavior, or compliance behavior changed.

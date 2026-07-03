@@ -49,3 +49,15 @@ This document defines the role separation LedgerByte should use before paid beta
 - `demo:seed-workflows`
 
 These commands still require explicit owner approval and a controlled execution window before any hosted use.
+
+## SECURITY-TENANT-ISOLATION-04 Readiness Evidence
+
+`docs/security/RUNTIME_DB_ROLE_READINESS_EVIDENCE.md` now records the desired runtime API role, migration/admin role, and read-only diagnostic role boundaries. The evidence is documentation-only and source-only:
+
+- No role was created or modified.
+- No password or connection value was read or printed.
+- No Vercel or Supabase secret was changed.
+- No database connection or hosted command was run.
+- No migration or RLS policy was executed.
+
+The new relationship graph, tenant index review, API query scope audit, and RLS readiness matrix provide review inputs for a future role/RLS cutover. They do not make least-privilege runtime role separation active.

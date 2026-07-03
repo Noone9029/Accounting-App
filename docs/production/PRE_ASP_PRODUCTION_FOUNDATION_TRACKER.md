@@ -23,8 +23,14 @@ This tracker covers foundations that can be completed before final production ho
 - `corepack pnpm test:pre-asp-diagnostics`
 - `corepack pnpm security:tenant-scope-audit`
 - `corepack pnpm test:security-tenant-scope-audit`
+- `corepack pnpm security:tenant-relationship-graph`
+- `corepack pnpm test:security-tenant-relationship-graph`
+- `corepack pnpm security:tenant-index-review`
+- `corepack pnpm test:security-tenant-index-review`
 - `corepack pnpm security:api-route-tenancy-audit`
 - `corepack pnpm test:security-api-route-tenancy-audit`
+- `corepack pnpm security:api-query-scope-audit`
+- `corepack pnpm test:security-api-query-scope-audit`
 - `corepack pnpm security:env-separation-check`
 - `corepack pnpm test:security-env-separation-check`
 - `corepack pnpm security:safe-script-audit`
@@ -85,3 +91,12 @@ These commands are read-only. They do not connect to a database, call a network 
 - Added docs for the provider envelope skeleton, sandbox onboarding simulator, fake provider test harness, capability negotiation, and provider error fixture library.
 - The harness is local-only and no-network. It rejects production simulation and external provider URLs, emits mock/local statuses only, and redacts document bodies, payloads, tokens, credentials, and secrets.
 - No real ASP access, provider URL, provider credential, Peppol network call, FTA reporting, production compliance, storage operation, signed URL operation, hosted mutation, migration, seed/reset/delete, accounting behavior, report math, VAT math, invoice totals, or ledger posting changed.
+
+## SECURITY-TENANT-ISOLATION-04 Evidence Update
+
+- Arabic RTL frontend support is merged into main and no longer blocks this security evidence lane.
+- Added tenant relationship graph evidence: `RELATIONSHIP_GRAPH_READY`, 112 models cataloged.
+- Added tenant-aware uniqueness/index review evidence: 784 constraints inventoried and 370 conservative review items retained for human review.
+- Added API query scope audit evidence: 72 files with Prisma query usage and 740 query calls inventoried; 42 files remain review-needed by conservative static rules.
+- Added `docs/security/CROSS_TENANT_TEST_FIXTURE_PLAN.md`, `docs/security/SUPABASE_RLS_POLICY_READINESS_MATRIX.md`, and `docs/security/RUNTIME_DB_ROLE_READINESS_EVIDENCE.md`.
+- No RLS, DB role, migration, hosted mutation, provider call, storage operation, email/payment action, production hosting, or production compliance behavior changed.
