@@ -2408,6 +2408,13 @@ Recommended next step:
 - Remaining security roadmap work: add API-level cross-tenant denial tests, execute hosted read-only grants/default-privilege checks, design and stage RLS policies, create/cut over least-privilege runtime DB role, and add explicit owner approval gates before hosted migration/seed/smoke/ZATCA validation scripts are used.
 - Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, provider/ZATCA production execution, storage/signed-URL proof, or production compliance.
 
+# Safe-script guardrail review follow-up - 2026-07-03
+
+- SECURITY-SAFE-SCRIPTS-03 reduces the safe-script diagnostic review queue from 10 to 0 by converting retained dangerous-capable entries into explicit `owner-approval-required` guard contracts.
+- Migration, seed, demo seed, API smoke, and ZATCA validation/debug workflows still require an owner-approved disposable non-production target before execution.
+- Remaining security roadmap work: add API-level cross-tenant denial tests, execute hosted read-only grants/default-privilege checks, design and stage RLS policies, create/cut over a least-privilege runtime DB role, and run any hosted migration/seed/smoke/ZATCA validation only under a separate approved execution goal.
+- Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, provider/ZATCA production execution, storage/signed-URL proof, or production compliance.
+
 # UAE pre-ASP adapter foundation follow-up - 2026-07-02
 
 - Completed local package strengthening for future UAE ASP onboarding: explicit serializer modes, official ID/endpoint helpers, provider capability flags, mock-only statuses, typed draft/attempt/timeline helpers, timestamped fake webhook replay guard, and provider error normalization.

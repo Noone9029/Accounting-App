@@ -2379,6 +2379,14 @@ Recommended next step:
 - Added `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
 - No backend API behavior, Prisma schema, migration, seed/reset/delete, Supabase/Vercel mutation, provider call, storage operation, email/payment action, accounting/report/VAT/inventory valuation/banking behavior, or compliance behavior changed.
 
+## 2026-07-03 - Safe-script review queue reduced to owner-approval gates
+
+- SECURITY-SAFE-SCRIPTS-03 reviewed the 10 retained safe-script findings from SECURITY-HARDENING-02.
+- Safe-script audit now reports `OWNER_APPROVAL_REQUIRED`: 0 review-required entries and 10 owner-approval-required entries.
+- Added reusable guard/redaction helpers and tests for local-only API target approval, production/remote refusal, disposable non-production owner approval, demo seed target guards, smoke target guards, and retained ZATCA validation/debug wrappers.
+- Added `docs/security/evidence/SAFE_SCRIPT_REVIEW_03.md` and regenerated `docs/security/evidence/SAFE_SCRIPT_AUDIT.md`/JSON.
+- No dangerous script was executed. No backend API behavior, Prisma schema, migration, seed/reset/delete, Supabase/Vercel mutation, provider call, storage operation, email/payment action, accounting/report/VAT/inventory valuation/banking behavior, or compliance behavior changed.
+
 ## 2026-07-02 - UAE pre-ASP adapter foundation strengthened
 
 - UAE-PRE-ASP-ADAPTER-02 strengthened `@ledgerbyte/uae-peppol-pint-ae` before ASP access: official identifier/endpoint helpers, serializer mode separation, provider capability flags, `_MOCK` transmission statuses, local transmission draft/timeline helpers, timestamped fake webhook replay guard, and typed provider error normalization.

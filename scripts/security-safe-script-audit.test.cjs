@@ -76,7 +76,7 @@ test("reviewed safe script findings do not downgrade unrelated dangerous command
 
   const unreviewed = applyReviewedScriptFinding({
     source: "package-script",
-    path: "db:migrate",
+    path: "dangerous:custom",
     dangerous: true,
     dangers: ["migrate"],
     guards: [],
@@ -84,4 +84,51 @@ test("reviewed safe script findings do not downgrade unrelated dangerous command
   });
   assert.equal(unreviewed.guardStatus, "review-required");
   assert.equal(unreviewed.reviewStatus, undefined);
+});
+
+test("retained safe-script review items are explicit owner-approval findings, not vague clearances", () => {
+  const migrate = applyReviewedScriptFinding({
+    source: "package-script",
+    path: "db:migrate",
+    dangerous: true,
+    dangers: ["migrate"],
+    guards: [],
+    guardStatus: "review-required",
+  });
+  assert.equal(migrate.guardStatus, "owner-approval-required");
+  assert.ok(migrate.guards.includes("ownerApprovalRequired"));
+
+  const zatcaValidation = applyReviewedScriptFinding({
+    source: "file",
+    path: "scripts/validate-generated-zatca-invoice.cjs",
+    dangerous: true,
+    dangers: ["provider", "compliance"],
+    guards: [],
+    guardStatus: "review-required",
+  });
+  assert.equal(zatcaValidation.guardStatus, "owner-approval-required");
+  assert.ok(zatcaValidation.guards.includes("productionRefusal"));
+  assert.ok(zatcaValidation.guards.includes("approvalGate"));
+});
+
+test("real repository audit keeps dangerous owner-approval commands visible with no review-required queue", () => {
+  const report = buildAudit();
+
+  assert.equal(report.reviewRequired.length, 0);
+  assert.equal(report.status, "OWNER_APPROVAL_REQUIRED");
+  assert.ok(report.ownerApprovalRequired.length >= 10);
+  for (const retained of [
+    "scripts/debug-zatca-pih-chain.cjs",
+    "scripts/validate-generated-zatca-invoice.cjs",
+    "db:migrate",
+    "db:seed",
+    "demo:seed-workflows",
+    "smoke:accounting:banking",
+    "smoke:accounting:zatca-safe",
+    "zatca:debug-pih-chain",
+    "zatca:validate-generated",
+    "zatca:validate-sdk-hash-mode",
+  ]) {
+    assert.ok(report.ownerApprovalRequired.some((row) => row.path === retained), `${retained} remains owner-approval-required`);
+  }
 });

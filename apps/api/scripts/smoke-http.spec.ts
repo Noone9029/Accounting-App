@@ -1,4 +1,4 @@
-import { fetchSmokeApi, parseSmokeRequestTimeout, safeRouteLabel, smokeProgressEnabled } from "./smoke-http";
+import { OWNER_APPROVAL_PHRASE, assertSmokeMutationTargetAllowed, fetchSmokeApi, parseSmokeRequestTimeout, safeRouteLabel, smokeProgressEnabled } from "./smoke-http";
 
 describe("smoke-http", () => {
   it("parses request timeout values with a positive fallback", () => {
@@ -58,5 +58,27 @@ describe("smoke-http", () => {
     ]);
     expect(messages.join("\n")).not.toContain("secret-token");
     expect(messages.join("\n")).not.toContain("token=secret");
+  });
+
+  it("allows smoke mutation targets only for local or owner-approved disposable remote environments", () => {
+    expect(() => assertSmokeMutationTargetAllowed("http://localhost:4000", {})).not.toThrow();
+
+    expect(() => assertSmokeMutationTargetAllowed("https://ledgerbyte-api-test.example", {})).toThrow(/require explicit owner approval/i);
+
+    expect(() =>
+      assertSmokeMutationTargetAllowed("https://ledgerbyte-api-test.example", {
+        LEDGERBYTE_SMOKE_ALLOW_REMOTE_MUTATION: "true",
+        LEDGERBYTE_SMOKE_TARGET_CLASS: "disposable-non-production",
+        LEDGERBYTE_SMOKE_OWNER_APPROVAL: OWNER_APPROVAL_PHRASE,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertSmokeMutationTargetAllowed("https://ledgerbyte-api-test.example", {
+        LEDGERBYTE_SMOKE_ALLOW_REMOTE_MUTATION: "true",
+        LEDGERBYTE_SMOKE_TARGET_CLASS: "production",
+        LEDGERBYTE_SMOKE_OWNER_APPROVAL: OWNER_APPROVAL_PHRASE,
+      }),
+    ).toThrow(/disposable-non-production/);
   });
 });

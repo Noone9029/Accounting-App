@@ -86,3 +86,13 @@ Before hosted mutation:
 - Evidence: `docs/security/evidence/API_TENANCY_REVIEW_02.md` and `docs/security/evidence/SAFE_SCRIPT_REVIEW_02.md`.
 
 This remains diagnostic evidence only. It does not create runtime roles, enable RLS, run migrations, mutate Supabase/Vercel, call providers, or prove hosted tenant isolation.
+
+## SECURITY-SAFE-SCRIPTS-03 Guardrail Review Update
+
+`SECURITY-SAFE-SCRIPTS-03` resolves the remaining safe-script diagnostic review queue without executing dangerous scripts or mutating hosted state:
+
+- Safe-script audit now reports `OWNER_APPROVAL_REQUIRED` with 0 review-required entries and 10 owner-approval-required entries.
+- Added local-only/API-target guard helpers, explicit production/remote refusal, exact disposable non-production owner-approval gates, and redaction coverage for retained migration/seed/smoke/ZATCA validation/debug workflows.
+- Evidence: `docs/security/evidence/SAFE_SCRIPT_REVIEW_03.md` and regenerated `docs/security/evidence/SAFE_SCRIPT_AUDIT.md`/JSON.
+
+This remains guardrail evidence only. It does not authorize migration, seed, smoke, ZATCA validation/debug, hosted execution, provider calls, Supabase/Vercel mutation, or production compliance behavior.

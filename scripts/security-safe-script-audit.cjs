@@ -26,6 +26,56 @@ const GUARD_PATTERNS = {
 };
 
 const REVIEWED_SCRIPT_FINDINGS = {
+  "file:scripts/debug-zatca-pih-chain.cjs": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate"],
+    "SECURITY-SAFE-SCRIPTS-03: PIH debug wrapper now refuses production/remote API targets and requires explicit local API approval before delegating to hash-mode validation.",
+  ),
+  "file:scripts/validate-generated-zatca-invoice.cjs": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate", "redaction"],
+    "SECURITY-SAFE-SCRIPTS-03: generated invoice validation now refuses production/remote API targets, requires explicit local API approval, and redacts credentials/tokens/error payloads.",
+  ),
+  "package-script:db:migrate": reviewedScript(
+    "owner-approval-required",
+    ["ownerApprovalRequired", "productionForbidden"],
+    "SECURITY-SAFE-SCRIPTS-03: Prisma migrate deploy remains intentionally blocked without owner approval; no wrapper or execution was added.",
+  ),
+  "package-script:db:seed": reviewedScript(
+    "owner-approval-required",
+    ["ownerApprovalRequired", "productionForbidden"],
+    "SECURITY-SAFE-SCRIPTS-03: Prisma seed remains intentionally blocked without owner approval; no seed command was executed.",
+  ),
+  "package-script:demo:seed-workflows": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate"],
+    "SECURITY-SAFE-SCRIPTS-03: demo workflow seed remains local-only by default and remote disposable targets require exact owner approval.",
+  ),
+  "package-script:smoke:accounting:banking": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate", "redaction"],
+    "SECURITY-SAFE-SCRIPTS-03: banking smoke mutates smoke data only after local/default or exact disposable remote owner approval; route labels and credential handling are redacted.",
+  ),
+  "package-script:smoke:accounting:zatca-safe": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate", "redaction"],
+    "SECURITY-SAFE-SCRIPTS-03: ZATCA-safe smoke phase mutates smoke API data only after local/default or exact disposable remote owner approval and keeps real ZATCA network disabled.",
+  ),
+  "package-script:zatca:debug-pih-chain": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate"],
+    "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits debug-zatca-pih-chain local-only approval and production refusal.",
+  ),
+  "package-script:zatca:validate-generated": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate", "redaction"],
+    "SECURITY-SAFE-SCRIPTS-03: package wrapper inherits generated invoice validation local-only approval, production refusal, and redaction.",
+  ),
+  "package-script:zatca:validate-sdk-hash-mode": reviewedScript(
+    "owner-approval-required",
+    ["localOnlyDefault", "productionRefusal", "approvalGate", "redaction"],
+    "SECURITY-SAFE-SCRIPTS-03: hash-mode validation now refuses production/remote API targets and requires explicit local API approval before API workflow execution.",
+  ),
   "file:scripts/check-deployed-e2e-env.cjs": reviewedScript(
     "guarded-or-dry-run",
     ["readOnlyHttp", "redaction", "noMutation"],
@@ -167,13 +217,14 @@ function buildAudit(options = {}) {
   const rows = [...scriptRows, ...packageRows].sort((a, b) => `${a.source}:${a.path}`.localeCompare(`${b.source}:${b.path}`));
   const dangerous = rows.filter((row) => row.dangerous);
   const reviewRequired = dangerous.filter((row) => row.guardStatus === "review-required");
+  const ownerApprovalRequired = dangerous.filter((row) => row.guardStatus === "owner-approval-required");
   const counts = rows.reduce((acc, row) => {
     acc[row.guardStatus] = (acc[row.guardStatus] || 0) + 1;
     return acc;
   }, {});
 
   return {
-    status: reviewRequired.length ? "REVIEW_REQUIRED" : "NO_UNGUARDED_DANGEROUS_SCRIPTS_DETECTED",
+    status: reviewRequired.length ? "REVIEW_REQUIRED" : ownerApprovalRequired.length ? "OWNER_APPROVAL_REQUIRED" : "NO_UNGUARDED_DANGEROUS_SCRIPTS_DETECTED",
     generatedBy: "scripts/security-safe-script-audit.cjs",
     deterministic: true,
     noScriptsExecuted: true,
@@ -183,6 +234,7 @@ function buildAudit(options = {}) {
     scannedEntries: rows.length,
     counts,
     dangerous,
+    ownerApprovalRequired,
     reviewRequired,
     rows,
   };
@@ -190,7 +242,7 @@ function buildAudit(options = {}) {
 
 function applyReviewedScriptFinding(row) {
   const review = REVIEWED_SCRIPT_FINDINGS[`${row.source}:${row.path}`];
-  if (!review || row.guardStatus !== "review-required") {
+  if (!review || !row.dangerous) {
     return row;
   }
   return {
