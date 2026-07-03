@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { clearSession, getAccessToken, setActiveOrganizationId } from "@/lib/api";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -14,6 +15,7 @@ interface AccountMenuContentProps {
 export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
   const router = useRouter();
   const { activeMembership, can, error, loading, user } = usePermissions();
+  const { t } = useAppLocale();
   const organizations = useMemo(() => user?.memberships.map((membership) => membership.organization) ?? [], [user]);
   const activeId = activeMembership?.organization.id ?? "";
 
@@ -23,13 +25,13 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
   );
 
   if (loading) {
-    return <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-steel">Loading account...</div>;
+    return <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-steel">{t("account.loading")}</div>;
   }
 
   if (!getAccessToken()) {
     return (
       <Link href="/login" onClick={onAction} className="ledger-focus block rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        Log in
+        {t("account.login")}
       </Link>
     );
   }
@@ -41,7 +43,7 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
   if (organizations.length === 0) {
     return (
       <Link href="/organization/setup" onClick={onAction} className="ledger-focus block rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        Create organization
+        {t("account.createOrganization")}
       </Link>
     );
   }
@@ -57,7 +59,7 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
         </div>
       </div>
       <label className="block text-xs font-semibold uppercase tracking-wide text-steel">
-        <span>Active organization</span>
+        <span>{t("account.activeOrganization")}</span>
         <select
           value={activeId}
           onChange={(event) => {
@@ -78,7 +80,7 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
           onClick={onAction}
           className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
-          Organization settings
+          {t("account.organizationSettings")}
         </Link>
         {can(PERMISSIONS.users.view) ? (
           <Link
@@ -86,7 +88,7 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
             onClick={onAction}
             className="ledger-focus rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Users and roles
+            {t("account.usersAndRoles")}
           </Link>
         ) : null}
       </div>
@@ -97,9 +99,9 @@ export function AccountMenuContent({ onAction }: AccountMenuContentProps) {
           onAction?.();
           router.replace("/login");
         }}
-        className="ledger-focus w-full rounded-md border border-line px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="ledger-focus w-full rounded-md border border-line px-3 py-2 text-start text-sm font-medium text-slate-700 hover:bg-slate-50"
       >
-        Sign out
+        {t("account.signOut")}
       </button>
     </div>
   );

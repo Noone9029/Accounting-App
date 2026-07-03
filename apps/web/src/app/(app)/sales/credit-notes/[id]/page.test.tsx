@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import CreditNoteDetailPage from "./page";
 import type { CreditNote } from "@/lib/types";
 
@@ -22,7 +23,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "credit-1" }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -72,6 +73,40 @@ describe("CreditNoteDetailPage UAE readiness", () => {
     expect(screen.getByText(/No network, no ASP submission, no FTA reporting/i)).toBeInTheDocument();
     expect(screen.queryByText(/FTA certified|Peppol certified|official provider|accredited ASP/i)).not.toBeInTheDocument();
   });
+
+  it("renders Arabic credit note detail copy without changing record routes", async () => {
+    mockAllowedPermissions = new Set(["creditNotes.create", "creditNotes.finalize", "creditNotes.void", "compliance.view"]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/credit-notes/credit-1") {
+        return Promise.resolve(creditNoteFixture({ unappliedAmount: "25.0000", lines: [creditNoteLineFixture()], allocations: [creditNoteAllocationFixture()] }));
+      }
+      if (path === "/compliance/credit-notes/credit-1/readiness") {
+        return Promise.resolve(uaeReadinessFixture());
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([{ id: "invoice-2", invoiceNumber: "INV-002", customerId: "customer-1", issueDate: "2026-06-02T00:00:00.000Z", dueDate: "2026-06-30T00:00:00.000Z", currency: "AED", total: "210.0000", balanceDue: "100.0000", status: "FINALIZED" }]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CreditNoteDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "CN-001" })).toBeInTheDocument();
+    expect(screen.getByText("تفاصيل الإشعار الدائن، وترحيل العكس، وتنزيل PDF.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "مساحة العميل" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByRole("link", { name: "رد الرصيد الدائن" })).toHaveAttribute("href", "/sales/customer-refunds/new?customerId=customer-1&sourceType=CREDIT_NOTE&sourceCreditNoteId=credit-1");
+    expect(screen.getByRole("button", { name: "تنزيل PDF الإشعار الدائن" })).toBeInTheDocument();
+    expect(screen.getByText("تخصيصات الرصيد الدائن")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "عرض الفاتورة" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByText("تطبيق الرصيد الدائن")).toBeInTheDocument();
+    expect(await screen.findByText(/الرصيد الدائن المتاح/)).toBeInTheDocument();
+    expect(screen.getByText("XML الإشعار الدائن لزاتكا والتوقيع وتضمين PDF/A-3 والتخليص/الإبلاغ غير منفذة عمدا في هذا الإصدار الأولي.")).toBeInTheDocument();
+    expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
+  });
 });
 
 function creditNoteFixture(overrides: Partial<CreditNote> = {}): CreditNote {
@@ -104,6 +139,45 @@ function creditNoteFixture(overrides: Partial<CreditNote> = {}): CreditNote {
     lines: [],
     allocations: [],
     ...overrides,
+  };
+}
+
+function creditNoteLineFixture() {
+  return {
+    id: "line-1",
+    organizationId: "org-1",
+    creditNoteId: "credit-1",
+    itemId: "item-1",
+    description: "Returned service",
+    accountId: "revenue-1",
+    quantity: "1.0000",
+    unitPrice: "100.0000",
+    discountRate: "0.0000",
+    taxRateId: "tax-1",
+    lineGrossAmount: "100.0000",
+    discountAmount: "0.0000",
+    taxableAmount: "100.0000",
+    taxAmount: "5.0000",
+    lineTotal: "105.0000",
+    sortOrder: 0,
+    item: null,
+    account: { id: "revenue-1", code: "4010", name: "Sales", type: "REVENUE" as const, allowPosting: true, isActive: true },
+  };
+}
+
+function creditNoteAllocationFixture() {
+  return {
+    id: "allocation-1",
+    organizationId: "org-1",
+    creditNoteId: "credit-1",
+    invoiceId: "invoice-1",
+    amountApplied: "80.0000",
+    reversedAt: null,
+    reversedById: null,
+    reversalReason: null,
+    createdAt: "2026-06-05T10:00:00.000Z",
+    updatedAt: "2026-06-05T10:00:00.000Z",
+    invoice: { id: "invoice-1", invoiceNumber: "INV-001", issueDate: "2026-06-01T00:00:00.000Z", dueDate: "2026-06-30T00:00:00.000Z", status: "FINALIZED" as const, total: "115.0000", balanceDue: "35.0000", customerId: "customer-1" },
   };
 }
 

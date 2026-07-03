@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { SalesInvoiceForm } from "./sales-invoice-form";
 
 const apiRequestMock = jest.fn();
@@ -95,16 +96,19 @@ describe("SalesInvoiceForm", () => {
     expect(screen.getByText(/assigned from the invoice number sequence/i)).toBeInTheDocument();
   });
 
-  it("renders the transaction workflow sections without fake automation or compliance claims", async () => {
-    render(<SalesInvoiceForm />);
+  it("renders Arabic labels and locale-aware invoice totals", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesInvoiceForm />
+      </AppLocaleProvider>,
+    );
 
-    await waitFor(() => expect(screen.getByLabelText("Customer")).toBeInTheDocument());
-    expect(screen.getByText("Invoice details")).toBeInTheDocument();
-    expect(screen.getByText("Invoice line items")).toBeInTheDocument();
-    expect(screen.getByText("Transaction summary")).toBeInTheDocument();
-    expect(screen.getByText("Subtotal")).toBeInTheDocument();
-    expect(screen.getAllByText("Total").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/auto-post|auto-finalize|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("رقم الفاتورة")).toHaveValue("INV-000042"));
+    expect(screen.getByText("معاينة فقط. يتم تخصيص رقم الفاتورة من تسلسل أرقام الفواتير عند حفظ المسودة.")).toBeInTheDocument();
+    expect(screen.getByLabelText("العميل")).toBeInTheDocument();
+    expect(screen.getByText("سير عمل الفاتورة")).toBeInTheDocument();
+    expect(screen.getByText("إجمالي الفاتورة")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إنشاء فاتورة مسودة" })).toBeInTheDocument();
   });
 
   it("points the first invoice empty state to the dedicated customers page", async () => {

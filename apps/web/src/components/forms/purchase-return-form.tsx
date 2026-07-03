@@ -2,20 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerFieldLabel,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerPanel,
-  LedgerSelect,
-  LedgerSummaryBand,
-  LedgerLoadingState,
-} from "@/components/ui/ledger-system";
-import { Textarea } from "@/components/ui/textarea";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { PURCHASE_RETURN_NON_EFFECT_TEXT } from "@/lib/purchase-returns";
@@ -55,6 +43,7 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
   const router = useRouter();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [bills, setBills] = useState<PurchaseBill[]>([]);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -98,7 +87,7 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
         if (!supplierId && supplierResult[0]) setSupplierId(supplierResult[0].id);
       })
       .catch((loadError) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load purchase return form data.");
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : tc("Unable to load purchase return form data."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -107,7 +96,7 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
     return () => {
       cancelled = true;
     };
-  }, [initialReturn, organizationId, supplierId]);
+  }, [initialReturn, organizationId, supplierId, tc]);
 
   const sourceOptions = useMemo(() => {
     if (sourceType === "BILL") return bills.filter((bill) => !supplierId || bill.supplierId === supplierId).map((bill) => ({ id: bill.id, label: bill.billNumber }));
@@ -172,7 +161,7 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
         : await apiRequest<PurchaseReturn>("/purchase-returns", { method: "POST", body: payload });
       router.push(`/purchases/returns/${saved.id}`);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to save purchase return.");
+      setError(saveError instanceof Error ? saveError.message : tc("Unable to save purchase return."));
     } finally {
       setSaving(false);
     }
@@ -180,125 +169,131 @@ export function PurchaseReturnForm({ initialReturn }: { initialReturn?: Purchase
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <LedgerSummaryBand tone="warning">{PURCHASE_RETURN_NON_EFFECT_TEXT}</LedgerSummaryBand>
-      {loading ? <LedgerLoadingState title="Loading purchase return form" description="Loading suppliers, source documents, matching reviews, and the next return number." /> : null}
-      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{tc(PURCHASE_RETURN_NON_EFFECT_TEXT)}</div>
+      {loading ? <StatusMessage type="loading">{tc("Loading purchase return form...")}</StatusMessage> : null}
+      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
 
-      <LedgerFormSection title="Return details" description="Choose the supplier, optional source document, and operational reason for the return.">
-        <div className="md:col-span-2 lg:col-span-1">
-          <Summary label="Return number" value={(initialReturn?.purchaseReturnNumber ?? nextNumber) || "Assigned on save"} />
-        </div>
-        <LedgerFieldLabel>
-          Supplier
-          <LedgerSelect value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
-              <option value="">Select supplier</option>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Summary label={tc("Return number")} value={(initialReturn?.purchaseReturnNumber ?? nextNumber) || tc("Assigned on save")} />
+          <label className="block text-sm font-medium text-ink">
+            {tc("Supplier")}
+            <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <option value="">{tc("Select supplier")}</option>
               {suppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.id}>
                   {supplier.displayName ?? supplier.name}
                 </option>
               ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          Return date
-          <LedgerInput type="date" value={returnDate} onChange={(event) => setReturnDate(event.target.value)} required />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          Source type
-          <LedgerSelect value={sourceType} onChange={(event) => handleSourceTypeChange(event.target.value as SourceType)}>
-              <option value="NONE">Supplier direct</option>
-              <option value="BILL">Purchase bill</option>
-              <option value="ORDER">Purchase order</option>
-              <option value="RECEIPT">Purchase receipt</option>
-              <option value="REVIEW">Matching review</option>
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          Source
-          <LedgerSelect value={sourceId} onChange={(event) => handleSourceIdChange(event.target.value)} disabled={sourceType === "NONE"}>
-              <option value="">No source selected</option>
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-ink">
+            {tc("Return date")}
+            <input type="date" value={returnDate} onChange={(event) => setReturnDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm font-medium text-ink">
+            {tc("Source type")}
+            <select value={sourceType} onChange={(event) => handleSourceTypeChange(event.target.value as SourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <option value="NONE">{tc("Supplier direct")}</option>
+              <option value="BILL">{tc("Purchase bill")}</option>
+              <option value="ORDER">{tc("Purchase order")}</option>
+              <option value="RECEIPT">{tc("Purchase receipt")}</option>
+              <option value="REVIEW">{tc("Matching review")}</option>
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-ink">
+            {tc("Source")}
+            <select value={sourceId} onChange={(event) => handleSourceIdChange(event.target.value)} disabled={sourceType === "NONE"} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50">
+              <option value="">{tc("No source selected")}</option>
               {sourceOptions.map((source) => (
                 <option key={source.id} value={source.id}>
                   {source.label}
                 </option>
               ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          Reference
-          <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          Reason
-          <LedgerInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Return reason" />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          Notes
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1" />
-        </LedgerFieldLabel>
-      </LedgerFormSection>
-
-      <LedgerPanel className="p-0">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Return lines</h2>
-            <p className="mt-1 text-sm text-steel">Source line references are optional but recommended when quantity limits can be validated.</p>
-          </div>
-          <LedgerButton type="button" onClick={() => setLines((current) => [...current, blankLine()])}>Add line</LedgerButton>
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-ink">
+            {tc("Reference")}
+            <input value={reference} onChange={(event) => setReference(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm font-medium text-ink md:col-span-3">
+            {tc("Reason")}
+            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder={tc("Return reason")} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="block text-sm font-medium text-ink md:col-span-3">
+            {tc("Notes")}
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          </label>
         </div>
-        <LedgerDataTable minWidth="980px" className="rounded-t-none border-0 shadow-none">
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+        <div className="flex items-center justify-between border-b border-slate-100 p-4">
+          <div>
+            <h2 className="text-base font-semibold text-ink">{tc("Return lines")}</h2>
+            <p className="mt-1 text-sm text-steel">{tc("Source line references are optional but recommended when quantity limits can be validated.")}</p>
+          </div>
+          <button type="button" onClick={() => setLines((current) => [...current, blankLine()])} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Add line")}
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-3 py-2">Source line</th>
-                <th className="px-3 py-2">Description</th>
-                <th className="px-3 py-2">Quantity</th>
-                <th className="px-3 py-2">Unit cost</th>
-                <th className="px-3 py-2">Reason</th>
-                <th className="px-3 py-2">Action</th>
+                <th className="px-3 py-2">{tc("Source line")}</th>
+                <th className="px-3 py-2">{tc("Description")}</th>
+                <th className="px-3 py-2">{tc("Quantity")}</th>
+                <th className="px-3 py-2">{tc("Unit cost")}</th>
+                <th className="px-3 py-2">{tc("Reason")}</th>
+                <th className="px-3 py-2">{tc("Action")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {lines.map((line, index) => (
                 <tr key={index}>
                   <td className="px-3 py-2">
-                    <LedgerSelect value={activeSourceLineId(line)} onChange={(event) => selectSourceLine(index, event.target.value)} disabled={selectedSourceLines.length === 0}>
-                      <option value="">Manual line</option>
+                    <select value={activeSourceLineId(line)} onChange={(event) => selectSourceLine(index, event.target.value)} disabled={selectedSourceLines.length === 0} className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-50">
+                      <option value="">{tc("Manual line")}</option>
                       {selectedSourceLines.map((sourceLine) => (
                         <option key={sourceLine.id} value={sourceLine.id}>
                           {sourceLine.description} ({sourceLine.quantity})
                         </option>
                       ))}
-                    </LedgerSelect>
+                    </select>
                   </td>
                   <td className="px-3 py-2">
-                    <LedgerInput value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} required />
+                    <input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} required className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm" />
                   </td>
                   <td className="px-3 py-2">
-                    <LedgerInput value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} required className="font-mono" />
+                    <input value={line.quantity} onChange={(event) => updateLine(index, { quantity: event.target.value })} required className="w-full rounded-md border border-slate-300 px-2 py-2 font-mono text-sm" />
                   </td>
                   <td className="px-3 py-2">
-                    <LedgerInput value={line.unitCost} onChange={(event) => updateLine(index, { unitCost: event.target.value })} className="font-mono" />
+                    <input value={line.unitCost} onChange={(event) => updateLine(index, { unitCost: event.target.value })} className="w-full rounded-md border border-slate-300 px-2 py-2 font-mono text-sm" />
                   </td>
                   <td className="px-3 py-2">
-                    <LedgerInput value={line.reason} onChange={(event) => updateLine(index, { reason: event.target.value })} />
+                    <input value={line.reason} onChange={(event) => updateLine(index, { reason: event.target.value })} className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm" />
                   </td>
                   <td className="px-3 py-2">
-                    <LedgerButton type="button" size="sm" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1}>
-                      Remove
-                    </LedgerButton>
+                    <button type="button" onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                      {tc("Remove")}
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
-        </LedgerDataTable>
-      </LedgerPanel>
+          </table>
+        </div>
+      </div>
 
-      <LedgerActionBar className="justify-end">
-        <LedgerButton type="button" onClick={() => router.back()}>Cancel</LedgerButton>
-        <LedgerButton type="submit" disabled={saving || !organizationId} variant="primary">
-          {saving ? "Saving..." : initialReturn ? "Save changes" : "Save draft"}
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => router.back()} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </button>
+        <button type="submit" disabled={saving || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          {saving ? tc("Saving...") : initialReturn ? tc("Save changes") : tc("Save draft")}
+        </button>
+      </div>
     </form>
   );
 }

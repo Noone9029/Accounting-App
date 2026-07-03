@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import CustomerPaymentDetailPage, { CustomerPaymentAuditStatus, CustomerPaymentReceiptArchiveState, CustomerPaymentStateDisplay, CustomerPaymentWorkflowGuidance } from "./page";
 import type { AuditLogEntry, AuditLogListResponse, CustomerPayment, CustomerPaymentReceiptData, GeneratedDocument, OpenSalesInvoice } from "@/lib/types";
 
@@ -25,6 +26,7 @@ jest.mock("next/link", () => ({
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "payment-1" }),
   useSearchParams: () => searchParams,
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -377,7 +379,8 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getByText(/100\.00/)).toBeInTheDocument();
     expect(screen.getByText("2 invoices")).toBeInTheDocument();
     expect(screen.getByText("1 active, 1 reversed")).toBeInTheDocument();
-    expect(screen.getByText("111 Cash on hand")).toBeInTheDocument();
+    expect(screen.getByText("111")).toBeInTheDocument();
+    expect(screen.getByText("Cash on hand")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "JE-001" })).toHaveAttribute("href", "/journal-entries");
     expect(screen.getByRole("link", { name: "JE-002" })).toHaveAttribute("href", "/journal-entries");
   });
@@ -435,6 +438,54 @@ describe("customer payment workflow guidance", () => {
       "href",
       "/reports/aged-receivables?returnTo=%2Fsales%2Fcustomer-payments%2Fpayment-1%3FreturnTo%3D%252Fsales%252Fcustomer-payments%253FcustomerId%253Dcustomer-1%2526returnTo%253D%25252Fcustomers%25252Fcustomer-1",
     );
+  });
+
+  it("renders Arabic payment detail panels while preserving action routes", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CustomerPaymentWorkflowGuidance
+          payment={paymentFixture()}
+          recorded
+          receiptData={customerPaymentReceiptDataFixture()}
+          actionLoading={false}
+          loadingReceiptData={false}
+          paymentDetailHref="/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments"
+          onPreviewReceiptData={jest.fn()}
+          onDownloadReceiptPdf={jest.fn()}
+        />
+        <CustomerPaymentStateDisplay payment={paymentFixture()} />
+        <CustomerPaymentReceiptArchiveState
+          documents={[generatedDocumentFixture()]}
+          loading={false}
+          error=""
+          canViewGeneratedDocuments
+        />
+        <CustomerPaymentAuditStatus
+          payment={paymentFixture()}
+          logs={[auditLogFixture()]}
+          loading={false}
+          error=""
+          canViewAuditLogs
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText(/تم تسجيل الدفعة/)).toBeInTheDocument();
+    expect(screen.getByText("ماذا حدث؟")).toBeInTheDocument();
+    expect(screen.getByText("حالة الدفعة")).toBeInTheDocument();
+    expect(screen.getByText("ملخص المحاسبة")).toBeInTheDocument();
+    expect(screen.getByText("مخرج الإيصال")).toBeInTheDocument();
+    expect(screen.getByText("حالة التدقيق")).toBeInTheDocument();
+    expect(screen.getAllByText("مرحلة").length).toBeGreaterThan(0);
+    expect(screen.getByText("رقم الدفعة")).toBeInTheDocument();
+    expect(screen.getAllByText("معاينة الإيصال").length).toBeGreaterThan(0);
+    expect(screen.getByText("تم إنشاء دفعة عميل")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "عرض الفاتورة" })).toHaveAttribute(
+      "href",
+      "/sales/invoices/invoice-1?returnTo=%2Fsales%2Fcustomer-payments%2Fpayment-1%3FreturnTo%3D%252Fsales%252Fcustomer-payments",
+    );
+    expect(screen.getByRole("link", { name: "فتح مساحة عمل العميل" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByRole("link", { name: "فتح سجلات التدقيق" })).toHaveAttribute("href", "/settings/audit-logs");
   });
 
   it("calls out unapplied customer credit without changing posting behavior", () => {

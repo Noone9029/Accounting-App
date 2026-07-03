@@ -1,45 +1,21 @@
 "use client";
 
-import { Eye, Plus, Undo2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerStatusBadge,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { customerRefundSourceTypeLabel, customerRefundStatusLabel } from "@/lib/customer-refunds";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { customerRefundSourceTypeLabel, customerRefundStatusBadgeClass, customerRefundStatusLabel } from "@/lib/customer-refunds";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerRefund } from "@/lib/types";
-
-function refundStatusTone(status: CustomerRefund["status"]): LedgerStatusTone {
-  switch (status) {
-    case "DRAFT":
-      return "draft";
-    case "POSTED":
-      return "success";
-    case "VOIDED":
-      return "danger";
-    default:
-      return "neutral";
-  }
-}
 
 export default function CustomerRefundsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [refunds, setRefunds] = useState<CustomerRefund[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -66,7 +42,7 @@ export default function CustomerRefundsPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load customer refunds.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load customer refunds."));
         }
       })
       .finally(() => {
@@ -78,10 +54,10 @@ export default function CustomerRefundsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, reloadToken]);
+  }, [organizationId, reloadToken, tc]);
 
   async function voidRefund(refund: CustomerRefund) {
-    if (!window.confirm(`Void refund ${refund.refundNumber}?`)) {
+    if (!window.confirm(tc("Void refund {number}?", { number: refund.refundNumber }))) {
       return;
     }
 
@@ -91,89 +67,84 @@ export default function CustomerRefundsPage() {
 
     try {
       const voided = await apiRequest<CustomerRefund>(`/customer-refunds/${refund.id}/void`, { method: "POST" });
-      setSuccess(`Voided refund ${voided.refundNumber}.`);
+      setSuccess(tc("Voided refund {number}.", { number: voided.refundNumber }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to void refund.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to void refund."));
     } finally {
       setActionId("");
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Customer refunds"
-        description="Manual refunds of unapplied customer payments and credit notes."
-        actions={
-          canCreateRefund ? (
-            <LedgerButton href="/sales/customer-refunds/new" variant="primary" icon={Plus}>
-              Record refund
-            </LedgerButton>
-          ) : null
-        }
-      />
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Customer refunds")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Manual refunds of unapplied customer payments and credit notes.")}</p>
+        </div>
+        {canCreateRefund ? (
+          <Link href="/sales/customer-refunds/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc("Record refund")}
+          </Link>
+        ) : null}
+      </div>
 
-      <LedgerPageBody>
-        <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load customer refunds.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading customer refunds...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load customer refunds.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading customer refunds...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        {!loading && organizationId && refunds.length === 0 ? (
-          <LedgerEmptyState
-            title="No customer refunds found"
-            description="Record a manual refund when unapplied customer payment or credit-note credit is returned."
-            action={canCreateRefund ? <LedgerButton href="/sales/customer-refunds/new" variant="primary" icon={Plus}>Record refund</LedgerButton> : null}
-          />
-        ) : null}
-        </div>
+        {!loading && organizationId && refunds.length === 0 ? <StatusMessage type="empty">{tc("No customer refunds found.")}</StatusMessage> : null}
+      </div>
 
-        {refunds.length > 0 ? (
-          <LedgerDataTable minWidth="1120px">
+      {refunds.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1120px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Source</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Paid from</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Number")}</th>
+                <th className="px-4 py-3">{tc("Customer")}</th>
+                <th className="px-4 py-3">{tc("Date")}</th>
+                <th className="px-4 py-3">{tc("Source")}</th>
+                <th className="px-4 py-3">{tc("Amount")}</th>
+                <th className="px-4 py-3">{tc("Paid from")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {refunds.map((refund) => (
                 <tr key={refund.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{refund.refundNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{refund.refundNumber}</bdi></td>
                   <td className="px-4 py-3 font-medium text-ink">{refund.customer?.displayName ?? refund.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(refund.refundDate, "-")}</LedgerDate></td>
-                  <td className="px-4 py-3 text-steel">{customerRefundSourceTypeLabel(refund.sourceType)}</td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(refund.amountRefunded, refund.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3 text-steel">{refund.account ? `${refund.account.code} ${refund.account.name}` : "-"}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(refund.refundDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{tc(customerRefundSourceTypeLabel(refund.sourceType))}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(refund.amountRefunded, refund.currency, locale)}</td>
+                  <td className="px-4 py-3 text-steel">{refund.account ? <bdi dir="ltr">{`${refund.account.code} ${refund.account.name}`}</bdi> : "-"}</td>
                   <td className="px-4 py-3">
-                    <LedgerStatusBadge tone={refundStatusTone(refund.status)}>{customerRefundStatusLabel(refund.status)}</LedgerStatusBadge>
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerRefundStatusBadgeClass(refund.status)}`}>
+                      {tc(customerRefundStatusLabel(refund.status))}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <LedgerButton href={`/sales/customer-refunds/${refund.id}`} size="sm" icon={Eye}>
-                        View
-                      </LedgerButton>
+                      <Link href={`/sales/customer-refunds/${refund.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("View")}
+                      </Link>
                       {refund.status === "POSTED" && canVoidRefund ? (
-                        <LedgerButton type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} size="sm" variant="danger" icon={Undo2}>
-                          Void
-                        </LedgerButton>
+                        <button type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Void")}
+                        </button>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
 }

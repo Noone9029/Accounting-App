@@ -1,33 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerInput,
-  LedgerMetricGrid,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatCard,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
-  bankTransactionSourceLabel,
   bankAccountStatusLabel,
   bankAccountTypeLabel,
   canArchiveBankAccount,
@@ -35,10 +16,9 @@ import {
   canReactivateBankAccount,
   hasPostedOpeningBalance,
 } from "@/lib/bank-accounts";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankAccountSummary, BankAccountTransactionsResponse } from "@/lib/types";
+import type { BankAccountSummary, BankAccountTransaction, BankAccountTransactionsResponse } from "@/lib/types";
 
 function todayInputValue(offsetDays = 0): string {
   const date = new Date();
@@ -48,6 +28,7 @@ function todayInputValue(offsetDays = 0): string {
 
 export default function BankAccountDetailPage() {
   const params = useParams<{ id: string }>();
+  const { locale, tc } = useAppLocale();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [profile, setProfile] = useState<BankAccountSummary | null>(null);
@@ -98,7 +79,7 @@ export default function BankAccountDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load bank account profile.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load bank account profile."));
         }
       })
       .finally(() => {
@@ -129,7 +110,7 @@ export default function BankAccountDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setTransactionError(loadError instanceof Error ? loadError.message : "Unable to load bank account transactions.");
+          setTransactionError(loadError instanceof Error ? loadError.message : tc("Unable to load bank account transactions."));
         }
       })
       .finally(() => {
@@ -152,10 +133,10 @@ export default function BankAccountDetailPage() {
     setSuccess("");
     try {
       const updated = await apiRequest<BankAccountSummary>(`/bank-accounts/${profile.id}/${action}`, { method: "POST" });
-      setSuccess(`${updated.displayName} is now ${bankAccountStatusLabel(updated.status).toLowerCase()}.`);
+      setSuccess(tc("{name} is now {status}.", { name: updated.displayName, status: tc(bankAccountStatusLabel(updated.status)).toLowerCase() }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to update bank account status.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to update bank account status."));
     } finally {
       setActionId("");
     }
@@ -171,48 +152,49 @@ export default function BankAccountDetailPage() {
     try {
       const updated = await apiRequest<BankAccountSummary>(`/bank-accounts/${profile.id}/post-opening-balance`, { method: "POST" });
       setProfile(updated);
-      setSuccess(`Opening balance for ${updated.displayName} has been posted.`);
+      setSuccess(tc("Opening balance for {name} has been posted.", { name: updated.displayName }));
       setReloadToken((current) => current + 1);
     } catch (postError) {
-      setError(postError instanceof Error ? postError.message : "Unable to post opening balance.");
+      setError(postError instanceof Error ? postError.message : tc("Unable to post opening balance."));
     } finally {
       setPostingOpeningBalance(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Banking / Account profile"
-        title={profile?.displayName ?? "Bank account"}
-        description="Ledger balance, profile metadata, and posted transaction activity for the linked asset account."
-        badge={profile ? <BankAccountStatusPill status={profile.status} /> : null}
-        actions={
-          <LedgerActionBar className="sm:justify-end">
-            <LedgerButton href="/bank-accounts">Back</LedgerButton>
-            {profile && canManage ? <LedgerButton href={`/bank-accounts/${profile.id}/edit`}>Edit</LedgerButton> : null}
-          </LedgerActionBar>
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{profile?.displayName ?? tc("Bank account")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Ledger balance and posted transaction activity.")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/bank-accounts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+          {profile && canManage ? (
+            <Link href={`/bank-accounts/${profile.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
+          ) : null}
+        </div>
+      </div>
 
-      <LedgerSummaryBand tone="info">
-        This account view is manual-review banking. LedgerByte does not connect to live bank feeds, call external banking APIs, move money, or automatically reconcile statement rows from this page.
-      </LedgerSummaryBand>
-
-      <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank account details.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading bank account...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load bank account details.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading bank account...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
-        {profile ? (
+      {profile ? (
         <>
-          <LedgerMetricGrid>
-            <LedgerStatCard label="Ledger balance" value={<LedgerMoney>{formatMoneyAmount(profile.ledgerBalance, profile.currency)}</LedgerMoney>} detail="Posted journal balance" />
-            <LedgerStatCard label="Transactions" value={String(profile.transactionCount)} detail="Posted journal lines" />
-            <LedgerStatCard label="Type" value={bankAccountTypeLabel(profile.type)} detail={profile.currency} />
-            <LedgerStatCard label="Status" value={<BankAccountStatusPill status={profile.status} />} detail="Profile availability" />
-          </LedgerMetricGrid>
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <SummaryCard label={tc("Ledger balance")} value={formatAppMoney(profile.ledgerBalance, profile.currency, locale)} />
+            <SummaryCard label={tc("Transactions")} value={String(profile.transactionCount)} />
+            <SummaryCard label={tc("Type")} value={tc(bankAccountTypeLabel(profile.type))} />
+            <SummaryCard label={tc("Status")} value={tc(bankAccountStatusLabel(profile.status))} />
+          </div>
 
           <BankAccountWorkflowGuidance
             profile={profile}
@@ -222,139 +204,163 @@ export default function BankAccountDetailPage() {
             canViewReconciliations={canViewReconciliations}
           />
 
-          <LedgerSection title="Profile and posting setup" description="Chart-account linkage, opening-balance lock state, and manual banking destinations.">
+          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <Detail label="Chart account" value={`${profile.account.code} ${profile.account.name}`} />
-              <Detail label="Currency" value={profile.currency} />
-              <Detail label="Bank name" value={profile.bankName ?? "-"} />
-              <Detail label="Latest transaction" value={formatOptionalDate(profile.latestTransactionDate, "-")} />
-              <Detail label="Masked account" value={profile.accountNumberMasked ?? "-"} />
-              <Detail label="Masked IBAN" value={profile.ibanMasked ?? "-"} />
-              <Detail label="Opening balance" value={formatMoneyAmount(profile.openingBalance, profile.currency)} />
-              <Detail label="Opening balance date" value={formatOptionalDate(profile.openingBalanceDate, "-")} />
-              <Detail label="Opening posted" value={profile.openingBalancePostedAt ? formatOptionalDate(profile.openingBalancePostedAt, "-") : "-"} />
-              <Detail label="Opening journal" value={profile.openingBalanceJournalEntry?.entryNumber ?? "-"} />
+              <Detail label={tc("Chart account")} value={<><bdi dir="ltr">{profile.account.code}</bdi> {profile.account.name}</>} />
+              <Detail label={tc("Currency")} value={<bdi dir="ltr">{profile.currency}</bdi>} />
+              <Detail label={tc("Bank name")} value={profile.bankName ?? "-"} />
+              <Detail label={tc("Latest transaction")} value={formatAppDate(profile.latestTransactionDate, locale, "-")} />
+              <Detail label={tc("Masked account")} value={profile.accountNumberMasked ? <bdi dir="ltr">{profile.accountNumberMasked}</bdi> : "-"} />
+              <Detail label={tc("Masked IBAN")} value={profile.ibanMasked ? <bdi dir="ltr">{profile.ibanMasked}</bdi> : "-"} />
+              <Detail label={tc("Opening balance")} value={formatAppMoney(profile.openingBalance, profile.currency, locale)} />
+              <Detail label={tc("Opening balance date")} value={formatAppDate(profile.openingBalanceDate, locale, "-")} />
+              <Detail label={tc("Opening posted")} value={profile.openingBalancePostedAt ? formatAppDate(profile.openingBalancePostedAt, locale, "-") : "-"} />
+              <Detail label={tc("Opening journal")} value={profile.openingBalanceJournalEntry?.entryNumber ? <bdi dir="ltr">{profile.openingBalanceJournalEntry.entryNumber}</bdi> : "-"} />
             </div>
             {profile.notes ? <p className="mt-4 text-sm text-steel">{profile.notes}</p> : null}
-            <LedgerSummaryBand tone="warning">
-              Opening balances create posted accounting journals. Once posted, the opening balance amount and date are locked.
-            </LedgerSummaryBand>
-            <LedgerActionBar className="mt-4">
-              <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>General ledger</LedgerButton>
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {tc("Opening balances create posted accounting journals. Once posted, the opening balance amount and date are locked.")}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("General ledger")}
+              </Link>
               {canImportStatements ? (
-                <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement</LedgerButton>
+                <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  {tc("Import statement")}
+                </Link>
               ) : null}
               {canViewStatements ? (
                 <>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/statement-transactions`}>Statement transactions</LedgerButton>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/rules`}>Bank rules</LedgerButton>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/deposits`}>Deposit batches</LedgerButton>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/card-settlements`}>Card settlements</LedgerButton>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/cheques`}>Cheques</LedgerButton>
-                  <LedgerButton href={`/bank-accounts/${profile.id}/reconciliation`}>Reconciliation</LedgerButton>
+                  <Link href={`/bank-accounts/${profile.id}/statement-transactions`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Statement transactions")}
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Bank rules")}
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Deposit batches")}
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/card-settlements`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Card settlements")}
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Cheques")}
+                  </Link>
+                  <Link href={`/bank-accounts/${profile.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Reconciliation")}
+                  </Link>
                 </>
               ) : null}
               {canViewReconciliations ? (
-                <LedgerButton href={`/bank-accounts/${profile.id}/reconciliations`}>Reconciliations</LedgerButton>
+                <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  {tc("Reconciliations")}
+                </Link>
               ) : null}
               {canPostOpening && canPostOpeningBalance(profile) ? (
-                <LedgerButton type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} variant="primary">
-                  {postingOpeningBalance ? "Posting..." : "Post opening balance"}
-                </LedgerButton>
+                <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {postingOpeningBalance ? tc("Posting...") : tc("Post opening balance")}
+                </button>
               ) : null}
               {hasPostedOpeningBalance(profile) ? (
-                <LedgerStatusBadge tone="success">Opening balance posted</LedgerStatusBadge>
+                <span className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{tc("Opening balance posted")}</span>
               ) : null}
               {canManage && canArchiveBankAccount(profile.status) ? (
-                <LedgerButton type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("archive")}>
-                  Archive
-                </LedgerButton>
+                <button type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("archive")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Archive")}
+                </button>
               ) : null}
               {canManage && canReactivateBankAccount(profile.status) ? (
-                <LedgerButton type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("reactivate")} variant="primary">
-                  Reactivate
-                </LedgerButton>
+                <button type="button" disabled={Boolean(actionId)} onClick={() => void changeStatus("reactivate")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Reactivate")}
+                </button>
               ) : null}
-            </LedgerActionBar>
-          </LedgerSection>
+            </div>
+          </div>
 
-          <LedgerSection
-            title="Transactions"
-            description={
-              <>
-                Posted journal lines for the linked asset account.
-                <span className="mt-1 block text-xs leading-5">
-                  Debits increase this bank asset balance, credits reduce it, and the running balance follows posted LedgerByte journals. Imported statement rows are matched here only after you explicitly review or categorize them.
-                </span>
-              </>
-            }
-            action={
-              canViewTransactions ? (
+          <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-ink">{tc("Transactions")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Posted journal lines for the linked asset account.")}</p>
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
+                  {tc("Debits increase this bank asset balance, credits reduce it, and the running balance follows posted LedgerByte journals. Imported statement rows are matched here only after you explicitly review or categorize them.")}
+                </p>
+              </div>
+              {canViewTransactions ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <LedgerFieldLabel>
-                    From
-                    <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-                  </LedgerFieldLabel>
-                  <LedgerFieldLabel>
-                    To
-                    <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-                  </LedgerFieldLabel>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("From")}</span>
+                    <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("To")}</span>
+                    <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
                 </div>
-              ) : null
-            }
-          >
-            {!canViewTransactions ? <StatusMessage type="info">You can view the account profile, but transaction visibility requires bank transaction permission.</StatusMessage> : null}
-            {loadingTransactions ? <StatusMessage type="loading">Loading transactions...</StatusMessage> : null}
+              ) : null}
+            </div>
+
+            {!canViewTransactions ? <StatusMessage type="info">{tc("You can view the account profile, but transaction visibility requires bank transaction permission.")}</StatusMessage> : null}
+            {loadingTransactions ? <StatusMessage type="loading">{tc("Loading transactions...")}</StatusMessage> : null}
             {transactionError ? <StatusMessage type="error">{transactionError}</StatusMessage> : null}
             {canViewTransactions && transactions && transactions.transactions.length === 0 ? (
-              <LedgerEmptyState
-                title="No posted transactions found"
-                description="No linked journal lines were found for this date range. Statement imports remain manual review records until matched, categorized, or ignored."
-                action={
-                  <LedgerActionBar className="justify-center">
-                    {canImportStatements ? <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement rows</LedgerButton> : null}
-                    {canCreateTransfers ? <LedgerButton href="/bank-transfers/new">Create transfer</LedgerButton> : null}
-                    <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>Open ledger</LedgerButton>
-                  </LedgerActionBar>
-                }
-              />
+              <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+                <StatusMessage type="empty">{tc("No posted transactions found for this date range.")}</StatusMessage>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {canImportStatements ? (
+                    <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                      {tc("Import statement rows")}
+                    </Link>
+                  ) : null}
+                  {canCreateTransfers ? (
+                    <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                      {tc("Create transfer")}
+                    </Link>
+                  ) : null}
+                  <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-white">
+                    {tc("Open ledger")}
+                  </Link>
+                </div>
+              </div>
             ) : null}
 
             {canViewTransactions && transactions && transactions.transactions.length > 0 ? (
-              <LedgerDataTable minWidth="980px" className="mt-4 shadow-none">
-                  <thead className="ledger-table-header">
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[980px] text-start text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Entry</th>
-                      <th className="px-4 py-3">Description</th>
-                      <th className="px-4 py-3">Reference</th>
-                      <th className="px-4 py-3">Source</th>
-                      <th className="px-4 py-3 text-right">Debit</th>
-                      <th className="px-4 py-3 text-right">Credit</th>
-                      <th className="px-4 py-3 text-right">Balance</th>
+                      <th className="px-4 py-3">{tc("Date")}</th>
+                      <th className="px-4 py-3">{tc("Entry")}</th>
+                      <th className="px-4 py-3">{tc("Description")}</th>
+                      <th className="px-4 py-3">{tc("Reference")}</th>
+                      <th className="px-4 py-3">{tc("Source")}</th>
+                      <th className="px-4 py-3 text-end">{tc("Debit")}</th>
+                      <th className="px-4 py-3 text-end">{tc("Credit")}</th>
+                      <th className="px-4 py-3 text-end">{tc("Balance")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {transactions.transactions.map((transaction) => (
                       <tr key={transaction.id}>
-                        <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(transaction.date, "-")}</LedgerDate></td>
-                        <td className="px-4 py-3 font-mono text-xs">{transaction.entryNumber}</td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(transaction.date, locale, "-")}</td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{transaction.entryNumber}</bdi></td>
                         <td className="px-4 py-3 text-ink">{transaction.description}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{transaction.reference ?? "-"}</td>
-                        <td className="px-4 py-3 text-steel">{bankTransactionSourceLabel(transaction)}</td>
-                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.debit, profile.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.credit, profile.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3 text-right"><LedgerMoney>{formatMoneyAmount(transaction.runningBalance, profile.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 font-mono text-xs">{transaction.reference ? <bdi dir="ltr">{transaction.reference}</bdi> : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{bankTransactionSourceContent(transaction, tc)}</td>
+                        <td className="px-4 py-3 text-end font-mono text-xs">{formatAppMoney(transaction.debit, profile.currency, locale)}</td>
+                        <td className="px-4 py-3 text-end font-mono text-xs">{formatAppMoney(transaction.credit, profile.currency, locale)}</td>
+                        <td className="px-4 py-3 text-end font-mono text-xs">{formatAppMoney(transaction.runningBalance, profile.currency, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : null}
-          </LedgerSection>
+          </div>
         </>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -371,72 +377,127 @@ export function BankAccountWorkflowGuidance({
   canViewStatements: boolean;
   canViewReconciliations: boolean;
 }) {
+  const { tc } = useAppLocale();
+
   return (
-    <LedgerPanel>
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
-          <h2 className="text-base font-semibold text-ink">How to read this bank account</h2>
+          <h2 className="text-base font-semibold text-ink">{tc("How to read this bank account")}</h2>
           <p className="mt-2 text-sm leading-6 text-steel">
-            The balance comes from posted LedgerByte journals for the linked asset account. Transfers, payments, refunds, cash expenses, and opening-balance journals move this balance. Statement imports are manual review records until you match, categorize, ignore, or reconcile them.
+            {tc("The balance comes from posted LedgerByte journals for the linked asset account. Transfers, payments, refunds, cash expenses, and opening-balance journals move this balance. Statement imports are manual review records until you match, categorize, ignore, or reconcile them.")}
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-steel md:grid-cols-3">
             <p>
-              <span className="font-medium text-ink">Debits</span> increase the bank asset balance.
+              <span className="font-medium text-ink">{tc("Debits")}</span> {tc("increase the bank asset balance.")}
             </p>
             <p>
-              <span className="font-medium text-ink">Credits</span> reduce the bank asset balance.
+              <span className="font-medium text-ink">{tc("Credits")}</span> {tc("reduce the bank asset balance.")}
             </p>
             <p>
-              <span className="font-medium text-ink">Locked periods</span> come from closed reconciliations.
+              <span className="font-medium text-ink">{tc("Locked periods")}</span> {tc("come from closed reconciliations.")}
             </p>
           </div>
           <p className="mt-3 text-xs leading-5 text-steel">
-            This is manual statement import and matching. LedgerByte is not connected to live bank feeds or external banking APIs.
+            {tc("This is manual statement import and matching. LedgerByte is not connected to live bank feeds or external banking APIs.")}
           </p>
         </div>
         <div className="min-w-full lg:min-w-[260px]">
-          <p className="text-xs font-medium uppercase tracking-wide text-steel">What to do next</p>
-          <LedgerActionBar className="mt-2 lg:flex-col lg:items-stretch">
+          <p className="text-xs font-medium uppercase tracking-wide text-steel">{tc("What to do next")}</p>
+          <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
             {canImportStatements ? (
-              <LedgerButton href={`/bank-accounts/${profile.id}/statement-imports`}>Import statement</LedgerButton>
+              <Link href={`/bank-accounts/${profile.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Import statement")}
+              </Link>
             ) : null}
             {canCreateTransfers ? (
-              <LedgerButton href="/bank-transfers/new">Create transfer</LedgerButton>
+              <Link href="/bank-transfers/new" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Create transfer")}
+              </Link>
             ) : null}
             {canViewStatements ? (
-              <LedgerButton href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
+              <Link href={`/bank-accounts/${profile.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Review unmatched rows")}
+              </Link>
             ) : null}
             {canViewStatements ? (
-              <LedgerButton href={`/bank-accounts/${profile.id}/deposits`}>Deposit batches</LedgerButton>
+              <Link href={`/bank-accounts/${profile.id}/deposits`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Deposit batches")}
+              </Link>
             ) : null}
             {canViewStatements ? (
-              <LedgerButton href={`/bank-accounts/${profile.id}/cheques`}>Cheques</LedgerButton>
+              <Link href={`/bank-accounts/${profile.id}/cheques`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Cheques")}
+              </Link>
             ) : null}
-            <LedgerButton href={`/reports/general-ledger?accountId=${profile.accountId}`}>View bank ledger</LedgerButton>
+            <Link href={`/reports/general-ledger?accountId=${profile.accountId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("View bank ledger")}
+            </Link>
             {canViewReconciliations ? (
-              <LedgerButton href={`/bank-accounts/${profile.id}/reconciliations`}>Reconciliation history</LedgerButton>
+              <Link href={`/bank-accounts/${profile.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Reconciliation history")}
+              </Link>
             ) : null}
-            <LedgerButton href="/dashboard">Dashboard</LedgerButton>
-          </LedgerActionBar>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Dashboard")}
+            </Link>
+          </div>
         </div>
       </div>
-    </LedgerPanel>
+    </div>
   );
 }
 
-function BankAccountStatusPill({ status }: Readonly<{ status: BankAccountSummary["status"] }>) {
-  return <LedgerStatusBadge tone={bankAccountStatusTone(status)}>{bankAccountStatusLabel(status)}</LedgerStatusBadge>;
+function SummaryCard({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
 }
 
-function bankAccountStatusTone(status: BankAccountSummary["status"]): LedgerStatusTone {
-  return status === "ACTIVE" ? "success" : "neutral";
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
       <p className="mt-1 text-sm text-ink">{value}</p>
     </div>
   );
+}
+
+function bankTransactionSourceContent(
+  transaction: Pick<BankAccountTransaction, "sourceType" | "sourceNumber">,
+  tc: ReturnType<typeof useAppLocale>["tc"],
+) {
+  const sourceNumber = transaction.sourceNumber ? <><span> </span><bdi dir="ltr">{transaction.sourceNumber}</bdi></> : null;
+  return (
+    <>
+      {tc(bankTransactionSourceBaseLabel(transaction.sourceType))}
+      {sourceNumber}
+    </>
+  );
+}
+
+function bankTransactionSourceBaseLabel(sourceType: BankAccountTransaction["sourceType"]): string {
+  switch (sourceType) {
+    case "BANK_TRANSFER":
+      return "Bank transfer";
+    case "VOID_BANK_TRANSFER":
+      return "Void bank transfer";
+    case "BANK_ACCOUNT_OPENING_BALANCE":
+      return "Opening balance";
+    case "CustomerPayment":
+      return "Customer payment";
+    case "SupplierPayment":
+      return "Supplier payment";
+    case "CashExpense":
+      return "Cash expense";
+    case "CustomerRefund":
+      return "Customer refund";
+    case "SupplierRefund":
+      return "Supplier refund";
+    default:
+      return sourceType.replace(/([a-z])([A-Z])/g, "$1 $2");
+  }
 }

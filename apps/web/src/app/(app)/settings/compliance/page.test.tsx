@@ -1,10 +1,12 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import ComplianceSettingsPage from "./page";
 
 const getComplianceReadinessMock = jest.fn();
 const getOrganizationMock = jest.fn();
 const updateOrganizationMock = jest.fn();
+const originalLedgerByteMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
 
 jest.mock("@/hooks/use-active-organization", () => ({
   useActiveOrganizationId: () => "org-1",
@@ -16,6 +18,10 @@ jest.mock("@/components/permissions/permission-provider", () => ({
   }),
 }));
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
+
 jest.mock("@/lib/compliance", () => ({
   complianceStatusLabel: (status: string) => status.replace(/_/g, " "),
   getComplianceReadiness: () => getComplianceReadinessMock(),
@@ -24,8 +30,6 @@ jest.mock("@/lib/compliance", () => ({
 }));
 
 describe("ComplianceSettingsPage", () => {
-  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
-
   beforeEach(() => {
     process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "UAE";
     getComplianceReadinessMock.mockReset();
@@ -76,19 +80,12 @@ describe("ComplianceSettingsPage", () => {
     });
   });
 
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
-  });
-
-  it("renders neutral generic readiness without loading UAE details by default", () => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "GENERIC";
-
-    render(<ComplianceSettingsPage />);
-
-    expect(screen.getAllByRole("heading", { name: "Compliance readiness" }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Country-specific compliance modules are hidden/i)).toBeInTheDocument();
-    expect(screen.queryByText(/UAE eInvoicing readiness fields/i)).not.toBeInTheDocument();
-    expect(getComplianceReadinessMock).not.toHaveBeenCalled();
+  afterAll(() => {
+    if (originalLedgerByteMarket === undefined) {
+      delete process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+    } else {
+      process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalLedgerByteMarket;
+    }
   });
 
   it("renders controlled-beta UAE readiness and editable organization fields without accreditation claims", async () => {
@@ -102,5 +99,21 @@ describe("ComplianceSettingsPage", () => {
     expect(screen.getByText(/Accredited ASP/i)).toBeInTheDocument();
     expect(screen.getByText(/not ASP accreditation/i)).toBeInTheDocument();
     expect(screen.getByText(/These do not submit to an ASP or report to the FTA/i)).toBeInTheDocument();
+  });
+
+  it("renders static UAE readiness controls in Arabic while preserving conservative claims", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <ComplianceSettingsPage />
+      </AppLocaleProvider>,
+    );
+
+    expect(await screen.findByText("حقول جاهزية الفوترة الإلكترونية الإماراتية")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "جاهزية الامتثال" })).toBeInTheDocument();
+    expect(screen.getByText(/لا يوجد ASP أو FTA أو زاتكا/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "حفظ حقول جاهزية الإمارات" })).toBeInTheDocument();
+    expect(screen.getByText("قائمة تحقق Peppol/PINT-AE الإماراتية")).toBeInTheDocument();
+    expect(screen.getByText("مطالبات يجب تجنبها")).toBeInTheDocument();
+    expect(screen.queryByText(/production compliance is enabled/i)).not.toBeInTheDocument();
   });
 });

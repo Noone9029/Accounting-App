@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import SupplierPaymentDetailPage, { SupplierPaymentWorkflowGuidance } from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { SupplierPayment } from "@/lib/types";
 
 const mockApiRequest = jest.fn();
@@ -24,6 +25,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "supplier-payment-1" }),
+  useRouter: () => ({ refresh: jest.fn() }),
   useSearchParams: () => searchParams,
 }));
 
@@ -157,6 +159,57 @@ describe("supplier payment workflow guidance", () => {
       "href",
       "/purchases/supplier-payments?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
     );
+  });
+
+  it("renders Arabic supplier payment guidance and detail labels without changing routes", async () => {
+    searchParams = new URLSearchParams("returnTo=%2Fpurchases%2Fsupplier-payments%3FsupplierId%3Dsupplier-1%26returnTo%3D%252Fsuppliers%252Fsupplier-1");
+
+    mockApiRequest.mockImplementation((path: string) => {
+      if (path === "/supplier-payments/supplier-payment-1") {
+        return Promise.resolve(paymentFixture());
+      }
+      if (path === "/supplier-payments/supplier-payment-1/receipt-data") {
+        return Promise.resolve({
+          receiptNumber: "SP-001",
+          supplier: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier", type: "SUPPLIER" },
+          paymentDate: "2026-05-21T00:00:00.000Z",
+          status: "POSTED",
+          amountPaid: "115.0000",
+          currency: "SAR",
+          allocations: [],
+          unappliedAmount: "0.0000",
+          paidThroughAccount: { id: "account-1", code: "111", name: "Cash on hand", type: "ASSET" },
+          journalEntry: { id: "je-1", entryNumber: "JE-001", status: "POSTED", totalDebit: "115.0000", totalCredit: "115.0000" },
+        });
+      }
+      if (path === "/purchase-bills/open?supplierId=supplier-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SupplierPaymentDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "SP-001" })).toBeInTheDocument();
+    expect(screen.getByText("ترحيل دفعة المورد، ومطابقة الفواتير المستلمة، وتنزيل PDF الدفعة.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "رجوع" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
+    );
+    expect(screen.getByRole("link", { name: "مساحة عمل المورد" })).toHaveAttribute("href", "/suppliers/supplier-1");
+    expect(screen.getAllByRole("button", { name: "تنزيل PDF الدفعة" }).length).toBeGreaterThan(0);
+    expect(screen.getByText("ماذا حدث؟")).toBeInTheDocument();
+    expect(screen.getByText("مطبق على الفواتير المستلمة")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "عرض الفاتورة المستلمة" })).toHaveAttribute(
+      "href",
+      "/purchases/bills/bill-1?returnTo=%2Fpurchases%2Fsupplier-payments%2Fsupplier-payment-1%3FreturnTo%3D%252Fpurchases%252Fsupplier-payments%253FsupplierId%253Dsupplier-1%2526returnTo%253D%25252Fsuppliers%25252Fsupplier-1",
+    );
+    expect(screen.getByText("معاينة بيانات الإيصال")).toBeInTheDocument();
+    expect(screen.getByText("رصيد الفاتورة المستلمة المستحق")).toBeInTheDocument();
   });
 });
 

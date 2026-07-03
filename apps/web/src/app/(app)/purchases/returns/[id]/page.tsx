@@ -2,31 +2,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  LedgerLoadingState,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { formatInventoryQuantity, inventoryValuationVariancePreviewUrl, stockMovementTypeLabel } from "@/lib/inventory";
-import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   PURCHASE_RETURN_INVENTORY_MOVEMENT_HELPER_TEXT,
@@ -42,6 +26,7 @@ import {
   purchaseReturnInventoryMovementStatusLabel,
   purchaseReturnSourceHref,
   purchaseReturnSourceLabel,
+  purchaseReturnStatusBadgeClass,
   purchaseReturnStatusLabel,
 } from "@/lib/purchase-returns";
 import type {
@@ -50,7 +35,6 @@ import type {
   PurchaseReturnInventoryMovementPreview,
   PurchaseReturnInventoryMovementPreviewLine,
   PurchaseReturnLine,
-  PurchaseReturnStatus,
 } from "@/lib/types";
 
 type ReturnAction = "submit" | "approve" | "complete" | "cancel" | "void";
@@ -59,6 +43,7 @@ export default function PurchaseReturnDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
   const { can, canAny } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [purchaseReturn, setPurchaseReturn] = useState<PurchaseReturn | null>(null);
   const [valuationVariancePreview, setValuationVariancePreview] = useState<InventoryValuationVariancePreviewResponse | null>(null);
   const [inventoryMovementPreview, setInventoryMovementPreview] = useState<PurchaseReturnInventoryMovementPreview | null>(null);
@@ -83,7 +68,7 @@ export default function PurchaseReturnDetailPage() {
         if (!cancelled) setPurchaseReturn(result);
       })
       .catch((loadError) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load purchase return.");
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : tc("Unable to load purchase return."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -92,7 +77,7 @@ export default function PurchaseReturnDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   useEffect(() => {
     if (!organizationId || !purchaseReturn?.purchaseReturnNumber || !canViewValuationVariances) {
@@ -136,7 +121,7 @@ export default function PurchaseReturnDetailPage() {
 
   async function runAction(action: ReturnAction) {
     if (!purchaseReturn) return;
-    if ((action === "void" || action === "cancel") && !window.confirm(`${action === "void" ? "Void" : "Cancel"} purchase return ${purchaseReturn.purchaseReturnNumber}?`)) {
+    if ((action === "void" || action === "cancel") && !window.confirm(tc("{action} purchase return {number}?", { action: tc(action === "void" ? "Void" : "Cancel"), number: purchaseReturn.purchaseReturnNumber }))) {
       return;
     }
     setActionLoading(true);
@@ -146,9 +131,9 @@ export default function PurchaseReturnDetailPage() {
     try {
       const updated = await apiRequest<PurchaseReturn>(`/purchase-returns/${purchaseReturn.id}/${action}`, { method: "POST" });
       setPurchaseReturn(updated);
-      setSuccess(`Purchase return ${updated.purchaseReturnNumber} ${actionLabel(action)}.`);
+      setSuccess(tc("Purchase return {number} {action}.", { number: updated.purchaseReturnNumber, action: tc(actionLabel(action)) }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `Unable to ${action} purchase return.`);
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} purchase return.", { action: tc(action) }));
     } finally {
       setActionLoading(false);
     }
@@ -156,7 +141,7 @@ export default function PurchaseReturnDetailPage() {
 
   async function postInventoryReturnMovement() {
     if (!purchaseReturn) return;
-    if (!window.confirm(`${PURCHASE_RETURN_INVENTORY_MOVEMENT_HELPER_TEXT}\n\nPost inventory return movement for ${purchaseReturn.purchaseReturnNumber}?`)) {
+    if (!window.confirm(`${tc(PURCHASE_RETURN_INVENTORY_MOVEMENT_HELPER_TEXT)}\n\n${tc("Post inventory return movement for {number}?", { number: purchaseReturn.purchaseReturnNumber })}`)) {
       return;
     }
     setMovementActionLoading(true);
@@ -166,72 +151,71 @@ export default function PurchaseReturnDetailPage() {
     try {
       const updated = await apiRequest<PurchaseReturn>(`/purchase-returns/${purchaseReturn.id}/post-inventory-return`, { method: "POST" });
       setPurchaseReturn(updated);
-      setSuccess(`Inventory return movement posted for ${updated.purchaseReturnNumber}.`);
+      setSuccess(tc("Inventory return movement posted for {number}.", { number: updated.purchaseReturnNumber }));
       if (canViewInventoryMovement) {
         const preview = await apiRequest<PurchaseReturnInventoryMovementPreview>(`/purchase-returns/${purchaseReturn.id}/inventory-return-preview`);
         setInventoryMovementPreview(preview);
       }
     } catch (postError) {
-      setError(postError instanceof Error ? postError.message : "Unable to post inventory return movement.");
+      setError(postError instanceof Error ? postError.message : tc("Unable to post inventory return movement."));
     } finally {
       setMovementActionLoading(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title={purchaseReturn?.purchaseReturnNumber ?? "Purchase return"}
-        description="Operational supplier return detail and non-posting lifecycle."
-        badge={purchaseReturn ? <PurchaseReturnStatusBadge status={purchaseReturn.status} /> : null}
-        actions={
-          <LedgerActionBar className="sm:justify-end">
-            <LedgerButton href="/purchases/returns">
-              Back
-            </LedgerButton>
-            {purchaseReturn && canEditPurchaseReturn(purchaseReturn.status) && canManage ? (
-              <LedgerButton href={`/purchases/returns/${purchaseReturn.id}/edit`}>
-                Edit
-              </LedgerButton>
-            ) : null}
-            {purchaseReturn?.supplierId ? (
-              <LedgerButton href={`/contacts/${purchaseReturn.supplierId}`}>
-                Supplier ledger
-              </LedgerButton>
-            ) : null}
-          </LedgerActionBar>
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{purchaseReturn?.purchaseReturnNumber ? <bdi dir="ltr">{purchaseReturn.purchaseReturnNumber}</bdi> : tc("Purchase return")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Operational supplier return detail and non-posting lifecycle.")}</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/purchases/returns" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+          {purchaseReturn && canEditPurchaseReturn(purchaseReturn.status) && canManage ? (
+            <Link href={`/purchases/returns/${purchaseReturn.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
+          ) : null}
+          {purchaseReturn?.supplierId ? (
+            <Link href={`/contacts/${purchaseReturn.supplierId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Supplier ledger")}
+            </Link>
+          ) : null}
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase returns.</LedgerAlert> : null}
-        {loading ? <LedgerLoadingState title="Loading purchase return" description="Fetching the return document, source links, and operational movement state." /> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load purchase returns.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading purchase return...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
       {purchaseReturn ? (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
           <PurchaseReturnWorkflowGuidance purchaseReturn={purchaseReturn} canManage={canManage} actionLoading={actionLoading} onAction={runAction} />
 
-          <LedgerPanel>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Summary label="Supplier" value={purchaseReturn.supplier?.displayName ?? purchaseReturn.supplier?.name ?? "-"} />
-              <Summary label="Status" value={purchaseReturnStatusLabel(purchaseReturn.status)} />
-              <Summary label="Return date" value={formatOptionalDate(purchaseReturn.returnDate, "-")} />
-              <Summary label="Reference" value={purchaseReturn.reference ?? "-"} />
-              <Summary label="Source" value={purchaseReturnSourceLabel(purchaseReturn)} href={purchaseReturnSourceHref(purchaseReturn) ?? undefined} />
-              <Summary label="Reason" value={purchaseReturn.reason ?? "-"} />
-              <Summary label="Approved at" value={formatOptionalDate(purchaseReturn.approvedAt, "-")} />
-              <Summary label="Completed at" value={formatOptionalDate(purchaseReturn.completedAt, "-")} />
-              <Summary label="Related debit note" value={purchaseReturn.relatedPurchaseDebitNote?.debitNoteNumber ?? "-"} href={purchaseReturn.relatedPurchaseDebitNote ? `/purchases/debit-notes/${purchaseReturn.relatedPurchaseDebitNote.id}` : undefined} />
-              <Summary label="Related supplier refund" value={purchaseReturn.relatedSupplierRefund?.refundNumber ?? "-"} href={purchaseReturn.relatedSupplierRefund ? `/purchases/supplier-refunds/${purchaseReturn.relatedSupplierRefund.id}` : undefined} />
-              <Summary label="Matching review" value={purchaseReturn.sourceMatchingReview ? purchaseReturn.sourceMatchingReview.status : "-"} href={purchaseReturn.sourceMatchingReview ? "/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW" : undefined} />
-              <Summary label="Inventory movement" value={purchaseReturnInventoryMovementStatusLabel(inventoryMovementPreview ?? purchaseReturn)} />
-              <Summary label="Movement posted at" value={formatOptionalDate(inventoryMovementPreview?.postedAt ?? purchaseReturn.inventoryReturnPostedAt ?? null, "-")} />
-              <Summary label="Notes" value={purchaseReturn.notes ?? "-"} />
+              <Summary label={tc("Supplier")} value={purchaseReturn.supplier?.displayName ?? purchaseReturn.supplier?.name ?? "-"} />
+              <Summary label={tc("Status")} value={tc(purchaseReturnStatusLabel(purchaseReturn.status))} />
+              <Summary label={tc("Return date")} value={formatAppDate(purchaseReturn.returnDate, locale, "-")} />
+              <Summary label={tc("Reference")} value={purchaseReturn.reference ? <bdi dir="ltr">{purchaseReturn.reference}</bdi> : "-"} />
+              <Summary label={tc("Source")} value={tc(purchaseReturnSourceLabel(purchaseReturn))} href={purchaseReturnSourceHref(purchaseReturn) ?? undefined} />
+              <Summary label={tc("Reason")} value={purchaseReturn.reason ?? "-"} />
+              <Summary label={tc("Approved at")} value={formatAppDate(purchaseReturn.approvedAt, locale, "-")} />
+              <Summary label={tc("Completed at")} value={formatAppDate(purchaseReturn.completedAt, locale, "-")} />
+              <Summary label={tc("Related debit note")} value={purchaseReturn.relatedPurchaseDebitNote?.debitNoteNumber ? <bdi dir="ltr">{purchaseReturn.relatedPurchaseDebitNote.debitNoteNumber}</bdi> : "-"} href={purchaseReturn.relatedPurchaseDebitNote ? `/purchases/debit-notes/${purchaseReturn.relatedPurchaseDebitNote.id}` : undefined} />
+              <Summary label={tc("Related supplier refund")} value={purchaseReturn.relatedSupplierRefund?.refundNumber ? <bdi dir="ltr">{purchaseReturn.relatedSupplierRefund.refundNumber}</bdi> : "-"} href={purchaseReturn.relatedSupplierRefund ? `/purchases/supplier-refunds/${purchaseReturn.relatedSupplierRefund.id}` : undefined} />
+              <Summary label={tc("Matching review")} value={purchaseReturn.sourceMatchingReview ? tc(purchaseReturn.sourceMatchingReview.status) : "-"} href={purchaseReturn.sourceMatchingReview ? "/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW" : undefined} />
+              <Summary label={tc("Inventory movement")} value={tc(purchaseReturnInventoryMovementStatusLabel(inventoryMovementPreview ?? purchaseReturn))} />
+              <Summary label={tc("Movement posted at")} value={formatAppDate(inventoryMovementPreview?.postedAt ?? purchaseReturn.inventoryReturnPostedAt ?? null, locale, "-")} />
+              <Summary label={tc("Notes")} value={purchaseReturn.notes ?? "-"} />
             </div>
-          </LedgerPanel>
+          </div>
 
           {canViewInventoryMovement ? (
             <PurchaseReturnInventoryMovementPanel
@@ -249,15 +233,16 @@ export default function PurchaseReturnDetailPage() {
             />
           ) : null}
 
-          <LedgerDataTable minWidth="920px">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[920px] text-start text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Quantity</th>
-                  <th className="px-4 py-3">Unit cost</th>
-                  <th className="px-4 py-3">Source line</th>
-                  <th className="px-4 py-3">Stock movement</th>
-                  <th className="px-4 py-3">Reason</th>
+                  <th className="px-4 py-3">{tc("Description")}</th>
+                  <th className="px-4 py-3">{tc("Quantity")}</th>
+                  <th className="px-4 py-3">{tc("Unit cost")}</th>
+                  <th className="px-4 py-3">{tc("Source line")}</th>
+                  <th className="px-4 py-3">{tc("Stock movement")}</th>
+                  <th className="px-4 py-3">{tc("Reason")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -265,26 +250,27 @@ export default function PurchaseReturnDetailPage() {
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3">{line.unitCost ? <LedgerMoney>{formatMoneyAmount(line.unitCost, "SAR")}</LedgerMoney> : "-"}</td>
-                    <td className="px-4 py-3 text-steel">{sourceLineLabel(line)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-steel">{line.stockMovementId ?? line.stockMovement?.id ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{line.unitCost ? formatAppMoney(line.unitCost, "SAR", locale) : "-"}</td>
+                  <td className="px-4 py-3 text-steel">{sourceLineLabel(line, tc)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-steel">{line.stockMovementId || line.stockMovement?.id ? <bdi dir="ltr">{line.stockMovementId ?? line.stockMovement?.id}</bdi> : "-"}</td>
                     <td className="px-4 py-3 text-steel">{line.reason ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
-          </LedgerDataTable>
+            </table>
+          </div>
 
-          <LedgerSection title="Accounting and inventory boundary">
-            <LedgerSummaryBand tone="warning">{PURCHASE_RETURN_NON_EFFECT_TEXT}</LedgerSummaryBand>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <h2 className="text-base font-semibold text-ink">{tc("Accounting and inventory boundary")}</h2>
+            <p className="mt-2 text-sm leading-6 text-steel">{tc(PURCHASE_RETURN_NON_EFFECT_TEXT)}</p>
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-              <p className="rounded-md bg-slate-50 p-3 text-steel">Create a purchase debit note separately if supplier credit accounting is required.</p>
-              <p className="rounded-md bg-slate-50 p-3 text-steel">Record a supplier refund separately if money is returned.</p>
+              <p className="rounded-md bg-slate-50 p-3 text-steel">{tc("Create a purchase debit note separately if supplier credit accounting is required.")}</p>
+              <p className="rounded-md bg-slate-50 p-3 text-steel">{tc("Record a supplier refund separately if money is returned.")}</p>
             </div>
-          </LedgerSection>
+          </div>
         </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -299,36 +285,38 @@ export function PurchaseReturnWorkflowGuidance({
   actionLoading: boolean;
   onAction: (action: ReturnAction) => void;
 }) {
+  const { tc } = useAppLocale();
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <LedgerPanel>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-ink">Return status</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">{outcomeDescription(purchaseReturn)}</p>
+            <h2 className="text-base font-semibold text-ink">{tc("What happened?")}</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{tc(outcomeDescription(purchaseReturn))}</p>
           </div>
-          <PurchaseReturnStatusBadge status={purchaseReturn.status} />
+          <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseReturnStatusBadgeClass(purchaseReturn.status)}`}>
+            {tc(purchaseReturnStatusLabel(purchaseReturn.status))}
+          </span>
         </div>
-        <div className="mt-4">
-          <LedgerSummaryBand tone="warning">{PURCHASE_RETURN_NON_EFFECT_TEXT}</LedgerSummaryBand>
-        </div>
-      </LedgerPanel>
-      <LedgerPanel>
-        <h2 className="text-base font-semibold text-ink">Next actions</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">{nextActionDescription(purchaseReturn)}</p>
-        <LedgerActionBar className="mt-4">
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">{tc(PURCHASE_RETURN_NON_EFFECT_TEXT)}</div>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Next actions")}</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{tc(nextActionDescription(purchaseReturn))}</p>
+        <div className="mt-4 flex flex-col gap-2">
           {canManage && canSubmitPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Submit" active={actionLoading} onClick={() => onAction("submit")} /> : null}
           {canManage && canApprovePurchaseReturn(purchaseReturn.status) ? <ActionButton label="Approve" active={actionLoading} onClick={() => onAction("approve")} /> : null}
           {canManage && canCompletePurchaseReturn(purchaseReturn.status) ? <ActionButton label="Complete" active={actionLoading} onClick={() => onAction("complete")} /> : null}
           {canManage && canCancelPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Cancel" active={actionLoading} onClick={() => onAction("cancel")} secondary /> : null}
           {canManage && canVoidPurchaseReturn(purchaseReturn.status) ? <ActionButton label="Void" active={actionLoading} onClick={() => onAction("void")} danger /> : null}
           {purchaseReturn.sourceMatchingReview ? (
-            <LedgerButton href="/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW">
-              View matching review
-            </LedgerButton>
+            <Link href="/purchases/matching?reviewStatus=NEEDS_RETURN_REVIEW" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("View matching review")}
+            </Link>
           ) : null}
-        </LedgerActionBar>
-      </LedgerPanel>
+        </div>
+      </div>
     </div>
   );
 }
@@ -344,11 +332,14 @@ export function PurchaseReturnInventoryMovementPanel({
   actionLoading: boolean;
   onPost: () => void;
 }) {
+  const { locale, tc } = useAppLocale();
+
   if (!preview) {
     return (
-      <LedgerSection title="Inventory return movement">
-        <p className="mt-2 text-sm text-steel">Inventory movement preview is unavailable for this return.</p>
-      </LedgerSection>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Inventory return movement")}</h2>
+        <p className="mt-2 text-sm text-steel">{tc("Inventory movement preview is unavailable for this return.")}</p>
+      </div>
     );
   }
 
@@ -357,28 +348,30 @@ export function PurchaseReturnInventoryMovementPanel({
   const showPostAction = canPostPurchaseReturnInventoryMovement(preview, canPost);
 
   return (
-    <LedgerPanel>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">Inventory return movement</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{preview.safeHelperText}</p>
+          <h2 className="text-base font-semibold text-ink">{tc("Inventory return movement")}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc(preview.safeHelperText)}</p>
         </div>
-        <LedgerStatusBadge tone={inventoryMovementStatusTone(preview.inventoryMovementStatus)}>{purchaseReturnInventoryMovementStatusLabel(preview)}</LedgerStatusBadge>
+        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${inventoryMovementStatusBadgeClass(preview.inventoryMovementStatus)}`}>
+          {tc(purchaseReturnInventoryMovementStatusLabel(preview))}
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Summary label="Movement status" value={purchaseReturnInventoryMovementStatusLabel(preview)} />
-        <Summary label="Posted at" value={formatOptionalDate(preview.postedAt, "-")} />
-        <Summary label="Reversal" value={reversalLabel ?? "-"} />
+        <Summary label={tc("Movement status")} value={tc(purchaseReturnInventoryMovementStatusLabel(preview))} />
+        <Summary label={tc("Posted at")} value={formatAppDate(preview.postedAt, locale, "-")} />
+        <Summary label={tc("Reversal")} value={reversalLabel ? tc(reversalLabel) : "-"} />
       </div>
 
       {movementIds.length > 0 ? (
         <div className="mt-4 rounded-md bg-slate-50 p-3">
-          <div className="text-xs uppercase tracking-wide text-steel">Linked stock movement IDs</div>
+          <div className="text-xs uppercase tracking-wide text-steel">{tc("Linked stock movement IDs")}</div>
           <div className="mt-1 flex flex-wrap gap-2">
             {movementIds.map((movementId) => (
               <span key={movementId} className="rounded-md bg-white px-2 py-1 font-mono text-xs text-ink">
-                {movementId}
+                <bdi dir="ltr">{movementId}</bdi>
               </span>
             ))}
           </div>
@@ -386,75 +379,85 @@ export function PurchaseReturnInventoryMovementPanel({
       ) : null}
 
       {preview.blockingReasons.length > 0 ? (
-        <LedgerAlert tone="warning" title="Posting blockers">
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-medium">{tc("Posting blockers")}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {preview.blockingReasons.map((reason) => (
-              <li key={reason}>{reason}</li>
+              <li key={reason}>{tc(reason)}</li>
             ))}
           </ul>
-        </LedgerAlert>
+        </div>
       ) : null}
 
-      <LedgerDataTable minWidth="900px" className="mt-4 shadow-none">
+      <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
+        <table className="w-full min-w-[900px] text-start text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
-              <th className="px-4 py-3">Line</th>
-              <th className="px-4 py-3">Item</th>
-              <th className="px-4 py-3">Warehouse</th>
-              <th className="px-4 py-3">Return qty</th>
-              <th className="px-4 py-3">On hand</th>
-              <th className="px-4 py-3">Projected</th>
-              <th className="px-4 py-3">Movement</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">{tc("Line")}</th>
+              <th className="px-4 py-3">{tc("Item")}</th>
+              <th className="px-4 py-3">{tc("Warehouse")}</th>
+              <th className="px-4 py-3">{tc("Return qty")}</th>
+              <th className="px-4 py-3">{tc("On hand")}</th>
+              <th className="px-4 py-3">{tc("Projected")}</th>
+              <th className="px-4 py-3">{tc("Movement")}</th>
+              <th className="px-4 py-3">{tc("Status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {preview.lines.map((line) => (
               <tr key={line.lineId}>
                 <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
-                <td className="px-4 py-3 text-steel">{line.item?.name ?? "Non-inventory"}</td>
-                <td className="px-4 py-3 text-steel">{line.warehouse ? `${line.warehouse.code} ${line.warehouse.name}` : "-"}</td>
+                <td className="px-4 py-3 text-steel">{line.item?.name ?? tc("Non-inventory")}</td>
+                <td className="px-4 py-3 text-steel">{line.warehouse ? <><bdi dir="ltr">{line.warehouse.code}</bdi> {line.warehouse.name}</> : "-"}</td>
                 <td className="px-4 py-3 font-mono text-xs">{formatInventoryQuantity(line.returnQuantity)}</td>
                 <td className="px-4 py-3 font-mono text-xs">{line.currentOnHand ? formatInventoryQuantity(line.currentOnHand) : "-"}</td>
                 <td className="px-4 py-3 font-mono text-xs">{line.projectedOnHandAfterReturn ? formatInventoryQuantity(line.projectedOnHandAfterReturn) : "-"}</td>
-                <td className="px-4 py-3 text-steel">{line.movementRequired ? stockMovementTypeLabel(line.movementType) : "No movement required"}</td>
+                <td className="px-4 py-3 text-steel">{line.movementRequired ? tc(stockMovementTypeLabel(line.movementType)) : tc("No movement required")}</td>
                 <td className="px-4 py-3">
                   <LineStatus line={line} />
                 </td>
               </tr>
             ))}
           </tbody>
-      </LedgerDataTable>
+        </table>
+      </div>
 
-      <LedgerActionBar className="mt-4">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         {showPostAction ? (
-          <LedgerButton type="button" onClick={onPost} disabled={actionLoading} variant="primary">
-            {actionLoading ? "Posting..." : "Post inventory return movement"}
-          </LedgerButton>
+          <button type="button" onClick={onPost} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            {tc("Post inventory return movement")}
+          </button>
         ) : null}
-        {!canPost && preview.canPost ? <p className="text-sm text-steel">Posting requires stock movement create permission.</p> : null}
-      </LedgerActionBar>
-    </LedgerPanel>
+        {!canPost && preview.canPost ? <p className="text-sm text-steel">{tc("Posting requires stock movement create permission.")}</p> : null}
+      </div>
+    </div>
   );
 }
 
 function LineStatus({ line }: { line: PurchaseReturnInventoryMovementPreviewLine }) {
+  const { tc } = useAppLocale();
   const label = line.status === "SKIPPED_NON_TRACKED" ? "Skipped" : line.status.charAt(0) + line.status.slice(1).toLowerCase().replaceAll("_", " ");
   return (
     <div>
-      <LedgerStatusBadge tone={lineStatusTone(line.status)}>{label}</LedgerStatusBadge>
-      {line.stockMovementId ? <p className="mt-1 font-mono text-xs text-steel">{line.stockMovementId}</p> : null}
-      {line.blockingReasons.length > 0 ? <p className="mt-1 text-xs leading-5 text-rosewood">{line.blockingReasons.join("; ")}</p> : null}
-      {line.warnings.length > 0 ? <p className="mt-1 text-xs leading-5 text-steel">{line.warnings.join("; ")}</p> : null}
+      <span className={`rounded-md px-2 py-1 text-xs font-semibold ${lineStatusBadgeClass(line.status)}`}>{tc(label)}</span>
+      {line.stockMovementId ? <p className="mt-1 font-mono text-xs text-steel"><bdi dir="ltr">{line.stockMovementId}</bdi></p> : null}
+      {line.blockingReasons.length > 0 ? <p className="mt-1 text-xs leading-5 text-rosewood">{line.blockingReasons.map((reason) => tc(reason)).join("; ")}</p> : null}
+      {line.warnings.length > 0 ? <p className="mt-1 text-xs leading-5 text-steel">{line.warnings.map((warning) => tc(warning)).join("; ")}</p> : null}
     </div>
   );
 }
 
 function ActionButton({ label, active, onClick, secondary = false, danger = false }: { label: string; active: boolean; onClick: () => void; secondary?: boolean; danger?: boolean }) {
+  const { tc } = useAppLocale();
+  const className = danger
+    ? "rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
+    : secondary
+      ? "rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+      : "rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400";
   return (
-    <LedgerButton type="button" onClick={onClick} disabled={active} variant={danger ? "danger" : secondary ? "secondary" : "primary"}>
-      {label}
-    </LedgerButton>
+    <button type="button" onClick={onClick} disabled={active} className={className}>
+      {tc(label)}
+    </button>
   );
 }
 
@@ -485,57 +488,46 @@ function actionLabel(action: ReturnAction): string {
   return labels[action];
 }
 
-function sourceLineLabel(line: PurchaseReturnLine): string {
-  if (line.sourcePurchaseBillLineId) return `Bill line ${line.sourcePurchaseBillLine?.description ?? line.sourcePurchaseBillLineId}`;
-  if (line.sourcePurchaseReceiptLineId) return `Receipt line ${line.sourcePurchaseReceiptLineId}`;
-  if (line.sourcePurchaseOrderLineId) return `PO line ${line.sourcePurchaseOrderLine?.description ?? line.sourcePurchaseOrderLineId}`;
-  return "Manual";
-}
-
-function PurchaseReturnStatusBadge({ status }: { status: PurchaseReturnStatus }) {
-  return <LedgerStatusBadge tone={purchaseReturnStatusTone(status)}>{purchaseReturnStatusLabel(status)}</LedgerStatusBadge>;
-}
-
-function purchaseReturnStatusTone(status: PurchaseReturnStatus | undefined | null): LedgerStatusTone {
-  if (status === "COMPLETED") return "success";
-  if (status === "APPROVED" || status === "SUBMITTED") return "info";
-  if (status === "DRAFT") return "warning";
-  if (status === "VOIDED" || status === "CANCELLED") return "danger";
-  return "neutral";
-}
-
-function inventoryMovementStatusTone(status: PurchaseReturnInventoryMovementPreview["inventoryMovementStatus"]): LedgerStatusTone {
-  if (status === "POSTED") return "success";
-  if (status === "BLOCKED") return "danger";
-  return "warning";
-}
-
-function lineStatusTone(status: PurchaseReturnInventoryMovementPreviewLine["status"]): LedgerStatusTone {
-  if (status === "POSTED" || status === "POSTABLE") return "success";
-  if (status === "BLOCKED") return "danger";
-  return "neutral";
-}
-
-function Summary({ label, value, href }: { label: string; value: string; href?: string }) {
-  let content = <div className="mt-1 break-words font-medium text-ink">{value}</div>;
-  if (href) {
-    content = (
-      <Link href={href} className="mt-1 inline-block font-medium text-palm hover:underline">
-        {value}
-      </Link>
-    );
-  } else if (label.toLowerCase().includes("date") || label.toLowerCase().endsWith("at")) {
-    content = (
-      <div className="mt-1">
-        <LedgerDate>{value}</LedgerDate>
-      </div>
+function sourceLineLabel(line: PurchaseReturnLine, tc: (value: string, params?: Record<string, string | number>) => string): ReactNode {
+  if (line.sourcePurchaseBillLineId) {
+    return tc("Bill line {line}", { line: line.sourcePurchaseBillLine?.description ?? line.sourcePurchaseBillLineId });
+  }
+  if (line.sourcePurchaseReceiptLineId) {
+    return (
+      <>
+        {tc("Receipt line")} <bdi dir="ltr">{line.sourcePurchaseReceiptLineId}</bdi>
+      </>
     );
   }
+  if (line.sourcePurchaseOrderLineId) {
+    return tc("PO line {line}", { line: line.sourcePurchaseOrderLine?.description ?? line.sourcePurchaseOrderLineId });
+  }
+  return tc("Manual");
+}
 
+function inventoryMovementStatusBadgeClass(status: PurchaseReturnInventoryMovementPreview["inventoryMovementStatus"]): string {
+  if (status === "POSTED") return "bg-emerald-50 text-emerald-700";
+  if (status === "BLOCKED") return "bg-amber-50 text-amber-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function lineStatusBadgeClass(status: PurchaseReturnInventoryMovementPreviewLine["status"]): string {
+  if (status === "POSTED" || status === "POSTABLE") return "bg-emerald-50 text-emerald-700";
+  if (status === "BLOCKED") return "bg-amber-50 text-amber-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function Summary({ label, value, href }: { label: string; value: ReactNode; href?: string }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      {content}
+      {href ? (
+        <Link href={href} className="mt-1 block font-medium text-palm hover:underline">
+          {value}
+        </Link>
+      ) : (
+        <div className="mt-1 break-words font-medium text-ink">{value}</div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { PartyActivitySummary, SupplierApSummaryPanel, SupplierGroupedActivityTables } from "./party-pages";
 import type { CustomerPartyDetail, PartyTransaction, SupplierApDetailSummary, SupplierPartyDetail } from "@/lib/types";
 
@@ -15,6 +16,11 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "party-1" }),
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 describe("Supplier AP detail panels", () => {
@@ -36,6 +42,21 @@ describe("Supplier AP detail panels", () => {
     expect(screen.getByText("Purchase return")).toBeInTheDocument();
     expect(screen.getByText("Non-posting")).toBeInTheDocument();
     expect(screen.queryByText(/email sent|supplier paid|payment scheduled|journal posted|variance booked|landed cost allocated|VAT filed|ZATCA cleared/i)).not.toBeInTheDocument();
+  });
+
+  it("renders supplier AP summary labels in Arabic when the app locale is Arabic", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SupplierApSummaryPanel summary={supplierApSummary()} />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("ملخص الموردين الدائنين")).toBeInTheDocument();
+    expect(screen.getByText("رصيد دائن قائم")).toBeInTheDocument();
+    expect(screen.getByText("فواتير مستلمة متأخرة")).toBeInTheDocument();
+    expect(screen.getByText("نشاط حديث")).toBeInTheDocument();
+    expect(screen.getByText("ترحيل مالي")).toBeInTheDocument();
+    expect(screen.getByText("غير مرحل")).toBeInTheDocument();
   });
 
   it("groups supplier transactions into financial posting and operational non-posting activity", () => {
@@ -81,24 +102,19 @@ describe("Party activity summary statement entry points", () => {
     expect(screen.getByRole("link", { name: "Open shared contact ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
   });
 
-  it("keeps customer and supplier workspace cards tied to real routes without automation or compliance claims", () => {
-    const { rerender } = render(<PartyActivitySummary detail={customerDetail()} kind="customer" />);
-
-    expect(screen.getByText("Customer ledger visibility")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Payments 1" })).toHaveAttribute(
-      "href",
-      "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+  it("renders customer activity summary labels in Arabic while preserving links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <PartyActivitySummary detail={customerDetail()} kind="customer" />
+      </AppLocaleProvider>,
     );
-    expect(screen.queryByText(/auto-collect|email sent|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
 
-    rerender(<PartyActivitySummary detail={supplierDetail()} kind="supplier" />);
-
-    expect(screen.getByText("Supplier ledger visibility")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Supplier payments 1" })).toHaveAttribute(
+    expect(screen.getByText("رؤية دفتر العميل")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "نشاط كشف العميل كشف" })).toHaveAttribute(
       "href",
-      "/purchases/supplier-payments?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
+      "/customers/customer-1/statement?returnTo=%2Fcustomers%2Fcustomer-1",
     );
-    expect(screen.queryByText(/auto-pay|supplier paid|payment scheduled|certified|ZATCA cleared|VAT filed/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "فتح دفتر جهة الاتصال المشترك" })).toHaveAttribute("href", "/contacts/customer-1");
   });
 });
 

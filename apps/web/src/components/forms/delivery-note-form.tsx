@@ -1,23 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerFieldHelp,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerPanel,
-  LedgerSelect,
-  LedgerTableShell,
-} from "@/components/ui/ledger-system";
-import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { safeReturnToFromSearch } from "@/lib/parties";
@@ -74,6 +61,7 @@ function optionalDateInputValue(value?: string | null): string {
 export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }: DeliveryNoteFormProps) {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -163,7 +151,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load delivery note setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load delivery note setup data."));
         }
       })
       .finally(() => {
@@ -175,7 +163,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
     return () => {
       cancelled = true;
     };
-  }, [initialDeliveryNote, organizationId]);
+  }, [initialDeliveryNote, organizationId, tc]);
 
   function updateLine(lineId: string, patch: Partial<DeliveryNoteLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -213,7 +201,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy invoice lines into the delivery note.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy invoice lines into the delivery note."));
     }
   }
 
@@ -241,7 +229,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy quote lines into the delivery note.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy quote lines into the delivery note."));
     }
   }
 
@@ -253,7 +241,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
     event.preventDefault();
     setError("");
 
-    const validationError = getValidationError({ customerId, issueDate, deliveryDate, lines });
+    const validationError = getValidationError({ customerId, issueDate, deliveryDate, lines, tc });
     if (validationError) {
       setError(validationError);
       return;
@@ -290,7 +278,7 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
 
       router.push(returnTo || `/sales/delivery-notes/${deliveryNote.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to save delivery note.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to save delivery note."));
     } finally {
       setSubmitting(false);
     }
@@ -299,152 +287,146 @@ export function DeliveryNoteForm({ initialDeliveryNote, initialCustomerId = "" }
   if (initialDeliveryNote && initialDeliveryNote.status !== "DRAFT") {
     return (
       <div className="space-y-4">
-        <LedgerAlert tone="danger">Only draft delivery notes can be edited.</LedgerAlert>
-        <LedgerButton href={`/sales/delivery-notes/${initialDeliveryNote.id}`} icon={ArrowLeft}>
-          Back to delivery note
-        </LedgerButton>
+        <StatusMessage type="error">{tc("Only draft delivery notes can be edited.")}</StatusMessage>
+        <Link href={`/sales/delivery-notes/${initialDeliveryNote.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back to delivery note")}
+        </Link>
       </div>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <LedgerAlert tone="info">Delivery notes are operational, non-posting fulfillment documents. They do not create journals, AR balances, VAT filing, ZATCA submission, payment, email, or inventory movement by themselves.</LedgerAlert>
+      <StatusMessage type="info">{tc("Delivery notes are operational, non-posting fulfillment documents. They do not create journals, AR balances, VAT filing, ZATCA submission, payment, email, or inventory movement by themselves.")}</StatusMessage>
 
-      <LedgerFormSection title="Delivery details" description="Set the customer, dates, source reference, and delivery instructions for this non-posting fulfillment document.">
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Customer</LedgerFieldText>
-          <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-            <option value="">Select customer</option>
-            {activeCustomers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.displayName ?? customer.name}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Delivery note number</LedgerFieldText>
-          <LedgerInput value={initialDeliveryNote?.deliveryNoteNumber ?? numberPreview?.deliveryNoteNumber ?? "From sequence"} readOnly aria-label="Delivery note number" className="bg-slate-50 text-slate-700" />
-          <LedgerFieldHelp>
-            {initialDeliveryNote ? "Delivery note number assigned from the sequence." : (numberPreview?.helperText ?? "Assigned from the delivery note sequence when saved.")}
-          </LedgerFieldHelp>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Branch</LedgerFieldText>
-          <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-            <option value="">No branch</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.displayName ?? branch.name}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Issue date</LedgerFieldText>
-          <LedgerInput type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Delivery date</LedgerFieldText>
-          <LedgerInput type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Reference</LedgerFieldText>
-          <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Source invoice</LedgerFieldText>
-          <LedgerSelect value={relatedSalesInvoiceId} onChange={(event) => void copyFromInvoice(event.target.value)}>
-            <option value="">No invoice source</option>
-            {filteredInvoices.map((invoice) => (
-              <option key={invoice.id} value={invoice.id}>
-                {invoice.invoiceNumber} - {invoice.customer?.displayName ?? invoice.customer?.name ?? "Customer"} - {invoice.status}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Accepted quote source</LedgerFieldText>
-          <LedgerSelect value={relatedSalesQuoteId} onChange={(event) => void copyFromQuote(event.target.value)}>
-            <option value="">No quote source</option>
-            {filteredAcceptedQuotes.map((quote) => (
-              <option key={quote.id} value={quote.id}>
-                {quote.quoteNumber} - {quote.customer?.displayName ?? quote.customer?.name ?? "Customer"}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Delivery address</LedgerFieldText>
-          <Textarea value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} rows={3} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Notes</LedgerFieldText>
-          <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Instructions</LedgerFieldText>
-          <LedgerInput value={instructions} onChange={(event) => setInstructions(event.target.value)} />
-        </LedgerFieldLabel>
-      </LedgerFormSection>
-
-      <div className="space-y-3">
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization before creating delivery notes.</LedgerAlert> : null}
-        {loading ? <StatusMessage type="loading">Loading delivery note setup data...</StatusMessage> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("Select customer")}</option>
+              {activeCustomers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.displayName ?? customer.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Delivery note number")}</span>
+            <input value={initialDeliveryNote?.deliveryNoteNumber ?? numberPreview?.deliveryNoteNumber ?? tc("From sequence")} readOnly aria-label={tc("Delivery note number")} className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none" />
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {initialDeliveryNote ? tc("Delivery note number assigned from the sequence.") : tc(numberPreview?.helperText ?? "Assigned from the delivery note sequence when saved.")}
+            </span>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No branch")}</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.displayName ?? branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
+            <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Delivery date")}</span>
+            <input type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Reference")}</span>
+            <input value={reference} onChange={(event) => setReference(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Source invoice")}</span>
+            <select value={relatedSalesInvoiceId} onChange={(event) => void copyFromInvoice(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No invoice source")}</option>
+              {filteredInvoices.map((invoice) => (
+                <option key={invoice.id} value={invoice.id}>
+                  {invoice.invoiceNumber} - {invoice.customer?.displayName ?? invoice.customer?.name ?? tc("Customer")} - {tc(invoice.status)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Accepted quote source")}</span>
+            <select value={relatedSalesQuoteId} onChange={(event) => void copyFromQuote(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No quote source")}</option>
+              {filteredAcceptedQuotes.map((quote) => (
+                <option key={quote.id} value={quote.id}>
+                  {quote.quoteNumber} - {quote.customer?.displayName ?? quote.customer?.name ?? tc("Customer")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block md:col-span-4">
+            <span className="text-sm font-medium text-slate-700">{tc("Delivery address")}</span>
+            <textarea value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Notes")}</span>
+            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Instructions")}</span>
+            <input value={instructions} onChange={(event) => setInstructions(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+        </div>
       </div>
 
-      <LedgerPanel>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink">Delivery lines</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">Lines describe what should be delivered. They do not carry price, VAT, posting, payment, or inventory movement data.</p>
-          </div>
-          <span className="text-sm text-steel">{lines.length} delivery line{lines.length === 1 ? "" : "s"}</span>
-        </div>
-        <LedgerTableShell minWidth="880px">
-          <div className="grid min-w-[880px] grid-cols-[1fr_1.4fr_0.7fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
-            <div>Item</div>
-            <div>Description</div>
-            <div>Quantity</div>
-            <div>Unit</div>
-            <div></div>
-          </div>
-          {lines.map((line, index) => (
-            <div key={line.id} className="grid min-w-[880px] grid-cols-[1fr_1.4fr_0.7fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
-              <LedgerSelect aria-label={`Item for delivery note line ${index + 1}`} value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)}>
-                <option value="">No item</option>
-                {activeItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.sku ? `${item.sku} - ${item.name}` : item.name}
-                  </option>
-                ))}
-              </LedgerSelect>
-              <LedgerInput aria-label={`Description for delivery note line ${index + 1}`} value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required />
-              <LedgerInput aria-label={`Quantity for delivery note line ${index + 1}`} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} />
-              <LedgerInput aria-label={`Unit for delivery note line ${index + 1}`} value={line.unitOfMeasure} onChange={(event) => updateLine(line.id, { unitOfMeasure: event.target.value })} placeholder="each" />
-              <LedgerButton type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} size="sm" icon={Trash2}>
-                Remove
-              </LedgerButton>
-            </div>
-          ))}
-          <div className="flex min-w-[880px] items-center justify-between px-4 py-3 text-sm">
-            <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={Plus}>
-              Add line
-            </LedgerButton>
-          </div>
-        </LedgerTableShell>
-      </LedgerPanel>
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating delivery notes.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading delivery note setup data...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
 
-      <LedgerActionBar>
-        <LedgerButton type="submit" variant="primary" disabled={!organizationId || loading || submitting}>
-          {submitting ? "Saving..." : initialDeliveryNote ? "Save draft delivery note" : "Create draft delivery note"}
-        </LedgerButton>
-        <LedgerButton href={returnTo || "/sales/delivery-notes"}>
-          Cancel
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <div className="grid min-w-[880px] grid-cols-[1fr_1.4fr_0.7fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
+          <div>{tc("Item")}</div>
+          <div>{tc("Description")}</div>
+          <div>{tc("Quantity")}</div>
+          <div>{tc("Unit")}</div>
+          <div></div>
+        </div>
+        {lines.map((line, index) => (
+          <div key={line.id} className="grid min-w-[880px] grid-cols-[1fr_1.4fr_0.7fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
+            <select aria-label={tc("Item for delivery note line {number}", { number: index + 1 })} value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
+              <option value="">{tc("No item")}</option>
+              {activeItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.sku ? `${item.sku} - ${item.name}` : item.name}
+                </option>
+              ))}
+            </select>
+            <input aria-label={tc("Description for delivery note line {number}", { number: index + 1 })} value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+            <input aria-label={tc("Quantity for delivery note line {number}", { number: index + 1 })} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+            <input aria-label={tc("Unit for delivery note line {number}", { number: index + 1 })} value={line.unitOfMeasure} onChange={(event) => updateLine(line.id, { unitOfMeasure: event.target.value })} placeholder={tc("each")} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+            <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
+              {tc("Remove")}
+            </button>
+          </div>
+        ))}
+        <div className="flex min-w-[880px] items-center justify-between px-4 py-3 text-sm">
+          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Add line")}
+          </button>
+          <span className="text-steel">{tc(lines.length === 1 ? "{count} delivery line" : "{count} delivery lines", { count: lines.length })}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button type="submit" disabled={!organizationId || loading || submitting} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          {submitting ? tc("Saving...") : initialDeliveryNote ? tc("Save draft delivery note") : tc("Create draft delivery note")}
+        </button>
+        <Link href={returnTo || "/sales/delivery-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </Link>
+      </div>
     </form>
   );
 }
@@ -454,25 +436,27 @@ function getValidationError({
   issueDate,
   deliveryDate,
   lines,
+  tc,
 }: {
   customerId: string;
   issueDate: string;
   deliveryDate: string;
   lines: DeliveryNoteLineState[];
+  tc: (value: string, params?: Record<string, string | number>) => string;
 }): string {
   if (!customerId) {
-    return "Choose a customer.";
+    return tc("Choose a customer.");
   }
   if (deliveryDate && deliveryDate < issueDate) {
-    return "Delivery date cannot be before issue date.";
+    return tc("Delivery date cannot be before issue date.");
   }
   for (const [index, line] of lines.entries()) {
     if (!line.description.trim()) {
-      return `Line ${index + 1} needs a description.`;
+      return tc("Line {number} needs a description.", { number: index + 1 });
     }
     const quantity = Number(line.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      return `Line ${index + 1} needs a positive quantity.`;
+      return tc("Line {number} needs a positive quantity.", { number: index + 1 });
     }
   }
   return "";

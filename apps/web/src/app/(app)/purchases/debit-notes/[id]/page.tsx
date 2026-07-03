@@ -1,38 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerFieldHelp,
-  LedgerFieldLabel,
-  LedgerInput,
-  LedgerLoadingState,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
-import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
+import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -50,9 +29,9 @@ import type { OpenPurchaseBill, PurchaseDebitNote } from "@/lib/types";
 export default function PurchaseDebitNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [debitNote, setDebitNote] = useState<PurchaseDebitNote | null>(null);
   const [openBills, setOpenBills] = useState<OpenPurchaseBill[]>([]);
   const [selectedBillId, setSelectedBillId] = useState("");
@@ -80,7 +59,7 @@ export default function PurchaseDebitNoteDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load debit note.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load debit note."));
         }
       })
       .finally(() => {
@@ -92,7 +71,7 @@ export default function PurchaseDebitNoteDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   useEffect(() => {
     if (!organizationId || !debitNote || debitNote.status !== "FINALIZED" || Number(debitNote.unappliedAmount) <= 0) {
@@ -126,7 +105,7 @@ export default function PurchaseDebitNoteDetailPage() {
       return;
     }
 
-    if (action === "void" && !window.confirm(`Void debit note ${debitNote.debitNoteNumber}?`)) {
+    if (action === "void" && !window.confirm(tc("Void debit note {number}?", { number: debitNote.debitNoteNumber }))) {
       return;
     }
 
@@ -137,16 +116,16 @@ export default function PurchaseDebitNoteDetailPage() {
     try {
       const updated = await apiRequest<PurchaseDebitNote>(`/purchase-debit-notes/${debitNote.id}/${action}`, { method: "POST" });
       setDebitNote(updated);
-      setSuccess(action === "finalize" ? `Finalized debit note ${updated.debitNoteNumber}.` : `Voided debit note ${updated.debitNoteNumber}.`);
+      setSuccess(action === "finalize" ? tc("Finalized debit note {number}.", { number: updated.debitNoteNumber }) : tc("Voided debit note {number}.", { number: updated.debitNoteNumber }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `Unable to ${action} debit note.`);
+      setError(actionError instanceof Error ? actionError.message : action === "finalize" ? tc("Unable to finalize debit note.") : tc("Unable to void debit note."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function deleteDebitNote() {
-    if (!debitNote || !window.confirm(`Delete draft debit note ${debitNote.debitNoteNumber}?`)) {
+    if (!debitNote || !window.confirm(tc("Delete draft debit note {number}?", { number: debitNote.debitNoteNumber }))) {
       return;
     }
 
@@ -158,7 +137,7 @@ export default function PurchaseDebitNoteDetailPage() {
       await apiRequest<{ deleted: boolean }>(`/purchase-debit-notes/${debitNote.id}`, { method: "DELETE" });
       router.push("/purchases/debit-notes");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete debit note.");
+      setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete debit note."));
     } finally {
       setActionLoading(false);
     }
@@ -176,7 +155,7 @@ export default function PurchaseDebitNoteDetailPage() {
     try {
       await downloadPdf(purchaseDebitNotePdfPath(debitNote.id), `purchase-debit-note-${debitNote.debitNoteNumber}.pdf`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download debit note PDF.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download debit note PDF."));
     } finally {
       setActionLoading(false);
     }
@@ -191,7 +170,7 @@ export default function PurchaseDebitNoteDetailPage() {
     const selectedBill = openBills.find((bill) => bill.id === selectedBillId);
     const validationError = validatePurchaseDebitNoteAllocation(amountApplied, debitNote.unappliedAmount, selectedBill?.balanceDue ?? "0.0000");
     if (validationError) {
-      setError(validationError);
+      setError(tc(validationError));
       return;
     }
 
@@ -209,20 +188,20 @@ export default function PurchaseDebitNoteDetailPage() {
       const bills = await apiRequest<OpenPurchaseBill[]>(`/purchase-bills/open?supplierId=${encodeURIComponent(updated.supplierId)}`);
       setOpenBills(bills);
       setSelectedBillId(bills[0]?.id ?? "");
-      setSuccess(`Applied ${formatMoneyAmount(amountApplied, updated.currency)} from ${updated.debitNoteNumber}.`);
+      setSuccess(tc("Applied {amount} from {number}.", { amount: formatAppMoney(amountApplied, updated.currency, locale), number: updated.debitNoteNumber }));
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Unable to apply debit note.");
+      setError(applyError instanceof Error ? applyError.message : tc("Unable to apply debit note."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function reverseAllocation(allocationId: string) {
-    if (!debitNote || !window.confirm("Reverse this debit note allocation?")) {
+    if (!debitNote || !window.confirm(tc("Reverse this debit note allocation?"))) {
       return;
     }
 
-    const reason = window.prompt("Reversal reason (optional)", "") ?? "";
+    const reason = window.prompt(tc("Reversal reason (optional)"), "") ?? "";
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -236,9 +215,9 @@ export default function PurchaseDebitNoteDetailPage() {
       const bills = await apiRequest<OpenPurchaseBill[]>(`/purchase-bills/open?supplierId=${encodeURIComponent(updated.supplierId)}`);
       setOpenBills(bills);
       setSelectedBillId(bills[0]?.id ?? "");
-      setSuccess("Debit note allocation reversed.");
+      setSuccess(tc("Debit note allocation reversed."));
     } catch (reverseError) {
-      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse debit note allocation.");
+      setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse debit note allocation."));
     } finally {
       setActionLoading(false);
     }
@@ -255,66 +234,69 @@ export default function PurchaseDebitNoteDetailPage() {
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
-  const returnTo = safeReturnToFromSearch(searchParams.toString());
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title={debitNote ? debitNote.debitNoteNumber : "Debit note"}
-        description={
-          <>
-            <span>Debit note detail, AP reversal posting, allocations, and PDF download.</span>
-            {debitNote ? <span className="mt-1 block text-xs">Local AP adjustment only. No ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.</span> : null}
-          </>
-        }
-        badge={debitNote ? <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge> : undefined}
-        actions={
-          <LedgerActionBar className="items-start sm:items-center">
-            <LedgerButton href={returnTo || "/purchases/debit-notes"}>Back</LedgerButton>
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{debitNote ? <bdi dir="ltr">{debitNote.debitNoteNumber}</bdi> : tc("Debit note")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Debit note detail, AP reversal posting, allocations, and PDF download.")}</p>
+          {debitNote ? <p className="mt-1 text-xs text-steel">{tc("Local AP adjustment only. No real ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.")}</p> : null}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
           {debitNote?.status === "DRAFT" ? (
-            <LedgerButton href={`/purchases/debit-notes/${debitNote.id}/edit`}>Edit</LedgerButton>
+            <Link href={`/purchases/debit-notes/${debitNote.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
           ) : null}
           {debitNote?.supplierId ? (
-            <LedgerButton href={partyDetailHref("supplier", debitNote.supplierId)}>Supplier workspace</LedgerButton>
+            <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Supplier workspace")}
+            </Link>
           ) : null}
           {debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 ? (
-            <LedgerButton href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`} variant="primary">
-              Record supplier refund
-            </LedgerButton>
+            <Link
+              href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(debitNote.supplierId)}&sourceType=PURCHASE_DEBIT_NOTE&sourceDebitNoteId=${encodeURIComponent(debitNote.id)}`}
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              {tc("Record supplier refund")}
+            </Link>
           ) : null}
           {debitNote && canDownloadGeneratedDocuments ? (
-            <LedgerButton onClick={() => void downloadDebitNotePdf()} disabled={actionLoading}>
-              Download debit note PDF
-            </LedgerButton>
+            <button type="button" onClick={() => void downloadDebitNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Download debit note PDF")}
+            </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
-            <LedgerButton onClick={() => void runAction("finalize")} disabled={actionLoading} variant="primary">
-              Finalize
-            </LedgerButton>
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              {tc("Finalize")}
+            </button>
           ) : null}
           {debitNote && debitNote.status !== "VOIDED" && canVoidDebitNote ? (
-            <LedgerButton onClick={() => void runAction("void")} disabled={actionLoading} variant="danger">
-              Void
-            </LedgerButton>
+            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Void")}
+            </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canCreateDebitNote ? (
-            <LedgerButton onClick={() => void deleteDebitNote()} disabled={actionLoading} variant="danger">
-              Delete
-            </LedgerButton>
+            <button type="button" onClick={() => void deleteDebitNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Delete")}
+            </button>
           ) : null}
-          </LedgerActionBar>
-        }
-      />
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load debit notes.</LedgerAlert> : null}
-        {loading ? <LedgerLoadingState title="Loading debit note" description="Fetching AP adjustment, allocation, and source document context." /> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load debit notes.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading debit note...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
       {debitNote ? (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
           <PurchaseDebitNoteWorkflowGuidance
             debitNote={debitNote}
             appliedAmount={appliedAmount}
@@ -328,182 +310,187 @@ export default function PurchaseDebitNoteDetailPage() {
 
           <AttachmentPanel linkedEntityType="PURCHASE_DEBIT_NOTE" linkedEntityId={debitNote.id} />
 
-          <LedgerPanel>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Summary label="Supplier" value={debitNote.supplier?.displayName ?? debitNote.supplier?.name ?? "-"} />
-              <Summary label="Status" value={purchaseDebitNoteStatusLabel(debitNote.status)} />
-              <Summary label="Issue date" value={formatOptionalDate(debitNote.issueDate, "-")} />
-              <Summary label="Currency" value={debitNote.currency} />
-              <Summary label="Original bill" value={debitNote.originalBill?.billNumber ?? "-"} />
-              <Summary label="Branch" value={debitNote.branch?.displayName ?? debitNote.branch?.name ?? "-"} />
-              <Summary label="Total debit" value={formatMoneyAmount(debitNote.total, debitNote.currency)} />
-              <Summary label="Applied amount" value={formatMoneyAmount(appliedAmount, debitNote.currency)} />
-              <Summary label="Unapplied amount" value={formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)} />
-              <Summary label="Journal entry" value={debitNote.journalEntry ? `${debitNote.journalEntry.entryNumber} (${debitNote.journalEntry.id})` : "-"} />
-              <Summary label="Reversal journal" value={debitNote.reversalJournalEntry ? `${debitNote.reversalJournalEntry.entryNumber} (${debitNote.reversalJournalEntry.id})` : "-"} />
-              <Summary label="Finalized" value={debitNote.finalizedAt ? new Date(debitNote.finalizedAt).toLocaleString() : "-"} />
-              <Summary label="Reason" value={debitNote.reason ?? "-"} />
-              <Summary label="Notes" value={debitNote.notes ?? "-"} />
+              <Summary label={tc("Supplier")} value={debitNote.supplier?.displayName ?? debitNote.supplier?.name ?? "-"} />
+              <Summary label={tc("Status")} value={tc(purchaseDebitNoteStatusLabel(debitNote.status))} />
+              <Summary label={tc("Issue date")} value={formatAppDate(debitNote.issueDate, locale, "-")} />
+              <Summary label={tc("Currency")} value={<bdi dir="ltr">{debitNote.currency}</bdi>} />
+              <Summary label={tc("Original bill")} value={debitNote.originalBill ? <bdi dir="ltr">{debitNote.originalBill.billNumber}</bdi> : "-"} />
+              <Summary label={tc("Branch")} value={debitNote.branch?.displayName ?? debitNote.branch?.name ?? "-"} />
+              <Summary label={tc("Total debit")} value={formatAppMoney(debitNote.total, debitNote.currency, locale)} />
+              <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, debitNote.currency, locale)} />
+              <Summary label={tc("Unapplied amount")} value={formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)} />
+              <Summary label={tc("Journal entry")} value={debitNote.journalEntry ? <bdi dir="ltr">{`${debitNote.journalEntry.entryNumber} (${debitNote.journalEntry.id})`}</bdi> : "-"} />
+              <Summary label={tc("Reversal journal")} value={debitNote.reversalJournalEntry ? <bdi dir="ltr">{`${debitNote.reversalJournalEntry.entryNumber} (${debitNote.reversalJournalEntry.id})`}</bdi> : "-"} />
+              <Summary label={tc("Finalized")} value={formatAppDateTime(debitNote.finalizedAt, locale, "-")} />
+              <Summary label={tc("Reason")} value={debitNote.reason ?? "-"} />
+              <Summary label={tc("Notes")} value={debitNote.notes ?? "-"} />
             </div>
             <div className="mt-4">
-              <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge>
+              <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteStatusBadgeClass(debitNote.status)}`}>{tc(purchaseDebitNoteStatusLabel(debitNote.status))}</span>
             </div>
-          </LedgerPanel>
+          </div>
 
-          <LedgerDataTable minWidth="980px">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[980px] text-start text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Account</th>
-                  <th className="px-4 py-3">Qty</th>
-                  <th className="px-4 py-3">Unit price</th>
-                  <th className="px-4 py-3">Gross</th>
-                  <th className="px-4 py-3">Discount</th>
-                  <th className="px-4 py-3">Taxable</th>
-                  <th className="px-4 py-3">Tax</th>
-                  <th className="px-4 py-3">Line total</th>
+                  <th className="px-4 py-3">{tc("Description")}</th>
+                  <th className="px-4 py-3">{tc("Account")}</th>
+                  <th className="px-4 py-3">{tc("Qty")}</th>
+                  <th className="px-4 py-3">{tc("Unit price")}</th>
+                  <th className="px-4 py-3">{tc("Gross")}</th>
+                  <th className="px-4 py-3">{tc("Discount")}</th>
+                  <th className="px-4 py-3">{tc("Taxable")}</th>
+                  <th className="px-4 py-3">{tc("Tax")}</th>
+                  <th className="px-4 py-3">{tc("Line total")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {debitNote.lines?.map((line) => (
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
-                    <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
-                    <td className="px-4 py-3"><LedgerMoney>{line.quantity}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, debitNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineGrossAmount, debitNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, debitNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxableAmount, debitNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, debitNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, debitNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3 text-steel">{line.account ? <bdi dir="ltr">{`${line.account.code} ${line.account.name}`}</bdi> : "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{line.quantity}</bdi></td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, debitNote.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
-          </LedgerDataTable>
+            </table>
+          </div>
 
-          <LedgerPanel className="ml-auto max-w-sm">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-            <span className="text-steel">Subtotal</span>
-            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.subtotal, debitNote.currency)}</LedgerMoney></span>
-            <span className="text-steel">Discount</span>
-            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.discountTotal, debitNote.currency)}</LedgerMoney></span>
-            <span className="text-steel">Taxable</span>
-            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.taxableTotal, debitNote.currency)}</LedgerMoney></span>
-            <span className="text-steel">VAT</span>
-            <span className="text-right"><LedgerMoney>{formatMoneyAmount(debitNote.taxTotal, debitNote.currency)}</LedgerMoney></span>
-            <span className="font-semibold text-ink">Total debit</span>
-            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(debitNote.total, debitNote.currency)}</LedgerMoney></span>
-            <span className="font-semibold text-ink">Applied amount</span>
-            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(appliedAmount, debitNote.currency)}</LedgerMoney></span>
-            <span className="font-semibold text-ink">Unapplied amount</span>
-            <span className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}</LedgerMoney></span>
+          <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+            <span className="text-steel">{tc("Subtotal")}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitNote.subtotal, debitNote.currency, locale)}</span>
+            <span className="text-steel">{tc("Discount")}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitNote.discountTotal, debitNote.currency, locale)}</span>
+            <span className="text-steel">{tc("Taxable")}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitNote.taxableTotal, debitNote.currency, locale)}</span>
+            <span className="text-steel">{tc("VAT")}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitNote.taxTotal, debitNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Total debit")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitNote.total, debitNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Applied amount")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(appliedAmount, debitNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Unapplied amount")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)}</span>
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">{tc("Debit allocations")}</h2>
+              <p className="mt-1 text-sm text-steel">{tc("Applying a debit note only matches the existing AP reduction to bill balances. No new journal entry is created.")}</p>
             </div>
-          </LedgerPanel>
-
-          <LedgerSection title="Debit allocations" description="Applying a debit note only matches the existing AP reduction to bill balances. No new journal entry is created.">
             {debitNote.allocations && debitNote.allocations.length > 0 ? (
-              <LedgerDataTable minWidth="980px">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Bill</th>
-                      <th className="px-4 py-3">Bill date</th>
-                      <th className="px-4 py-3">Bill total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Bill balance due</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Reason</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Bill")}</th>
+                      <th className="px-4 py-3">{tc("Bill date")}</th>
+                      <th className="px-4 py-3">{tc("Bill total")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Bill balance due")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Reversed")}</th>
+                      <th className="px-4 py-3">{tc("Reason")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {debitNote.allocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill?.billNumber ?? allocation.billId}</td>
-                        <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(allocation.bill?.billDate, "-")}</LedgerDate></td>
-                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.total, debitNote.currency)}</LedgerMoney> : "-"}</td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, debitNote.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.balanceDue, debitNote.currency)}</LedgerMoney> : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.bill?.billNumber ?? allocation.billId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.bill?.billDate, locale, "-")}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.total, debitNote.currency, locale) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, debitNote.currency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.balanceDue, debitNote.currency, locale) : "-"}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteAllocationStatusBadgeClass(allocation)}`}>{purchaseDebitNoteAllocationStatusLabel(allocation)}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${purchaseDebitNoteAllocationStatusBadgeClass(allocation)}`}>{tc(purchaseDebitNoteAllocationStatusLabel(allocation))}</span>
                         </td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDateTime(allocation.reversedAt, locale, "-")}</td>
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <LedgerButton href={`/purchases/bills/${allocation.billId}`} size="sm">
-                              View bill
-                            </LedgerButton>
+                            <Link href={`/purchases/bills/${allocation.billId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              {tc("View bill")}
+                            </Link>
                             {canReversePurchaseDebitNoteAllocation(allocation) && canVoidDebitNote ? (
-                              <LedgerButton onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} variant="danger" size="sm">
-                                Reverse
-                              </LedgerButton>
+                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                                {tc("Reverse")}
+                              </button>
                             ) : null}
                           </div>
                         </td>
                       </tr>
-                      ))}
-                    </tbody>
-              </LedgerDataTable>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <StatusMessage type="empty">No debit has been applied to bills yet.</StatusMessage>
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">{tc("No debit has been applied to bills yet.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerPanel>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-ink">Apply debit</h2>
-                <p className="mt-1 text-sm text-steel">Use unapplied supplier debit against finalized open bills for the same supplier.</p>
+                <h2 className="text-base font-semibold text-ink">{tc("Apply debit")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Use unapplied supplier debit against finalized open bills for the same supplier.")}</p>
               </div>
-              <LedgerStatusBadge>No accounting journal</LedgerStatusBadge>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc("No accounting journal")}</span>
             </div>
             {canApplyDebitNote ? (
               openBills.length > 0 ? (
                 <form onSubmit={applyDebitNote} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
-                  <LedgerFieldLabel>
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Open bill</span>
-                    <LedgerSelect value={selectedBillId} onChange={(event) => setSelectedBillId(event.target.value)} className="mt-1">
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Open bill")}</span>
+                    <select value={selectedBillId} onChange={(event) => setSelectedBillId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
                       {openBills.map((bill) => (
                         <option key={bill.id} value={bill.id}>
-                          {bill.billNumber} - balance {formatMoneyAmount(bill.balanceDue, bill.currency)}
+                          {tc("{number} - balance {amount}", { number: bill.billNumber, amount: formatAppMoney(bill.balanceDue, bill.currency, locale) })}
                         </option>
                       ))}
-                    </LedgerSelect>
-                  </LedgerFieldLabel>
-                  <LedgerFieldLabel>
-                    <span className="text-xs font-medium uppercase tracking-wide text-steel">Amount to apply</span>
-                    <LedgerInput value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1" />
-                  </LedgerFieldLabel>
-                  <LedgerButton type="submit" disabled={actionLoading || !selectedBillId} variant="primary" className="self-end">
-                    Apply
-                  </LedgerButton>
-                  <div className="md:col-span-3">
-                    <LedgerFieldHelp>
-                      Selected bill balance: {selectedBill ? formatMoneyAmount(selectedBill.balanceDue, selectedBill.currency) : "-"}.
-                      Debit available: {formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)}.
-                    </LedgerFieldHelp>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Amount to apply")}</span>
+                    <input value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={actionLoading || !selectedBillId} className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    {tc("Apply")}
+                  </button>
+                  <div className="text-xs text-steel md:col-span-3">
+                    {tc("Selected bill balance: {amount}.", { amount: selectedBill ? formatAppMoney(selectedBill.balanceDue, selectedBill.currency, locale) : "-" })}{" "}
+                    {tc("Debit available: {amount}.", { amount: formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale) })}
                   </div>
                 </form>
               ) : (
                 <div className="mt-4">
-                  <StatusMessage type="empty">No finalized open bills are available for this supplier.</StatusMessage>
+                  <StatusMessage type="empty">{tc("No finalized open bills are available for this supplier.")}</StatusMessage>
                 </div>
               )
             ) : (
               <div className="mt-4">
-                <StatusMessage type="info">Debit notes can be applied only after finalization while unapplied amount remains.</StatusMessage>
+                <StatusMessage type="info">{tc("Debit notes can be applied only after finalization while unapplied amount remains.")}</StatusMessage>
               </div>
             )}
-          </LedgerPanel>
+          </div>
 
-          <LedgerAlert tone="warning">
-            Purchase returns, inventory stock movements, bank reconciliation, and ZATCA debit note submission are intentionally not implemented in this MVP.
-          </LedgerAlert>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {tc("Purchase returns, inventory stock movements, bank reconciliation, and ZATCA debit note submission are intentionally not implemented in this MVP.")}
+          </div>
         </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -527,71 +514,84 @@ export function PurchaseDebitNoteWorkflowGuidance({
   onDownloadPdf: () => void;
 }) {
   const hasUnapplied = Number(debitNote.unappliedAmount) > 0;
+  const { locale, tc } = useAppLocale();
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <LedgerPanel>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-ink">What happened?</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteOutcomeDescription(debitNote, hasUnapplied)}</p>
+            <h2 className="text-base font-semibold text-ink">{tc("What happened?")}</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{tc(purchaseDebitNoteOutcomeDescription(debitNote, hasUnapplied))}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <LedgerStatusBadge tone={purchaseDebitNoteStatusTone(debitNote.status)}>{purchaseDebitNoteStatusLabel(debitNote.status)}</LedgerStatusBadge>
+            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${purchaseDebitNoteStatusBadgeClass(debitNote.status)}`}>
+              {tc(purchaseDebitNoteStatusLabel(debitNote.status))}
+            </span>
             {debitNote.status === "FINALIZED" && hasUnapplied ? (
-              <LedgerStatusBadge tone="warning">Unapplied debit</LedgerStatusBadge>
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{tc("Unapplied debit")}</span>
             ) : null}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-          <Summary label="Total debit" value={formatMoneyAmount(debitNote.total, debitNote.currency)} />
-          <Summary label="Applied to bills" value={formatMoneyAmount(appliedAmount, debitNote.currency)} />
-          <Summary label="Unapplied" value={formatMoneyAmount(debitNote.unappliedAmount, debitNote.currency)} />
+          <Summary label={tc("Total debit")} value={formatAppMoney(debitNote.total, debitNote.currency, locale)} />
+          <Summary label={tc("Applied to bills")} value={formatAppMoney(appliedAmount, debitNote.currency, locale)} />
+          <Summary label={tc("Unapplied")} value={formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)} />
         </div>
-      </LedgerPanel>
+      </div>
 
-      <LedgerPanel>
-        <h2 className="text-base font-semibold text-ink">Next actions</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">{purchaseDebitNoteNextActionDescription(debitNote, hasUnapplied)}</p>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Next actions")}</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{tc(purchaseDebitNoteNextActionDescription(debitNote, hasUnapplied))}</p>
         <div className="mt-4 flex flex-col gap-2">
           {debitNote.status === "DRAFT" && canFinalizeDebitNote ? (
-            <LedgerButton onClick={onFinalize} disabled={actionLoading} variant="primary">
-              Finalize debit note
-            </LedgerButton>
+            <button
+              type="button"
+              onClick={onFinalize}
+              disabled={actionLoading}
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {tc("Finalize debit note")}
+            </button>
           ) : null}
           {debitNote.originalBillId ? (
-            <LedgerButton href={`/purchases/bills/${debitNote.originalBillId}`} variant="primary">
-              View original bill
-            </LedgerButton>
+            <Link href={`/purchases/bills/${debitNote.originalBillId}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
+              {tc("View original bill")}
+            </Link>
           ) : null}
           {canDownloadGeneratedDocuments ? (
-            <LedgerButton onClick={onDownloadPdf} disabled={actionLoading}>
-              Download debit note PDF
-            </LedgerButton>
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              disabled={actionLoading}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {tc("Download debit note PDF")}
+            </button>
           ) : null}
-          <LedgerButton href={partyDetailHref("supplier", debitNote.supplierId)}>
-            Open supplier workspace
-          </LedgerButton>
+          <Link href={partyDetailHref("supplier", debitNote.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Open supplier workspace")}
+          </Link>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <LedgerButton href="/reports/aged-payables">
-              AP report
-            </LedgerButton>
-            <LedgerButton href="/dashboard">
-              Dashboard
-            </LedgerButton>
+            <Link href="/reports/aged-payables" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("AP report")}
+            </Link>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Dashboard")}
+            </Link>
           </div>
         </div>
         {debitNote.status === "DRAFT" && !canFinalizeDebitNote ? (
-          <p className="mt-3 text-xs leading-5 text-steel">You need debit note finalization permission before this AP reduction can post.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">{tc("You need debit note finalization permission before this AP reduction can post.")}</p>
         ) : null}
         {debitNote.status === "FINALIZED" && hasUnapplied && !canApplyDebitNote ? (
-          <p className="mt-3 text-xs leading-5 text-steel">This debit note still has unapplied amount, but your role cannot apply it to supplier bills.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">{tc("This debit note still has unapplied amount, but your role cannot apply it to supplier bills.")}</p>
         ) : null}
-        <LedgerSummaryBand tone="warning">
-          ZATCA handling here is local/readiness only. Network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.
-        </LedgerSummaryBand>
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-900">
+          {tc("ZATCA handling here is local/readiness only. Real network submission, CSID execution, clearance/reporting, PDF/A-3 generation, and production compliance are not enabled.")}
+        </div>
         <SourceDocumentGuidance className="mt-4" />
-      </LedgerPanel>
+      </div>
     </div>
   );
 }
@@ -628,22 +628,11 @@ function purchaseDebitNoteNextActionDescription(debitNote: PurchaseDebitNote, ha
   return "Review the original bill, supplier ledger, and AP report to confirm the adjustment is reflected.";
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{value}</div>
     </div>
   );
-}
-
-function purchaseDebitNoteStatusTone(status: PurchaseDebitNote["status"]): LedgerStatusTone {
-  switch (status) {
-    case "DRAFT":
-      return "draft";
-    case "FINALIZED":
-      return "success";
-    case "VOIDED":
-      return "danger";
-  }
 }

@@ -1,26 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import {
-  LedgerAlert,
-  LedgerButton,
-  LedgerErrorState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFilterBar,
-  LedgerInput,
-  LedgerLoadingState,
-  LedgerMetricGrid,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatCard,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
@@ -48,6 +33,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [detail, setDetail] = useState<PartyDetail | null>(null);
   const [statement, setStatement] = useState<PartyStatement | null>(null);
   const [fromDate, setFromDate] = useState(defaultStatementFromDate());
@@ -100,7 +86,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : `Unable to load ${kind} statement workspace.`);
+          setError(loadError instanceof Error ? loadError.message : tc(kind === "customer" ? "Unable to load customer statement workspace." : "Unable to load supplier statement workspace."));
         }
       })
       .finally(() => {
@@ -112,7 +98,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
     return () => {
       cancelled = true;
     };
-  }, [kind, organizationId, params.id]);
+  }, [kind, organizationId, params.id, tc]);
 
   async function loadStatement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,7 +121,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
       const path = kind === "customer" ? `/contacts/${params.id}/statement?${query.toString()}` : `/contacts/${params.id}/supplier-statement?${query.toString()}`;
       setStatement(await apiRequest<PartyStatement>(path));
     } catch (loadError) {
-      setStatementError(loadError instanceof Error ? loadError.message : `Unable to load ${kind} statement.`);
+      setStatementError(loadError instanceof Error ? loadError.message : tc(kind === "customer" ? "Unable to load customer statement." : "Unable to load supplier statement."));
     } finally {
       setStatementLoading(false);
     }
@@ -158,55 +144,50 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
         await downloadPdf(supplierStatementPdfPath(params.id, fromDate, toDate), `${filenamePrefix}-${filenameName}.pdf`);
       }
     } catch (downloadError) {
-      setStatementError(downloadError instanceof Error ? downloadError.message : `Unable to download ${kind} statement PDF.`);
+      setStatementError(downloadError instanceof Error ? downloadError.message : tc(kind === "customer" ? "Unable to download customer statement PDF." : "Unable to download supplier statement PDF."));
     } finally {
       setStatementPdfLoading(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow={kind === "customer" ? "Receivables" : "Payables"}
-        title={kind === "customer" ? "Customer statement activity" : "Supplier statement activity"}
-        description={
-          <>
-            <span className="block">
-            {kind === "customer"
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc(kind === "customer" ? "Customer statement activity" : "Supplier statement activity")}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            {tc(kind === "customer"
               ? "Review posted customer statement rows through the dedicated workspace route while keeping receivables follow-up anchored to the customer workspace."
-              : "Review posted supplier statement rows through the dedicated workspace route while keeping payables follow-up anchored to the supplier workspace."}
-            </span>
-            <span className="mt-1 block text-xs leading-5">
-              Controlled beta activity review only. This route does not add official, certified, bank-confirmed, VAT-filing, or ZATCA-compliance claims.
-            </span>
-          </>
-        }
-        actions={
-          <>
+              : "Review posted supplier statement rows through the dedicated workspace route while keeping payables follow-up anchored to the supplier workspace.")}
+          </p>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-steel">
+            {tc("Controlled beta activity review only. This route does not add official, certified, bank-confirmed, VAT-filing, or ZATCA-compliance claims.")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
           {backToWorkspaceHref ? (
-            <LedgerButton href={backToWorkspaceHref}>
-              {kind === "customer" ? "Back to customer workspace" : "Back to supplier workspace"}
-            </LedgerButton>
+            <Link href={backToWorkspaceHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc(kind === "customer" ? "Back to customer workspace" : "Back to supplier workspace")}
+            </Link>
           ) : null}
           {sharedStatementHref ? (
-            <LedgerButton href={sharedStatementHref}>
-              Open shared contact ledger
-            </LedgerButton>
+            <Link href={sharedStatementHref} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Open shared contact ledger")}
+            </Link>
           ) : null}
-          </>
-        }
-      />
+        </div>
+      </div>
 
       <div className="space-y-3">
         {!organizationId ? (
-          <LedgerAlert tone="info">Log in and select an organization to load this statement workspace.</LedgerAlert>
+          <StatusMessage type="info">{tc("Log in and select an organization to load this statement workspace.")}</StatusMessage>
         ) : null}
-        {loading ? <LedgerLoadingState title="Loading statement workspace" /> : null}
-        {error ? <LedgerErrorState title="Unable to load statement workspace" description={error} /> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading statement workspace...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
       {detail ? (
-        <LedgerPageBody>
+        <div className="mt-5 space-y-4">
           <StatementRouteContext
             detail={detail}
             kind={kind}
@@ -214,69 +195,73 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
             agingHref={agingHref}
           />
 
-          <LedgerSection title="Statement period" description="Choose the date range for the posted statement rows.">
-            <form onSubmit={loadStatement}>
-              <LedgerFilterBar>
-              <LedgerFieldLabel>
-                <LedgerFieldText>From</LedgerFieldText>
-                <LedgerInput type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-              </LedgerFieldLabel>
-              <LedgerFieldLabel>
-                <LedgerFieldText>To</LedgerFieldText>
-                <LedgerInput type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-              </LedgerFieldLabel>
-              <LedgerButton type="submit" disabled={statementLoading} variant="primary">
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <form onSubmit={loadStatement} className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("From")}</span>
+                <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("To")}</span>
+                <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              </label>
+              <button type="submit" disabled={statementLoading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
                 {statementLoading
-                  ? "Loading..."
+                  ? tc("Loading...")
                   : kind === "customer"
-                    ? "Load customer statement"
-                    : "Load supplier statement"}
-              </LedgerButton>
-              <LedgerButton type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading}>
+                    ? tc("Load customer statement")
+                    : tc("Load supplier statement")}
+              </button>
+              <button type="button" onClick={() => void downloadStatementPdf()} disabled={!fromDate || !toDate || statementPdfLoading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
                 {statementPdfLoading
-                  ? "Preparing..."
+                  ? tc("Preparing...")
                   : kind === "customer"
-                    ? "Download customer statement PDF"
-                    : "Download supplier statement PDF"}
-              </LedgerButton>
-              </LedgerFilterBar>
+                    ? tc("Download customer statement PDF")
+                    : tc("Download supplier statement PDF")}
+              </button>
             </form>
             {kind === "customer" ? <CustomerStatementDocumentGuidance /> : <SupplierStatementDocumentGuidance />}
             {statementError ? (
               <div className="mt-3">
-                <LedgerErrorState title={`Unable to load ${kind} statement`} description={statementError} />
+                <StatusMessage type="error">{statementError}</StatusMessage>
               </div>
             ) : null}
-          </LedgerSection>
+          </div>
 
           {statement ? (
             <>
-              <LedgerPanel>
-                <LedgerMetricGrid className="md:grid-cols-4">
-                  <LedgerStatCard label="Period from" value={statement.periodFrom ?? "-"} />
-                  <LedgerStatCard label="Period to" value={statement.periodTo ?? "-"} />
-                  <LedgerStatCard label={kind === "customer" ? "Opening customer balance" : "Opening payable"} value={formatLedgerBalance(statement.openingBalance)} />
-                  <LedgerStatCard label={kind === "customer" ? "Closing customer balance" : "Closing payable"} value={formatLedgerBalance(statement.closingBalance)} />
-                </LedgerMetricGrid>
-              </LedgerPanel>
+              <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                  <Summary label={tc("Period from")} value={statement.periodFrom ?? "-"} />
+                  <Summary label={tc("Period to")} value={statement.periodTo ?? "-"} />
+                  <Summary
+                    label={tc(kind === "customer" ? "Opening customer balance" : "Opening payable")}
+                    value={formatLedgerBalance(statement.openingBalance)}
+                  />
+                  <Summary
+                    label={tc(kind === "customer" ? "Closing customer balance" : "Closing payable")}
+                    value={formatLedgerBalance(statement.closingBalance)}
+                  />
+                </div>
+              </div>
               <LedgerTable
                 rows={statement.rows}
-                emptyMessage={kind === "customer" ? "No customer statement activity was found for this period." : "No supplier statement activity was found for this period."}
+                emptyMessage={tc(kind === "customer" ? "No customer statement activity was found for this period." : "No supplier statement activity was found for this period.")}
                 ledgerKind={kind}
                 contactId={statement.contact.id}
                 returnToHref={statementReturnHref}
               />
             </>
           ) : (
-            <LedgerSummaryBand tone="info">
-              {kind === "customer"
+            <StatusMessage type="info">
+              {tc(kind === "customer"
                 ? "Choose a period to review posted customer activity, then load or download the statement."
-                : "Choose a period to review posted supplier activity, then load or download the statement."}
-            </LedgerSummaryBand>
+                : "Choose a period to review posted supplier activity, then load or download the statement.")}
+            </StatusMessage>
           )}
-        </LedgerPageBody>
+        </div>
       ) : null}
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -291,32 +276,42 @@ function StatementRouteContext({
   activityHref: string;
   agingHref: string;
 }) {
+  const { tc } = useAppLocale();
+
   return (
-    <LedgerSection
-      title={kind === "customer" ? "Customer statement activity" : "Supplier statement activity"}
-      description={
-        <>
-          <span className="block">
-            {kind === "customer"
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">{tc(kind === "customer" ? "Customer statement activity" : "Supplier statement activity")}</h2>
+          <p className="mt-1 text-sm leading-6 text-steel">
+            {tc(kind === "customer"
               ? "Use this route for dedicated statement review, then move into AR activity or aging without losing the customer statement return path."
-              : "Use this route for dedicated statement review, then move into AP activity or aging without losing the supplier statement return path."}
-          </span>
-          <span className="mt-2 block text-xs leading-5">{detail.contact.displayName ?? detail.contact.name}</span>
-        </>
-      }
-    >
-      <LedgerFilterBar>
+              : "Use this route for dedicated statement review, then move into AP activity or aging without losing the supplier statement return path.")}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-steel">{detail.contact.displayName ?? detail.contact.name}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         {activityHref ? (
-          <LedgerButton href={activityHref} variant="primary">
-            {kind === "customer" ? "View AR activity" : "View AP activity"}
-          </LedgerButton>
+          <Link href={activityHref} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+            {tc(kind === "customer" ? "View AR activity" : "View AP activity")}
+          </Link>
         ) : null}
         {agingHref ? (
-          <LedgerButton href={agingHref}>
-            {kind === "customer" ? "Aged receivables" : "Aged payables"}
-          </LedgerButton>
+          <Link href={agingHref} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc(kind === "customer" ? "Aged receivables" : "Aged payables")}
+          </Link>
         ) : null}
-      </LedgerFilterBar>
-    </LedgerSection>
+      </div>
+    </div>
+  );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 break-words font-medium text-ink">{value}</div>
+    </div>
   );
 }

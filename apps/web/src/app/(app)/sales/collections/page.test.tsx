@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import CollectionsPage from "./page";
 import type { CollectionCase, CollectionSummary } from "@/lib/types";
 
@@ -21,6 +22,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -71,6 +73,32 @@ describe("CollectionsPage", () => {
     expect(screen.getByRole("link", { name: "New collection case" })).toHaveAttribute("href", "/sales/collections/new");
     expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/payment link sent/i)).not.toBeInTheDocument();
+  });
+
+  it("renders Arabic collections copy with unchanged route links and record numbers", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/collections/summary") {
+        return Promise.resolve(summaryFixture());
+      }
+      if (path === "/collections") {
+        return Promise.resolve([collectionCaseFixture()]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CollectionsPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("COL-000001")).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "التحصيل" })).toBeInTheDocument();
+    expect(screen.getByText("المبلغ المتأخر")).toBeInTheDocument();
+    expect(screen.getByText("أبرز العملاء المتأخرين")).toBeInTheDocument();
+    expect(screen.getAllByText("وعد بالدفع").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "حالة تحصيل جديدة" })).toHaveAttribute("href", "/sales/collections/new");
+    expect(screen.getByRole("link", { name: "فتح" })).toHaveAttribute("href", "/sales/collections/case-1");
   });
 
   it("hides create action for view-only users", async () => {

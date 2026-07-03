@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, Bell, CircleHelp, UserRound, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Bell, CircleHelp, Languages, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { apiRequest } from "@/lib/api";
 import { getLedgerByteEdition } from "@/lib/edition";
@@ -24,6 +24,7 @@ type NotificationState =
 
 export function Topbar() {
   const { activeMembership, can } = usePermissions();
+  const { locale, setLocale, t, tc } = useAppLocale();
   const edition = getLedgerByteEdition();
   const pathname = usePathname();
   const context = topbarContext(pathname);
@@ -95,37 +96,38 @@ export function Topbar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-3 border-b border-line bg-panel/95 px-4 py-3 shadow-sm backdrop-blur lg:px-6 xl:flex-row xl:items-center xl:justify-between">
-      <div className="min-w-0 xl:w-64">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-col gap-3 border-b border-line bg-panel/95 px-4 py-3 backdrop-blur lg:flex-row lg:items-center lg:justify-between lg:px-6">
+      <div className="min-w-0 lg:w-64">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="text-sm font-semibold text-ink">{context.title}</div>
-          <span className="rounded-md border border-line bg-mist px-1.5 py-0.5 text-[11px] font-semibold uppercase text-steel">{context.group}</span>
+          <div className="text-sm font-semibold text-ink">{tc(context.title)}</div>
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-steel">{tc(context.group)}</span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-steel">
-          <span>{edition.topbarSubtitle}</span>
-          {edition.showUaeEinvoicing ? (
-            <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">No FTA reporting yet</span>
+          <span>{tc(edition.topbarSubtitle)}</span>
+          {edition.showsUaeEinvoicing ? (
+            <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">{t("topbar.noFta")}</span>
           ) : null}
-          {edition.showZatca ? (
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">ZATCA network disabled</span>
+          {edition.showsKsaZatca ? (
+            <span className="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">{t("topbar.noZatca")}</span>
           ) : null}
         </div>
       </div>
-      <GlobalSearch className="w-full xl:min-w-[22rem] xl:flex-1 xl:max-w-2xl" />
-      <div ref={actionsRef} className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end xl:gap-3">
+      <GlobalSearch className="w-full lg:min-w-[22rem] lg:flex-1 lg:max-w-2xl" />
+      <div ref={actionsRef} className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end lg:gap-3">
         <GlobalCreateMenu className="lg:hidden" placement="topbar" />
         {can(PERMISSIONS.journals.create) ? (
-          <Link href="/journal-entries/new" className={buttonVariants()}>
-            New journal
+          <Link href="/journal-entries/new" className="ledger-focus rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-palm-dark">
+            {t("topbar.newJournal")}
           </Link>
         ) : null}
-        <TopbarAction label="Notifications" icon={Bell} open={openMenu === "notifications"} onClick={() => toggleMenu("notifications")}>
+        <LanguageControl currentLocale={locale} onChange={setLocale} />
+        <TopbarAction label={t("notifications.title")} icon={Bell} open={openMenu === "notifications"} onClick={() => toggleMenu("notifications")}>
           <NotificationsMenu active={Boolean(activeMembership)} state={notifications} onAction={closeMenu} />
         </TopbarAction>
-        <TopbarAction label="Help" icon={CircleHelp} open={openMenu === "help"} onClick={() => toggleMenu("help")}>
+        <TopbarAction label={t("help.title")} icon={CircleHelp} open={openMenu === "help"} onClick={() => toggleMenu("help")}>
           <HelpMenu context={context} pathname={pathname} can={can} onAction={closeMenu} />
         </TopbarAction>
-        <TopbarAction label="Account menu" icon={UserRound} open={openMenu === "account"} onClick={() => toggleMenu("account")}>
+        <TopbarAction label={t("topbar.accountMenu")} icon={UserRound} open={openMenu === "account"} onClick={() => toggleMenu("account")}>
           <AccountMenuContent onAction={closeMenu} />
         </TopbarAction>
       </div>
@@ -146,6 +148,7 @@ function TopbarAction({
   onClick: () => void;
   open: boolean;
 }) {
+  const { dir } = useAppLocale();
   const dialogId = `topbar-${label.toLowerCase().replaceAll(" ", "-")}`;
 
   return (
@@ -156,12 +159,42 @@ function TopbarAction({
           id={dialogId}
           role="dialog"
           aria-label={label}
-          className="absolute right-0 top-12 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-md border border-line bg-white p-4 text-left shadow-lift"
+          className={`absolute top-12 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-md border border-line bg-white p-4 text-start shadow-lift ${dir === "rtl" ? "left-0" : "right-0"}`}
         >
           {children}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function LanguageControl({
+  currentLocale,
+  onChange,
+}: {
+  currentLocale: "en" | "ar";
+  onChange: (locale: "en" | "ar") => Promise<void>;
+}) {
+  const { t, tc } = useAppLocale();
+  const [pending, startTransition] = useTransition();
+  const nextLocale = currentLocale === "ar" ? "en" : "ar";
+  const label = nextLocale === "ar" ? t("locale.switchToArabic") : t("locale.switchToEnglish");
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={pending}
+      onClick={() => {
+        startTransition(() => {
+          void onChange(nextLocale);
+        });
+      }}
+      className="ledger-focus inline-flex h-10 items-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-steel transition-colors hover:border-accent/40 hover:text-ink disabled:opacity-60"
+    >
+      <Languages className="h-4 w-4" aria-hidden="true" />
+      <span>{currentLocale === "ar" ? t("common.english") : t("locale.arabic")}</span>
+    </button>
   );
 }
 
@@ -178,6 +211,7 @@ function IconButton({
   onClick: () => void;
   open: boolean;
 }) {
+  const { t } = useAppLocale();
   return (
     <button
       type="button"
@@ -204,20 +238,21 @@ function NotificationsMenu({
   onAction: () => void;
   state: NotificationState;
 }) {
+  const { t, tc } = useAppLocale();
   return (
     <div>
       <PopoverHeader
-        title="Notifications"
-        description="Operational attention items from the current dashboard data."
+        title={t("notifications.title")}
+        description={t("notifications.description")}
       />
       {!active ? (
-        <PopoverEmpty title="No organization selected" description="Log in and select an organization to load notifications." />
+        <PopoverEmpty title={t("notifications.noActiveTitle")} description={t("notifications.noActiveBody")} />
       ) : state.status === "loading" ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-steel">Loading notifications...</div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-steel">{t("notifications.loading")}</div>
       ) : state.status === "error" ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-rosewood">{state.message}</div>
       ) : state.items.length === 0 ? (
-        <PopoverEmpty title="No attention items" description="No dashboard alerts were generated from current data." />
+        <PopoverEmpty title={t("dashboard.emptyAttentionTitle")} description={t("dashboard.emptyAttentionBody")} />
       ) : (
         <div className="space-y-2">
           {state.items.map((item) => (
@@ -230,7 +265,7 @@ function NotificationsMenu({
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
                 <div className="min-w-0">
-                  <div className="text-[11px] font-semibold uppercase">{notificationSeverityLabel(item.severity)}</div>
+                  <div className="text-[11px] font-semibold uppercase">{tc(notificationSeverityLabel(item.severity))}</div>
                   <div className="mt-1 font-semibold">{item.title}</div>
                   <div className="mt-1 text-xs leading-5">{item.description}</div>
                 </div>
@@ -240,7 +275,7 @@ function NotificationsMenu({
         </div>
       )}
       <Link href="/dashboard" onClick={onAction} className="ledger-focus mt-3 block rounded-md border border-line px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-        Open dashboard
+        {t("notifications.openDashboard")}
       </Link>
     </div>
   );
@@ -257,32 +292,33 @@ function HelpMenu({
   onAction: () => void;
   pathname: string;
 }) {
+  const { t, tc } = useAppLocale();
   const links = [
-    { label: "Current workspace", detail: context.title, href: pathname, visible: true },
-    { label: "Dashboard", detail: "Business overview and attention items", href: "/dashboard", visible: can(PERMISSIONS.dashboard.view) },
-    { label: "Guided setup", detail: "First-workflow setup checklist", href: "/setup", visible: can(PERMISSIONS.dashboard.view) },
-    { label: "Document archive", detail: "Generated PDF outputs", href: "/documents", visible: can(PERMISSIONS.generatedDocuments.view) || can(PERMISSIONS.documents.view) },
-    { label: "Organization settings", detail: "Legal profile, country, and currency", href: "/organization/setup", visible: true },
-    { label: "Audit logs", detail: "Review high-risk activity", href: "/settings/audit-logs", visible: can(PERMISSIONS.auditLogs.view) },
+    { label: "Current workspace", detail: tc(context.title), href: pathname, visible: true },
+    { label: "Dashboard", detail: t("topbar.dashboardDetail"), href: "/dashboard", visible: can(PERMISSIONS.dashboard.view) },
+    { label: "Guided setup", detail: t("topbar.guidedSetupDetail"), href: "/setup", visible: can(PERMISSIONS.dashboard.view) },
+    { label: "Document archive", detail: t("topbar.documentArchiveDetail"), href: "/documents", visible: can(PERMISSIONS.generatedDocuments.view) || can(PERMISSIONS.documents.view) },
+    { label: "Organization settings", detail: t("topbar.organizationSettingsDetail"), href: "/organization/setup", visible: true },
+    { label: "Audit logs", detail: t("topbar.reviewAuditLogsDetail"), href: "/settings/audit-logs", visible: can(PERMISSIONS.auditLogs.view) },
   ].filter((link) => link.visible);
 
   return (
     <div>
       <PopoverHeader
-        title="Help"
-        description="Links to existing beta resources and setup areas. No live support chat is connected."
+        title={t("help.title")}
+        description={t("help.description")}
       />
       <div className="space-y-2">
         {links.map((link) => (
           <Link
             key={`${link.href}-${link.label}`}
             href={link.href}
-            aria-label={link.label === "Current workspace" ? `${link.label} ${link.detail}` : link.label}
+            aria-label={link.label === "Current workspace" ? `${tc(link.label)} ${link.detail}` : tc(link.label)}
             onClick={onAction}
             className="ledger-focus block rounded-md border border-line px-3 py-2 text-sm hover:bg-slate-50"
           >
             <span className="font-semibold text-ink">
-              {link.label} {link.label === "Current workspace" ? link.detail : ""}
+              {tc(link.label)} {link.label === "Current workspace" ? link.detail : ""}
             </span>
             {link.label !== "Current workspace" ? <span className="mt-0.5 block text-xs leading-5 text-steel">{link.detail}</span> : null}
           </Link>

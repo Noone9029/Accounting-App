@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { ArchiveDocumentGuidance, SettingsImpactGuidance, SourceDocumentGuidance } from "./document-guidance";
 
 jest.mock("next/link", () => ({
@@ -16,29 +17,19 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
+
 describe("document guidance", () => {
-  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
-
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
-  });
-
   it("explains source PDF archive behavior without claiming production compliance", () => {
     render(<SourceDocumentGuidance />);
 
     expect(screen.getByText(/PDF downloads from source records are archived automatically/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
     expect(screen.getByRole("link", { name: "Document settings" })).toHaveAttribute("href", "/settings/documents");
-    expect(screen.getByText(/Tax-authority submission, provider reporting, and production compliance are not enabled/)).toBeInTheDocument();
+    expect(screen.getByText(/PDF\/A-3 embedding, real ZATCA network submission/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
-  });
-
-  it("keeps ZATCA document wording in the KSA edition only", () => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "KSA";
-
-    render(<SourceDocumentGuidance />);
-
-    expect(screen.getByText(/PDF\/A-3 embedding,\s+ZATCA network submission/)).toBeInTheDocument();
   });
 
   it("explains archived downloads are non-posting document retrievals", () => {
@@ -53,5 +44,19 @@ describe("document guidance", () => {
 
     expect(screen.getByText(/apply to PDFs generated after saving/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review number sequences" })).toHaveAttribute("href", "/settings/number-sequences");
+  });
+
+  it("renders archive guidance in Arabic while preserving settings links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <ArchiveDocumentGuidance />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("كيف يعمل الأرشيف")).toBeInTheDocument();
+    expect(screen.getByText(/لا يرحل قيودا محاسبية/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "تعديل إعدادات PDF" })).toHaveAttribute("href", "/settings/documents");
+    expect(screen.getByRole("link", { name: "مراجعة الترقيم" })).toHaveAttribute("href", "/settings/number-sequences");
+    expect(screen.getByText(/حالة زاتكا هنا محلية\/جاهزية فقط/)).toBeInTheDocument();
   });
 });

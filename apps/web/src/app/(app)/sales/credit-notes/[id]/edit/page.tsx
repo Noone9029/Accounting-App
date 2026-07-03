@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { CreditNoteForm } from "@/components/forms/credit-note-form";
-import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { CreditNote } from "@/lib/types";
@@ -13,6 +13,7 @@ import type { CreditNote } from "@/lib/types";
 export default function EditCreditNotePage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +35,7 @@ export default function EditCreditNotePage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load credit note.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load credit note."));
         }
       })
       .finally(() => {
@@ -46,30 +47,27 @@ export default function EditCreditNotePage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Edit credit note"
-        description="Draft credit notes can be edited before finalization."
-        actions={
-          <LedgerButton href={creditNote ? `/sales/credit-notes/${creditNote.id}` : "/sales/credit-notes"} icon={ArrowLeft}>
-            Back
-          </LedgerButton>
-        }
-      />
-
-      <LedgerPageBody>
-        <div className="space-y-3">
-          {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit credit notes.</StatusMessage> : null}
-          {loading ? <StatusMessage type="loading">Loading credit note...</StatusMessage> : null}
-          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Edit credit note")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Draft credit notes can be edited before finalization.")}</p>
         </div>
+        <Link href={creditNote ? `/sales/credit-notes/${creditNote.id}` : "/sales/credit-notes"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
-        {creditNote ? <CreditNoteForm initialCreditNote={creditNote} /> : null}
-      </LedgerPageBody>
-    </LedgerPage>
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to edit credit notes.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading credit note...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      {creditNote ? <div className="mt-5"><CreditNoteForm initialCreditNote={creditNote} /></div> : null}
+    </section>
   );
 }

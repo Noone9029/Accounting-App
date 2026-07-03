@@ -1,35 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
+  bankAccountStatusBadgeClass,
   bankAccountStatusLabel,
   bankAccountTypeLabel,
   canArchiveBankAccount,
   canReactivateBankAccount,
 } from "@/lib/bank-accounts";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { BankAccountSummary } from "@/lib/types";
 
 export default function BankAccountsPage() {
+  const { locale, tc } = useAppLocale();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [profiles, setProfiles] = useState<BankAccountSummary[]>([]);
@@ -57,7 +47,7 @@ export default function BankAccountsPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load bank accounts.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load bank accounts."));
         }
       })
       .finally(() => {
@@ -77,123 +67,115 @@ export default function BankAccountsPage() {
     setSuccess("");
     try {
       const updated = await apiRequest<BankAccountSummary>(`/bank-accounts/${profile.id}/${action}`, { method: "POST" });
-      setSuccess(`${updated.displayName} is now ${bankAccountStatusLabel(updated.status).toLowerCase()}.`);
+      setSuccess(tc("{name} is now {status}.", { name: updated.displayName, status: tc(bankAccountStatusLabel(updated.status)).toLowerCase() }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to update bank account status.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to update bank account status."));
     } finally {
       setActionId("");
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Banking / Manual profiles"
-        title="Bank accounts"
-        description="Cash and bank profiles linked to posting asset accounts."
-        actions={
-          canManage ? (
-            <LedgerButton href="/bank-accounts/new" variant="primary">
-              Link account
-            </LedgerButton>
-          ) : null
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Bank accounts")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Cash and bank profiles linked to posting asset accounts.")}</p>
+        </div>
+        {canManage ? (
+          <Link href="/bank-accounts/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc("Link account")}
+          </Link>
+        ) : null}
+      </div>
 
-      <LedgerSummaryBand tone="info">
-        Banking remains manual-review only. LedgerByte does not connect to live bank feeds, auto-reconcile statement rows, or move money from this list.
-      </LedgerSummaryBand>
-
-      <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank accounts.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading bank accounts...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load bank accounts.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading bank accounts...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && profiles.length === 0 ? (
-          <LedgerEmptyState
-            title="No bank account profiles found"
-            description="Link a cash, card, wallet, or bank profile before recording transfers or importing statement rows. This does not connect LedgerByte to a live bank feed."
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                {canManage ? (
-                  <LedgerButton href="/bank-accounts/new" variant="primary">
-                    Link first account
-                  </LedgerButton>
-                ) : null}
-                <LedgerButton href="/dashboard">Dashboard</LedgerButton>
-              </div>
-            }
-          />
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 shadow-panel">
+            <StatusMessage type="empty">{tc("No bank account profiles found.")}</StatusMessage>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">
+              {tc("Link a cash, card, wallet, or bank profile before recording transfers or importing statement rows. This does not connect LedgerByte to a live bank feed.")}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canManage ? (
+                <Link href="/bank-accounts/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+                  {tc("Link first account")}
+                </Link>
+              ) : null}
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Dashboard")}
+              </Link>
+            </div>
+          </div>
         ) : null}
+      </div>
 
-        {profiles.length > 0 ? (
-          <LedgerDataTable minWidth="1080px">
-            <thead className="ledger-table-header">
+      {profiles.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1080px] text-start text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Chart account</th>
-                <th className="px-4 py-3">Currency</th>
-                <th className="px-4 py-3">Ledger balance</th>
-                <th className="px-4 py-3">Transactions</th>
-                <th className="px-4 py-3">Latest</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Name")}</th>
+                <th className="px-4 py-3">{tc("Type")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Chart account")}</th>
+                <th className="px-4 py-3">{tc("Currency")}</th>
+                <th className="px-4 py-3 text-end">{tc("Ledger balance")}</th>
+                <th className="px-4 py-3 text-end">{tc("Transactions")}</th>
+                <th className="px-4 py-3">{tc("Latest")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {profiles.map((profile) => (
                 <tr key={profile.id}>
                   <td className="px-4 py-3 font-medium text-ink">{profile.displayName}</td>
-                  <td className="px-4 py-3 text-steel">{bankAccountTypeLabel(profile.type)}</td>
+                  <td className="px-4 py-3 text-steel">{tc(bankAccountTypeLabel(profile.type))}</td>
                   <td className="px-4 py-3">
-                    <BankAccountStatusPill status={profile.status} />
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankAccountStatusBadgeClass(profile.status)}`}>
+                      {tc(bankAccountStatusLabel(profile.status))}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-steel">
-                    {profile.account.code} {profile.account.name}
+                    <bdi dir="ltr">{profile.account.code}</bdi> {profile.account.name}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">{profile.currency}</td>
-                  <td className="px-4 py-3">
-                    <LedgerMoney>{formatMoneyAmount(profile.ledgerBalance, profile.currency)}</LedgerMoney>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">{profile.transactionCount}</td>
-                  <td className="px-4 py-3">
-                    <LedgerDate>{formatOptionalDate(profile.latestTransactionDate, "-")}</LedgerDate>
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{profile.currency}</bdi></td>
+                  <td className="px-4 py-3 text-end font-mono text-xs">{formatAppMoney(profile.ledgerBalance, profile.currency, locale)}</td>
+                  <td className="px-4 py-3 text-end font-mono text-xs">{profile.transactionCount}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(profile.latestTransactionDate, locale, "-")}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <LedgerButton href={`/bank-accounts/${profile.id}`} size="sm">
-                        View
-                      </LedgerButton>
+                      <Link href={`/bank-accounts/${profile.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("View")}
+                      </Link>
                       {canManage ? (
-                        <LedgerButton href={`/bank-accounts/${profile.id}/edit`} size="sm">
-                          Edit
-                        </LedgerButton>
+                        <Link href={`/bank-accounts/${profile.id}/edit`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          {tc("Edit")}
+                        </Link>
                       ) : null}
                       {canManage && canArchiveBankAccount(profile.status) ? (
-                        <LedgerButton size="sm" disabled={actionId === profile.id} onClick={() => void changeStatus(profile, "archive")}>
-                          Archive
-                        </LedgerButton>
+                        <button type="button" disabled={actionId === profile.id} onClick={() => void changeStatus(profile, "archive")} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Archive")}
+                        </button>
                       ) : null}
                       {canManage && canReactivateBankAccount(profile.status) ? (
-                        <LedgerButton size="sm" disabled={actionId === profile.id} onClick={() => void changeStatus(profile, "reactivate")}>
-                          Reactivate
-                        </LedgerButton>
+                        <button type="button" disabled={actionId === profile.id} onClick={() => void changeStatus(profile, "reactivate")} className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Reactivate")}
+                        </button>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
-}
-
-function BankAccountStatusPill({ status }: Readonly<{ status: BankAccountSummary["status"] }>) {
-  const tone: LedgerStatusTone = status === "ACTIVE" ? "success" : "neutral";
-  return <LedgerStatusBadge tone={tone}>{bankAccountStatusLabel(status)}</LedgerStatusBadge>;
 }

@@ -1,19 +1,18 @@
 "use client";
 
+import { useAppLocale } from "@/components/app-locale-provider";
 import { DeliveryNoteForm } from "@/components/forms/delivery-note-form";
-import { LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 
 export default function NewDeliveryNotePage() {
+  const { tc } = useAppLocale();
+
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="New delivery note"
-        description="Create a non-posting delivery note for customer fulfillment."
-      />
-      <LedgerPageBody>
+    <section>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-ink">{tc("New delivery note")}</h1>
+        <p className="mt-1 text-sm text-steel">{tc("Create a non-posting delivery note for customer fulfillment.")}</p>
+      </div>
       <DeliveryNoteForm />
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }

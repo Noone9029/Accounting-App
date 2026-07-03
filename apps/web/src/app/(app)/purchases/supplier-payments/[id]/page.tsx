@@ -3,35 +3,15 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerMetadataRow,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount, formatUnits, parseDecimalToUnits } from "@/lib/money";
+import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, supplierPaymentReceiptPdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -47,6 +27,7 @@ import type { OpenPurchaseBill, SupplierPayment, SupplierPaymentReceiptData } fr
 export default function SupplierPaymentDetailPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const { locale, tc } = useAppLocale();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [payment, setPayment] = useState<SupplierPayment | null>(null);
@@ -89,7 +70,7 @@ export default function SupplierPaymentDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load supplier payment.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load supplier payment."));
         }
       })
       .finally(() => {
@@ -153,7 +134,7 @@ export default function SupplierPaymentDetailPage() {
       targetBill?.balanceDue ?? "0.0000",
     );
     if (validationError) {
-      setError(validationError);
+      setError(tc(validationError));
       setSuccess("");
       return;
     }
@@ -171,9 +152,9 @@ export default function SupplierPaymentDetailPage() {
       setReceiptData(await apiRequest<SupplierPaymentReceiptData>(`/supplier-payments/${payment.id}/receipt-data`));
       setApplyAmount("");
       setApplyBillId("");
-      setSuccess(`Applied ${formatMoneyAmount(applyAmount, payment.currency)} from ${payment.paymentNumber}.`);
+      setSuccess(tc("Applied {amount} from {number}.", { amount: formatAppMoney(applyAmount, payment.currency, locale), number: payment.paymentNumber }));
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Unable to apply unapplied supplier payment amount.");
+      setError(applyError instanceof Error ? applyError.message : tc("Unable to apply unapplied supplier payment amount."));
     } finally {
       setActionLoading(false);
     }
@@ -183,8 +164,8 @@ export default function SupplierPaymentDetailPage() {
     if (!payment) {
       return;
     }
-    const reason = window.prompt("Reason for reversing this unapplied supplier payment allocation?") ?? "";
-    if (!window.confirm(`Reverse allocation on ${payment.paymentNumber}?`)) {
+    const reason = window.prompt(tc("Reason for reversing this unapplied supplier payment allocation?")) ?? "";
+    if (!window.confirm(tc("Reverse allocation on {number}?", { number: payment.paymentNumber }))) {
       return;
     }
 
@@ -199,16 +180,16 @@ export default function SupplierPaymentDetailPage() {
       });
       setPayment(updated);
       setReceiptData(await apiRequest<SupplierPaymentReceiptData>(`/supplier-payments/${payment.id}/receipt-data`));
-      setSuccess("Unapplied supplier payment allocation reversed.");
+      setSuccess(tc("Unapplied supplier payment allocation reversed."));
     } catch (reverseError) {
-      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse unapplied supplier payment allocation.");
+      setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse unapplied supplier payment allocation."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function voidPayment() {
-    if (!payment || !window.confirm(`Void supplier payment ${payment.paymentNumber}?`)) {
+    if (!payment || !window.confirm(tc("Void supplier payment {number}?", { number: payment.paymentNumber }))) {
       return;
     }
 
@@ -220,9 +201,9 @@ export default function SupplierPaymentDetailPage() {
       const updated = await apiRequest<SupplierPayment>(`/supplier-payments/${payment.id}/void`, { method: "POST" });
       setPayment(updated);
       await refreshPayment();
-      setSuccess(`Voided supplier payment ${updated.paymentNumber}.`);
+      setSuccess(tc("Voided supplier payment {number}.", { number: updated.paymentNumber }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to void supplier payment.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to void supplier payment."));
     } finally {
       setActionLoading(false);
     }
@@ -240,7 +221,7 @@ export default function SupplierPaymentDetailPage() {
     try {
       await downloadPdf(supplierPaymentReceiptPdfPath(payment.id), `supplier-payment-${payment.paymentNumber}.pdf`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download supplier payment PDF.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download supplier payment PDF."));
     } finally {
       setActionLoading(false);
     }
@@ -257,52 +238,51 @@ export default function SupplierPaymentDetailPage() {
     payment ? `/purchases/supplier-payments/${payment.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title={payment ? payment.paymentNumber : "Supplier payment"}
-        description="Supplier payment posting, bill matching, and downloadable payment PDF."
-        badge={payment ? <LedgerStatusBadge tone={supplierPaymentStatusTone(payment.status)}>{supplierPaymentStatusLabel(payment.status)}</LedgerStatusBadge> : undefined}
-        actions={
-          <LedgerActionBar>
-          <LedgerButton href={returnTo || "/purchases/supplier-payments"}>
-            Back
-          </LedgerButton>
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{payment ? <bdi dir="ltr">{payment.paymentNumber}</bdi> : tc("Supplier payment")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Supplier payment posting, bill matching, and downloadable payment PDF.")}</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
           {payment?.supplierId ? (
-            <LedgerButton href={partyDetailHref("supplier", payment.supplierId)}>
-              Supplier workspace
-            </LedgerButton>
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Supplier workspace")}
+            </Link>
           ) : null}
           {payment && canDownloadGeneratedDocuments ? (
-            <LedgerButton onClick={() => void downloadReceiptPdf()} disabled={actionLoading}>
-              Download payment PDF
-            </LedgerButton>
+            <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Download payment PDF")}
+            </button>
           ) : null}
           {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
-            <LedgerButton
+            <Link
               href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(payment.supplierId)}&sourceType=SUPPLIER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
-              variant="primary"
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
             >
-              Record supplier refund
-            </LedgerButton>
+              {tc("Record supplier refund")}
+            </Link>
           ) : null}
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <LedgerButton variant="danger" onClick={() => void voidPayment()} disabled={actionLoading}>
-              Void
-            </LedgerButton>
+            <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Void")}
+            </button>
           ) : null}
-          </LedgerActionBar>
-        }
-      />
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load supplier payments.</LedgerAlert> : null}
-        {loading ? <LedgerAlert tone="info">Loading supplier payment...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load supplier payments.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading supplier payment...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
       {payment ? (
-        <>
+        <div className="mt-5 space-y-5">
           <SupplierPaymentWorkflowGuidance
             payment={payment}
             recorded={wasJustRecorded}
@@ -315,36 +295,34 @@ export default function SupplierPaymentDetailPage() {
 
           <AttachmentPanel linkedEntityType="SUPPLIER_PAYMENT" linkedEntityId={payment.id} />
 
-          <LedgerSection title="Payment details" description="AP payment posting, cash account, journal, and reversal state.">
-            <LedgerMetadataRow
-              items={[
-                { label: "Supplier", value: payment.supplier?.displayName ?? payment.supplier?.name ?? "-" },
-                { label: "Status", value: supplierPaymentStatusLabel(payment.status) },
-                { label: "Payment date", value: <LedgerDate>{formatOptionalDate(payment.paymentDate, "-")}</LedgerDate> },
-                { label: "Currency", value: payment.currency },
-                { label: "Amount paid", value: <LedgerMoney>{formatMoneyAmount(payment.amountPaid, payment.currency)}</LedgerMoney> },
-                { label: "Unapplied amount", value: <LedgerMoney>{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</LedgerMoney> },
-                { label: "Applied from unapplied", value: <LedgerMoney>{formatMoneyAmount(unappliedAppliedAmount, payment.currency)}</LedgerMoney> },
-                { label: "Paid-through account", value: payment.account ? `${payment.account.code} ${payment.account.name}` : "-" },
-                { label: "Journal entry", value: payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-" },
-                { label: "Void reversal", value: payment.voidReversalJournalEntry ? `${payment.voidReversalJournalEntry.entryNumber} (${payment.voidReversalJournalEntry.id})` : "-" },
-                { label: "Posted", value: payment.postedAt ? new Date(payment.postedAt).toLocaleString() : "-" },
-                { label: "Voided", value: payment.voidedAt ? new Date(payment.voidedAt).toLocaleString() : "-" },
-                { label: "Description", value: payment.description ?? "-" },
-              ]}
-            />
-          </LedgerSection>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <Summary label={tc("Supplier")} value={payment.supplier?.displayName ?? payment.supplier?.name ?? "-"} />
+              <Summary label={tc("Status")} value={tc(supplierPaymentStatusLabel(payment.status))} />
+              <Summary label={tc("Payment date")} value={formatAppDate(payment.paymentDate, locale, "-")} />
+              <Summary label={tc("Currency")} value={payment.currency} bidi />
+              <Summary label={tc("Amount paid")} value={formatAppMoney(payment.amountPaid, payment.currency, locale)} />
+              <Summary label={tc("Unapplied")} value={formatAppMoney(payment.unappliedAmount, payment.currency, locale)} />
+              <Summary label={tc("Applied from unapplied")} value={formatAppMoney(unappliedAppliedAmount, payment.currency, locale)} />
+              <Summary label={tc("Paid-through account")} value={payment.account ? `${payment.account.code} ${payment.account.name}` : "-"} bidi={Boolean(payment.account)} />
+              <Summary label={tc("Journal entry")} value={payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"} bidi={Boolean(payment.journalEntry)} />
+              <Summary label={tc("Void reversal")} value={payment.voidReversalJournalEntry ? `${payment.voidReversalJournalEntry.entryNumber} (${payment.voidReversalJournalEntry.id})` : "-"} bidi={Boolean(payment.voidReversalJournalEntry)} />
+              <Summary label={tc("Posted")} value={formatAppDateTime(payment.postedAt, locale, "-")} />
+              <Summary label={tc("Voided")} value={formatAppDateTime(payment.voidedAt, locale, "-")} />
+              <Summary label={tc("Description")} value={payment.description ?? "-"} />
+            </div>
+          </div>
 
-          <LedgerSection title="Bill allocations" description="Direct allocations created when the supplier payment was recorded." className="p-0">
-            <LedgerDataTable minWidth="820px" className="rounded-t-none border-0 shadow-none">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[820px] text-start text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
-                  <th className="px-4 py-3">Bill</th>
-                  <th className="px-4 py-3">Bill date</th>
-                  <th className="px-4 py-3">Bill total</th>
-                  <th className="px-4 py-3">Applied</th>
-                  <th className="px-4 py-3">Bill balance due</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">{tc("Bill")}</th>
+                  <th className="px-4 py-3">{tc("Bill date")}</th>
+                  <th className="px-4 py-3">{tc("Bill total")}</th>
+                  <th className="px-4 py-3">{tc("Applied")}</th>
+                  <th className="px-4 py-3">{tc("Bill balance due")}</th>
+                  <th className="px-4 py-3">{tc("Status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -353,158 +331,163 @@ export default function SupplierPaymentDetailPage() {
                     <tr key={allocation.id}>
                       <td className="px-4 py-3">
                         <Link href={`/purchases/bills/${allocation.billId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="font-mono text-xs text-palm hover:underline">
-                          {allocation.bill?.billNumber ?? allocation.billId}
+                          <bdi dir="ltr">{allocation.bill?.billNumber ?? allocation.billId}</bdi>
                         </Link>
                       </td>
-                      <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(allocation.bill?.billDate, "-")}</LedgerDate></td>
-                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.bill?.total ?? "0.0000", payment.currency)}</LedgerMoney></td>
-                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, payment.currency)}</LedgerMoney></td>
-                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.bill?.balanceDue ?? "0.0000", payment.currency)}</LedgerMoney></td>
-                      <td className="px-4 py-3 text-steel">{allocation.bill?.status ?? "-"}</td>
+                      <td className="px-4 py-3 text-steel">{formatAppDate(allocation.bill?.billDate, locale, "-")}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.bill?.total ?? "0.0000", payment.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.bill?.balanceDue ?? "0.0000", payment.currency, locale)}</td>
+                      <td className="px-4 py-3 text-steel">{tc(billStatusLabel(allocation.bill?.status))}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-5 text-center text-steel">
-                      This supplier payment has no direct bill allocations.
+                      {tc("This supplier payment has no direct bill allocations.")}
                     </td>
                   </tr>
                 )}
               </tbody>
-            </LedgerDataTable>
-          </LedgerSection>
+            </table>
+          </div>
 
-          <LedgerSection title="Unapplied supplier payment applications" description="Matching unapplied supplier payment credit to later bills updates balances only. No new journal entry is created." className="p-0">
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">{tc("Unapplied supplier payment applications")}</h2>
+              <p className="mt-1 text-sm text-steel">{tc("Matching unapplied supplier payment credit to later bills updates balances only. No new journal entry is created.")}</p>
+            </div>
             {payment.unappliedAllocations && payment.unappliedAllocations.length > 0 ? (
-                <LedgerDataTable minWidth="980px" className="rounded-t-none border-0 shadow-none">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Bill</th>
-                      <th className="px-4 py-3">Bill date</th>
-                      <th className="px-4 py-3">Bill total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Bill balance due</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Reason</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Bill")}</th>
+                      <th className="px-4 py-3">{tc("Bill date")}</th>
+                      <th className="px-4 py-3">{tc("Bill total")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Bill balance due")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Reversed")}</th>
+                      <th className="px-4 py-3">{tc("Reason")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {payment.unappliedAllocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill?.billNumber ?? allocation.billId}</td>
-                        <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(allocation.bill?.billDate, "-")}</LedgerDate></td>
-                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.total, payment.currency)}</LedgerMoney> : "-"}</td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, payment.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3">{allocation.bill ? <LedgerMoney>{formatMoneyAmount(allocation.bill.balanceDue, payment.currency)}</LedgerMoney> : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.bill?.billNumber ?? allocation.billId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.bill?.billDate, locale, "-")}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.total, payment.currency, locale) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.balanceDue, payment.currency, locale) : "-"}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${supplierPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
-                            {supplierPaymentUnappliedAllocationStatusLabel(allocation)}
+                            {tc(supplierPaymentUnappliedAllocationStatusLabel(allocation))}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-steel">{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{formatAppDateTime(allocation.reversedAt, locale, "-")}</td>
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
-                          <LedgerActionBar>
-                            <LedgerButton href={`/purchases/bills/${allocation.billId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} size="sm">
-                              View bill
-                            </LedgerButton>
+                          <div className="flex flex-wrap gap-2">
+                            <Link href={`/purchases/bills/${allocation.billId}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              {tc("View bill")}
+                            </Link>
                             {canReverseSupplierPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
-                              <LedgerButton variant="danger" size="sm" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading}>
-                                Reverse
-                              </LedgerButton>
+                              <button type="button" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                                {tc("Reverse")}
+                              </button>
                             ) : null}
-                          </LedgerActionBar>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </LedgerDataTable>
+                </table>
+              </div>
             ) : (
               <div className="px-5 py-4">
-                <LedgerAlert tone="info">No unapplied supplier payment credit has been matched to later bills.</LedgerAlert>
+                <StatusMessage type="empty">{tc("No unapplied supplier payment credit has been matched to later bills.")}</StatusMessage>
               </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerPanel className="p-4">
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-ink">Apply unapplied amount</h2>
-                <p className="mt-1 text-sm text-steel">Use remaining supplier payment credit against finalized open bills for the same supplier.</p>
+                <h2 className="text-base font-semibold text-ink">{tc("Apply unapplied amount")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Use remaining supplier payment credit against finalized open bills for the same supplier.")}</p>
               </div>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">No accounting journal</span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc("No accounting journal")}</span>
             </div>
             {canApplyUnapplied ? (
               openBills.length > 0 ? (
                 <form onSubmit={applyUnapplied} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
-                  <LedgerFieldLabel>
-                    <LedgerFieldText>Open bill</LedgerFieldText>
-                    <LedgerSelect value={applyBillId} onChange={(event) => setApplyBillId(event.target.value)}>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Open bill")}</span>
+                    <select value={applyBillId} onChange={(event) => setApplyBillId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
                       {openBills.map((bill) => (
                         <option key={bill.id} value={bill.id}>
-                          {bill.billNumber} - balance {formatMoneyAmount(bill.balanceDue, bill.currency)}
+                          {tc("{number} - balance {amount}", { number: bill.billNumber, amount: formatAppMoney(bill.balanceDue, bill.currency, locale) })}
                         </option>
                       ))}
-                    </LedgerSelect>
-                  </LedgerFieldLabel>
-                  <LedgerFieldLabel>
-                    <LedgerFieldText>Amount to apply</LedgerFieldText>
-                    <LedgerInput value={applyAmount} onChange={(event) => setApplyAmount(event.target.value)} placeholder="0.0000" className="font-mono tabular-nums" />
-                  </LedgerFieldLabel>
-                  <LedgerButton type="submit" disabled={actionLoading || !applyBillId} variant="primary" className="self-end">
-                    Apply
-                  </LedgerButton>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Amount to apply")}</span>
+                    <input value={applyAmount} onChange={(event) => setApplyAmount(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={actionLoading || !applyBillId} className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    {tc("Apply")}
+                  </button>
                   <div className="text-xs text-steel md:col-span-3">
-                    Selected bill balance: {selectedOpenBill ? formatMoneyAmount(selectedOpenBill.balanceDue, selectedOpenBill.currency) : "-"}.
-                    Supplier payment credit available: {formatMoneyAmount(payment.unappliedAmount, payment.currency)}.
+                    {tc("Selected bill balance: {amount}.", { amount: selectedOpenBill ? formatAppMoney(selectedOpenBill.balanceDue, selectedOpenBill.currency, locale) : "-" })}
+                    {" "}
+                    {tc("Supplier payment credit available: {amount}.", { amount: formatAppMoney(payment.unappliedAmount, payment.currency, locale) })}
                   </div>
                 </form>
               ) : (
                 <div className="mt-4">
-                  <LedgerAlert tone="info">No finalized open bills are available for this supplier.</LedgerAlert>
+                  <StatusMessage type="empty">{tc("No finalized open bills are available for this supplier.")}</StatusMessage>
                 </div>
               )
             ) : (
               <div className="mt-4">
-                <LedgerAlert tone="info">Unapplied amount can be applied only while the supplier payment is posted and credit remains.</LedgerAlert>
+                <StatusMessage type="info">{tc("Unapplied amount can be applied only while the supplier payment is posted and credit remains.")}</StatusMessage>
               </div>
             )}
-          </LedgerPanel>
+          </div>
 
           {receiptData ? (
-            <LedgerSection title="Receipt data preview" description="Structured supplier payment document preview. Downloading the PDF stores a generated archive record.">
+            <div className="rounded-md border border-slate-200 bg-white shadow-panel">
               <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-ink">Payment PDF source data</h3>
+                  <h2 className="text-base font-semibold text-ink">{tc("Receipt data preview")}</h2>
+                  <p className="mt-1 text-sm text-steel">{tc("Structured supplier payment document preview. Downloading the PDF stores a generated archive record.")}</p>
                 </div>
                 {canDownloadGeneratedDocuments ? (
-                  <LedgerButton onClick={() => void downloadReceiptPdf()} disabled={actionLoading}>
-                    Download payment PDF
-                  </LedgerButton>
+                  <button type="button" onClick={() => void downloadReceiptPdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                    {tc("Download payment PDF")}
+                  </button>
                 ) : null}
               </div>
               <div className="p-5">
-                <LedgerMetadataRow
-                  items={[
-                    { label: "Payment number", value: receiptData.receiptNumber },
-                    { label: "Supplier", value: receiptData.supplier.displayName ?? receiptData.supplier.name },
-                    { label: "Payment date", value: <LedgerDate>{formatOptionalDate(receiptData.paymentDate, "-")}</LedgerDate> },
-                    { label: "Status", value: receiptData.status },
-                    { label: "Amount paid", value: <LedgerMoney>{formatMoneyAmount(receiptData.amountPaid, receiptData.currency)}</LedgerMoney> },
-                    { label: "Unapplied", value: <LedgerMoney>{formatMoneyAmount(receiptData.unappliedAmount, receiptData.currency)}</LedgerMoney> },
-                    { label: "Paid through", value: `${receiptData.paidThroughAccount.code} ${receiptData.paidThroughAccount.name}` },
-                    { label: "Journal entry", value: receiptData.journalEntry ? `${receiptData.journalEntry.entryNumber} (${receiptData.journalEntry.id})` : "-" },
-                  ]}
-                />
+                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+                  <Summary label={tc("Payment number")} value={receiptData.receiptNumber} bidi />
+                  <Summary label={tc("Supplier")} value={receiptData.supplier.displayName ?? receiptData.supplier.name} />
+                  <Summary label={tc("Payment date")} value={formatAppDate(receiptData.paymentDate, locale, "-")} />
+                  <Summary label={tc("Status")} value={tc(supplierPaymentStatusLabel(receiptData.status))} />
+                  <Summary label={tc("Amount paid")} value={formatAppMoney(receiptData.amountPaid, receiptData.currency, locale)} />
+                  <Summary label={tc("Unapplied")} value={formatAppMoney(receiptData.unappliedAmount, receiptData.currency, locale)} />
+                  <Summary label={tc("Paid through")} value={`${receiptData.paidThroughAccount.code} ${receiptData.paidThroughAccount.name}`} bidi />
+                  <Summary label={tc("Journal entry")} value={receiptData.journalEntry ? `${receiptData.journalEntry.entryNumber} (${receiptData.journalEntry.id})` : "-"} bidi={Boolean(receiptData.journalEntry)} />
+                </div>
               </div>
-            </LedgerSection>
+            </div>
           ) : null}
-        </>
+        </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -525,6 +508,7 @@ export function SupplierPaymentWorkflowGuidance({
   paymentDetailHref: string;
   onDownloadReceiptPdf: () => void;
 }) {
+  const { locale, tc } = useAppLocale();
   const firstAllocatedBill = payment.allocations?.find((allocation) => allocation.bill)?.bill ?? null;
   const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0) ?? 0;
   const hasUnapplied = Number(payment.unappliedAmount) > 0;
@@ -532,70 +516,75 @@ export function SupplierPaymentWorkflowGuidance({
   return (
     <div className="space-y-4">
       {recorded ? (
-        <LedgerAlert tone="success">
-          Supplier payment recorded. The payment details below show what changed; linked bill balances are updated.
-        </LedgerAlert>
+        <StatusMessage type="success">
+          {tc("Supplier payment recorded. The payment details below show what changed; linked bill balances are updated.")}
+        </StatusMessage>
       ) : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <LedgerPanel className="p-4">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-ink">What happened?</h2>
-              <p className="mt-1 text-sm leading-6 text-steel">{supplierPaymentOutcomeDescription(payment, hasUnapplied)}</p>
+              <h2 className="text-base font-semibold text-ink">{tc("What happened?")}</h2>
+              <p className="mt-1 text-sm leading-6 text-steel">{tc(supplierPaymentOutcomeDescription(payment, hasUnapplied))}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <PaymentStatusBadge status={payment.status} />
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${supplierPaymentStatusBadgeClass(payment.status)}`}>
+                {tc(supplierPaymentStatusLabel(payment.status))}
+              </span>
               {hasUnapplied ? (
-                <LedgerStatusBadge tone="warning">Unapplied supplier credit</LedgerStatusBadge>
+                <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{tc("Unapplied supplier credit")}</span>
               ) : null}
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-            <Summary label="Amount paid" value={formatMoneyAmount(payment.amountPaid, payment.currency)} />
-            <Summary label="Applied to bills" value={formatMoneyAmount(formatUnits(appliedTotalUnits), payment.currency)} />
-            <Summary label="Payment number" value={receiptData?.receiptNumber ?? payment.paymentNumber} />
+            <Summary label={tc("Amount paid")} value={formatAppMoney(payment.amountPaid, payment.currency, locale)} />
+            <Summary label={tc("Applied to bills")} value={formatAppMoney(formatUnits(appliedTotalUnits), payment.currency, locale)} />
+            <Summary label={tc("Payment number")} value={receiptData?.receiptNumber ?? payment.paymentNumber} bidi />
           </div>
-        </LedgerPanel>
+        </div>
 
-        <LedgerPanel className="p-4">
-          <h2 className="text-base font-semibold text-ink">Next actions</h2>
-          <p className="mt-1 text-sm leading-6 text-steel">{supplierPaymentNextActionDescription(payment, hasUnapplied)}</p>
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <h2 className="text-base font-semibold text-ink">{tc("Next actions")}</h2>
+          <p className="mt-1 text-sm leading-6 text-steel">{tc(supplierPaymentNextActionDescription(payment, hasUnapplied))}</p>
           <div className="mt-4 flex flex-col gap-2">
             {firstAllocatedBill ? (
-              <LedgerButton
+              <Link
                 href={`/purchases/bills/${firstAllocatedBill.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
-                variant="primary"
+                className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
               >
-                View bill
-              </LedgerButton>
+                {tc("View bill")}
+              </Link>
             ) : null}
             {canDownloadGeneratedDocuments ? (
-              <LedgerButton
+              <button
+                type="button"
                 onClick={onDownloadReceiptPdf}
                 disabled={actionLoading}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
               >
-                Download payment PDF
-              </LedgerButton>
+                {tc("Download payment PDF")}
+              </button>
             ) : null}
-            <LedgerButton href={partyDetailHref("supplier", payment.supplierId)}>
-              Open supplier workspace
-            </LedgerButton>
+            <Link href={partyDetailHref("supplier", payment.supplierId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Open supplier workspace")}
+            </Link>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <LedgerButton
+              <Link
                 href={`/reports/aged-payables${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`}
+                className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                AP report
-              </LedgerButton>
-              <LedgerButton href="/dashboard">
-                Dashboard
-              </LedgerButton>
+                {tc("AP report")}
+              </Link>
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Dashboard")}
+              </Link>
             </div>
           </div>
           {payment.status === "VOIDED" ? (
-            <p className="mt-3 text-xs leading-5 text-steel">This supplier payment is voided. Review the reversal journal below if present before taking further action.</p>
+            <p className="mt-3 text-xs leading-5 text-steel">{tc("This supplier payment is voided. Review the reversal journal below if present before taking further action.")}</p>
           ) : null}
           <SourceDocumentGuidance className="mt-4" />
-        </LedgerPanel>
+        </div>
       </div>
     </div>
   );
@@ -614,16 +603,14 @@ function supplierPaymentStatusLabel(status: SupplierPayment["status"] | undefine
   }
 }
 
-function supplierPaymentStatusTone(status: SupplierPayment["status"]): LedgerStatusTone {
+function supplierPaymentStatusBadgeClass(status: SupplierPayment["status"]): string {
   switch (status) {
     case "DRAFT":
-      return "draft";
+      return "bg-slate-100 text-slate-700";
     case "POSTED":
-      return "success";
+      return "bg-emerald-50 text-emerald-700";
     case "VOIDED":
-      return "danger";
-    default:
-      return "neutral";
+      return "bg-rose-50 text-rosewood";
   }
 }
 
@@ -655,11 +642,24 @@ function supplierPaymentNextActionDescription(payment: SupplierPayment, hasUnapp
   return "Review the purchase bill, supplier ledger, and AP report to confirm the payable loop is closed.";
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value, bidi = false }: { label: string; value: string; bidi?: boolean }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 break-words font-medium text-ink">{value}</div>
+      <div className="mt-1 break-words font-medium text-ink">{bidi ? <bdi dir="ltr">{value}</bdi> : value}</div>
     </div>
   );
+}
+
+function billStatusLabel(status: string | undefined | null): string {
+  switch (status) {
+    case "FINALIZED":
+      return "Finalized";
+    case "DRAFT":
+      return "Draft";
+    case "VOIDED":
+      return "Voided";
+    default:
+      return status ?? "-";
+  }
 }

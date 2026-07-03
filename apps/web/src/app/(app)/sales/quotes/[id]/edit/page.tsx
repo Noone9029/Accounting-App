@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { SalesQuoteForm } from "@/components/forms/sales-quote-form";
-import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { SalesQuote } from "@/lib/types";
@@ -12,6 +13,7 @@ import type { SalesQuote } from "@/lib/types";
 export default function EditSalesQuotePage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [quote, setQuote] = useState<SalesQuote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,7 +35,7 @@ export default function EditSalesQuotePage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load sales quote.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales quote."));
         }
       })
       .finally(() => {
@@ -45,28 +47,31 @@ export default function EditSalesQuotePage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales quote"
-        title="Edit sales quote"
-        description="Update draft quote details before sharing it or marking it sent for tracking."
-        actions={<LedgerButton href={quote ? `/sales/quotes/${quote.id}` : "/sales/quotes"}>Back to quote</LedgerButton>}
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Edit sales quote")}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc("Update draft quote details before sharing it or marking it sent for tracking.")}</p>
+        </div>
+        <Link href={quote ? `/sales/quotes/${quote.id}` : "/sales/quotes"} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back to quote")}
+        </Link>
+      </div>
 
       <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit this sales quote.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading sales quote...</StatusMessage> : null}
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to edit this sales quote.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading sales quote...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
       {quote ? (
-        <LedgerPageBody>
+        <div className="mt-5">
           <SalesQuoteForm initialQuote={quote} />
-        </LedgerPageBody>
+        </div>
       ) : null}
-    </LedgerPage>
+    </section>
   );
 }

@@ -1,11 +1,13 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { RecurringInvoiceTemplate, SalesInvoiceTaxMode } from "@/lib/types";
 import { RecurringInvoiceForm } from "./recurring-invoice-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +25,7 @@ jest.mock("next/link", () => ({
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
+    refresh: refreshMock,
   }),
 }));
 
@@ -39,6 +42,7 @@ describe("RecurringInvoiceForm", () => {
     window.history.pushState({}, "", "/sales/recurring-invoices/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    refreshMock.mockReset();
     apiRequestMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
       if (path === "/contacts") {
         return Promise.resolve([contactFixture("customer-1", "Beta Customer"), contactFixture("customer-2", "Second Customer")]);
@@ -103,7 +107,7 @@ describe("RecurringInvoiceForm", () => {
   });
 
   it("shows a read-only recurring template number preview", async () => {
-    render(<RecurringInvoiceForm />);
+    renderRecurringForm(<RecurringInvoiceForm />);
 
     await waitFor(() => expect(screen.getByLabelText("Template number")).toHaveValue("REC-000042"));
     expect(screen.getByLabelText("Template number")).toHaveAttribute("readonly");
@@ -111,7 +115,7 @@ describe("RecurringInvoiceForm", () => {
   });
 
   it("renders account-coded lines, tax-exclusive totals, and schedule fields", async () => {
-    render(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
+    renderRecurringForm(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
 
     await waitFor(() => expect(screen.getByLabelText("Posting account for recurring invoice line 1")).toHaveValue("revenue-1"));
     expect(screen.getByLabelText("Template number")).toHaveValue("REC-000042");
@@ -121,32 +125,32 @@ describe("RecurringInvoiceForm", () => {
     expect(screen.getByText(/401\s+Sales revenue/)).toBeInTheDocument();
     expect(screen.getAllByText(/SAR\s*230\.00/).length).toBeGreaterThan(0);
     expect(screen.getByText("Schedule preview")).toBeInTheDocument();
-    expect(screen.getByText("2026-06-15 to 2026-07-14")).toBeInTheDocument();
-    expect(screen.getByText("2026-06-30")).toBeInTheDocument();
-    expect(screen.getByText("2026-07-15")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2026 to Jul 14, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Jun 30, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Jul 15, 2026")).toBeInTheDocument();
   });
 
   it("updates the schedule preview for supported recurring frequencies and payment terms", async () => {
-    render(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
+    renderRecurringForm(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
 
     await waitFor(() => expect(screen.getByText("Schedule preview")).toBeInTheDocument());
 
     fireEvent.change(screen.getByLabelText("Payment terms days"), { target: { value: "7" } });
     fireEvent.change(screen.getByLabelText("Frequency"), { target: { value: "WEEKLY" } });
-    expect(screen.getByText("2026-06-15 to 2026-06-21")).toBeInTheDocument();
-    expect(screen.getAllByText("2026-06-22").length).toBeGreaterThan(0);
+    expect(screen.getByText("Jun 15, 2026 to Jun 21, 2026")).toBeInTheDocument();
+    expect(screen.getAllByText("Jun 22, 2026").length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText("Frequency"), { target: { value: "QUARTERLY" } });
-    expect(screen.getByText("2026-06-15 to 2026-09-14")).toBeInTheDocument();
-    expect(screen.getByText("2026-09-15")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2026 to Sep 14, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Sep 15, 2026")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Frequency"), { target: { value: "YEARLY" } });
-    expect(screen.getByText("2026-06-15 to 2027-06-14")).toBeInTheDocument();
-    expect(screen.getByText("2027-06-15")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2026 to Jun 14, 2027")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2027")).toBeInTheDocument();
   });
 
   it("renders no-tax mode with line tax rates disabled", async () => {
-    render(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture({ taxMode: "NO_TAX", taxTotal: "0.0000", total: "200.0000" })} />);
+    renderRecurringForm(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture({ taxMode: "NO_TAX", taxTotal: "0.0000", total: "200.0000" })} />);
 
     await waitFor(() => expect(screen.getByLabelText("Tax mode")).toHaveValue("NO_TAX"));
     expect(screen.getByLabelText("Tax rate for recurring invoice line 1")).toHaveValue("");
@@ -155,7 +159,7 @@ describe("RecurringInvoiceForm", () => {
   });
 
   it("submits a draft recurring template to the API and redirects to detail", async () => {
-    render(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
+    renderRecurringForm(<RecurringInvoiceForm initialTemplate={recurringTemplateFixture()} />);
 
     await waitFor(() => expect(screen.getByLabelText("Posting account for recurring invoice line 1")).toHaveValue("revenue-1"));
     fireEvent.submit(screen.getByRole("button", { name: "Save draft template" }).closest("form")!);
@@ -178,7 +182,21 @@ describe("RecurringInvoiceForm", () => {
     );
     expect(pushMock).toHaveBeenCalledWith("/sales/recurring-invoices/rec-1");
   });
+
+  it("renders the recurring invoice form in Arabic RTL", async () => {
+    renderRecurringForm(<RecurringInvoiceForm />, "ar");
+
+    await waitFor(() => expect(screen.getByLabelText("رقم القالب")).toHaveValue("REC-000042"));
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText(/لا ترحل القوالب المتكررة قيودا محاسبية/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إنشاء قالب مسودة" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/sales/recurring-invoices");
+  });
 });
+
+function renderRecurringForm(ui: ReactNode, locale: "en" | "ar" = "en") {
+  return render(<AppLocaleProvider initialLocale={locale}>{ui}</AppLocaleProvider>);
+}
 
 function contactFixture(id: string, name: string) {
   return {

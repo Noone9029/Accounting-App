@@ -1,17 +1,18 @@
+"use client";
+
+import { useAppLocale } from "@/components/app-locale-provider";
 import { SalesQuoteForm } from "@/components/forms/sales-quote-form";
-import { LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 
 export default function NewSalesQuotePage() {
+  const { tc } = useAppLocale();
+
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="New sales quote"
-        description="Prepare a non-posting customer quote using the same account coding and tax calculation rules as sales invoices."
-      />
-      <LedgerPageBody>
-        <SalesQuoteForm />
-      </LedgerPageBody>
-    </LedgerPage>
+    <section>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-ink">{tc("New sales quote")}</h1>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc("Prepare a non-posting customer quote using the same account coding and tax calculation rules as sales invoices.")}</p>
+      </div>
+      <SalesQuoteForm />
+    </section>
   );
 }

@@ -1,32 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { bankTransferStatusLabel } from "@/lib/bank-accounts";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { bankTransferStatusBadgeClass, bankTransferStatusLabel } from "@/lib/bank-accounts";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { BankTransfer } from "@/lib/types";
 
 export default function BankTransfersPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [transfers, setTransfers] = useState<BankTransfer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,7 +38,7 @@ export default function BankTransfersPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load bank transfers.");
+          setError(tc(loadError instanceof Error ? loadError.message : "Unable to load bank transfers."));
         }
       })
       .finally(() => {
@@ -64,92 +53,86 @@ export default function BankTransfersPage() {
   }, [organizationId]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Banking / Manual transfers"
-        title="Bank transfers"
-        description="Posted cash and bank movements between active bank account profiles."
-        actions={
-          canCreate ? (
-            <LedgerButton href="/bank-transfers/new" variant="primary">
-              New transfer
-            </LedgerButton>
-          ) : null
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Bank transfers")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Posted cash and bank movements between active bank account profiles.")}</p>
+        </div>
+        {canCreate ? (
+          <Link href="/bank-transfers/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc("New transfer")}
+          </Link>
+        ) : null}
+      </div>
 
-      <LedgerSummaryBand tone="info">
-        Transfers are explicit internal cash movements. This list does not move money through a bank provider, import statements, or auto-match reconciliation rows.
-      </LedgerSummaryBand>
-
-      <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load bank transfers.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading bank transfers...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load bank transfers.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading bank transfers...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && transfers.length === 0 ? (
-          <LedgerEmptyState
-            title="No bank transfers found"
-            description="Use transfers for money moved between your own cash and bank profiles. Transfers post a source decrease and destination increase, then can be matched to imported statement rows later."
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                {canCreate ? (
-                  <LedgerButton href="/bank-transfers/new" variant="primary">
-                    Create transfer
-                  </LedgerButton>
-                ) : null}
-                <LedgerButton href="/bank-accounts">Bank accounts</LedgerButton>
-                <LedgerButton href="/dashboard">Dashboard</LedgerButton>
-              </div>
-            }
-          />
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-5 shadow-panel">
+            <StatusMessage type="empty">{tc("No bank transfers found.")}</StatusMessage>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">
+              {tc("Use transfers for money moved between your own cash and bank profiles. Transfers post a source decrease and destination increase, then can be matched to imported statement rows later.")}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canCreate ? (
+                <Link href="/bank-transfers/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+                  {tc("Create transfer")}
+                </Link>
+              ) : null}
+              <Link href="/bank-accounts" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Bank accounts")}
+              </Link>
+              <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Dashboard")}
+              </Link>
+            </div>
+          </div>
         ) : null}
+      </div>
 
-        {transfers.length > 0 ? (
-          <LedgerDataTable minWidth="940px">
-            <thead className="ledger-table-header">
+      {transfers.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[940px] text-start text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Transfer</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">From</th>
-                <th className="px-4 py-3">To</th>
-                <th className="px-4 py-3 text-right">Amount</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Journal</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Transfer")}</th>
+                <th className="px-4 py-3">{tc("Date")}</th>
+                <th className="px-4 py-3">{tc("From")}</th>
+                <th className="px-4 py-3">{tc("To")}</th>
+                <th className="px-4 py-3 text-end">{tc("Amount")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Journal")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {transfers.map((transfer) => (
                 <tr key={transfer.id}>
                   <td className="px-4 py-3 font-mono text-xs">{transfer.transferNumber}</td>
-                  <td className="px-4 py-3">
-                    <LedgerDate>{formatOptionalDate(transfer.transferDate, "-")}</LedgerDate>
-                  </td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(transfer.transferDate, locale, "-")}</td>
                   <td className="px-4 py-3 text-ink">{transfer.fromBankAccountProfile?.displayName ?? transfer.fromAccount?.name ?? "-"}</td>
                   <td className="px-4 py-3 text-ink">{transfer.toBankAccountProfile?.displayName ?? transfer.toAccount?.name ?? "-"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <LedgerMoney>{formatMoneyAmount(transfer.amount, transfer.currency)}</LedgerMoney>
-                  </td>
+                  <td className="px-4 py-3 text-end font-mono text-xs">{formatAppMoney(transfer.amount, transfer.currency, locale)}</td>
                   <td className="px-4 py-3">
-                    <BankTransferStatusPill status={transfer.status} />
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankTransferStatusBadgeClass(transfer.status)}`}>
+                      {tc(bankTransferStatusLabel(transfer.status))}
+                    </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{transfer.journalEntry?.entryNumber ?? "-"}</td>
                   <td className="px-4 py-3">
-                    <LedgerButton href={`/bank-transfers/${transfer.id}`} size="sm">
-                      View
-                    </LedgerButton>
+                    <Link href={`/bank-transfers/${transfer.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      {tc("View")}
+                    </Link>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
-}
-
-function BankTransferStatusPill({ status }: Readonly<{ status: BankTransfer["status"] }>) {
-  const tone: LedgerStatusTone = status === "POSTED" ? "success" : "neutral";
-  return <LedgerStatusBadge tone={tone}>{bankTransferStatusLabel(status)}</LedgerStatusBadge>;
 }

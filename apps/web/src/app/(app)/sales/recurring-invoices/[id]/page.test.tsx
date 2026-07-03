@@ -1,10 +1,12 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import RecurringInvoiceDetailPage from "./page";
 import type { RecurringInvoicePreview, RecurringInvoiceTemplate } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
+const refreshMock = jest.fn();
 let permissionSet = new Set<string>();
 
 jest.mock("next/link", () => ({
@@ -22,6 +24,9 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "rec-1" }),
+  useRouter: () => ({
+    refresh: refreshMock,
+  }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -42,6 +47,7 @@ describe("RecurringInvoiceDetailPage", () => {
   beforeEach(() => {
     permissionSet = new Set(["salesInvoices.view", "salesInvoices.update", "salesInvoices.create"]);
     apiRequestMock.mockReset();
+    refreshMock.mockReset();
   });
 
   it("shows safe non-posting wording and manually generates a draft invoice", async () => {
@@ -82,7 +88,7 @@ describe("RecurringInvoiceDetailPage", () => {
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
 
-    render(<RecurringInvoiceDetailPage />);
+    renderRecurringDetail();
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Generate invoice now" })).toBeInTheDocument());
     expect(screen.getByText(/Recurring templates do not post accounting entries/i)).toBeInTheDocument();
@@ -93,7 +99,7 @@ describe("RecurringInvoiceDetailPage", () => {
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/recurring-invoices/rec-1/generate-now", { method: "POST" }));
     expect(await screen.findByText(/Generated draft invoice INV-000010/i)).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /Open draft invoice INV-000010/i })).toHaveAttribute("href", "/sales/invoices/invoice-1");
-    expect((await screen.findAllByText("6/15/2026")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Jun 15, 2026")).length).toBeGreaterThan(0);
   });
 
   it("hides mutation actions for users without create or update permission", async () => {
@@ -108,13 +114,41 @@ describe("RecurringInvoiceDetailPage", () => {
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
 
-    render(<RecurringInvoiceDetailPage />);
+    renderRecurringDetail();
 
     await waitFor(() => expect(screen.getByText("Monthly support")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Generate invoice now" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pause" })).not.toBeInTheDocument();
   });
+
+  it("renders the recurring template detail in Arabic RTL with record numbers unchanged", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/recurring-invoices/rec-1") {
+        return Promise.resolve(templateFixture({ status: "ACTIVE" }));
+      }
+      if (path === "/recurring-invoices/rec-1/preview") {
+        return Promise.resolve(previewFixture());
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    renderRecurringDetail("ar");
+
+    await waitFor(() => expect(screen.getByText("REC-000001")).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText(/لا ترحل القوالب المتكررة قيودا محاسبية/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إنشاء فاتورة الآن" })).toBeInTheDocument();
+    expect(screen.getByText("REC-000001").closest("bdi")).toHaveAttribute("dir", "ltr");
+  });
 });
+
+function renderRecurringDetail(locale: "en" | "ar" = "en") {
+  return render(
+    <AppLocaleProvider initialLocale={locale}>
+      <RecurringInvoiceDetailPage />
+    </AppLocaleProvider>,
+  );
+}
 
 function templateFixture(overrides: Partial<RecurringInvoiceTemplate> = {}): RecurringInvoiceTemplate {
   return {

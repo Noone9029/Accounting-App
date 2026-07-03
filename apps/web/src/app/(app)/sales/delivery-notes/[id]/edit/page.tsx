@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { DeliveryNoteForm } from "@/components/forms/delivery-note-form";
-import { LedgerAlert, LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { DeliveryNote } from "@/lib/types";
@@ -13,6 +13,7 @@ import type { DeliveryNote } from "@/lib/types";
 export default function EditDeliveryNotePage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [deliveryNote, setDeliveryNote] = useState<DeliveryNote | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +35,7 @@ export default function EditDeliveryNotePage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load delivery note.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load delivery note."));
         }
       })
       .finally(() => {
@@ -46,32 +47,31 @@ export default function EditDeliveryNotePage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Edit delivery note"
-        description="Draft-only delivery-note changes. Issued, delivered, cancelled, and voided notes are locked."
-        actions={
-          <LedgerButton href={deliveryNote ? `/sales/delivery-notes/${deliveryNote.id}` : "/sales/delivery-notes"} icon={ArrowLeft}>
-          Back
-          </LedgerButton>
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Edit delivery note")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Draft-only delivery-note changes. Issued, delivered, cancelled, and voided notes are locked.")}</p>
+        </div>
+        <Link href={deliveryNote ? `/sales/delivery-notes/${deliveryNote.id}` : "/sales/delivery-notes"} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
-      <LedgerPageBody>
-        <div className="space-y-3">
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to edit this delivery note.</LedgerAlert> : null}
-        {loading ? <StatusMessage type="loading">Loading delivery note...</StatusMessage> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to edit this delivery note.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading delivery note...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
       {deliveryNote ? (
+        <div className="mt-5">
           <DeliveryNoteForm initialDeliveryNote={deliveryNote} />
+        </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }

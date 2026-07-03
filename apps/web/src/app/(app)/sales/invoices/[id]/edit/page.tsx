@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { SalesInvoiceForm } from "@/components/forms/sales-invoice-form";
-import { LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { SalesInvoice } from "@/lib/types";
@@ -12,6 +13,7 @@ import type { SalesInvoice } from "@/lib/types";
 export default function EditSalesInvoicePage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,7 +35,7 @@ export default function EditSalesInvoicePage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load sales invoice.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales invoice."));
         }
       })
       .finally(() => {
@@ -45,28 +47,27 @@ export default function EditSalesInvoicePage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales invoice"
-        title="Edit sales invoice"
-        description="Draft invoices can be edited before finalization."
-        actions={<LedgerButton href={invoice ? `/sales/invoices/${invoice.id}` : "/sales/invoices"}>Back</LedgerButton>}
-      />
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Edit sales invoice")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Draft invoices can be edited before finalization.")}</p>
+        </div>
+        <Link href={invoice ? `/sales/invoices/${invoice.id}` : "/sales/invoices"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
       <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to edit invoices.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading invoice...</StatusMessage> : null}
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to edit invoices.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading invoice...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
-      {invoice ? (
-        <LedgerPageBody>
-          <SalesInvoiceForm initialInvoice={invoice} />
-        </LedgerPageBody>
-      ) : null}
-    </LedgerPage>
+      {invoice ? <div className="mt-5"><SalesInvoiceForm initialInvoice={invoice} /></div> : null}
+    </section>
   );
 }

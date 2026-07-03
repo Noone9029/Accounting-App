@@ -5,33 +5,23 @@ import {
   ArrowRight,
   Banknote,
   BarChart3,
+  ClipboardList,
   FileText,
+  FileUp,
+  Landmark,
   ReceiptText,
   ShieldCheck,
+  ShoppingCart,
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { FinancialFlowScene } from "@/components/dashboard/financial-flow-scene";
+import { StatusMessage } from "@/components/common/status-message";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { DashboardFirstWorkflowPrompt, DashboardOnboardingCard } from "@/components/onboarding/setup-wizard";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerEmptyState,
-  LedgerErrorState,
-  LedgerLoadingState,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatCard,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  buttonClassName,
-} from "@/components/ui/ledger-system";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ActionGrid, ActionTile, KpiCard, PageHeader, StatusBadge } from "@/components/ui-ledger";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -52,7 +42,7 @@ import {
   type DashboardDrilldownLink,
 } from "@/lib/dashboard";
 import { getLedgerByteEdition } from "@/lib/edition";
-import { formatOptionalDate } from "@/lib/invoice-display";
+import { formatAppDate, formatAppDateTime } from "@/lib/app-i18n";
 import type {
   DashboardAgingBucket,
   DashboardAttentionItem,
@@ -67,12 +57,55 @@ import type {
 } from "@/lib/types";
 
 type DashboardLinks = Partial<Record<string, DashboardDrilldownLink | null>>;
-type DashboardIcon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const EMPTY_SALES_ATTENTION: DashboardSalesAttentionSummary = {
+  readOnly: true,
+  noMutation: true,
+  helperText:
+    "Dashboard attention items are read-only workflow signals. They do not send emails, collect payments, post journals, file VAT, call ZATCA, or move inventory.",
+  overdueInvoices: {
+    count: 0,
+    total: "0.0000",
+    topItems: [],
+  },
+  collections: {
+    openCount: 0,
+    dueTodayCount: 0,
+    overdueFollowUpCount: 0,
+    promisedToPayTotal: "0.0000",
+    disputedCount: 0,
+    topItems: [],
+  },
+  quotes: {
+    awaitingAcceptanceCount: 0,
+    expiringSoonCount: 0,
+    acceptedNotConvertedCount: 0,
+    topItems: [],
+  },
+  recurringInvoices: {
+    activeCount: 0,
+    dueSoonCount: 0,
+    overdueForGenerationCount: 0,
+    recentlyGeneratedDraftInvoiceCount: 0,
+    topItems: [],
+    recentDraftInvoices: [],
+  },
+  deliveryNotes: {
+    draftCount: 0,
+    issuedNotDeliveredCount: 0,
+    topItems: [],
+    overdueDeliveryCount: 0,
+  },
+  customers: {
+    topOutstanding: [],
+  },
+};
 
 export default function DashboardPage() {
-  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const { activeMembership } = usePermissions();
+  const { dir, locale, t, tc } = useAppLocale();
+  const edition = getLedgerByteEdition();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [onboardingChecklist, setOnboardingChecklist] = useState<DashboardOnboardingChecklist | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,14 +137,20 @@ export default function DashboardPage() {
       profitAndLoss: dashboardDrilldownLink("profitAndLoss", activeMembership),
       balanceSheet: dashboardDrilldownLink("balanceSheet", activeMembership),
       fiscalPeriods: dashboardDrilldownLink("fiscalPeriods", activeMembership),
-      countryReadiness: dashboardDrilldownLink("zatcaReadiness", activeMembership, edition.market),
+      zatcaReadiness: dashboardDrilldownLink("zatcaReadiness", activeMembership),
       auditLogs: dashboardDrilldownLink("auditLogs", activeMembership),
       storage: dashboardDrilldownLink("storage", activeMembership),
     }),
-    [activeMembership, edition.market],
+    [activeMembership],
   );
   const canSeeSalesAttention = useMemo(() => canViewSalesAttention(activeMembership), [activeMembership]);
   const attentionGroups = useMemo(() => (summary ? groupAttentionBySeverity(summary.attentionItems) : null), [summary]);
+  const dashboardSignals = [
+    t("dashboard.signalManualBank"),
+    ...(edition.showsUaeEinvoicing ? [t("dashboard.signalAsp"), t("dashboard.signalFta")] : []),
+    ...(edition.showsKsaZatca ? [t("dashboard.signalZatcaNetwork"), t("dashboard.signalZatcaClearance")] : []),
+    ...(!edition.showsKsaZatca && !edition.showsUaeEinvoicing ? [t("dashboard.signalCountryComplianceDisabled")] : []),
+  ];
 
   useEffect(() => {
     if (!organizationId) {
@@ -164,203 +203,193 @@ export default function DashboardPage() {
   }, [organizationId]);
 
   return (
-    <LedgerPage>
-      <LedgerPanel className="relative overflow-hidden border-slate-900 bg-sidebar p-5 text-white">
-        <FinancialFlowScene />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <LedgerPageHeader
-            eyebrow="Operations cockpit"
-            title="Dashboard"
+    <section className="space-y-6">
+      <div className="relative overflow-hidden rounded-lg border border-line bg-sidebar p-5 text-white shadow-panel">
+        <FinancialFlowBackdrop />
+        <div className="relative z-10">
+          <PageHeader
+            eyebrow={t("dashboard.headerEyebrow")}
+            title={tc("Dashboard")}
             inverse
-            badge={<LedgerStatusBadge tone="info">Controlled beta</LedgerStatusBadge>}
+            badge={<StatusBadge tone="info">{t("common.controlledBeta")}</StatusBadge>}
             description={
               <>
-                Business overview as of {summary ? formatOptionalDate(summary.asOf, "today") : "today"}. Accounting workspace surfaces remain controlled-beta review only.
-                {summary ? <span className="mt-1 block text-xs text-slate-300">Last updated {new Date(summary.asOf).toLocaleString()}.</span> : null}
+                {t("dashboard.asOf", { date: summary ? formatAppDate(summary.asOf, locale, tc("today")) : tc("today"), note: tc(edition.complianceDashboardNote) })}
+                {summary ? <span className="block text-xs text-slate-300">{t("dashboard.lastUpdated", { value: formatAppDateTime(summary.asOf, locale) })}</span> : null}
               </>
             }
             actions={
               quickActions.length > 0 ? (
                 <>
                   {quickActions.slice(0, 3).map((action) => (
-                    <LedgerButton
+                    <Link
                       key={action.href}
                       href={action.href}
-                      icon={ArrowRight}
-                      className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+                      className="ledger-focus inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white hover:bg-white/15"
                     >
-                      {action.label}
-                    </LedgerButton>
+                      {tc(action.label)}
+                      <ArrowRight className={`h-4 w-4 ${dir === "rtl" ? "rotate-180" : ""}`} aria-hidden="true" />
+                    </Link>
                   ))}
                 </>
               ) : null
             }
           />
+          <div className="grid grid-cols-1 gap-3 text-xs text-slate-300 md:grid-cols-3">
+            {dashboardSignals.map((signal) => (
+              <span key={signal}>{signal}</span>
+            ))}
+          </div>
         </div>
-        <div className="relative mt-4 grid grid-cols-1 gap-3 text-xs text-slate-300 md:grid-cols-3">
-          <span>Manual/imported bank transactions only</span>
-          <span>{edition.showCountryCompliance ? edition.complianceReadinessLabel : "Neutral compliance review"}</span>
-          <span>{edition.complianceDashboardNote}</span>
-        </div>
-      </LedgerPanel>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? (
-          <LedgerEmptyState title="Select an organization" description="Log in and select an organization to load the dashboard." />
-        ) : null}
-        {loading ? <LedgerLoadingState title="Loading dashboard" description="Loading workspace summary and attention signals." /> : null}
-        {error ? <LedgerErrorState title="Unable to load dashboard" description={error} /> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{t("dashboard.loadNoOrg")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{t("dashboard.loading")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
 
-        {summary ? (
-          <>
-            {dashboardIsEmpty(summary) ? <DashboardFirstWorkflowPrompt checklist={onboardingChecklist} /> : null}
+      {summary ? (
+        <>
+          {dashboardIsEmpty(summary) ? (
+            <DashboardFirstWorkflowPrompt checklist={onboardingChecklist} />
+          ) : null}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-              <Kpi
-                icon={TrendingUp}
-                label="Revenue"
-                value={formatDashboardMoney(summary.sales.salesThisMonth, summary.currency)}
-                detail="Sales this month"
-                href={drilldownLinks.profitAndLoss?.href}
-              />
-              <Kpi
-                icon={ReceiptText}
-                label="Expenses"
-                value={formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency)}
-                detail="Purchases this month"
-                href={drilldownLinks.unpaidBills?.href}
-              />
-              <Kpi
-                icon={BarChart3}
-                label="Net profit"
-                value={formatDashboardMoney(summary.reports.profitAndLossNetProfit, summary.currency)}
-                detail={dashboardHealthLabel(summary.reports.trialBalanceBalanced)}
-                href={drilldownLinks.profitAndLoss?.href}
-              />
-              <Kpi
-                icon={Banknote}
-                label="Cash balance"
-                value={formatDashboardMoney(summary.banking.totalBankBalance, summary.currency)}
-                detail={`${summary.banking.bankAccountCount} active accounts`}
-                href={drilldownLinks.bankBalance?.href}
-              />
-              <Kpi
-                icon={FileText}
-                label="Receivables"
-                value={formatDashboardMoney(summary.sales.unpaidInvoiceBalance, summary.currency)}
-                detail={`${summary.sales.unpaidInvoiceCount} open, ${summary.sales.overdueInvoiceCount} overdue`}
-                href={drilldownLinks.unpaidInvoices?.href}
-              />
-              <Kpi
-                icon={ReceiptText}
-                label="Payables"
-                value={formatDashboardMoney(summary.purchases.unpaidBillBalance, summary.currency)}
-                detail={`${summary.purchases.unpaidBillCount} open, ${summary.purchases.overdueBillCount} overdue`}
-                href={drilldownLinks.unpaidBills?.href}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <Kpi
+              icon={<TrendingUp className="h-5 w-5" />}
+              label={tc("Revenue")}
+              value={formatDashboardMoney(summary.sales.salesThisMonth, summary.currency, locale)}
+              detail={tc("Sales this month")}
+              href={drilldownLinks.profitAndLoss?.href}
+              tone="info"
+            />
+            <Kpi
+              icon={<ReceiptText className="h-5 w-5" />}
+              label={tc("Expenses")}
+              value={formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency, locale)}
+              detail={tc("Purchases this month")}
+              href={drilldownLinks.unpaidBills?.href}
+              tone="warning"
+            />
+            <Kpi
+              icon={<BarChart3 className="h-5 w-5" />}
+              label={tc("Net profit")}
+              value={formatDashboardMoney(summary.reports.profitAndLossNetProfit, summary.currency, locale)}
+              detail={dashboardHealthLabel(summary.reports.trialBalanceBalanced, locale)}
+              href={drilldownLinks.profitAndLoss?.href}
+              tone={summary.reports.trialBalanceBalanced ? "success" : "warning"}
+            />
+            <Kpi
+              icon={<Banknote className="h-5 w-5" />}
+              label={tc("Cash balance")}
+              value={formatDashboardMoney(summary.banking.totalBankBalance, summary.currency, locale)}
+              detail={t("dashboard.activeAccounts", { count: summary.banking.bankAccountCount })}
+              href={drilldownLinks.bankBalance?.href}
+              tone="success"
+            />
+            <Kpi
+              icon={<FileText className="h-5 w-5" />}
+              label={tc("Receivables")}
+              value={formatDashboardMoney(summary.sales.unpaidInvoiceBalance, summary.currency, locale)}
+              detail={`${summary.sales.unpaidInvoiceCount} ${tc("open")}, ${summary.sales.overdueInvoiceCount} ${tc("overdue")}`}
+              href={drilldownLinks.unpaidInvoices?.href}
+              tone={summary.sales.overdueInvoiceCount > 0 ? "danger" : "neutral"}
+            />
+            <Kpi
+              icon={<ReceiptText className="h-5 w-5" />}
+              label={tc("Payables")}
+              value={formatDashboardMoney(summary.purchases.unpaidBillBalance, summary.currency, locale)}
+              detail={`${summary.purchases.unpaidBillCount} ${tc("open")}, ${summary.purchases.overdueBillCount} ${tc("overdue")}`}
+              href={drilldownLinks.unpaidBills?.href}
+              tone={summary.purchases.overdueBillCount > 0 ? "warning" : "neutral"}
+            />
+          </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-            <div className="min-w-0 space-y-5">
-              <Tabs defaultValue="profit-loss">
-                <TabsList className="mb-3" variant="line" aria-label="Dashboard views">
-                  <TabsTrigger value="profit-loss">Profit & Loss</TabsTrigger>
-                  <TabsTrigger value="cash-flow">Cash Flow</TabsTrigger>
-                </TabsList>
-                <TabsContent value="profit-loss" className="space-y-5">
-                  <Section title="Sales & purchases" action={drilldownLinks.profitAndLoss ? <SectionLink link={drilldownLinks.profitAndLoss} /> : null}>
-                    <MetricGrid
-                      items={[
-                        { label: "Sales this month", value: formatDashboardMoney(summary.sales.salesThisMonth, summary.currency), href: drilldownLinks.unpaidInvoices?.href },
-                        {
-                          label: "Customer payments",
-                          value: formatDashboardMoney(summary.sales.customerPaymentThisMonth, summary.currency),
-                          href: drilldownLinks.customerPayments?.href,
-                        },
-                        { label: "Purchases this month", value: formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency), href: drilldownLinks.unpaidBills?.href },
-                        {
-                          label: "Supplier payments",
-                          value: formatDashboardMoney(summary.purchases.supplierPaymentThisMonth, summary.currency),
-                          href: drilldownLinks.supplierPayments?.href,
-                        },
-                      ]}
-                    />
-                    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                      <SalesPurchasesTrend
-                        sales={summary.trends.monthlySales}
-                        purchases={summary.trends.monthlyPurchases}
-                        currency={summary.currency}
-                      />
-                      <NetProfitTrend points={summary.trends.monthlyNetProfit} currency={summary.currency} />
-                    </div>
-                  </Section>
-                </TabsContent>
-                <TabsContent value="cash-flow" className="space-y-5">
-                  <Section title="Banking and inventory" action={drilldownLinks.bankBalance ? <SectionLink link={drilldownLinks.bankBalance} /> : null}>
-                    <MetricGrid
-                      items={[
-                        {
-                          label: "Unreconciled bank rows",
-                          value: String(summary.banking.unreconciledTransactionCount),
-                          href: drilldownLinks.unreconciledTransactions?.href,
-                        },
-                        {
-                          label: "Latest reconciliation",
-                          value: summary.banking.latestReconciliationDate ? formatOptionalDate(summary.banking.latestReconciliationDate, "-") : "-",
-                          href: drilldownLinks.bankReconciliations?.href,
-                        },
-                        { label: "Low-stock items", value: String(summary.inventory.lowStockCount), href: drilldownLinks.lowStock?.href },
-                        { label: "Clearing variances", value: String(summary.inventory.clearingVarianceCount), href: drilldownLinks.clearingVariances?.href },
-                        { label: "Negative-stock items", value: String(summary.inventory.negativeStockCount), href: drilldownLinks.negativeStock?.href },
-                      ]}
-                    />
-                    <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-                      <CashBalanceTrend points={summary.trends.cashBalanceTrend} currency={summary.currency} />
-                      <LowStockMiniList items={summary.inventory.lowStockItems} />
-                    </div>
-                  </Section>
-
-                  <Section title="Compliance and controls" action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
-                    <MetricGrid
-                      items={[
-                        ...(edition.showCountryCompliance
-                          ? [
-                              {
-                                label: edition.complianceReadinessLabel,
-                                value: summary.compliance.zatcaProductionReady ? "Local checks ready" : "Controlled beta",
-                                href: drilldownLinks.countryReadiness?.href,
-                              },
-                              { label: "Local readiness blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.countryReadiness?.href },
-                            ]
-                          : [
-                              {
-                                label: "Compliance review",
-                                value: "Controlled beta",
-                                href: undefined,
-                              },
-                              { label: "Review blockers", value: String(summary.compliance.zatcaBlockingReasonCount), href: undefined },
-                            ]),
-                        { label: "Locked fiscal periods", value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
-                        { label: "Audit logs this month", value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
-                        { label: "Balance sheet", value: dashboardHealthLabel(summary.reports.balanceSheetBalanced), href: drilldownLinks.balanceSheet?.href },
-                      ]}
-                    />
-                  </Section>
-                </TabsContent>
-              </Tabs>
+            <div className="space-y-5">
+              <Section title={tc("Sales & purchases")} action={drilldownLinks.profitAndLoss ? <SectionLink link={drilldownLinks.profitAndLoss} /> : null}>
+                <MetricGrid
+                  items={[
+                    { label: tc("Sales this month"), value: formatDashboardMoney(summary.sales.salesThisMonth, summary.currency, locale), href: drilldownLinks.unpaidInvoices?.href },
+                    {
+                      label: tc("Customer payments"),
+                      value: formatDashboardMoney(summary.sales.customerPaymentThisMonth, summary.currency, locale),
+                      href: drilldownLinks.customerPayments?.href,
+                    },
+                    { label: tc("Purchases this month"), value: formatDashboardMoney(summary.purchases.purchasesThisMonth, summary.currency, locale), href: drilldownLinks.unpaidBills?.href },
+                    {
+                      label: tc("Supplier payments"),
+                      value: formatDashboardMoney(summary.purchases.supplierPaymentThisMonth, summary.currency, locale),
+                      href: drilldownLinks.supplierPayments?.href,
+                    },
+                  ]}
+                />
+                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  <SalesPurchasesTrend
+                    sales={summary.trends.monthlySales}
+                    purchases={summary.trends.monthlyPurchases}
+                    currency={summary.currency}
+                  />
+                  <NetProfitTrend points={summary.trends.monthlyNetProfit} currency={summary.currency} />
+                </div>
+              </Section>
 
               {canSeeSalesAttention ? (
                 <SalesArAttentionSection
-                  attention={summary.salesAttention}
+                  attention={summary.salesAttention ?? EMPTY_SALES_ATTENTION}
                   currency={summary.currency}
                   canLinkCustomers={Boolean(drilldownLinks.customers)}
                 />
               ) : null}
 
-              <Section title="Receivables and payables aging">
+              <Section title={tc("Receivables and payables aging")}>
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <AgingBars title="AR aging" buckets={summary.aging.receivablesBuckets} currency={summary.currency} />
-                  <AgingBars title="AP aging" buckets={summary.aging.payablesBuckets} currency={summary.currency} />
+                  <AgingBars title={tc("AR aging")} buckets={summary.aging.receivablesBuckets} currency={summary.currency} />
+                  <AgingBars title={tc("AP aging")} buckets={summary.aging.payablesBuckets} currency={summary.currency} />
+                </div>
+              </Section>
+
+              <Section title={tc("Banking and inventory")} action={drilldownLinks.bankBalance ? <SectionLink link={drilldownLinks.bankBalance} /> : null}>
+                <MetricGrid
+                  items={[
+                    {
+                      label: tc("Unreconciled bank rows"),
+                      value: String(summary.banking.unreconciledTransactionCount),
+                      href: drilldownLinks.unreconciledTransactions?.href,
+                    },
+                    {
+                      label: tc("Latest reconciliation"),
+                      value: summary.banking.latestReconciliationDate ? formatAppDate(summary.banking.latestReconciliationDate, locale, "-") : "-",
+                      href: drilldownLinks.bankReconciliations?.href,
+                    },
+                    { label: tc("Low-stock items"), value: String(summary.inventory.lowStockCount), href: drilldownLinks.lowStock?.href },
+                    { label: tc("Clearing variances"), value: String(summary.inventory.clearingVarianceCount), href: drilldownLinks.clearingVariances?.href },
+                    { label: tc("Negative-stock items"), value: String(summary.inventory.negativeStockCount), href: drilldownLinks.negativeStock?.href },
+                  ]}
+                />
+                <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  <CashBalanceTrend points={summary.trends.cashBalanceTrend} currency={summary.currency} />
+                  <LowStockMiniList items={summary.inventory.lowStockItems} />
+                </div>
+              </Section>
+
+              <Section title={tc("Compliance and controls")} action={drilldownLinks.trialBalance ? <SectionLink link={drilldownLinks.trialBalance} /> : null}>
+                <MetricGrid
+                  items={[
+                    {
+                      label: tc(edition.complianceReadinessLabel),
+                      value: summary.compliance.zatcaProductionReady ? tc("Local ready") : t("common.controlledBeta"),
+                      href: drilldownLinks.zatcaReadiness?.href,
+                    },
+                    { label: tc("Local readiness blockers"), value: String(summary.compliance.zatcaBlockingReasonCount), href: drilldownLinks.zatcaReadiness?.href },
+                    { label: tc("Locked fiscal periods"), value: String(summary.compliance.fiscalPeriodsLockedCount), href: drilldownLinks.fiscalPeriods?.href },
+                    { label: tc("Audit logs this month"), value: String(summary.compliance.auditLogCountThisMonth), href: drilldownLinks.auditLogs?.href },
+                    { label: tc("Balance sheet"), value: dashboardHealthLabel(summary.reports.balanceSheetBalanced, locale), href: drilldownLinks.balanceSheet?.href },
+                  ]}
+                />
+                <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-xs leading-5 text-blue-900">
+                  {tc(edition.complianceDashboardNote)}
                 </div>
               </Section>
             </div>
@@ -369,16 +398,16 @@ export default function DashboardPage() {
               {onboardingChecklist ? (
                 <DashboardOnboardingCard checklist={onboardingChecklist} />
               ) : onboardingLoading ? (
-                <Section title="Onboarding checklist">
-                  <LedgerLoadingState title="Loading onboarding checklist" description="Checking guided setup evidence." />
+                <Section title={tc("Onboarding checklist")}>
+                  <StatusMessage type="loading">{tc("Loading onboarding checklist...")}</StatusMessage>
                 </Section>
               ) : onboardingError ? (
-                <Section title="Onboarding checklist">
-                  <LedgerErrorState title="Unable to load onboarding checklist" description={onboardingError} />
+                <Section title={tc("Onboarding checklist")}>
+                  <StatusMessage type="error">{onboardingError}</StatusMessage>
                 </Section>
               ) : null}
 
-              <Section title="Attention">
+              <Section title={t("dashboard.sectionAttention")}>
                 {summary.attentionItems.length > 0 && attentionGroups ? (
                   <div className="space-y-4">
                     <AttentionSeverityBars groups={attentionGroups} />
@@ -393,78 +422,104 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ) : (
-                  <LedgerSummaryBand tone="success">
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
                     <div className="flex items-center gap-2 font-medium">
                       <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                      No attention items
+                      {t("dashboard.emptyAttentionTitle")}
                     </div>
-                    <p className="mt-1 text-xs">No dashboard alerts were generated from current data.</p>
-                  </LedgerSummaryBand>
+                    <p className="mt-1 text-xs">{t("dashboard.emptyAttentionBody")}</p>
+                  </div>
                 )}
               </Section>
 
-              {workspaceLinks.length > 0 ? (
-                <Section title="Common workspaces">
-                  <div className="grid grid-cols-1 gap-2">
-                    {workspaceLinks.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        className="flex items-start justify-between gap-3 rounded-md border border-line px-3 py-2 text-sm transition hover:border-palm/40 hover:bg-slate-50"
-                      >
-                        <span className="min-w-0">
-                          <span className="block font-semibold text-ink">{link.label}</span>
-                          <span className="mt-0.5 block text-xs leading-5 text-steel">{link.description}</span>
-                        </span>
-                        <ArrowRight className="mt-0.5 h-4 w-4 flex-none text-steel" aria-hidden="true" />
-                      </Link>
+              {quickActions.length > 0 ? (
+                <Section title={t("dashboard.quickActions")}>
+                  <ActionGrid>
+                    {quickActions.slice(0, 6).map((action) => (
+                      <ActionTile key={action.href} href={action.href} icon={quickActionIcon(action.label)} label={tc(action.label)} description={quickActionDescription(action.label, tc)} />
                     ))}
-                  </div>
+                  </ActionGrid>
                 </Section>
               ) : null}
-
-              {quickActions.length > 0 ? (
-                <Section title="Quick actions">
-                  <div className="grid grid-cols-1 gap-2">
-                    {quickActions.map((action) => (
-                      <Link
-                        key={action.href}
-                        href={action.href}
-                        className={buttonClassName({ variant: "secondary", className: "w-full justify-between" })}
-                      >
-                        {action.label}
-                        <ArrowRight className="h-4 w-4 text-steel" aria-hidden="true" />
-                      </Link>
+              {workspaceLinks.length > 0 ? (
+                <Section title={tc("Common workspaces")}>
+                  <ActionGrid>
+                    {workspaceLinks.map((link) => (
+                      <ActionTile key={link.href} href={link.href} icon={FileText} label={tc(link.label)} description={tc(link.description)} />
                     ))}
-                  </div>
+                  </ActionGrid>
                 </Section>
               ) : null}
             </div>
           </div>
-          </>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+        </>
+      ) : null}
+    </section>
   );
 }
 
-function Kpi({ icon, label, value, detail, href }: Readonly<{ icon: DashboardIcon; label: string; value: string; detail: string; href?: string }>) {
-  return <LedgerStatCard icon={icon} label={label} value={value} detail={detail} href={href} />;
+function FinancialFlowBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:56px_56px]" aria-hidden="true">
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 900 220" preserveAspectRatio="none">
+        <path d="M0 150 C150 60 260 200 410 110 C540 34 680 82 900 28" fill="none" stroke="rgba(147,197,253,0.26)" strokeWidth="2" />
+        <path d="M0 104 C160 146 250 40 390 90 C520 136 665 150 900 74" fill="none" stroke="rgba(45,212,191,0.18)" strokeWidth="2" />
+        <path d="M0 184 C180 160 290 178 430 142 C590 100 740 146 900 118" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+      </svg>
+    </div>
+  );
+}
+
+function Kpi({
+  icon,
+  label,
+  value,
+  detail,
+  href,
+  tone = "neutral",
+}: Readonly<{ icon: ReactNode; label: string; value: string; detail: string; href?: string; tone?: "neutral" | "success" | "warning" | "danger" | "info" }>) {
+  return <KpiCard iconNode={icon} label={label} value={value} detail={detail} href={href} tone={tone} />;
+}
+
+function quickActionIcon(label: string) {
+  if (/invoice/i.test(label)) return ReceiptText;
+  if (/bill|expense|supplier/i.test(label)) return ShoppingCart;
+  if (/payment/i.test(label)) return Banknote;
+  if (/bank|statement/i.test(label)) return Landmark;
+  if (/report/i.test(label)) return BarChart3;
+  if (/inventory/i.test(label)) return ClipboardList;
+  if (/upload|document/i.test(label)) return FileUp;
+  return FileText;
+}
+
+function quickActionDescription(label: string, translateLabel: (label: string) => string): string {
+  if (/invoice/i.test(label)) return translateLabel("Create a customer invoice with VAT-aware line items.");
+  if (/bill/i.test(label)) return translateLabel("Enter supplier costs, VAT, and account coding.");
+  if (/payment/i.test(label)) return translateLabel("Record a payment against open AR/AP balances.");
+  if (/bank|statement/i.test(label)) return translateLabel("Import or review manual bank transactions.");
+  if (/report/i.test(label)) return translateLabel("Open accountant-ready financial reports.");
+  if (/inventory/i.test(label)) return translateLabel("Review operational stock controls.");
+  return translateLabel("Start the next bookkeeping task safely.");
 }
 
 function Section({ title, action, children }: Readonly<{ title: string; action?: ReactNode; children: ReactNode }>) {
   return (
-    <LedgerSection title={title} action={action}>
-      {children}
-    </LedgerSection>
+    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        {action}
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
   );
 }
 
 function SectionLink({ link }: Readonly<{ link: DashboardDrilldownLink }>) {
+  const { dir, tc } = useAppLocale();
   return (
     <Link href={link.href} className="inline-flex items-center gap-1 text-xs font-semibold text-palm hover:underline">
-      {link.label}
-      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      {tc(link.label)}
+      <ArrowRight className={`h-3.5 w-3.5 ${dir === "rtl" ? "rotate-180" : ""}`} aria-hidden="true" />
     </Link>
   );
 }
@@ -499,85 +554,88 @@ function SalesArAttentionSection({
   currency,
   canLinkCustomers,
 }: Readonly<{ attention: DashboardSalesAttentionSummary; currency: string; canLinkCustomers: boolean }>) {
+  const { locale, t, tc } = useAppLocale();
   return (
-    <Section title="Sales/AR attention">
-      <LedgerSummaryBand tone="info">{attention.helperText}</LedgerSummaryBand>
+    <Section title={tc("Sales/AR attention")}>
+      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
+        {t("dashboard.salesAttention.helper")}
+      </p>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SalesAttentionPanel
-          title="Overdue invoices"
-          summary={`${attention.overdueInvoices.count} overdue · ${formatDashboardMoney(attention.overdueInvoices.total, currency)} balance due`}
+          title={tc("Overdue invoices")}
+          summary={`${attention.overdueInvoices.count} ${tc("overdue")} · ${formatDashboardMoney(attention.overdueInvoices.total, currency, locale)} ${tc("balance due")}`}
         >
           <SalesAttentionRows
             items={attention.overdueInvoices.topItems}
             currency={currency}
-            emptyLabel="No overdue invoices requiring attention."
+            emptyLabel={tc("No overdue invoices requiring attention.")}
             detailForItem={(item) => [
-              `Balance due ${formatDashboardMoney(item.amount ?? "0.0000", currency)}`,
-              `Due ${formatOptionalDate(item.dueDate ?? item.issueDate ?? null, "-")}`,
+              `${tc("Balance due")} ${formatDashboardMoney(item.amount ?? "0.0000", currency, locale)}`,
+              `${tc("Due")} ${formatAppDate(item.dueDate ?? item.issueDate ?? null, locale, "-")}`,
             ]}
           />
         </SalesAttentionPanel>
 
         <SalesAttentionPanel
-          title="Collection follow-ups"
-          summary={`${attention.collections.openCount} open · ${attention.collections.dueTodayCount} due today · ${attention.collections.overdueFollowUpCount} overdue`}
-          footer={`${formatDashboardMoney(attention.collections.promisedToPayTotal, currency)} promised to pay · ${attention.collections.disputedCount} disputed`}
+          title={tc("Collection follow-ups")}
+          summary={`${attention.collections.openCount} ${tc("open")} · ${attention.collections.dueTodayCount} ${tc("due today")} · ${attention.collections.overdueFollowUpCount} ${tc("overdue")}`}
+          footer={`${formatDashboardMoney(attention.collections.promisedToPayTotal, currency, locale)} ${tc("promised to pay")} · ${attention.collections.disputedCount} ${tc("disputed")}`}
         >
           <SalesAttentionRows
             items={attention.collections.topItems}
             currency={currency}
-            emptyLabel="No collection follow-ups due."
+            emptyLabel={tc("No collection follow-ups due.")}
             detailForItem={(item) => [
-              `Follow-up ${formatOptionalDate(item.followUpDate ?? item.dueDate ?? null, "-")}`,
-              item.promisedAmount ? `Promise to pay ${formatDashboardMoney(item.promisedAmount, currency)}` : null,
-              item.promisedPaymentDate ? `Promised date ${formatOptionalDate(item.promisedPaymentDate, "-")}` : null,
+              `${tc("Follow-up")} ${formatAppDate(item.followUpDate ?? item.dueDate ?? null, locale, "-")}`,
+              item.promisedAmount ? `${tc("Promise to pay")} ${formatDashboardMoney(item.promisedAmount, currency, locale)}` : null,
+              item.promisedPaymentDate ? `${tc("Promised date")} ${formatAppDate(item.promisedPaymentDate, locale, "-")}` : null,
             ]}
           />
         </SalesAttentionPanel>
 
         <SalesAttentionPanel
-          title="Quotes awaiting action"
-          summary={`${attention.quotes.awaitingAcceptanceCount} awaiting acceptance · ${attention.quotes.expiringSoonCount} expiring soon`}
-          footer={`${attention.quotes.acceptedNotConvertedCount} accepted quotes not converted`}
+          title={tc("Quotes awaiting action")}
+          summary={`${attention.quotes.awaitingAcceptanceCount} ${tc("awaiting acceptance")} · ${attention.quotes.expiringSoonCount} ${tc("expiring soon")}`}
+          footer={`${attention.quotes.acceptedNotConvertedCount} ${tc("accepted quotes not converted")}`}
         >
           <SalesAttentionRows
             items={attention.quotes.topItems}
             currency={currency}
-            emptyLabel="No quotes needing action."
+            emptyLabel={tc("No quotes needing action.")}
             detailForItem={(item) => [
-              `Quote amount ${formatDashboardMoney(item.amount ?? "0.0000", currency)}`,
-              item.expiryDate ? `Expires ${formatOptionalDate(item.expiryDate, "-")}` : null,
+              `${tc("Quote amount")} ${formatDashboardMoney(item.amount ?? "0.0000", currency, locale)}`,
+              item.expiryDate ? `${tc("Expires")} ${formatAppDate(item.expiryDate, locale, "-")}` : null,
             ]}
           />
         </SalesAttentionPanel>
 
         <SalesAttentionPanel
-          title="Recurring templates due for manual generation"
-          summary={`${attention.recurringInvoices.dueSoonCount} due soon · ${attention.recurringInvoices.overdueForGenerationCount} overdue`}
-          footer={`${attention.recurringInvoices.activeCount} active templates`}
+          title={tc("Recurring templates due for manual generation")}
+          summary={`${attention.recurringInvoices.dueSoonCount} ${tc("due soon")} · ${attention.recurringInvoices.overdueForGenerationCount} ${tc("overdue")}`}
+          footer={`${attention.recurringInvoices.activeCount} ${tc("active templates")}`}
         >
           <SalesAttentionRows
             items={attention.recurringInvoices.topItems}
             currency={currency}
-            emptyLabel="No recurring templates due for manual generation."
+            emptyLabel={tc("No recurring templates due for manual generation.")}
             detailForItem={(item) => [
-              item.templateName ? `Template ${item.templateName}` : null,
-              `Next run ${formatOptionalDate(item.nextRunDate ?? null, "-")}`,
-              "Manual generation only",
+              item.templateName ? `${tc("Template")} ${item.templateName}` : null,
+              `${tc("Next run")} ${formatAppDate(item.nextRunDate ?? null, locale, "-")}`,
+              tc("Manual generation only"),
             ]}
           />
           {attention.recurringInvoices.recentDraftInvoices.length > 0 ? (
             <div className="mt-3 border-t border-slate-200 pt-3">
-              <h4 className="text-xs font-semibold text-ink">Draft invoices generated from recurring templates</h4>
+              <h4 className="text-xs font-semibold text-ink">{tc("Draft invoices generated from recurring templates")}</h4>
               <div className="mt-2">
                 <SalesAttentionRows
                   items={attention.recurringInvoices.recentDraftInvoices}
                   currency={currency}
-                  emptyLabel="No recently generated recurring draft invoices."
+                  emptyLabel={tc("No recently generated recurring draft invoices.")}
                   detailForItem={(item) => [
-                    item.templateNumber ? `From ${item.templateNumber}` : null,
-                    "Draft invoice",
-                    `Issue ${formatOptionalDate(item.issueDate ?? null, "-")}`,
+                    item.templateNumber ? `${tc("From")} ${item.templateNumber}` : null,
+                    tc("Draft invoice"),
+                    `${tc("Issue")} ${formatAppDate(item.issueDate ?? null, locale, "-")}`,
                   ]}
                 />
               </div>
@@ -586,22 +644,22 @@ function SalesArAttentionSection({
         </SalesAttentionPanel>
 
         <SalesAttentionPanel
-          title="Delivery notes awaiting delivery"
-          summary={`${attention.deliveryNotes.draftCount} drafts · ${attention.deliveryNotes.issuedNotDeliveredCount} issued not delivered`}
-          footer={`${attention.deliveryNotes.overdueDeliveryCount} overdue delivery dates`}
+          title={tc("Delivery notes awaiting delivery")}
+          summary={`${attention.deliveryNotes.draftCount} ${tc("drafts")} · ${attention.deliveryNotes.issuedNotDeliveredCount} ${tc("issued not delivered")}`}
+          footer={`${attention.deliveryNotes.overdueDeliveryCount} ${tc("overdue delivery dates")}`}
         >
           <SalesAttentionRows
             items={attention.deliveryNotes.topItems}
             currency={currency}
-            emptyLabel="No delivery notes awaiting action."
+            emptyLabel={tc("No delivery notes awaiting action.")}
             detailForItem={(item) => [
-              `Delivery ${formatOptionalDate(item.deliveryDate ?? null, "-")}`,
-              "Fulfillment document only",
+              `${tc("Delivery")} ${formatAppDate(item.deliveryDate ?? null, locale, "-")}`,
+              tc("Fulfillment document only"),
             ]}
           />
         </SalesAttentionPanel>
 
-        <SalesAttentionPanel title="Top customers by outstanding balance" summary="Outstanding AR from finalized sales invoices only">
+        <SalesAttentionPanel title={tc("Top customers by outstanding balance")} summary={tc("Outstanding AR from finalized sales invoices only")}>
           <CustomerAttentionRows items={attention.customers.topOutstanding} currency={currency} canLinkCustomers={canLinkCustomers} />
         </SalesAttentionPanel>
       </div>
@@ -616,14 +674,14 @@ function SalesAttentionPanel({
   children,
 }: Readonly<{ title: string; summary: string; footer?: string; children: ReactNode }>) {
   return (
-    <LedgerPanel className="px-3 py-3">
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-3">
       <div>
         <h3 className="text-sm font-semibold text-ink">{title}</h3>
         <p className="mt-1 text-xs leading-5 text-steel">{summary}</p>
       </div>
       <div className="mt-3">{children}</div>
       {footer ? <p className="mt-3 text-xs leading-5 text-steel">{footer}</p> : null}
-    </LedgerPanel>
+    </div>
   );
 }
 
@@ -656,6 +714,7 @@ function SalesAttentionRow({
   currency,
   details,
 }: Readonly<{ item: DashboardSalesAttentionTopItem; currency: string; details: Array<string | null> }>) {
+  const { locale } = useAppLocale();
   const detailText = details.filter(Boolean).join(" · ");
   return (
     <Link
@@ -665,14 +724,14 @@ function SalesAttentionRow({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate font-semibold text-ink">{item.number}</div>
+          <div dir="ltr" style={{ unicodeBidi: "isolate" }} className="truncate font-semibold text-ink">{item.number}</div>
           <div className="mt-0.5 truncate text-xs text-steel">{item.customerName}</div>
         </div>
         <div className="shrink-0 rounded-md bg-white px-2 py-1 text-[11px] font-semibold uppercase text-steel">
           {statusLabel(item.status)}
         </div>
       </div>
-      {item.amount ? <div className="mt-1 font-mono text-xs text-ink">{formatDashboardMoney(item.amount, currency)}</div> : null}
+      {item.amount ? <div className="mt-1 font-mono text-xs text-ink">{formatDashboardMoney(item.amount, currency, locale)}</div> : null}
       {detailText ? <div className="mt-1 text-xs leading-5 text-steel">{detailText}</div> : null}
     </Link>
   );
@@ -683,10 +742,11 @@ function CustomerAttentionRows({
   currency,
   canLinkCustomers,
 }: Readonly<{ items: DashboardSalesAttentionCustomerItem[]; currency: string; canLinkCustomers: boolean }>) {
+  const { locale, tc } = useAppLocale();
   if (items.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-slate-200 px-3 py-3 text-xs text-steel">
-        No outstanding customer balances to show.
+        {tc("No outstanding customer balances to show.")}
       </div>
     );
   }
@@ -698,10 +758,10 @@ function CustomerAttentionRows({
           <>
             <div className="flex items-start justify-between gap-3">
               <div className="truncate font-semibold text-ink">{item.customerName}</div>
-              <div className="font-mono text-xs text-ink">{formatDashboardMoney(item.outstandingBalance, currency)}</div>
+              <div className="font-mono text-xs text-ink">{formatDashboardMoney(item.outstandingBalance, currency, locale)}</div>
             </div>
             <div className="mt-1 text-xs leading-5 text-steel">
-              {formatDashboardMoney(item.overdueAmount, currency)} overdue · {item.openCollectionCaseCount} open collection cases
+              {formatDashboardMoney(item.overdueAmount, currency, locale)} {tc("overdue")} · {item.openCollectionCaseCount} {tc("open collection cases")}
             </div>
           </>
         );
@@ -729,19 +789,20 @@ function SalesPurchasesTrend({
   purchases,
   currency,
 }: Readonly<{ sales: DashboardTrendPoint[]; purchases: DashboardTrendPoint[]; currency: string }>) {
+  const { tc } = useAppLocale();
   const max = chartMaxAmount([...sales.map((point) => point.amount), ...purchases.map((point) => point.amount)]);
   const hasData = chartHasData(sales) || chartHasData(purchases);
 
   return (
-    <ChartShell title="Sales vs purchases" empty={!hasData}>
+    <ChartShell title={tc("Sales vs purchases")} empty={!hasData}>
       {sales.map((point, index) => {
         const purchasePoint = purchases[index] ?? { month: point.month, amount: "0.0000" };
         return (
-          <div key={point.month} className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3">
+          <div key={point.month} className="grid grid-cols-[4.5rem_1fr] gap-3 text-xs">
             <div className="font-medium text-steel">{point.month}</div>
             <div className="space-y-1.5">
-              <BarRow label="Sales" value={point.amount} max={max} currency={currency} barClassName="bg-palm" />
-              <BarRow label="Purch." value={purchasePoint.amount} max={max} currency={currency} barClassName="bg-sky-500" />
+              <BarRow label={tc("Sales")} value={point.amount} max={max} currency={currency} barClassName="bg-palm" />
+              <BarRow label={tc("Purch.")} value={purchasePoint.amount} max={max} currency={currency} barClassName="bg-sky-500" />
             </div>
           </div>
         );
@@ -751,9 +812,10 @@ function SalesPurchasesTrend({
 }
 
 function NetProfitTrend({ points, currency }: Readonly<{ points: DashboardTrendPoint[]; currency: string }>) {
+  const { tc } = useAppLocale();
   const max = chartMaxAmount(points.map((point) => point.amount));
   return (
-    <ChartShell title="Net profit trend" empty={!chartHasData(points)}>
+    <ChartShell title={tc("Net profit trend")} empty={!chartHasData(points)}>
       {points.map((point) => (
         <BarRow
           key={point.month}
@@ -769,37 +831,40 @@ function NetProfitTrend({ points, currency }: Readonly<{ points: DashboardTrendP
 }
 
 function AgingBars({ title, buckets, currency }: Readonly<{ title: string; buckets: DashboardAgingBucket[]; currency: string }>) {
+  const { locale } = useAppLocale();
   const max = chartMaxAmount(buckets.map((bucket) => bucket.amount));
   return (
     <ChartShell title={title} empty={!chartHasData(buckets)}>
       {buckets.map((bucket) => (
-        <BarRow key={bucket.bucket} label={agingBucketLabel(bucket.bucket)} value={bucket.amount} max={max} currency={currency} barClassName="bg-amber-500" />
+        <BarRow key={bucket.bucket} label={agingBucketLabel(bucket.bucket, locale)} value={bucket.amount} max={max} currency={currency} barClassName="bg-amber-500" />
       ))}
     </ChartShell>
   );
 }
 
 function CashBalanceTrend({ points, currency }: Readonly<{ points: DashboardCashTrendPoint[]; currency: string }>) {
+  const { tc } = useAppLocale();
   const max = chartMaxAmount(points.map((point) => point.balance));
   return (
-    <ChartShell title="Cash balance trend" empty={!chartHasData(points, "balance")}>
+    <ChartShell title={tc("Cash balance trend")} empty={!chartHasData(points, "balance")}>
       {points.map((point) => (
-        <BarRow key={point.date} label={point.date.slice(0, 7)} value={point.balance} max={max} currency={currency} barClassName="bg-palm" />
+        <BarRow key={point.date} label={point.date.slice(0, 7)} value={point.balance} max={max} currency={currency} barClassName="bg-indigo-500" />
       ))}
     </ChartShell>
   );
 }
 
 function LowStockMiniList({ items }: Readonly<{ items: DashboardLowStockItem[] }>) {
+  const { tc } = useAppLocale();
   return (
-    <ChartShell title="Low-stock watchlist" empty={items.length === 0} emptyLabel="No tracked items are below reorder point.">
+    <ChartShell title={tc("Low-stock watchlist")} empty={items.length === 0} emptyLabel={tc("No tracked items are below reorder point.")}>
       {items.map((item) => (
         <div key={item.itemId} className="rounded-md border border-slate-100 px-3 py-2">
           <div className="flex items-center justify-between gap-3">
             <div className="truncate text-sm font-medium text-ink">{item.name}</div>
             <div className="font-mono text-xs text-steel">{item.quantityOnHand}</div>
           </div>
-          <div className="mt-1 text-xs text-steel">Reorder point {item.reorderPoint}</div>
+          <div className="mt-1 text-xs text-steel">{tc("Reorder point")} {item.reorderPoint}</div>
         </div>
       ))}
     </ChartShell>
@@ -809,10 +874,11 @@ function LowStockMiniList({ items }: Readonly<{ items: DashboardLowStockItem[] }
 function AttentionSeverityBars({
   groups,
 }: Readonly<{ groups: Record<"critical" | "warning" | "info", DashboardAttentionItem[]> }>) {
+  const { locale } = useAppLocale();
   const rows = [
-    { label: "Critical", count: groups.critical.length, className: "bg-red-500" },
-    { label: "Warning", count: groups.warning.length, className: "bg-amber-500" },
-    { label: "Info", count: groups.info.length, className: "bg-blue-500" },
+    { label: attentionSeverityLabel("critical", locale), count: groups.critical.length, className: "bg-red-500" },
+    { label: attentionSeverityLabel("warning", locale), count: groups.warning.length, className: "bg-amber-500" },
+    { label: attentionSeverityLabel("info", locale), count: groups.info.length, className: "bg-blue-500" },
   ];
   const max = Math.max(...rows.map((row) => row.count), 0);
 
@@ -824,7 +890,7 @@ function AttentionSeverityBars({
           <div className="h-2 rounded-full bg-slate-100">
             <div className={`h-2 rounded-full ${row.className}`} style={{ width: chartBarPercent(row.count, max) }} />
           </div>
-          <div className="text-right font-mono text-steel">{row.count}</div>
+          <div className="text-end font-mono text-steel">{row.count}</div>
         </div>
       ))}
     </div>
@@ -837,13 +903,15 @@ function ChartShell({
   emptyLabel = "No chart data for this period.",
   children,
 }: Readonly<{ title: string; empty: boolean; emptyLabel?: string; children: ReactNode }>) {
+  const { tc } = useAppLocale();
+  const resolvedEmptyLabel = emptyLabel === "No chart data for this period." ? tc(emptyLabel) : emptyLabel;
   return (
     <div>
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
         <BarChart3 className="h-4 w-4 text-palm" aria-hidden="true" />
         {title}
       </div>
-      {empty ? <div className="rounded-md border border-dashed border-slate-200 px-3 py-5 text-sm text-steel">{emptyLabel}</div> : <div className="space-y-3">{children}</div>}
+      {empty ? <div className="rounded-md border border-dashed border-slate-200 px-3 py-5 text-sm text-steel">{resolvedEmptyLabel}</div> : <div className="space-y-3">{children}</div>}
     </div>
   );
 }
@@ -855,23 +923,25 @@ function BarRow({
   currency,
   barClassName,
 }: Readonly<{ label: string; value: string | number; max: number; currency: string; barClassName: string }>) {
+  const { locale } = useAppLocale();
   return (
-    <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_5.75rem] items-center gap-1.5 text-xs sm:grid-cols-[4.5rem_minmax(0,1fr)_6.5rem] sm:gap-2">
+    <div className="grid grid-cols-[4.5rem_1fr_6.5rem] items-center gap-2 text-xs">
       <div className="truncate font-medium text-steel">{label}</div>
       <div className="h-2 rounded-full bg-slate-100">
         <div className={`h-2 rounded-full ${barClassName}`} style={{ width: chartBarPercent(value, max) }} />
       </div>
-      <div className="truncate text-right font-mono text-steel">{formatDashboardMoney(value, currency)}</div>
+      <div className="truncate text-end font-mono text-steel">{formatDashboardMoney(value, currency, locale)}</div>
     </div>
   );
 }
 
 function AttentionItemRow({ item, href }: Readonly<{ item: DashboardAttentionItem; href: string | null }>) {
+  const { locale } = useAppLocale();
   const content = (
     <div className="flex items-start gap-2">
       <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
       <div>
-        <div className="text-xs font-semibold uppercase">{attentionSeverityLabel(item.severity)}</div>
+        <div className="text-xs font-semibold uppercase">{attentionSeverityLabel(item.severity, locale)}</div>
         <div className="mt-1 font-semibold">{item.title}</div>
         <div className="mt-1 text-xs leading-5">{item.description}</div>
       </div>
@@ -900,7 +970,7 @@ function attentionHref(item: DashboardAttentionItem, links: DashboardLinks): str
     case "INVENTORY_CLEARING_VARIANCE":
       return links.clearingVariances?.href ?? null;
     case "ZATCA_NOT_READY":
-      return links.uaeReadiness?.href ?? null;
+      return links.zatcaReadiness?.href ?? null;
     case "DATABASE_STORAGE_ACTIVE":
       return links.storage?.href ?? null;
     default:

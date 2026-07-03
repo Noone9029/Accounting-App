@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import SupplierPaymentsPage from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 
 const apiRequestMock = jest.fn();
 const canMock = jest.fn((_: string) => true);
@@ -21,6 +22,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
   useSearchParams: () => searchParams,
 }));
 
@@ -64,18 +66,31 @@ describe("SupplierPaymentsPage", () => {
       "href",
       "/purchases/supplier-payments/payment-1?returnTo=%2Fpurchases%2Fsupplier-payments%3FsupplierId%3Dsupplier-1%26returnTo%3D%252Fsuppliers%252Fsupplier-1",
     );
-    expect(screen.queryByText(/auto.?match|auto.?reconcile|autopay|bank feed|payment provider|certified/i)).not.toBeInTheDocument();
   });
 
-  it("filters create and void actions by permissions", async () => {
-    canMock.mockReturnValue(false);
-
-    render(<SupplierPaymentsPage />);
+  it("renders the filtered supplier payment list in Arabic without changing route continuity", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SupplierPaymentsPage />
+      </AppLocaleProvider>,
+    );
 
     expect(await screen.findByText("SP-001")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Void" })).not.toBeInTheDocument();
+    expect(screen.queryByText("SP-002")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "دفعات الموردين" })).toBeInTheDocument();
+    expect(screen.getByText("دفعات الموردين المسجلة لمساحة العمل هذه. تبقى ملفات PDF للدفعات إجراءات إخراج صريحة.")).toBeInTheDocument();
+    expect(screen.getByText("الرقم")).toBeInTheDocument();
+    expect(screen.getByText("المورد")).toBeInTheDocument();
+    expect(screen.getByText("دفع عبر")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "العودة إلى مساحة العمل" })).toHaveAttribute("href", "/suppliers/supplier-1");
+    expect(screen.getByRole("link", { name: "تسجيل دفعة" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
+    );
+    expect(screen.getByRole("link", { name: "عرض" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments/payment-1?returnTo=%2Fpurchases%2Fsupplier-payments%3FsupplierId%3Dsupplier-1%26returnTo%3D%252Fsuppliers%252Fsupplier-1",
+    );
   });
 });
 

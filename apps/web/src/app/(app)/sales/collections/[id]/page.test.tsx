@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import CollectionCaseDetailPage from "./page";
 import type { CollectionCase } from "@/lib/types";
 
@@ -21,6 +22,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
   useParams: () => ({ id: "case-1" }),
 }));
 
@@ -55,6 +57,25 @@ describe("CollectionCaseDetailPage", () => {
     expect(screen.getByText(/does not post journals, allocate payments, create credit notes or refunds, send email or reminders, create payment links, file VAT, call ZATCA, or change invoice balances/i)).toBeInTheDocument();
     expect(screen.getByText(/Planned email and planned reminder entries are internal planning records only/i)).toBeInTheDocument();
     expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
+  });
+
+  it("renders Arabic detail copy while preserving customer and invoice links", async () => {
+    apiRequestMock.mockResolvedValue(collectionCaseFixture());
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CollectionCaseDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("COL-000001")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByRole("link", { name: "INV-000010" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByText("حدود المحاسبة")).toBeInTheDocument();
+    expect(screen.getByText("إجراءات التحصيل")).toBeInTheDocument();
+    expect(screen.getByText("الخط الزمني للنشاط")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "العودة إلى التحصيل" })).toHaveAttribute("href", "/sales/collections");
+    expect(screen.getByRole("button", { name: "إضافة نشاط" })).toBeInTheDocument();
   });
 
   it("hides mutation actions for view-only users", async () => {

@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, FileText, Loader2, Navigation, PackageSearch, Search, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BarChart3, FileText, Loader2, Navigation, Search, UserRound, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { formatAppDate } from "@/lib/app-i18n";
 import {
   combineGlobalSearchResults,
   getLocalGlobalSearchResults,
@@ -22,6 +24,7 @@ interface GlobalSearchProps {
 export function GlobalSearch({ className = "" }: GlobalSearchProps) {
   const router = useRouter();
   const { activeMembership } = usePermissions();
+  const { dir, locale, t, tc } = useAppLocale();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [remoteResults, setRemoteResults] = useState<GlobalSearchResult[]>([]);
@@ -93,7 +96,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
       } catch (searchError) {
         if (!cancelled) {
           setRemoteResults([]);
-          setError(searchError instanceof Error ? searchError.message : "Search is unavailable.");
+          setError(searchError instanceof Error ? searchError.message : t("globalSearch.unavailable"));
         }
       } finally {
         if (!cancelled) {
@@ -107,9 +110,9 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, t]);
 
-  const localResults = useMemo(() => getLocalGlobalSearchResults(query, activeMembership), [activeMembership, query]);
+  const localResults = useMemo(() => getLocalGlobalSearchResults(query, activeMembership, locale), [activeMembership, locale, query]);
   const allResults = useMemo(() => combineGlobalSearchResults(remoteResults, localResults), [localResults, remoteResults]);
   const visibleResults = expanded ? allResults : allResults.slice(0, COLLAPSED_RESULT_LIMIT);
   const groupedResults = useMemo(() => groupGlobalSearchResults(visibleResults), [visibleResults]);
@@ -164,7 +167,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+        <Search className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 ${dir === "rtl" ? "right-3" : "left-3"}`} aria-hidden="true" />
         <input
           ref={inputRef}
           id={inputId}
@@ -181,10 +184,10 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
           aria-expanded={showPanel}
           aria-autocomplete="list"
           aria-activedescendant={visibleResults[activeIndex] ? resultOptionId(listboxId, visibleResults[activeIndex]) : undefined}
-          placeholder="Search transactions, contacts, reports, and pages"
-          className="h-10 w-full rounded-md border border-line bg-white pl-9 pr-20 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/15"
+          placeholder={t("globalSearch.placeholder")}
+          className={`h-10 w-full rounded-md border border-line bg-white text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/15 ${dir === "rtl" ? "pl-20 pr-9" : "pl-9 pr-20"}`}
         />
-        <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 sm:inline-flex">
+        <kbd dir="ltr" className={`pointer-events-none absolute top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 sm:inline-flex ${dir === "rtl" ? "left-2" : "right-2"}`}>
           Ctrl K
         </kbd>
       </div>
@@ -193,7 +196,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
         <div
           id={listboxId}
           role="listbox"
-          aria-label="Global search results"
+          aria-label={t("globalSearch.aria")}
           className="fixed inset-x-0 top-16 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto border-y border-line bg-white p-3 shadow-2xl sm:absolute sm:inset-x-0 sm:top-full sm:mt-2 sm:max-h-[min(28rem,calc(100vh-8rem))] sm:rounded-md sm:border sm:p-2"
         >
           <SearchPanelState loading={loading} error={error} hasQuery={query.trim().length > 0} hasResults={visibleResults.length > 0} />
@@ -206,6 +209,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
               activeResult={visibleResults[activeIndex]}
               listboxId={listboxId}
               onSelect={selectResult}
+              translateLabel={tc}
             />
           ))}
 
@@ -215,7 +219,7 @@ export function GlobalSearch({ className = "" }: GlobalSearchProps) {
               onClick={() => setExpanded(true)}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-palm"
             >
-              View all results
+              {t("globalSearch.viewAll")}
               <span className="text-xs text-steel">({allResults.length})</span>
             </button>
           ) : null}
@@ -236,11 +240,12 @@ function SearchPanelState({
   hasQuery: boolean;
   hasResults: boolean;
 }) {
+  const { t } = useAppLocale();
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-2 py-2 text-sm text-steel">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Searching records
+        {t("globalSearch.searching")}
       </div>
     );
   }
@@ -250,7 +255,7 @@ function SearchPanelState({
   }
 
   if (hasQuery && !hasResults) {
-    return <div className="px-3 py-6 text-center text-sm text-steel">No results found</div>;
+    return <div className="px-3 py-6 text-center text-sm text-steel">{t("globalSearch.noResults")}</div>;
   }
 
   return null;
@@ -262,16 +267,18 @@ function SearchGroup({
   activeResult,
   listboxId,
   onSelect,
+  translateLabel,
 }: {
   category: GlobalSearchCategory;
   results: readonly GlobalSearchResult[];
   activeResult: GlobalSearchResult | undefined;
   listboxId: string;
   onSelect: (result: GlobalSearchResult) => void;
+  translateLabel: (label: string) => string;
 }) {
   return (
     <section className="py-1">
-      <h2 className="px-2 py-1 text-xs font-semibold uppercase text-steel">{category}</h2>
+      <h2 className="px-2 py-1 text-xs font-semibold uppercase text-steel">{translateLabel(category)}</h2>
       <div className="space-y-1">
         {results.map((result) => (
           <SearchResultRow
@@ -298,6 +305,7 @@ function SearchResultRow({
   optionId: string;
   onSelect: (result: GlobalSearchResult) => void;
 }) {
+  const { locale, dir } = useAppLocale();
   const Icon = resultIcon(result.category);
 
   return (
@@ -307,7 +315,7 @@ function SearchResultRow({
       role="option"
       aria-selected={active}
       onClick={() => onSelect(result)}
-      className={`flex min-h-14 w-full items-start gap-3 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-palm ${
+      className={`flex min-h-14 w-full items-start gap-3 rounded-md px-2 py-2 text-start transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-palm ${
         active ? "bg-mist text-ink" : "text-slate-700 hover:bg-slate-50"
       }`}
     >
@@ -321,12 +329,12 @@ function SearchResultRow({
         </span>
         <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-steel">
           <span className="truncate">{result.detail}</span>
-          {result.date ? <span>{formatDate(result.date)}</span> : null}
-          {result.amount ? <span>{result.amount}</span> : null}
+          {result.date ? <span>{formatAppDate(result.date, locale, "")}</span> : null}
+          {result.amount ? <span dir="ltr" style={{ unicodeBidi: "isolate" }}>{result.amount}</span> : null}
           {result.status ? <span>{result.status}</span> : null}
         </span>
       </span>
-      <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+      <ArrowUpRight className={`mt-1 h-4 w-4 shrink-0 text-slate-400 ${dir === "rtl" ? "-scale-x-100" : ""}`} aria-hidden="true" />
     </button>
   );
 }
@@ -337,24 +345,14 @@ function resultIcon(category: GlobalSearchCategory): LucideIcon {
       return UserRound;
     case "Transactions":
       return FileText;
-    case "Products / Services":
-      return PackageSearch;
     case "Reports":
       return BarChart3;
     case "Pages / Navigation":
       return Navigation;
   }
+  return FileText;
 }
 
 function resultOptionId(listboxId: string, result: GlobalSearchResult): string {
   return `${listboxId}-${result.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toISOString().slice(0, 10);
 }

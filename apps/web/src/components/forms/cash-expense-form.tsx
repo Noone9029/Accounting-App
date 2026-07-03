@@ -1,27 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PlusIcon, SendIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerFieldHelp,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPanel,
-  LedgerSelect,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
-import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { calculateInvoicePreview } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Branch, CashExpense, Contact, Item, TaxRate } from "@/lib/types";
 
@@ -56,6 +44,7 @@ function todayInputValue(): string {
 export function CashExpenseForm() {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { locale, tc } = useAppLocale();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -142,7 +131,7 @@ export function CashExpenseForm() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load cash expense setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load cash expense setup data."));
         }
       })
       .finally(() => {
@@ -154,7 +143,7 @@ export function CashExpenseForm() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, tc]);
 
   function updateLine(lineId: string, patch: Partial<CashExpenseLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -186,7 +175,7 @@ export function CashExpenseForm() {
 
     const validationError = getValidationError(paidThroughAccountId, lines, preview.valid);
     if (validationError) {
-      setError(validationError);
+      setError(tc(validationError));
       return;
     }
 
@@ -217,198 +206,174 @@ export function CashExpenseForm() {
 
       router.push(returnTo || `/purchases/cash-expenses/${expense.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to post cash expense.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to post cash expense."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="min-w-0 space-y-5">
-      <LedgerFormSection
-        className="min-w-0"
-        title="Expense details"
-        description="Direct paid expense fields are posted immediately to the selected paid-through account."
-      >
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Supplier/contact</LedgerFieldText>
-          <LedgerSelect value={contactId} onChange={(event) => setContactId(event.target.value)}>
-            <option value="">No linked supplier</option>
-            {supplierContacts.map((contact) => (
-              <option key={contact.id} value={contact.id}>
-                {contact.displayName ?? contact.name}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Expense date</LedgerFieldText>
-          <LedgerInput type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Paid through</LedgerFieldText>
-          <LedgerSelect value={paidThroughAccountId} onChange={(event) => setPaidThroughAccountId(event.target.value)} required>
-            <option value="">Select account</option>
-            {paidThroughAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {bankAccountOptionLabel(account, bankProfiles)}
-              </option>
-            ))}
-          </LedgerSelect>
-          <LedgerFieldHelp>Existing behavior credits this posting account immediately.</LedgerFieldHelp>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Currency</LedgerFieldText>
-          <LedgerInput value="SAR" readOnly aria-label="Currency" className="bg-slate-50 text-slate-700" />
-          <LedgerFieldHelp>Cash expenses currently save with the existing SAR currency behavior.</LedgerFieldHelp>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Branch</LedgerFieldText>
-          <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-            <option value="">No branch</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.displayName ?? branch.name}
-              </option>
-            ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Description</LedgerFieldText>
-          <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Notes</LedgerFieldText>
-          <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
-        </LedgerFieldLabel>
-      </LedgerFormSection>
-
-      <LedgerPanel>
-        <h2 className="text-base font-semibold text-ink">Posting boundaries</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">Cash expenses stay as immediate direct-spend postings.</p>
-        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <LedgerSummaryBand tone="warning">Posting debits expense/VAT and credits the selected paid-through account immediately.</LedgerSummaryBand>
-          <LedgerSummaryBand tone="info">Supplier/contact linking is optional and only preserves ledger context for this expense.</LedgerSummaryBand>
-          <LedgerSummaryBand tone="warning">No accounts payable, supplier payment run, bank transfer, reconciliation match, or tax-authority submission is created here.</LedgerSummaryBand>
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Supplier/contact")}</span>
+            <select value={contactId} onChange={(event) => setContactId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No linked supplier")}</option>
+              {supplierContacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.displayName ?? contact.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Expense date")}</span>
+            <input type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Paid through")}</span>
+            <select value={paidThroughAccountId} onChange={(event) => setPaidThroughAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("Select account")}</option>
+              {paidThroughAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {bankAccountOptionLabel(account, bankProfiles)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No branch")}</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.displayName ?? branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
+            <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Notes")}</span>
+            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
         </div>
-      </LedgerPanel>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <LedgerPanel className="min-w-0">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-ink">Expense line items</h2>
-              <p className="mt-1 text-sm leading-6 text-steel">Line entries keep existing item, account, discount, tax, and preview total behavior.</p>
-            </div>
-            <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={PlusIcon}>
-              Add line
-            </LedgerButton>
-          </div>
-          <LedgerDataTable minWidth="980px" className="shadow-none">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                  <tr>
-                    <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2">Description</th>
-                    <th className="px-3 py-2">Account</th>
-                    <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">Unit price</th>
-                    <th className="px-3 py-2">Discount %</th>
-                    <th className="px-3 py-2">Tax</th>
-                    <th className="px-3 py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {lines.map((line) => (
-                    <tr key={line.id}>
-                      <td className="px-3 py-2">
-                        <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48">
-                          <option value="">No item</option>
-                          {activeItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))}
-                        </LedgerSelect>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerSelect value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="w-56">
-                          <option value="">Select account</option>
-                          {postingPurchaseAccounts.map((account) => (
-                            <option key={account.id} value={account.id}>
-                              {account.code} {account.name}
-                            </option>
-                          ))}
-                        </LedgerSelect>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required className="w-24" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} required className="w-28" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerSelect value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="w-48">
-                          <option value="">No tax</option>
-                          {activePurchaseTaxRates.map((taxRate) => (
-                            <option key={taxRate.id} value={taxRate.id}>
-                              {taxRate.name} ({taxRate.rate}%)
-                            </option>
-                          ))}
-                        </LedgerSelect>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)}>
-                          Remove
-                        </LedgerButton>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-          </LedgerDataTable>
-        </LedgerPanel>
-
-        <LedgerPanel className="min-w-0">
-          <h2 className="text-base font-semibold text-ink">Expense summary</h2>
-          <div className="mt-4 space-y-2 text-sm">
-            <TotalRow label="Subtotal" value={formatMoneyAmount(preview.subtotal)} />
-            <TotalRow label="Discount" value={formatMoneyAmount(preview.discountTotal)} />
-            <TotalRow label="Taxable" value={formatMoneyAmount(preview.taxableTotal)} />
-            <TotalRow label="VAT / Tax" value={formatMoneyAmount(preview.taxTotal)} />
-            <TotalRow label="Total" value={formatMoneyAmount(preview.total)} strong />
-          </div>
-        </LedgerPanel>
+        <p className="mt-3 text-xs text-steel">{tc("Posting debits expense/VAT and credits the selected paid-through account immediately.")}</p>
+        <p className="mt-1 text-xs text-steel">{tc("No accounts payable, supplier payment run, bank transfer, reconciliation match, or tax-authority submission is created here.")}</p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to create cash expenses.</LedgerAlert> : null}
-        {loading ? <LedgerAlert tone="info">Loading cash expense setup data...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {!preview.valid ? <LedgerAlert tone="info">Every cash expense line needs a positive quantity, non-negative unit price, valid discount, and a posting account.</LedgerAlert> : null}
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <table className="w-full min-w-[980px] text-start text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-4 py-3">{tc("Item")}</th>
+              <th className="px-4 py-3">{tc("Description")}</th>
+              <th className="px-4 py-3">{tc("Account")}</th>
+              <th className="px-4 py-3">{tc("Qty")}</th>
+              <th className="px-4 py-3">{tc("Unit price")}</th>
+              <th className="px-4 py-3">{tc("Discount %")}</th>
+              <th className="px-4 py-3">{tc("Tax")}</th>
+              <th className="px-4 py-3">{tc("Actions")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {lines.map((line) => (
+              <tr key={line.id}>
+                <td className="px-4 py-3">
+                  <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
+                    <option value="">{tc("No item")}</option>
+                    {activeItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                </td>
+                <td className="px-4 py-3">
+                  <select value={line.accountId} onChange={(event) => updateLine(line.id, { accountId: event.target.value })} required className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
+                    <option value="">{tc("Select account")}</option>
+                    {postingPurchaseAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.code} {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                </td>
+                <td className="px-4 py-3">
+                  <input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} required className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                </td>
+                <td className="px-4 py-3">
+                  <input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                </td>
+                <td className="px-4 py-3">
+                  <select value={line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
+                    <option value="">{tc("No tax")}</option>
+                    {activePurchaseTaxRates.map((taxRate) => (
+                      <option key={taxRate.id} value={taxRate.id}>
+                        {taxRate.name} ({taxRate.rate}%)
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <button type="button" onClick={() => removeLine(line.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    {tc("Remove")}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <LedgerActionBar className="justify-end">
-        <LedgerButton href={returnTo || "/purchases/cash-expenses"}>
-          Cancel
-        </LedgerButton>
-        <LedgerButton type="submit" disabled={submitting || !organizationId} variant="primary" icon={SendIcon}>
-          {submitting ? "Posting..." : "Post cash expense"}
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="flex flex-wrap items-start justify-between gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Add line")}
+        </button>
+        <div className="min-w-[260px] space-y-2 text-sm">
+          <TotalRow label="Subtotal" value={formatAppMoney(preview.subtotal, "SAR", locale)} />
+          <TotalRow label="Discount" value={formatAppMoney(preview.discountTotal, "SAR", locale)} />
+          <TotalRow label="Taxable" value={formatAppMoney(preview.taxableTotal, "SAR", locale)} />
+          <TotalRow label="VAT / Tax" value={formatAppMoney(preview.taxTotal, "SAR", locale)} />
+          <TotalRow label="Total" value={formatAppMoney(preview.total, "SAR", locale)} strong />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to create cash expenses.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading cash expense setup data...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!preview.valid ? <StatusMessage type="info">{tc("Every cash expense line needs a positive quantity, non-negative unit price, valid discount, and a posting account.")}</StatusMessage> : null}
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Link href={returnTo || "/purchases/cash-expenses"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </Link>
+        <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          {submitting ? tc("Posting...") : tc("Post cash expense")}
+        </button>
+      </div>
     </form>
   );
 }
 
 function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  const { tc } = useAppLocale();
   return (
     <div className={`flex justify-between gap-4 ${strong ? "font-semibold text-ink" : "text-steel"}`}>
-      <span>{label}</span>
-      <LedgerMoney>{value}</LedgerMoney>
+      <span>{tc(label)}</span>
+      <span className="font-mono text-xs">{value}</span>
     </div>
   );
 }

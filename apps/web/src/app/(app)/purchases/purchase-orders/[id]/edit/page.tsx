@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { PurchaseOrderForm } from "@/components/forms/purchase-order-form";
-import { LedgerAlert, LedgerButton, LedgerPage, LedgerPageBody, LedgerPageHeader } from "@/components/ui/ledger-system";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import type { PurchaseOrder } from "@/lib/types";
@@ -11,6 +13,7 @@ import type { PurchaseOrder } from "@/lib/types";
 export default function EditPurchaseOrderPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [order, setOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,7 +35,7 @@ export default function EditPurchaseOrderPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load purchase order.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load purchase order."));
         }
       })
       .finally(() => {
@@ -44,28 +47,27 @@ export default function EditPurchaseOrderPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title="Edit purchase order"
-        description="Draft purchase orders can be changed before approval."
-        actions={
-          <LedgerButton href={order ? `/purchases/purchase-orders/${order.id}` : "/purchases/purchase-orders"}>
-          Back
-          </LedgerButton>
-        }
-      />
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Edit purchase order")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Draft purchase orders can be changed before approval.")}</p>
+        </div>
+        <Link href={order ? `/purchases/purchase-orders/${order.id}` : "/purchases/purchase-orders"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load purchase orders.</LedgerAlert> : null}
-        {loading ? <LedgerAlert tone="info">Loading purchase order...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load purchase orders.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading purchase order...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
 
       {order ? <PurchaseOrderForm initialOrder={order} /> : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }

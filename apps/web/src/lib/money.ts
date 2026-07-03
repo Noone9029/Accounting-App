@@ -124,12 +124,19 @@ export function calculateInvoicePreview(lines: InvoicePreviewLineInput[], taxMod
 
 export function formatMoneyAmount(value: string | number, currency = "SAR"): string {
   const amount = typeof value === "number" ? value / MONEY_FACTOR : parseDecimalToUnits(value) / MONEY_FACTOR;
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat(currentDisplayLocale(), {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function currentDisplayLocale(): string {
+  if (typeof document !== "undefined" && document.documentElement.lang === "ar") {
+    return "ar-SA";
+  }
+  return "en";
 }
 
 export function calculatePaymentAllocationPreview(amountReceived: string, allocations: PaymentAllocationInput[]): PaymentAllocationPreview {

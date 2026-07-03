@@ -1,4 +1,5 @@
 import { getAppRouteByKey, type AppRoute, type AppRouteKey } from "./app-routes";
+import { DEFAULT_APP_LOCALE, formatAppMoney, translateCommon, type AppLocale } from "./app-i18n";
 import { getLedgerByteEdition, type LedgerByteMarket } from "./edition";
 import { formatMoneyAmount } from "./money";
 import { hasPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
@@ -144,19 +145,22 @@ export const DASHBOARD_DRILLDOWN_LINKS: Record<DashboardDrilldownKey, DashboardD
   },
 };
 
-export function formatDashboardMoney(value: string | number, currency = getLedgerByteEdition().defaultCurrency): string {
-  return formatMoneyAmount(value, currency);
+export function formatDashboardMoney(value: string | number, currency = getLedgerByteEdition().defaultCurrency, locale: AppLocale = DEFAULT_APP_LOCALE): string {
+  return locale === DEFAULT_APP_LOCALE ? formatMoneyAmount(value, currency) : formatAppMoney(value, currency, locale);
 }
 
-export function attentionSeverityLabel(severity: DashboardAttentionSeverity): string {
-  switch (severity) {
-    case "critical":
-      return "Critical";
-    case "warning":
-      return "Warning";
-    case "info":
-      return "Info";
-  }
+export function attentionSeverityLabel(severity: DashboardAttentionSeverity, locale: AppLocale = DEFAULT_APP_LOCALE): string {
+  const label = (() => {
+    switch (severity) {
+      case "critical":
+        return "Critical";
+      case "warning":
+        return "Warning";
+      case "info":
+        return "Info";
+    }
+  })();
+  return translateCommon(locale, label);
 }
 
 export function attentionSeverityClass(severity: DashboardAttentionSeverity): string {
@@ -170,8 +174,8 @@ export function attentionSeverityClass(severity: DashboardAttentionSeverity): st
   }
 }
 
-export function dashboardHealthLabel(value: boolean): string {
-  return value ? "Balanced" : "Needs review";
+export function dashboardHealthLabel(value: boolean, locale: AppLocale = DEFAULT_APP_LOCALE): string {
+  return translateCommon(locale, value ? "Balanced" : "Needs review");
 }
 
 export function onboardingChecklistStatusLabel(status: DashboardOnboardingChecklistStatus): string {
@@ -470,21 +474,25 @@ export function chartHasData<T>(points: T[], valueKey: keyof T | string = "amoun
   return points.some((point) => Number((point as Record<string, unknown>)[String(valueKey)]) !== 0);
 }
 
-export function agingBucketLabel(bucket: string): string {
-  switch (bucket) {
-    case "CURRENT":
-      return "Current";
-    case "1_30":
-      return "1-30";
-    case "31_60":
-      return "31-60";
-    case "61_90":
-      return "61-90";
-    case "90_PLUS":
-      return "90+";
-    default:
-      return bucket;
-  }
+export function agingBucketLabel(bucket: string, locale: AppLocale = DEFAULT_APP_LOCALE): string {
+  const label = (() => {
+    switch (bucket) {
+      case "CURRENT":
+        return "Current";
+      case "1_30":
+        return "1-30";
+      case "31_60":
+        return "31-60";
+      case "61_90":
+        return "61-90";
+      case "90_PLUS":
+        return "90+";
+      default:
+        return bucket;
+    }
+  })();
+
+  return translateCommon(locale, label);
 }
 
 export function groupAttentionBySeverity(items: DashboardAttentionItem[]): Record<DashboardAttentionSeverity, DashboardAttentionItem[]> {

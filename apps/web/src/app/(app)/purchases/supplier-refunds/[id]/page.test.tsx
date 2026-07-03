@@ -1,7 +1,9 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import SupplierRefundDetailPage from "./page";
+import type { SupplierRefund, SupplierRefundPdfData } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const canMock = jest.fn((_: string) => true);
@@ -22,6 +24,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "supplier-refund-1" }),
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 jest.mock("@/components/permissions/permission-provider", () => ({
@@ -58,57 +61,103 @@ describe("SupplierRefundDetailPage", () => {
         return Promise.resolve(refundFixture());
       }
       if (path === "/supplier-refunds/supplier-refund-1/pdf-data") {
-        return Promise.resolve({
-          refund: { refundNumber: "SRF-001", amountRefunded: "25.0000", currency: "SAR" },
-          source: { number: "SP-001" },
-          generatedAt: "2026-05-22T00:00:00.000Z",
-        });
+        return Promise.resolve(pdfFixture());
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
   });
 
-  it("keeps manual refund boundaries and source handoffs visible", async () => {
-    render(<SupplierRefundDetailPage />);
+  it("renders Arabic supplier refund detail without changing record links", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SupplierRefundDetailPage />
+      </AppLocaleProvider>,
+    );
 
-    expect((await screen.findAllByText("SRF-001")).length).toBeGreaterThan(0);
-    expect(screen.getByText(/No bank transfer, bank reconciliation, payment gateway, or ZATCA submission is performed/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Supplier ledger" })).toHaveAttribute("href", "/contacts/supplier-1");
-    expect(screen.getByRole("link", { name: "View source" })).toHaveAttribute("href", "/purchases/supplier-payments/payment-1");
-    expect(screen.getByText("PDF amount")).toBeInTheDocument();
+    expect((await screen.findAllByText("SREF-001")).length).toBeGreaterThan(0);
+    expect(screen.getByText("ترحيل رد المورد يدويا، ومرجع المصدر، وتنزيل PDF.")).toBeInTheDocument();
+    expect(screen.getByText("لا يتم تنفيذ تحويل بنكي أو تسوية بنكية أو بوابة دفع أو تقديم إلى زاتكا.")).toBeInTheDocument();
+    expect(screen.getByText("الحساب المستلم فيه")).toBeInTheDocument();
+    expect(screen.getByText("مصدر الرد")).toBeInTheDocument();
+    expect(screen.getByText("معاينة بيانات PDF")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "رجوع" })).toHaveAttribute("href", "/purchases/supplier-refunds");
+    expect(screen.getByRole("link", { name: "دفتر المورد" })).toHaveAttribute("href", "/contacts/supplier-1");
+    expect(screen.getByRole("link", { name: "عرض المصدر" })).toHaveAttribute("href", "/purchases/debit-notes/debit-note-1");
+    expect(screen.getByRole("button", { name: "تنزيل PDF" })).toBeInTheDocument();
   });
 });
 
-function refundFixture() {
+function refundFixture(overrides: Partial<SupplierRefund> = {}): SupplierRefund {
   return {
     id: "supplier-refund-1",
     organizationId: "org-1",
-    refundNumber: "SRF-001",
+    refundNumber: "SREF-001",
     supplierId: "supplier-1",
-    refundDate: "2026-05-22T00:00:00.000Z",
-    sourceType: "SUPPLIER_PAYMENT",
-    sourcePaymentId: "payment-1",
-    sourceDebitNoteId: null,
+    sourceType: "PURCHASE_DEBIT_NOTE",
+    sourcePaymentId: null,
+    sourceDebitNoteId: "debit-note-1",
+    refundDate: "2026-05-21T00:00:00.000Z",
     currency: "SAR",
-    amountRefunded: "25.0000",
-    accountId: "cash-1",
     status: "POSTED",
-    description: null,
-    journalEntryId: "je-1",
+    amountRefunded: "115.0000",
+    accountId: "account-1",
+    description: "Supplier refund",
+    journalEntryId: "journal-1",
     voidReversalJournalEntryId: null,
-    postedAt: "2026-05-22T00:00:00.000Z",
+    postedAt: "2026-05-21T00:00:00.000Z",
     voidedAt: null,
     supplier: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier", type: "SUPPLIER" },
-    account: { id: "cash-1", code: "111", name: "Cash on hand", type: "ASSET" },
-    journalEntry: { id: "je-1", entryNumber: "JE-001" },
-    voidReversalJournalEntry: null,
-    sourcePayment: {
-      id: "payment-1",
-      paymentNumber: "SP-001",
-      status: "POSTED",
-      amountPaid: "100.0000",
-      unappliedAmount: "75.0000",
+    account: { id: "account-1", code: "111", name: "Cash on hand", type: "ASSET" },
+    sourcePayment: null,
+    sourceDebitNote: {
+      id: "debit-note-1",
+      debitNoteNumber: "PDN-001",
+      issueDate: "2026-05-21T00:00:00.000Z",
+      status: "FINALIZED",
+      total: "115.0000",
+      unappliedAmount: "0.0000",
+      currency: "SAR",
     },
-    sourceDebitNote: null,
+    journalEntry: { id: "journal-1", entryNumber: "JE-001", status: "POSTED" },
+    voidReversalJournalEntry: null,
+    ...overrides,
+  };
+}
+
+function pdfFixture(): SupplierRefundPdfData {
+  const refund = refundFixture();
+  return {
+    organization: {
+      id: "org-1",
+      name: "LedgerByte",
+      legalName: "LedgerByte",
+      taxNumber: null,
+      countryCode: "SA",
+      baseCurrency: "SAR",
+      timezone: "Asia/Riyadh",
+    },
+    supplier: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier", email: null, phone: null, taxNumber: null },
+    refund: {
+      id: refund.id,
+      refundNumber: refund.refundNumber,
+      refundDate: refund.refundDate,
+      status: refund.status,
+      currency: refund.currency,
+      amountRefunded: refund.amountRefunded,
+      description: refund.description,
+    },
+    source: {
+      type: refund.sourceType,
+      id: "debit-note-1",
+      number: "PDN-001",
+      date: "2026-05-21T00:00:00.000Z",
+      status: "FINALIZED",
+      originalAmount: "115.0000",
+      remainingUnappliedAmount: "0.0000",
+    },
+    receivedIntoAccount: { id: "account-1", code: "111", name: "Cash on hand" },
+    journalEntry: refund.journalEntry ?? null,
+    voidReversalJournalEntry: null,
+    generatedAt: "2026-05-21T00:00:00.000Z",
   };
 }

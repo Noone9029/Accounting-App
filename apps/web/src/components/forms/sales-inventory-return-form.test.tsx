@@ -1,10 +1,12 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { SalesInventoryReturnForm } from "./sales-inventory-return-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -20,7 +22,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
   useSearchParams: () => ({ get: () => null }),
 }));
 
@@ -36,6 +38,7 @@ describe("SalesInventoryReturnForm", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    refreshMock.mockReset();
     apiRequestMock.mockImplementation((path: string, options?: unknown) => {
       if (path === "/contacts") return Promise.resolve([{ id: "customer-1", name: "Beta Customer", displayName: "Beta Customer", type: "CUSTOMER", isActive: true }]);
       if (path === "/items") return Promise.resolve([{ id: "item-1", name: "Tracked item", description: "Tracked item", sku: "TRK", status: "ACTIVE", inventoryTracking: true }]);
@@ -96,5 +99,20 @@ describe("SalesInventoryReturnForm", () => {
       ),
     );
     expect(pushMock).toHaveBeenCalledWith("/sales/inventory-returns/sir-1");
+  });
+
+  it("renders the sales inventory return form in Arabic with stable route targets", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesInventoryReturnForm />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("رقم مرتجع مخزون المبيعات")).toHaveValue("SRN-000001"));
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText(/مرتجعات مخزون المبيعات تسجل المخزون التشغيلي المرتجع من عميل/)).toBeInTheDocument();
+    expect(screen.getByLabelText("نوع المصدر")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "حفظ المسودة" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/sales/inventory-returns");
   });
 });

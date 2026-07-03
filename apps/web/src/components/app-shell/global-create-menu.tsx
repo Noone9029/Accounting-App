@@ -3,6 +3,7 @@
 import { ChevronDown, X, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
   ENABLED_GLOBAL_CREATE_MODULES,
@@ -20,6 +21,7 @@ interface GlobalCreateMenuProps {
 
 export function GlobalCreateMenu({ className = "", placement = "sidebar" }: GlobalCreateMenuProps) {
   const { activeMembership } = usePermissions();
+  const { dir, t, tc } = useAppLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -70,7 +72,7 @@ export function GlobalCreateMenu({ className = "", placement = "sidebar" }: Glob
         className={buttonClassName(placement)}
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
-        <span>Create</span>
+        <span>{tc("Create")}</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
@@ -78,24 +80,24 @@ export function GlobalCreateMenu({ className = "", placement = "sidebar" }: Glob
         <>
           <button
             type="button"
-            aria-label="Close create menu"
+            aria-label={t("create.closeMenu")}
             className="fixed inset-0 z-40 cursor-default bg-slate-950/20 lg:hidden"
             onClick={() => setOpen(false)}
           />
           <div
             id={menuId}
             role="dialog"
-            aria-label="Create menu"
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-t-md border border-slate-200 bg-white p-4 shadow-2xl lg:absolute lg:bottom-auto lg:left-0 lg:top-full lg:mt-2 lg:max-h-[calc(100vh-8rem)] lg:w-[860px] lg:rounded-md lg:p-5"
+            aria-label={t("create.menu")}
+            className={`fixed inset-x-0 bottom-0 z-50 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-t-md border border-slate-200 bg-white p-4 shadow-2xl lg:absolute lg:bottom-auto lg:top-full lg:mt-2 lg:max-h-[calc(100vh-8rem)] lg:w-[860px] lg:rounded-md lg:p-5 ${dir === "rtl" ? "lg:right-0" : "lg:left-0"}`}
           >
             <div className="mb-4 flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h2 className="text-base font-semibold text-ink">Create</h2>
-                <p className="mt-1 text-xs text-steel">Start common accounting records from one place.</p>
+                <h2 className="text-base font-semibold text-ink">{tc("Create")}</h2>
+                <p className="mt-1 text-xs text-steel">{t("create.startCommon")}</p>
               </div>
               <button
                 type="button"
-                aria-label="Close create menu"
+                aria-label={t("create.closeMenu")}
                 onClick={() => setOpen(false)}
                 className="ledger-focus rounded-md border border-line p-2 text-slate-500 hover:bg-slate-50 hover:text-ink"
               >
@@ -111,6 +113,8 @@ export function GlobalCreateMenu({ className = "", placement = "sidebar" }: Glob
                   actions={group.actions}
                   activeMembership={activeMembership}
                   onSelect={() => setOpen(false)}
+                  translateLabel={tc}
+                  t={t}
                 />
               ))}
             </div>
@@ -126,22 +130,26 @@ function CreateMenuGroup({
   actions,
   activeMembership,
   onSelect,
+  translateLabel,
+  t,
 }: {
   category: GlobalCreateCategory;
   actions: readonly GlobalCreateAction[];
   activeMembership: Parameters<typeof hasPermission>[0];
   onSelect: () => void;
+  translateLabel: (label: string) => string;
+  t: ReturnType<typeof useAppLocale>["t"];
 }) {
   const headingId = `${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-create-group`;
 
   return (
     <section role="group" aria-labelledby={headingId}>
       <h3 id={headingId} className="mb-2 text-xs font-semibold uppercase text-steel">
-        {category}
+        {translateLabel(category)}
       </h3>
       <div className="space-y-1">
         {actions.map((action) => (
-          <CreateMenuAction key={action.id} action={action} activeMembership={activeMembership} onSelect={onSelect} />
+          <CreateMenuAction key={action.id} action={action} activeMembership={activeMembership} onSelect={onSelect} translateLabel={translateLabel} t={t} />
         ))}
       </div>
     </section>
@@ -152,26 +160,30 @@ function CreateMenuAction({
   action,
   activeMembership,
   onSelect,
+  translateLabel,
+  t,
 }: {
   action: GlobalCreateAction;
   activeMembership: Parameters<typeof hasPermission>[0];
   onSelect: () => void;
+  translateLabel: (label: string) => string;
+  t: ReturnType<typeof useAppLocale>["t"];
 }) {
   const Icon = action.icon;
   const moduleEnabled = action.requiredModule ? ENABLED_GLOBAL_CREATE_MODULES[action.requiredModule] : true;
   const allowed = hasPermission(activeMembership, action.requiredPermission);
   const disabledReason = !moduleEnabled
-    ? action.disabledReason ?? `${action.label} is not enabled yet.`
+    ? translateLabel(action.disabledReason ?? `${action.label} is not enabled yet.`)
     : !allowed
-      ? action.permissionDeniedReason ?? `You do not have permission to create ${action.label.toLowerCase()}.`
+      ? translateLabel(action.permissionDeniedReason ?? t("create.permissionDenied", { label: translateLabel(action.label).toLowerCase() }))
       : !action.href
-        ? action.disabledReason ?? `${action.label} is not available yet.`
+        ? translateLabel(action.disabledReason ?? `${action.label} is not available yet.`)
         : "";
 
   const content = (
     <>
       <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 truncate">{action.label}</span>
+      <span className="min-w-0 truncate">{translateLabel(action.label)}</span>
     </>
   );
 
@@ -189,7 +201,7 @@ function CreateMenuAction({
       disabled
       title={disabledReason}
       aria-disabled="true"
-      className="flex min-h-9 w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-slate-400"
+      className="flex min-h-9 w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-2 text-start text-sm font-medium text-slate-400"
     >
       {content}
     </button>

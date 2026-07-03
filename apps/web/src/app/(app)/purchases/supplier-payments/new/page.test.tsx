@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import NewSupplierPaymentPage from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
@@ -22,6 +23,7 @@ jest.mock("next/link", () => ({
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
+    refresh: jest.fn(),
   }),
 }));
 
@@ -120,6 +122,27 @@ describe("NewSupplierPaymentPage", () => {
       "href",
       "/purchases/bills/new?supplierId=supplier-1&returnTo=%2Fsuppliers%2Fsupplier-1",
     );
+  });
+
+  it("renders the prefilled supplier payment form in Arabic without changing route continuity", async () => {
+    window.history.pushState({}, "", "/purchases/supplier-payments/new?supplierId=supplier-1&billId=bill-1&returnTo=/suppliers/supplier-1");
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <NewSupplierPaymentPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("المورد")).toHaveValue("supplier-1"));
+    await waitFor(() => expect(screen.getByLabelText("المبلغ المدفوع")).toHaveValue("115.0000"));
+    expect(screen.getByRole("heading", { name: "تسجيل دفعة مورد" })).toBeInTheDocument();
+    expect(screen.getByText("ادفع للموردين وخصص الدفعة للفواتير المفتوحة النهائية.")).toBeInTheDocument();
+    expect(screen.getByText("الفاتورة المستلمة")).toBeInTheDocument();
+    expect(screen.getByText("الرصيد المستحق")).toBeInTheDocument();
+    expect(screen.getByText("الرصيد الكامل")).toBeInTheDocument();
+    expect(screen.getByText("ينشئ ترحيل دفعة المورد قيد دائنين واحدا. تخصيص الفاتورة يحدث أرصدة الفواتير فقط.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/suppliers/supplier-1");
+    expect(screen.getByRole("button", { name: "تسجيل دفعة" })).toBeInTheDocument();
   });
 });
 

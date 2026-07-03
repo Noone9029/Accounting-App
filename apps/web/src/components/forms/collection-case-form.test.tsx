@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { CollectionCaseForm } from "./collection-case-form";
 import type { CollectionCase, Contact, SalesInvoice } from "@/lib/types";
 
@@ -21,7 +22,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: jest.fn() }),
   useSearchParams: () => new URLSearchParams("customerId=customer-1&invoiceId=invoice-1&returnTo=/sales/invoices/invoice-1"),
 }));
 
@@ -71,6 +72,35 @@ describe("CollectionCaseForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create collection case" }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/sales/invoices/invoice-1"));
+  });
+
+  it("renders Arabic collection case form labels and actions", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/contacts") {
+        return Promise.resolve([customerFixture()]);
+      }
+      if (path === "/collections/next-number") {
+        return Promise.resolve({ caseNumber: "COL-000001", helperText: "Assigned from sequence." });
+      }
+      if (path === "/sales-invoices/open?customerId=customer-1") {
+        return Promise.resolve([invoiceFixture()]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CollectionCaseForm />
+      </AppLocaleProvider>,
+    );
+
+    expect(await screen.findByDisplayValue("COL-000001")).toBeInTheDocument();
+    expect(screen.getByText("حالة تحصيل جديدة")).toBeInTheDocument();
+    expect(screen.getByLabelText("رقم حالة التحصيل")).toBeInTheDocument();
+    expect(screen.getByText("الفاتورة المستحقة")).toBeInTheDocument();
+    expect(screen.getByText("مخصص من التسلسل.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إنشاء حالة تحصيل" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/sales/collections");
   });
 
   it("locks terminal cases from normal edits", () => {

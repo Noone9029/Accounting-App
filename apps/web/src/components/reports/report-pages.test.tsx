@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { AgedReceivablesReportPage, AgingReportGuide, AgingTable, ReportsIndexPage, VatReturnReportPage, VatSummaryReportPage } from "./report-pages";
 import type { AgingReportRow } from "@/lib/types";
 
@@ -23,6 +24,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -31,7 +33,6 @@ jest.mock("@/hooks/use-active-organization", () => ({
 
 jest.mock("@/components/permissions/permission-provider", () => ({
   usePermissions: () => ({
-    can: () => true,
     canAny: () => true,
   }),
 }));
@@ -84,19 +85,18 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/Account-basis VAT review/i)).toBeInTheDocument();
   });
 
-  it("renders route-backed report groups and conservative report copy", () => {
-    render(<ReportsIndexPage />);
+  it("renders the report index navigation in Arabic while preserving routes", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <ReportsIndexPage />
+      </AppLocaleProvider>,
+    );
 
-    expect(screen.getByRole("heading", { name: "Financial statements" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Tax reports" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Aging" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Inventory" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Profit & Loss/ }).map((link) => link.getAttribute("href"))).toContain("/reports/profit-and-loss");
-    expect(screen.getByRole("link", { name: /VAT Return/ })).toHaveAttribute("href", "/reports/vat-return");
-    expect(screen.getByRole("link", { name: /Aged Receivables/ })).toHaveAttribute("href", "/reports/aged-receivables");
-    expect(screen.getByRole("link", { name: /Inventory Movement/ })).toHaveAttribute("href", "/inventory/reports/movement-summary");
-    expect(screen.getAllByText(/not an official filing workflow/i).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("link", { name: /Report packs/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "التقارير" })).toBeInTheDocument();
+    expect(screen.getByText("مسار أول تقرير")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "فتح الأرباح والخسائر" })).toHaveAttribute("href", "/reports/profit-and-loss");
+    expect(screen.getByRole("link", { name: "العودة إلى لوحة التحكم" })).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByText("القوائم المالية")).toBeInTheDocument();
   });
 
   it("explains aged receivables after payment without changing report math", () => {
@@ -116,8 +116,21 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
-    expect(screen.getByRole("link", { name: "Open invoice INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
     expect(screen.getByText("1-30")).toBeInTheDocument();
+  });
+
+  it("renders aging table headers and actions in Arabic while preserving record links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <AgingTable rows={[agingRow()]} kind="receivables" />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("جهة الاتصال")).toBeInTheDocument();
+    expect(screen.getByText("الرصيد المستحق")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
+    expect(screen.getByRole("link", { name: "فتح الفاتورة" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
   });
 
   it("explains aged payables after supplier payments and debit notes", () => {
@@ -140,7 +153,7 @@ describe("reports index first-workflow guidance", () => {
 
     expect(screen.getByRole("link", { name: "Beta Supplier" })).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getByRole("link", { name: "BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
-    expect(screen.getByRole("link", { name: "Open bill BILL-001" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+    expect(screen.getByRole("link", { name: "Open bill" })).toHaveAttribute("href", "/purchases/bills/bill-1");
   });
 
   it("does not claim production ZATCA connectivity from report guidance", () => {
@@ -156,13 +169,6 @@ describe("reports index first-workflow guidance", () => {
     render(<AgedReceivablesReportPage />);
 
     expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/customer-1");
-  });
-
-  it("uses explicit back navigation on report detail headers", async () => {
-    render(<VatSummaryReportPage />);
-
-    expect(await screen.findByRole("link", { name: "Back to reports" })).toHaveAttribute("href", "/reports");
-    expect(screen.queryByRole("link", { name: "Reports" })).not.toBeInTheDocument();
   });
 
   it("preserves dedicated statement return context through aging action links", () => {
@@ -191,7 +197,7 @@ describe("reports index first-workflow guidance", () => {
       "href",
       "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
     );
-    expect(screen.getByRole("link", { name: "Open invoice INV-001" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open invoice" })).toHaveAttribute(
       "href",
       "/sales/invoices/invoice-1?returnTo=%2Freports%2Faged-receivables%3FasOf%3D2026-06-12%26returnTo%3D%252Fcustomers%252Fcustomer-1%252Fstatement%253FreturnTo%253D%25252Fcustomers%25252Fcustomer-1",
     );

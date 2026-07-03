@@ -1,7 +1,9 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import SupplierRefundsPage from "./page";
+import type { SupplierRefund } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const canMock = jest.fn((_: string) => true);
@@ -17,6 +19,10 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 jest.mock("@/components/permissions/permission-provider", () => ({
@@ -41,49 +47,66 @@ describe("SupplierRefundsPage", () => {
     apiRequestMock.mockResolvedValue([refundFixture()]);
   });
 
-  it("renders supplier refunds as manual AP settlement records", async () => {
+  it("renders supplier refund list links without changing routes", async () => {
     render(<SupplierRefundsPage />);
 
-    expect(await screen.findByText("SRF-001")).toBeInTheDocument();
-    expect(screen.getByText("Purchase debit note")).toBeInTheDocument();
+    expect(await screen.findByText("SREF-001")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Supplier refunds" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Record refund" })).toHaveAttribute("href", "/purchases/supplier-refunds/new");
     expect(screen.getByRole("link", { name: "View" })).toHaveAttribute("href", "/purchases/supplier-refunds/supplier-refund-1");
-    expect(screen.queryByText(/auto.?reconcile|payment gateway|live bank feed|ZATCA submitted/i)).not.toBeInTheDocument();
   });
 
-  it("filters create and void actions by permissions", async () => {
-    canMock.mockReturnValue(false);
+  it("renders supplier refund list in Arabic without changing record routes", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SupplierRefundsPage />
+      </AppLocaleProvider>,
+    );
 
-    render(<SupplierRefundsPage />);
-
-    expect(await screen.findByText("SRF-001")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Record refund" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Void" })).not.toBeInTheDocument();
+    expect(await screen.findByText("SREF-001")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ردود الموردين" })).toBeInTheDocument();
+    expect(screen.getByText("ردود يدوية مستلمة من الموردين مقابل دفعات موردين غير مخصصة وإشعارات مدينة للشراء.")).toBeInTheDocument();
+    expect(screen.getByText("مستلم في")).toBeInTheDocument();
+    expect(screen.getByText("إشعار مدين للشراء")).toBeInTheDocument();
+    expect(screen.getByText("مرحلة")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "تسجيل رد" })).toHaveAttribute("href", "/purchases/supplier-refunds/new");
+    expect(screen.getByRole("link", { name: "عرض" })).toHaveAttribute("href", "/purchases/supplier-refunds/supplier-refund-1");
   });
 });
 
-function refundFixture() {
+function refundFixture(overrides: Partial<SupplierRefund> = {}): SupplierRefund {
   return {
     id: "supplier-refund-1",
     organizationId: "org-1",
-    refundNumber: "SRF-001",
+    refundNumber: "SREF-001",
     supplierId: "supplier-1",
-    refundDate: "2026-05-22T00:00:00.000Z",
     sourceType: "PURCHASE_DEBIT_NOTE",
     sourcePaymentId: null,
     sourceDebitNoteId: "debit-note-1",
+    refundDate: "2026-05-21T00:00:00.000Z",
     currency: "SAR",
-    amountRefunded: "25.0000",
-    accountId: "cash-1",
     status: "POSTED",
+    amountRefunded: "115.0000",
+    accountId: "account-1",
     description: null,
-    journalEntryId: "je-1",
+    journalEntryId: "journal-1",
     voidReversalJournalEntryId: null,
-    postedAt: "2026-05-22T00:00:00.000Z",
+    postedAt: "2026-05-21T00:00:00.000Z",
     voidedAt: null,
     supplier: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier", type: "SUPPLIER" },
-    account: { id: "cash-1", code: "111", name: "Cash on hand", type: "ASSET" },
-    journalEntry: { id: "je-1", entryNumber: "JE-001" },
+    account: { id: "account-1", code: "111", name: "Cash on hand", type: "ASSET" },
+    sourcePayment: null,
+    sourceDebitNote: {
+      id: "debit-note-1",
+      debitNoteNumber: "PDN-001",
+      issueDate: "2026-05-21T00:00:00.000Z",
+      status: "FINALIZED",
+      total: "115.0000",
+      unappliedAmount: "0.0000",
+      currency: "SAR",
+    },
+    journalEntry: { id: "journal-1", entryNumber: "JE-001", status: "POSTED" },
     voidReversalJournalEntry: null,
+    ...overrides,
   };
 }

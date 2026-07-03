@@ -1,22 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerFieldHelp,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerPanel,
-  LedgerSelect,
-} from "@/components/ui/ledger-system";
-import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { safeReturnToFromSearch } from "@/lib/parties";
@@ -75,6 +63,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
   const router = useRouter();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
+  const { tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -155,7 +144,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         setNumberPreview(numberResult);
       })
       .catch((loadError: unknown) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load sales inventory return setup data.");
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales inventory return setup data."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -164,7 +153,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
     return () => {
       cancelled = true;
     };
-  }, [initialSalesInventoryReturn, organizationId]);
+  }, [initialSalesInventoryReturn, organizationId, tc]);
 
   function updateLine(lineId: string, patch: Partial<SalesInventoryReturnLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -199,7 +188,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy invoice lines.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy invoice lines."));
     }
   }
 
@@ -225,7 +214,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy credit note lines.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy credit note lines."));
     }
   }
 
@@ -250,7 +239,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy delivery note lines.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy delivery note lines."));
     }
   }
 
@@ -269,14 +258,14 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         (issue.lines ?? []).map((line) => ({
           ...makeLine(),
           itemId: line.itemId,
-          description: line.salesInvoiceLine?.description ?? line.item?.name ?? "Returned item",
+          description: line.salesInvoiceLine?.description ?? line.item?.name ?? tc("Returned item"),
           quantity: line.quantity,
           sourceSalesStockIssueLineId: line.id,
           warehouseId: issue.warehouseId,
         })),
       );
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : "Unable to copy sales stock issue lines.");
+      setError(copyError instanceof Error ? copyError.message : tc("Unable to copy sales stock issue lines."));
     }
   }
 
@@ -288,7 +277,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
     event.preventDefault();
     setError("");
 
-    const validationError = getValidationError({ customerId, returnDate, lines });
+    const validationError = getValidationError({ customerId, returnDate, lines, tc });
     if (validationError) {
       setError(validationError);
       return;
@@ -325,7 +314,7 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
         : await apiRequest<SalesInventoryReturn>("/sales-inventory-returns", { method: "POST", body });
       router.push(returnTo || `/sales/inventory-returns/${salesReturn.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to save sales inventory return.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to save sales inventory return."));
     } finally {
       setSubmitting(false);
     }
@@ -333,173 +322,181 @@ export function SalesInventoryReturnForm({ initialSalesInventoryReturn, initialC
 
   if (initialSalesInventoryReturn && initialSalesInventoryReturn.status !== "DRAFT") {
     return (
-      <LedgerPanel>
-        <LedgerAlert tone="danger">Only draft sales inventory returns can be edited.</LedgerAlert>
-        <LedgerButton href={`/sales/inventory-returns/${initialSalesInventoryReturn.id}`} className="mt-4">
-          Back to sales inventory return
-        </LedgerButton>
-      </LedgerPanel>
+      <div className="space-y-4">
+        <StatusMessage type="error">{tc("Only draft sales inventory returns can be edited.")}</StatusMessage>
+        <Link href={`/sales/inventory-returns/${initialSalesInventoryReturn.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back to sales inventory return")}
+        </Link>
+      </div>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <LedgerAlert tone="warning">{SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}</LedgerAlert>
+      <StatusMessage type="info">{tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)}</StatusMessage>
 
-      <LedgerFormSection title="Return details">
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Customer</LedgerFieldText>
-          <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-              <option value="">Select customer</option>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("Select customer")}</option>
               {activeCustomers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.displayName ?? customer.name}
                 </option>
               ))}
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Return number</LedgerFieldText>
-          <LedgerInput value={initialSalesInventoryReturn?.salesReturnNumber ?? numberPreview?.salesReturnNumber ?? "From sequence"} readOnly aria-label="Sales inventory return number" className="bg-slate-50 text-slate-700" />
-          <LedgerFieldHelp>
-            {initialSalesInventoryReturn ? "Number assigned from the sales inventory return sequence." : (numberPreview?.helperText ?? "Assigned from the sales inventory return sequence when saved.")}
-          </LedgerFieldHelp>
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Return date</LedgerFieldText>
-          <LedgerInput value={returnDate} onChange={(event) => setReturnDate(event.target.value)} type="date" required />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Reason</LedgerFieldText>
-          <LedgerInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Optional return reason" />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel>
-          <LedgerFieldText>Reference</LedgerFieldText>
-          <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} placeholder="RMA or source reference" />
-        </LedgerFieldLabel>
-        <LedgerFieldLabel className="md:col-span-2">
-          <LedgerFieldText>Notes</LedgerFieldText>
-          <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
-        </LedgerFieldLabel>
-      </LedgerFormSection>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Return number")}</span>
+            <input value={initialSalesInventoryReturn?.salesReturnNumber ?? numberPreview?.salesReturnNumber ?? tc("From sequence")} readOnly aria-label={tc("Sales inventory return number")} className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none" />
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {initialSalesInventoryReturn ? tc("Number assigned from the sales inventory return sequence.") : tc(numberPreview?.helperText ?? "Assigned from the sales inventory return sequence when saved.")}
+            </span>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Return date")}</span>
+            <input value={returnDate} onChange={(event) => setReturnDate(event.target.value)} type="date" required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Reason")}</span>
+            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder={tc("Optional return reason")} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Reference")}</span>
+            <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder={tc("RMA or source reference")} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-4">
+            <span className="text-sm font-medium text-slate-700">{tc("Notes")}</span>
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+        </div>
+      </div>
 
-      <LedgerFormSection title="Source document" description="Source links are for traceability and warehouse validation. Credit notes stay separate from stock movement unless explicit return lines and warehouses are supplied here.">
-        <LedgerFieldLabel>
-          <LedgerFieldText>Source type</LedgerFieldText>
-          <LedgerSelect value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)}>
-              <option value="direct">Customer direct</option>
-              <option value="stockIssue">Sales stock issue</option>
-              <option value="deliveryNote">Delivery note</option>
-              <option value="invoice">Sales invoice</option>
-              <option value="creditNote">Credit note reference</option>
-          </LedgerSelect>
-        </LedgerFieldLabel>
-        {sourceType === "invoice" ? (
-          <SourceSelect label="Sales invoice" value={sourceSalesInvoiceId} onChange={copyFromInvoice} options={filteredInvoices.map((invoice) => ({ id: invoice.id, label: invoice.invoiceNumber }))} />
-        ) : null}
-        {sourceType === "creditNote" ? (
-          <SourceSelect label="Credit note" value={sourceCreditNoteId} onChange={copyFromCreditNote} options={filteredCreditNotes.map((creditNote) => ({ id: creditNote.id, label: creditNote.creditNoteNumber }))} />
-        ) : null}
-        {sourceType === "deliveryNote" ? (
-          <SourceSelect label="Delivery note" value={sourceDeliveryNoteId} onChange={copyFromDeliveryNote} options={filteredDeliveryNotes.map((deliveryNote) => ({ id: deliveryNote.id, label: deliveryNote.deliveryNoteNumber }))} />
-        ) : null}
-        {sourceType === "stockIssue" ? (
-          <SourceSelect label="Sales stock issue" value={sourceSalesStockIssueId} onChange={copyFromStockIssue} options={filteredStockIssues.map((issue) => ({ id: issue.id, label: issue.issueNumber }))} />
-        ) : null}
-      </LedgerFormSection>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Source document")}</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{tc("Source links are for traceability and warehouse validation. Credit notes stay separate from stock movement unless explicit return lines and warehouses are supplied here.")}</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Source type")}</span>
+            <select value={sourceType} onChange={(event) => setSourceType(event.target.value as SourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="direct">{tc("Customer direct")}</option>
+              <option value="stockIssue">{tc("Sales stock issue")}</option>
+              <option value="deliveryNote">{tc("Delivery note")}</option>
+              <option value="invoice">{tc("Sales invoice")}</option>
+              <option value="creditNote">{tc("Credit note reference")}</option>
+            </select>
+          </label>
+          {sourceType === "invoice" ? (
+            <SourceSelect label={tc("Sales invoice")} selectLabel={tc("Select source")} value={sourceSalesInvoiceId} onChange={copyFromInvoice} options={filteredInvoices.map((invoice) => ({ id: invoice.id, label: invoice.invoiceNumber }))} />
+          ) : null}
+          {sourceType === "creditNote" ? (
+            <SourceSelect label={tc("Credit note")} selectLabel={tc("Select source")} value={sourceCreditNoteId} onChange={copyFromCreditNote} options={filteredCreditNotes.map((creditNote) => ({ id: creditNote.id, label: creditNote.creditNoteNumber }))} />
+          ) : null}
+          {sourceType === "deliveryNote" ? (
+            <SourceSelect label={tc("Delivery note")} selectLabel={tc("Select source")} value={sourceDeliveryNoteId} onChange={copyFromDeliveryNote} options={filteredDeliveryNotes.map((deliveryNote) => ({ id: deliveryNote.id, label: deliveryNote.deliveryNoteNumber }))} />
+          ) : null}
+          {sourceType === "stockIssue" ? (
+            <SourceSelect label={tc("Sales stock issue")} selectLabel={tc("Select source")} value={sourceSalesStockIssueId} onChange={copyFromStockIssue} options={filteredStockIssues.map((issue) => ({ id: issue.id, label: issue.issueNumber }))} />
+          ) : null}
+        </div>
+      </div>
 
-      <LedgerPanel>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-ink">Return lines</h2>
-          <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])}>
-            Add line
-          </LedgerButton>
+          <h2 className="text-base font-semibold text-ink">{tc("Return lines")}</h2>
+          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Add line")}
+          </button>
         </div>
 
-        <LedgerDataTable minWidth="1080px" className="shadow-none">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Description</th>
-                  <th className="px-3 py-2">Quantity</th>
-                  <th className="px-3 py-2">Warehouse</th>
-                  <th className="px-3 py-2">Reason</th>
-                  <th className="px-3 py-2">Source line</th>
-                  <th className="px-3 py-2">Action</th>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1080px] text-start text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-3 py-2">{tc("Item")}</th>
+                <th className="px-3 py-2">{tc("Description")}</th>
+                <th className="px-3 py-2">{tc("Quantity")}</th>
+                <th className="px-3 py-2">{tc("Warehouse")}</th>
+                <th className="px-3 py-2">{tc("Reason")}</th>
+                <th className="px-3 py-2">{tc("Source line")}</th>
+                <th className="px-3 py-2">{tc("Action")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {lines.map((line) => (
+                <tr key={line.id}>
+                  <td className="px-3 py-2">
+                    <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
+                      <option value="">{tc("No item")}</option>
+                      {activeItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.sku ? `${item.sku} - ` : ""}{item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required inputMode="decimal" className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select value={line.warehouseId} onChange={(event) => updateLine(line.id, { warehouseId: event.target.value })} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm">
+                      <option value="">{tc("Select if stock tracked")}</option>
+                      {activeWarehouses.map((warehouse) => (
+                        <option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.code} {warehouse.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input value={line.reason} onChange={(event) => updateLine(line.id, { reason: event.target.value })} className="w-48 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                  </td>
+                  <td className="px-3 py-2 text-xs text-steel">{tc(sourceLineLabel(line))}</td>
+                  <td className="px-3 py-2">
+                    <button type="button" onClick={() => removeLine(line.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      {tc("Remove")}
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {lines.map((line) => (
-                  <tr key={line.id}>
-                    <td className="px-3 py-2">
-                      <LedgerSelect value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="w-48">
-                        <option value="">No item</option>
-                        {activeItems.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.sku ? `${item.sku} - ` : ""}{item.name}
-                          </option>
-                        ))}
-                      </LedgerSelect>
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="w-64" />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} required inputMode="decimal" className="w-28" />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerSelect value={line.warehouseId} onChange={(event) => updateLine(line.id, { warehouseId: event.target.value })} className="w-48">
-                        <option value="">Select if stock tracked</option>
-                        {activeWarehouses.map((warehouse) => (
-                          <option key={warehouse.id} value={warehouse.id}>
-                            {warehouse.code} {warehouse.name}
-                          </option>
-                        ))}
-                      </LedgerSelect>
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput value={line.reason} onChange={(event) => updateLine(line.id, { reason: event.target.value })} className="w-48" />
-                    </td>
-                    <td className="px-3 py-2 text-xs text-steel">{sourceLineLabel(line)}</td>
-                    <td className="px-3 py-2">
-                      <LedgerButton type="button" onClick={() => removeLine(line.id)} size="sm">
-                        Remove
-                      </LedgerButton>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-        </LedgerDataTable>
-      </LedgerPanel>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <LedgerActionBar className="justify-end">
-        <LedgerButton href={returnTo || "/sales/inventory-returns"}>
-          Cancel
-        </LedgerButton>
-        <LedgerButton type="submit" disabled={submitting || loading} variant="primary">
-          {submitting ? "Saving..." : initialSalesInventoryReturn ? "Save changes" : "Save draft"}
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="flex justify-end gap-3">
+        <Link href={returnTo || "/sales/inventory-returns"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </Link>
+        <button type="submit" disabled={submitting || loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          {submitting ? tc("Saving...") : initialSalesInventoryReturn ? tc("Save changes") : tc("Save draft")}
+        </button>
+      </div>
 
-      {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-      {loading ? <StatusMessage type="loading">Loading form data...</StatusMessage> : null}
+      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      {loading ? <StatusMessage type="loading">{tc("Loading form data...")}</StatusMessage> : null}
     </form>
   );
 }
 
-function SourceSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void | Promise<void>; options: Array<{ id: string; label: string }> }) {
+function SourceSelect({ label, selectLabel, value, onChange, options }: { label: string; selectLabel: string; value: string; onChange: (value: string) => void | Promise<void>; options: Array<{ id: string; label: string }> }) {
   return (
-    <LedgerFieldLabel className="md:col-span-2">
-      <LedgerFieldText>{label}</LedgerFieldText>
-      <LedgerSelect value={value} onChange={(event) => void onChange(event.target.value)}>
-        <option value="">Select source</option>
+    <label className="block md:col-span-2">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <select value={value} onChange={(event) => void onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+        <option value="">{selectLabel}</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
             {option.label}
           </option>
         ))}
-      </LedgerSelect>
-    </LedgerFieldLabel>
+      </select>
+    </label>
   );
 }
 
@@ -512,12 +509,12 @@ function initialSourceType(salesReturn?: SalesInventoryReturn): SourceType {
   return "direct";
 }
 
-function getValidationError({ customerId, returnDate, lines }: { customerId: string; returnDate: string; lines: SalesInventoryReturnLineState[] }): string {
-  if (!customerId) return "Select a customer.";
-  if (!returnDate) return "Enter a return date.";
-  if (lines.length === 0) return "Add at least one return line.";
-  if (lines.some((line) => Number(line.quantity) <= 0 || Number.isNaN(Number(line.quantity)))) return "Return quantities must be positive.";
-  if (lines.some((line) => !line.description.trim())) return "Each return line needs a description.";
+function getValidationError({ customerId, returnDate, lines, tc }: { customerId: string; returnDate: string; lines: SalesInventoryReturnLineState[]; tc: (value: string) => string }): string {
+  if (!customerId) return tc("Select a customer.");
+  if (!returnDate) return tc("Enter a return date.");
+  if (lines.length === 0) return tc("Add at least one return line.");
+  if (lines.some((line) => Number(line.quantity) <= 0 || Number.isNaN(Number(line.quantity)))) return tc("Return quantities must be positive.");
+  if (lines.some((line) => !line.description.trim())) return tc("Each return line needs a description.");
   return "";
 }
 

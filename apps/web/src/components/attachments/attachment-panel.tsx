@@ -1,23 +1,12 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
-import { Download, Save, Trash2, Upload } from "lucide-react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerDataTable,
-  LedgerEmptyState,
-  LedgerErrorState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerLoadingState,
-  LedgerPanel,
-  LedgerStatusBadge,
-  LedgerAlert,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppDateTime } from "@/lib/app-i18n";
 import {
   attachmentAccept,
   attachmentDownloadPath,
@@ -49,6 +38,7 @@ export function AttachmentPanel({
 }: AttachmentPanelProps) {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
@@ -80,7 +70,7 @@ export function AttachmentPanel({
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load attachments.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load attachments."));
         }
       })
       .finally(() => {
@@ -91,7 +81,7 @@ export function AttachmentPanel({
     return () => {
       cancelled = true;
     };
-  }, [organizationId, linkedEntityId, linkedEntityType, canView]);
+  }, [organizationId, linkedEntityId, linkedEntityType, canView, tc]);
 
   async function refresh() {
     const result = await apiRequest<Attachment[]>(attachmentListPath(linkedEntityType, linkedEntityId));
@@ -102,7 +92,7 @@ export function AttachmentPanel({
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) {
-      setError("Select a file to upload.");
+      setError(tc("Select a file to upload."));
       return;
     }
     setActionLoading("upload");
@@ -124,9 +114,9 @@ export function AttachmentPanel({
       setFile(null);
       setNotes("");
       await refresh();
-      setSuccess(`Uploaded ${created.filename}.`);
+      setSuccess(tc("Uploaded {filename}.", { filename: created.filename }));
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Unable to upload attachment.");
+      setError(uploadError instanceof Error ? uploadError.message : tc("Unable to upload attachment."));
     } finally {
       setActionLoading("");
     }
@@ -139,7 +129,7 @@ export function AttachmentPanel({
     try {
       await downloadAuthenticatedFile(attachmentDownloadPath(attachment.id), attachment.filename);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download attachment.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download attachment."));
     } finally {
       setActionLoading("");
     }
@@ -155,16 +145,16 @@ export function AttachmentPanel({
         body: { notes: noteDrafts[attachment.id] ?? "" },
       });
       setAttachments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      setSuccess(`Updated notes for ${updated.filename}.`);
+      setSuccess(tc("Updated notes for {filename}.", { filename: updated.filename }));
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Unable to update attachment notes.");
+      setError(updateError instanceof Error ? updateError.message : tc("Unable to update attachment notes."));
     } finally {
       setActionLoading("");
     }
   }
 
   async function remove(attachment: Attachment) {
-    if (!window.confirm(`Delete attachment ${attachment.filename}?`)) {
+    if (!window.confirm(tc("Delete attachment {filename}?", { filename: attachment.filename }))) {
       return;
     }
     setActionLoading(`delete-${attachment.id}`);
@@ -173,9 +163,9 @@ export function AttachmentPanel({
     try {
       await apiRequest<Attachment>(`/attachments/${attachment.id}`, { method: "DELETE" });
       await refresh();
-      setSuccess(`Deleted ${attachment.filename}.`);
+      setSuccess(tc("Deleted {filename}.", { filename: attachment.filename }));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete attachment.");
+      setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete attachment."));
     } finally {
       setActionLoading("");
     }
@@ -186,60 +176,63 @@ export function AttachmentPanel({
   }
 
   return (
-    <LedgerPanel>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
-          <p className="mt-1 text-sm text-steel">Supporting files linked to this record.</p>
+          <h2 className="text-base font-semibold text-ink">{tc(title)}</h2>
+          <p className="mt-1 text-sm text-steel">{tc("Supporting files linked to this record.")}</p>
         </div>
-        <LedgerStatusBadge tone="draft">{attachments.length} active</LedgerStatusBadge>
+        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc("{count} active", { count: attachments.length })}</span>
       </div>
 
       <div className="mt-4 space-y-3">
-        {loading ? <LedgerLoadingState title="Loading attachments" /> : null}
-        {error ? <LedgerErrorState title="Attachment action failed" description={error} /> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading attachments...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
       </div>
 
       {canUpload ? (
-        <form onSubmit={(event) => void upload(event)} className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-mist p-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto]">
-          <LedgerFieldLabel>
-            <LedgerFieldText>File</LedgerFieldText>
-            <LedgerInput
-              type="file"
-              accept={attachmentAccept}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Notes</LedgerFieldText>
-            <LedgerInput type="text" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" />
-          </LedgerFieldLabel>
-          <div className="flex items-end">
-            <LedgerButton type="submit" disabled={!file || actionLoading === "upload"} variant="primary" icon={Upload} className="w-full">
-              {actionLoading === "upload" ? "Uploading..." : "Upload"}
-            </LedgerButton>
-          </div>
+        <form onSubmit={(event) => void upload(event)} className="mt-4 grid grid-cols-1 gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto]">
+          <input
+            type="file"
+            accept={attachmentAccept}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setFile(event.target.files?.[0] ?? null)}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder={tc("Notes")}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
+          />
+          <button
+            type="submit"
+            disabled={!file || actionLoading === "upload"}
+            className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {actionLoading === "upload" ? tc("Uploading...") : tc("Upload")}
+          </button>
         </form>
       ) : null}
 
       {attachments.length === 0 && !loading ? (
         <div className="mt-4">
-          <LedgerEmptyState title="No attachments uploaded" />
+          <StatusMessage type="empty">{tc("No attachments uploaded.")}</StatusMessage>
         </div>
       ) : null}
 
       {attachments.length > 0 ? (
-        <div className="mt-4">
-          <LedgerDataTable minWidth="820px">
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[820px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-3 py-2">File</th>
-                <th className="px-3 py-2">Type</th>
-                <th className="px-3 py-2">Size</th>
-                <th className="px-3 py-2">Uploaded</th>
-                <th className="px-3 py-2">Notes</th>
-                <th className="px-3 py-2">Actions</th>
+                <th className="px-3 py-2">{tc("File")}</th>
+                <th className="px-3 py-2">{tc("Type")}</th>
+                <th className="px-3 py-2">{tc("Size")}</th>
+                <th className="px-3 py-2">{tc("Uploaded")}</th>
+                <th className="px-3 py-2">{tc("Notes")}</th>
+                <th className="px-3 py-2">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -249,30 +242,29 @@ export function AttachmentPanel({
                     <div className="font-medium text-ink">{attachment.filename}</div>
                     <div className="font-mono text-xs text-steel">{attachment.contentHash.slice(0, 12)}</div>
                   </td>
-                  <td className="px-3 py-2 text-steel">{attachmentTypeLabel(attachment.mimeType)}</td>
+                  <td className="px-3 py-2 text-steel">{tc(attachmentTypeLabel(attachment.mimeType))}</td>
                   <td className="px-3 py-2 font-mono text-xs">{formatAttachmentSize(attachment.sizeBytes)}</td>
                   <td className="px-3 py-2 text-steel">
-                    <div>{new Date(attachment.uploadedAt).toLocaleString()}</div>
+                    <div>{formatAppDateTime(attachment.uploadedAt, locale, "-")}</div>
                     <div className="text-xs">{attachment.uploadedBy?.name ?? attachment.uploadedBy?.email ?? "-"}</div>
                   </td>
                   <td className="px-3 py-2">
                     {canManage ? (
                       <div className="flex gap-2">
-                        <LedgerInput
+                        <input
                           type="text"
                           value={noteDrafts[attachment.id] ?? ""}
                           onChange={(event) => setNoteDrafts((current) => ({ ...current, [attachment.id]: event.target.value }))}
-                          className="min-w-[180px] flex-1 px-2 py-1 text-xs"
+                          className="min-w-[180px] flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs outline-none focus:border-palm"
                         />
-                        <LedgerButton
+                        <button
                           type="button"
                           onClick={() => void saveNotes(attachment)}
                           disabled={actionLoading === `notes-${attachment.id}`}
-                          size="sm"
-                          icon={Save}
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                         >
-                          Save
-                        </LedgerButton>
+                          {tc("Save")}
+                        </button>
                       </div>
                     ) : (
                       <span className="text-steel">{attachment.notes ?? "-"}</span>
@@ -281,37 +273,34 @@ export function AttachmentPanel({
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       {canDownload ? (
-                        <LedgerButton
+                        <button
                           type="button"
                           onClick={() => void download(attachment)}
                           disabled={actionLoading === `download-${attachment.id}`}
-                          size="sm"
-                          icon={Download}
+                          className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                         >
-                          Download
-                        </LedgerButton>
+                          {tc("Download")}
+                        </button>
                       ) : null}
                       {canDeleteAttachment(attachment, canDelete, allowDelete) ? (
-                        <LedgerButton
+                        <button
                           type="button"
                           onClick={() => void remove(attachment)}
                           disabled={actionLoading === `delete-${attachment.id}`}
-                          variant="danger"
-                          size="sm"
-                          icon={Trash2}
+                          className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400"
                         >
-                          Delete
-                        </LedgerButton>
+                          {tc("Delete")}
+                        </button>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
+          </table>
         </div>
       ) : null}
-    </LedgerPanel>
+    </div>
   );
 }
 

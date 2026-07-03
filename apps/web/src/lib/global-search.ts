@@ -1,4 +1,5 @@
 import { apiRequest } from "./api";
+import { DEFAULT_APP_LOCALE, translateCommon, type AppLocale } from "./app-i18n";
 import { hasAnyPermission, PERMISSIONS, type Permission, type PermissionSubject } from "./permissions";
 import type { GlobalSearchCategory, GlobalSearchResponse, GlobalSearchResult } from "./types";
 
@@ -121,7 +122,7 @@ export function searchGlobalRecords(query: string): Promise<GlobalSearchResponse
   return apiRequest<GlobalSearchResponse>(globalSearchPath(query));
 }
 
-export function getLocalGlobalSearchResults(query: string, subject: PermissionSubject): GlobalSearchResult[] {
+export function getLocalGlobalSearchResults(query: string, subject: PermissionSubject, locale: AppLocale = DEFAULT_APP_LOCALE): GlobalSearchResult[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     return [];
@@ -131,14 +132,14 @@ export function getLocalGlobalSearchResults(query: string, subject: PermissionSu
     .map((action) => ({
       id: `static-${action.id}`,
       category: action.category,
-      label: action.label,
+      label: translateCommon(locale, action.label),
       href: action.href,
-      resultType: action.resultType,
-      detail: action.detail,
+      resultType: translateCommon(locale, action.resultType),
+      detail: translateCommon(locale, action.detail),
       amount: null,
       date: null,
       status: null,
-      keywords: [...action.keywords],
+      keywords: [...action.keywords, action.label, action.resultType, action.detail, translateCommon(locale, action.label)],
     }))
     .filter((result) => searchScore(result, normalized) > 0)
     .sort((a, b) => searchScore(b, normalized) - searchScore(a, normalized) || a.label.localeCompare(b.label));

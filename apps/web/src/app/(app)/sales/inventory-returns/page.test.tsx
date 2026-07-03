@@ -1,11 +1,13 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { SalesInventoryReturn } from "@/lib/types";
 import SalesInventoryReturnsPage from "./page";
 
 const apiRequestMock = jest.fn();
 let mockAllowedPermissions = new Set<string>();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -18,6 +20,10 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -37,6 +43,7 @@ jest.mock("@/lib/api", () => ({
 describe("SalesInventoryReturnsPage", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+    refreshMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create"]);
   });
 
@@ -50,7 +57,8 @@ describe("SalesInventoryReturnsPage", () => {
     expect(screen.getByText(/They do not create credit notes, refunds, accounting journals/i)).toBeInTheDocument();
     expect(screen.getByText("SRN-000001")).toBeInTheDocument();
     expect(screen.getByText("Beta Customer")).toBeInTheDocument();
-    expect(screen.getByText("Stock issue SSI-000001")).toBeInTheDocument();
+    expect(screen.getByText("Stock issue")).toBeInTheDocument();
+    expect(screen.getByText("SSI-000001")).toBeInTheDocument();
     expect(screen.getByText("Not posted")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create return" })).toHaveAttribute("href", "/sales/inventory-returns/new");
     expect(screen.getByRole("link", { name: "View" })).toHaveAttribute("href", "/sales/inventory-returns/sir-1");
@@ -64,6 +72,25 @@ describe("SalesInventoryReturnsPage", () => {
 
     await waitFor(() => expect(screen.getByText("SRN-000001")).toBeInTheDocument());
     expect(screen.queryByRole("link", { name: "Create return" })).not.toBeInTheDocument();
+  });
+
+  it("renders sales inventory returns in Arabic with stable record codes", async () => {
+    apiRequestMock.mockResolvedValue([salesReturnFixture()]);
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesInventoryReturnsPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("SRN-000001")).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByRole("heading", { name: "مرتجعات مخزون المبيعات" })).toBeInTheDocument();
+    expect(screen.getByText(/مستندات مرتجعات مخزون العملاء/)).toBeInTheDocument();
+    expect(screen.getByText("إصدار مخزون")).toBeInTheDocument();
+    expect(screen.getByText("SSI-000001")).toBeInTheDocument();
+    expect(screen.getByText("غير مرحلة")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إنشاء مرتجع" })).toHaveAttribute("href", "/sales/inventory-returns/new");
   });
 });
 

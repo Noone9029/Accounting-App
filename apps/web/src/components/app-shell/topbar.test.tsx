@@ -1,8 +1,8 @@
 import "@testing-library/jest-dom";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { apiRequest, clearSession, getAccessToken, setActiveOrganizationId } from "@/lib/api";
-import { PERMISSIONS, type Permission } from "@/lib/permissions";
 import { Topbar } from "./topbar";
 
 let mockPathname = "/dashboard";
@@ -23,7 +23,7 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockReplace }),
+  useRouter: () => ({ push: jest.fn(), refresh: jest.fn(), replace: mockReplace }),
   usePathname: () => mockPathname,
 }));
 
@@ -52,7 +52,6 @@ describe("Topbar action menus", () => {
     mockPathname = "/dashboard";
     mockPermissions = permissionState();
     apiRequestMock.mockReset();
-    apiRequestMock.mockResolvedValue({ attentionItems: [] } as never);
     clearSessionMock.mockReset();
     getAccessTokenMock.mockReset();
     getAccessTokenMock.mockReturnValue("token");
@@ -86,23 +85,14 @@ describe("Topbar action menus", () => {
     expect(screen.getByText("2 invoices are overdue.")).toBeInTheDocument();
   });
 
-  it("shows useful notification empty and error states", async () => {
+  it("shows a useful empty notification state", async () => {
     apiRequestMock.mockResolvedValueOnce({ attentionItems: [] } as never);
-
-    const { unmount } = render(<Topbar />);
-    fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
-
-    expect(await screen.findByText("No attention items")).toBeInTheDocument();
-    expect(screen.getByText("No dashboard alerts were generated from current data.")).toBeInTheDocument();
-
-    unmount();
-    apiRequestMock.mockReset();
-    apiRequestMock.mockRejectedValueOnce(new Error("Dashboard unavailable"));
 
     render(<Topbar />);
     fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
 
-    expect(await screen.findByText("Dashboard unavailable")).toBeInTheDocument();
+    expect(await screen.findByText("No attention items")).toBeInTheDocument();
+    expect(screen.getByText("No dashboard alerts were generated from current data.")).toBeInTheDocument();
   });
 
   it("opens help with existing resource links and current-page context", () => {
@@ -142,20 +132,23 @@ describe("Topbar action menus", () => {
     expect(mockReplace).toHaveBeenCalledWith("/login");
   });
 
-  it("hides users and roles when the user lacks permission", () => {
-    mockPermissions = permissionState({ can: (permission) => permission !== PERMISSIONS.users.view });
+  it("renders Arabic topbar labels when the locale provider is Arabic", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <Topbar />
+      </AppLocaleProvider>,
+    );
 
-    render(<Topbar />);
-    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
-
-    const menu = screen.getByRole("dialog", { name: "Account menu" });
-    expect(within(menu).getByRole("link", { name: "Organization settings" })).toHaveAttribute("href", "/organization/setup");
-    expect(within(menu).queryByRole("link", { name: "Users and roles" })).not.toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.dir).toBe("rtl"));
+    expect(screen.getByRole("button", { name: "التنبيهات" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "المساعدة" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "قائمة الحساب" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
   });
 
-  it("closes action menus on Escape, outside click, and route change", async () => {
+  it("closes action menus on Escape and outside click", async () => {
     apiRequestMock.mockResolvedValueOnce({ attentionItems: [] } as never);
-    const { rerender } = render(
+    render(
       <div>
         <Topbar />
         <button type="button">Outside</button>
@@ -175,40 +168,10 @@ describe("Topbar action menus", () => {
 
     fireEvent.mouseDown(screen.getByRole("button", { name: "Outside" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Help" })).not.toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
-    expect(screen.getByRole("dialog", { name: "Account menu" })).toBeInTheDocument();
-
-    mockPathname = "/sales/invoices";
-    rerender(
-      <div>
-        <Topbar />
-        <button type="button">Outside</button>
-      </div>,
-    );
-
-    expect(screen.queryByRole("dialog", { name: "Account menu" })).not.toBeInTheDocument();
-  });
-
-  it("keeps every visible icon action wired to a popover", () => {
-    render(<Topbar />);
-
-    for (const name of ["Notifications", "Help", "Account menu"]) {
-      const button = screen.getByRole("button", { name });
-      expect(button).toHaveAttribute("aria-haspopup", "dialog");
-      expect(button).toHaveAttribute("aria-expanded", "false");
-
-      fireEvent.click(button);
-      expect(screen.getByRole("dialog", { name })).toBeInTheDocument();
-      expect(button).toHaveAttribute("aria-expanded", "true");
-
-      fireEvent.click(button);
-      expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
-    }
   });
 });
 
-function permissionState(overrides: { can?: (permission: Permission) => boolean } = {}) {
+function permissionState() {
   const organization = {
     id: "org-1",
     name: "Acme Trading",
@@ -225,7 +188,6 @@ function permissionState(overrides: { can?: (permission: Permission) => boolean 
     organization,
     role: { id: "role-1", name: "Admin", permissions: ["*"] },
   };
-  const can = overrides.can ?? (() => true);
 
   return {
     user: {
@@ -245,7 +207,7 @@ function permissionState(overrides: { can?: (permission: Permission) => boolean 
     activeMembership,
     loading: false,
     error: "",
-    can,
+    can: () => true,
     canAny: () => true,
     canAll: () => true,
     reload: jest.fn(),

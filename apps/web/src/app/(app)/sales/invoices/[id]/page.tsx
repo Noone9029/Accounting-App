@@ -2,38 +2,24 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-readiness-panel";
 import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerMoney,
-  LedgerMetricGrid,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
 import { getSalesInvoiceComplianceReadiness, prepareSalesInvoiceCompliance, validateComplianceDocument } from "@/lib/compliance";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
+import { deriveInvoicePaymentState } from "@/lib/invoice-display";
 import { getLedgerByteEdition } from "@/lib/edition";
-import { deriveInvoicePaymentState, formatOptionalDate } from "@/lib/invoice-display";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadAuthenticatedFile, downloadPdf, invoicePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -89,9 +75,12 @@ export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
+  const edition = getLedgerByteEdition();
+  const showKsaZatca = edition.showsKsaZatca;
+  const showUaeEinvoicing = edition.showsUaeEinvoicing;
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [relatedDeliveryNotes, setRelatedDeliveryNotes] = useState<DeliveryNote[]>([]);
   const [relatedDeliveryNotesLoading, setRelatedDeliveryNotesLoading] = useState(false);
@@ -127,13 +116,13 @@ export default function SalesInvoiceDetailPage() {
     Promise.all([
       apiRequest<SalesInvoice>(`/sales-invoices/${params.id}`),
       apiRequest<SalesInvoiceStockIssueStatus>(`/sales-invoices/${params.id}/stock-issue-status`).catch(() => null),
-      edition.showZatca ? apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null) : Promise.resolve(null),
-      edition.showZatca ? apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null) : Promise.resolve(null),
-      edition.showZatca ? apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null) : Promise.resolve(null),
-      edition.showZatca ? apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null) : Promise.resolve(null),
-      edition.showZatca ? apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null) : Promise.resolve(null),
-      edition.showZatca ? apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null) : Promise.resolve(null),
-      edition.showUaeEinvoicing ? getSalesInvoiceComplianceReadiness(params.id).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaInvoiceMetadata>(`/sales-invoices/${params.id}/zatca`).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaInvoiceReadinessResponse>(zatcaInvoiceReadinessPath(params.id)).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaInvoiceSigningPlanResponse>(zatcaInvoiceSigningPlanPath(params.id)).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaSignedArtifactDraftListResponse>(zatcaInvoiceSignedArtifactDraftsPath(params.id)).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaInvoiceSignedArtifactStoragePlanResponse>(zatcaInvoiceSignedArtifactStoragePlanPath(params.id)).catch(() => null) : Promise.resolve(null),
+      showKsaZatca ? apiRequest<ZatcaXmlValidationResult>(zatcaInvoiceXmlValidationPath(params.id)).catch(() => null) : Promise.resolve(null),
+      showUaeEinvoicing ? getSalesInvoiceComplianceReadiness(params.id).catch(() => null) : Promise.resolve(null),
     ])
       .then(([result, stockStatusResult, zatcaResult, readinessResult, signingPlanResult, draftListResult, storagePlanResult, validationResult, uaeReadinessResult]) => {
         if (!cancelled) {
@@ -150,7 +139,7 @@ export default function SalesInvoiceDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load sales invoice.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales invoice."));
         }
       })
       .finally(() => {
@@ -162,7 +151,7 @@ export default function SalesInvoiceDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [edition.showUaeEinvoicing, edition.showZatca, organizationId, params.id]);
+  }, [organizationId, params.id, showKsaZatca, showUaeEinvoicing, tc]);
 
   useEffect(() => {
     if (!organizationId || !invoice?.id || !invoice.customerId) {
@@ -231,7 +220,7 @@ export default function SalesInvoiceDetailPage() {
       return;
     }
 
-    if (action === "void" && !window.confirm(`Void invoice ${invoice.invoiceNumber}?`)) {
+    if (action === "void" && !window.confirm(tc("Void invoice {number}?", { number: invoice.invoiceNumber }))) {
       return;
     }
 
@@ -243,25 +232,29 @@ export default function SalesInvoiceDetailPage() {
       const updated = await apiRequest<SalesInvoice>(`/sales-invoices/${invoice.id}/${action}`, { method: "POST" });
       setInvoice(updated);
       if (action === "finalize") {
-        await refreshZatca(updated.id);
-        await fetchZatcaReadiness(updated.id).catch(() => undefined);
-        await fetchZatcaSigningPlan(updated.id).catch(() => undefined);
-        await fetchUaeReadiness(updated.id).catch(() => undefined);
+        if (showKsaZatca) {
+          await refreshZatca(updated.id);
+          await fetchZatcaReadiness(updated.id).catch(() => undefined);
+          await fetchZatcaSigningPlan(updated.id).catch(() => undefined);
+        }
+        if (showUaeEinvoicing) {
+          await fetchUaeReadiness(updated.id).catch(() => undefined);
+        }
       }
       setSuccess(
         action === "finalize"
-          ? `Invoice posted. Accounting entries were created for ${updated.invoiceNumber}; record payment when cash is received.`
-          : `Invoice voided. Reversal details are shown below when available for ${updated.invoiceNumber}.`,
+          ? tc("Invoice posted. Accounting entries were created for {number}; record payment when cash is received.", { number: updated.invoiceNumber })
+          : tc("Invoice voided. Reversal details are shown below when available for {number}.", { number: updated.invoiceNumber }),
       );
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `Unable to ${action} invoice.`);
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} invoice.", { action: tc(action) }));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function deleteInvoice() {
-    if (!invoice || !window.confirm(`Delete draft invoice ${invoice.invoiceNumber}?`)) {
+    if (!invoice || !window.confirm(tc("Delete draft invoice {number}?", { number: invoice.invoiceNumber }))) {
       return;
     }
 
@@ -273,7 +266,7 @@ export default function SalesInvoiceDetailPage() {
       await apiRequest<{ deleted: boolean }>(`/sales-invoices/${invoice.id}`, { method: "DELETE" });
       router.push("/sales/invoices");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete invoice.");
+      setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete invoice."));
     } finally {
       setActionLoading(false);
     }
@@ -291,7 +284,7 @@ export default function SalesInvoiceDetailPage() {
     try {
       await downloadPdf(invoicePdfPath(invoice.id), `invoice-${invoice.invoiceNumber}.pdf`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download invoice PDF.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download invoice PDF."));
     } finally {
       setActionLoading(false);
     }
@@ -322,7 +315,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function validateUaeReadiness() {
-    if (!invoice || !edition.showUaeEinvoicing) {
+    if (!invoice) {
       return;
     }
     setActionLoading(true);
@@ -332,10 +325,10 @@ export default function SalesInvoiceDetailPage() {
       const prepared = await prepareSalesInvoiceCompliance(invoice.id);
       await validateComplianceDocument(prepared.id);
       await fetchUaeReadiness(invoice.id);
-      setSuccess("Local UAE eInvoice readiness validation completed. No ASP submission, FTA reporting, or network call was performed.");
+      setSuccess(tc("Local UAE eInvoice readiness validation completed. No ASP submission, FTA reporting, or network call was performed."));
     } catch (validationError) {
       await fetchUaeReadiness(invoice.id).catch(() => undefined);
-      setError(validationError instanceof Error ? validationError.message : "Unable to validate UAE eInvoice readiness.");
+      setError(validationError instanceof Error ? validationError.message : tc("Unable to validate UAE eInvoice readiness."));
     } finally {
       setActionLoading(false);
     }
@@ -354,7 +347,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function createSignedArtifactDraft() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
     setActionLoading(true);
@@ -365,16 +358,16 @@ export default function SalesInvoiceDetailPage() {
       setSignedArtifactDrafts((current) => [result.draft, ...current.filter((draft) => draft.id !== result.draft.id)]);
       await fetchSignedArtifactDrafts(invoice.id).catch(() => undefined);
       await fetchSignedArtifactStoragePlan(invoice.id).catch(() => undefined);
-      setSuccess("Metadata-only signed artifact draft created. No signed XML body, QR payload, CSID request, network call, or submission was performed.");
+      setSuccess(tc("Metadata-only signed artifact draft created. No signed XML body, QR payload, CSID request, network call, or submission was performed."));
     } catch (draftError: unknown) {
-      setError(draftError instanceof Error ? draftError.message : "Unable to create signed artifact draft.");
+      setError(draftError instanceof Error ? draftError.message : tc("Unable to create signed artifact draft."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function runLocalSigningDryRun() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
     setActionLoading(true);
@@ -383,9 +376,9 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceLocalSigningDryRunResponse>(zatcaInvoiceLocalSigningDryRunPath(invoice.id), { method: "POST" });
       setLocalSigningDryRun(result);
-      setSuccess("Local signing dry-run refreshed. No CSID request, network call, submission, or persistence was performed.");
+      setSuccess(tc("Local signing dry-run refreshed. No CSID request, network call, submission, or persistence was performed."));
     } catch (signingError: unknown) {
-      setError(signingError instanceof Error ? signingError.message : "Unable to run local signing dry-run.");
+      setError(signingError instanceof Error ? signingError.message : tc("Unable to run local signing dry-run."));
     } finally {
       setActionLoading(false);
     }
@@ -398,7 +391,7 @@ export default function SalesInvoiceDetailPage() {
   }
 
   async function generateZatca() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -417,16 +410,16 @@ export default function SalesInvoiceDetailPage() {
       await fetchZatcaSigningPlan(invoice.id).catch(() => undefined);
       await fetchSignedArtifactStoragePlan(invoice.id).catch(() => undefined);
       await fetchZatcaXmlValidation(invoice.id);
-      setSuccess("Local ZATCA XML, QR payload, and hash metadata generated.");
+      setSuccess(tc("Local ZATCA XML, QR payload, and hash metadata generated."));
     } catch (generateError) {
-      setError(generateError instanceof Error ? generateError.message : "Unable to generate ZATCA metadata.");
+      setError(generateError instanceof Error ? generateError.message : tc("Unable to generate ZATCA metadata."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function downloadZatcaXml() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -437,14 +430,14 @@ export default function SalesInvoiceDetailPage() {
     try {
       await downloadAuthenticatedFile(zatcaInvoiceXmlPath(invoice.id), `zatca-${invoice.invoiceNumber}.xml`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download ZATCA XML.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download ZATCA XML."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function loadQrPayload() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -456,14 +449,14 @@ export default function SalesInvoiceDetailPage() {
       const result = await apiRequest<ZatcaQrResponse>(`/sales-invoices/${invoice.id}/zatca/qr`);
       setQrPayload(result.qrCodeBase64);
     } catch (qrError) {
-      setError(qrError instanceof Error ? qrError.message : "Unable to load ZATCA QR payload.");
+      setError(qrError instanceof Error ? qrError.message : tc("Unable to load ZATCA QR payload."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function refreshXmlValidation() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -475,16 +468,16 @@ export default function SalesInvoiceDetailPage() {
       await fetchZatcaXmlValidation(invoice.id);
       await fetchZatcaReadiness(invoice.id).catch(() => undefined);
       await fetchZatcaSigningPlan(invoice.id).catch(() => undefined);
-      setSuccess("Local XML validation refreshed.");
+      setSuccess(tc("Local XML validation refreshed."));
     } catch (validationError) {
-      setError(validationError instanceof Error ? validationError.message : "Unable to validate local ZATCA XML.");
+      setError(validationError instanceof Error ? validationError.message : tc("Unable to validate local ZATCA XML."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function runSdkValidationDryRun() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -498,16 +491,16 @@ export default function SalesInvoiceDetailPage() {
         body: { invoiceId: invoice.id, mode: "dry-run" },
       });
       setSdkDryRun(result);
-      setSuccess("SDK validation dry-run plan created. The SDK was not executed.");
+      setSuccess(tc("SDK validation dry-run plan created. The SDK was not executed."));
     } catch (dryRunError) {
-      setError(dryRunError instanceof Error ? dryRunError.message : "Unable to build SDK validation dry-run plan.");
+      setError(dryRunError instanceof Error ? dryRunError.message : tc("Unable to build SDK validation dry-run plan."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function runLocalSdkValidation() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -518,16 +511,16 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaSdkValidationResponse>(zatcaInvoiceSdkValidatePath(invoice.id), { method: "POST" });
       setSdkValidation(result);
-      setSuccess(result.officialValidationAttempted ? "Local SDK validation completed. No ZATCA network call was made." : "Local SDK validation is blocked or disabled. No ZATCA network call was made.");
+      setSuccess(tc(result.officialValidationAttempted ? "Local SDK validation completed. No ZATCA network call was made." : "Local SDK validation is blocked or disabled. No ZATCA network call was made."));
     } catch (sdkError) {
-      setError(sdkError instanceof Error ? sdkError.message : "Unable to run local SDK validation.");
+      setError(sdkError instanceof Error ? sdkError.message : tc("Unable to run local SDK validation."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function runHashComparison() {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -538,16 +531,16 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceHashCompareResponse>(zatcaInvoiceHashComparePath(invoice.id), { method: "POST" });
       setHashComparison(result);
-      setSuccess(result.officialHashAttempted ? "SDK hash comparison completed without mutating ZATCA metadata." : "SDK hash comparison is blocked or disabled. No metadata was changed.");
+      setSuccess(tc(result.officialHashAttempted ? "SDK hash comparison completed without mutating ZATCA metadata." : "SDK hash comparison is blocked or disabled. No metadata was changed."));
     } catch (hashError) {
-      setError(hashError instanceof Error ? hashError.message : "Unable to compare SDK hash.");
+      setError(hashError instanceof Error ? hashError.message : tc("Unable to compare SDK hash."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function runZatcaSubmission(action: "compliance-check" | "clearance" | "reporting") {
-    if (!invoice || !edition.showZatca) {
+    if (!invoice) {
       return;
     }
 
@@ -564,10 +557,10 @@ export default function SalesInvoiceDetailPage() {
     try {
       const result = await apiRequest<ZatcaInvoiceMetadata>(pathByAction[action], { method: "POST" });
       setZatca(result);
-      setSuccess(zatcaActionSuccessMessage(action));
+      setSuccess(tc(zatcaActionSuccessMessage(action)));
     } catch (submissionError) {
       await refreshZatca(invoice.id).catch(() => undefined);
-      setError(submissionError instanceof Error ? submissionError.message : "Unable to run local ZATCA readiness action.");
+      setError(submissionError instanceof Error ? submissionError.message : tc("Unable to run local ZATCA readiness action."));
     } finally {
       setActionLoading(false);
     }
@@ -581,95 +574,94 @@ export default function SalesInvoiceDetailPage() {
   const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
   const canCreateStockIssue = can(PERMISSIONS.salesStockIssue.create);
-  const canViewZatca = can(PERMISSIONS.zatca.view);
-  const canGenerateZatca = can(PERMISSIONS.zatca.generateXml);
-  const canRunZatcaChecks = can(PERMISSIONS.zatca.runChecks);
-  const canManageZatca = can(PERMISSIONS.zatca.manage);
-  const canViewCompliance = can(PERMISSIONS.compliance.view);
-  const canValidateCompliance = can(PERMISSIONS.compliance.manage) && can(PERMISSIONS.compliance.validate);
+  const canViewZatca = showKsaZatca && can(PERMISSIONS.zatca.view);
+  const canGenerateZatca = showKsaZatca && can(PERMISSIONS.zatca.generateXml);
+  const canRunZatcaChecks = showKsaZatca && can(PERMISSIONS.zatca.runChecks);
+  const canManageZatca = showKsaZatca && can(PERMISSIONS.zatca.manage);
+  const canViewCompliance = showUaeEinvoicing && can(PERMISSIONS.compliance.view);
+  const canValidateCompliance = showUaeEinvoicing && can(PERMISSIONS.compliance.manage) && can(PERMISSIONS.compliance.validate);
   const latestSignedArtifactDraft = signedArtifactDrafts[0] ?? signedArtifactStoragePlan?.latestDraft ?? null;
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const invoiceDetailHref = salesInvoiceDetailHref(params.id, returnTo);
+  const yesNo = (value: boolean) => tc(value ? "Yes" : "No");
+  const ltrValue = (value: string | null | undefined) => (value ? <bdi dir="ltr">{value}</bdi> : "-");
+  const localizeStatus = (value: string | null | undefined) => (value ? tc(value) : "-");
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales invoice"
-        title={invoice ? invoice.invoiceNumber : "Sales invoice"}
-        badge={invoice ? <LedgerStatusBadge tone={salesInvoiceStatusTone(invoice.status)}>{salesInvoiceStatusLabel(invoice.status)}</LedgerStatusBadge> : null}
-        description={
-          <>
-            <div>Invoice detail, calculated totals, and linked journal entry.</div>
-            {invoice ? <div className="text-xs">Invoice PDF downloads create an archive record for later review.</div> : null}
-          </>
-        }
-        actions={
-          <LedgerActionBar className="sm:flex-col xl:flex-row xl:justify-end">
-            <LedgerButton href={returnTo || "/sales/invoices"}>Back</LedgerButton>
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{invoice ? <bdi dir="ltr">{invoice.invoiceNumber}</bdi> : tc("Sales invoice")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Invoice detail, calculated totals, and linked journal entry.")}</p>
+          {invoice ? <p className="mt-1 text-xs text-steel">{tc("Invoice PDF downloads create an archive record for later review.")}</p> : null}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <LedgerButton href={`/sales/invoices/${invoice.id}/edit`}>
-              Edit
-            </LedgerButton>
+            <Link href={`/sales/invoices/${invoice.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
           ) : null}
           {invoice?.customerId ? (
-            <LedgerButton href={partyDetailHref("customer", invoice.customerId)}>
-              Customer workspace
-            </LedgerButton>
+            <Link href={partyDetailHref("customer", invoice.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Customer workspace")}
+            </Link>
           ) : null}
           {invoice ? (
-            <LedgerButton onClick={() => void downloadInvoicePdf()} disabled={actionLoading}>
-              Download invoice PDF
-            </LedgerButton>
+            <button type="button" onClick={() => void downloadInvoicePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Download invoice PDF")}
+            </button>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCustomerPayment ? (
-            <LedgerButton
+            <Link
               href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-              variant="primary"
+              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
-              Record payment
-            </LedgerButton>
+              {tc("Record payment")}
+            </Link>
           ) : null}
           {invoice?.status === "FINALIZED" && invoice.customerId && canCreateCreditNote ? (
-            <LedgerButton
+            <Link
               href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
+              className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
             >
-              Create credit note
-            </LedgerButton>
+              {tc("Create credit note")}
+            </Link>
           ) : null}
           {invoice?.status === "FINALIZED" && stockIssueStatus && canCreateStockIssue && hasStockIssueRemaining(stockIssueStatus) ? (
-            <LedgerButton href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`}>
-              Issue stock
-            </LedgerButton>
+            <Link href={`/inventory/sales-stock-issues/new?salesInvoiceId=${invoice.id}`} className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50">
+              {tc("Issue stock")}
+            </Link>
           ) : null}
           {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
-            <LedgerButton onClick={() => void runAction("finalize")} disabled={actionLoading} variant="primary">
-              Finalize
-            </LedgerButton>
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              {tc("Finalize")}
+            </button>
           ) : null}
           {invoice && invoice.status !== "VOIDED" && canVoidInvoice ? (
-            <LedgerButton onClick={() => void runAction("void")} disabled={actionLoading} variant="danger">
-              Void
-            </LedgerButton>
+            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Void")}
+            </button>
           ) : null}
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <LedgerButton onClick={() => void deleteInvoice()} disabled={actionLoading} variant="danger">
-              Delete
-            </LedgerButton>
+            <button type="button" onClick={() => void deleteInvoice()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Delete")}
+            </button>
           ) : null}
-          </LedgerActionBar>
-        }
-      />
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load invoices.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading invoice...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load invoices.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading invoice...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
-        </div>
+      </div>
 
       {invoice ? (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
       <InvoiceWorkflowGuidance
         invoice={invoice}
         actionLoading={actionLoading}
@@ -692,143 +684,140 @@ export default function SalesInvoiceDetailPage() {
             returnTo={returnTo}
           />
 
-          <LedgerSection
-            title="Invoice snapshot"
-            description="Customer, status, posting, and source details for this invoice."
-          >
-            <LedgerMetricGrid>
-              <Summary label="Customer" value={invoice.customer?.displayName ?? invoice.customer?.name ?? "-"} />
-              <Summary label="Status" value={salesInvoiceStatusLabel(invoice.status)} />
-              <Summary label="Issue date" value={new Date(invoice.issueDate).toLocaleDateString()} />
-              <Summary label="Due date" value={formatOptionalDate(invoice.dueDate)} />
-              <Summary label="Currency" value={invoice.currency} />
-              <Summary label="Branch" value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
-              <Summary label="Payment state" value={deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} />
-              <Summary label="Total" value={formatMoneyAmount(invoice.total, invoice.currency)} />
-              <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
-              <Summary label="Journal entry" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} (${invoice.journalEntry.id})` : "-"} />
-              <Summary label="Reversal journal" value={invoice.reversalJournalEntry ? `${invoice.reversalJournalEntry.entryNumber} (${invoice.reversalJournalEntry.id})` : "-"} />
-              <Summary label="Finalized" value={invoice.finalizedAt ? new Date(invoice.finalizedAt).toLocaleString() : "-"} />
-              <Summary label="Notes" value={invoice.notes ?? "-"} />
-              <Summary label="Terms" value={invoice.terms ?? "-"} />
-            </LedgerMetricGrid>
-          </LedgerSection>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <Summary label={tc("Customer")} value={invoice.customer?.displayName ?? invoice.customer?.name ?? "-"} />
+              <Summary label={tc("Status")} value={tc(salesInvoiceStatusLabel(invoice.status))} />
+              <Summary label={tc("Issue date")} value={formatAppDate(invoice.issueDate, locale, "-")} />
+              <Summary label={tc("Due date")} value={formatAppDate(invoice.dueDate, locale)} />
+              <Summary label={tc("Currency")} value={<bdi dir="ltr">{invoice.currency}</bdi>} />
+              <Summary label={tc("Branch")} value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
+              <Summary label={tc("Payment state")} value={tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue))} />
+              <Summary label={tc("Total")} value={formatAppMoney(invoice.total, invoice.currency, locale)} />
+              <Summary label={tc("Balance due")} value={formatAppMoney(invoice.balanceDue, invoice.currency, locale)} />
+              <Summary label={tc("Journal entry")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.journalEntry.id}</bdi>)</> : "-"} />
+              <Summary label={tc("Reversal journal")} value={invoice.reversalJournalEntry ? <><bdi dir="ltr">{invoice.reversalJournalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.reversalJournalEntry.id}</bdi>)</> : "-"} />
+              <Summary label={tc("Finalized")} value={formatAppDateTime(invoice.finalizedAt, locale, "-")} />
+              <Summary label={tc("Notes")} value={invoice.notes ?? "-"} />
+              <Summary label={tc("Terms")} value={invoice.terms ?? "-"} />
+            </div>
+          </div>
 
           {stockIssueStatus ? <StockIssueStatusPanel status={stockIssueStatus} /> : null}
 
-          {edition.showUaeEinvoicing && canViewCompliance ? (
-            <UaeEinvoiceReadinessPanel
-              title="UAE eInvoicing/PINT-AE readiness"
-              response={uaeReadiness}
-              actionLoading={actionLoading}
-              canValidate={canValidateCompliance}
-              onValidate={() => void validateUaeReadiness()}
-            />
-          ) : edition.showUaeEinvoicing ? (
-            <StatusMessage type="info">UAE eInvoicing readiness requires compliance view permission.</StatusMessage>
+          {showUaeEinvoicing ? (
+            canViewCompliance ? (
+              <UaeEinvoiceReadinessPanel
+                title={tc("UAE eInvoicing/PINT-AE readiness")}
+                response={uaeReadiness}
+                actionLoading={actionLoading}
+                canValidate={canValidateCompliance}
+                onValidate={() => void validateUaeReadiness()}
+              />
+            ) : (
+              <StatusMessage type="info">{tc("UAE eInvoicing readiness requires compliance view permission.")}</StatusMessage>
+            )
           ) : null}
 
-          <LedgerSection
-            title="Line items"
-            description="Invoice quantities, revenue accounts, discounts, tax, and line totals."
-          >
-            <LedgerDataTable minWidth="1040px">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[1040px] text-start text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Account</th>
-                  <th className="px-4 py-3">Qty</th>
-                  <th className="px-4 py-3">Unit price</th>
-                  <th className="px-4 py-3">Gross</th>
-                  <th className="px-4 py-3">Discount</th>
-                  <th className="px-4 py-3">Taxable</th>
-                  <th className="px-4 py-3">Tax</th>
-                  <th className="px-4 py-3">Line total</th>
+                  <th className="px-4 py-3">{tc("Description")}</th>
+                  <th className="px-4 py-3">{tc("Account")}</th>
+                  <th className="px-4 py-3">{tc("Qty")}</th>
+                  <th className="px-4 py-3">{tc("Unit price")}</th>
+                  <th className="px-4 py-3">{tc("Gross")}</th>
+                  <th className="px-4 py-3">{tc("Discount")}</th>
+                  <th className="px-4 py-3">{tc("Taxable")}</th>
+                  <th className="px-4 py-3">{tc("Tax")}</th>
+                  <th className="px-4 py-3">{tc("Line total")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoice.lines?.map((line) => (
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
-                    <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
+                    <td className="px-4 py-3 text-steel">{line.account ? <><bdi dir="ltr">{line.account.code}</bdi> {line.account.name}</> : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, invoice.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineGrossAmount, invoice.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, invoice.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxableAmount, invoice.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, invoice.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, invoice.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, invoice.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
-            </LedgerDataTable>
-          </LedgerSection>
+            </table>
+          </div>
 
-          <LedgerSummaryBand>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-6">
-              <dt className="text-steel">Subtotal</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></dd>
-              <dt className="text-steel">Discount</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.discountTotal, invoice.currency)}</LedgerMoney></dd>
-              <dt className="text-steel">Taxable</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.taxableTotal, invoice.currency)}</LedgerMoney></dd>
-              <dt className="text-steel">VAT</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Total</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Balance due</dt>
-              <dd className="text-right md:text-left"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></dd>
-            </dl>
-          </LedgerSummaryBand>
+          <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ms-auto">
+            <span className="text-steel">{tc("Subtotal")}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoice.subtotal, invoice.currency, locale)}</span>
+            <span className="text-steel">{tc("Discount")}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoice.discountTotal, invoice.currency, locale)}</span>
+            <span className="text-steel">{tc("Taxable")}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoice.taxableTotal, invoice.currency, locale)}</span>
+            <span className="text-steel">{tc("VAT")}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoice.taxTotal, invoice.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Total")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.total, invoice.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Balance due")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.balanceDue, invoice.currency, locale)}</span>
+          </div>
 
-          <LedgerSection
-            title="Payments"
-            description={`${deriveInvoicePaymentState(invoice.total, invoice.balanceDue)} with ${formatMoneyAmount(invoice.balanceDue, invoice.currency)} balance due.`}
-            action={
-              invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
-                <LedgerActionBar>
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-ink">{tc("Payments")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("{state} with {amount} balance due.", { state: tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue)), amount: formatAppMoney(invoice.balanceDue, invoice.currency, locale) })}</p>
+              </div>
+              {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canCreateCustomerPayment ? (
-                    <LedgerButton
+                    <Link
                       href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
-                      variant="primary"
+                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
                     >
-                      Record payment
-                    </LedgerButton>
+                      {tc("Record payment")}
+                    </Link>
                   ) : null}
                   {canCreateCreditNote ? (
-                    <LedgerButton
+                    <Link
                       href={`/sales/credit-notes/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
+                      className="rounded-md border border-palm px-3 py-2 text-center text-sm font-medium text-palm hover:bg-teal-50"
                     >
-                      Create credit note
-                    </LedgerButton>
+                      {tc("Create credit note")}
+                    </Link>
                   ) : null}
-                </LedgerActionBar>
-              ) : null
-            }
-          >
+                </div>
+              ) : null}
+            </div>
             {invoice.paymentAllocations && invoice.paymentAllocations.length > 0 ? (
-              <LedgerDataTable minWidth="720px">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Payment</th>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Payment")}</th>
+                      <th className="px-4 py-3">{tc("Date")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {invoice.paymentAllocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</LedgerDate></td>
-                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.payment?.paymentNumber ?? allocation.paymentId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.payment?.paymentDate, locale, "-")}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ? tc(allocation.payment.status) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, invoice.currency, locale)}</td>
                         <td className="px-4 py-3">
                           {allocation.payment ? (
-                            <LedgerButton href={`/sales/customer-payments/${allocation.payment.id}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} size="sm">
-                              View payment
-                            </LedgerButton>
+                            <Link href={`/sales/customer-payments/${allocation.payment.id}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              {tc("View payment")}
+                            </Link>
                           ) : (
                             "-"
                           )}
@@ -836,185 +825,203 @@ export default function SalesInvoiceDetailPage() {
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : (
-              <StatusMessage type="empty">
-                No payments have been applied yet. Finalized invoices can be paid from the Record payment action.
-              </StatusMessage>
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">
+                  {tc("No payments have been applied yet. Finalized invoices can be paid from the Record payment action.")}
+                </StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerSection
-            title="Unapplied payment applications"
-            description="Unapplied customer payment credits matched to this invoice. These rows are balance matching records, not accounting postings."
-          >
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">{tc("Unapplied payment applications")}</h2>
+              <p className="mt-1 text-sm text-steel">{tc("Unapplied customer payment credits matched to this invoice. These rows are balance matching records, not accounting postings.")}</p>
+            </div>
             {invoice.paymentUnappliedAllocations && invoice.paymentUnappliedAllocations.length > 0 ? (
-              <LedgerDataTable minWidth="860px">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Payment</th>
-                      <th className="px-4 py-3">Payment date</th>
-                      <th className="px-4 py-3">Payment status</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Allocation status</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Payment")}</th>
+                      <th className="px-4 py-3">{tc("Payment date")}</th>
+                      <th className="px-4 py-3">{tc("Payment status")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Allocation status")}</th>
+                      <th className="px-4 py-3">{tc("Reversed")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {invoice.paymentUnappliedAllocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.payment?.paymentNumber ?? allocation.paymentId}</td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.payment ? new Date(allocation.payment.paymentDate).toLocaleDateString() : "-"}</LedgerDate></td>
-                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ?? "-"}</td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.payment?.paymentNumber ?? allocation.paymentId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.payment?.paymentDate, locale, "-")}</td>
+                        <td className="px-4 py-3 text-steel">{allocation.payment?.status ? tc(allocation.payment.status) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, invoice.currency, locale)}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
-                            {customerPaymentUnappliedAllocationStatusLabel(allocation)}
+                            {tc(customerPaymentUnappliedAllocationStatusLabel(allocation))}
                           </span>
                         </td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDateTime(allocation.reversedAt, locale, "-")}</td>
                         <td className="px-4 py-3">
-                          <LedgerButton href={`/sales/customer-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} size="sm">
-                            View payment
-                          </LedgerButton>
+                          <Link href={`/sales/customer-payments/${allocation.paymentId}?returnTo=${encodeURIComponent(invoiceDetailHref)}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            {tc("View payment")}
+                          </Link>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : (
-              <StatusMessage type="empty">No unapplied payment credit has been matched to this invoice.</StatusMessage>
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">{tc("No unapplied payment credit has been matched to this invoice.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerSection
-            title="Credit notes"
-            description="Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry."
-            action={
-              invoice.status === "FINALIZED" && canCreateCreditNote ? (
-                <LedgerButton href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`}>
-                  Create credit note
-                </LedgerButton>
-              ) : null
-            }
-          >
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-ink">{tc("Credit notes")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Linked credit notes reduce customer receivables when finalized. Applications reduce this invoice balance due without another journal entry.")}</p>
+              </div>
+              {invoice.status === "FINALIZED" && canCreateCreditNote ? (
+                <Link href={`/sales/credit-notes/new?customerId=${invoice.customerId}&invoiceId=${invoice.id}`} className="self-start rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">
+                  {tc("Create credit note")}
+                </Link>
+              ) : null}
+            </div>
             {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
-              <LedgerDataTable minWidth="760px">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Credit note</th>
-                      <th className="px-4 py-3">Issue date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Total</th>
-                      <th className="px-4 py-3">Unapplied</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Credit note")}</th>
+                      <th className="px-4 py-3">{tc("Issue date")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Total")}</th>
+                      <th className="px-4 py-3">{tc("Unapplied")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {invoice.creditNotes.map((creditNote) => (
                       <tr key={creditNote.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{creditNote.creditNoteNumber}</td>
-                        <td className="px-4 py-3"><LedgerDate>{new Date(creditNote.issueDate).toLocaleDateString()}</LedgerDate></td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{creditNote.creditNoteNumber}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(creditNote.issueDate, locale, "-")}</td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{creditNoteStatusLabel(creditNote.status)}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{tc(creditNoteStatusLabel(creditNote.status))}</span>
                         </td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(creditNote.total, creditNote.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(creditNote.total, creditNote.currency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale)}</td>
                         <td className="px-4 py-3">
-                          <LedgerButton href={`/sales/credit-notes/${creditNote.id}`} size="sm">
-                            View credit note
-                          </LedgerButton>
+                          <Link href={`/sales/credit-notes/${creditNote.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            {tc("View credit note")}
+                          </Link>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : (
-              <StatusMessage type="empty">No credit notes are linked to this invoice.</StatusMessage>
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">{tc("No credit notes are linked to this invoice.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerSection
-            title="Credit applications"
-            description="Credit note allocations applied to this invoice. These rows are matching records, not accounting postings."
-          >
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">{tc("Credit applications")}</h2>
+              <p className="mt-1 text-sm text-steel">{tc("Credit note allocations applied to this invoice. These rows are matching records, not accounting postings.")}</p>
+            </div>
             {invoice.creditNoteAllocations && invoice.creditNoteAllocations.length > 0 ? (
-              <LedgerDataTable minWidth="900px">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Credit note</th>
-                      <th className="px-4 py-3">Issue date</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Allocation</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Credit note")}</th>
+                      <th className="px-4 py-3">{tc("Issue date")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Allocation")}</th>
+                      <th className="px-4 py-3">{tc("Reversed")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {invoice.creditNoteAllocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.creditNote?.creditNoteNumber ?? allocation.creditNoteId}</td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.creditNote ? new Date(allocation.creditNote.issueDate).toLocaleDateString() : "-"}</LedgerDate></td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.creditNote?.creditNoteNumber ?? allocation.creditNoteId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.creditNote?.issueDate, locale, "-")}</td>
                         <td className="px-4 py-3">
                           {allocation.creditNote ? (
-                            <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(allocation.creditNote.status)}`}>{creditNoteStatusLabel(allocation.creditNote.status)}</span>
+                            <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(allocation.creditNote.status)}`}>{tc(creditNoteStatusLabel(allocation.creditNote.status))}</span>
                           ) : (
                             "-"
                           )}
                         </td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, invoice.currency)}</LedgerMoney></td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, invoice.currency, locale)}</td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{creditNoteAllocationStatusLabel(allocation)}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{tc(creditNoteAllocationStatusLabel(allocation))}</span>
                         </td>
-                        <td className="px-4 py-3"><LedgerDate>{allocation.reversedAt ? new Date(allocation.reversedAt).toLocaleString() : "-"}</LedgerDate></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDateTime(allocation.reversedAt, locale, "-")}</td>
                         <td className="px-4 py-3">
-                          <LedgerButton href={`/sales/credit-notes/${allocation.creditNoteId}`} size="sm">
-                            View credit note
-                          </LedgerButton>
+                          <Link href={`/sales/credit-notes/${allocation.creditNoteId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                            {tc("View credit note")}
+                          </Link>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : (
-              <StatusMessage type="empty">No credit note allocations have been applied to this invoice.</StatusMessage>
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">{tc("No credit note allocations have been applied to this invoice.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          {canViewZatca && edition.showZatca ? (
-          <LedgerPanel>
+          {canViewZatca ? (
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold text-ink">Local ZATCA readiness groundwork</h2>
-                <p className="mt-1 text-sm text-steel">Local XML/QR metadata generation only. No production ZATCA submission, clearance, reporting, or compliance claim.</p>
+                <h2 className="text-base font-semibold text-ink">{tc("Local ZATCA readiness groundwork")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Local XML/QR metadata generation only. No production ZATCA submission, clearance, reporting, or compliance claim.")}</p>
               </div>
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{zatcaStatusLabel(zatca?.zatcaStatus)}</span>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc(zatcaStatusLabel(zatca?.zatcaStatus))}</span>
             </div>
 
-            <LedgerMetricGrid className="mt-4">
-              <Summary label="Invoice UUID" value={zatca?.invoiceUuid ?? "-"} />
-              <Summary label="ICV" value={zatca?.icv === null || zatca?.icv === undefined ? "-" : String(zatca.icv)} />
-              <Summary label="Invoice hash" value={truncateHash(zatca?.invoiceHash)} />
-              <Summary label="Previous hash" value={truncateHash(zatca?.previousInvoiceHash)} />
-              <Summary label="EGS unit" value={zatca?.egsUnit?.name ?? "-"} />
-              <Summary label="Generated" value={zatca?.generatedAt ? new Date(zatca.generatedAt).toLocaleString() : "-"} />
-              <Summary label="Latest ZATCA action" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.submissionType) : "-"} />
-              <Summary label="Action status" value={latestZatcaSubmission ? zatcaStatusLabel(latestZatcaSubmission.status) : "-"} />
-              <Summary label="Last error" value={zatca?.lastErrorMessage ?? "-"} />
-              <Summary label="Action error" value={latestZatcaSubmission?.errorMessage ?? "-"} />
-            </LedgerMetricGrid>
+            <div className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <Summary label={tc("Invoice UUID")} value={ltrValue(zatca?.invoiceUuid)} />
+              <Summary label={tc("ICV")} value={zatca?.icv === null || zatca?.icv === undefined ? "-" : String(zatca.icv)} />
+              <Summary label={tc("Invoice hash")} value={ltrValue(truncateHash(zatca?.invoiceHash))} />
+              <Summary label={tc("Previous hash")} value={ltrValue(truncateHash(zatca?.previousInvoiceHash))} />
+              <Summary label={tc("EGS unit")} value={zatca?.egsUnit?.name ?? "-"} />
+              <Summary label={tc("Generated")} value={formatAppDateTime(zatca?.generatedAt, locale, "-")} />
+              <Summary label={tc("Latest ZATCA action")} value={latestZatcaSubmission ? tc(zatcaStatusLabel(latestZatcaSubmission.submissionType)) : "-"} />
+              <Summary label={tc("Action status")} value={latestZatcaSubmission ? tc(zatcaStatusLabel(latestZatcaSubmission.status)) : "-"} />
+              <Summary label={tc("Last error")} value={zatca?.lastErrorMessage ?? "-"} />
+              <Summary label={tc("Action error")} value={latestZatcaSubmission?.errorMessage ?? "-"} />
+            </div>
 
             {zatcaReadiness ? (
-              <div className="mt-5 rounded-md border border-line bg-mist p-4">
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">ZATCA readiness</h3>
-                    <p className="mt-1 text-xs text-steel">Read-only seller, buyer, invoice, EGS, and XML checks. No ICV, metadata, or EGS hash mutation.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("ZATCA readiness")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Read-only seller, buyer, invoice, EGS, and XML checks. No ICV, metadata, or EGS hash mutation.")}</p>
                   </div>
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${zatcaReadinessStatusBadgeClass(zatcaReadiness.status)}`}>
-                    {zatcaReadinessStatusLabel(zatcaReadiness.status)}
+                    {tc(zatcaReadinessStatusLabel(zatcaReadiness.status))}
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -1030,49 +1037,50 @@ export default function SalesInvoiceDetailPage() {
                   <InvoiceReadinessSectionCard title="PDF/A-3" section={zatcaReadiness.pdfA3} />
                 </div>
                 <p className="mt-3 text-xs text-amber-700">
-                  Metadata-only storage planning is available through the API, but signed XML bodies and QR payloads are not persisted. Future object storage, retention, real CSID/certificate/key custody, and clearance/reporting remain blocked.
+                  {tc("Metadata-only storage planning is available through the API, but signed XML bodies and QR payloads are not persisted. Future object storage, retention, real CSID/certificate/key custody, and clearance/reporting remain blocked.")}
                 </p>
               </div>
             ) : null}
 
             {signedArtifactStoragePlan ? (
-              <div className="mt-5 rounded-md border border-line bg-mist p-4">
+              <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">Signed artifact metadata drafts</h3>
-                    <p className="mt-1 text-xs text-steel">Metadata-only planning records. Signed XML bodies and QR payload bodies are not stored.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("Signed artifact metadata drafts")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Metadata-only planning records. Signed XML bodies and QR payload bodies are not stored.")}</p>
                   </div>
                   <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
-                    {signedArtifactStoragePlan.storageCapabilityStatus}
+                    {localizeStatus(signedArtifactStoragePlan.storageCapabilityStatus)}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-5">
-                  <Summary label="Draft count" value={String(signedArtifactStoragePlan.draftCount)} />
-                  <Summary label="Latest draft" value={latestSignedArtifactDraft?.status ?? "-"} />
-                  <Summary label="Object storage" value={signedArtifactStoragePlan.objectStorageCapability.objectStorageConfigured ? "Configured with warnings" : "Blocked"} />
-                  <Summary label="Probe" value={signedArtifactStoragePlan.storageProbePlan.executionFlagEnabled ? "Enabled by env" : "Disabled by default"} />
-                  <Summary label="Immutable policy" value={signedArtifactStoragePlan.immutablePolicyStatus.policyApproved ? "Approved" : "Not approved"} />
-                  <Summary label="Retention review" value={signedArtifactStoragePlan.immutablePolicyStatus.retentionDurationApproved ? "Approved" : "Required"} />
-                  <Summary label="Body persistence" value={signedArtifactStoragePlan.bodyPersistenceAllowed ? "Allowed" : "Blocked"} />
+                  <Summary label={tc("Draft count")} value={String(signedArtifactStoragePlan.draftCount)} />
+                  <Summary label={tc("Latest draft")} value={localizeStatus(latestSignedArtifactDraft?.status)} />
+                  <Summary label={tc("Object storage")} value={tc(signedArtifactStoragePlan.objectStorageCapability.objectStorageConfigured ? "Configured with warnings" : "Blocked")} />
+                  <Summary label={tc("Probe")} value={tc(signedArtifactStoragePlan.storageProbePlan.executionFlagEnabled ? "Enabled by env" : "Disabled by default")} />
+                  <Summary label={tc("Immutable policy")} value={tc(signedArtifactStoragePlan.immutablePolicyStatus.policyApproved ? "Approved" : "Not approved")} />
+                  <Summary label={tc("Retention review")} value={tc(signedArtifactStoragePlan.immutablePolicyStatus.retentionDurationApproved ? "Approved" : "Required")} />
+                  <Summary label={tc("Body persistence")} value={tc(signedArtifactStoragePlan.bodyPersistenceAllowed ? "Allowed" : "Blocked")} />
                 </div>
                 <div className="mt-3 rounded-md bg-white p-3 text-xs text-steel">
-                  Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, approved immutable policy, legal retention review, object versioning, restore testing, real CSID/certificate/key custody, and a separate promotion workflow.
+                  {tc("Storage keys remain null in this phase. Future body storage needs tenant-scoped object keys, approved immutable policy, legal retention review, object versioning, restore testing, real CSID/certificate/key custody, and a separate promotion workflow.")}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <LedgerButton
+                  <button
+                    type="button"
                     onClick={() => void createSignedArtifactDraft()}
                     disabled={actionLoading || !canManageZatca || !signedArtifactStoragePlan.metadataOnlyDraftAllowed}
-                    size="sm"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Create metadata-only draft
-                  </LedgerButton>
-                  <span className="text-xs text-amber-700">No signed XML body, QR payload body, CSID request, ZATCA network call, or submission.</span>
+                    {tc("Create metadata-only draft")}
+                  </button>
+                  <span className="text-xs text-amber-700">{tc("No signed XML body, QR payload body, CSID request, ZATCA network call, or submission.")}</span>
                 </div>
                 {latestSignedArtifactDraft ? (
                   <div className="mt-3 grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
-                    <Summary label="Source" value={latestSignedArtifactDraft.source} />
-                    <Summary label="Dummy material" value={latestSignedArtifactDraft.signedWithDummyMaterial ? "Yes" : "No"} />
-                    <Summary label="Production compliance" value={latestSignedArtifactDraft.productionCompliance ? "Yes" : "No"} />
+                    <Summary label={tc("Source")} value={localizeStatus(latestSignedArtifactDraft.source)} />
+                    <Summary label={tc("Dummy material")} value={yesNo(latestSignedArtifactDraft.signedWithDummyMaterial)} />
+                    <Summary label={tc("Production compliance")} value={yesNo(latestSignedArtifactDraft.productionCompliance)} />
                   </div>
                 ) : null}
               </div>
@@ -1082,22 +1090,22 @@ export default function SalesInvoiceDetailPage() {
               <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">Signing plan</h3>
-                    <p className="mt-1 text-xs text-steel">Dry-run SDK `-sign` command planning only. The command is not executed and no invoice metadata is changed.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("Signing plan")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Dry-run SDK `-sign` command planning only. The command is not executed and no invoice metadata is changed.")}</p>
                   </div>
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${signingPlan.executionEnabled ? "bg-amber-100 text-amber-800" : "bg-rose-50 text-rosewood"}`}>
-                    {signingPlan.executionEnabled ? "Execution flag enabled" : "Execution disabled"}
+                    {tc(signingPlan.executionEnabled ? "Execution flag enabled" : "Execution disabled")}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-                  <Summary label="Dry run" value={signingPlan.dryRun ? "Yes" : "No"} />
-                  <Summary label="No mutation" value={signingPlan.noMutation ? "Yes" : "No"} />
-                  <Summary label="Production compliance" value={signingPlan.productionCompliance ? "Yes" : "No"} />
+                  <Summary label={tc("Dry run")} value={yesNo(signingPlan.dryRun)} />
+                  <Summary label={tc("No mutation")} value={yesNo(signingPlan.noMutation)} />
+                  <Summary label={tc("Production compliance")} value={yesNo(signingPlan.productionCompliance)} />
                 </div>
                 {signingPlan.commandPlan.displayCommand ? (
                   <div className="mt-3 rounded-md bg-white p-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-steel">Planned command</div>
-                    <div className="mt-1 break-all font-mono text-xs text-ink">{signingPlan.commandPlan.displayCommand}</div>
+                    <div className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Planned command")}</div>
+                    <div className="mt-1 break-all font-mono text-xs text-ink"><bdi dir="ltr">{signingPlan.commandPlan.displayCommand}</bdi></div>
                   </div>
                 ) : null}
                 {signingPlan.blockers.length ? (
@@ -1108,29 +1116,32 @@ export default function SalesInvoiceDetailPage() {
                   </ul>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <LedgerButton
+                  <button
+                    type="button"
                     onClick={runLocalSigningDryRun}
                     disabled={actionLoading}
-                    size="sm"
+                    className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    View local signing dry-run
-                  </LedgerButton>
-                  <span className="text-xs text-amber-700">Local-only. Default gate is disabled; no CSID, network, submission, or persistence.</span>
+                    {tc("View local signing dry-run")}
+                  </button>
+                  <span className="text-xs text-amber-700">{tc("Local-only. Default gate is disabled; no CSID, network, submission, or persistence.")}</span>
                 </div>
                 {localSigningDryRun ? (
                   <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-xs">
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-8">
-                      <Summary label="Execution status" value={localSigningDryRun.executionStatus} />
-                      <Summary label="Execution enabled" value={localSigningDryRun.executionEnabled ? "Yes" : "No"} />
-                      <Summary label="Execution attempted" value={localSigningDryRun.executionAttempted ? "Yes" : "No"} />
-                      <Summary label="Temp SDK staged" value={localSigningDryRun.tempFilesWritten.sdkRuntime ? "Yes" : "No"} />
-                      <Summary label="SDK signing executed" value={localSigningDryRun.signingExecuted ? "Yes" : "No"} />
-                      <Summary label="SDK QR executed" value={localSigningDryRun.qrExecuted ? "Yes" : "No"} />
-                      <Summary label="Signed XML detected" value={localSigningDryRun.signedXmlDetected ? "Yes" : "No"} />
-                      <Summary label="Phase 2 QR detected" value={localSigningDryRun.qrDetected ? "Yes" : "No"} />
+                      <Summary label={tc("Execution status")} value={localizeStatus(localSigningDryRun.executionStatus)} />
+                      <Summary label={tc("Execution enabled")} value={yesNo(localSigningDryRun.executionEnabled)} />
+                      <Summary label={tc("Execution attempted")} value={yesNo(localSigningDryRun.executionAttempted)} />
+                      <Summary label={tc("Temp SDK staged")} value={yesNo(localSigningDryRun.tempFilesWritten.sdkRuntime)} />
+                      <Summary label={tc("SDK signing executed")} value={yesNo(localSigningDryRun.signingExecuted)} />
+                      <Summary label={tc("SDK QR executed")} value={yesNo(localSigningDryRun.qrExecuted)} />
+                      <Summary label={tc("Signed XML detected")} value={yesNo(localSigningDryRun.signedXmlDetected)} />
+                      <Summary label={tc("Phase 2 QR detected")} value={yesNo(localSigningDryRun.qrDetected)} />
                     </div>
                     {localSigningDryRun.phase2Qr.dependencyChain.length ? (
-                      <p className="mt-2 text-steel">QR dependency chain: {localSigningDryRun.phase2Qr.dependencyChain.join(" -> ")}</p>
+                      <p className="mt-2 text-steel">
+                        {tc("QR dependency chain: {chain}", { chain: localSigningDryRun.phase2Qr.dependencyChain.join(" -> ") })}
+                      </p>
                     ) : null}
                     {localSigningDryRun.blockers.length ? (
                       <ul className="mt-2 list-disc space-y-1 pl-5 text-rosewood">
@@ -1141,79 +1152,80 @@ export default function SalesInvoiceDetailPage() {
                     ) : null}
                   </div>
                 ) : null}
-                <p className="mt-3 text-xs text-amber-700">Certificate/private-key material, signed XML bodies, CSID tokens, OTPs, and QR payload bodies are not shown or stored.</p>
+                <p className="mt-3 text-xs text-amber-700">{tc("Certificate/private-key material, signed XML bodies, CSID tokens, OTPs, and QR payload bodies are not shown or stored.")}</p>
               </div>
             ) : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
               {invoice.status === "FINALIZED" && canGenerateZatca ? (
-                <LedgerButton onClick={() => void generateZatca()} disabled={actionLoading} variant="primary">
-                  Generate ZATCA XML/QR
-                </LedgerButton>
+                <button type="button" onClick={() => void generateZatca()} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                  {tc("Generate ZATCA XML/QR")}
+                </button>
               ) : null}
               {zatca?.xmlBase64 ? (
-                <LedgerButton onClick={() => void downloadZatcaXml()} disabled={actionLoading}>
-                  Download XML
-                </LedgerButton>
+                <button type="button" onClick={() => void downloadZatcaXml()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Download XML")}
+                </button>
               ) : null}
               {zatca?.qrCodeBase64 ? (
-                <LedgerButton onClick={() => void loadQrPayload()} disabled={actionLoading}>
-                  View QR payload
-                </LedgerButton>
+                <button type="button" onClick={() => void loadQrPayload()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("View QR payload")}
+                </button>
               ) : null}
               {canRunZatcaChecks ? (
-                <LedgerButton onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  Run local/mock compliance check
-                </LedgerButton>
+                <button type="button" onClick={() => void runZatcaSubmission("compliance-check")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                  {tc("Run local/mock compliance check")}
+                </button>
               ) : null}
               {canManageZatca ? (
-                <LedgerButton onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  Check clearance blocker
-                </LedgerButton>
+                <button type="button" onClick={() => void runZatcaSubmission("clearance")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Check clearance blocker")}
+                </button>
               ) : null}
               {canManageZatca ? (
-                <LedgerButton onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  Check reporting blocker
-                </LedgerButton>
+                <button type="button" onClick={() => void runZatcaSubmission("reporting")} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Check reporting blocker")}
+                </button>
               ) : null}
               {canRunZatcaChecks ? (
-                <LedgerButton onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  SDK validation dry run
-                </LedgerButton>
+                <button type="button" onClick={() => void runSdkValidationDryRun()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("SDK validation dry run")}
+                </button>
               ) : null}
               {canRunZatcaChecks ? (
-                <LedgerButton onClick={() => void runLocalSdkValidation()} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  Run local SDK validation
-                </LedgerButton>
+                <button type="button" onClick={() => void runLocalSdkValidation()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400">
+                  {tc("Run local SDK validation")}
+                </button>
               ) : null}
               {canRunZatcaChecks ? (
-                <LedgerButton onClick={() => void runHashComparison()} disabled={!zatca?.xmlBase64 || actionLoading}>
-                  Compare SDK hash
-                </LedgerButton>
+                <button type="button" onClick={() => void runHashComparison()} disabled={!zatca?.xmlBase64 || actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                  {tc("Compare SDK hash")}
+                </button>
               ) : null}
             </div>
 
             <div className="mt-5 border-t border-slate-200 pt-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-ink">Local XML validation</h3>
-                  <p className="mt-1 text-xs text-steel">Local structural checks only. This is not official ZATCA SDK validation.</p>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                  <h3 className="text-sm font-semibold text-ink">{tc("Local XML validation")}</h3>
+                  <p className="mt-1 text-xs text-steel">{tc("Local structural checks only. This is not official ZATCA SDK validation.")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${xmlValidation?.valid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {zatcaXmlValidationLabel(xmlValidation?.valid)}
+                    {tc(zatcaXmlValidationLabel(xmlValidation?.valid))}
                   </span>
-                  <LedgerButton
+                  <button
+                    type="button"
                     onClick={() => void refreshXmlValidation()}
                     disabled={actionLoading}
-                    size="sm"
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                   >
-                    Refresh check
-                  </LedgerButton>
+                    {tc("Refresh check")}
+                  </button>
                 </div>
               </div>
               {shouldShowZatcaLocalOnlyWarning(xmlValidation) ? (
-                <p className="mt-3 text-xs text-amber-700">Official ZATCA/FATOORA validation, signing, and clearance/reporting are still pending.</p>
+                <p className="mt-3 text-xs text-amber-700">{tc("Official ZATCA/FATOORA validation, signing, and clearance/reporting are still pending.")}</p>
               ) : null}
               {xmlValidation?.errors.length ? (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
@@ -1235,25 +1247,25 @@ export default function SalesInvoiceDetailPage() {
               <div className="mt-5 border-t border-slate-200 pt-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">SDK validation dry run</h3>
-                    <p className="mt-1 text-xs text-steel">Command planning only. The official SDK was not executed and no ZATCA network call was made.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("SDK validation dry run")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Command planning only. The official SDK was not executed and no ZATCA network call was made.")}</p>
                   </div>
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkDryRun.readiness.canAttemptSdkValidation ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {sdkDryRun.readiness.canAttemptSdkValidation ? "Plan ready" : "Plan blocked"}
+                    {tc(sdkDryRun.readiness.canAttemptSdkValidation ? "Plan ready" : "Plan blocked")}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-                  <Summary label="XML source" value={sdkDryRun.xmlSource} />
-                  <Summary label="SDK JAR" value={sdkDryRun.readiness.sdkJarFound ? "Found" : "Missing"} />
-                  <Summary label="Java" value={sdkDryRun.readiness.javaVersion ?? (sdkDryRun.readiness.javaFound ? "Detected" : "Missing")} />
+                  <Summary label={tc("XML source")} value={localizeStatus(sdkDryRun.xmlSource)} />
+                  <Summary label={tc("SDK JAR")} value={tc(sdkDryRun.readiness.sdkJarFound ? "Found" : "Missing")} />
+                  <Summary label={tc("Java")} value={sdkDryRun.readiness.javaVersion ? ltrValue(sdkDryRun.readiness.javaVersion) : tc(sdkDryRun.readiness.javaFound ? "Detected" : "Missing")} />
                 </div>
                 {sdkDryRun.commandPlan.displayCommand ? (
                   <div className="mt-3 rounded-md bg-slate-50 p-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-steel">Planned command</div>
-                    <div className="mt-1 break-all font-mono text-xs text-ink">{sdkDryRun.commandPlan.displayCommand}</div>
+                    <div className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Planned command")}</div>
+                    <div className="mt-1 break-all font-mono text-xs text-ink"><bdi dir="ltr">{sdkDryRun.commandPlan.displayCommand}</bdi></div>
                   </div>
                 ) : (
-                  <p className="mt-3 text-xs text-amber-700">No executable SDK command could be planned with the current local setup.</p>
+                  <p className="mt-3 text-xs text-amber-700">{tc("No executable SDK command could be planned with the current local setup.")}</p>
                 )}
                 {sdkDryRun.warnings.length ? (
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-700">
@@ -1269,20 +1281,20 @@ export default function SalesInvoiceDetailPage() {
               <div className="mt-5 border-t border-slate-200 pt-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">Local SDK validation result</h3>
-                    <p className="mt-1 text-xs text-steel">Official SDK local execution only. This does not submit to ZATCA and does not prove production compliance.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("Local SDK validation result")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Official SDK local execution only. This does not submit to ZATCA and does not prove production compliance.")}</p>
                   </div>
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${sdkValidation.success ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {zatcaSdkValidationResultLabel(sdkValidation)}
+                    {tc(zatcaSdkValidationResultLabel(sdkValidation))}
                   </span>
                 </div>
                 {shouldShowZatcaSdkLocalOnlyWarning(sdkValidation) ? (
-                  <p className="mt-3 text-xs text-amber-700">This is local-only SDK validation. It does not sign, clear, report, or certify the invoice for production.</p>
+                  <p className="mt-3 text-xs text-amber-700">{tc("This is local-only SDK validation. It does not sign, clear, report, or certify the invoice for production.")}</p>
                 ) : null}
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-                  <Summary label="SDK exit code" value={sdkValidation.sdkExitCode === null ? "-" : String(sdkValidation.sdkExitCode)} />
-                  <Summary label="XML source" value={sdkValidation.xmlSource} />
-                  <Summary label="Official attempted" value={sdkValidation.officialValidationAttempted ? "Yes, local SDK only" : "No"} />
+                  <Summary label={tc("SDK exit code")} value={sdkValidation.sdkExitCode === null ? "-" : String(sdkValidation.sdkExitCode)} />
+                  <Summary label={tc("XML source")} value={localizeStatus(sdkValidation.xmlSource)} />
+                  <Summary label={tc("Official attempted")} value={sdkValidation.officialValidationAttempted ? tc("Yes, local SDK only") : tc("No")} />
                 </div>
                 {sdkValidation.blockingReasons.length ? (
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
@@ -1305,31 +1317,31 @@ export default function SalesInvoiceDetailPage() {
               <div className="mt-5 border-t border-slate-200 pt-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-ink">SDK hash comparison</h3>
-                    <p className="mt-1 text-xs text-steel">Read-only comparison against the official SDK generateHash command. Metadata, ICV, and EGS last hash are not updated.</p>
+                    <h3 className="text-sm font-semibold text-ink">{tc("SDK hash comparison")}</h3>
+                    <p className="mt-1 text-xs text-steel">{tc("Read-only comparison against the official SDK generateHash command. Metadata, ICV, and EGS last hash are not updated.")}</p>
                   </div>
                   <span className={`rounded-md px-2 py-1 text-xs font-medium ${hashComparison.hashComparisonStatus === "MATCH" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {zatcaHashComparisonLabel(hashComparison.hashComparisonStatus)}
+                    {tc(zatcaHashComparisonLabel(hashComparison.hashComparisonStatus))}
                   </span>
                 </div>
-                <p className="mt-3 text-xs text-amber-700">Local-only, no mutation, no signing, no clearance/reporting, and no production compliance claim.</p>
+                <p className="mt-3 text-xs text-amber-700">{tc("Local-only, no mutation, no signing, no clearance/reporting, and no production compliance claim.")}</p>
                 {shouldShowZatcaHashMismatchWarning(hashComparison) ? (
                   <p className="mt-2 text-xs text-rosewood">
-                    {hashComparison.egsHashMode === "SDK_GENERATED" || hashComparison.metadataHashModeSnapshot === "SDK_GENERATED"
+                    {tc(hashComparison.egsHashMode === "SDK_GENERATED" || hashComparison.metadataHashModeSnapshot === "SDK_GENERATED"
                       ? "Stored hash does not match current SDK hash; XML may have changed or metadata is stale."
-                      : "LedgerByte stores local deterministic hashes unless SDK hash mode is explicitly enabled on a fresh EGS unit."}
+                      : "LedgerByte stores local deterministic hashes unless SDK hash mode is explicitly enabled on a fresh EGS unit.")}
                   </p>
                 ) : null}
                 <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
-                  <Summary label="App hash" value={truncateHash(hashComparison.appHash)} />
-                  <Summary label="SDK hash" value={truncateHash(hashComparison.sdkHash)} />
-                  <Summary label="Stored hash" value={truncateHash(zatca?.invoiceHash)} />
-                  <Summary label="No mutation" value={hashComparison.noMutation ? "Yes" : "No"} />
-                  <Summary label="SDK exit code" value={hashComparison.sdkExitCode === null ? "-" : String(hashComparison.sdkExitCode)} />
-                  <Summary label="Hash mode" value={hashComparison.hashMode.mode.replaceAll("_", " ")} />
-                  <Summary label="EGS hash mode" value={zatcaHashModeLabel(hashComparison.egsHashMode)} />
-                  <Summary label="Metadata hash mode" value={zatcaHashModeLabel(hashComparison.metadataHashModeSnapshot)} />
-                  <Summary label="ICV" value={hashComparison.icv === null ? "-" : String(hashComparison.icv)} />
+                  <Summary label={tc("App hash")} value={ltrValue(truncateHash(hashComparison.appHash))} />
+                  <Summary label={tc("SDK hash")} value={ltrValue(truncateHash(hashComparison.sdkHash))} />
+                  <Summary label={tc("Stored hash")} value={ltrValue(truncateHash(zatca?.invoiceHash))} />
+                  <Summary label={tc("No mutation")} value={yesNo(hashComparison.noMutation)} />
+                  <Summary label={tc("SDK exit code")} value={hashComparison.sdkExitCode === null ? "-" : String(hashComparison.sdkExitCode)} />
+                  <Summary label={tc("Hash mode")} value={tc(hashComparison.hashMode.mode.replaceAll("_", " "))} />
+                  <Summary label={tc("EGS hash mode")} value={tc(zatcaHashModeLabel(hashComparison.egsHashMode))} />
+                  <Summary label={tc("Metadata hash mode")} value={tc(zatcaHashModeLabel(hashComparison.metadataHashModeSnapshot))} />
+                  <Summary label={tc("ICV")} value={hashComparison.icv === null ? "-" : String(hashComparison.icv)} />
                 </div>
                 {hashComparison.blockingReasons.length ? (
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-rosewood">
@@ -1350,16 +1362,15 @@ export default function SalesInvoiceDetailPage() {
 
             {qrPayload ? (
               <div className="mt-4 rounded-md bg-slate-50 p-3">
-                <div className="text-xs font-medium uppercase tracking-wide text-steel">Basic TLV QR payload</div>
-                <div className="mt-1 break-all font-mono text-xs text-ink">{qrPayload}</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Basic TLV QR payload")}</div>
+                <div className="mt-1 break-all font-mono text-xs text-ink"><bdi dir="ltr">{qrPayload}</bdi></div>
               </div>
             ) : null}
-          </LedgerPanel>
+          </div>
           ) : null}
         </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -1380,78 +1391,94 @@ export function InvoiceWorkflowGuidance({
   onFinalize: () => void;
   onDownloadPdf: () => void;
 }) {
+  const { locale, tc } = useAppLocale();
   const paymentState = deriveInvoicePaymentState(invoice.total, invoice.balanceDue);
-  const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? "this customer";
+  const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? tc("this customer");
   const hasBalanceDue = paymentState !== "Paid";
-  const statusLabel = salesInvoiceStatusLabel(invoice.status);
+  const statusLabel = tc(salesInvoiceStatusLabel(invoice.status));
   const invoiceDetailHref = salesInvoiceDetailHref(invoice.id, returnTo);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <LedgerSection title="What happened?" description={invoiceOutcomeDescription(invoice, paymentState)}>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="text-sm leading-6 text-steel">Invoice workflow summary</div>
+          <div>
+            <h2 className="text-base font-semibold text-ink">{tc("What happened?")}</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{tc(invoiceOutcomeDescription(invoice, paymentState))}</p>
+          </div>
           <div className="flex flex-wrap gap-2">
-            <LedgerStatusBadge tone={salesInvoiceStatusTone(invoice.status)}>{statusLabel}</LedgerStatusBadge>
+            <span className={`rounded-md px-2 py-1 text-xs font-semibold ${salesInvoiceStatusBadgeClass(invoice.status)}`}>
+              {statusLabel}
+            </span>
             {invoice.status === "FINALIZED" ? (
-              <LedgerStatusBadge tone={invoicePaymentStateTone(paymentState)}>{paymentState}</LedgerStatusBadge>
+              <span className={`rounded-md px-2 py-1 text-xs font-semibold ${invoicePaymentStateBadgeClass(paymentState)}`}>
+                {tc(paymentState)}
+              </span>
             ) : null}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-          <Summary label="Customer" value={customerName} />
-          <Summary label="Balance due" value={formatMoneyAmount(invoice.balanceDue, invoice.currency)} />
-          <Summary label="Journal" value={invoice.journalEntry ? `${invoice.journalEntry.entryNumber} posted` : "Not posted yet"} />
+          <Summary label={tc("Customer")} value={customerName} />
+          <Summary label={tc("Balance due")} value={formatAppMoney(invoice.balanceDue, invoice.currency, locale)} />
+          <Summary label={tc("Journal")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> {tc("posted")}</> : tc("Not posted yet")} />
         </div>
-      </LedgerSection>
+      </div>
 
-      <LedgerSection title="Next actions" description={invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment)}>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Next actions")}</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{tc(invoiceNextActionDescription(invoice, paymentState, canCreateCustomerPayment))}</p>
         <div className="mt-4 flex flex-col gap-2">
           {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-            <LedgerButton
+            <button
+              type="button"
               onClick={onFinalize}
               disabled={actionLoading}
-              variant="primary"
+              className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              Finalize invoice
-            </LedgerButton>
+              {tc("Finalize invoice")}
+            </button>
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
-            <LedgerButton href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`} variant="primary">
-              Record payment
-            </LedgerButton>
+            <Link
+              href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              {tc("Record payment")}
+            </Link>
           ) : null}
-          <LedgerButton
+          <button
+            type="button"
             onClick={onDownloadPdf}
             disabled={actionLoading}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Download invoice PDF
-          </LedgerButton>
+            {tc("Download invoice PDF")}
+          </button>
           {invoice.customerId ? (
-            <LedgerButton href={`/customers/${invoice.customerId}`}>
-              View customer ledger
-            </LedgerButton>
+            <Link href={`/customers/${invoice.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("View customer ledger")}
+            </Link>
           ) : null}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <LedgerButton href="/reports/profit-and-loss">
-              View report
-            </LedgerButton>
-            <LedgerButton href="/dashboard">
-              Dashboard
-            </LedgerButton>
+            <Link href="/reports/profit-and-loss" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("View report")}
+            </Link>
+            <Link href="/dashboard" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Dashboard")}
+            </Link>
           </div>
         </div>
         {invoice.status === "DRAFT" && !canFinalizeInvoice ? (
-          <p className="mt-3 text-xs leading-5 text-steel">You need invoice finalization permission before this draft can be posted.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">{tc("You need invoice finalization permission before this draft can be posted.")}</p>
         ) : null}
         {invoice.status === "FINALIZED" && hasBalanceDue && !canCreateCustomerPayment ? (
-          <p className="mt-3 text-xs leading-5 text-steel">You need customer payment permission to record money against this invoice.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">{tc("You need customer payment permission to record money against this invoice.")}</p>
         ) : null}
         {invoice.status === "VOIDED" ? (
-          <p className="mt-3 text-xs leading-5 text-steel">Voided invoices are closed for payment. Review the reversal journal details below if present.</p>
+          <p className="mt-3 text-xs leading-5 text-steel">{tc("Voided invoices are closed for payment. Review the reversal journal details below if present.")}</p>
         ) : null}
         <SourceDocumentGuidance className="mt-4" />
-      </LedgerSection>
+      </div>
     </div>
   );
 }
@@ -1472,25 +1499,25 @@ function salesInvoiceStatusLabel(status: SalesInvoice["status"]): string {
   }
 }
 
-function salesInvoiceStatusTone(status: SalesInvoice["status"]): "draft" | "success" | "danger" {
+function salesInvoiceStatusBadgeClass(status: SalesInvoice["status"]): string {
   switch (status) {
     case "DRAFT":
-      return "draft";
+      return "bg-slate-100 text-slate-700";
     case "FINALIZED":
-      return "success";
+      return "bg-emerald-50 text-emerald-700";
     case "VOIDED":
-      return "danger";
+      return "bg-rose-50 text-rosewood";
   }
 }
 
-function invoicePaymentStateTone(paymentState: ReturnType<typeof deriveInvoicePaymentState>): "neutral" | "success" | "warning" {
+function invoicePaymentStateBadgeClass(paymentState: ReturnType<typeof deriveInvoicePaymentState>): string {
   switch (paymentState) {
     case "Paid":
-      return "success";
+      return "bg-emerald-50 text-emerald-700";
     case "Partially paid":
-      return "warning";
+      return "bg-amber-50 text-amber-700";
     case "Unpaid":
-      return "neutral";
+      return "bg-slate-100 text-slate-700";
   }
 }
 
@@ -1556,85 +1583,88 @@ function RelatedCollectionCasesPanel({
   canCreateCollectionCase: boolean;
   returnTo?: string;
 }) {
+  const { locale, tc } = useAppLocale();
   const hasOpenCase = collectionCases.some((collectionCase) => !["PAID", "CLOSED", "CANCELLED"].includes(collectionCase.status));
   const canCreateFromInvoice = invoice.status === "FINALIZED" && Number(invoice.balanceDue) > 0 && canCreateCollectionCase && !hasOpenCase;
   const createHref = `/sales/collections/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(salesInvoiceDetailHref(invoice.id, returnTo))}`;
 
   return (
-    <LedgerSection
-      title="Related collection cases"
-      description={collectionsSafeWording}
-      action={
-        canCreateFromInvoice ? (
-          <LedgerButton href={createHref}>
-            Create collection case
-          </LedgerButton>
-        ) : null
-      }
-    >
-      {loading ? <div className="mt-3"><StatusMessage type="loading">Loading collection cases...</StatusMessage></div> : null}
-      {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">No collection case is linked to this invoice.</p> : null}
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-ink">{tc("Related collection cases")}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc(collectionsSafeWording)}</p>
+        </div>
+        {canCreateFromInvoice ? (
+          <Link href={createHref} className="self-start rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Create collection case")}
+          </Link>
+        ) : null}
+      </div>
+      {loading ? <div className="mt-3"><StatusMessage type="loading">{tc("Loading collection cases...")}</StatusMessage></div> : null}
+      {!loading && collectionCases.length === 0 ? <p className="mt-3 text-sm text-steel">{tc("No collection case is linked to this invoice.")}</p> : null}
       {collectionCases.length > 0 ? (
-        <div className="mt-4">
-          <LedgerDataTable minWidth="760px">
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-3 py-2">Case</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Priority</th>
-                <th className="px-3 py-2">Next follow-up</th>
-                <th className="px-3 py-2">Promise</th>
-                <th className="px-3 py-2">Latest activity</th>
-                <th className="px-3 py-2">Action</th>
+                <th className="px-3 py-2">{tc("Case")}</th>
+                <th className="px-3 py-2">{tc("Status")}</th>
+                <th className="px-3 py-2">{tc("Priority")}</th>
+                <th className="px-3 py-2">{tc("Next follow-up")}</th>
+                <th className="px-3 py-2">{tc("Promise")}</th>
+                <th className="px-3 py-2">{tc("Latest activity")}</th>
+                <th className="px-3 py-2">{tc("Action")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {collectionCases.map((collectionCase) => (
                 <tr key={collectionCase.id}>
                   <td className="px-3 py-2 font-mono text-xs">
-                    <Link href={`/sales/collections/${collectionCase.id}`} className="text-palm hover:text-teal-800">{collectionCase.caseNumber}</Link>
+                    <Link href={`/sales/collections/${collectionCase.id}`} className="text-palm hover:text-teal-800"><bdi dir="ltr">{collectionCase.caseNumber}</bdi></Link>
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{collectionStatusLabel(collectionCase.status)}</span>
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${collectionStatusBadgeClass(collectionCase.status)}`}>{tc(collectionStatusLabel(collectionCase.status))}</span>
                   </td>
-                  <td className="px-3 py-2 text-steel">{collectionCase.priority}</td>
-                  <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, "-")}</LedgerDate></td>
-                  <td className="px-3 py-2 text-steel">{formatOptionalDate(collectionCase.promisedPaymentDate, "-")} {collectionCase.promisedAmount ? `/ ${formatMoneyAmount(collectionCase.promisedAmount, invoice.currency)}` : ""}</td>
-                  <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? collectionActivityTypeLabel(collectionCase.activities[0].activityType) : "-"}</td>
+                  <td className="px-3 py-2 text-steel">{tc(collectionCase.priority)}</td>
+                  <td className="px-3 py-2 text-steel">{formatAppDate(collectionCase.nextActionAt ?? collectionCase.followUpDate, locale, "-")}</td>
+                  <td className="px-3 py-2 text-steel">{formatAppDate(collectionCase.promisedPaymentDate, locale, "-")} {collectionCase.promisedAmount ? `/ ${formatAppMoney(collectionCase.promisedAmount, invoice.currency, locale)}` : ""}</td>
+                  <td className="px-3 py-2 text-steel">{collectionCase.activities?.[0] ? tc(collectionActivityTypeLabel(collectionCase.activities[0].activityType)) : "-"}</td>
                   <td className="px-3 py-2">
-                    <LedgerButton href={`/sales/collections/${collectionCase.id}`} size="sm">
-                      Open
-                    </LedgerButton>
+                    <Link href={`/sales/collections/${collectionCase.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      {tc("Open")}
+                    </Link>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
+          </table>
         </div>
       ) : null}
-    </LedgerSection>
+    </div>
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-md bg-mist px-3 py-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</div>
-      <div className="mt-1 break-words text-sm font-medium text-ink">{value}</div>
+    <div>
+      <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
+      <div className="mt-1 break-words font-medium text-ink">{value}</div>
     </div>
   );
 }
 
 function InvoiceReadinessSectionCard({ title, section }: { title: string; section: ZatcaReadinessSection }) {
+  const { tc } = useAppLocale();
   const primaryCheck = section.checks.find((check) => check.severity === "ERROR") ?? section.checks.find((check) => check.severity === "WARNING") ?? section.checks[0];
 
   return (
-    <LedgerPanel className="p-3 shadow-none">
+    <div className="rounded-md border border-slate-200 bg-white p-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-steel">{title}</span>
-        <LedgerStatusBadge tone={section.status === "READY" ? "success" : section.status === "BLOCKED" ? "danger" : "warning"}>
-          {zatcaReadinessStatusLabel(section.status)}
-        </LedgerStatusBadge>
+        <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc(title)}</span>
+        <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${zatcaReadinessStatusBadgeClass(section.status)}`}>
+          {tc(zatcaReadinessStatusLabel(section.status))}
+        </span>
       </div>
       {primaryCheck ? (
         <div className="mt-2 text-xs text-steel">
@@ -1643,44 +1673,49 @@ function InvoiceReadinessSectionCard({ title, section }: { title: string; sectio
           {primaryCheck.sourceRule ? <div className="mt-1 text-slate-500">{primaryCheck.sourceRule}</div> : null}
         </div>
       ) : (
-        <p className="mt-2 text-xs text-emerald-700">No readiness issues detected.</p>
+        <p className="mt-2 text-xs text-emerald-700">{tc("No readiness issues detected.")}</p>
       )}
-    </LedgerPanel>
+    </div>
   );
 }
 
 function StockIssueStatusPanel({ status }: { status: SalesInvoiceStockIssueStatus }) {
+  const { tc } = useAppLocale();
+
   return (
-    <LedgerSection
-      title="Stock issue status"
-      description="Operational stock issue progress for inventory-tracked invoice lines."
-      action={
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">{tc("Stock issue status")}</h2>
+          <p className="mt-1 text-sm text-steel">{tc("Operational stock issue progress for inventory-tracked invoice lines.")}</p>
+        </div>
         <span className={`rounded-md px-2 py-1 text-xs font-medium ${inventoryProgressStatusBadgeClass(status.status)}`}>
-          {inventoryProgressStatusLabel(status.status)}
+          {tc(inventoryProgressStatusLabel(status.status))}
         </span>
-      }
-    >
-      <LedgerDataTable minWidth="640px">
+      </div>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-start text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
-              <th className="px-3 py-2">Item</th>
-              <th className="px-3 py-2 text-right">Invoiced</th>
-              <th className="px-3 py-2 text-right">Issued</th>
-              <th className="px-3 py-2 text-right">Remaining</th>
+              <th className="px-3 py-2">{tc("Item")}</th>
+              <th className="px-3 py-2 text-end">{tc("Invoiced")}</th>
+              <th className="px-3 py-2 text-end">{tc("Issued")}</th>
+              <th className="px-3 py-2 text-end">{tc("Remaining")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {status.lines.map((line) => (
               <tr key={line.lineId}>
-                <td className="px-3 py-2">{line.item ? `${line.item.name}${line.item.sku ? ` (${line.item.sku})` : ""}` : line.lineId}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.invoicedQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.issuedQuantity)}</td>
-                <td className="px-3 py-2 text-right font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
+                <td className="px-3 py-2">{line.item ? <>{line.item.name}{line.item.sku ? <> (<bdi dir="ltr">{line.item.sku}</bdi>)</> : ""}</> : <bdi dir="ltr">{line.lineId}</bdi>}</td>
+                <td className="px-3 py-2 text-end font-mono text-xs">{formatInventoryQuantity(line.invoicedQuantity)}</td>
+                <td className="px-3 py-2 text-end font-mono text-xs">{formatInventoryQuantity(line.issuedQuantity)}</td>
+                <td className="px-3 py-2 text-end font-mono text-xs">{formatInventoryQuantity(line.remainingQuantity)}</td>
               </tr>
             ))}
           </tbody>
-      </LedgerDataTable>
-    </LedgerSection>
+        </table>
+      </div>
+    </div>
   );
 }
 
