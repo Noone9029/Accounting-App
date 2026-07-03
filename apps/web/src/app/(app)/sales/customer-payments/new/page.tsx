@@ -1,36 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerSection,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
-import { customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { calculatePaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
+import { calculatePaymentAllocationPreview, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
 
@@ -43,22 +23,10 @@ function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function allocationStateTone(state: CustomerPaymentAllocationState): LedgerStatusTone {
-  switch (state) {
-    case "FULLY_APPLIED":
-      return "success";
-    case "PARTIALLY_UNAPPLIED":
-      return "warning";
-    case "NO_ALLOCATIONS":
-      return "neutral";
-    default:
-      return "neutral";
-  }
-}
-
 export default function NewCustomerPaymentPage() {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
@@ -140,7 +108,7 @@ export default function NewCustomerPaymentPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load payment setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load payment setup data."));
         }
       })
       .finally(() => {
@@ -152,7 +120,7 @@ export default function NewCustomerPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, tc]);
 
   useEffect(() => {
     if (!organizationId || !customerId) {
@@ -187,7 +155,7 @@ export default function NewCustomerPaymentPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load open invoices.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load open invoices."));
         }
       })
       .finally(() => {
@@ -199,7 +167,7 @@ export default function NewCustomerPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [customerId, organizationId, prefilledInvoiceId]);
+  }, [customerId, organizationId, prefilledInvoiceId, tc]);
 
   function updateAllocation(invoiceId: string, amountApplied: string) {
     setAllocations((current) => current.map((allocation) => (allocation.invoiceId === invoiceId ? { ...allocation, amountApplied } : allocation)));
@@ -217,7 +185,7 @@ export default function NewCustomerPaymentPage() {
     setError("");
 
     const allocationsToSubmit = allocations.filter((allocation) => parseDecimalToUnits(allocation.amountApplied) > 0);
-    const validationError = getValidationError(customerId, accountId, amountReceived, allocationsToSubmit, openInvoices);
+    const validationError = getValidationError(customerId, accountId, amountReceived, allocationsToSubmit, openInvoices, tc);
     if (validationError) {
       setError(validationError);
       return;
@@ -239,180 +207,175 @@ export default function NewCustomerPaymentPage() {
       });
       router.push(returnTo || `/sales/customer-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to record customer payment.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to record customer payment."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Record customer payment"
-        description="Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop."
-        actions={
-          <>
-          <LedgerButton href="/setup">
-            Guided setup
-          </LedgerButton>
-          <LedgerButton href={returnTo || "/sales/customer-payments"} icon={ArrowLeft}>
-            Back
-          </LedgerButton>
-          </>
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Record customer payment")}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">
+            {tc("Allocate received money to finalized open invoices. If this is your first workflow, finalize an invoice first, then come back here to close the receivables loop.")}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/setup" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Guided setup")}
+          </Link>
+          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to record payments.</StatusMessage> : null}
-        {loadingSetup ? <StatusMessage type="loading">Loading payment setup data...</StatusMessage> : null}
-        {loadingInvoices ? <StatusMessage type="loading">Loading open invoices...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to record payments.")}</StatusMessage> : null}
+        {loadingSetup ? <StatusMessage type="loading">{tc("Loading payment setup data...")}</StatusMessage> : null}
+        {loadingInvoices ? <StatusMessage type="loading">{tc("Loading open invoices...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loadingSetup && organizationId && customers.length === 0 ? (
           <StatusMessage type="empty">
-            Add a customer and create a finalized invoice before recording the first payment.{" "}
+            {tc("Add a customer and create a finalized invoice before recording the first payment.")}{" "}
             <Link href="/customers" className="font-semibold text-palm hover:underline">
-              Open customers
+              {tc("Open customers")}
             </Link>
             .
           </StatusMessage>
         ) : null}
         {!loadingSetup && organizationId && paidThroughAccounts.length === 0 ? (
           <StatusMessage type="empty">
-            Add an active cash or bank posting account before recording payment.{" "}
+            {tc("Add an active cash or bank posting account before recording payment.")}{" "}
             <Link href="/bank-accounts" className="font-semibold text-palm hover:underline">
-              Open bank accounts
+              {tc("Open bank accounts")}
             </Link>
             .
           </StatusMessage>
         ) : null}
-        </div>
+      </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-5">
-          <LedgerFormSection title="Payment details" description="Choose the customer, payment date, amount, and paid-through account.">
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Customer</LedgerFieldText>
-              <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-                <option value="">Select customer</option>
+      <form onSubmit={onSubmit} className="mt-5 space-y-5">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select customer")}</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.displayName ?? customer.name}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Payment date</LedgerFieldText>
-              <LedgerInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Amount received</LedgerFieldText>
-              <LedgerInput inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="font-mono tabular-nums" />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Paid-through account</LedgerFieldText>
-              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
-                <option value="">Select cash or bank account</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Payment date")}</span>
+              <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Amount received")}</span>
+              <input inputMode="decimal" value={amountReceived} onChange={(event) => setAmountReceived(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Paid-through account")}</span>
+              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select cash or bank account")}</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Description</LedgerFieldText>
-              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
-            </LedgerFieldLabel>
-          </LedgerFormSection>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
+              <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+          </div>
+        </div>
 
-          <LedgerSection title="Invoice allocation" description="Apply this payment only to finalized open invoices for the selected customer.">
-            <LedgerDataTable minWidth="880px" className="shadow-none">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-4 py-3">Invoice</th>
-                  <th className="px-4 py-3">Issue date</th>
-                  <th className="px-4 py-3">Due date</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Balance due</th>
-                  <th className="px-4 py-3">Amount to apply</th>
-                  <th className="px-4 py-3">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {openInvoices.map((invoice) => {
-                  const allocation = allocations.find((candidate) => candidate.invoiceId === invoice.id);
-                  return (
-                    <tr key={invoice.id}>
-                      <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
-                      <td className="px-4 py-3"><LedgerDate>{new Date(invoice.issueDate).toLocaleDateString()}</LedgerDate></td>
-                      <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(invoice.dueDate)}</LedgerDate></td>
-                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></td>
-                      <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></td>
-                      <td className="px-4 py-3">
-                        <LedgerInput
-                          inputMode="decimal"
-                          value={allocation?.amountApplied ?? "0.0000"}
-                          onChange={(event) => updateAllocation(invoice.id, event.target.value)}
-                          className="w-36 font-mono text-xs tabular-nums"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <LedgerButton type="button" size="sm" onClick={() => applyFullBalance(invoice)}>
-                          Apply balance
-                        </LedgerButton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </LedgerDataTable>
+        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[880px] text-start text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="px-4 py-3">{tc("Invoice")}</th>
+                <th className="px-4 py-3">{tc("Issue date")}</th>
+                <th className="px-4 py-3">{tc("Due date")}</th>
+                <th className="px-4 py-3">{tc("Total")}</th>
+                <th className="px-4 py-3">{tc("Balance due")}</th>
+                <th className="px-4 py-3">{tc("Amount to apply")}</th>
+                <th className="px-4 py-3">{tc("Action")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {openInvoices.map((invoice) => {
+                const allocation = allocations.find((candidate) => candidate.invoiceId === invoice.id);
+                return (
+                  <tr key={invoice.id}>
+                    <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{invoice.invoiceNumber}</bdi></td>
+                    <td className="px-4 py-3 text-steel">{formatAppDate(invoice.issueDate, locale, "-")}</td>
+                    <td className="px-4 py-3 text-steel">{formatAppDate(invoice.dueDate, locale, "-")}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.total, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.balanceDue, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3">
+                      <input
+                        inputMode="decimal"
+                        value={allocation?.amountApplied ?? "0.0000"}
+                        onChange={(event) => updateAllocation(invoice.id, event.target.value)}
+                        className="w-36 rounded-md border border-slate-300 px-2 py-2 font-mono text-xs outline-none focus:border-palm"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <button type="button" onClick={() => applyFullBalance(invoice)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("Apply balance")}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
           {!loadingInvoices && customerId && openInvoices.length === 0 ? (
             <div className="px-4 py-5">
               <StatusMessage type="empty">
-                No finalized open invoices found for this customer.{" "}
-                <Link href={createInvoiceHref} className="font-semibold text-primary hover:underline">
-                  Create and finalize an invoice
+                {tc("No finalized open invoices found for this customer.")}{" "}
+                <Link href={createInvoiceHref} className="font-semibold text-palm hover:underline">
+                  {tc("Create and finalize an invoice")}
                 </Link>
-                {" "}before recording payment.
+                {" "}{tc("before recording payment.")}
               </StatusMessage>
             </div>
           ) : null}
-          </LedgerSection>
+        </div>
 
-          <LedgerSummaryBand>
-            <dl className="ml-auto grid max-w-sm grid-cols-2 gap-2 text-sm">
-              <dt>Amount received</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.amountReceived)}</LedgerMoney></dd>
-              <dt>Allocated</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.totalAllocated)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Unapplied</dt>
-              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(preview.unappliedAmount)}</LedgerMoney></dd>
-              <dt>Allocation state</dt>
-              <dd className="text-right">
-                <LedgerStatusBadge tone={allocationStateTone(previewAllocationState)}>
-                  {customerPaymentAllocationStateLabel(previewAllocationState)}
-                </LedgerStatusBadge>
-              </dd>
-            </dl>
-          </LedgerSummaryBand>
+        <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ms-auto">
+          <span className="text-steel">{tc("Amount received")}</span>
+          <span className="text-end font-mono">{formatAppMoney(preview.amountReceived, "SAR", locale)}</span>
+          <span className="text-steel">{tc("Allocated")}</span>
+          <span className="text-end font-mono">{formatAppMoney(preview.totalAllocated, "SAR", locale)}</span>
+          <span className="font-semibold text-ink">{tc("Unapplied")}</span>
+          <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(preview.unappliedAmount, "SAR", locale)}</span>
+          <span className="text-steel">{tc("Allocation state")}</span>
+          <span className="text-end">
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(previewAllocationState)}`}>
+              {tc(customerPaymentAllocationStateLabel(previewAllocationState))}
+            </span>
+          </span>
+        </div>
 
-          <LedgerAlert tone="info">
-            Customer payments post only through this explicit record action. No payment provider, bank feed, or automatic reconciliation is called from this form.
-          </LedgerAlert>
-
-        <LedgerActionBar>
-          <LedgerButton type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} variant="primary" icon={Save}>
-            {submitting ? "Recording..." : "Record payment"}
-          </LedgerButton>
-          <LedgerButton href={returnTo || "/sales/customer-payments"}>
-            Cancel
-          </LedgerButton>
-        </LedgerActionBar>
-        </form>
-      </LedgerPageBody>
-    </LedgerPage>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            {submitting ? tc("Recording...") : tc("Record payment")}
+          </button>
+          <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Cancel")}
+          </Link>
+        </div>
+      </form>
+    </section>
   );
 }
 
@@ -423,36 +386,43 @@ function paymentAllocationPreviewState(totalAllocated: string, unappliedAmount: 
   return parseDecimalToUnits(unappliedAmount) > 0 ? "PARTIALLY_UNAPPLIED" : "FULLY_APPLIED";
 }
 
-function getValidationError(customerId: string, accountId: string, amountReceived: string, allocations: AllocationState[], openInvoices: OpenSalesInvoice[]): string {
+function getValidationError(
+  customerId: string,
+  accountId: string,
+  amountReceived: string,
+  allocations: AllocationState[],
+  openInvoices: OpenSalesInvoice[],
+  tc: (value: string, params?: Record<string, string | number>) => string,
+): string {
   if (!customerId) {
-    return "Choose a customer.";
+    return tc("Choose a customer.");
   }
 
   if (!accountId) {
-    return "Choose a paid-through account.";
+    return tc("Choose a paid-through account.");
   }
 
   if (parseDecimalToUnits(amountReceived) <= 0) {
-    return "Amount received must be greater than zero.";
+    return tc("Amount received must be greater than zero.");
   }
 
   if (allocations.length === 0) {
-    return "Apply the payment to at least one open invoice.";
+    return tc("Apply the payment to at least one open invoice.");
   }
 
   const totalAllocated = allocations.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0);
   if (totalAllocated > parseDecimalToUnits(amountReceived)) {
-    return "Total allocated cannot exceed amount received.";
+    return tc("Total allocated cannot exceed amount received.");
   }
 
   for (const allocation of allocations) {
     const invoice = openInvoices.find((candidate) => candidate.id === allocation.invoiceId);
     const amountApplied = parseDecimalToUnits(allocation.amountApplied);
     if (amountApplied <= 0) {
-      return "Allocation amounts must be greater than zero.";
+      return tc("Allocation amounts must be greater than zero.");
     }
     if (!invoice || amountApplied > parseDecimalToUnits(invoice.balanceDue)) {
-      return "Allocation amount cannot exceed invoice balance due.";
+      return tc("Allocation amount cannot exceed invoice balance due.");
     }
   }
 

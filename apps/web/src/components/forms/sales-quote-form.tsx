@@ -2,25 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PlusIcon, SaveIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { formatAppMoney } from "@/lib/app-i18n";
+import { calculateInvoicePreview } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, AccountType, Branch, Contact, Item, SalesInvoiceTaxMode, SalesQuote, TaxRate } from "@/lib/types";
 
@@ -75,6 +63,7 @@ function optionalDateInputValue(value?: string | null): string {
 export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQuoteFormProps) {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -124,20 +113,15 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (initialQuote || initialCustomerId || typeof window === "undefined") {
       return;
     }
-
-    setReturnTo(safeReturnToFromSearch(window.location.search));
-    if (initialQuote || initialCustomerId) {
-      return;
-    }
-
     const query = new URLSearchParams(window.location.search);
     const queryCustomerId = query.get("customerId") ?? "";
     if (queryCustomerId) {
       setCustomerId(queryCustomerId);
     }
+    setReturnTo(safeReturnToFromSearch(window.location.search));
   }, [initialCustomerId, initialQuote]);
 
   useEffect(() => {
@@ -170,7 +154,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load quote setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load quote setup data."));
         }
       })
       .finally(() => {
@@ -182,7 +166,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
     return () => {
       cancelled = true;
     };
-  }, [initialQuote, organizationId]);
+  }, [initialQuote, organizationId, tc]);
 
   function updateLine(lineId: string, patch: Partial<QuoteLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -219,7 +203,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
     event.preventDefault();
     setError("");
 
-    const validationError = getValidationError(customerId, lines, preview.valid);
+    const validationError = getValidationError(customerId, lines, preview.valid, tc);
     if (validationError) {
       setError(validationError);
       return;
@@ -255,7 +239,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
 
       router.push(returnTo || `/sales/quotes/${quote.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to save sales quote.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to save sales quote."));
     } finally {
       setSubmitting(false);
     }
@@ -264,207 +248,173 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
   if (initialQuote && initialQuote.status !== "DRAFT") {
     return (
       <div className="space-y-4">
-        <StatusMessage type="error">Only draft sales quotes can be edited.</StatusMessage>
-        <LedgerButton href={`/sales/quotes/${initialQuote.id}`}>
-          Back to quote
-        </LedgerButton>
+        <StatusMessage type="error">{tc("Only draft sales quotes can be edited.")}</StatusMessage>
+        <Link href={`/sales/quotes/${initialQuote.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back to quote")}
+        </Link>
       </div>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <LedgerSummaryBand tone="info">Sales quotes are non-posting. They do not create journals, AR balances, VAT filing, email delivery, ZATCA submission, payment, inventory movement, or customer statement balances until converted and finalized as a sales invoice.</LedgerSummaryBand>
+      <StatusMessage type="info">{tc("Sales quotes are non-posting. They do not create journals, AR balances, VAT filing, email delivery, ZATCA submission, payment, inventory movement, or customer statement balances until converted and finalized as a sales invoice.")}</StatusMessage>
 
-      <LedgerSection title="Quote details" description="Draft quote fields stay non-posting until an accepted quote is converted into a draft invoice.">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <LedgerFieldLabel className="md:col-span-2">
-            <LedgerFieldText>Customer</LedgerFieldText>
-            <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-              <option value="">Select customer</option>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("Select customer")}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.displayName ?? customer.name}
                 </option>
               ))}
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Quote number</LedgerFieldText>
-            <LedgerInput
-              value={initialQuote?.quoteNumber ?? quoteNumberPreview?.quoteNumber ?? "From sequence"}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Quote number")}</span>
+            <input
+              value={initialQuote?.quoteNumber ?? quoteNumberPreview?.quoteNumber ?? tc("From sequence")}
               readOnly
-              aria-label="Quote number"
-              className="bg-slate-50 text-steel"
+              aria-label={tc("Quote number")}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
             />
             <span className="mt-1 block text-xs leading-5 text-steel">
-              {initialQuote ? "Quote number assigned from the sequence." : (quoteNumberPreview?.helperText ?? "Assigned from the sales quote sequence when saved.")}
+              {initialQuote ? tc("Quote number assigned from the sequence.") : tc(quoteNumberPreview?.helperText ?? "Assigned from the sales quote sequence when saved.")}
             </span>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Tax mode</LedgerFieldText>
-            <LedgerSelect value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)}>
-              <option value="TAX_EXCLUSIVE">Tax exclusive</option>
-              <option value="TAX_INCLUSIVE">Tax inclusive</option>
-              <option value="NO_TAX">No tax</option>
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Issue date</LedgerFieldText>
-            <LedgerInput type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Expiry date</LedgerFieldText>
-            <LedgerInput type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Reference</LedgerFieldText>
-            <LedgerInput value={reference} onChange={(event) => setReference(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Branch</LedgerFieldText>
-            <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-              <option value="">No branch</option>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Tax mode")}</span>
+            <select value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="TAX_EXCLUSIVE">{tc("Tax exclusive")}</option>
+              <option value="TAX_INCLUSIVE">{tc("Tax inclusive")}</option>
+              <option value="NO_TAX">{tc("No tax")}</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
+            <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Expiry date")}</span>
+            <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Reference")}</span>
+            <input value={reference} onChange={(event) => setReference(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No branch")}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.displayName ?? branch.name}
                 </option>
               ))}
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel className="md:col-span-2">
-            <LedgerFieldText>Notes</LedgerFieldText>
-            <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel className="md:col-span-2">
-            <LedgerFieldText>Terms</LedgerFieldText>
-            <LedgerInput value={terms} onChange={(event) => setTerms(event.target.value)} />
-          </LedgerFieldLabel>
+            </select>
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Notes")}</span>
+            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Terms")}</span>
+            <input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
         </div>
-      </LedgerSection>
+      </div>
 
       <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating sales quotes.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading quote setup data...</StatusMessage> : null}
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating sales quotes.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading quote setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-        {!loading && organizationId && customers.length === 0 ? (
-          <StatusMessage type="empty">
-            Add a customer before creating the first quote.{" "}
-            <Link href="/customers" className="font-semibold text-palm hover:underline">
-              Open customers
-            </Link>
-            .
-          </StatusMessage>
-        ) : null}
         {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
           <StatusMessage type="empty">
-            Add or activate a posting revenue account before saving quote lines.{" "}
+            {tc("Add or activate a posting revenue account before saving quote lines.")}{" "}
             <Link href="/accounts" className="font-semibold text-palm hover:underline">
-              Open accounts
+              {tc("Open accounts")}
             </Link>
             .
           </StatusMessage>
         ) : null}
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <LedgerSection title="Quote line items" description="Quote lines use the same account coding and tax preview behavior as invoice drafts, without posting." className="min-w-0">
-          <LedgerDataTable minWidth="1240px">
-            <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-3 py-2">Item</th>
-                <th className="px-3 py-2">Description</th>
-                <th className="px-3 py-2">Revenue account</th>
-                <th className="px-3 py-2">Qty</th>
-                <th className="px-3 py-2">Price</th>
-                <th className="px-3 py-2">Discount %</th>
-                <th className="px-3 py-2">Tax</th>
-                <th className="px-3 py-2">Total</th>
-                <th className="px-3 py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {lines.map((line, index) => {
-                const previewLine = preview.lines[index];
-                return (
-                  <tr key={line.id}>
-                    <td className="px-3 py-2">
-                      <LedgerSelect aria-label={`Item for quote line ${index + 1}`} value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)}>
-                        <option value="">No item</option>
-                        {activeItems.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.sku ? `${item.sku} - ${item.name}` : item.name}
-                          </option>
-                        ))}
-                      </LedgerSelect>
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput aria-label={`Description for quote line ${index + 1}`} value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required />
-                    </td>
-                    <td className="px-3 py-2">
-                      <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput aria-label={`Quantity for quote line ${index + 1}`} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput aria-label={`Price for quote line ${index + 1}`} inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerInput aria-label={`Discount rate for quote line ${index + 1}`} inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerSelect aria-label={`Tax rate for quote line ${index + 1}`} value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"}>
-                        <option value="">{taxMode === "NO_TAX" ? "No tax mode" : "No tax"}</option>
-                        {taxMode === "NO_TAX"
-                          ? null
-                          : activeSalesTaxRates.map((taxRate) => (
-                              <option key={taxRate.id} value={taxRate.id}>
-                                {taxRate.name}
-                              </option>
-                            ))}
-                      </LedgerSelect>
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerMoney>{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits) : "SAR 0.00"}</LedgerMoney>
-                    </td>
-                    <td className="px-3 py-2">
-                      <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
-                        Remove
-                      </LedgerButton>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </LedgerDataTable>
-          <div className="mt-3">
-            <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={PlusIcon}>
-              Add line
-            </LedgerButton>
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <div className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
+          <div>{tc("Item")}</div>
+          <div>{tc("Description")}</div>
+          <div>{tc("Revenue account")}</div>
+          <div>{tc("Qty")}</div>
+          <div>{tc("Price")}</div>
+          <div>{tc("Discount %")}</div>
+          <div>{tc("Tax")}</div>
+          <div>{tc("Total")}</div>
+          <div></div>
+        </div>
+        {lines.map((line, index) => {
+          const previewLine = preview.lines[index];
+          return (
+            <div key={line.id} className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
+              <select aria-label={tc("Item for quote line {number}", { number: index + 1 })} value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
+                <option value="">{tc("No item")}</option>
+                {activeItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.sku ? `${item.sku} - ${item.name}` : item.name}
+                  </option>
+                ))}
+              </select>
+              <input aria-label={tc("Description for quote line {number}", { number: index + 1 })} value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
+              <input aria-label={tc("Quantity for quote line {number}", { number: index + 1 })} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <input aria-label={tc("Price for quote line {number}", { number: index + 1 })} inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <input aria-label={tc("Discount rate for quote line {number}", { number: index + 1 })} inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <select aria-label={tc("Tax rate for quote line {number}", { number: index + 1 })} value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"} className="rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">{taxMode === "NO_TAX" ? tc("No tax mode") : tc("No tax")}</option>
+                {taxMode === "NO_TAX"
+                  ? null
+                  : activeSalesTaxRates.map((taxRate) => (
+                      <option key={taxRate.id} value={taxRate.id}>
+                        {taxRate.name}
+                      </option>
+                    ))}
+              </select>
+              <div className="flex items-center font-mono text-xs text-ink">{formatAppMoney(previewLine?.lineTotalUnits ?? 0, "SAR", locale)}</div>
+              <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
+                {tc("Remove")}
+              </button>
+            </div>
+          );
+        })}
+        <div className="flex min-w-[1240px] items-center justify-between px-4 py-3 text-sm">
+          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Add line")}
+          </button>
+          <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
+            <span className="text-steel">{tc("Subtotal")}</span>
+            <span className="font-mono">{formatAppMoney(preview.subtotal, "SAR", locale)}</span>
+            <span className="text-steel">{tc("Discount")}</span>
+            <span className="font-mono">{formatAppMoney(preview.discountTotal, "SAR", locale)}</span>
+            <span className="text-steel">{tc("Taxable")}</span>
+            <span className="font-mono">{formatAppMoney(preview.taxableTotal, "SAR", locale)}</span>
+            <span className="text-steel">{tc("VAT")}</span>
+            <span className="font-mono">{formatAppMoney(preview.taxTotal, "SAR", locale)}</span>
+            <span className="font-semibold text-ink">{tc("Total")}</span>
+            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, "SAR", locale)}</span>
           </div>
-        </LedgerSection>
-
-        <LedgerPanel>
-          <h2 className="text-base font-semibold text-ink">Quote totals</h2>
-          <div className="mt-3 space-y-3">
-            <BalanceLine label="Subtotal" value={formatMoneyAmount(preview.subtotal)} />
-            <BalanceLine label="Discount" value={formatMoneyAmount(preview.discountTotal)} />
-            <BalanceLine label="Taxable" value={formatMoneyAmount(preview.taxableTotal)} />
-            <BalanceLine label="VAT" value={formatMoneyAmount(preview.taxTotal)} />
-            <BalanceLine label="Total" value={formatMoneyAmount(preview.total)} emphasized />
-          </div>
-        </LedgerPanel>
+        </div>
       </div>
 
-      <LedgerActionBar>
-        <LedgerButton type="submit" disabled={!organizationId || loading || submitting || !preview.valid} variant="primary" icon={SaveIcon}>
-          {submitting ? "Saving..." : initialQuote ? "Save draft quote" : "Create draft quote"}
-        </LedgerButton>
-        <LedgerButton href={returnTo || "/sales/quotes"}>
-          Cancel
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          {submitting ? tc("Saving...") : initialQuote ? tc("Save draft quote") : tc("Create draft quote")}
+        </button>
+        <Link href={returnTo || "/sales/quotes"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </Link>
+      </div>
     </form>
   );
 }
@@ -480,6 +430,7 @@ function AccountPicker({
   onChange: (accountId: string) => void;
   lineNumber: number;
 }) {
+  const { tc } = useAppLocale();
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const filteredAccounts = accounts.filter((account) => {
@@ -492,24 +443,24 @@ function AccountPicker({
 
   return (
     <div className="space-y-1">
-      <LedgerInput
+      <input
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        aria-label={`Search posting account for quote line ${lineNumber}`}
-        placeholder="Search accounts"
-        className="h-7 text-xs"
+        aria-label={tc("Search posting account for quote line {number}", { number: lineNumber })}
+        placeholder={tc("Search accounts")}
+        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-palm"
       />
-      <LedgerSelect
+      <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required
-        aria-label={`Posting account for quote line ${lineNumber}`}
-        className="h-8 px-2 py-1"
+        aria-label={tc("Posting account for quote line {number}", { number: lineNumber })}
+        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
       >
-        <option value="">Select account</option>
+        <option value="">{tc("Select account")}</option>
         {Object.entries(grouped).map(([type, group]) => (
-          <optgroup key={type} label={formatAccountType(type as AccountType)}>
+          <optgroup key={type} label={tc(formatAccountType(type as AccountType))}>
             {group.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.code} {account.name}
@@ -517,18 +468,7 @@ function AccountPicker({
             ))}
           </optgroup>
         ))}
-      </LedgerSelect>
-    </div>
-  );
-}
-
-function BalanceLine({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-sm text-steel">{label}</span>
-      <span className={emphasized ? "text-lg font-semibold text-ink" : "text-sm font-medium text-ink"}>
-        <LedgerMoney>{value}</LedgerMoney>
-      </span>
+      </select>
     </div>
   );
 }
@@ -548,20 +488,20 @@ function formatAccountType(type: AccountType): string {
     .join(" ");
 }
 
-function getValidationError(customerId: string, lines: QuoteLineState[], previewValid: boolean): string {
+function getValidationError(customerId: string, lines: QuoteLineState[], previewValid: boolean, tc: (value: string, params?: Record<string, string | number>) => string): string {
   if (!customerId) {
-    return "Choose a customer.";
+    return tc("Choose a customer.");
   }
 
   for (const [index, line] of lines.entries()) {
     if (!line.description.trim()) {
-      return `Line ${index + 1} needs a description.`;
+      return tc("Line {number} needs a description.", { number: index + 1 });
     }
 
     if (!line.accountId) {
-      return `Line ${index + 1} needs a revenue account.`;
+      return tc("Line {number} needs a revenue account.", { number: index + 1 });
     }
   }
 
-  return previewValid ? "" : "Quote lines need positive quantities, non-negative prices and tax, and discounts between 0% and 100%.";
+  return previewValid ? "" : tc("Quote lines need positive quantities, non-negative prices and tax, and discounts between 0% and 100%.");
 }

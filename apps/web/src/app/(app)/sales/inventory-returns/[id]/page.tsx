@@ -2,28 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Edit3, UserRound } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
+import { formatAppDateTime } from "@/lib/app-i18n";
 import { formatInventoryQuantity, stockMovementTypeLabel } from "@/lib/inventory";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -38,9 +23,10 @@ import {
   salesInventoryReturnMovementStatusLabel,
   salesInventoryReturnSourceHref,
   salesInventoryReturnSourceLabel,
+  salesInventoryReturnStatusBadgeClass,
   salesInventoryReturnStatusLabel,
 } from "@/lib/sales-inventory-returns";
-import type { SalesInventoryReturn, SalesInventoryReturnInventoryMovementPreview, SalesInventoryReturnInventoryMovementPreviewLine, SalesInventoryReturnLine, SalesInventoryReturnStatus } from "@/lib/types";
+import type { SalesInventoryReturn, SalesInventoryReturnInventoryMovementPreview, SalesInventoryReturnInventoryMovementPreviewLine, SalesInventoryReturnLine } from "@/lib/types";
 
 type SalesInventoryReturnAction = "submit" | "approve" | "receive" | "cancel" | "void";
 
@@ -48,6 +34,7 @@ export default function SalesInventoryReturnDetailPage() {
   const params = useParams<{ id: string }>();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [salesReturn, setSalesReturn] = useState<SalesInventoryReturn | null>(null);
   const [inventoryPreview, setInventoryPreview] = useState<SalesInventoryReturnInventoryMovementPreview | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,7 +57,7 @@ export default function SalesInventoryReturnDetailPage() {
         if (!cancelled) setSalesReturn(result);
       })
       .catch((loadError: unknown) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load sales inventory return.");
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales inventory return."));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -79,7 +66,7 @@ export default function SalesInventoryReturnDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   useEffect(() => {
     if (!organizationId || !params.id || !canViewInventory) {
@@ -103,7 +90,7 @@ export default function SalesInventoryReturnDetailPage() {
 
   async function runAction(action: SalesInventoryReturnAction) {
     if (!salesReturn) return;
-    if ((action === "void" || action === "cancel") && !window.confirm(`${action === "void" ? "Void" : "Cancel"} sales inventory return ${salesReturn.salesReturnNumber}?`)) {
+    if ((action === "void" || action === "cancel") && !window.confirm(tc("{action} sales inventory return {number}?", { action: tc(action === "void" ? "Void" : "Cancel"), number: salesReturn.salesReturnNumber }))) {
       return;
     }
     setActionLoading(true);
@@ -113,9 +100,9 @@ export default function SalesInventoryReturnDetailPage() {
     try {
       const updated = await apiRequest<SalesInventoryReturn>(`/sales-inventory-returns/${salesReturn.id}/${action}`, { method: "POST" });
       setSalesReturn(updated);
-      setSuccess(`Sales inventory return ${updated.salesReturnNumber} ${actionLabel(action)}.`);
+      setSuccess(tc("Sales inventory return {number} {status}.", { number: updated.salesReturnNumber, status: tc(actionLabel(action)).toLowerCase() }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `Unable to ${action} sales inventory return.`);
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} sales inventory return.", { action: tc(action) }));
     } finally {
       setActionLoading(false);
     }
@@ -123,7 +110,7 @@ export default function SalesInventoryReturnDetailPage() {
 
   async function postInventoryReturnMovement() {
     if (!salesReturn) return;
-    if (!window.confirm(`${SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}\n\nPost operational stock-in movement for ${salesReturn.salesReturnNumber}?`)) {
+    if (!window.confirm(`${tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)}\n\n${tc("Post operational stock-in movement for {number}?", { number: salesReturn.salesReturnNumber })}`)) {
       return;
     }
     setMovementActionLoading(true);
@@ -133,65 +120,69 @@ export default function SalesInventoryReturnDetailPage() {
     try {
       const updated = await apiRequest<SalesInventoryReturn>(`/sales-inventory-returns/${salesReturn.id}/post-inventory-return`, { method: "POST" });
       setSalesReturn(updated);
-      setSuccess(`Inventory return movement posted for ${updated.salesReturnNumber}.`);
+      setSuccess(tc("Inventory return movement posted for {number}.", { number: updated.salesReturnNumber }));
       if (canViewInventory) {
         const preview = await apiRequest<SalesInventoryReturnInventoryMovementPreview>(`/sales-inventory-returns/${salesReturn.id}/inventory-return-preview`);
         setInventoryPreview(preview);
       }
     } catch (postError) {
-      setError(postError instanceof Error ? postError.message : "Unable to post inventory return movement.");
+      setError(postError instanceof Error ? postError.message : tc("Unable to post inventory return movement."));
     } finally {
       setMovementActionLoading(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales inventory"
-        title={salesReturn?.salesReturnNumber ?? "Sales inventory return"}
-        description="Customer stock return detail with explicit operational stock-in movement."
-        actions={
-          <>
-            <LedgerButton href="/sales/inventory-returns" icon={ArrowLeft}>Back</LedgerButton>
-            {salesReturn && canEditSalesInventoryReturn(salesReturn.status) && canManage ? (
-              <LedgerButton href={`/sales/inventory-returns/${salesReturn.id}/edit`} icon={Edit3}>Edit</LedgerButton>
-            ) : null}
-            {salesReturn?.customerId ? (
-              <LedgerButton href={`/customers/${salesReturn.customerId}`} icon={UserRound}>Customer activity</LedgerButton>
-            ) : null}
-          </>
-        }
-      />
-
-      <LedgerPageBody>
-        <div className="space-y-3">
-          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load sales inventory returns.</LedgerAlert> : null}
-          {loading ? <StatusMessage type="loading">Loading sales inventory return...</StatusMessage> : null}
-          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-          {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{salesReturn ? <bdi dir="ltr">{salesReturn.salesReturnNumber}</bdi> : tc("Sales inventory return")}</h1>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc("Customer stock return detail with explicit operational stock-in movement.")}</p>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/sales/inventory-returns" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+          {salesReturn && canEditSalesInventoryReturn(salesReturn.status) && canManage ? (
+            <Link href={`/sales/inventory-returns/${salesReturn.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
+          ) : null}
+          {salesReturn?.customerId ? (
+            <Link href={`/customers/${salesReturn.customerId}`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Customer activity")}
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load sales inventory returns.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading sales inventory return...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
       {salesReturn ? (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
           <SalesInventoryReturnWorkflowGuidance salesReturn={salesReturn} canManage={canManage} actionLoading={actionLoading} onAction={runAction} />
 
-          <LedgerPanel>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
-              <Summary label="Customer" value={salesReturn.customer?.displayName ?? salesReturn.customer?.name ?? "-"} href={`/customers/${salesReturn.customerId}`} />
-              <Summary label="Status" value={salesInventoryReturnStatusLabel(salesReturn.status)} />
-              <Summary label="Return date" value={formatOptionalDate(salesReturn.returnDate, "-")} />
-              <Summary label="Reference" value={salesReturn.reference ?? "-"} />
-              <Summary label="Source" value={salesInventoryReturnSourceLabel(salesReturn)} href={salesInventoryReturnSourceHref(salesReturn) ?? undefined} />
-              <Summary label="Movement" value={salesInventoryReturnMovementStatusLabel(inventoryPreview ?? salesReturn)} />
-              <Summary label="Movement posted at" value={formatOptionalDate(inventoryPreview?.postedAt ?? salesReturn.inventoryReturnPostedAt, "-")} />
-              <Summary label="Approved at" value={formatOptionalDate(salesReturn.approvedAt, "-")} />
-              <Summary label="Received at" value={formatOptionalDate(salesReturn.receivedAt, "-")} />
-              <Summary label="Credit note link" value={salesReturn.sourceCreditNote?.creditNoteNumber ?? "Separate document"} href={salesReturn.sourceCreditNote ? `/sales/credit-notes/${salesReturn.sourceCreditNote.id}` : undefined} />
-              <Summary label="Refund link" value="Separate customer refund workflow" />
-              <Summary label="Notes" value={salesReturn.notes ?? "-"} />
+              <Summary label={tc("Customer")} value={salesReturn.customer?.displayName ?? salesReturn.customer?.name ?? "-"} href={`/customers/${salesReturn.customerId}`} />
+              <Summary label={tc("Status")} value={tc(salesInventoryReturnStatusLabel(salesReturn.status))} />
+              <Summary label={tc("Return date")} value={formatAppDateTime(salesReturn.returnDate, locale, "-")} />
+              <Summary label={tc("Reference")} value={salesReturn.reference ? <bdi dir="ltr">{salesReturn.reference}</bdi> : "-"} />
+              <Summary label={tc("Source")} value={sourceLabel(salesReturn, tc)} href={salesInventoryReturnSourceHref(salesReturn) ?? undefined} />
+              <Summary label={tc("Movement")} value={tc(salesInventoryReturnMovementStatusLabel(inventoryPreview ?? salesReturn))} />
+              <Summary label={tc("Movement posted at")} value={formatAppDateTime(inventoryPreview?.postedAt ?? salesReturn.inventoryReturnPostedAt, locale, "-")} />
+              <Summary label={tc("Approved at")} value={formatAppDateTime(salesReturn.approvedAt, locale, "-")} />
+              <Summary label={tc("Received at")} value={formatAppDateTime(salesReturn.receivedAt, locale, "-")} />
+              <Summary label={tc("Credit note link")} value={salesReturn.sourceCreditNote?.creditNoteNumber ? <bdi dir="ltr">{salesReturn.sourceCreditNote.creditNoteNumber}</bdi> : tc("Separate document")} href={salesReturn.sourceCreditNote ? `/sales/credit-notes/${salesReturn.sourceCreditNote.id}` : undefined} />
+              <Summary label={tc("Refund link")} value={tc("Separate customer refund workflow")} />
+              <Summary label={tc("Notes")} value={salesReturn.notes ?? "-"} />
             </div>
-          </LedgerPanel>
+          </div>
 
           {canViewInventory ? (
             <SalesInventoryReturnInventoryMovementPanel
@@ -202,44 +193,46 @@ export default function SalesInventoryReturnDetailPage() {
             />
           ) : null}
 
-          <LedgerDataTable minWidth="980px">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3">Item</th>
-                <th className="px-4 py-3">Quantity</th>
-                <th className="px-4 py-3">Warehouse</th>
-                <th className="px-4 py-3">Source line</th>
-                <th className="px-4 py-3">Stock movement</th>
-                <th className="px-4 py-3">Reason</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(salesReturn.lines ?? []).map((line) => (
-                <tr key={line.id}>
-                  <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
-                  <td className="px-4 py-3 text-steel">{line.item ? `${line.item.sku ? `${line.item.sku} - ` : ""}${line.item.name}` : "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
-                  <td className="px-4 py-3 text-steel">{line.warehouse ? `${line.warehouse.code} ${line.warehouse.name}` : "-"}</td>
-                  <td className="px-4 py-3 text-steel">{lineSourceLabel(line)}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-steel">{line.stockMovementId ?? line.stockMovement?.id ?? "-"}</td>
-                  <td className="px-4 py-3 text-steel">{line.reason ?? "-"}</td>
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[980px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Description")}</th>
+                  <th className="px-4 py-3">{tc("Item")}</th>
+                  <th className="px-4 py-3">{tc("Quantity")}</th>
+                  <th className="px-4 py-3">{tc("Warehouse")}</th>
+                  <th className="px-4 py-3">{tc("Source line")}</th>
+                  <th className="px-4 py-3">{tc("Stock movement")}</th>
+                  <th className="px-4 py-3">{tc("Reason")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </LedgerDataTable>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(salesReturn.lines ?? []).map((line) => (
+                  <tr key={line.id}>
+                    <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
+                    <td className="px-4 py-3 text-steel">{line.item ? <><bdi dir="ltr">{line.item.sku ? `${line.item.sku} - ` : ""}</bdi>{line.item.name}</> : "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatInventoryQuantity(line.quantity)}</td>
+                    <td className="px-4 py-3 text-steel">{line.warehouse ? <><bdi dir="ltr">{line.warehouse.code}</bdi> {line.warehouse.name}</> : "-"}</td>
+                    <td className="px-4 py-3 text-steel">{tc(lineSourceLabel(line))}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-steel">{line.stockMovementId ?? line.stockMovement?.id ? <bdi dir="ltr">{line.stockMovementId ?? line.stockMovement?.id}</bdi> : "-"}</td>
+                    <td className="px-4 py-3 text-steel">{line.reason ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <LedgerSection title="Accounting and customer balance boundary">
-            <LedgerSummaryBand tone="warning">{SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}</LedgerSummaryBand>
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <h2 className="text-base font-semibold text-ink">{tc("Accounting and customer balance boundary")}</h2>
+            <p className="mt-2 text-sm leading-6 text-steel">{tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)}</p>
             <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-              <p className="rounded-md bg-slate-50 p-3 text-steel">Create a credit note separately if customer credit accounting is required.</p>
-              <p className="rounded-md bg-slate-50 p-3 text-steel">Create a customer refund separately if money is returned.</p>
+              <p className="rounded-md bg-slate-50 p-3 text-steel">{tc("Create a credit note separately if customer credit accounting is required.")}</p>
+              <p className="rounded-md bg-slate-50 p-3 text-steel">{tc("Create a customer refund separately if money is returned.")}</p>
             </div>
-          </LedgerSection>
+          </div>
         </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
@@ -254,31 +247,33 @@ export function SalesInventoryReturnWorkflowGuidance({
   actionLoading: boolean;
   onAction: (action: SalesInventoryReturnAction) => void;
 }) {
+  const { tc } = useAppLocale();
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <LedgerPanel>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold text-ink">Return status</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">{outcomeDescription(salesReturn)}</p>
+            <h2 className="text-base font-semibold text-ink">{tc("Return status")}</h2>
+            <p className="mt-1 text-sm leading-6 text-steel">{tc(outcomeDescription(salesReturn))}</p>
           </div>
-          <SalesInventoryReturnStatusBadge status={salesReturn.status} />
+          <span className={`rounded-md px-2 py-1 text-xs font-semibold ${salesInventoryReturnStatusBadgeClass(salesReturn.status)}`}>
+            {tc(salesInventoryReturnStatusLabel(salesReturn.status))}
+          </span>
         </div>
-        <div className="mt-4">
-          <LedgerSummaryBand tone="warning">{SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT}</LedgerSummaryBand>
+        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">{tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)}</div>
+      </div>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Next actions")}</h2>
+        <p className="mt-1 text-sm leading-6 text-steel">{tc(nextActionDescription(salesReturn))}</p>
+        <div className="mt-4 flex flex-col gap-2">
+          {canManage && canSubmitSalesInventoryReturn(salesReturn.status) ? <ActionButton label={tc("Submit")} active={actionLoading} onClick={() => onAction("submit")} /> : null}
+          {canManage && canApproveSalesInventoryReturn(salesReturn.status) ? <ActionButton label={tc("Approve")} active={actionLoading} onClick={() => onAction("approve")} /> : null}
+          {canManage && canReceiveSalesInventoryReturn(salesReturn.status) ? <ActionButton label={tc("Receive")} active={actionLoading} onClick={() => onAction("receive")} /> : null}
+          {canManage && canCancelSalesInventoryReturn(salesReturn.status) ? <ActionButton label={tc("Cancel")} active={actionLoading} onClick={() => onAction("cancel")} secondary /> : null}
+          {canManage && canVoidSalesInventoryReturn(salesReturn.status) ? <ActionButton label={tc("Void")} active={actionLoading} onClick={() => onAction("void")} danger /> : null}
         </div>
-      </LedgerPanel>
-      <LedgerPanel>
-        <h2 className="text-base font-semibold text-ink">Next actions</h2>
-        <p className="mt-1 text-sm leading-6 text-steel">{nextActionDescription(salesReturn)}</p>
-        <LedgerActionBar className="mt-4">
-          {canManage && canSubmitSalesInventoryReturn(salesReturn.status) ? <ActionButton label="Submit" active={actionLoading} onClick={() => onAction("submit")} /> : null}
-          {canManage && canApproveSalesInventoryReturn(salesReturn.status) ? <ActionButton label="Approve" active={actionLoading} onClick={() => onAction("approve")} /> : null}
-          {canManage && canReceiveSalesInventoryReturn(salesReturn.status) ? <ActionButton label="Receive" active={actionLoading} onClick={() => onAction("receive")} /> : null}
-          {canManage && canCancelSalesInventoryReturn(salesReturn.status) ? <ActionButton label="Cancel" active={actionLoading} onClick={() => onAction("cancel")} secondary /> : null}
-          {canManage && canVoidSalesInventoryReturn(salesReturn.status) ? <ActionButton label="Void" active={actionLoading} onClick={() => onAction("void")} danger /> : null}
-        </LedgerActionBar>
-      </LedgerPanel>
+      </div>
     </div>
   );
 }
@@ -294,11 +289,14 @@ export function SalesInventoryReturnInventoryMovementPanel({
   actionLoading: boolean;
   onPost: () => void;
 }) {
+  const { locale, tc } = useAppLocale();
+
   if (!preview) {
     return (
-      <LedgerSection title="Inventory return movement">
-        <p className="text-sm text-steel">Inventory movement preview is unavailable for this return.</p>
-      </LedgerSection>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <h2 className="text-base font-semibold text-ink">{tc("Inventory return movement")}</h2>
+        <p className="mt-2 text-sm text-steel">{tc("Inventory movement preview is unavailable for this return.")}</p>
+      </div>
     );
   }
 
@@ -306,122 +304,109 @@ export function SalesInventoryReturnInventoryMovementPanel({
   const showPostAction = canPostSalesInventoryReturnMovement(preview, canPost);
 
   return (
-    <LedgerPanel>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">Inventory return movement</h2>
-          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{preview.safeHelperText}</p>
+          <h2 className="text-base font-semibold text-ink">{tc("Inventory return movement")}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc(preview.safeHelperText)}</p>
         </div>
-        <LedgerStatusBadge tone={inventoryMovementStatusTone(preview.inventoryMovementStatus)}>{salesInventoryReturnMovementStatusLabel(preview)}</LedgerStatusBadge>
+        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${inventoryMovementStatusBadgeClass(preview.inventoryMovementStatus)}`}>
+          {tc(salesInventoryReturnMovementStatusLabel(preview))}
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
-        <Summary label="Movement status" value={salesInventoryReturnMovementStatusLabel(preview)} />
-        <Summary label="Posted at" value={formatOptionalDate(preview.postedAt, "-")} />
-        <Summary label="Reversal" value={preview.alreadyPosted ? "Reversal not supported yet" : "-"} />
+        <Summary label={tc("Movement status")} value={tc(salesInventoryReturnMovementStatusLabel(preview))} />
+        <Summary label={tc("Posted at")} value={formatAppDateTime(preview.postedAt, locale, "-")} />
+        <Summary label={tc("Reversal")} value={preview.alreadyPosted ? tc("Reversal not supported yet") : "-"} />
       </div>
 
       {movementIds.length > 0 ? (
         <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm">
-          <div className="font-medium text-ink">Linked stock movement IDs</div>
-          <div className="mt-1 font-mono text-xs text-steel">{movementIds.join(", ")}</div>
+          <div className="font-medium text-ink">{tc("Linked stock movement IDs")}</div>
+          <div className="mt-1 font-mono text-xs text-steel">
+            <bdi dir="ltr">{movementIds.join(", ")}</bdi>
+          </div>
         </div>
       ) : null}
 
       {preview.blockingReasons.length > 0 ? (
-        <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{preview.blockingReasons.join(" ")}</div>
+        <div className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{preview.blockingReasons.map((reason) => tc(reason)).join(" ")}</div>
       ) : null}
 
-      <LedgerDataTable minWidth="920px" className="mt-4 shadow-none">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-              <tr>
-                <th className="px-3 py-2">Item</th>
-                <th className="px-3 py-2">Warehouse</th>
-                <th className="px-3 py-2">Return qty</th>
-                <th className="px-3 py-2">On hand</th>
-                <th className="px-3 py-2">Projected</th>
-                <th className="px-3 py-2">Movement</th>
-                <th className="px-3 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {preview.lines.map((line) => (
-                <PreviewLineRow key={line.lineId} line={line} />
-              ))}
-            </tbody>
-      </LedgerDataTable>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[920px] text-start text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">{tc("Item")}</th>
+              <th className="px-3 py-2">{tc("Warehouse")}</th>
+              <th className="px-3 py-2">{tc("Return qty")}</th>
+              <th className="px-3 py-2">{tc("On hand")}</th>
+              <th className="px-3 py-2">{tc("Projected")}</th>
+              <th className="px-3 py-2">{tc("Movement")}</th>
+              <th className="px-3 py-2">{tc("Status")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.lines.map((line) => (
+              <PreviewLineRow key={line.lineId} line={line} />
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {showPostAction ? (
-        <LedgerActionBar className="mt-4 justify-end">
-          <LedgerButton type="button" onClick={onPost} disabled={actionLoading} variant="primary">
-            {actionLoading ? "Posting..." : "Post inventory return movement"}
-          </LedgerButton>
-        </LedgerActionBar>
+        <div className="mt-4 flex justify-end">
+          <button type="button" onClick={onPost} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            {actionLoading ? tc("Posting...") : tc("Post inventory return movement")}
+          </button>
+        </div>
       ) : null}
-    </LedgerPanel>
-  );
-}
-
-function PreviewLineRow({ line }: { line: SalesInventoryReturnInventoryMovementPreviewLine }) {
-  return (
-    <tr>
-      <td className="px-3 py-2 text-ink">{line.item ? `${line.item.sku ? `${line.item.sku} - ` : ""}${line.item.name}` : line.description}</td>
-      <td className="px-3 py-2 text-steel">{line.warehouse ? `${line.warehouse.code} ${line.warehouse.name}` : "-"}</td>
-      <td className="px-3 py-2 font-mono text-xs">{formatInventoryQuantity(line.returnQuantity)}</td>
-      <td className="px-3 py-2 font-mono text-xs">{line.currentOnHand ? formatInventoryQuantity(line.currentOnHand) : "-"}</td>
-      <td className="px-3 py-2 font-mono text-xs">{line.projectedOnHandAfterReturn ? formatInventoryQuantity(line.projectedOnHandAfterReturn) : "-"}</td>
-      <td className="px-3 py-2 text-steel">{stockMovementTypeLabel(line.movementType)}</td>
-      <td className="px-3 py-2 text-steel">{previewLineStatusLabel(line)}</td>
-    </tr>
-  );
-}
-
-function Summary({ label, value, href }: { label: string; value: string; href?: string }) {
-  let content = <div className="mt-1 text-sm text-ink">{value}</div>;
-  if (href) {
-    content = (
-      <Link href={href} className="mt-1 inline-block text-sm font-medium text-palm hover:underline">
-        {value}
-      </Link>
-    );
-  } else if (label.includes("date") || label.endsWith("at")) {
-    content = <div className="mt-1"><LedgerDate>{value}</LedgerDate></div>;
-  }
-
-  return (
-    <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-steel">{label}</div>
-      {content}
     </div>
   );
 }
 
-function SalesInventoryReturnStatusBadge({ status }: { status: SalesInventoryReturnStatus }) {
-  return <LedgerStatusBadge tone={salesInventoryReturnStatusTone(status)}>{salesInventoryReturnStatusLabel(status)}</LedgerStatusBadge>;
+function PreviewLineRow({ line }: { line: SalesInventoryReturnInventoryMovementPreviewLine }) {
+  const { tc } = useAppLocale();
+
+  return (
+    <tr>
+      <td className="px-3 py-2 text-ink">{line.item ? <><bdi dir="ltr">{line.item.sku ? `${line.item.sku} - ` : ""}</bdi>{line.item.name}</> : line.description}</td>
+      <td className="px-3 py-2 text-steel">{line.warehouse ? <><bdi dir="ltr">{line.warehouse.code}</bdi> {line.warehouse.name}</> : "-"}</td>
+      <td className="px-3 py-2 font-mono text-xs">{formatInventoryQuantity(line.returnQuantity)}</td>
+      <td className="px-3 py-2 font-mono text-xs">{line.currentOnHand ? formatInventoryQuantity(line.currentOnHand) : "-"}</td>
+      <td className="px-3 py-2 font-mono text-xs">{line.projectedOnHandAfterReturn ? formatInventoryQuantity(line.projectedOnHandAfterReturn) : "-"}</td>
+      <td className="px-3 py-2 text-steel">{tc(stockMovementTypeLabel(line.movementType))}</td>
+      <td className="px-3 py-2 text-steel">{tc(previewLineStatusLabel(line))}</td>
+    </tr>
+  );
 }
 
-function salesInventoryReturnStatusTone(status: SalesInventoryReturnStatus | undefined | null): LedgerStatusTone {
-  switch (status) {
-    case "RECEIVED":
-      return "success";
-    case "APPROVED":
-    case "SUBMITTED":
-      return "info";
-    case "VOIDED":
-    case "CANCELLED":
-      return "danger";
-    case "DRAFT":
-      return "warning";
-    default:
-      return "neutral";
-  }
+function Summary({ label, value, href }: { label: string; value: ReactNode; href?: string }) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wide text-steel">{label}</div>
+      {href ? (
+        <Link href={href} className="mt-1 inline-block text-sm font-medium text-palm hover:underline">
+          {value}
+        </Link>
+      ) : (
+        <div className="mt-1 text-sm text-ink">{value}</div>
+      )}
+    </div>
+  );
 }
 
 function ActionButton({ label, active, onClick, secondary = false, danger = false }: { label: string; active: boolean; onClick: () => void; secondary?: boolean; danger?: boolean }) {
+  const classes = danger
+    ? "border-rose-300 bg-white text-rose-700 hover:bg-rose-50"
+    : secondary
+      ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      : "border-palm bg-palm text-white hover:bg-teal-800";
   return (
-    <LedgerButton type="button" onClick={onClick} disabled={active} variant={danger ? "danger" : secondary ? "secondary" : "primary"}>
+    <button type="button" onClick={onClick} disabled={active} className={`rounded-md border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${classes}`}>
       {label}
-    </LedgerButton>
+    </button>
   );
 }
 
@@ -474,6 +459,14 @@ function actionLabel(action: SalesInventoryReturnAction): string {
   }
 }
 
+function sourceLabel(salesReturn: SalesInventoryReturn, tc: (value: string, params?: Record<string, string | number>) => string): ReactNode {
+  if (salesReturn.sourceSalesStockIssue) return <>{tc("Stock issue")} <bdi dir="ltr">{salesReturn.sourceSalesStockIssue.issueNumber}</bdi></>;
+  if (salesReturn.sourceDeliveryNote) return <>{tc("Delivery note")} <bdi dir="ltr">{salesReturn.sourceDeliveryNote.deliveryNoteNumber}</bdi></>;
+  if (salesReturn.sourceSalesInvoice) return <>{tc("Invoice")} <bdi dir="ltr">{salesReturn.sourceSalesInvoice.invoiceNumber}</bdi></>;
+  if (salesReturn.sourceCreditNote) return <>{tc("Credit note")} <bdi dir="ltr">{salesReturn.sourceCreditNote.creditNoteNumber}</bdi></>;
+  return tc(salesInventoryReturnSourceLabel(salesReturn));
+}
+
 function lineSourceLabel(line: SalesInventoryReturnLine): string {
   if (line.sourceSalesStockIssueLineId) return "Sales stock issue line";
   if (line.sourceDeliveryNoteLineId) return "Delivery note line";
@@ -495,13 +488,13 @@ function previewLineStatusLabel(line: SalesInventoryReturnInventoryMovementPrevi
   }
 }
 
-function inventoryMovementStatusTone(status: SalesInventoryReturnInventoryMovementPreview["inventoryMovementStatus"]): LedgerStatusTone {
+function inventoryMovementStatusBadgeClass(status: SalesInventoryReturnInventoryMovementPreview["inventoryMovementStatus"]): string {
   switch (status) {
     case "POSTED":
-      return "success";
+      return "bg-emerald-50 text-emerald-700";
     case "BLOCKED":
-      return "danger";
+      return "bg-rose-50 text-rose-700";
     case "NOT_POSTED":
-      return "warning";
+      return "bg-amber-50 text-amber-700";
   }
 }

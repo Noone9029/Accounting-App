@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import NewCustomerPaymentPage from "./page";
 
 const apiRequestMock = jest.fn();
@@ -85,6 +86,25 @@ describe("NewCustomerPaymentPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Amount received")).toHaveValue("115.0000"));
     expect(screen.getByText("INV-001")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/customers/customer-1");
+  });
+
+  it("renders Arabic payment recording copy without changing return routes", async () => {
+    window.history.pushState({}, "", "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1&returnTo=/customers/customer-1");
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <NewCustomerPaymentPage />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "تسجيل دفعة عميل" })).toBeInTheDocument();
+    expect(screen.getByText("خصص الأموال المستلمة للفواتير المفتوحة النهائية. إذا كان هذا أول سير عمل لك، أنه الفاتورة أولا ثم عد هنا لإغلاق دورة الذمم المدينة.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("العميل")).toHaveValue("customer-1"));
+    await waitFor(() => expect(screen.getByLabelText("المبلغ المستلم")).toHaveValue("115.0000"));
+    expect(screen.getByText("INV-001")).toBeInTheDocument();
+    expect(screen.getByText("حالة التخصيص")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "تسجيل دفعة" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/customers/customer-1");
   });
 
   it("points the first payment empty state to the dedicated customers page", async () => {

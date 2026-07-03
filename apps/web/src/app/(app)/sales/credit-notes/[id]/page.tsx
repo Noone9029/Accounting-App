@@ -1,77 +1,39 @@
 "use client";
 
-import { ArrowLeft, CheckCircle2, Download, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-readiness-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerMetadataRow,
-  LedgerMetricGrid,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getCreditNoteComplianceReadiness, prepareCreditNoteCompliance, validateComplianceDocument } from "@/lib/compliance";
 import {
   canReverseCreditNoteAllocation,
   creditNoteActiveAppliedAmount,
+  creditNoteAllocationStatusBadgeClass,
   creditNoteAllocationStatusLabel,
   creditNoteAppliedAmount,
+  creditNoteStatusBadgeClass,
   creditNoteStatusLabel,
   validateCreditNoteAllocation,
 } from "@/lib/credit-notes";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { partyDetailHref } from "@/lib/parties";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { ComplianceSourceReadinessResponse, CreditNote, CreditNoteStatus, OpenSalesInvoice } from "@/lib/types";
-
-function creditNoteStatusTone(status: CreditNoteStatus): LedgerStatusTone {
-  switch (status) {
-    case "DRAFT":
-      return "draft";
-    case "FINALIZED":
-      return "success";
-    case "VOIDED":
-      return "danger";
-    default:
-      return "neutral";
-  }
-}
-
-function allocationStatusTone(allocation: NonNullable<CreditNote["allocations"]>[number]): LedgerStatusTone {
-  if (allocation.reversedAt) {
-    return "danger";
-  }
-  return "success";
-}
+import type { ComplianceSourceReadinessResponse, CreditNote, OpenSalesInvoice } from "@/lib/types";
 
 export default function CreditNoteDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [creditNote, setCreditNote] = useState<CreditNote | null>(null);
   const [uaeReadiness, setUaeReadiness] = useState<ComplianceSourceReadinessResponse | null>(null);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
@@ -104,7 +66,7 @@ export default function CreditNoteDetailPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load credit note.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load credit note."));
         }
       })
       .finally(() => {
@@ -116,7 +78,7 @@ export default function CreditNoteDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id]);
+  }, [organizationId, params.id, tc]);
 
   useEffect(() => {
     if (!organizationId || !creditNote || creditNote.status !== "FINALIZED" || Number(creditNote.unappliedAmount) <= 0) {
@@ -150,7 +112,7 @@ export default function CreditNoteDetailPage() {
       return;
     }
 
-    if (action === "void" && !window.confirm(`Void credit note ${creditNote.creditNoteNumber}?`)) {
+    if (action === "void" && !window.confirm(tc("Void credit note {number}?", { number: creditNote.creditNoteNumber }))) {
       return;
     }
 
@@ -164,16 +126,16 @@ export default function CreditNoteDetailPage() {
       if (action === "finalize") {
         await fetchUaeReadiness(updated.id).catch(() => undefined);
       }
-      setSuccess(action === "finalize" ? `Finalized credit note ${updated.creditNoteNumber}.` : `Voided credit note ${updated.creditNoteNumber}.`);
+      setSuccess(action === "finalize" ? tc("Finalized credit note {number}.", { number: updated.creditNoteNumber }) : tc("Voided credit note {number}.", { number: updated.creditNoteNumber }));
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : `Unable to ${action} credit note.`);
+      setError(actionError instanceof Error ? actionError.message : action === "finalize" ? tc("Unable to finalize credit note.") : tc("Unable to void credit note."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function deleteCreditNote() {
-    if (!creditNote || !window.confirm(`Delete draft credit note ${creditNote.creditNoteNumber}?`)) {
+    if (!creditNote || !window.confirm(tc("Delete draft credit note {number}?", { number: creditNote.creditNoteNumber }))) {
       return;
     }
 
@@ -185,7 +147,7 @@ export default function CreditNoteDetailPage() {
       await apiRequest<{ deleted: boolean }>(`/credit-notes/${creditNote.id}`, { method: "DELETE" });
       router.push("/sales/credit-notes");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete credit note.");
+      setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete credit note."));
     } finally {
       setActionLoading(false);
     }
@@ -203,7 +165,7 @@ export default function CreditNoteDetailPage() {
     try {
       await downloadPdf(creditNotePdfPath(creditNote.id), `credit-note-${creditNote.creditNoteNumber}.pdf`);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Unable to download credit note PDF.");
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download credit note PDF."));
     } finally {
       setActionLoading(false);
     }
@@ -228,10 +190,10 @@ export default function CreditNoteDetailPage() {
       const prepared = await prepareCreditNoteCompliance(creditNote.id);
       await validateComplianceDocument(prepared.id);
       await fetchUaeReadiness(creditNote.id);
-      setSuccess("Local UAE credit-note readiness validation completed. No ASP submission, FTA reporting, or network call was performed.");
+      setSuccess(tc("Local UAE credit-note readiness validation completed. No ASP submission, FTA reporting, or network call was performed."));
     } catch (validationError) {
       await fetchUaeReadiness(creditNote.id).catch(() => undefined);
-      setError(validationError instanceof Error ? validationError.message : "Unable to validate UAE credit-note readiness.");
+      setError(validationError instanceof Error ? validationError.message : tc("Unable to validate UAE credit-note readiness."));
     } finally {
       setActionLoading(false);
     }
@@ -246,7 +208,7 @@ export default function CreditNoteDetailPage() {
     const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
     const validationError = validateCreditNoteAllocation(amountApplied, creditNote.unappliedAmount, selectedInvoice?.balanceDue ?? "0.0000");
     if (validationError) {
-      setError(validationError);
+      setError(tc(validationError));
       return;
     }
 
@@ -264,20 +226,20 @@ export default function CreditNoteDetailPage() {
       const invoices = await apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(updated.customerId)}`);
       setOpenInvoices(invoices);
       setSelectedInvoiceId(invoices[0]?.id ?? "");
-      setSuccess(`Applied ${formatMoneyAmount(amountApplied, updated.currency)} from ${updated.creditNoteNumber}.`);
+      setSuccess(tc("Applied {amount} from {number}.", { amount: formatAppMoney(amountApplied, updated.currency, locale), number: updated.creditNoteNumber }));
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Unable to apply credit note.");
+      setError(applyError instanceof Error ? applyError.message : tc("Unable to apply credit note."));
     } finally {
       setActionLoading(false);
     }
   }
 
   async function reverseAllocation(allocationId: string) {
-    if (!creditNote || !window.confirm("Reverse this credit note allocation?")) {
+    if (!creditNote || !window.confirm(tc("Reverse this credit note allocation?"))) {
       return;
     }
 
-    const reason = window.prompt("Reversal reason (optional)", "") ?? "";
+    const reason = window.prompt(tc("Reversal reason (optional)"), "") ?? "";
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -291,9 +253,9 @@ export default function CreditNoteDetailPage() {
       const invoices = await apiRequest<OpenSalesInvoice[]>(`/sales-invoices/open?customerId=${encodeURIComponent(updated.customerId)}`);
       setOpenInvoices(invoices);
       setSelectedInvoiceId(invoices[0]?.id ?? "");
-      setSuccess("Credit allocation reversed.");
+      setSuccess(tc("Credit allocation reversed."));
     } catch (reverseError) {
-      setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse credit allocation.");
+      setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse credit allocation."));
     } finally {
       setActionLoading(false);
     }
@@ -313,260 +275,267 @@ export default function CreditNoteDetailPage() {
   const canValidateCompliance = can(PERMISSIONS.compliance.manage) && can(PERMISSIONS.compliance.validate);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title={creditNote ? creditNote.creditNoteNumber : "Credit note"}
-        badge={creditNote ? <LedgerStatusBadge tone={creditNoteStatusTone(creditNote.status)}>{creditNoteStatusLabel(creditNote.status)}</LedgerStatusBadge> : null}
-        description={
-          <>
-            Credit note detail, reversal posting, and PDF download.
-            {creditNote ? <span className="mt-1 block text-xs">Credit note PDF downloads create an archive record. ZATCA credit note XML is not implemented yet.</span> : null}
-          </>
-        }
-        actions={
-          <LedgerActionBar>
-            <LedgerButton href="/sales/credit-notes" icon={ArrowLeft}>
-              Back
-            </LedgerButton>
-            {creditNote?.status === "DRAFT" ? <LedgerButton href={`/sales/credit-notes/${creditNote.id}/edit`}>Edit</LedgerButton> : null}
-            {creditNote?.customerId ? <LedgerButton href={`/contacts/${creditNote.customerId}`}>Customer ledger</LedgerButton> : null}
-            {creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 ? (
-              <LedgerButton
-                href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(creditNote.customerId)}&sourceType=CREDIT_NOTE&sourceCreditNoteId=${encodeURIComponent(creditNote.id)}`}
-                variant="primary"
-              >
-                Refund credit
-              </LedgerButton>
-            ) : null}
-            {creditNote ? (
-              <LedgerButton type="button" onClick={() => void downloadCreditNotePdf()} disabled={actionLoading} icon={Download}>
-                Download credit note PDF
-              </LedgerButton>
-            ) : null}
-            {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
-              <LedgerButton type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} variant="primary" icon={CheckCircle2}>
-                Finalize
-              </LedgerButton>
-            ) : null}
-            {creditNote && creditNote.status !== "VOIDED" && canVoidCreditNote ? (
-              <LedgerButton type="button" onClick={() => void runAction("void")} disabled={actionLoading} variant="danger" icon={Undo2} className="self-start">
-                Void
-              </LedgerButton>
-            ) : null}
-            {creditNote?.status === "DRAFT" && canCreateCreditNote ? (
-              <LedgerButton type="button" onClick={() => void deleteCreditNote()} disabled={actionLoading} icon={Trash2}>
-                Delete
-              </LedgerButton>
-            ) : null}
-          </LedgerActionBar>
-        }
-      />
-
-      <LedgerPageBody>
-        <div className="space-y-3">
-          {!organizationId ? <StatusMessage type="info">Log in and select an organization to load credit notes.</StatusMessage> : null}
-          {loading ? <StatusMessage type="loading">Loading credit note...</StatusMessage> : null}
-          {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
-          {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{creditNote ? <bdi dir="ltr">{creditNote.creditNoteNumber}</bdi> : tc("Credit note")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Credit note detail, reversal posting, and PDF download.")}</p>
+          {creditNote ? <p className="mt-1 text-xs text-steel">{tc("Credit note PDF downloads create an archive record. ZATCA credit note XML is not implemented yet.")}</p> : null}
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href="/sales/credit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+          {creditNote?.status === "DRAFT" ? (
+            <Link href={`/sales/credit-notes/${creditNote.id}/edit`} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Edit")}
+            </Link>
+          ) : null}
+          {creditNote?.customerId ? (
+            <Link href={partyDetailHref("customer", creditNote.customerId)} className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Customer workspace")}
+            </Link>
+          ) : null}
+          {creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 ? (
+            <Link
+              href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(creditNote.customerId)}&sourceType=CREDIT_NOTE&sourceCreditNoteId=${encodeURIComponent(creditNote.id)}`}
+              className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              {tc("Refund credit")}
+            </Link>
+          ) : null}
+          {creditNote ? (
+            <button type="button" onClick={() => void downloadCreditNotePdf()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Download credit note PDF")}
+            </button>
+          ) : null}
+          {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+              {tc("Finalize")}
+            </button>
+          ) : null}
+          {creditNote && creditNote.status !== "VOIDED" && canVoidCreditNote ? (
+            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Void")}
+            </button>
+          ) : null}
+          {creditNote?.status === "DRAFT" && canCreateCreditNote ? (
+            <button type="button" onClick={() => void deleteCreditNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+              {tc("Delete")}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load credit notes.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading credit note...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+      </div>
 
       {creditNote ? (
-        <div className="space-y-5">
+        <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="CREDIT_NOTE" linkedEntityId={creditNote.id} />
 
-          <LedgerPanel>
-            <LedgerMetricGrid>
-              <Summary label="Customer" value={creditNote.customer?.displayName ?? creditNote.customer?.name ?? "-"} />
-              <Summary label="Status" value={creditNoteStatusLabel(creditNote.status)} />
-              <Summary label="Issue date" value={new Date(creditNote.issueDate).toLocaleDateString()} />
-              <Summary label="Currency" value={creditNote.currency} />
-              <Summary label="Original invoice" value={creditNote.originalInvoice?.invoiceNumber ?? "-"} />
-              <Summary label="Branch" value={creditNote.branch?.displayName ?? creditNote.branch?.name ?? "-"} />
-              <Summary label="Total credit" value={formatMoneyAmount(creditNote.total, creditNote.currency)} />
-              <Summary label="Applied amount" value={formatMoneyAmount(appliedAmount, creditNote.currency)} />
-              <Summary label="Unapplied amount" value={formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)} />
-              <Summary label="Journal entry" value={creditNote.journalEntry ? `${creditNote.journalEntry.entryNumber} (${creditNote.journalEntry.id})` : "-"} />
-              <Summary label="Reversal journal" value={creditNote.reversalJournalEntry ? `${creditNote.reversalJournalEntry.entryNumber} (${creditNote.reversalJournalEntry.id})` : "-"} />
-              <Summary label="Finalized" value={creditNote.finalizedAt ? new Date(creditNote.finalizedAt).toLocaleString() : "-"} />
-            </LedgerMetricGrid>
-            <div className="mt-4">
-              <LedgerMetadataRow
-                items={[
-                  { label: "Reason", value: creditNote.reason ?? "-" },
-                  { label: "Notes", value: creditNote.notes ?? "-" },
-                ]}
-              />
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
+              <Summary label={tc("Customer")} value={creditNote.customer?.displayName ?? creditNote.customer?.name ?? "-"} />
+              <Summary label={tc("Status")} value={tc(creditNoteStatusLabel(creditNote.status))} />
+              <Summary label={tc("Issue date")} value={formatAppDate(creditNote.issueDate, locale, "-")} />
+              <Summary label={tc("Currency")} value={<bdi dir="ltr">{creditNote.currency}</bdi>} />
+              <Summary label={tc("Original invoice")} value={creditNote.originalInvoice ? <bdi dir="ltr">{creditNote.originalInvoice.invoiceNumber}</bdi> : "-"} />
+              <Summary label={tc("Branch")} value={creditNote.branch?.displayName ?? creditNote.branch?.name ?? "-"} />
+              <Summary label={tc("Total credit")} value={formatAppMoney(creditNote.total, creditNote.currency, locale)} />
+              <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, creditNote.currency, locale)} />
+              <Summary label={tc("Unapplied amount")} value={formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale)} />
+              <Summary label={tc("Journal entry")} value={creditNote.journalEntry ? <bdi dir="ltr">{`${creditNote.journalEntry.entryNumber} (${creditNote.journalEntry.id})`}</bdi> : "-"} />
+              <Summary label={tc("Reversal journal")} value={creditNote.reversalJournalEntry ? <bdi dir="ltr">{`${creditNote.reversalJournalEntry.entryNumber} (${creditNote.reversalJournalEntry.id})`}</bdi> : "-"} />
+              <Summary label={tc("Finalized")} value={formatAppDateTime(creditNote.finalizedAt, locale, "-")} />
+              <Summary label={tc("Reason")} value={creditNote.reason ?? "-"} />
+              <Summary label={tc("Notes")} value={creditNote.notes ?? "-"} />
             </div>
-          </LedgerPanel>
+            <div className="mt-4">
+              <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteStatusBadgeClass(creditNote.status)}`}>{tc(creditNoteStatusLabel(creditNote.status))}</span>
+            </div>
+          </div>
 
           {canViewCompliance ? (
             <UaeEinvoiceReadinessPanel
-              title="UAE credit-note eInvoicing/PINT-AE readiness"
+              title={tc("UAE credit-note eInvoicing/PINT-AE readiness")}
               response={uaeReadiness}
               actionLoading={actionLoading}
               canValidate={canValidateCompliance}
               onValidate={() => void validateUaeReadiness()}
             />
           ) : (
-            <StatusMessage type="info">UAE credit-note readiness requires compliance view permission.</StatusMessage>
+            <StatusMessage type="info">{tc("UAE credit-note readiness requires compliance view permission.")}</StatusMessage>
           )}
 
-          <LedgerSection title="Credit note lines" description="Revenue reversal lines retained from the current credit note payload.">
-            <LedgerDataTable minWidth="980px">
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[980px] text-start text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                 <tr>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3">Account</th>
-                  <th className="px-4 py-3">Qty</th>
-                  <th className="px-4 py-3">Unit price</th>
-                  <th className="px-4 py-3">Gross</th>
-                  <th className="px-4 py-3">Discount</th>
-                  <th className="px-4 py-3">Taxable</th>
-                  <th className="px-4 py-3">Tax</th>
-                  <th className="px-4 py-3">Line total</th>
+                  <th className="px-4 py-3">{tc("Description")}</th>
+                  <th className="px-4 py-3">{tc("Account")}</th>
+                  <th className="px-4 py-3">{tc("Qty")}</th>
+                  <th className="px-4 py-3">{tc("Unit price")}</th>
+                  <th className="px-4 py-3">{tc("Gross")}</th>
+                  <th className="px-4 py-3">{tc("Discount")}</th>
+                  <th className="px-4 py-3">{tc("Taxable")}</th>
+                  <th className="px-4 py-3">{tc("Tax")}</th>
+                  <th className="px-4 py-3">{tc("Line total")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {creditNote.lines?.map((line) => (
                   <tr key={line.id}>
                     <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
-                    <td className="px-4 py-3 text-steel">{line.account ? `${line.account.code} ${line.account.name}` : "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.unitPrice, creditNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineGrossAmount, creditNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.discountAmount, creditNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxableAmount, creditNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.taxAmount, creditNote.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(line.lineTotal, creditNote.currency)}</LedgerMoney></td>
+                    <td className="px-4 py-3 text-steel">{line.account ? <bdi dir="ltr">{`${line.account.code} ${line.account.name}`}</bdi> : "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{line.quantity}</bdi></td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, creditNote.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
-            </LedgerDataTable>
-          </LedgerSection>
+            </table>
+          </div>
 
-          <LedgerSummaryBand>
-            <dl className="ml-auto grid max-w-sm grid-cols-2 gap-2 text-sm">
-              <dt>Subtotal</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(creditNote.subtotal, creditNote.currency)}</LedgerMoney></dd>
-              <dt>Discount</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(creditNote.discountTotal, creditNote.currency)}</LedgerMoney></dd>
-              <dt>Taxable</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(creditNote.taxableTotal, creditNote.currency)}</LedgerMoney></dd>
-              <dt>VAT</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(creditNote.taxTotal, creditNote.currency)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Total credit</dt>
-              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(creditNote.total, creditNote.currency)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Applied amount</dt>
-              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(appliedAmount, creditNote.currency)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Unapplied amount</dt>
-              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}</LedgerMoney></dd>
-            </dl>
-          </LedgerSummaryBand>
+          <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+            <span className="text-steel">{tc("Subtotal")}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditNote.subtotal, creditNote.currency, locale)}</span>
+            <span className="text-steel">{tc("Discount")}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditNote.discountTotal, creditNote.currency, locale)}</span>
+            <span className="text-steel">{tc("Taxable")}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditNote.taxableTotal, creditNote.currency, locale)}</span>
+            <span className="text-steel">{tc("VAT")}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditNote.taxTotal, creditNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Total credit")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditNote.total, creditNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Applied amount")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(appliedAmount, creditNote.currency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Unapplied amount")}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale)}</span>
+          </div>
 
-          <LedgerSection
-            title="Credit allocations"
-            description="Applying a credit note only matches the existing AR reduction to invoice balances. No new journal entry is created."
-          >
+          <div className="rounded-md border border-slate-200 bg-white shadow-panel">
+            <div className="border-b border-slate-200 px-5 py-4">
+              <h2 className="text-base font-semibold text-ink">{tc("Credit allocations")}</h2>
+              <p className="mt-1 text-sm text-steel">{tc("Applying a credit note only matches the existing AR reduction to invoice balances. No new journal entry is created.")}</p>
+            </div>
             {creditNote.allocations && creditNote.allocations.length > 0 ? (
-              <LedgerDataTable minWidth="1040px" className="shadow-none">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-4 py-3">Invoice</th>
-                      <th className="px-4 py-3">Invoice date</th>
-                      <th className="px-4 py-3">Invoice total</th>
-                      <th className="px-4 py-3">Amount applied</th>
-                      <th className="px-4 py-3">Invoice balance due</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">Reversed</th>
-                      <th className="px-4 py-3">Reason</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">{tc("Invoice")}</th>
+                      <th className="px-4 py-3">{tc("Invoice date")}</th>
+                      <th className="px-4 py-3">{tc("Invoice total")}</th>
+                      <th className="px-4 py-3">{tc("Amount applied")}</th>
+                      <th className="px-4 py-3">{tc("Invoice balance due")}</th>
+                      <th className="px-4 py-3">{tc("Status")}</th>
+                      <th className="px-4 py-3">{tc("Reversed")}</th>
+                      <th className="px-4 py-3">{tc("Reason")}</th>
+                      <th className="px-4 py-3">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {creditNote.allocations.map((allocation) => (
                       <tr key={allocation.id}>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</td>
-                        <td className="px-4 py-3">{allocation.invoice ? <LedgerDate>{new Date(allocation.invoice.issueDate).toLocaleDateString()}</LedgerDate> : "-"}</td>
-                        <td className="px-4 py-3">{allocation.invoice ? <LedgerMoney>{formatMoneyAmount(allocation.invoice.total, creditNote.currency)}</LedgerMoney> : "-"}</td>
-                        <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(allocation.amountApplied, creditNote.currency)}</LedgerMoney></td>
-                        <td className="px-4 py-3">{allocation.invoice ? <LedgerMoney>{formatMoneyAmount(allocation.invoice.balanceDue, creditNote.currency)}</LedgerMoney> : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</bdi></td>
+                        <td className="px-4 py-3 text-steel">{formatAppDate(allocation.invoice?.issueDate, locale, "-")}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.total, creditNote.currency, locale) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, creditNote.currency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.balanceDue, creditNote.currency, locale) : "-"}</td>
                         <td className="px-4 py-3">
-                          <LedgerStatusBadge tone={allocationStatusTone(allocation)}>{creditNoteAllocationStatusLabel(allocation)}</LedgerStatusBadge>
+                          <span className={`rounded-md px-2 py-1 text-xs font-medium ${creditNoteAllocationStatusBadgeClass(allocation)}`}>{tc(creditNoteAllocationStatusLabel(allocation))}</span>
                         </td>
-                        <td className="px-4 py-3">{allocation.reversedAt ? <LedgerDate>{new Date(allocation.reversedAt).toLocaleString()}</LedgerDate> : "-"}</td>
+                        <td className="px-4 py-3 text-steel">{formatAppDateTime(allocation.reversedAt, locale, "-")}</td>
                         <td className="px-4 py-3 text-steel">{allocation.reversalReason ?? "-"}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
-                            <LedgerButton href={`/sales/invoices/${allocation.invoiceId}`} size="sm">
-                              View invoice
-                            </LedgerButton>
+                            <Link href={`/sales/invoices/${allocation.invoiceId}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                              {tc("View invoice")}
+                            </Link>
                             {canReverseCreditNoteAllocation(allocation) && canVoidCreditNote ? (
-                              <LedgerButton type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} size="sm" variant="danger" icon={RotateCcw}>
-                                Reverse
-                              </LedgerButton>
+                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                                {tc("Reverse")}
+                              </button>
                             ) : null}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-              </LedgerDataTable>
+                </table>
+              </div>
             ) : (
-              <LedgerEmptyState title="No credit has been applied to invoices yet" />
+              <div className="px-5 py-4">
+                <StatusMessage type="empty">{tc("No credit has been applied to invoices yet.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerSection
-            title="Apply credit"
-            description="Use unapplied credit against finalized open invoices for the same customer."
-            action={<LedgerStatusBadge tone="neutral">No accounting journal</LedgerStatusBadge>}
-          >
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">{tc("Apply credit")}</h2>
+                <p className="mt-1 text-sm text-steel">{tc("Use unapplied credit against finalized open invoices for the same customer.")}</p>
+              </div>
+              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc("No accounting journal")}</span>
+            </div>
             {canApplyCredit ? (
               openInvoices.length > 0 ? (
                 <form onSubmit={applyCreditNote} className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-[1.4fr_0.7fr_auto]">
-                  <LedgerFieldLabel>
-                    <LedgerFieldText>Open invoice</LedgerFieldText>
-                    <LedgerSelect value={selectedInvoiceId} onChange={(event) => setSelectedInvoiceId(event.target.value)}>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Open invoice")}</span>
+                    <select value={selectedInvoiceId} onChange={(event) => setSelectedInvoiceId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
                       {openInvoices.map((invoice) => (
                         <option key={invoice.id} value={invoice.id}>
-                          {invoice.invoiceNumber} - balance {formatMoneyAmount(invoice.balanceDue, invoice.currency)}
+                          {tc("{number} - balance {amount}", { number: invoice.invoiceNumber, amount: formatAppMoney(invoice.balanceDue, invoice.currency, locale) })}
                         </option>
                       ))}
-                    </LedgerSelect>
-                  </LedgerFieldLabel>
-                  <LedgerFieldLabel>
-                    <LedgerFieldText>Amount to apply</LedgerFieldText>
-                    <LedgerInput value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" />
-                  </LedgerFieldLabel>
-                  <LedgerButton type="submit" disabled={actionLoading || !selectedInvoiceId} variant="primary" className="self-end">
-                    Apply
-                  </LedgerButton>
-                  <div className="md:col-span-3 text-xs text-steel">
-                    Selected invoice balance: {selectedInvoice ? formatMoneyAmount(selectedInvoice.balanceDue, selectedInvoice.currency) : "-"}.
-                    Credit available: {formatMoneyAmount(creditNote.unappliedAmount, creditNote.currency)}.
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Amount to apply")}</span>
+                    <input value={amountApplied} onChange={(event) => setAmountApplied(event.target.value)} placeholder="0.0000" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+                  </label>
+                  <button type="submit" disabled={actionLoading || !selectedInvoiceId} className="self-end rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    {tc("Apply")}
+                  </button>
+                  <div className="text-xs text-steel md:col-span-3">
+                    {tc("Selected invoice balance: {amount}.", { amount: selectedInvoice ? formatAppMoney(selectedInvoice.balanceDue, selectedInvoice.currency, locale) : "-" })}{" "}
+                    {tc("Credit available: {amount}.", { amount: formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale) })}
                   </div>
                 </form>
               ) : (
-                <LedgerEmptyState title="No finalized open invoices are available for this customer" />
+                <div className="mt-4">
+                  <StatusMessage type="empty">{tc("No finalized open invoices are available for this customer.")}</StatusMessage>
+                </div>
               )
             ) : (
-              <LedgerSummaryBand tone="info">Credit can be applied only after finalization while unapplied amount remains.</LedgerSummaryBand>
+              <div className="mt-4">
+                <StatusMessage type="info">{tc("Credit can be applied only after finalization while unapplied amount remains.")}</StatusMessage>
+              </div>
             )}
-          </LedgerSection>
+          </div>
 
-          <LedgerAlert tone="warning">
-            ZATCA credit note XML, signing, PDF/A-3 embedding, and clearance/reporting are intentionally not implemented in this MVP.
-          </LedgerAlert>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {tc("ZATCA credit note XML, signing, PDF/A-3 embedding, and clearance/reporting are intentionally not implemented in this MVP.")}
+          </div>
           <SourceDocumentGuidance />
         </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
-function Summary({ label, value }: { label: string; value: string }) {
+function Summary({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>

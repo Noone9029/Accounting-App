@@ -1,30 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFilterBar,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  LedgerToolbar,
-} from "@/components/ui/ledger-system";
+import { DataTable, FieldLabel, FieldText, FilterBar, LedgerButton, LedgerInput, LedgerSelect, MoneyCell, PageHeader, TableHead, Toolbar } from "@/components/ui-ledger";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { SalesInvoice, SalesInvoiceStatus } from "@/lib/types";
 
@@ -33,6 +17,7 @@ type StatusFilter = "ALL" | SalesInvoiceStatus;
 export default function SalesInvoicesPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -71,7 +56,7 @@ export default function SalesInvoicesPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load sales invoices.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load sales invoices."));
         }
       })
       .finally(() => {
@@ -83,7 +68,7 @@ export default function SalesInvoicesPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, reloadToken]);
+  }, [organizationId, reloadToken, tc]);
 
   async function finalizeInvoice(invoice: SalesInvoice) {
     setActionId(invoice.id);
@@ -92,129 +77,127 @@ export default function SalesInvoicesPage() {
 
     try {
       const finalized = await apiRequest<SalesInvoice>(`/sales-invoices/${invoice.id}/finalize`, { method: "POST" });
-      setSuccess(`Invoice posted. Open ${finalized.invoiceNumber} to record payment, view the customer ledger, or download the PDF.`);
+      setSuccess(tc("Invoice posted. Open {number} to record payment, view the customer ledger, or download the PDF.", { number: finalized.invoiceNumber }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to finalize invoice.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to finalize invoice."));
     } finally {
       setActionId("");
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales / AR"
-        title="Sales invoices"
-        description="Draft and finalized customer invoices from the live API. Review customer, VAT, balance, and posting state before taking action."
-        actions={
-          canCreateInvoice ? (
-            <LedgerButton href="/sales/invoices/new" variant="primary">
-              Create invoice
-            </LedgerButton>
-          ) : null
-        }
+    <section>
+      <PageHeader
+        eyebrow={tc("Sales / AR")}
+        title={tc("Sales invoices")}
+        description={tc("Draft and finalized customer invoices from the live API. Review customer, VAT, balance, and posting state before taking action.")}
+        actions={canCreateInvoice ? <LedgerButton href="/sales/invoices/new" variant="primary">{tc("Create invoice")}</LedgerButton> : null}
       />
 
-      <LedgerSummaryBand tone="info">
-        Finalizing an invoice remains an explicit posting action. This list does not send email, collect payments, submit tax data, run compliance calls, or change PDF/storage behavior.
-      </LedgerSummaryBand>
-
-      <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load invoices.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading sales invoices...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load invoices.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading sales invoices...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && invoices.length === 0 ? (
-          <LedgerEmptyState
-            title="No sales invoices found"
-            description="Create the first draft invoice, then finalize it when the customer and totals are ready."
-            action={canCreateInvoice ? <LedgerButton href="/sales/invoices/new" variant="primary">Create invoice</LedgerButton> : null}
-          />
+          <StatusMessage type="empty">
+            {tc("No sales invoices found. Create the first draft invoice, then finalize it when the customer and totals are ready.")}
+          </StatusMessage>
         ) : null}
+      </div>
 
       {invoices.length > 0 ? (
-        <LedgerToolbar
-          title="Invoice filters"
-          description="Keep this list focused on review status and customer context before finalizing or recording payment."
+        <Toolbar
+          title={tc("Invoice filters")}
+          description={tc("Keep this list focused on review status and customer context before finalizing or recording payment.")}
         >
-          <LedgerFilterBar>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Status</LedgerFieldText>
+          <FilterBar>
+            <FieldLabel>
+              <FieldText>{tc("Status")}</FieldText>
               <LedgerSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="sm:w-40">
-                <option value="ALL">All</option>
-                <option value="DRAFT">Draft</option>
-                <option value="FINALIZED">Finalized</option>
-                <option value="VOIDED">Voided</option>
+              <option value="ALL">{tc("All")}</option>
+              <option value="DRAFT">{tc("Draft")}</option>
+              <option value="FINALIZED">{tc("Finalized")}</option>
+              <option value="VOIDED">{tc("Voided")}</option>
               </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="min-w-64">
-              <LedgerFieldText>Customer</LedgerFieldText>
-              <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
-            </LedgerFieldLabel>
-          </LedgerFilterBar>
-        </LedgerToolbar>
+            </FieldLabel>
+            <FieldLabel className="min-w-64">
+              <FieldText>{tc("Customer")}</FieldText>
+              <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder={tc("Search customer")} />
+            </FieldLabel>
+          </FilterBar>
+        </Toolbar>
       ) : null}
 
       {invoices.length > 0 && filteredInvoices.length === 0 ? (
-        <LedgerEmptyState title="No invoices match the current filters" description="Clear the status or customer filter to return to the full AR invoice list." />
+        <div className="mt-5">
+          <StatusMessage type="empty">{tc("No invoices match the current filters.")}</StatusMessage>
+        </div>
       ) : null}
 
       {filteredInvoices.length > 0 ? (
-        <LedgerDataTable minWidth="1280px">
-            <thead className="ledger-table-header">
+        <div className="mt-5">
+          <DataTable minWidth="1280px">
+            <TableHead>
               <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Issue</th>
-                <th className="px-4 py-3">Due</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Subtotal</th>
-                <th className="px-4 py-3">Tax</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Balance due</th>
-                <th className="px-4 py-3">Journal</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Number")}</th>
+                <th className="px-4 py-3">{tc("Customer")}</th>
+                <th className="px-4 py-3">{tc("Issue")}</th>
+                <th className="px-4 py-3">{tc("Due")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Subtotal")}</th>
+                <th className="px-4 py-3">{tc("Tax")}</th>
+                <th className="px-4 py-3">{tc("Total")}</th>
+                <th className="px-4 py-3">{tc("Balance due")}</th>
+                <th className="px-4 py-3">{tc("Journal")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
-            </thead>
+            </TableHead>
             <tbody className="divide-y divide-slate-100">
               {filteredInvoices.map((invoice) => (
                 <tr key={invoice.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{invoice.invoiceNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{invoice.invoiceNumber}</bdi></td>
                   <td className="px-4 py-3 font-medium text-ink">{invoice.customer?.displayName ?? invoice.customer?.name ?? "-"}</td>
-                  <td className="px-4 py-3"><LedgerDate>{new Date(invoice.issueDate).toLocaleDateString()}</LedgerDate></td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(invoice.dueDate)}</LedgerDate></td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(invoice.issueDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(invoice.dueDate, locale, "-")}</td>
                   <td className="px-4 py-3">
                     <InvoiceStatusPill status={invoice.status} />
                   </td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.subtotal, invoice.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.taxTotal, invoice.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.total, invoice.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(invoice.balanceDue, invoice.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3 text-steel">{invoice.journalEntry ? invoice.journalEntry.status : "-"}</td>
+                  <td className="px-4 py-3"><MoneyCell>{formatAppMoney(invoice.subtotal, invoice.currency, locale)}</MoneyCell></td>
+                  <td className="px-4 py-3"><MoneyCell>{formatAppMoney(invoice.taxTotal, invoice.currency, locale)}</MoneyCell></td>
+                  <td className="px-4 py-3"><MoneyCell>{formatAppMoney(invoice.total, invoice.currency, locale)}</MoneyCell></td>
+                  <td className="px-4 py-3"><MoneyCell>{formatAppMoney(invoice.balanceDue, invoice.currency, locale)}</MoneyCell></td>
+                  <td className="px-4 py-3 text-steel">{invoice.journalEntry ? tc(invoice.journalEntry.status) : "-"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <LedgerButton href={`/sales/invoices/${invoice.id}`} size="sm">View</LedgerButton>
+                      <LedgerButton href={`/sales/invoices/${invoice.id}`} size="sm">{tc("View")}</LedgerButton>
                       {invoice.status === "DRAFT" && canFinalizeInvoice ? (
-                        <LedgerButton size="sm" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id}>
-                          Finalize
-                        </LedgerButton>
+                        <button type="button" onClick={() => void finalizeInvoice(invoice)} disabled={actionId === invoice.id} className="ledger-focus rounded-md border border-palm px-2 py-1 text-xs font-semibold text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Finalize")}
+                        </button>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-        </LedgerDataTable>
+          </DataTable>
+        </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
 function InvoiceStatusPill({ status }: { status: SalesInvoiceStatus }) {
+  const { tc } = useAppLocale();
+  const className =
+    status === "FINALIZED"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "VOIDED"
+        ? "bg-rose-50 text-rosewood"
+        : "bg-slate-100 text-slate-700";
   const label = status === "FINALIZED" ? "Finalized/posted" : status === "VOIDED" ? "Voided" : "Draft";
-  const tone = status === "FINALIZED" ? "success" : status === "VOIDED" ? "danger" : "draft";
 
-  return <LedgerStatusBadge tone={tone}>{label}</LedgerStatusBadge>;
+  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${className}`}>{tc(label)}</span>;
 }

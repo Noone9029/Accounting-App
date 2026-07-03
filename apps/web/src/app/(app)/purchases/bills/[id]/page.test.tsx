@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import PurchaseBillDetailPage, { PurchaseBillWorkflowGuidance } from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { PurchaseBill } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
@@ -129,6 +130,44 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Create debit note" })).toHaveAttribute(
       "href",
       "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
+    );
+  });
+
+  it("renders Arabic purchase bill guidance without changing action routes", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <PurchaseBillWorkflowGuidance
+          bill={billFixture({ status: "FINALIZED", balanceDue: "115.0000" })}
+          actionLoading={false}
+          canFinalizeBill
+          canCreateSupplierPayment
+          canCreateDebitNote
+          canDownloadGeneratedDocuments
+          returnTo="/contacts/contact-1?section=supplier-statement&returnTo=%2Fsuppliers%2F00000000-0000-0000-0000-000000000201"
+          onFinalize={jest.fn()}
+          onDownloadPdf={jest.fn()}
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("منتهية/مرحلة")).toBeInTheDocument();
+    expect(screen.getByText("غير مدفوعة")).toBeInTheDocument();
+    expect(screen.getByText(/مستحق المورد مفتوح/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "تسجيل دفعة مورد" })).toHaveAttribute(
+      "href",
+      "/purchases/supplier-payments/new?supplierId=00000000-0000-0000-0000-000000000201&billId=00000000-0000-0000-0000-000000000701&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
+    );
+    expect(screen.getByRole("link", { name: "إنشاء إشعار مدين" })).toHaveAttribute(
+      "href",
+      "/purchases/debit-notes/new?billId=00000000-0000-0000-0000-000000000701&supplierId=00000000-0000-0000-0000-000000000201&returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
+    );
+    expect(screen.getByRole("link", { name: "عرض دفتر المورد" })).toHaveAttribute(
+      "href",
+      "/suppliers/00000000-0000-0000-0000-000000000201",
+    );
+    expect(screen.getByRole("link", { name: "تقرير الدائنين" })).toHaveAttribute(
+      "href",
+      "/reports/aged-payables?returnTo=%2Fpurchases%2Fbills%2F00000000-0000-0000-0000-000000000701%3FreturnTo%3D%252Fcontacts%252Fcontact-1%253Fsection%253Dsupplier-statement%2526returnTo%253D%25252Fsuppliers%25252F00000000-0000-0000-0000-000000000201",
     );
   });
 

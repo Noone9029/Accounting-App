@@ -3,29 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSelect,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { calculateSupplierPaymentAllocationPreview, formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { calculateSupplierPaymentAllocationPreview, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
 
@@ -34,21 +18,13 @@ interface AllocationState {
   amountApplied: string;
 }
 
-const supplierAllocationColumns = [
-  { key: "bill", label: "Bill", className: "min-w-32" },
-  { key: "billDate", label: "Bill date" },
-  { key: "total", label: "Total" },
-  { key: "balanceDue", label: "Balance due" },
-  { key: "amountApplied", label: "Apply" },
-  { key: "action", label: "Actions" },
-] as const;
-
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function NewSupplierPaymentPage() {
   const router = useRouter();
+  const { locale, tc } = useAppLocale();
   const organizationId = useActiveOrganizationId();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -131,7 +107,7 @@ export default function NewSupplierPaymentPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load supplier payment setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load supplier payment setup data."));
         }
       })
       .finally(() => {
@@ -178,7 +154,7 @@ export default function NewSupplierPaymentPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load open purchase bills.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load open purchase bills."));
         }
       })
       .finally(() => {
@@ -210,7 +186,7 @@ export default function NewSupplierPaymentPage() {
     const allocationsToSubmit = allocations.filter((allocation) => parseDecimalToUnits(allocation.amountApplied) > 0);
     const validationError = getValidationError(supplierId, accountId, amountPaid, allocationsToSubmit, openBills);
     if (validationError) {
-      setError(validationError);
+      setError(tc(validationError));
       return;
     }
 
@@ -230,153 +206,151 @@ export default function NewSupplierPaymentPage() {
       });
       router.push(returnTo || `/purchases/supplier-payments/${payment.id}?recorded=1`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to record supplier payment.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to record supplier payment."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title="Record supplier payment"
-        description="Pay suppliers and allocate the payment to finalized open bills."
-        actions={
-          <LedgerButton href={returnTo || "/purchases/supplier-payments"}>
-          Back
-        </LedgerButton>
-        }
-      />
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Record supplier payment")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Pay suppliers and allocate the payment to finalized open bills.")}</p>
+        </div>
+        <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to record supplier payments.</LedgerAlert> : null}
-        {loadingSetup ? <LedgerAlert tone="info">Loading supplier payment setup data...</LedgerAlert> : null}
-        {loadingBills ? <LedgerAlert tone="info">Loading open bills...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to record supplier payments.")}</StatusMessage> : null}
+        {loadingSetup ? <StatusMessage type="loading">{tc("Loading supplier payment setup data...")}</StatusMessage> : null}
+        {loadingBills ? <StatusMessage type="loading">{tc("Loading open bills...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-5">
-        <LedgerFormSection title="Payment details" description="Choose the supplier, payment date, amount, and paid-through account.">
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Supplier</LedgerFieldText>
-              <LedgerSelect value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required>
-                <option value="">Select supplier</option>
+      <form onSubmit={onSubmit} className="mt-5 space-y-5">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Supplier")}</span>
+              <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select supplier")}</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.displayName ?? supplier.name}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Payment date</LedgerFieldText>
-              <LedgerInput type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Amount paid</LedgerFieldText>
-              <LedgerInput inputMode="decimal" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} required className="font-mono tabular-nums" />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Paid-through account</LedgerFieldText>
-              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
-                <option value="">Select cash or bank account</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Payment date")}</span>
+              <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Amount paid")}</span>
+              <input inputMode="decimal" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Paid-through account")}</span>
+              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select cash or bank account")}</option>
                 {paidThroughAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Description</LedgerFieldText>
-              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
-            </LedgerFieldLabel>
-        </LedgerFormSection>
-
-        <LedgerPanel className="p-0">
-          <div className="border-b border-line px-4 py-3">
-            <h2 className="text-base font-semibold text-ink">Bill allocation</h2>
-            <p className="mt-1 text-sm leading-6 text-steel">Apply this payment only to finalized open bills for the selected supplier.</p>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
+              <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
           </div>
-          <LedgerDataTable minWidth="760px" className="rounded-t-none border-0 shadow-none">
+        </div>
+
+        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[760px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                {supplierAllocationColumns.map((column) => (
-                  <th key={column.key} className="px-4 py-3">{column.label}</th>
-                ))}
+                <th className="px-4 py-3">{tc("Bill")}</th>
+                <th className="px-4 py-3">{tc("Bill date")}</th>
+                <th className="px-4 py-3">{tc("Total")}</th>
+                <th className="px-4 py-3">{tc("Balance due")}</th>
+                <th className="px-4 py-3">{tc("Apply")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {openBills.length > 0 ? openBills.map((bill) => {
-                const allocation = allocations.find((candidate) => candidate.billId === bill.id);
-                return (
-                  <tr key={bill.id}>
-                    <td className="px-4 py-3 font-mono text-xs">{bill.billNumber}</td>
-                    <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(bill.billDate, "-")}</LedgerDate></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(bill.total, bill.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(bill.balanceDue, bill.currency)}</LedgerMoney></td>
-                    <td className="px-4 py-3">
-                      <LedgerInput
-                        inputMode="decimal"
-                        value={allocation?.amountApplied ?? "0.0000"}
-                        onChange={(event) => updateAllocation(bill.id, event.target.value)}
-                        className="w-32 font-mono text-xs tabular-nums"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <LedgerButton size="sm" onClick={() => applyFullBalance(bill)}>
-                        Full balance
-                      </LedgerButton>
-                    </td>
-                  </tr>
-                );
-              }) : (
+              {openBills.length === 0 ? (
                 <tr>
-                  <td colSpan={supplierAllocationColumns.length} className="px-4 py-5 text-steel">
-                    {supplierId ? (
-                      <>
-                        No finalized open bills were found for this supplier.{" "}
-                        <Link href={createBillHref} className="font-semibold text-palm hover:underline">
-                          Create and finalize a bill
-                        </Link>{" "}
-                        before recording payment.
-                      </>
-                    ) : (
-                      "Select a supplier to load finalized open bills."
-                    )}
+                  <td colSpan={6} className="px-4 py-5">
+                    <StatusMessage type="empty">
+                      {tc("No finalized open bills were found for this supplier.")}
+                      {" "}
+                      <Link href={createBillHref} className="font-semibold text-palm hover:underline">
+                        {tc("Create and finalize a bill")}
+                      </Link>
+                      {" "}
+                      {tc("before recording payment.")}
+                    </StatusMessage>
                   </td>
                 </tr>
+              ) : (
+                openBills.map((bill) => {
+                  const allocation = allocations.find((candidate) => candidate.billId === bill.id);
+                  return (
+                    <tr key={bill.id}>
+                      <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{bill.billNumber}</bdi></td>
+                      <td className="px-4 py-3 text-steel">{formatAppDate(bill.billDate, locale, "-")}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.total, bill.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.balanceDue, bill.currency, locale)}</td>
+                      <td className="px-4 py-3">
+                        <input inputMode="decimal" value={allocation?.amountApplied ?? "0.0000"} onChange={(event) => updateAllocation(bill.id, event.target.value)} className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
+                      </td>
+                      <td className="px-4 py-3">
+                        <button type="button" onClick={() => applyFullBalance(bill)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          {tc("Full balance")}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
-          </LedgerDataTable>
-        </LedgerPanel>
-
-        <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <LedgerSummaryBand>
-            Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances.
-          </LedgerSummaryBand>
-          <LedgerPanel className="p-4">
-            <h2 className="text-base font-semibold text-ink">Payment summary</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <dt className="text-steel">Amount paid</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.amountPaid)}</LedgerMoney></dd>
-              <dt className="text-steel">Allocated</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(preview.totalAllocated)}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Unapplied</dt>
-              <dd className="text-right font-semibold"><LedgerMoney>{formatMoneyAmount(preview.unappliedAmount)}</LedgerMoney></dd>
-            </dl>
-          </LedgerPanel>
+          </table>
         </div>
 
-        <LedgerActionBar className="justify-end">
-          <LedgerButton href={returnTo || "/purchases/supplier-payments"}>Cancel</LedgerButton>
-          <LedgerButton type="submit" disabled={submitting || !organizationId} variant="primary">
-            {submitting ? "Recording..." : "Record payment"}
-          </LedgerButton>
-        </LedgerActionBar>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <p className="text-sm text-steel">{tc("Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances.")}</p>
+          <div className="min-w-[260px] space-y-2 text-sm">
+            <TotalRow label={tc("Amount paid")} value={formatAppMoney(preview.amountPaid, "SAR", locale)} />
+            <TotalRow label={tc("Allocated")} value={formatAppMoney(preview.totalAllocated, "SAR", locale)} />
+            <TotalRow label={tc("Unapplied")} value={formatAppMoney(preview.unappliedAmount, "SAR", locale)} strong />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Cancel")}
+          </Link>
+          <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            {submitting ? tc("Recording...") : tc("Record payment")}
+          </button>
+        </div>
       </form>
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
+  );
+}
+
+function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-4 ${strong ? "font-semibold text-ink" : "text-steel"}`}>
+      <span>{label}</span>
+      <span className="font-mono text-xs">{value}</span>
+    </div>
   );
 }
 

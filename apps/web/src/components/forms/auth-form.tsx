@@ -1,9 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { LogIn, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { LedgerAlert, LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput } from "@/components/ui/ledger-system";
+import { FieldHelp, FieldLabel, FieldText, LedgerButton, LedgerInput } from "@/components/ui-ledger";
 import { apiRequest, setAccessToken, setActiveOrganizationId } from "@/lib/api";
 import type { AuthResponse, MeResponse } from "@/lib/types";
 
@@ -16,13 +15,11 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState<string>("");
-  const [statusTone, setStatusTone] = useState<"info" | "warning" | "success">("info");
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
-    setStatusTone("info");
     setStatus("Submitting...");
 
     const formData = new FormData(event.currentTarget);
@@ -48,7 +45,6 @@ export function AuthForm({ mode }: AuthFormProps) {
       setAccessToken(result.accessToken);
 
       if (mode === "register") {
-        setStatusTone("success");
         setStatus("Account created. Set up an organization next.");
         router.push("/organization/setup");
         return;
@@ -64,7 +60,6 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       router.push("/organization/setup");
     } catch (error) {
-      setStatusTone("warning");
       setStatus(error instanceof Error ? error.message : "Request failed.");
     } finally {
       setSubmitting(false);
@@ -74,24 +69,24 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {mode === "register" ? (
-        <LedgerFieldLabel>
-          <LedgerFieldText>Name</LedgerFieldText>
+        <FieldLabel>
+          <FieldText>Name</FieldText>
           <LedgerInput name="name" required autoComplete="name" />
-        </LedgerFieldLabel>
+        </FieldLabel>
       ) : null}
-      <LedgerFieldLabel>
-        <LedgerFieldText>Email</LedgerFieldText>
+      <FieldLabel>
+        <FieldText>Email</FieldText>
         <LedgerInput name="email" type="email" required autoComplete="email" />
-      </LedgerFieldLabel>
-      <LedgerFieldLabel>
-        <LedgerFieldText>Password</LedgerFieldText>
+      </FieldLabel>
+      <FieldLabel>
+        <FieldText>Password</FieldText>
         <LedgerInput name="password" type="password" required minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} />
-        <LedgerFieldHelp>{mode === "login" ? "Use your beta workspace credentials." : "Use at least 8 characters for beta access."}</LedgerFieldHelp>
-      </LedgerFieldLabel>
-      <LedgerButton type="submit" disabled={submitting} variant="primary" icon={mode === "login" ? LogIn : UserPlus} className="w-full">
+        <FieldHelp>{mode === "login" ? "Use your beta workspace credentials." : "Use at least 8 characters for beta access."}</FieldHelp>
+      </FieldLabel>
+      <LedgerButton type="submit" disabled={submitting} variant="primary" className="w-full">
         {submitting ? "Submitting..." : mode === "login" ? "Log in" : "Create account"}
       </LedgerButton>
-      {status ? <LedgerAlert tone={statusTone}>{status}</LedgerAlert> : null}
+      {status ? <p className="text-sm text-steel">{status}</p> : null}
     </form>
   );
 }

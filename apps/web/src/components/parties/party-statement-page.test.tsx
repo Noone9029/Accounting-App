@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { PartyStatementPage } from "./party-statement-page";
 import type { CustomerPartyDetail, CustomerStatement, SupplierPartyDetail, SupplierStatement } from "@/lib/types";
 
@@ -25,6 +26,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: routeId }),
+  useRouter: () => ({ refresh: jest.fn() }),
   useSearchParams: () => searchParams,
 }));
 
@@ -115,6 +117,27 @@ describe("party statement routes", () => {
         "/customers/customer-1/statement?returnTo=%2Fcustomers%2Fcustomer-1",
       ),
     );
+  });
+
+  it("renders Arabic customer statement copy while preserving workspace return links", async () => {
+    getCustomerMock.mockResolvedValue(customerDetail());
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <PartyStatementPage kind="customer" />
+      </AppLocaleProvider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "نشاط كشف العميل" })).toBeInTheDocument();
+    expect(screen.getByText("راجع صفوف كشف العميل المرحلة من مسار مساحة العمل المخصص مع إبقاء متابعة المدينين مرتبطة بمساحة العميل.")).toBeInTheDocument();
+    expect(screen.getByText("مراجعة نشاط ضمن البيتا المضبوطة فقط. لا يضيف هذا المسار أي ادعاءات رسمية أو معتمدة أو مؤكدة بنكيا أو متعلقة بإقرار الضريبة أو امتثال زاتكا.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "العودة إلى مساحة العميل" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByRole("link", { name: "عرض نشاط المدينين" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1",
+    );
+    expect(screen.getByRole("button", { name: "تحميل كشف العميل" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "تنزيل PDF كشف العميل" })).toBeInTheDocument();
   });
 
   it("renders the dedicated supplier statement route with AP-safe links", async () => {

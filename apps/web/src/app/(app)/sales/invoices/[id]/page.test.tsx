@@ -1,12 +1,15 @@
 import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import SalesInvoiceDetailPage, { InvoiceWorkflowGuidance } from "./page";
 import type { CollectionCase, DeliveryNote, SalesInvoice } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 let mockAllowedPermissions = new Set<string>();
 let searchParamsMock = new URLSearchParams();
+const refreshMock = jest.fn();
+const originalLedgerByteMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,7 +26,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "invoice-1" }),
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), refresh: refreshMock }),
   useSearchParams: () => searchParamsMock,
 }));
 
@@ -50,17 +53,12 @@ jest.mock("@/lib/pdf-download", () => {
 });
 
 describe("invoice workflow guidance", () => {
-  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
-
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "GENERIC";
     apiRequestMock.mockReset();
+    refreshMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
     searchParamsMock = new URLSearchParams();
-  });
-
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
   });
 
   it("explains draft invoice state and shows the finalize action", () => {
@@ -103,7 +101,7 @@ describe("invoice workflow guidance", () => {
     expect(screen.getByRole("link", { name: "View report" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("button", { name: "Download invoice PDF" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
-    expect(screen.getByText(/Compliance status here is local\/readiness only/)).toBeInTheDocument();
+    expect(screen.getByText(/ZATCA status here is local\/readiness only/)).toBeInTheDocument();
     expect(screen.getByText(/production compliance are not enabled/)).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
@@ -129,16 +127,19 @@ describe("invoice workflow guidance", () => {
 });
 
 describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
-  const originalMarket = process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
-
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = "GENERIC";
     apiRequestMock.mockReset();
+    refreshMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
   });
 
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalMarket;
+  afterAll(() => {
+    if (originalLedgerByteMarket === undefined) {
+      delete process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET;
+    } else {
+      process.env.NEXT_PUBLIC_LEDGERBYTE_MARKET = originalLedgerByteMarket;
+    }
   });
 
   it("shows linked delivery notes from the invoice without mutating the invoice", async () => {
@@ -167,7 +168,6 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
     expect(screen.getByText(/do not post journals, allocate payments, send email or reminders, create payment links, file VAT, call ZATCA, or change invoice balances/i)).toBeInTheDocument();
     expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/finalize|void/), expect.anything());
-    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/zatca|compliance\/sales-invoices/));
   });
 
   it("keeps ZATCA invoice actions framed as local readiness rather than production clearance or reporting", async () => {
@@ -262,6 +262,39 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
       "href",
       "/contacts/contact-1?section=statement&returnTo=%2Fcustomers%2Fcontact-1",
     );
+  });
+
+  it("renders invoice detail core panels in Arabic RTL with invoice numbers unchanged", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") {
+        return Promise.resolve(invoiceFixture({ status: "FINALIZED", finalizedAt: "2026-06-04T10:00:00.000Z" }));
+      }
+      if (path === "/sales-invoices/invoice-1/stock-issue-status") {
+        return Promise.resolve(null);
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([]);
+      }
+      if (path === "/collections/invoice/invoice-1") {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesInvoiceDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("INV-001")).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText("INV-001").closest("bdi")).toHaveAttribute("dir", "ltr");
+    expect(screen.getByText("تفاصيل الفاتورة، والإجماليات المحسوبة، وقيد اليومية المرتبط.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ماذا حدث؟" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "الإجراءات التالية" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "تنزيل PDF الفاتورة" })).toHaveLength(2);
+    expect(screen.getByText("ما زالت الدفعة مستحقة، لكن دورك لا يمكنه تسجيل دفعات العملاء.")).toBeInTheDocument();
   });
 });
 

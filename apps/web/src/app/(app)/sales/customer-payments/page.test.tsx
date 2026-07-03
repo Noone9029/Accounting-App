@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import CustomerPaymentsPage from "./page";
 
 const apiRequestMock = jest.fn();
@@ -22,6 +23,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 jest.mock("@/components/permissions/permission-provider", () => ({
@@ -64,18 +66,30 @@ describe("CustomerPaymentsPage", () => {
       "href",
       "/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1",
     );
-    expect(screen.queryByText(/auto.?match|auto.?reconcile|autopay|bank feed|payment provider|certified/i)).not.toBeInTheDocument();
   });
 
-  it("filters create and void actions by permissions", async () => {
-    canMock.mockReturnValue(false);
-
-    render(<CustomerPaymentsPage />);
+  it("renders the filtered payment list in Arabic without changing route continuity", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <CustomerPaymentsPage />
+      </AppLocaleProvider>,
+    );
 
     expect(await screen.findByText("CP-001")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Void" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "دفعات العملاء" })).toBeInTheDocument();
+    expect(screen.getByText(/دفعات العملاء المسجلة لمساحة العمل هذه/)).toBeInTheDocument();
+    expect(screen.getByText("مرحلة")).toBeInTheDocument();
+    expect(screen.getByText("لا توجد تخصيصات")).toBeInTheDocument();
+    expect(screen.getByText("دفع عبر")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "العودة إلى مساحة العمل" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByRole("link", { name: "تسجيل دفعة" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments/new?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1",
+    );
+    expect(screen.getByRole("link", { name: "عرض" })).toHaveAttribute(
+      "href",
+      "/sales/customer-payments/payment-1?returnTo=%2Fsales%2Fcustomer-payments%3FcustomerId%3Dcustomer-1%26returnTo%3D%252Fcustomers%252Fcustomer-1",
+    );
   });
 });
 

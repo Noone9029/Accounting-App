@@ -1,32 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerEmptyState,
-  LedgerDate,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerStatusBadge,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
-import { supplierRefundSourceTypeLabel, supplierRefundStatusLabel } from "@/lib/supplier-refunds";
+import { supplierRefundSourceTypeLabel, supplierRefundStatusBadgeClass, supplierRefundStatusLabel } from "@/lib/supplier-refunds";
 import type { SupplierRefund } from "@/lib/types";
 
 export default function SupplierRefundsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [refunds, setRefunds] = useState<SupplierRefund[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState("");
@@ -53,7 +42,7 @@ export default function SupplierRefundsPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load supplier refunds.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load supplier refunds."));
         }
       })
       .finally(() => {
@@ -65,10 +54,10 @@ export default function SupplierRefundsPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, reloadToken]);
+  }, [organizationId, reloadToken, tc]);
 
   async function voidRefund(refund: SupplierRefund) {
-    if (!window.confirm(`Void supplier refund ${refund.refundNumber}?`)) {
+    if (!window.confirm(tc("Void supplier refund {number}?", { number: refund.refundNumber }))) {
       return;
     }
 
@@ -78,102 +67,84 @@ export default function SupplierRefundsPage() {
 
     try {
       const voided = await apiRequest<SupplierRefund>(`/supplier-refunds/${refund.id}/void`, { method: "POST" });
-      setSuccess(`Voided supplier refund ${voided.refundNumber}.`);
+      setSuccess(tc("Voided supplier refund {number}.", { number: voided.refundNumber }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to void supplier refund.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to void supplier refund."));
     } finally {
       setActionId("");
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title="Supplier refunds"
-        description="Manual refunds received from suppliers against unapplied supplier payments and purchase debit notes."
-        actions={
-          canCreateRefund ? (
-            <LedgerActionBar>
-              <LedgerButton href="/purchases/supplier-refunds/new" variant="primary">
-                Record refund
-              </LedgerButton>
-            </LedgerActionBar>
-          ) : undefined
-        }
-      />
-
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load supplier refunds.</LedgerAlert> : null}
-        {loading ? <LedgerAlert tone="info">Loading supplier refunds...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
-        {!loading && organizationId && refunds.length === 0 ? (
-          <LedgerEmptyState
-            title="No supplier refunds found"
-            description="Record a supplier refund only after unapplied supplier payment or debit note credit exists."
-            action={canCreateRefund ? <LedgerButton href="/purchases/supplier-refunds/new" variant="primary">Record refund</LedgerButton> : null}
-          />
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Supplier refunds")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Manual refunds received from suppliers against unapplied supplier payments and purchase debit notes.")}</p>
+        </div>
+        {canCreateRefund ? (
+          <Link href="/purchases/supplier-refunds/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc("Record refund")}
+          </Link>
         ) : null}
+      </div>
 
-        {refunds.length > 0 ? (
-          <LedgerDataTable minWidth="1120px">
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load supplier refunds.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading supplier refunds...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {!loading && organizationId && refunds.length === 0 ? <StatusMessage type="empty">{tc("No supplier refunds found.")}</StatusMessage> : null}
+      </div>
+
+      {refunds.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1120px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Supplier</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Source</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Received into</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Number")}</th>
+                <th className="px-4 py-3">{tc("Supplier")}</th>
+                <th className="px-4 py-3">{tc("Date")}</th>
+                <th className="px-4 py-3">{tc("Source")}</th>
+                <th className="px-4 py-3">{tc("Amount")}</th>
+                <th className="px-4 py-3">{tc("Received into")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {refunds.map((refund) => (
                 <tr key={refund.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{refund.refundNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{refund.refundNumber}</bdi></td>
                   <td className="px-4 py-3 font-medium text-ink">{refund.supplier?.displayName ?? refund.supplier?.name ?? "-"}</td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(refund.refundDate, "-")}</LedgerDate></td>
-                  <td className="px-4 py-3 text-steel">{supplierRefundSourceTypeLabel(refund.sourceType)}</td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(refund.amountRefunded, refund.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3 text-steel">{refund.account ? `${refund.account.code} ${refund.account.name}` : "-"}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(refund.refundDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{tc(supplierRefundSourceTypeLabel(refund.sourceType))}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(refund.amountRefunded, refund.currency, locale)}</td>
+                  <td className="px-4 py-3 text-steel">{refund.account ? <bdi dir="ltr">{`${refund.account.code} ${refund.account.name}`}</bdi> : "-"}</td>
                   <td className="px-4 py-3">
-                    <LedgerStatusBadge tone={supplierRefundStatusTone(refund.status)}>{supplierRefundStatusLabel(refund.status)}</LedgerStatusBadge>
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${supplierRefundStatusBadgeClass(refund.status)}`}>
+                      {tc(supplierRefundStatusLabel(refund.status))}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
-                    <LedgerActionBar>
-                      <LedgerButton href={`/purchases/supplier-refunds/${refund.id}`} size="sm">
-                        View
-                      </LedgerButton>
+                    <div className="flex gap-2">
+                      <Link href={`/purchases/supplier-refunds/${refund.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("View")}
+                      </Link>
                       {refund.status === "POSTED" && canVoidRefund ? (
-                        <LedgerButton variant="danger" size="sm" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id}>
-                          Void
-                        </LedgerButton>
+                        <button type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Void")}
+                        </button>
                       ) : null}
-                    </LedgerActionBar>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
-}
-
-function supplierRefundStatusTone(status: SupplierRefund["status"]): LedgerStatusTone {
-  switch (status) {
-    case "POSTED":
-      return "success";
-    case "VOIDED":
-      return "danger";
-    case "DRAFT":
-      return "draft";
-    default:
-      return "neutral";
-  }
 }

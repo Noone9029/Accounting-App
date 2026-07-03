@@ -1,12 +1,14 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { DeliveryNote, GeneratedDocument } from "@/lib/types";
 import DeliveryNoteDetailPage from "./page";
 
 const apiRequestMock = jest.fn();
 const mockDownloadPdf = jest.fn();
 let mockAllowedPermissions = new Set<string>();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +25,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "dn-1" }),
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -51,6 +54,7 @@ describe("DeliveryNoteDetailPage", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
     mockDownloadPdf.mockReset();
+    refreshMock.mockReset();
     mockDownloadPdf.mockResolvedValue(undefined);
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
   });
@@ -103,6 +107,30 @@ describe("DeliveryNoteDetailPage", () => {
 
     await waitFor(() => expect(mockDownloadPdf).toHaveBeenCalledWith("/delivery-notes/dn-1/pdf", "delivery-note-DN-000042.pdf"));
     expect(screen.getByText("delivery-note-DN-000042.pdf")).toBeInTheDocument();
+  });
+
+  it("renders issued delivery note detail in Arabic with RTL direction and stable document numbers", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/delivery-notes/dn-1") {
+        return Promise.resolve(deliveryNoteFixture({ status: "ISSUED" }));
+      }
+      if (path.startsWith("/generated-documents")) {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <DeliveryNoteDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "تعليم كمسلم" })).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText("DN-000042")).toBeInTheDocument();
+    expect(screen.getByText("أرشيف PDF إشعار التسليم")).toBeInTheDocument();
+    expect(screen.getByText(/إشعار التسليم هذا مستند تنفيذ غير مرحل/)).toBeInTheDocument();
   });
 
   it("hides delivery note PDF actions when generated-document download permission is missing", async () => {

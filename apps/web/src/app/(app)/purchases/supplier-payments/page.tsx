@@ -1,25 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { PaymentStatusBadge } from "@/components/ui-ledger/payment-method-badge";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { SupplierPayment } from "@/lib/types";
@@ -27,6 +16,7 @@ import type { SupplierPayment } from "@/lib/types";
 export default function SupplierPaymentsPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const searchParams = useSearchParams();
   const [payments, setPayments] = useState<SupplierPayment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,7 +60,7 @@ export default function SupplierPaymentsPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load supplier payments.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load supplier payments."));
         }
       })
       .finally(() => {
@@ -85,7 +75,7 @@ export default function SupplierPaymentsPage() {
   }, [organizationId, reloadToken]);
 
   async function voidPayment(payment: SupplierPayment) {
-    if (!window.confirm(`Void supplier payment ${payment.paymentNumber}?`)) {
+    if (!window.confirm(tc("Void supplier payment {number}?", { number: payment.paymentNumber }))) {
       return;
     }
 
@@ -95,107 +85,115 @@ export default function SupplierPaymentsPage() {
 
     try {
       const voided = await apiRequest<SupplierPayment>(`/supplier-payments/${payment.id}/void`, { method: "POST" });
-      setSuccess(`Voided supplier payment ${voided.paymentNumber}.`);
+      setSuccess(tc("Voided supplier payment {number}.", { number: voided.paymentNumber }));
       setReloadToken((current) => current + 1);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unable to void supplier payment.");
+      setError(actionError instanceof Error ? actionError.message : tc("Unable to void supplier payment."));
     } finally {
       setActionId("");
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title="Supplier payments"
-        description={
-          supplierId
-            ? "Recorded supplier payments for this workspace. Payment PDFs remain explicit output actions."
-            : "Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions."
-        }
-        actions={
-          <LedgerActionBar>
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Supplier payments")}</h1>
+          <p className="mt-1 text-sm text-steel">
+            {supplierId
+              ? tc("Recorded supplier payments for this workspace. Payment PDFs remain explicit output actions.")
+              : tc("Recorded supplier payments and purchase bill allocations. Payment PDFs remain explicit output actions.")}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {returnTo ? (
-            <LedgerButton href={returnTo}>
-              Back to workspace
-            </LedgerButton>
+            <Link href={returnTo} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Back to workspace")}
+            </Link>
           ) : null}
           {canCreatePayment ? (
-            <LedgerButton href={recordPaymentHref} variant="primary">
-              Record payment
-            </LedgerButton>
+            <Link href={recordPaymentHref} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+              {tc("Record payment")}
+            </Link>
           ) : null}
-          </LedgerActionBar>
-        }
-      />
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load supplier payments.</LedgerAlert> : null}
-        {loading ? <LedgerAlert tone="info">Loading supplier payments...</LedgerAlert> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-        {success ? <LedgerAlert tone="success">{success}</LedgerAlert> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load supplier payments.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading supplier payments...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
         {!loading && organizationId && visiblePayments.length === 0 ? (
-          <LedgerEmptyState
-            title="No supplier payments found"
-            description={
-              supplierId
-                ? "No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance."
-                : "No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance."
-            }
-            action={canCreatePayment ? <LedgerButton href={recordPaymentHref} variant="primary">Record payment</LedgerButton> : null}
-          />
+          <StatusMessage type="empty">
+            {supplierId
+              ? tc("No supplier payments are recorded for this workspace yet. Finalize a bill first, then record payment to reduce the payable balance.")
+              : tc("No supplier payments found. Finalize a bill first, then record payment to reduce the payable balance.")}
+          </StatusMessage>
         ) : null}
+      </div>
 
       {visiblePayments.length > 0 ? (
-        <LedgerDataTable minWidth="1080px">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1080px] text-start text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Supplier</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Unapplied</th>
-                <th className="px-4 py-3">Paid through</th>
-                <th className="px-4 py-3">Journal</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Number")}</th>
+                <th className="px-4 py-3">{tc("Supplier")}</th>
+                <th className="px-4 py-3">{tc("Date")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Amount")}</th>
+                <th className="px-4 py-3">{tc("Unapplied")}</th>
+                <th className="px-4 py-3">{tc("Paid through")}</th>
+                <th className="px-4 py-3">{tc("Journal")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {visiblePayments.map((payment) => (
                 <tr key={payment.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.paymentNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{payment.paymentNumber}</bdi></td>
                   <td className="px-4 py-3 font-medium text-ink">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(payment.paymentDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(payment.paymentDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{tc(supplierPaymentStatusLabel(payment.status))}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.amountPaid, payment.currency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.unappliedAmount, payment.currency, locale)}</td>
+                  <td className="px-4 py-3 text-steel">{payment.account ? <bdi dir="ltr">{`${payment.account.code} ${payment.account.name}`}</bdi> : "-"}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? <bdi dir="ltr">{`${payment.journalEntry.entryNumber} (${payment.journalEntry.id})`}</bdi> : "-"}</td>
                   <td className="px-4 py-3">
-                    <PaymentStatusBadge status={payment.status} />
-                  </td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(payment.amountPaid, payment.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(payment.unappliedAmount, payment.currency)}</LedgerMoney></td>
-                  <td className="px-4 py-3 text-steel">{payment.account ? `${payment.account.code} ${payment.account.name}` : "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"}</td>
-                  <td className="px-4 py-3">
-                    <LedgerActionBar>
-                      <LedgerButton
+                    <div className="flex gap-2">
+                      <Link
                         href={detailReturnTo ? `/purchases/supplier-payments/${payment.id}?returnTo=${encodeURIComponent(detailReturnTo)}` : `/purchases/supplier-payments/${payment.id}`}
-                        size="sm"
+                        className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                       >
-                        View
-                      </LedgerButton>
+                        {tc("View")}
+                      </Link>
                       {payment.status === "POSTED" && canVoidPayment ? (
-                        <LedgerButton variant="danger" size="sm" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id}>
-                          Void
-                        </LedgerButton>
+                        <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                          {tc("Void")}
+                        </button>
                       ) : null}
-                    </LedgerActionBar>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-        </LedgerDataTable>
+          </table>
+        </div>
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
+}
+
+function supplierPaymentStatusLabel(status: SupplierPayment["status"] | undefined | null): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "POSTED":
+      return "Posted";
+    case "VOIDED":
+      return "Voided";
+    default:
+      return status ?? "-";
+  }
 }

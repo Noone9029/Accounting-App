@@ -1,7 +1,12 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { UaeEinvoiceReadinessPanel } from "./uae-einvoice-readiness-panel";
 import type { ComplianceSourceReadinessResponse } from "@/lib/types";
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
 
 describe("UaeEinvoiceReadinessPanel", () => {
   it("renders invoice readiness with conservative local-only copy", () => {
@@ -78,6 +83,26 @@ describe("UaeEinvoiceReadinessPanel", () => {
 
     expect(screen.getByText("Needs local readiness data")).toBeInTheDocument();
     expect(screen.queryByText("Official PINT-AE XML can be generated locally")).not.toBeInTheDocument();
+  });
+
+  it("renders static readiness panel controls and conservative copy in Arabic", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <UaeEinvoiceReadinessPanel
+          title="UAE eInvoicing/PINT-AE readiness"
+          response={readinessFixture()}
+          actionLoading={false}
+          canValidate={false}
+          onValidate={jest.fn()}
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("يمكن إنشاء XML الرسمي PINT-AE محليا")).toBeInTheDocument();
+    expect(screen.getByText(/جاهزية محلية وإنشاء XML رسمي/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "التحقق من جاهزية الفاتورة الإلكترونية الإماراتية" })).toBeDisabled();
+    expect(screen.getByText(/يتطلب صلاحيات تحضير الامتثال والتحقق المحلي/)).toBeInTheDocument();
+    expect(screen.getByText(/تحقق ASP غير متصل بعد؛ لا شبكة/)).toBeInTheDocument();
   });
 });
 

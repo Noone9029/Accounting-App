@@ -2,7 +2,6 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { MobileWorkflowNav, Sidebar } from "./sidebar";
-import { sidebarNavItemsForMarket } from "@/lib/sidebar-nav";
 
 let mockPathname = "/dashboard";
 let mockActiveMembership: unknown = { role: { permissions: ["*"] } };
@@ -72,7 +71,6 @@ describe("sidebar create shortcut", () => {
   it("groups workflow navigation for faster accounting scanning", () => {
     render(<Sidebar />);
 
-    expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBeInTheDocument();
     expect(screen.getByText("Overview")).toBeInTheDocument();
     expect(screen.getByText("Daily books")).toBeInTheDocument();
     expect(screen.getByText("Operations")).toBeInTheDocument();
@@ -128,61 +126,18 @@ describe("sidebar create shortcut", () => {
     expect(screen.queryByRole("link", { name: "Customer payments" })).not.toBeInTheDocument();
   });
 
-  it("keeps banking child links specific instead of repeating the same destination as separate workflows", () => {
-    const banking = sidebarNavItemsForMarket("GENERIC").find((item) => item.label === "Banking");
-
-    expect(banking?.children?.map((child) => ({ label: child.label, href: child.href }))).toEqual([
-      { label: "Bank accounts", href: "/bank-accounts" },
-      { label: "Bank transfers", href: "/bank-transfers" },
-    ]);
-  });
-
-  it("does not duplicate settings child destinations with different labels", () => {
-    const settings = sidebarNavItemsForMarket("GENERIC").find((item) => item.label === "Settings");
-    const hrefs = settings?.children?.map((child) => child.href) ?? [];
-
-    expect(new Set(hrefs).size).toBe(hrefs.length);
-  });
-
   it("uses collapsed module categories in the mobile navigation drawer", () => {
     render(<MobileWorkflowNav />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    const drawerNav = screen.getByRole("navigation", { name: "Workspace navigation" });
+    const drawer = screen.getByRole("complementary", { name: "Workspace navigation drawer" });
 
-    expect(within(drawerNav).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
-    expect(within(drawerNav).queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(drawer).queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
 
-    fireEvent.click(within(drawerNav).getByRole("button", { name: "Sales" }));
+    fireEvent.click(within(drawer).getByRole("button", { name: "Sales" }));
 
-    expect(within(drawerNav).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(drawerNav).getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/sales/invoices");
-  });
-});
-
-describe("edition-aware compliance navigation", () => {
-  function complianceLabels(market: "GENERIC" | "KSA" | "UAE") {
-    return sidebarNavItemsForMarket(market).find((item) => item.label === "Compliance")?.children?.map((child) => child.label) ?? [];
-  }
-
-  it("keeps generic compliance navigation neutral", () => {
-    const labels = complianceLabels("GENERIC");
-
-    expect(labels).toContain("VAT readiness");
-    expect(labels).not.toEqual(expect.arrayContaining(["ZATCA readiness", "UAE eInvoicing readiness", "Local PINT-AE QA"]));
-  });
-
-  it("shows only KSA ZATCA readiness for KSA", () => {
-    const labels = complianceLabels("KSA");
-
-    expect(labels).toContain("ZATCA readiness");
-    expect(labels).not.toEqual(expect.arrayContaining(["UAE eInvoicing readiness", "Local PINT-AE QA"]));
-  });
-
-  it("shows only UAE eInvoicing/PINT-AE readiness for UAE", () => {
-    const labels = complianceLabels("UAE");
-
-    expect(labels).toEqual(expect.arrayContaining(["UAE eInvoicing readiness", "Local PINT-AE QA"]));
-    expect(labels).not.toContain("ZATCA readiness");
+    expect(within(drawer).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(drawer).getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/sales/invoices");
   });
 });

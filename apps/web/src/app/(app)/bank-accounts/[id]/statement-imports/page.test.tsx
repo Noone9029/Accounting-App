@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import {
   ClientParserPreview,
   ImportResultPanel,
@@ -22,6 +23,10 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 describe("statement import guidance", () => {
@@ -57,6 +62,28 @@ describe("statement import guidance", () => {
     expect(onDownload).toHaveBeenCalledTimes(1);
     expect(STATEMENT_IMPORT_FILE_ACCEPT).toContain(".xlsx");
     expect(STATEMENT_IMPORT_FILE_ACCEPT).toContain("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  });
+
+  it("renders guidance and template actions in Arabic while preserving routes", () => {
+    const onDownload = jest.fn();
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <StatementImportGuidance profileId="bank-1" />
+        <StatementImportTemplateActions onDownload={onDownload} />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("استيراد كشف يدوي")).toBeInTheDocument();
+    expect(screen.getByText(/استورد الصفوف الصالحة للمطابقة اليدوية/)).toBeInTheDocument();
+    expect(screen.getByText(/ولا يتصل ذلك بتغذية بنكية مباشرة/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "مراجعة الصفوف غير المطابقة" })).toHaveAttribute(
+      "href",
+      "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
+    );
+    expect(screen.getByRole("link", { name: "ملخص التسوية" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
+    fireEvent.click(screen.getByRole("button", { name: "تنزيل القالب" }));
+    expect(onDownload).toHaveBeenCalledTimes(1);
   });
 
   it("renders parser preview counts, warnings, and mobile-safe table", () => {
@@ -104,7 +131,7 @@ describe("statement import guidance", () => {
     expect(screen.getByText("Row 2: Invalid date.")).toBeInTheDocument();
     expect(screen.getByText(/does not upload bank credentials or connect to a live bank feed/)).toBeInTheDocument();
     expect(screen.getByText(/unsupported bank-specific variants fail safely/)).toBeInTheDocument();
-    expect(screen.getByRole("table").parentElement?.parentElement).toHaveClass("overflow-x-auto");
+    expect(screen.getByRole("table").parentElement).toHaveClass("overflow-x-auto");
   });
 
   it("renders import result next actions without live bank wording", () => {
@@ -150,6 +177,53 @@ describe("statement import guidance", () => {
     );
     expect(screen.getByRole("link", { name: "Open reconciliation" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
     expect(screen.queryByText(/live bank sync/i)).not.toBeInTheDocument();
+  });
+
+  it("renders import result in Arabic without changing next-action links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <ImportResultPanel
+          profileId="bank-1"
+          imported={{
+            id: "import-1",
+            organizationId: "org-1",
+            bankAccountProfileId: "bank-1",
+            importedById: "user-1",
+            filename: "statement.csv",
+            sourceType: "CSV",
+            status: "IMPORTED",
+            statementStartDate: "2026-05-13",
+            statementEndDate: "2026-05-14",
+            openingStatementBalance: null,
+            closingStatementBalance: null,
+            rowCount: 2,
+            importedAt: "2026-05-14",
+            createdAt: "2026-05-14",
+            updatedAt: "2026-05-14",
+            importSummary: {
+              sourceRowCount: 3,
+              importedRowCount: 2,
+              skippedRowCount: 1,
+              invalidRowCount: 1,
+              duplicateExistingCount: 1,
+              blockedByClosedReconciliationCount: 0,
+              totalCredits: "100.0000",
+              totalDebits: "15.0000",
+              warnings: ["Row 3 may duplicate an existing statement transaction."],
+            },
+          } satisfies BankStatementImport}
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("تم حفظ استيراد الكشف")).toBeInTheDocument();
+    expect(screen.getByText(/أنشأ LedgerByte دفعة كشف يدوية تضم 2 صفوف وتخطى 1 صفوف/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "مراجعة الصفوف غير المطابقة" })).toHaveAttribute(
+      "href",
+      "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
+    );
+    expect(screen.getByRole("link", { name: "فتح التسوية" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliation");
+    expect(screen.getByRole("link", { name: "حساب بنكي" })).toHaveAttribute("href", "/bank-accounts/bank-1");
   });
 
   it("renders server preview safety summary and row warning badges", () => {

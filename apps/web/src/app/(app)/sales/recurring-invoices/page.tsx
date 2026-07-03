@@ -1,34 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFilterBar,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerToolbar,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
-import { recurringInvoiceFrequencyLabel, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
+import { recurringInvoiceFrequencyLabel, recurringInvoiceStatusBadgeClass, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
 import type { RecurringInvoiceFrequency, RecurringInvoiceTemplate, RecurringInvoiceTemplateStatus } from "@/lib/types";
 
 type StatusFilter = "ALL" | RecurringInvoiceTemplateStatus;
@@ -40,6 +21,7 @@ const frequencies: RecurringInvoiceFrequency[] = ["WEEKLY", "MONTHLY", "QUARTERL
 export default function RecurringInvoicesPage() {
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [templates, setTemplates] = useState<RecurringInvoiceTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -81,7 +63,7 @@ export default function RecurringInvoicesPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load recurring invoice templates.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load recurring invoice templates."));
         }
       })
       .finally(() => {
@@ -93,139 +75,123 @@ export default function RecurringInvoicesPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, tc]);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Recurring invoices"
-        description="Non-posting templates for manual draft-invoice generation. No automatic scheduler runs from this workspace."
-        actions={
-          canCreateTemplate ? (
-            <LedgerButton href="/sales/recurring-invoices/new" variant="primary" icon={Plus}>
-              Create template
-            </LedgerButton>
-          ) : null
-        }
-      />
-
-      <LedgerPageBody>
-        <div className="space-y-3">
-          {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load recurring invoice templates.</LedgerAlert> : null}
-          {loading ? <StatusMessage type="loading">Loading recurring invoice templates...</StatusMessage> : null}
-          {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
-          {!loading && organizationId && templates.length === 0 ? (
-            <LedgerEmptyState
-              title="No recurring invoice templates found"
-              description="Create a draft template, activate it, then generate draft invoices manually."
-              action={canCreateTemplate ? <LedgerButton href="/sales/recurring-invoices/new" variant="primary" icon={Plus}>Create template</LedgerButton> : null}
-            />
-          ) : null}
+    <section>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Recurring invoices")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Non-posting templates for manual draft-invoice generation. No automatic scheduler runs from this workspace.")}</p>
         </div>
-
-        {templates.length > 0 ? (
-          <LedgerToolbar title="Filters" description="Filter recurring templates without generating, posting, emailing, collecting, filing, or submitting anything.">
-            <LedgerFilterBar>
-              <LedgerFieldLabel>
-                <LedgerFieldText>Status</LedgerFieldText>
-                <LedgerSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
-                  <option value="ALL">All</option>
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {recurringInvoiceStatusLabel(status)}
-                    </option>
-                  ))}
-                </LedgerSelect>
-              </LedgerFieldLabel>
-              <LedgerFieldLabel>
-                <LedgerFieldText>Frequency</LedgerFieldText>
-                <LedgerSelect value={frequencyFilter} onChange={(event) => setFrequencyFilter(event.target.value as FrequencyFilter)}>
-                  <option value="ALL">All</option>
-                  {frequencies.map((frequency) => (
-                    <option key={frequency} value={frequency}>
-                      {recurringInvoiceFrequencyLabel(frequency)}
-                    </option>
-                  ))}
-                </LedgerSelect>
-              </LedgerFieldLabel>
-              <LedgerFieldLabel className="min-w-64">
-                <LedgerFieldText>Customer</LedgerFieldText>
-                <LedgerInput value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer" />
-              </LedgerFieldLabel>
-            </LedgerFilterBar>
-          </LedgerToolbar>
+        {canCreateTemplate ? (
+          <Link href="/sales/recurring-invoices/new" className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc("Create template")}
+          </Link>
         ) : null}
+      </div>
 
-        {templates.length > 0 && filteredTemplates.length === 0 ? (
-          <LedgerEmptyState title="No recurring invoice templates match the current filters" />
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load recurring invoice templates.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading recurring invoice templates...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {!loading && organizationId && templates.length === 0 ? (
+          <StatusMessage type="empty">{tc("No recurring invoice templates found. Create a draft template, activate it, then generate draft invoices manually.")}</StatusMessage>
         ) : null}
+      </div>
 
-        {filteredTemplates.length > 0 ? (
-          <LedgerDataTable minWidth="1180px">
+      {templates.length > 0 ? (
+        <div className="mt-5 flex flex-wrap gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Status")}</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="ALL">{tc("All")}</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {tc(recurringInvoiceStatusLabel(status))}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Frequency")}</span>
+            <select value={frequencyFilter} onChange={(event) => setFrequencyFilter(event.target.value as FrequencyFilter)} className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="ALL">{tc("All")}</option>
+              {frequencies.map((frequency) => (
+                <option key={frequency} value={frequency}>
+                  {frequencyLabel(frequency, 1, tc)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-64">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Customer")}</span>
+            <input value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder={tc("Search customer")} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+        </div>
+      ) : null}
+
+      {filteredTemplates.length > 0 ? (
+        <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+          <table className="w-full min-w-[1180px] text-start text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
               <tr>
-                <th className="px-4 py-3">Number</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Frequency</th>
-                <th className="px-4 py-3">Next run</th>
-                <th className="px-4 py-3">Last run</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">{tc("Number")}</th>
+                <th className="px-4 py-3">{tc("Name")}</th>
+                <th className="px-4 py-3">{tc("Customer")}</th>
+                <th className="px-4 py-3">{tc("Status")}</th>
+                <th className="px-4 py-3">{tc("Frequency")}</th>
+                <th className="px-4 py-3">{tc("Next run")}</th>
+                <th className="px-4 py-3">{tc("Last run")}</th>
+                <th className="px-4 py-3">{tc("Total")}</th>
+                <th className="px-4 py-3">{tc("Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredTemplates.map((template) => (
                 <tr key={template.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{template.templateNumber}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <bdi dir="ltr">{template.templateNumber}</bdi>
+                  </td>
                   <td className="px-4 py-3 font-medium text-ink">{template.name}</td>
                   <td className="px-4 py-3 text-steel">{template.customer?.displayName ?? template.customer?.name ?? "-"}</td>
                   <td className="px-4 py-3">
-                    <TemplateStatusPill status={template.status} />
+                    <TemplateStatusPill status={template.status} label={tc(recurringInvoiceStatusLabel(template.status))} />
                   </td>
-                  <td className="px-4 py-3 text-steel">{recurringInvoiceFrequencyLabel(template.frequency, template.interval)}</td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(template.nextRunDate)}</LedgerDate></td>
-                  <td className="px-4 py-3"><LedgerDate>{formatOptionalDate(template.lastRunDate)}</LedgerDate></td>
-                  <td className="px-4 py-3"><LedgerMoney>{formatMoneyAmount(template.total, template.currency)}</LedgerMoney></td>
+                  <td className="px-4 py-3 text-steel">{frequencyLabel(template.frequency, template.interval, tc)}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(template.nextRunDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{formatAppDate(template.lastRunDate, locale, "No runs yet")}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(template.total, template.currency, locale)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <LedgerButton href={`/sales/recurring-invoices/${template.id}`} size="sm">
-                        View
-                      </LedgerButton>
+                      <Link href={`/sales/recurring-invoices/${template.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("View")}
+                      </Link>
                       {template.status === "DRAFT" && canEditTemplate ? (
-                        <LedgerButton href={`/sales/recurring-invoices/${template.id}/edit`} size="sm">
-                          Edit
-                        </LedgerButton>
+                        <Link href={`/sales/recurring-invoices/${template.id}/edit`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                          {tc("Edit")}
+                        </Link>
                       ) : null}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </LedgerDataTable>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+          </table>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
-function TemplateStatusPill({ status }: { status: RecurringInvoiceTemplateStatus }) {
-  return <LedgerStatusBadge tone={recurringInvoiceStatusTone(status)}>{recurringInvoiceStatusLabel(status)}</LedgerStatusBadge>;
+function TemplateStatusPill({ status, label }: { status: RecurringInvoiceTemplateStatus; label: string }) {
+  return <span className={`rounded-md px-2 py-1 text-xs font-medium ${recurringInvoiceStatusBadgeClass(status)}`}>{label}</span>;
 }
 
-function recurringInvoiceStatusTone(status: RecurringInvoiceTemplateStatus): LedgerStatusTone {
-  switch (status) {
-    case "DRAFT":
-      return "draft";
-    case "ACTIVE":
-      return "success";
-    case "PAUSED":
-      return "warning";
-    case "ENDED":
-      return "neutral";
-    case "CANCELLED":
-      return "danger";
+function frequencyLabel(frequency: RecurringInvoiceFrequency, interval: number, tc: (value: string, params?: Record<string, string | number>) => string): string {
+  if (interval <= 1) {
+    return tc(recurringInvoiceFrequencyLabel(frequency, interval));
   }
+  const unit = frequency === "WEEKLY" ? "weeks" : frequency === "MONTHLY" ? "months" : frequency === "QUARTERLY" ? "quarters" : "years";
+  return tc("Every {interval} {unit}", { interval, unit: tc(unit) });
 }

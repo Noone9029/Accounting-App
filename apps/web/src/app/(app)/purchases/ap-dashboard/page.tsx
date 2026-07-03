@@ -3,30 +3,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerMetricGrid,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatCard,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  LedgerLoadingState,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney, type AppLocale } from "@/lib/app-i18n";
 import { getSupplierApDashboard } from "@/lib/parties";
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
@@ -44,6 +25,7 @@ const SAFE_HELPER_TEXT =
 export default function SupplierApDashboardPage() {
   const organizationId = useActiveOrganizationId();
   const { can, canAny } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const [dashboard, setDashboard] = useState<SupplierApDashboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -71,7 +53,7 @@ export default function SupplierApDashboardPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load Supplier/AP Dashboard.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load Supplier/AP Dashboard."));
         }
       })
       .finally(() => {
@@ -83,127 +65,146 @@ export default function SupplierApDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, tc]);
 
   const summaryCards = useMemo(() => {
     const summary = dashboard?.apSummary;
     return [
-      { label: "Open payables", value: formatMoneyAmount(summary?.openPayablesTotal ?? "0.0000", "SAR"), detail: `${summary?.openBillCount ?? 0} open bills` },
-      { label: "Overdue bills", value: formatMoneyAmount(summary?.overdueBillsTotal ?? "0.0000", "SAR"), detail: `${summary?.overdueBillCount ?? 0} bills overdue` },
-      { label: "Open purchase orders", value: String(summary?.purchaseOrdersOpenCount ?? 0), detail: "Awaiting receipt or closure" },
-      { label: "Receipts pending bill", value: String(summary?.purchaseReceiptsPendingBillCount ?? 0), detail: "Purchase receipts awaiting bill" },
-      { label: "Bills pending receipt", value: String(summary?.purchaseBillsPendingReceiptCount ?? 0), detail: "Purchase bills awaiting receipt" },
-      { label: "Matching exceptions", value: String(summary?.matchingExceptionCount ?? 0), detail: `${summary?.matchingCriticalCount ?? 0} critical` },
-      { label: "Reviews needing action", value: String(summary?.matchingReviewOpenCount ?? 0), detail: "Open or waiting matching reviews" },
+      { label: "Open payables", value: formatAppMoney(summary?.openPayablesTotal ?? "0.0000", "SAR", locale), detail: tc("{count} open bills", { count: summary?.openBillCount ?? 0 }) },
+      { label: "Overdue bills", value: formatAppMoney(summary?.overdueBillsTotal ?? "0.0000", "SAR", locale), detail: tc("{count} bills overdue", { count: summary?.overdueBillCount ?? 0 }) },
+      { label: "Open purchase orders", value: String(summary?.purchaseOrdersOpenCount ?? 0), detail: tc("Awaiting receipt or closure") },
+      { label: "Receipts pending bill", value: String(summary?.purchaseReceiptsPendingBillCount ?? 0), detail: tc("Purchase receipts awaiting bill") },
+      { label: "Bills pending receipt", value: String(summary?.purchaseBillsPendingReceiptCount ?? 0), detail: tc("Purchase bills awaiting receipt") },
+      { label: "Matching exceptions", value: String(summary?.matchingExceptionCount ?? 0), detail: tc("{count} critical", { count: summary?.matchingCriticalCount ?? 0 }) },
+      { label: "Reviews needing action", value: String(summary?.matchingReviewOpenCount ?? 0), detail: tc("Open or waiting matching reviews") },
       {
         label: "Purchase returns",
         value: String(summary?.returnsOpenCount ?? 0),
-        detail: `${summary?.returnsCompletedCount ?? 0} completed, ${summary?.returnsAwaitingInventoryMovementCount ?? 0} awaiting movement, ${summary?.returnsInventoryMovementPostedCount ?? 0} posted`,
+        detail: tc("{completed} completed, {awaiting} awaiting movement, {posted} posted", {
+          completed: summary?.returnsCompletedCount ?? 0,
+          awaiting: summary?.returnsAwaitingInventoryMovementCount ?? 0,
+          posted: summary?.returnsInventoryMovementPostedCount ?? 0,
+        }),
       },
-      { label: "Variance previews", value: String(summary?.variancePreviewCount ?? 0), detail: formatMoneyAmount(summary?.variancePreviewTotal ?? "0.0000", "SAR") },
+      { label: "Variance previews", value: String(summary?.variancePreviewCount ?? 0), detail: formatAppMoney(summary?.variancePreviewTotal ?? "0.0000", "SAR", locale) },
     ];
-  }, [dashboard?.apSummary]);
+  }, [dashboard?.apSummary, locale, tc]);
 
   const summary = dashboard?.apSummary;
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Purchases"
-        title="Supplier/AP Dashboard"
-        description="Supplier payables, matching exceptions, returns, variance previews, and operational follow-up in one read-only workspace."
-        actions={
-          <LedgerActionBar className="sm:justify-end">
-            {canViewMatchingLinks ? <LedgerButton href="/purchases/matching">Matching exceptions</LedgerButton> : null}
+    <section className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Supplier/AP Dashboard")}</h1>
+          <p className="mt-1 max-w-4xl text-sm leading-6 text-steel">{tc(SAFE_HELPER_TEXT)}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canViewMatchingLinks ? (
+            <Link href="/purchases/matching" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Matching exceptions")}
+            </Link>
+          ) : null}
+          {canViewVarianceLinks ? (
+            <>
+              <Link href="/inventory/landed-cost" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Landed cost preview")}
+              </Link>
+              <Link href="/inventory/valuation-variances" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Valuation variance preview")}
+              </Link>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load the Supplier/AP Dashboard.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading Supplier/AP Dashboard...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      {dashboard ? (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {summaryCards.map((card) => (
+              <div key={card.label} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+                <div className="text-xs font-semibold uppercase tracking-wide text-steel">{tc(card.label)}</div>
+                <div className="mt-2 text-2xl font-semibold text-ink">{card.value}</div>
+                <div className="mt-1 text-sm text-steel">{card.detail}</div>
+              </div>
+            ))}
             {canViewVarianceLinks ? (
-              <>
-                <LedgerButton href="/inventory/landed-cost">
-                  Landed cost preview
-                </LedgerButton>
-                <LedgerButton href="/inventory/valuation-variances">
-                  Valuation variance preview
-                </LedgerButton>
-              </>
+              <Link href="/inventory/landed-cost" className="rounded-md border border-slate-200 bg-white p-4 shadow-panel hover:border-palm">
+                <div className="text-xs font-semibold uppercase tracking-wide text-steel">{tc("Landed cost preview")}</div>
+                <div className="mt-2 text-2xl font-semibold text-ink">{tc("Available")}</div>
+                <div className="mt-1 text-sm text-steel">{tc("Read-only landed cost allocation planning")}</div>
+              </Link>
             ) : null}
-          </LedgerActionBar>
-        }
-      />
+          </div>
 
-      <LedgerPageBody>
-        <LedgerSummaryBand tone="warning">{SAFE_HELPER_TEXT}</LedgerSummaryBand>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <TopSupplierPanel title="Top suppliers by payable balance" rows={summary?.topSuppliersByPayable ?? []} valueLabel="Open payables" canUseSupplierLinks={canViewSupplierLinks} />
+            <TopSupplierPanel title="Top suppliers by matching exception severity" rows={summary?.topSuppliersByExceptionSeverity ?? []} valueLabel="Exceptions" canUseSupplierLinks={canViewSupplierLinks} />
+            <TopSupplierPanel title="Suppliers with open returns" rows={summary?.suppliersWithOpenReturns ?? []} valueLabel="Open returns" canUseSupplierLinks={canViewSupplierLinks} />
+            <TopSupplierPanel title="Suppliers with variance previews" rows={summary?.suppliersWithVariancePreviews ?? []} valueLabel="Variance previews" canUseSupplierLinks={canViewSupplierLinks} />
+          </div>
 
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load the Supplier/AP Dashboard.</LedgerAlert> : null}
-        {loading ? <LedgerLoadingState title="Loading Supplier/AP Dashboard" description="Fetching supplier payable totals, exceptions, returns, and variance previews." /> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+          <div className="grid gap-4 xl:grid-cols-2">
+            <BillsAttentionList items={summary?.upcomingDueBills ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewBillLinks} />
+            <MatchingAttentionList items={summary?.matchingExceptionsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewMatchingLinks} />
+            <ReturnsAttentionList items={summary?.purchaseReturnsAwaitingAction ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewReturnLinks} />
+            <VarianceAttentionList items={summary?.variancePreviewsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewVarianceLinks} />
+          </div>
 
-        {dashboard ? (
-          <>
-            <LedgerMetricGrid className="sm:grid-cols-2 xl:grid-cols-3">
-              {summaryCards.map((card) => (
-                <LedgerStatCard key={card.label} label={card.label} value={card.value} detail={card.detail} />
-              ))}
-              {canViewVarianceLinks ? (
-                <LedgerStatCard label="Landed cost preview" value="Available" detail="Read-only landed cost allocation planning" href="/inventory/landed-cost" />
-              ) : null}
-            </LedgerMetricGrid>
-
-            <div className="grid gap-4 xl:grid-cols-2">
-              <TopSupplierPanel title="Top suppliers by payable balance" rows={summary?.topSuppliersByPayable ?? []} valueLabel="Open payables" canUseSupplierLinks={canViewSupplierLinks} />
-              <TopSupplierPanel title="Top suppliers by matching exception severity" rows={summary?.topSuppliersByExceptionSeverity ?? []} valueLabel="Exceptions" canUseSupplierLinks={canViewSupplierLinks} />
-              <TopSupplierPanel title="Suppliers with open returns" rows={summary?.suppliersWithOpenReturns ?? []} valueLabel="Open returns" canUseSupplierLinks={canViewSupplierLinks} />
-              <TopSupplierPanel title="Suppliers with variance previews" rows={summary?.suppliersWithVariancePreviews ?? []} valueLabel="Variance previews" canUseSupplierLinks={canViewSupplierLinks} />
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-ink">{tc("Recent supplier activity")}</h2>
+                <p className="mt-1 text-sm leading-6 text-steel">
+                  {tc("Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately.")}
+                </p>
+              </div>
             </div>
-
-            <div className="grid gap-4 xl:grid-cols-2">
-              <BillsAttentionList items={summary?.upcomingDueBills ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewBillLinks} />
-              <MatchingAttentionList items={summary?.matchingExceptionsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewMatchingLinks} />
-              <ReturnsAttentionList items={summary?.purchaseReturnsAwaitingAction ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewReturnLinks} />
-              <VarianceAttentionList items={summary?.variancePreviewsNeedingReview ?? []} canUseSupplierLinks={canViewSupplierLinks} canUseSourceLinks={canViewVarianceLinks} />
-            </div>
-
-            <LedgerSection
-              title="Recent supplier activity"
-              description="Operational rows help track purchasing work. They do not change the supplier payable balance unless a posting document, payment, debit note, or refund is recorded separately."
-              className={summary?.recentSupplierActivity.length ? "p-0" : undefined}
-            >
-              {summary?.recentSupplierActivity.length ? (
-                <LedgerDataTable minWidth="940px" className="rounded-t-none border-0 shadow-none">
+            {summary?.recentSupplierActivity.length ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[940px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">Supplier</th>
-                      <th className="px-3 py-2">Activity</th>
-                      <th className="px-3 py-2">Amount</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Effect</th>
-                      <th className="px-3 py-2">Action</th>
+                      <th className="px-3 py-2">{tc("Date")}</th>
+                      <th className="px-3 py-2">{tc("Supplier")}</th>
+                      <th className="px-3 py-2">{tc("Activity")}</th>
+                      <th className="px-3 py-2">{tc("Amount")}</th>
+                      <th className="px-3 py-2">{tc("Status")}</th>
+                      <th className="px-3 py-2">{tc("Effect")}</th>
+                      <th className="px-3 py-2">{tc("Action")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {summary.recentSupplierActivity.map((activity) => (
                       <tr key={activity.id}>
-                        <td className="px-3 py-2"><LedgerDate>{formatOptionalDate(activity.date, "-")}</LedgerDate></td>
+                        <td className="px-3 py-2 text-steel">{formatAppDate(activity.date, locale, "-")}</td>
                         <td className="px-3 py-2">{supplierCell(activity.supplierName, activity.supplierHref, canViewSupplierLinks)}</td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-ink">{activity.label}</div>
-                          <div className="font-mono text-xs text-steel">{activity.sourceNumber}</div>
+                          <div className="font-mono text-xs text-steel"><bdi dir="ltr">{activity.sourceNumber}</bdi></div>
                         </td>
-                        <td className="px-3 py-2">{activity.amount ? <LedgerMoney>{formatMoneyAmount(activity.amount, "SAR")}</LedgerMoney> : "-"}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{activity.amount ? formatAppMoney(activity.amount, "SAR", locale) : "-"}</td>
                         <td className="px-3 py-2"><StatusBadge label={activity.status} /></td>
-                        <td className="px-3 py-2">{activity.nonPosting ? <NonPostingBadge /> : <LedgerStatusBadge tone="success">Financial posting</LedgerStatusBadge>}</td>
-                        <td className="px-3 py-2">{sourceCell("Open", activity.href, Boolean(activity.href))}</td>
+                        <td className="px-3 py-2">{activity.nonPosting ? <NonPostingBadge /> : <span className="text-xs font-medium text-slate-700">{tc("Financial posting")}</span>}</td>
+                        <td className="px-3 py-2">{sourceCell(tc("Open"), activity.href, Boolean(activity.href))}</td>
                       </tr>
                     ))}
                   </tbody>
-                </LedgerDataTable>
-              ) : (
-                <LedgerEmptyState title="No recent supplier activity" description="No recent supplier activity is available for the current permissions." />
-              )}
-            </LedgerSection>
-          </>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-steel">{tc("No recent supplier activity is available for the current permissions.")}</p>
+            )}
+          </div>
+        </>
+      ) : null}
+    </section>
   );
 }
 
@@ -218,33 +219,33 @@ function TopSupplierPanel({
   valueLabel: string;
   canUseSupplierLinks: boolean;
 }) {
+  const { locale, tc } = useAppLocale();
   return (
-    <LedgerPanel>
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      {rows.length === 0 ? <LedgerEmptyState title="No suppliers found" description="No suppliers found for this attention view." /> : null}
-      {rows.length > 0 ? (
-        <div className="mt-3 space-y-3">
-          {rows.map((row) => (
-            <div key={`${title}-${row.supplierId}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-              <div>
-                {supplierCell(row.supplierName, row.href, canUseSupplierLinks)}
-                <div className="mt-1 text-xs text-steel">
-                  {row.highestSeverity ? `${formatStatusLabel(row.highestSeverity)} severity` : valueLabel}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-mono text-sm font-semibold text-ink">{supplierRowValue(row)}</div>
-                <div className="text-xs text-steel">{valueLabel}</div>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <h2 className="text-base font-semibold text-ink">{tc(title)}</h2>
+      {rows.length === 0 ? <p className="mt-3 text-sm text-steel">{tc("No suppliers found for this attention view.")}</p> : null}
+      <div className="mt-3 space-y-3">
+        {rows.map((row) => (
+          <div key={`${title}-${row.supplierId}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+            <div>
+              {supplierCell(row.supplierName, row.href, canUseSupplierLinks)}
+              <div className="mt-1 text-xs text-steel">
+                {row.highestSeverity ? tc("{status} severity", { status: tc(formatStatusLabel(row.highestSeverity)) }) : tc(valueLabel)}
               </div>
             </div>
-          ))}
-        </div>
-      ) : null}
-    </LedgerPanel>
+            <div className="text-end">
+              <div className="font-mono text-sm font-semibold text-ink">{supplierRowValue(row, locale)}</div>
+              <div className="text-xs text-steel">{tc(valueLabel)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
 function BillsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: { items: SupplierApBillAttentionItem[]; canUseSupplierLinks: boolean; canUseSourceLinks: boolean }) {
+  const { locale, tc } = useAppLocale();
   return (
     <AttentionPanel title="Bills due soon / overdue" emptyLabel="No bills are overdue or due soon for the current permissions.">
       {items.map((item) => (
@@ -252,8 +253,8 @@ function BillsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: {
           key={item.id}
           supplier={supplierCell(item.supplierName, item.supplierHref, canUseSupplierLinks)}
           title={sourceCell(item.billNumber, item.href, canUseSourceLinks)}
-          detail={`${item.attentionCategory} - ${formatOptionalDate(item.dueDate, "No due date")}`}
-          value={formatMoneyAmount(item.balanceDue, item.currency)}
+          detail={`${tc(item.attentionCategory)} - ${formatAppDate(item.dueDate, locale, tc("No due date"))}`}
+          value={formatAppMoney(item.balanceDue, item.currency, locale)}
           badge={item.dueStatus === "OVERDUE" ? "Overdue" : "Due soon"}
         />
       ))}
@@ -262,6 +263,7 @@ function BillsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: {
 }
 
 function MatchingAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: { items: SupplierApMatchingAttentionItem[]; canUseSupplierLinks: boolean; canUseSourceLinks: boolean }) {
+  const { tc } = useAppLocale();
   return (
     <AttentionPanel title="Matching exceptions needing review" emptyLabel="No matching exceptions need review for the current permissions.">
       {items.map((item) => (
@@ -269,8 +271,8 @@ function MatchingAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }
           key={item.id}
           supplier={supplierCell(item.supplierName, item.supplierHref, canUseSupplierLinks)}
           title={sourceCell(item.sourceNumber, item.sourceHref, canUseSourceLinks)}
-          detail={`${item.attentionCategory} - ${formatStatusLabel(item.exceptionType)}`}
-          value={formatStatusLabel(item.severity)}
+          detail={`${tc(item.attentionCategory)} - ${tc(formatStatusLabel(item.exceptionType))}`}
+          value={tc(formatStatusLabel(item.severity))}
           badge="Review needed"
         />
       ))}
@@ -279,6 +281,7 @@ function MatchingAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }
 }
 
 function ReturnsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: { items: SupplierApReturnAttentionItem[]; canUseSupplierLinks: boolean; canUseSourceLinks: boolean }) {
+  const { locale, tc } = useAppLocale();
   return (
     <AttentionPanel title="Purchase returns awaiting action" emptyLabel="No purchase returns are awaiting action for the current permissions.">
       {items.map((item) => (
@@ -286,8 +289,8 @@ function ReturnsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }:
           key={item.id}
           supplier={supplierCell(item.supplierName, item.supplierHref, canUseSupplierLinks)}
           title={sourceCell(item.purchaseReturnNumber, item.href, canUseSourceLinks)}
-          detail={`${item.attentionCategory} - ${item.reason ?? "No reason recorded"} - ${formatOptionalDate(item.returnDate, "-")}`}
-          value={`${formatStatusLabel(item.status)} / ${item.inventoryMovementStatus === "POSTED" ? "Movement posted" : "Movement not posted"}`}
+          detail={`${tc(item.attentionCategory)} - ${item.reason ?? tc("No reason recorded")} - ${formatAppDate(item.returnDate, locale, "-")}`}
+          value={`${tc(formatStatusLabel(item.status))} / ${item.inventoryMovementStatus === "POSTED" ? tc("Movement posted") : tc("Movement not posted")}`}
           badge="Non-posting"
         />
       ))}
@@ -296,6 +299,7 @@ function ReturnsAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }:
 }
 
 function VarianceAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }: { items: SupplierApVarianceAttentionItem[]; canUseSupplierLinks: boolean; canUseSourceLinks: boolean }) {
+  const { locale, tc } = useAppLocale();
   return (
     <AttentionPanel title="Variance previews needing accountant review" emptyLabel="No valuation variance previews need review for the current permissions.">
       {items.map((item) => (
@@ -303,8 +307,8 @@ function VarianceAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }
           key={item.id}
           supplier={supplierCell(item.supplierName, item.supplierHref, canUseSupplierLinks)}
           title={sourceCell(item.sourceNumber, item.sourceHref, canUseSourceLinks)}
-          detail={`${formatStatusLabel(item.varianceType)} - ${formatStatusLabel(item.severity)}`}
-          value={formatMoneyAmount(item.varianceAmount, "SAR")}
+          detail={`${tc(formatStatusLabel(item.varianceType))} - ${tc(formatStatusLabel(item.severity))}`}
+          value={formatAppMoney(item.varianceAmount, "SAR", locale)}
           badge="Valuation variance preview"
         />
       ))}
@@ -313,12 +317,13 @@ function VarianceAttentionList({ items, canUseSupplierLinks, canUseSourceLinks }
 }
 
 function AttentionPanel({ title, emptyLabel, children }: { title: string; emptyLabel: string; children: ReactNode }) {
+  const { tc } = useAppLocale();
   const childArray = Array.isArray(children) ? children : [children];
   return (
-    <LedgerPanel>
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      {childArray.length === 0 ? <LedgerEmptyState title={emptyLabel} /> : <div className="mt-3 space-y-3">{children}</div>}
-    </LedgerPanel>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <h2 className="text-base font-semibold text-ink">{tc(title)}</h2>
+      {childArray.length === 0 ? <p className="mt-3 text-sm text-steel">{tc(emptyLabel)}</p> : <div className="mt-3 space-y-3">{children}</div>}
+    </div>
   );
 }
 
@@ -335,6 +340,7 @@ function AttentionRow({
   value: string;
   badge: string;
 }) {
+  const { tc } = useAppLocale();
   return (
     <div className="flex flex-col gap-2 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 md:flex-row md:items-start md:justify-between">
       <div>
@@ -342,9 +348,9 @@ function AttentionRow({
         <div className="mt-1 text-xs text-steel">{supplier}</div>
         <div className="mt-1 text-xs text-steel">{detail}</div>
       </div>
-      <div className="text-left md:text-right">
+      <div className="text-start md:text-end">
         <div className="font-mono text-sm font-semibold text-ink">{value}</div>
-        <div className="mt-1"><LedgerStatusBadge tone={attentionBadgeTone(badge)}>{badge}</LedgerStatusBadge></div>
+        <span className="mt-1 inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc(badge)}</span>
       </div>
     </div>
   );
@@ -372,34 +378,22 @@ function sourceCell(label: string, href: string | null, canUseLink: boolean) {
   );
 }
 
-function supplierRowValue(row: SupplierApTopSupplier): string {
-  if (row.amount) return formatMoneyAmount(row.amount, "SAR");
+function supplierRowValue(row: SupplierApTopSupplier, locale: AppLocale): string {
+  if (row.amount) return formatAppMoney(row.amount, "SAR", locale);
   if (row.exceptionCount !== undefined) return String(row.exceptionCount);
   if (row.openReturnCount !== undefined) return String(row.openReturnCount);
-  if (row.variancePreviewCount !== undefined) return `${row.variancePreviewCount} / ${formatMoneyAmount(row.variancePreviewTotal ?? "0.0000", "SAR")}`;
+  if (row.variancePreviewCount !== undefined) return `${row.variancePreviewCount} / ${formatAppMoney(row.variancePreviewTotal ?? "0.0000", "SAR", locale)}`;
   return "-";
 }
 
 function NonPostingBadge() {
-  return <LedgerStatusBadge tone="info">Non-posting</LedgerStatusBadge>;
+  const { tc } = useAppLocale();
+  return <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">{tc("Non-posting")}</span>;
 }
 
 function StatusBadge({ label }: { label: string }) {
-  return <LedgerStatusBadge tone={statusTone(label)}>{formatStatusLabel(label)}</LedgerStatusBadge>;
-}
-
-function statusTone(label: string): LedgerStatusTone {
-  if (label === "POSTED" || label === "PAID" || label === "COMPLETED") return "success";
-  if (label === "OVERDUE" || label === "CRITICAL") return "danger";
-  if (label === "SUBMITTED" || label === "HIGH" || label.includes("WAITING")) return "warning";
-  return "neutral";
-}
-
-function attentionBadgeTone(label: string): LedgerStatusTone {
-  if (label === "Overdue") return "danger";
-  if (label === "Due soon" || label === "Review needed" || label === "Valuation variance preview") return "warning";
-  if (label === "Non-posting") return "info";
-  return "neutral";
+  const { tc } = useAppLocale();
+  return <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{tc(formatStatusLabel(label))}</span>;
 }
 
 function formatStatusLabel(status: string): string {

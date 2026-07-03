@@ -10,6 +10,9 @@ export function formatOptionalDate(value: string | null | undefined, emptyLabel 
     return emptyLabel;
   }
 
+  if (typeof document !== "undefined" && document.documentElement.lang === "ar") {
+    return new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(date);
+  }
   return date.toLocaleDateString();
 }
 

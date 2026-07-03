@@ -1,38 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerActionBar,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerInput,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
+  bankStatementTransactionStatusBadgeClass,
   bankStatementTransactionStatusLabel,
   bankStatementTransactionTypeLabel,
   bankRuleActionLabel,
   candidateScoreLabel,
   lockedStatementTransactionWarning,
 } from "@/lib/bank-statements";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
+import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
 import type {
   Account,
@@ -85,6 +69,7 @@ export default function BankStatementTransactionsPage() {
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
+  const { locale, tc } = useAppLocale();
   const canReconcile = can(PERMISSIONS.bankStatements.reconcile);
   const [profile, setProfile] = useState<BankAccountSummary | null>(null);
   const [transactions, setTransactions] = useState<BankStatementTransaction[]>([]);
@@ -164,7 +149,7 @@ export default function BankStatementTransactionsPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load statement transactions.");
+          setError(tc(loadError instanceof Error ? loadError.message : "Unable to load statement transactions."));
         }
       })
       .finally(() => {
@@ -226,7 +211,7 @@ export default function BankStatementTransactionsPage() {
   async function loadCandidates(transaction: BankStatementTransaction) {
     setCandidateRowId(transaction.id);
     setLoadingCandidatesFor(transaction.id);
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading match candidates..." } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Loading match candidates...") } }));
     try {
       const candidates = await apiRequest<BankStatementMatchCandidate[]>(`/bank-statement-transactions/${transaction.id}/match-candidates`);
       setCandidatesByRow((current) => ({ ...current, [transaction.id]: candidates }));
@@ -235,7 +220,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: candidates.length > 0 ? `${candidates.length} match candidates loaded.` : "No match candidates found.",
+          message: candidates.length > 0 ? tc("{count} match candidates loaded.", { count: candidates.length }) : tc("No match candidates found."),
         },
       }));
     } catch (candidateError) {
@@ -244,7 +229,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: candidateError instanceof Error ? candidateError.message : "Unable to load match candidates.",
+          message: tc(candidateError instanceof Error ? candidateError.message : "Unable to load match candidates."),
         },
       }));
     } finally {
@@ -253,7 +238,7 @@ export default function BankStatementTransactionsPage() {
   }
 
   async function submitRowAction(transaction: BankStatementTransaction, action: "match" | "categorize" | "ignore", body: unknown) {
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: `Updating ${transaction.description}...` } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Updating {description}...", { description: transaction.description }) } }));
     try {
       const updated = await apiRequest<BankStatementTransaction>(`/bank-statement-transactions/${transaction.id}/${action}`, {
         method: "POST",
@@ -264,7 +249,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: `Row ${bankStatementTransactionStatusLabel(updated.status).toLowerCase()}.`,
+          message: tc("Row {status}.", { status: tc(bankStatementTransactionStatusLabel(updated.status).toLowerCase()) }),
         },
       }));
       setActiveAction(null);
@@ -278,7 +263,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: actionError instanceof Error ? actionError.message : "Unable to update statement transaction.",
+          message: tc(actionError instanceof Error ? actionError.message : "Unable to update statement transaction."),
         },
       }));
     }
@@ -287,7 +272,7 @@ export default function BankStatementTransactionsPage() {
   async function loadRuleSuggestions(transaction: BankStatementTransaction) {
     setRuleSuggestionRowId(transaction.id);
     setLoadingRulesFor(transaction.id);
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading rule suggestions..." } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Loading rule suggestions...") } }));
     try {
       const result = await apiRequest<BankRuleSuggestionsResponse>(`/bank-statement-transactions/${transaction.id}/rule-suggestions`, {
         method: "POST",
@@ -297,7 +282,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: result.suggestions.length > 0 ? `${result.suggestions.length} rule suggestions loaded.` : "No bank rules matched this row.",
+          message: result.suggestions.length > 0 ? tc("{count} rule suggestions loaded.", { count: result.suggestions.length }) : tc("No bank rules matched this row."),
         },
       }));
     } catch (ruleError) {
@@ -306,7 +291,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: ruleError instanceof Error ? ruleError.message : "Unable to load rule suggestions.",
+          message: tc(ruleError instanceof Error ? ruleError.message : "Unable to load rule suggestions."),
         },
       }));
     } finally {
@@ -315,7 +300,7 @@ export default function BankStatementTransactionsPage() {
   }
 
   async function loadDepositCandidates(transaction: BankStatementTransaction) {
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading deposit batches..." } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Loading deposit batches...") } }));
     try {
       const deposits = await apiRequest<BankDepositBatch[]>(`/bank-deposits?bankAccountProfileId=${params.id}`);
       const matches = deposits.filter((deposit) => deposit.status === "POSTED" && Number(deposit.totalAmount) === Number(transaction.amount));
@@ -324,7 +309,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: matches.length > 0 ? `${matches.length} deposit batch candidates loaded.` : "No posted deposit batches match this credit row.",
+          message: matches.length > 0 ? tc("{count} deposit batch candidates loaded.", { count: matches.length }) : tc("No posted deposit batches match this credit row."),
         },
       }));
     } catch (depositError) {
@@ -333,14 +318,14 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: depositError instanceof Error ? depositError.message : "Unable to load deposit batches.",
+          message: tc(depositError instanceof Error ? depositError.message : "Unable to load deposit batches."),
         },
       }));
     }
   }
 
   async function loadCardSettlementCandidates(transaction: BankStatementTransaction) {
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading card settlements..." } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Loading card settlements...") } }));
     try {
       const settlements = await apiRequest<CardSettlement[]>(`/card-settlements?bankAccountProfileId=${params.id}&status=POSTED`);
       const rowCurrency = transactionCurrency(transaction, currency);
@@ -360,7 +345,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: matches.length > 0 ? `${matches.length} card settlement candidates loaded.` : "No posted card settlements match this row.",
+          message: matches.length > 0 ? tc("{count} card settlement candidates loaded.", { count: matches.length }) : tc("No posted card settlements match this row."),
         },
       }));
     } catch (cardError) {
@@ -369,14 +354,14 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: cardError instanceof Error ? cardError.message : "Unable to load card settlements.",
+          message: tc(cardError instanceof Error ? cardError.message : "Unable to load card settlements."),
         },
       }));
     }
   }
 
   async function loadChequeCandidates(transaction: BankStatementTransaction) {
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: "Loading cheque candidates..." } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Loading cheque candidates...") } }));
     try {
       const cheques = await apiRequest<ChequeInstrument[]>(`/cheques?bankAccountProfileId=${params.id}`);
       const rowCurrency = transactionCurrency(transaction, currency);
@@ -394,7 +379,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: matches.length > 0 ? `${matches.length} cheque candidates loaded.` : "No open cheques match this row.",
+          message: matches.length > 0 ? tc("{count} cheque candidates loaded.", { count: matches.length }) : tc("No open cheques match this row."),
         },
       }));
     } catch (chequeError) {
@@ -403,7 +388,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: chequeError instanceof Error ? chequeError.message : "Unable to load cheques.",
+          message: tc(chequeError instanceof Error ? chequeError.message : "Unable to load cheques."),
         },
       }));
     }
@@ -411,7 +396,7 @@ export default function BankStatementTransactionsPage() {
 
   async function applyRuleSuggestion(transaction: BankStatementTransaction, suggestion: BankRuleSuggestion) {
     setApplyingRuleId(suggestion.ruleId);
-    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: `Applying ${suggestion.ruleName}...` } }));
+    setRowResults((current) => ({ ...current, [transaction.id]: { type: "loading", message: tc("Applying {name}...", { name: suggestion.ruleName }) } }));
     try {
       const result = await apiRequest<BankRuleApplyResponse>(`/bank-statement-transactions/${transaction.id}/apply-rule-suggestion`, {
         method: "POST",
@@ -423,7 +408,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "success",
-          message: `Rule suggestion applied: ${bankStatementTransactionStatusLabel(result.transaction.status).toLowerCase()}.`,
+          message: tc("Rule suggestion applied: {status}.", { status: tc(bankStatementTransactionStatusLabel(result.transaction.status).toLowerCase()) }),
         },
       }));
     } catch (ruleError) {
@@ -431,7 +416,7 @@ export default function BankStatementTransactionsPage() {
         ...current,
         [transaction.id]: {
           type: "error",
-          message: ruleError instanceof Error ? ruleError.message : "Unable to apply rule suggestion.",
+          message: tc(ruleError instanceof Error ? ruleError.message : "Unable to apply rule suggestion."),
         },
       }));
     } finally {
@@ -441,19 +426,19 @@ export default function BankStatementTransactionsPage() {
 
   async function submitBulkAction(action: "categorize" | "ignore") {
     if (actionableSelectedRows.length === 0) {
-      setBulkMessage({ type: "error", message: "Select at least one unlocked unmatched row." });
+      setBulkMessage({ type: "error", message: tc("Select at least one unlocked unmatched row.") });
       return;
     }
     if (action === "ignore" && !bulkReason.trim()) {
-      setBulkMessage({ type: "error", message: "Bulk ignore requires one reason." });
+      setBulkMessage({ type: "error", message: tc("Bulk ignore requires one reason.") });
       return;
     }
     if (action === "categorize" && !bulkAccountId) {
-      setBulkMessage({ type: "error", message: "Bulk categorize requires one posting account." });
+      setBulkMessage({ type: "error", message: tc("Bulk categorize requires one posting account.") });
       return;
     }
 
-    setBulkMessage({ type: "loading", message: `Applying ${action} to ${actionableSelectedRows.length} rows...` });
+    setBulkMessage({ type: "loading", message: tc("Applying {action} to {count} rows...", { action: tc(action), count: actionableSelectedRows.length }) });
     let successCount = 0;
     let failureCount = 0;
 
@@ -470,7 +455,7 @@ export default function BankStatementTransactionsPage() {
         updateTransaction(updated);
         setRowResults((current) => ({
           ...current,
-          [transaction.id]: { type: "success", message: `Bulk ${action} succeeded.` },
+          [transaction.id]: { type: "success", message: tc("Bulk {action} succeeded.", { action: tc(action) }) },
         }));
       } catch (bulkError) {
         failureCount += 1;
@@ -478,7 +463,7 @@ export default function BankStatementTransactionsPage() {
           ...current,
           [transaction.id]: {
             type: "error",
-            message: bulkError instanceof Error ? bulkError.message : `Bulk ${action} failed for this row.`,
+            message: tc(bulkError instanceof Error ? bulkError.message : "Bulk {action} failed for this row.", { action: tc(action) }),
           },
         }));
       }
@@ -488,8 +473,8 @@ export default function BankStatementTransactionsPage() {
       type: failureCount > 0 ? "error" : "success",
       message:
         failureCount > 0
-          ? `${successCount} rows updated, ${failureCount} rows failed. Failed rows remain visible.`
-          : `${successCount} rows updated.`,
+          ? tc("{successCount} rows updated, {failureCount} rows failed. Failed rows remain visible.", { successCount, failureCount })
+          : tc("{successCount} rows updated.", { successCount }),
     });
     if (failureCount === 0) {
       setBulkReason("");
@@ -498,34 +483,43 @@ export default function BankStatementTransactionsPage() {
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Banking / Manual review"
-        title="Statement transaction review"
-        description={profile ? `${profile.displayName} imported statement rows for manual match, categorize, or ignore review.` : "Imported statement rows for manual match, categorize, or ignore review."}
-        actions={
-          <LedgerActionBar className="sm:justify-end">
-            <LedgerButton href={`/bank-accounts/${params.id}/statement-imports`}>Imports</LedgerButton>
-            <LedgerButton href={`/bank-accounts/${params.id}/rules`}>Rules</LedgerButton>
-            <LedgerButton href={`/bank-accounts/${params.id}/reconciliation`}>Reconciliation</LedgerButton>
-            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
-          </LedgerActionBar>
-        }
-      />
-      <LedgerSummaryBand tone="warning">
-        Every row-changing action here is explicit. Match creates no journal, categorize posts through the existing manual journal path, and ignore keeps the row out of reconciliation review.
-      </LedgerSummaryBand>
+    <section>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Statement transaction review")}</h1>
+          <p className="mt-1 text-sm text-steel">
+            {profile
+              ? tc("{name} imported statement rows for manual match, categorize, or ignore review.", { name: profile.displayName })
+              : tc("Imported statement rows for manual match, categorize, or ignore review.")}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Imports")}
+          </Link>
+          <Link href={`/bank-accounts/${params.id}/rules`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Rules")}
+          </Link>
+          <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Reconciliation")}
+          </Link>
+          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+        </div>
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to load statement transactions.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading statement transactions...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load statement transactions.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading statement transactions...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {bulkMessage ? <StatusMessage type={bulkMessage.type === "loading" ? "loading" : bulkMessage.type}>{bulkMessage.message}</StatusMessage> : null}
-        {!canReconcile ? <StatusMessage type="info">Your role can view statement rows, but inline review actions require bank statement reconcile permission.</StatusMessage> : null}
+        {!canReconcile ? <StatusMessage type="info">{tc("Your role can view statement rows, but inline review actions require bank statement reconcile permission.")}</StatusMessage> : null}
+      </div>
 
-      <LedgerSection title="Review filters" description="Filter imported statement rows before explicit matching, categorization, or ignore actions.">
+      <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <StatementTransactionsGuidance profileId={params.id} />
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Statement transaction filters">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={tc("Statement transaction filters")}>
           {STATUS_FILTERS.map((item) => (
             <button
               key={item.value || "ALL"}
@@ -535,87 +529,101 @@ export default function BankStatementTransactionsPage() {
                 filter === item.value ? "border-palm bg-emerald-50 text-palm" : "border-slate-300 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {item.label}
+              {tc(item.label)}
             </button>
           ))}
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-5">
-          <LedgerFieldLabel className="lg:col-span-2">
-            Search
-            <LedgerInput
+          <label className="block lg:col-span-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Search")}</span>
+            <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Description, reference, bank ref, counterparty"
+              placeholder={tc("Description, reference, bank ref, counterparty")}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm"
             />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            From
-            <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            To
-            <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            Sort
-            <LedgerSelect value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-              <option value="date-desc">Date newest</option>
-              <option value="date-asc">Date oldest</option>
-              <option value="amount-desc">Amount high</option>
-              <option value="amount-asc">Amount low</option>
-              <option value="status">Status</option>
-            </LedgerSelect>
-          </LedgerFieldLabel>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("From")}</span>
+            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("To")}</span>
+            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Sort")}</span>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="date-desc">{tc("Date newest")}</option>
+              <option value="date-asc">{tc("Date oldest")}</option>
+              <option value="amount-desc">{tc("Amount high")}</option>
+              <option value="amount-asc">{tc("Amount low")}</option>
+              <option value="status">{tc("Status")}</option>
+            </select>
+          </label>
         </div>
-      </LedgerSection>
+      </div>
 
       {canReconcile ? (
-        <LedgerSection title="Bulk review" description={`${selectedRows.length} selected, ${actionableSelectedRows.length} unlocked unmatched rows can be updated. Bulk match is intentionally per-row because each row needs its own candidate.`}>
+        <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-ink">{tc("Bulk review")}</h2>
+              <p className="mt-1 text-sm text-steel">
+                {tc("{selected} selected, {actionable} unlocked unmatched rows can be updated. Bulk match is intentionally per-row because each row needs its own candidate.", {
+                  selected: selectedRows.length,
+                  actionable: actionableSelectedRows.length,
+                })}
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[760px] xl:grid-cols-4">
-              <LedgerFieldLabel>
-                Ignore reason
-                <LedgerInput value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} />
-              </LedgerFieldLabel>
-              <LedgerButton type="button" onClick={() => void submitBulkAction("ignore")}>Bulk ignore</LedgerButton>
-              <LedgerFieldLabel>
-                Category account
-                <LedgerSelect value={bulkAccountId} onChange={(event) => setBulkAccountId(event.target.value)}>
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Ignore reason")}</span>
+                <input value={bulkReason} onChange={(event) => setBulkReason(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+              </label>
+              <button type="button" onClick={() => void submitBulkAction("ignore")} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Bulk ignore")}
+              </button>
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Category account")}</span>
+                <select value={bulkAccountId} onChange={(event) => setBulkAccountId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.code} {account.name}
                     </option>
                   ))}
-                </LedgerSelect>
-              </LedgerFieldLabel>
-              <LedgerButton type="button" onClick={() => void submitBulkAction("categorize")} variant="primary">Bulk categorize</LedgerButton>
+                </select>
+              </label>
+              <button type="button" onClick={() => void submitBulkAction("categorize")} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50">
+                {tc("Bulk categorize")}
+              </button>
             </div>
           </div>
-          <LedgerFieldLabel className="mt-3">
-            Bulk categorize memo
-            <LedgerInput value={bulkMemo} onChange={(event) => setBulkMemo(event.target.value)} />
-          </LedgerFieldLabel>
-        </LedgerSection>
+          <label className="mt-3 block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Bulk categorize memo")}</span>
+            <input value={bulkMemo} onChange={(event) => setBulkMemo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+        </div>
       ) : null}
 
-      <LedgerSection title="Statement rows" description="Imported rows and manual review actions.">
-        <LedgerDataTable minWidth="1280px" className="shadow-none">
-          <thead className="ledger-table-header">
+      <div className="mt-5 overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <table className="w-full min-w-[1280px] text-start text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
             <tr>
               <th className="px-4 py-3">
-                <input aria-label="Select visible statement rows" type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAllVisible(event.target.checked)} />
+                <input aria-label={tc("Select visible statement rows")} type="checkbox" checked={allVisibleSelected} onChange={(event) => toggleAllVisible(event.target.checked)} />
               </th>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3">Reference</th>
-              <th className="px-4 py-3">Counterparty</th>
-              <th className="px-4 py-3">Currency</th>
-              <th className="px-4 py-3 text-right">Debit</th>
-              <th className="px-4 py-3 text-right">Credit</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Suggested match</th>
-              <th className="px-4 py-3">Actions</th>
+              <th className="px-4 py-3">{tc("Date")}</th>
+              <th className="px-4 py-3">{tc("Description")}</th>
+              <th className="px-4 py-3">{tc("Reference")}</th>
+              <th className="px-4 py-3">{tc("Counterparty")}</th>
+              <th className="px-4 py-3">{tc("Currency")}</th>
+              <th className="px-4 py-3 text-end">{tc("Debit")}</th>
+              <th className="px-4 py-3 text-end">{tc("Credit")}</th>
+              <th className="px-4 py-3">{tc("Status")}</th>
+              <th className="px-4 py-3">{tc("Suggested match")}</th>
+              <th className="px-4 py-3">{tc("Actions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -635,13 +643,13 @@ export default function BankStatementTransactionsPage() {
                 <tr key={transaction.id} className={result?.type === "error" ? "bg-rose-50/40" : undefined}>
                   <td className="px-4 py-3 align-top">
                     <input
-                      aria-label={`Select ${transaction.description}`}
+                      aria-label={tc("Select {description}", { description: transaction.description })}
                       type="checkbox"
                       checked={selectedIds.has(transaction.id)}
                       onChange={(event) => toggleSelected(transaction.id, event.target.checked)}
                     />
                   </td>
-                  <td className="px-4 py-3 align-top"><LedgerDate>{formatOptionalDate(transaction.transactionDate, "-")}</LedgerDate></td>
+                  <td className="px-4 py-3 align-top text-steel">{formatAppDate(transaction.transactionDate, locale, "-")}</td>
                   <td className="px-4 py-3 align-top">
                     <p className="font-medium text-ink">{transaction.description}</p>
                     <p className="mt-1 font-mono text-xs text-steel">{readStatementRawField(transaction.rawData, "bankReference") ?? "-"}</p>
@@ -650,111 +658,130 @@ export default function BankStatementTransactionsPage() {
                   <td className="px-4 py-3 align-top font-mono text-xs">{transaction.reference ?? "-"}</td>
                   <td className="px-4 py-3 align-top text-steel">{readStatementRawField(transaction.rawData, "counterparty") ?? "-"}</td>
                   <td className="px-4 py-3 align-top font-mono text-xs">{rowCurrency}</td>
-                  <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "DEBIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
-                  <td className="px-4 py-3 align-top text-right font-mono text-xs">{transaction.type === "CREDIT" ? formatMoneyAmount(transaction.amount, rowCurrency) : "-"}</td>
+                  <td className="px-4 py-3 align-top text-end font-mono text-xs">{transaction.type === "DEBIT" ? formatAppMoney(transaction.amount, rowCurrency, locale) : "-"}</td>
+                  <td className="px-4 py-3 align-top text-end font-mono text-xs">{transaction.type === "CREDIT" ? formatAppMoney(transaction.amount, rowCurrency, locale) : "-"}</td>
                   <td className="px-4 py-3 align-top">
-                    <StatementStatusBadge status={transaction.status} />
-                    {actionable ? <LedgerStatusBadge tone="warning">Needs review</LedgerStatusBadge> : null}
-                    {lockedWarning ? <p className="mt-2 text-xs leading-5 text-amber-800">{lockedWarning}</p> : null}
+                    <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementTransactionStatusBadgeClass(transaction.status)}`}>
+                      {tc(bankStatementTransactionStatusLabel(transaction.status))}
+                    </span>
+                    {actionable ? <span className="ms-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">{tc("Needs review")}</span> : null}
+                    {lockedWarning ? <p className="mt-2 text-xs leading-5 text-amber-800">{tc(lockedWarning)}</p> : null}
                   </td>
-                  <td className="px-4 py-3 align-top text-xs text-steel">{candidateSummary(candidates, rowCurrency)}</td>
+                  <td className="px-4 py-3 align-top text-xs text-steel">{candidateSummary(candidates, rowCurrency, locale, tc)}</td>
                   <td className="px-4 py-3 align-top">
                     <div className="flex flex-wrap gap-2">
                       {canReconcile && actionable ? (
                         <>
                           {firstDepositCandidate ? (
-                            <LedgerButton href={`/bank-accounts/${params.id}/deposits/${firstDepositCandidate.id}`} size="sm" variant="primary">Match deposit batch</LedgerButton>
+                            <Link
+                              href={`/bank-accounts/${params.id}/deposits/${firstDepositCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              {tc("Match deposit batch")}
+                            </Link>
                           ) : null}
                           {transaction.type === "CREDIT" && !firstDepositCandidate ? (
-                            <LedgerButton
+                            <button
                               type="button"
                               onClick={() => void loadDepositCandidates(transaction)}
-                              size="sm"
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              Find deposit batches
-                            </LedgerButton>
+                              {tc("Find deposit batches")}
+                            </button>
                           ) : null}
                           {firstCardSettlementCandidate ? (
-                            <LedgerButton href={`/bank-accounts/${params.id}/card-settlements/${firstCardSettlementCandidate.id}`} size="sm" variant="primary">Match card settlement</LedgerButton>
+                            <Link
+                              href={`/bank-accounts/${params.id}/card-settlements/${firstCardSettlementCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              {tc("Match card settlement")}
+                            </Link>
                           ) : null}
                           {!firstCardSettlementCandidate ? (
-                            <LedgerButton
+                            <button
                               type="button"
                               onClick={() => void loadCardSettlementCandidates(transaction)}
-                              size="sm"
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              Find card settlements
-                            </LedgerButton>
+                              {tc("Find card settlements")}
+                            </button>
                           ) : null}
                           {firstChequeCandidate ? (
-                            <LedgerButton href={`/bank-accounts/${params.id}/cheques/${firstChequeCandidate.id}`} size="sm" variant="primary">Match cheque</LedgerButton>
+                            <Link
+                              href={`/bank-accounts/${params.id}/cheques/${firstChequeCandidate.id}`}
+                              className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
+                            >
+                              {tc("Match cheque")}
+                            </Link>
                           ) : null}
                           {!firstChequeCandidate ? (
-                            <LedgerButton
+                            <button
                               type="button"
                               onClick={() => void loadChequeCandidates(transaction)}
-                              size="sm"
+                              className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              Find cheques
-                            </LedgerButton>
+                              {tc("Find cheques")}
+                            </button>
                           ) : null}
-                          <LedgerButton
+                          <button
                             type="button"
                             onClick={() => void loadCandidates(transaction)}
                             disabled={loadingCandidatesFor === transaction.id}
-                            size="sm"
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                           >
-                            {loadingCandidatesFor === transaction.id ? "Loading..." : "View candidates"}
-                          </LedgerButton>
-                          <LedgerButton
+                            {loadingCandidatesFor === transaction.id ? tc("Loading...") : tc("View candidates")}
+                          </button>
+                          <button
                             type="button"
                             onClick={() => void loadRuleSuggestions(transaction)}
                             disabled={loadingRulesFor === transaction.id}
-                            size="sm"
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
                           >
-                            {loadingRulesFor === transaction.id ? "Loading..." : "Rule suggestions"}
-                          </LedgerButton>
-                          <LedgerButton
+                            {loadingRulesFor === transaction.id ? tc("Loading...") : tc("Rule suggestions")}
+                          </button>
+                          <button
                             type="button"
                             onClick={() => {
                               setActiveAction({ rowId: transaction.id, type: "categorize" });
                               setInlineAccountId((current) => current || accounts[0]?.id || "");
                             }}
-                            size="sm"
-                            variant="primary"
+                            className="rounded-md border border-palm px-2 py-1 text-xs font-medium text-palm hover:bg-emerald-50"
                           >
-                            Categorize
-                          </LedgerButton>
-                          <LedgerButton
+                            {tc("Categorize")}
+                          </button>
+                          <button
                             type="button"
                             onClick={() => setActiveAction({ rowId: transaction.id, type: "ignore" })}
-                            size="sm"
+                            className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                           >
-                            Ignore
-                          </LedgerButton>
+                            {tc("Ignore")}
+                          </button>
                         </>
                       ) : null}
-                      <LedgerButton href={`/bank-statement-transactions/${transaction.id}`} size="sm">View row detail</LedgerButton>
+                      <Link href={`/bank-statement-transactions/${transaction.id}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                        {tc("View row detail")}
+                      </Link>
                     </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </LedgerDataTable>
+        </table>
         {!loading && displayedTransactions.length === 0 ? (
-          <LedgerEmptyState
-            title="No statement transactions found"
-            description="No imported statement rows match this filter."
-            action={
-              <LedgerActionBar className="justify-center">
-                <LedgerButton href={`/bank-accounts/${params.id}/statement-imports`}>Import statement</LedgerButton>
-                <LedgerButton href={`/bank-accounts/${params.id}/reconciliation`}>Reconciliation summary</LedgerButton>
-              </LedgerActionBar>
-            }
-          />
+          <div className="p-4">
+            <StatusMessage type="empty">{tc("No statement transactions found for this filter.")}</StatusMessage>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href={`/bank-accounts/${params.id}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Import statement")}
+              </Link>
+              <Link href={`/bank-accounts/${params.id}/reconciliation`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Reconciliation summary")}
+              </Link>
+            </div>
+          </div>
         ) : null}
-      </LedgerSection>
+      </div>
 
       {activeAction ? (
         <InlineRowActionPanel
@@ -797,28 +824,36 @@ export default function BankStatementTransactionsPage() {
           onApply={applyRuleSuggestion}
         />
       ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
 export function StatementTransactionsGuidance({ profileId }: { profileId: string }) {
+  const { tc } = useAppLocale();
   return (
-    <LedgerPanel>
-      <h2 className="text-base font-semibold text-ink">Inline statement review</h2>
+    <div className="mb-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h2 className="text-base font-semibold text-ink">{tc("Inline statement review")}</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-steel">
-        Review imported manual statement rows without leaving the bank account. Match links a row to existing posted bank ledger activity, categorize posts through the existing manual journal path, and ignore keeps a row out of reconciliation totals. Every row-changing action is explicit.
+        {tc("Review imported manual statement rows without leaving the bank account. Match links a row to existing posted bank ledger activity, categorize posts through the existing manual journal path, and ignore keeps a row out of reconciliation totals. Every row-changing action is explicit.")}
       </p>
       <p className="mt-2 max-w-3xl text-xs leading-5 text-steel">
-        This workspace is manual banking only. Bank rules create suggestions for review; it does not connect to live bank feeds, collect bank credentials, initiate payments, silently ignore rows, or auto-reconcile.
+        {tc("This workspace is manual banking only. Bank rules create suggestions for review; it does not connect to live bank feeds, collect bank credentials, initiate payments, silently ignore rows, or auto-reconcile.")}
       </p>
-      <LedgerActionBar className="mt-3">
-        <LedgerButton href={`/bank-accounts/${profileId}/rules`}>Bank rules</LedgerButton>
-        <LedgerButton href={`/bank-accounts/${profileId}/statement-imports`}>Import statement</LedgerButton>
-        <LedgerButton href={`/bank-accounts/${profileId}/reconciliation`}>Reconciliation summary</LedgerButton>
-        <LedgerButton href="/dashboard">Dashboard</LedgerButton>
-      </LedgerActionBar>
-    </LedgerPanel>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href={`/bank-accounts/${profileId}/rules`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Bank rules")}
+        </Link>
+        <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Import statement")}
+        </Link>
+        <Link href={`/bank-accounts/${profileId}/reconciliation`} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Reconciliation summary")}
+        </Link>
+        <Link href="/dashboard" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Dashboard")}
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -847,51 +882,54 @@ function InlineRowActionPanel({
   onCancel: () => void;
   onSubmit: (transaction: BankStatementTransaction) => Promise<void>;
 }) {
+  const { tc } = useAppLocale();
   if (!transaction) {
     return null;
   }
 
   return (
-    <LedgerPanel>
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">{type === "categorize" ? "Categorize row" : "Ignore row"}</h2>
+          <h2 className="text-base font-semibold text-ink">{type === "categorize" ? tc("Categorize row") : tc("Ignore row")}</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
         </div>
-        <LedgerButton type="button" onClick={onCancel}>Close</LedgerButton>
+        <button type="button" onClick={onCancel} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Close")}
+        </button>
       </div>
       {type === "categorize" ? (
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
-          <LedgerFieldLabel>
-            Offset account
-            <LedgerSelect value={accountId} onChange={(event) => onAccountChange(event.target.value)}>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Offset account")}</span>
+            <select value={accountId} onChange={(event) => onAccountChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.code} {account.name}
                 </option>
               ))}
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            Memo
-            <LedgerInput value={description} onChange={(event) => onDescriptionChange(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerButton type="button" disabled={!accountId} onClick={() => void onSubmit(transaction)} variant="primary">
-            Post categorization journal
-          </LedgerButton>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Memo")}</span>
+            <input value={description} onChange={(event) => onDescriptionChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <button type="button" disabled={!accountId} onClick={() => void onSubmit(transaction)} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            {tc("Post categorization journal")}
+          </button>
         </div>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <LedgerFieldLabel>
-            Reason
-            <LedgerInput value={ignoreReason} onChange={(event) => onIgnoreReasonChange(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerButton type="button" disabled={!ignoreReason.trim()} onClick={() => void onSubmit(transaction)}>
-            Ignore row
-          </LedgerButton>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Reason")}</span>
+            <input value={ignoreReason} onChange={(event) => onIgnoreReasonChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <button type="button" disabled={!ignoreReason.trim()} onClick={() => void onSubmit(transaction)} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            {tc("Ignore row")}
+          </button>
         </div>
       )}
-    </LedgerPanel>
+    </div>
   );
 }
 
@@ -908,21 +946,24 @@ function RuleSuggestionPanel({
   onClose: () => void;
   onApply: (transaction: BankStatementTransaction, suggestion: BankRuleSuggestion) => Promise<void>;
 }) {
+  const { tc } = useAppLocale();
   if (!transaction) {
     return null;
   }
 
   return (
-    <LedgerPanel>
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">Rule suggestions</h2>
+          <h2 className="text-base font-semibold text-ink">{tc("Rule suggestions")}</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
-          <p className="mt-1 text-xs leading-5 text-steel">Suggestions do not change this row until an operator applies one explicitly.</p>
+          <p className="mt-1 text-xs leading-5 text-steel">{tc("Suggestions do not change this row until an operator applies one explicitly.")}</p>
         </div>
-        <LedgerButton type="button" onClick={onClose}>Close</LedgerButton>
+        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Close")}
+        </button>
       </div>
-      {suggestions.length === 0 ? <StatusMessage type="empty">No bank rules matched this statement row.</StatusMessage> : null}
+      {suggestions.length === 0 ? <StatusMessage type="empty">{tc("No bank rules matched this statement row.")}</StatusMessage> : null}
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {suggestions.map((suggestion) => {
           const canApply = suggestion.actionType !== "SUGGEST_MATCH_CANDIDATES";
@@ -931,9 +972,11 @@ function RuleSuggestionPanel({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-ink">{suggestion.ruleName}</h3>
-                  <p className="mt-1 text-xs text-steel">{bankRuleActionLabel(suggestion.actionType)} - score {suggestion.score}</p>
+                  <p className="mt-1 text-xs text-steel">
+                    {tc(bankRuleActionLabel(suggestion.actionType))} - {tc("score")} {suggestion.score}
+                  </p>
                 </div>
-                <LedgerStatusBadge tone="draft">Priority {suggestion.priority}</LedgerStatusBadge>
+                <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">{tc("Priority {priority}", { priority: suggestion.priority })}</span>
               </div>
               <ul className="mt-3 space-y-1 text-xs text-steel">
                 {suggestion.matchedReasons.map((reason) => (
@@ -941,23 +984,22 @@ function RuleSuggestionPanel({
                 ))}
               </ul>
               {canApply ? (
-                <LedgerButton
+                <button
                   type="button"
                   disabled={Boolean(applyingRuleId)}
                   onClick={() => void onApply(transaction, suggestion)}
-                  className="mt-3"
-                  variant="primary"
+                  className="mt-3 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
                 >
-                  {applyingRuleId === suggestion.ruleId ? "Applying..." : "Apply suggestion"}
-                </LedgerButton>
+                  {applyingRuleId === suggestion.ruleId ? tc("Applying...") : tc("Apply suggestion")}
+                </button>
               ) : (
-                <p className="mt-3 text-xs leading-5 text-steel">Match-candidate rules surface candidates only. Choose a specific candidate before matching.</p>
+                <p className="mt-3 text-xs leading-5 text-steel">{tc("Match-candidate rules surface candidates only. Choose a specific candidate before matching.")}</p>
               )}
             </div>
           );
         })}
       </div>
-    </LedgerPanel>
+    </div>
   );
 }
 
@@ -978,20 +1020,23 @@ function CandidateReviewPanel({
   onClose: () => void;
   onConfirm: (transaction: BankStatementTransaction, journalLineId: string) => Promise<void>;
 }) {
+  const { locale, tc } = useAppLocale();
   if (!transaction) {
     return null;
   }
 
   return (
-    <LedgerPanel>
+    <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-ink">Match candidates</h2>
+          <h2 className="text-base font-semibold text-ink">{tc("Match candidates")}</h2>
           <p className="mt-1 text-sm text-steel">{transaction.description}</p>
         </div>
-        <LedgerButton type="button" onClick={onClose}>Close</LedgerButton>
+        <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Close")}
+        </button>
       </div>
-      {candidates.length === 0 ? <StatusMessage type="empty">No posted bank journal candidates matched this row.</StatusMessage> : null}
+      {candidates.length === 0 ? <StatusMessage type="empty">{tc("No posted bank journal candidates matched this row.")}</StatusMessage> : null}
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {candidates.map((candidate) => (
           <label key={candidate.journalLineId} className="block rounded-md border border-slate-200 p-3">
@@ -1000,30 +1045,29 @@ function CandidateReviewPanel({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-ink">{candidate.entryNumber}</p>
-                  <LedgerStatusBadge tone="draft">{candidateScoreLabel(candidate)}</LedgerStatusBadge>
+                  <span className="rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink">{tc(candidateScoreLabel(candidate))}</span>
                 </div>
                 <p className="mt-1 text-xs text-steel">
-                  {formatOptionalDate(candidate.date, "-")} - {candidate.description ?? candidate.reference ?? "Posted bank journal line"}
+                  {formatAppDate(candidate.date, locale, "-")} - {candidate.description ?? candidate.reference ?? tc("Posted bank journal line")}
                 </p>
                 <p className="mt-1 text-xs text-steel">{candidate.reason}</p>
                 <p className="mt-2 font-mono text-xs text-steel">
-                  Dr {formatMoneyAmount(candidate.debit, currency)} / Cr {formatMoneyAmount(candidate.credit, currency)}
+                  {tc("Dr")} {formatAppMoney(candidate.debit, currency, locale)} / {tc("Cr")} {formatAppMoney(candidate.credit, currency, locale)}
                 </p>
               </div>
             </div>
           </label>
         ))}
       </div>
-      <LedgerButton
+      <button
         type="button"
         disabled={!selectedJournalLineId}
         onClick={() => void onConfirm(transaction, selectedJournalLineId)}
-        className="mt-4"
-        variant="primary"
+        className="mt-4 rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400"
       >
-        Match selected candidate
-      </LedgerButton>
-    </LedgerPanel>
+        {tc("Match selected candidate")}
+      </button>
+    </div>
   );
 }
 
@@ -1075,25 +1119,20 @@ function isActionableStatementRow(transaction: BankStatementTransaction): boolea
   return MUTABLE_STATUSES.has(transaction.status) && !lockedStatementTransactionWarning(transaction);
 }
 
-function StatementStatusBadge({ status }: { status: BankStatementTransactionStatus }) {
-  return <LedgerStatusBadge tone={statementStatusTone(status)}>{bankStatementTransactionStatusLabel(status)}</LedgerStatusBadge>;
-}
-
-function statementStatusTone(status: BankStatementTransactionStatus): LedgerStatusTone {
-  if (status === "MATCHED" || status === "CATEGORIZED") return "success";
-  if (status === "IGNORED") return "neutral";
-  return "warning";
-}
-
-function candidateSummary(candidates: BankStatementMatchCandidate[] | undefined, currency: string): string {
+function candidateSummary(
+  candidates: BankStatementMatchCandidate[] | undefined,
+  currency: string,
+  locale: ReturnType<typeof useAppLocale>["locale"],
+  tc: ReturnType<typeof useAppLocale>["tc"],
+): string {
   if (!candidates) {
-    return "Open candidates to preview";
+    return tc("Open candidates to preview");
   }
   if (candidates.length === 0) {
-    return "No candidates found";
+    return tc("No candidates found");
   }
   const first = candidates[0]!;
-  return `${candidateScoreLabel(first)}: ${first.entryNumber} (${formatMoneyAmount(first.debit !== "0.0000" ? first.debit : first.credit, currency)})`;
+  return `${tc(candidateScoreLabel(first))}: ${first.entryNumber} (${formatAppMoney(first.debit !== "0.0000" ? first.debit : first.credit, currency, locale)})`;
 }
 
 function transactionCurrency(transaction: BankStatementTransaction, fallback: string): string {

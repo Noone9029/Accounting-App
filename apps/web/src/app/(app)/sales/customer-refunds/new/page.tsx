@@ -1,34 +1,20 @@
 "use client";
 
-import { ArrowLeft, Save } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerAlert,
-  LedgerButton,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerFormSection,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerSelect,
-  LedgerSummaryBand,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppMoney, type AppLocale } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import {
   customerRefundSourceTypeLabel,
   refundableAmountAfterRefund,
-  refundableSourceLabel,
   validateCustomerRefundAmount,
 } from "@/lib/customer-refunds";
-import { formatMoneyAmount, parseDecimalToUnits } from "@/lib/money";
+import { parseDecimalToUnits } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerRefund, CustomerRefundSourceType, CustomerRefundableSources } from "@/lib/types";
 
@@ -39,6 +25,7 @@ function todayInputValue(): string {
 export default function NewCustomerRefundPage() {
   const router = useRouter();
   const organizationId = useActiveOrganizationId();
+  const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
@@ -106,7 +93,7 @@ export default function NewCustomerRefundPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load refund setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load refund setup data."));
         }
       })
       .finally(() => {
@@ -118,7 +105,7 @@ export default function NewCustomerRefundPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, tc]);
 
   useEffect(() => {
     if (!organizationId || !customerId) {
@@ -142,7 +129,7 @@ export default function NewCustomerRefundPage() {
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load refundable sources.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load refundable sources."));
         }
       })
       .finally(() => {
@@ -154,7 +141,7 @@ export default function NewCustomerRefundPage() {
     return () => {
       cancelled = true;
     };
-  }, [customerId, organizationId, sourceType]);
+  }, [customerId, organizationId, sourceType, tc]);
 
   useEffect(() => {
     if (selectedSource && (!amountRefunded || parseDecimalToUnits(amountRefunded) <= 0)) {
@@ -172,7 +159,7 @@ export default function NewCustomerRefundPage() {
     event.preventDefault();
     setError("");
 
-    const validationError = getValidationError(customerId, accountId, sourceId, amountRefunded, availableAmount);
+    const validationError = getValidationError(customerId, accountId, sourceId, amountRefunded, availableAmount, tc);
     if (validationError) {
       setError(validationError);
       return;
@@ -198,127 +185,140 @@ export default function NewCustomerRefundPage() {
       const refund = await apiRequest<CustomerRefund>("/customer-refunds", { method: "POST", body });
       router.push(returnTo || `/sales/customer-refunds/${refund.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to record customer refund.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to record customer refund."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Sales"
-        title="Record customer refund"
-        description="Refund unapplied customer credit manually. No payment gateway refund is created."
-        actions={
-          <LedgerButton href={returnTo || "/sales/customer-refunds"} icon={ArrowLeft}>
-            Back
-          </LedgerButton>
-        }
-      />
-
-      <LedgerPageBody>
-        <div className="space-y-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization to record refunds.</StatusMessage> : null}
-        {loadingSetup ? <StatusMessage type="loading">Loading refund setup data...</StatusMessage> : null}
-        {loadingSources ? <StatusMessage type="loading">Loading refundable sources...</StatusMessage> : null}
-        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    <section>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Record customer refund")}</h1>
+          <p className="mt-1 text-sm text-steel">{tc("Refund unapplied customer credit manually. No payment gateway refund is created.")}</p>
         </div>
+        <Link href={returnTo || "/sales/customer-refunds"} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back")}
+        </Link>
+      </div>
 
-        <form onSubmit={onSubmit} className="space-y-5">
-          <LedgerFormSection title="Refund details" description="Select the customer, refund date, refundable source, amount, and paid-from account.">
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Customer</LedgerFieldText>
-              <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-                <option value="">Select customer</option>
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to record refunds.")}</StatusMessage> : null}
+        {loadingSetup ? <StatusMessage type="loading">{tc("Loading refund setup data...")}</StatusMessage> : null}
+        {loadingSources ? <StatusMessage type="loading">{tc("Loading refundable sources...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
+
+      <form onSubmit={onSubmit} className="mt-5 space-y-5">
+        <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+              <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select customer")}</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.displayName ?? customer.name}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Refund date</LedgerFieldText>
-              <LedgerInput type="date" value={refundDate} onChange={(event) => setRefundDate(event.target.value)} required />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Amount refunded</LedgerFieldText>
-              <LedgerInput inputMode="decimal" value={amountRefunded} onChange={(event) => setAmountRefunded(event.target.value)} required className="font-mono tabular-nums" />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>Source type</LedgerFieldText>
-              <LedgerSelect value={sourceType} onChange={(event) => changeSourceType(event.target.value as CustomerRefundSourceType)}>
-                <option value="CUSTOMER_PAYMENT">Customer payment</option>
-                <option value="CREDIT_NOTE">Credit note</option>
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-3">
-              <LedgerFieldText>Refund source</LedgerFieldText>
-              <LedgerSelect value={sourceId} onChange={(event) => setSourceId(event.target.value)} required>
-                <option value="">Select {customerRefundSourceTypeLabel(sourceType).toLowerCase()}</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Refund date")}</span>
+              <input type="date" value={refundDate} onChange={(event) => setRefundDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Amount refunded")}</span>
+              <input inputMode="decimal" value={amountRefunded} onChange={(event) => setAmountRefunded(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-700">{tc("Source type")}</span>
+              <select value={sourceType} onChange={(event) => changeSourceType(event.target.value as CustomerRefundSourceType)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="CUSTOMER_PAYMENT">{tc("Customer payment")}</option>
+                <option value="CREDIT_NOTE">{tc("Credit note")}</option>
+              </select>
+            </label>
+            <label className="block md:col-span-3">
+              <span className="text-sm font-medium text-slate-700">{tc("Refund source")}</span>
+              <select value={sourceId} onChange={(event) => setSourceId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select {source}", { source: tc(customerRefundSourceTypeLabel(sourceType)).toLowerCase() })}</option>
                 {sourceOptions.map((source) => (
                   <option key={source.id} value={source.id}>
-                    {refundableSourceLabel(sourceType, source)}
+                    {refundableSourceOptionLabel(sourceType, source, locale, tc)}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Paid-from account</LedgerFieldText>
-              <LedgerSelect value={accountId} onChange={(event) => setAccountId(event.target.value)} required>
-                <option value="">Select cash or bank account</option>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Paid-from account")}</span>
+              <select value={accountId} onChange={(event) => setAccountId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+                <option value="">{tc("Select cash or bank account")}</option>
                 {paidFromAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {bankAccountOptionLabel(account, bankProfiles)}
                   </option>
                 ))}
-              </LedgerSelect>
-            </LedgerFieldLabel>
-            <LedgerFieldLabel className="md:col-span-2">
-              <LedgerFieldText>Description</LedgerFieldText>
-              <LedgerInput value={description} onChange={(event) => setDescription(event.target.value)} />
-            </LedgerFieldLabel>
-          </LedgerFormSection>
+              </select>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
+              <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+            </label>
+          </div>
+        </div>
 
-          <LedgerSummaryBand>
-            <dl className="ml-auto grid max-w-sm grid-cols-2 gap-2 text-sm">
-              <dt>Available source credit</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(availableAmount, selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
-              <dt>Amount refunded</dt>
-              <dd className="text-right"><LedgerMoney>{formatMoneyAmount(amountRefunded || "0.0000", selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
-              <dt className="font-semibold text-ink">Remaining unapplied</dt>
-              <dd className="text-right font-semibold text-ink"><LedgerMoney>{formatMoneyAmount(remainingAfterRefund, selectedSource?.currency ?? "SAR")}</LedgerMoney></dd>
-            </dl>
-          </LedgerSummaryBand>
+        <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
+          <span className="text-steel">{tc("Available source credit")}</span>
+          <span className="text-end font-mono">{formatAppMoney(availableAmount, selectedSource?.currency ?? "SAR", locale)}</span>
+          <span className="text-steel">{tc("Amount refunded")}</span>
+          <span className="text-end font-mono">{formatAppMoney(amountRefunded || "0.0000", selectedSource?.currency ?? "SAR", locale)}</span>
+          <span className="font-semibold text-ink">{tc("Remaining unapplied")}</span>
+          <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(remainingAfterRefund, selectedSource?.currency ?? "SAR", locale)}</span>
+        </div>
 
-        <LedgerAlert tone="warning">
-          This records only the accounting refund journal. It does not call a payment gateway, bank feed, or ZATCA service.
-        </LedgerAlert>
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          {tc("This records only the accounting refund journal. It does not call a payment gateway, bank feed, or ZATCA service.")}
+        </div>
 
-        <LedgerActionBar>
-          <LedgerButton type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} variant="primary" icon={Save}>
-            {submitting ? "Recording..." : "Record refund"}
-          </LedgerButton>
-          <LedgerButton href={returnTo || "/sales/customer-refunds"}>
-            Cancel
-          </LedgerButton>
-        </LedgerActionBar>
+        <div className="flex gap-3">
+          <button type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            {submitting ? tc("Recording...") : tc("Record refund")}
+          </button>
+          <Link href={returnTo || "/sales/customer-refunds"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Cancel")}
+          </Link>
+        </div>
       </form>
-      </LedgerPageBody>
-    </LedgerPage>
+    </section>
   );
 }
 
-function getValidationError(customerId: string, accountId: string, sourceId: string, amountRefunded: string, availableAmount: string): string {
+function getValidationError(customerId: string, accountId: string, sourceId: string, amountRefunded: string, availableAmount: string, tc: (value: string, params?: Record<string, string | number>) => string): string {
   if (!customerId) {
-    return "Choose a customer.";
+    return tc("Choose a customer.");
   }
   if (!accountId) {
-    return "Choose a paid-from account.";
+    return tc("Choose a paid-from account.");
   }
   if (!sourceId) {
-    return "Choose a refundable source.";
+    return tc("Choose a refundable source.");
   }
-  return validateCustomerRefundAmount(amountRefunded, availableAmount) ?? "";
+  const amountError = validateCustomerRefundAmount(amountRefunded, availableAmount);
+  return amountError ? tc(amountError) : "";
+}
+
+function refundableSourceOptionLabel(
+  sourceType: CustomerRefundSourceType,
+  source: CustomerRefundableSources["payments"][number] | CustomerRefundableSources["creditNotes"][number],
+  locale: AppLocale,
+  tc: (value: string, params?: Record<string, string | number>) => string,
+): string {
+  if (sourceType === "CUSTOMER_PAYMENT" && "paymentNumber" in source) {
+    return `${source.paymentNumber} - ${tc("unapplied")} ${formatAppMoney(source.unappliedAmount, source.currency, locale)}`;
+  }
+  if (sourceType === "CREDIT_NOTE" && "creditNoteNumber" in source) {
+    return `${source.creditNoteNumber} - ${tc("unapplied")} ${formatAppMoney(source.unappliedAmount, source.currency, locale)}`;
+  }
+  return tc("Refund source");
 }

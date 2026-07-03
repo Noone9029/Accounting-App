@@ -1,42 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
+import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import {
-  LedgerAlert,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerDate,
-  LedgerEmptyState,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerLoadingState,
-  LedgerMetricGrid,
-  LedgerMoney,
-  LedgerPage,
-  LedgerPageBody,
-  LedgerPageHeader,
-  LedgerPanel,
-  LedgerSection,
-  LedgerStatCard,
-  LedgerStatusBadge,
-  LedgerSummaryBand,
-  type LedgerStatusTone,
-} from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { appIntlLocale, formatAppDate, formatAppMoney, type AppLocale } from "@/lib/app-i18n";
 import { apiRequest } from "@/lib/api";
 import {
   bankReconciliationStatusLabel,
+  bankStatementImportStatusBadgeClass,
   bankStatementImportStatusLabel,
-  closedThroughDateLabel,
   reconciliationDifferenceStatus,
 } from "@/lib/bank-statements";
-import { formatOptionalDate } from "@/lib/invoice-display";
-import { formatMoneyAmount } from "@/lib/money";
 import { PERMISSIONS } from "@/lib/permissions";
-import type { BankReconciliationSummary, BankStatementImportStatus } from "@/lib/types";
+import type { BankReconciliationSummary } from "@/lib/types";
 
 function todayInputValue(offsetDays = 0): string {
   const date = new Date();
@@ -44,21 +24,9 @@ function todayInputValue(offsetDays = 0): string {
   return date.toISOString().slice(0, 10);
 }
 
-function statementImportStatusTone(status: BankStatementImportStatus): LedgerStatusTone {
-  switch (status) {
-    case "IMPORTED":
-      return "warning";
-    case "PARTIALLY_RECONCILED":
-      return "info";
-    case "RECONCILED":
-      return "success";
-    case "VOIDED":
-      return "danger";
-  }
-}
-
 export default function BankReconciliationPage() {
   const params = useParams<{ id: string }>();
+  const { locale, tc } = useAppLocale();
   const organizationId = useActiveOrganizationId();
   const { can } = usePermissions();
   const [summary, setSummary] = useState<BankReconciliationSummary | null>(null);
@@ -69,8 +37,12 @@ export default function BankReconciliationPage() {
 
   const path = useMemo(() => {
     const query = new URLSearchParams();
-    if (from) query.set("from", from);
-    if (to) query.set("to", to);
+    if (from) {
+      query.set("from", from);
+    }
+    if (to) {
+      query.set("to", to);
+    }
     const suffix = query.toString();
     return `/bank-accounts/${params.id}/reconciliation-summary${suffix ? `?${suffix}` : ""}`;
   }, [from, params.id, to]);
@@ -86,19 +58,25 @@ export default function BankReconciliationPage() {
 
     apiRequest<BankReconciliationSummary>(path)
       .then((result) => {
-        if (!cancelled) setSummary(result);
+        if (!cancelled) {
+          setSummary(result);
+        }
       })
       .catch((loadError: unknown) => {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load reconciliation summary.");
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load reconciliation summary."));
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [organizationId, params.id, path]);
+  }, [organizationId, params.id, path, tc]);
 
   const status = summary ? reconciliationDifferenceStatus(summary) : "NEEDS_REVIEW";
   const currency = summary?.profile.currency ?? "SAR";
@@ -108,119 +86,133 @@ export default function BankReconciliationPage() {
   const canCreateReconciliation = can(PERMISSIONS.bankReconciliations.create);
 
   return (
-    <LedgerPage>
-      <LedgerPageHeader
-        eyebrow="Banking"
-        title="Reconciliation summary"
-        description={summary ? `${summary.profile.displayName} statement and ledger review` : "Statement and ledger review"}
-        actions={
-          <>
-            {canViewReconciliations ? <LedgerButton href={`/bank-accounts/${params.id}/reconciliations`}>Reconciliations</LedgerButton> : null}
-            {canCreateReconciliation ? <LedgerButton href={`/bank-accounts/${params.id}/reconciliations/new`} variant="primary">New close</LedgerButton> : null}
-            <LedgerButton href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`}>Unmatched rows</LedgerButton>
-            <LedgerButton href={`/bank-accounts/${params.id}`}>Back</LedgerButton>
-          </>
-        }
-      />
+    <section>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{tc("Reconciliation summary")}</h1>
+          <p className="mt-1 text-sm text-steel">{summary ? tc("{name} statement and ledger review", { name: summary.profile.displayName }) : tc("Statement and ledger review")}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canViewReconciliations ? (
+            <Link href={`/bank-accounts/${params.id}/reconciliations`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Reconciliations")}
+            </Link>
+          ) : null}
+          {canCreateReconciliation ? (
+            <Link href={`/bank-accounts/${params.id}/reconciliations/new`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50">
+              {tc("New close")}
+            </Link>
+          ) : null}
+          <Link href={`/bank-accounts/${params.id}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Unmatched rows")}
+          </Link>
+          <Link href={`/bank-accounts/${params.id}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Back")}
+          </Link>
+        </div>
+      </div>
 
-      <LedgerSummaryBand tone="warning">
-        Reconciliation remains a manual close workflow. Closing requires zero difference and no unmatched statement rows, then locks the statement period from further row changes.
-      </LedgerSummaryBand>
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load reconciliation details.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading reconciliation summary...")}</StatusMessage> : null}
+        {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+      </div>
 
-      <LedgerPageBody>
-        {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to load reconciliation details.</LedgerAlert> : null}
-        {loading ? <LedgerLoadingState title="Loading reconciliation summary" /> : null}
-        {error ? <LedgerAlert tone="danger">{error}</LedgerAlert> : null}
+      <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("From")}</span>
+            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("To")}</span>
+            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Suggestion")}</p>
+            <span className={`mt-1 inline-flex rounded-md px-2 py-1 text-xs font-medium ${status === "RECONCILED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {status === "RECONCILED" ? tc("Reconciled") : tc("Needs review")}
+            </span>
+          </div>
+        </div>
+      </div>
 
-        <LedgerSection title="Statement period" description="Choose the imported statement range to compare with the posted bank ledger.">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <LedgerFieldLabel>
-              <LedgerFieldText>From</LedgerFieldText>
-              <LedgerInput type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-            </LedgerFieldLabel>
-            <LedgerFieldLabel>
-              <LedgerFieldText>To</LedgerFieldText>
-              <LedgerInput type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-            </LedgerFieldLabel>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Suggestion</p>
-              <div className="mt-1">
-                <LedgerStatusBadge tone={status === "RECONCILED" ? "success" : "warning"}>{status === "RECONCILED" ? "Reconciled" : "Needs review"}</LedgerStatusBadge>
-              </div>
+      {summary ? (
+        <div className="mt-5 space-y-5">
+          <ReconciliationSummaryGuidance
+            summary={summary}
+            profileId={params.id}
+            canImportStatements={canImportStatements}
+            canCreateReconciliation={canCreateReconciliation}
+            canViewBankAccount={canViewBankAccount}
+          />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <SummaryCard label={tc("Ledger balance")} value={formatAppMoney(summary.ledgerBalance, currency, locale)} />
+            <SummaryCard label={tc("Statement closing")} value={summary.statementClosingBalance ? formatAppMoney(summary.statementClosingBalance, currency, locale) : "-"} />
+            <SummaryCard label={tc("Difference")} value={summary.difference ? formatAppMoney(summary.difference, currency, locale) : "-"} />
+            <SummaryCard label={tc("Unmatched rows")} value={formatCount(summary.totals.unmatched.count, locale)} />
+            <SummaryCard label={tc("Closed through")} value={closedThroughDateDisplay(summary, locale)} />
+            <SummaryCard label={tc("Unreconciled rows")} value={formatCount(summary.unreconciledTransactionCount, locale)} />
+            <SummaryCard label={tc("Open draft")} value={summary.hasOpenDraftReconciliation ? tc("Yes") : tc("No")} />
+            <SummaryCard
+              label={tc("Latest close")}
+              value={
+                summary.latestClosedReconciliation ? (
+                  <>
+                    <bdi dir="ltr">{summary.latestClosedReconciliation.reconciliationNumber}</bdi> {tc(bankReconciliationStatusLabel(summary.latestClosedReconciliation.status))}
+                  </>
+                ) : "-"
+              }
+            />
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+            <h2 className="text-lg font-semibold text-ink">{tc("Statement row totals")}</h2>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <SummaryCard label={tc("Credits")} value={formatCountMoney(summary.totals.credits.count, summary.totals.credits.total, currency, locale)} />
+              <SummaryCard label={tc("Debits")} value={formatCountMoney(summary.totals.debits.count, summary.totals.debits.total, currency, locale)} />
+              <SummaryCard label={tc("Matched")} value={formatCountMoney(summary.totals.matched.count, summary.totals.matched.total, currency, locale)} />
+              <SummaryCard label={tc("Categorized")} value={formatCountMoney(summary.totals.categorized.count, summary.totals.categorized.total, currency, locale)} />
+              <SummaryCard label={tc("Ignored")} value={formatCountMoney(summary.totals.ignored.count, summary.totals.ignored.total, currency, locale)} />
+              <SummaryCard label={tc("Unmatched")} value={formatCountMoney(summary.totals.unmatched.count, summary.totals.unmatched.total, currency, locale)} />
             </div>
           </div>
-        </LedgerSection>
 
-        {summary ? (
-          <>
-            <ReconciliationSummaryGuidance
-              summary={summary}
-              profileId={params.id}
-              canImportStatements={canImportStatements}
-              canCreateReconciliation={canCreateReconciliation}
-              canViewBankAccount={canViewBankAccount}
-            />
-
-            <LedgerMetricGrid>
-              <LedgerStatCard label="Ledger balance" value={<LedgerMoney>{formatMoneyAmount(summary.ledgerBalance, currency)}</LedgerMoney>} />
-              <LedgerStatCard label="Statement closing" value={<LedgerMoney>{summary.statementClosingBalance ? formatMoneyAmount(summary.statementClosingBalance, currency) : "-"}</LedgerMoney>} />
-              <LedgerStatCard label="Difference" value={<LedgerMoney>{summary.difference ? formatMoneyAmount(summary.difference, currency) : "-"}</LedgerMoney>} />
-              <LedgerStatCard label="Unmatched rows" value={summary.totals.unmatched.count} />
-              <LedgerStatCard label="Closed through" value={closedThroughDateLabel(summary)} />
-              <LedgerStatCard label="Unreconciled rows" value={summary.unreconciledTransactionCount} />
-              <LedgerStatCard label="Open draft" value={summary.hasOpenDraftReconciliation ? "Yes" : "No"} />
-              <LedgerStatCard
-                label="Latest close"
-                value={summary.latestClosedReconciliation ? `${summary.latestClosedReconciliation.reconciliationNumber} ${bankReconciliationStatusLabel(summary.latestClosedReconciliation.status)}` : "-"}
-              />
-            </LedgerMetricGrid>
-
-            <LedgerSection title="Statement row totals" description="Imported statement row totals by review state for this period.">
-              <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-3">
-                <LedgerStatCard label="Credits" value={`${summary.totals.credits.count} / ${formatMoneyAmount(summary.totals.credits.total, currency)}`} />
-                <LedgerStatCard label="Debits" value={`${summary.totals.debits.count} / ${formatMoneyAmount(summary.totals.debits.total, currency)}`} />
-                <LedgerStatCard label="Matched" value={`${summary.totals.matched.count} / ${formatMoneyAmount(summary.totals.matched.total, currency)}`} />
-                <LedgerStatCard label="Categorized" value={`${summary.totals.categorized.count} / ${formatMoneyAmount(summary.totals.categorized.total, currency)}`} />
-                <LedgerStatCard label="Ignored" value={`${summary.totals.ignored.count} / ${formatMoneyAmount(summary.totals.ignored.total, currency)}`} />
-                <LedgerStatCard label="Unmatched" value={`${summary.totals.unmatched.count} / ${formatMoneyAmount(summary.totals.unmatched.total, currency)}`} />
-              </LedgerMetricGrid>
-            </LedgerSection>
-
-            <LedgerSection title="Statement imports" description="Imported statement files included in the selected period.">
-              <LedgerDataTable minWidth="900px">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
-                  <tr>
-                    <th className="px-4 py-3">Filename</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Statement range</th>
-                    <th className="px-4 py-3 text-right">Rows</th>
-                    <th className="px-4 py-3 text-right">Closing balance</th>
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[900px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Filename")}</th>
+                  <th className="px-4 py-3">{tc("Status")}</th>
+                  <th className="px-4 py-3">{tc("Statement range")}</th>
+                  <th className="px-4 py-3 text-end">{tc("Rows")}</th>
+                  <th className="px-4 py-3 text-end">{tc("Closing balance")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {summary.imports.map((statementImport) => (
+                  <tr key={statementImport.id}>
+                    <td className="px-4 py-3 text-ink"><bdi dir="ltr">{statementImport.filename}</bdi></td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-md px-2 py-1 text-xs font-medium ${bankStatementImportStatusBadgeClass(statementImport.status)}`}>
+                        {tc(bankStatementImportStatusLabel(statementImport.status))}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-steel">
+                      {formatAppDate(statementImport.statementStartDate, locale, "-")} {tc("to")} {formatAppDate(statementImport.statementEndDate, locale, "-")}
+                    </td>
+                    <td className="px-4 py-3 text-end font-mono text-xs">{formatCount(statementImport.rowCount, locale)}</td>
+                    <td className="px-4 py-3 text-end font-mono text-xs">{statementImport.closingStatementBalance ? formatAppMoney(statementImport.closingStatementBalance, currency, locale) : "-"}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {summary.imports.map((statementImport) => (
-                    <tr key={statementImport.id}>
-                      <td className="px-4 py-3 text-ink">{statementImport.filename}</td>
-                      <td className="px-4 py-3"><LedgerStatusBadge tone={statementImportStatusTone(statementImport.status)}>{bankStatementImportStatusLabel(statementImport.status)}</LedgerStatusBadge></td>
-                      <td className="px-4 py-3 text-steel">
-                        <LedgerDate>{formatOptionalDate(statementImport.statementStartDate, "-")} to {formatOptionalDate(statementImport.statementEndDate, "-")}</LedgerDate>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs">{statementImport.rowCount}</td>
-                      <td className="px-4 py-3 text-right"><LedgerMoney>{statementImport.closingStatementBalance ? formatMoneyAmount(statementImport.closingStatementBalance, currency) : "-"}</LedgerMoney></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </LedgerDataTable>
-              {summary.imports.length === 0 ? (
-                <div className="mt-4">
-                  <LedgerEmptyState title="No statement imports found for this date range." />
-                </div>
-              ) : null}
-            </LedgerSection>
-          </>
-        ) : null}
-      </LedgerPageBody>
-    </LedgerPage>
+                ))}
+              </tbody>
+            </table>
+            {summary.imports.length === 0 ? <StatusMessage type="empty">{tc("No statement imports found for this date range.")}</StatusMessage> : null}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -237,38 +229,86 @@ export function ReconciliationSummaryGuidance({
   canCreateReconciliation?: boolean;
   canViewBankAccount?: boolean;
 }) {
+  const { locale, tc } = useAppLocale();
   const status = reconciliationDifferenceStatus(summary);
-  const differenceText = summary.difference ? formatMoneyAmount(summary.difference, summary.profile.currency) : "-";
+  const differenceText = summary.difference ? formatAppMoney(summary.difference, summary.profile.currency, locale) : "-";
   return (
-    <LedgerPanel>
+    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold text-ink">How reconciliation works</h2>
-            <LedgerStatusBadge tone={status === "RECONCILED" ? "success" : "warning"}>{status === "RECONCILED" ? "Ready to close" : "Needs review"}</LedgerStatusBadge>
+            <h2 className="text-base font-semibold text-ink">{tc("How reconciliation works")}</h2>
+            <span className={`rounded-md px-2 py-1 text-xs font-medium ${status === "RECONCILED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {status === "RECONCILED" ? tc("Ready to close") : tc("Needs review")}
+            </span>
           </div>
           <p className="mt-2 text-sm leading-6 text-steel">
-            Reconciliation compares the posted bank ledger against imported statement rows for the selected period. You can close only when the difference is zero and no statement rows are unmatched.
+            {tc("Reconciliation compares the posted bank ledger against imported statement rows for the selected period. You can close only when the difference is zero and no statement rows are unmatched.")}
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-steel md:grid-cols-3">
-            <p><span className="font-medium text-ink">Difference:</span> {differenceText}</p>
-            <p><span className="font-medium text-ink">Unmatched rows:</span> {summary.totals.unmatched.count}</p>
-            <p><span className="font-medium text-ink">Closed through:</span> {closedThroughDateLabel(summary)}</p>
+            <p>
+              <span className="font-medium text-ink">{tc("Difference")}:</span> {differenceText}
+            </p>
+            <p>
+              <span className="font-medium text-ink">{tc("Unmatched rows")}:</span> {formatCount(summary.totals.unmatched.count, locale)}
+            </p>
+            <p>
+              <span className="font-medium text-ink">{tc("Closed through")}:</span> {closedThroughDateDisplay(summary, locale)}
+            </p>
           </div>
           <p className="mt-3 text-xs leading-5 text-steel">
-            Closed reconciliations lock statement rows in that period from matching, categorizing, ignoring, and overlapping imports.
+            {tc("Closed reconciliations lock statement rows in that period from matching, categorizing, ignoring, and overlapping imports.")}
           </p>
         </div>
         <div className="min-w-full lg:min-w-[260px]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Next actions</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Next actions")}</p>
           <div className="mt-2 flex flex-wrap gap-2 lg:flex-col">
-            <LedgerButton href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`}>Review unmatched rows</LedgerButton>
-            {canImportStatements ? <LedgerButton href={`/bank-accounts/${profileId}/statement-imports`}>Import statement</LedgerButton> : null}
-            {canCreateReconciliation ? <LedgerButton href={`/bank-accounts/${profileId}/reconciliations/new`}>Create close draft</LedgerButton> : null}
-            {canViewBankAccount ? <LedgerButton href={`/bank-accounts/${profileId}`}>Bank account</LedgerButton> : null}
+            <Link href={`/bank-accounts/${profileId}/statement-transactions?status=UNMATCHED`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              {tc("Review unmatched rows")}
+            </Link>
+            {canImportStatements ? (
+              <Link href={`/bank-accounts/${profileId}/statement-imports`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Import statement")}
+              </Link>
+            ) : null}
+            {canCreateReconciliation ? (
+              <Link href={`/bank-accounts/${profileId}/reconciliations/new`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Create close draft")}
+              </Link>
+            ) : null}
+            {canViewBankAccount ? (
+              <Link href={`/bank-accounts/${profileId}`} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {tc("Bank account")}
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
-    </LedgerPanel>
+    </div>
   );
+}
+
+function SummaryCard({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <p className="text-xs font-medium uppercase tracking-wide text-steel">{label}</p>
+      <p className="mt-2 font-mono text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function closedThroughDateDisplay(summary: Pick<BankReconciliationSummary, "closedThroughDate">, locale: AppLocale): string {
+  return summary.closedThroughDate ? formatAppDate(summary.closedThroughDate, locale, "-") : translateNotClosed(locale);
+}
+
+function translateNotClosed(locale: AppLocale): string {
+  return locale === "ar" ? "غير مغلقة" : "Not closed";
+}
+
+function formatCount(value: number, locale: AppLocale): string {
+  return new Intl.NumberFormat(appIntlLocale(locale)).format(value);
+}
+
+function formatCountMoney(count: number, total: string, currency: string, locale: AppLocale): string {
+  return `${formatCount(count, locale)} / ${formatAppMoney(total, currency, locale)}`;
 }

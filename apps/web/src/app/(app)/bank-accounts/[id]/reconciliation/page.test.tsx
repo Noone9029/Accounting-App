@@ -2,7 +2,13 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { ReconciliationSummaryGuidance } from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { BankReconciliationSummary } from "@/lib/types";
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+  useParams: () => ({ id: "bank-1" }),
+}));
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -53,6 +59,28 @@ describe("reconciliation summary guidance", () => {
     expect(screen.queryByRole("link", { name: "Import statement" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Create close draft" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Bank account" })).not.toBeInTheDocument();
+  });
+
+  it("renders Arabic guidance without changing action routes", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <ReconciliationSummaryGuidance
+          summary={summaryFixture()}
+          profileId="bank-1"
+          canImportStatements
+          canCreateReconciliation
+          canViewBankAccount
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("كيف تعمل التسوية")).toBeInTheDocument();
+    expect(screen.getByText(/لا يمكن الإغلاق إلا عندما يكون الفرق صفرا/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "مراجعة الصفوف غير المطابقة" })).toHaveAttribute(
+      "href",
+      "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
+    );
+    expect(screen.getByRole("link", { name: "إنشاء مسودة إغلاق" })).toHaveAttribute("href", "/bank-accounts/bank-1/reconciliations/new");
   });
 });
 

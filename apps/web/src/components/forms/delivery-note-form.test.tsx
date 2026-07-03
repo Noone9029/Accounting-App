@@ -1,11 +1,13 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { DeliveryNote, SalesInvoice, SalesQuote } from "@/lib/types";
 import { DeliveryNoteForm } from "./delivery-note-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +25,7 @@ jest.mock("next/link", () => ({
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
+    refresh: refreshMock,
   }),
 }));
 
@@ -39,6 +42,7 @@ describe("DeliveryNoteForm", () => {
     window.history.pushState({}, "", "/sales/delivery-notes/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    refreshMock.mockReset();
     apiRequestMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
       if (path === "/contacts") {
         return Promise.resolve([contactFixture("customer-1", "Beta Customer"), contactFixture("customer-2", "Second Customer")]);
@@ -107,6 +111,21 @@ describe("DeliveryNoteForm", () => {
     expect(screen.getByLabelText("Delivery note number")).toHaveAttribute("readonly");
     expect(screen.getByText(/assigned from the delivery note sequence/i)).toBeInTheDocument();
     expect(screen.getByText(/do not create journals, AR balances, VAT filing, ZATCA submission, payment, email, or inventory movement/i)).toBeInTheDocument();
+  });
+
+  it("renders the delivery note form in Arabic with RTL direction and stable route targets", async () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <DeliveryNoteForm />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("رقم إشعار التسليم")).toHaveValue("DN-000042"));
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText(/إشعارات التسليم مستندات تنفيذ تشغيلية غير مرحلة/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "إنشاء إشعار تسليم مسودة" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/sales/delivery-notes");
+    expect(screen.getByText(/معاينة فقط/)).toBeInTheDocument();
   });
 
   it("copies source invoice lines into a draft delivery note and saves them without financial posting data", async () => {

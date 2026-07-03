@@ -2,6 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { PurchaseDebitNoteWorkflowGuidance } from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { PurchaseDebitNote } from "@/lib/types";
 
 jest.mock("next/link", () => ({
@@ -15,6 +16,10 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 describe("purchase debit note workflow guidance", () => {
@@ -79,6 +84,33 @@ describe("purchase debit note workflow guidance", () => {
 
     expect(screen.queryByRole("button", { name: "Download debit note PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open archive" })).toHaveAttribute("href", "/documents");
+  });
+
+  it("renders finalized workflow guidance in Arabic without changing links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <PurchaseDebitNoteWorkflowGuidance
+          debitNote={debitNoteFixture({ status: "FINALIZED", unappliedAmount: "25.0000" })}
+          appliedAmount="90.0000"
+          actionLoading={false}
+          canFinalizeDebitNote
+          canApplyDebitNote
+          canDownloadGeneratedDocuments
+          onFinalize={jest.fn()}
+          onDownloadPdf={jest.fn()}
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("نهائية")).toBeInTheDocument();
+    expect(screen.getByText("رصيد مدين غير مخصص")).toBeInTheDocument();
+    expect(screen.getByText(/خفض مستحق المورد/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "عرض الفاتورة الأصلية" })).toHaveAttribute("href", "/purchases/bills/bill-1");
+    expect(screen.getByRole("button", { name: "تنزيل PDF الإشعار المدين" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "فتح الأرشيف" })).toHaveAttribute("href", "/documents");
+    expect(screen.getByRole("link", { name: "فتح مساحة عمل المورد" })).toHaveAttribute("href", "/suppliers/supplier-1");
+    expect(screen.getByRole("link", { name: "تقرير الدائنين" })).toHaveAttribute("href", "/reports/aged-payables");
+    expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
 });
 

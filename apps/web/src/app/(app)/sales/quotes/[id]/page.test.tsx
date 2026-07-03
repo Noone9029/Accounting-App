@@ -1,12 +1,14 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import SalesQuoteDetailPage from "./page";
 import type { DeliveryNote, SalesInvoice, SalesQuote } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const mockDownloadPdf = jest.fn();
 let mockAllowedPermissions = new Set<string>();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -23,6 +25,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "quote-1" }),
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -51,6 +54,7 @@ describe("SalesQuoteDetailPage", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
     mockDownloadPdf.mockReset();
+    refreshMock.mockReset();
     mockDownloadPdf.mockResolvedValue(undefined);
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.create", "salesInvoices.update", "generatedDocuments.view", "generatedDocuments.download"]);
   });
@@ -129,6 +133,33 @@ describe("SalesQuoteDetailPage", () => {
 
     await waitFor(() => expect(mockDownloadPdf).toHaveBeenCalledWith("/sales-quotes/quote-1/pdf", "sales-quote-QUO-000001.pdf"));
     expect(screen.getByText("sales-quote-QUO-000001.pdf")).toBeInTheDocument();
+  });
+
+  it("renders the accepted sales quote detail in Arabic with RTL direction and stable record links", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-quotes/quote-1") {
+        return Promise.resolve(quoteFixture({ status: "ACCEPTED" }));
+      }
+      if (path.startsWith("/generated-documents")) {
+        return Promise.resolve([]);
+      }
+      if (path.startsWith("/delivery-notes")) {
+        return Promise.resolve([]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesQuoteDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "تحويل إلى فاتورة" })).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText("QUO-000001")).toBeInTheDocument();
+    expect(screen.getByText("أرشيف PDF عرض السعر")).toBeInTheDocument();
+    expect(screen.getByText(/عرض السعر هذا غير مرحل/)).toBeInTheDocument();
   });
 
   it("hides sales quote PDF actions when generated-document download permission is missing", async () => {

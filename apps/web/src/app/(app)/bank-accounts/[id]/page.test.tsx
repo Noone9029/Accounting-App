@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { BankAccountWorkflowGuidance } from "./page";
 import type { BankAccountSummary } from "@/lib/types";
 
@@ -15,6 +16,10 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
+}));
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
 }));
 
 describe("bank account workflow guidance", () => {
@@ -57,6 +62,33 @@ describe("bank account workflow guidance", () => {
     );
 
     expect(screen.queryByRole("link", { name: "Create transfer" })).not.toBeInTheDocument();
+  });
+
+  it("renders Arabic workflow guidance while preserving bank action links", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <BankAccountWorkflowGuidance
+          profile={bankAccountFixture()}
+          canImportStatements
+          canCreateTransfers
+          canViewStatements
+          canViewReconciliations
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByText("كيفية قراءة هذا الحساب البنكي")).toBeInTheDocument();
+    expect(screen.getByText("المدين")).toBeInTheDocument();
+    expect(screen.getByText(/يزيد رصيد أصل البنك/)).toBeInTheDocument();
+    expect(screen.getByText(/ليست متصلة بتغذيات بنكية مباشرة أو واجهات API بنكية خارجية/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "استيراد كشف" })).toHaveAttribute("href", "/bank-accounts/bank-1/statement-imports");
+    expect(screen.getByRole("link", { name: "إنشاء تحويل" })).toHaveAttribute("href", "/bank-transfers/new");
+    expect(screen.getByRole("link", { name: "مراجعة الصفوف غير المطابقة" })).toHaveAttribute(
+      "href",
+      "/bank-accounts/bank-1/statement-transactions?status=UNMATCHED",
+    );
+    expect(screen.getByRole("link", { name: "عرض دفتر البنك" })).toHaveAttribute("href", "/reports/general-ledger?accountId=account-1");
+    expect(screen.getByRole("link", { name: "لوحة التحكم" })).toHaveAttribute("href", "/dashboard");
   });
 });
 

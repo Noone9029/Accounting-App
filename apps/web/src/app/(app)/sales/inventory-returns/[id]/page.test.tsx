@@ -1,11 +1,13 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { SalesInventoryReturn, SalesInventoryReturnInventoryMovementPreview } from "@/lib/types";
 import SalesInventoryReturnDetailPage from "./page";
 
 const apiRequestMock = jest.fn();
 let mockAllowedPermissions = new Set<string>();
+const refreshMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -22,6 +24,7 @@ jest.mock("next/link", () => ({
 
 jest.mock("next/navigation", () => ({
   useParams: () => ({ id: "sir-1" }),
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
@@ -41,6 +44,7 @@ jest.mock("@/lib/api", () => ({
 describe("SalesInventoryReturnDetailPage", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+    refreshMock.mockReset();
     mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.update", "inventory.view", "stockMovements.create"]);
     jest.spyOn(window, "confirm").mockReturnValue(true);
   });
@@ -86,6 +90,27 @@ describe("SalesInventoryReturnDetailPage", () => {
     expect(screen.getByText("Sales return in")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Post inventory return movement" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("renders sales inventory return detail in Arabic with RTL direction and stable movement codes", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-inventory-returns/sir-1") return Promise.resolve(salesReturnFixture());
+      if (path === "/sales-inventory-returns/sir-1/inventory-return-preview") return Promise.resolve(previewFixture({ movementIds: ["SM-000001"] }));
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <SalesInventoryReturnDetailPage />
+      </AppLocaleProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "SRN-000001" })).toBeInTheDocument());
+    expect(document.documentElement).toHaveAttribute("dir", "rtl");
+    expect(screen.getByText(/تفاصيل مرتجع مخزون عميل/)).toBeInTheDocument();
+    expect(screen.getByText("حركة مرتجع المخزون")).toBeInTheDocument();
+    expect(screen.getByText("SM-000001")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "استلام" })).toBeInTheDocument();
   });
 });
 

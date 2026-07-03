@@ -2,26 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PlusIcon, SaveIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import {
-  LedgerActionBar,
-  LedgerButton,
-  LedgerDataTable,
-  LedgerFieldLabel,
-  LedgerFieldText,
-  LedgerInput,
-  LedgerMoney,
-  LedgerPanel,
-  LedgerSection,
-  LedgerSelect,
-} from "@/components/ui/ledger-system";
-import { ComplianceReadinessPanel } from "@/components/ui-ledger/compliance-readiness-panel";
+import { ComplianceReadinessPanel, PanelSection, StatusBadge } from "@/components/ui-ledger";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { getLedgerByteEdition } from "@/lib/edition";
-import { calculateInvoicePreview, formatMoneyAmount } from "@/lib/money";
+import { calculateInvoicePreview } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, AccountType, Branch, Contact, Item, SalesInvoice, SalesInvoiceTaxMode, TaxRate } from "@/lib/types";
 
@@ -79,8 +68,9 @@ function optionalDateInputValue(value?: string | null): string {
 
 export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: SalesInvoiceFormProps) {
   const router = useRouter();
-  const edition = getLedgerByteEdition();
   const organizationId = useActiveOrganizationId();
+  const edition = getLedgerByteEdition();
+  const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -175,7 +165,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load invoice setup data.");
+          setError(loadError instanceof Error ? loadError.message : tc("Unable to load invoice setup data."));
         }
       })
       .finally(() => {
@@ -187,7 +177,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
     return () => {
       cancelled = true;
     };
-  }, [initialInvoice, organizationId]);
+  }, [initialInvoice, organizationId, tc]);
 
   function updateLine(lineId: string, patch: Partial<InvoiceLineState>) {
     setLines((current) => current.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
@@ -224,7 +214,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
     event.preventDefault();
     setError("");
 
-    const validationError = getValidationError(customerId, lines, preview.valid);
+    const validationError = getValidationError(customerId, lines, preview.valid, tc);
     if (validationError) {
       setError(validationError);
       return;
@@ -259,7 +249,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
       router.push(returnTo || `/sales/invoices/${invoice.id}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to save invoice.");
+      setError(submitError instanceof Error ? submitError.message : tc("Unable to save invoice."));
     } finally {
       setSubmitting(false);
     }
@@ -267,248 +257,232 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
   if (initialInvoice && initialInvoice.status !== "DRAFT") {
     return (
-      <div className="flex flex-col gap-4">
-        <StatusMessage type="error">Only draft invoices can be edited.</StatusMessage>
-        <LedgerButton href={`/sales/invoices/${initialInvoice.id}`} className="self-start">
-          Back to invoice
-        </LedgerButton>
+      <div className="space-y-4">
+        <StatusMessage type="error">{tc("Only draft invoices can be edited.")}</StatusMessage>
+        <Link href={`/sales/invoices/${initialInvoice.id}`} className="inline-flex rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Back to invoice")}
+        </Link>
       </div>
     );
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
-      <LedgerSection
-        title="Invoice details"
-        description="Draft header fields are saved before finalization; invoice numbering and posting behavior stay unchanged."
-      >
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <LedgerFieldLabel className="md:col-span-2">
-            <LedgerFieldText>Customer</LedgerFieldText>
-            <LedgerSelect value={customerId} onChange={(event) => setCustomerId(event.target.value)} required>
-              <option value="">Select customer</option>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Customer")}</span>
+            <select value={customerId} onChange={(event) => setCustomerId(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("Select customer")}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.displayName ?? customer.name}
                 </option>
               ))}
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Invoice number</LedgerFieldText>
-            <LedgerInput
-              value={initialInvoice?.invoiceNumber ?? invoiceNumberPreview?.invoiceNumber ?? "From sequence"}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Invoice number")}</span>
+            <input
+              value={initialInvoice?.invoiceNumber ?? invoiceNumberPreview?.invoiceNumber ?? tc("From sequence")}
               readOnly
-              aria-label="Invoice number"
-              className="bg-slate-50 text-steel"
+              aria-label={tc("Invoice number")}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
             />
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-              {initialInvoice ? "Draft invoice number assigned from the sequence." : (invoiceNumberPreview?.helperText ?? "Assigned from the invoice sequence when saved.")}
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {initialInvoice ? tc("Draft invoice number assigned from the sequence.") : (invoiceNumberPreview?.helperText ? tc(invoiceNumberPreview.helperText) : tc("Assigned from the invoice sequence when saved."))}
             </span>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Tax mode</LedgerFieldText>
-            <LedgerSelect value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)}>
-              <option value="TAX_EXCLUSIVE">Tax exclusive</option>
-              <option value="TAX_INCLUSIVE">Tax inclusive</option>
-              <option value="NO_TAX">No tax</option>
-            </LedgerSelect>
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-              {taxMode === "TAX_INCLUSIVE" ? "Entered line prices include VAT; LedgerByte extracts the tax portion." : taxMode === "NO_TAX" ? "Line tax rates are ignored and invoice tax is zero." : "Line prices exclude VAT; tax is added to the total."}
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Tax mode")}</span>
+            <select value={taxMode} onChange={(event) => updateTaxMode(event.target.value as SalesInvoiceTaxMode)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="TAX_EXCLUSIVE">{tc("Tax exclusive")}</option>
+              <option value="TAX_INCLUSIVE">{tc("Tax inclusive")}</option>
+              <option value="NO_TAX">{tc("No tax")}</option>
+            </select>
+            <span className="mt-1 block text-xs leading-5 text-steel">
+              {taxMode === "TAX_INCLUSIVE" ? tc("Entered line prices include VAT; LedgerByte extracts the tax portion.") : taxMode === "NO_TAX" ? tc("Line tax rates are ignored and invoice tax is zero.") : tc("Line prices exclude VAT; tax is added to the total.")}
             </span>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Currency</LedgerFieldText>
-            <LedgerInput value={edition.defaultCurrency} readOnly aria-label="Currency" className="bg-slate-50 text-steel" />
-            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Default {edition.marketLabel} workspace currency.</span>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Issue date</LedgerFieldText>
-            <LedgerInput type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Due date</LedgerFieldText>
-            <LedgerInput type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel className="md:col-span-2">
-            <LedgerFieldText>Branch</LedgerFieldText>
-            <LedgerSelect value={branchId} onChange={(event) => setBranchId(event.target.value)}>
-              <option value="">No branch</option>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Currency")}</span>
+            <input
+              value={edition.defaultCurrency}
+              readOnly
+              aria-label={tc("Currency")}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
+            />
+            <span className="mt-1 block text-xs leading-5 text-steel">{edition.market === "GENERIC" ? tc("Controlled-beta default. Multi-currency can be added later without changing this form layout.") : tc("Controlled-beta {market} default. Multi-currency can be added later without changing this form layout.", { market: edition.market })}</span>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
+            <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Due date")}</span>
+            <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
+              <option value="">{tc("No branch")}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.displayName ?? branch.name}
                 </option>
               ))}
-            </LedgerSelect>
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Notes</LedgerFieldText>
-            <LedgerInput value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </LedgerFieldLabel>
-          <LedgerFieldLabel>
-            <LedgerFieldText>Terms</LedgerFieldText>
-            <LedgerInput value={terms} onChange={(event) => setTerms(event.target.value)} />
-          </LedgerFieldLabel>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Notes")}</span>
+            <input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">{tc("Terms")}</span>
+            <input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
+          </label>
         </div>
-      </LedgerSection>
+      </div>
 
-      <ComplianceReadinessPanel
-        title={edition.invoiceComplianceTitle}
-        description={edition.invoiceComplianceDescription}
-        checks={[
-          {
-            label: "Invoice fields",
-            status: customerId && lines.length > 0 ? "pass" : "pending",
-            detail: "Customer, issue date, due date, VAT mode, and line-item fields stay in the normal draft invoice workflow.",
-          },
-          {
-            label: edition.invoiceComplianceChecks.disconnectedLabel,
-            status: "warning",
-            detail: edition.invoiceComplianceChecks.disconnectedDetail,
-          },
-          {
-            label: "Attachments and finalization",
-            status: "pending",
-            detail: "Draft/finalize, attachment, posting, and audit behavior remain handled by the existing invoice screens.",
-          },
-        ]}
-      />
-
-      <div className="flex flex-col gap-3">
-        {!organizationId ? <StatusMessage type="info">Log in and select an organization before creating invoices.</StatusMessage> : null}
-        {loading ? <StatusMessage type="loading">Loading invoice setup data...</StatusMessage> : null}
+      <div className="space-y-3">
+        {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating invoices.")}</StatusMessage> : null}
+        {loading ? <StatusMessage type="loading">{tc("Loading invoice setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && customers.length === 0 ? (
           <StatusMessage type="empty">
-            Add a customer before creating the first invoice.{" "}
+            {tc("Add a customer before creating the first invoice.")}{" "}
             <Link href="/customers" className="font-semibold text-palm hover:underline">
-              Open customers
+              {tc("Open customers")}
             </Link>
             .
           </StatusMessage>
         ) : null}
         {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
           <StatusMessage type="empty">
-            Add or activate a posting revenue account before saving invoice lines.{" "}
+            {tc("Add or activate a posting revenue account before saving invoice lines.")}{" "}
             <Link href="/accounts" className="font-semibold text-palm hover:underline">
-              Open accounts
+              {tc("Open accounts")}
             </Link>
             .
           </StatusMessage>
         ) : null}
         {!loading && organizationId && taxMode !== "NO_TAX" && activeSalesTaxRates.length === 0 ? (
           <StatusMessage type="info">
-            No active sales tax rate is available. You can save non-taxed draft lines, or review{" "}
+            {tc("No active sales tax rate is available. You can save non-taxed draft lines, or review")}{" "}
             <Link href="/tax-rates" className="font-semibold text-palm hover:underline">
-              VAT/tax rates
+              {tc("VAT/tax rates")}
             </Link>
-            {" "}before customer-facing invoices.
+            {" "}{tc("before customer-facing invoices.")}
           </StatusMessage>
         ) : null}
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <LedgerSection
-          title="Invoice line items"
-          description="Line entries keep the existing item, account, discount, tax, and total preview behavior."
-          className="min-w-0"
+      <div className="grid gap-4 xl:grid-cols-[1fr_24rem]">
+        <PanelSection
+          title={tc("Invoice workflow")}
+          description={tc("Draft first, review VAT/account coding, then finalize when the customer-facing invoice is ready.")}
+          action={<StatusBadge tone="draft">{tc("Draft / finalize")}</StatusBadge>}
         >
-          <LedgerDataTable minWidth="1240px">
-              <thead className="bg-mist text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Description</th>
-                  <th className="px-3 py-2">Revenue account</th>
-                  <th className="px-3 py-2">Qty</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Discount %</th>
-                  <th className="px-3 py-2">Tax</th>
-                  <th className="px-3 py-2">Total</th>
-                  <th className="px-3 py-2">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {lines.map((line, index) => {
-                  const previewLine = preview.lines[index];
-                  return (
-                    <tr key={line.id}>
-                      <td className="px-3 py-2">
-                        <LedgerSelect aria-label={`Item for invoice line ${index + 1}`} value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)}>
-                          <option value="">No item</option>
-                          {activeItems.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.sku ? `${item.sku} - ${item.name}` : item.name}
-                            </option>
-                          ))}
-                        </LedgerSelect>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput aria-label={`Description for invoice line ${index + 1}`} value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required />
-                      </td>
-                      <td className="px-3 py-2">
-                        <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput aria-label={`Quantity for invoice line ${index + 1}`} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="w-24" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput aria-label={`Price for invoice line ${index + 1}`} inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="w-28" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerInput aria-label={`Discount rate for invoice line ${index + 1}`} inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="w-24" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerSelect aria-label={`Tax rate for invoice line ${index + 1}`} value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"}>
-                          <option value="">{taxMode === "NO_TAX" ? "No tax mode" : "No tax"}</option>
-                          {taxMode === "NO_TAX"
-                            ? null
-                            : activeSalesTaxRates.map((taxRate) => (
-                                <option key={taxRate.id} value={taxRate.id}>
-                                  {taxRate.name}
-                                </option>
-                              ))}
-                        </LedgerSelect>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerMoney>{previewLine ? formatMoneyAmount(previewLine.lineTotalUnits, edition.defaultCurrency) : `${edition.defaultCurrency} 0.00`}</LedgerMoney>
-                      </td>
-                      <td className="px-3 py-2">
-                        <LedgerButton type="button" size="sm" onClick={() => removeLine(line.id)} disabled={lines.length <= 1}>
-                          Remove
-                        </LedgerButton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-          </LedgerDataTable>
-          <div className="mt-3">
-            <LedgerButton type="button" onClick={() => setLines((current) => [...current, makeLine()])} icon={PlusIcon}>
-              Add line
-            </LedgerButton>
+          <div className="grid gap-3 text-sm text-steel md:grid-cols-3">
+            <div>
+              <div className="font-semibold text-ink">{tc("Customer and dates")}</div>
+              <p className="mt-1 text-xs leading-5">{tc("Customer, invoice number, issue date, due date, and branch stay visible before line entry.")}</p>
+            </div>
+            <div>
+              <div className="font-semibold text-ink">{tc("VAT-aware lines")}</div>
+              <p className="mt-1 text-xs leading-5">{tc("Line totals use quantity, unit price, discount, tax mode, and sales VAT rate.")}</p>
+            </div>
+            <div>
+              <div className="font-semibold text-ink">{tc("Attachments")}</div>
+              <p className="mt-1 text-xs leading-5">{tc("Attach source documents from the invoice detail page after saving the draft.")}</p>
+            </div>
           </div>
-        </LedgerSection>
-
-        <LedgerPanel>
-          <h2 className="text-base font-semibold text-ink">Transaction summary</h2>
-          <div className="mt-3 space-y-3">
-            <BalanceLine label="Subtotal" value={formatMoneyAmount(preview.subtotal, edition.defaultCurrency)} />
-            <BalanceLine label="Discount" value={formatMoneyAmount(preview.discountTotal, edition.defaultCurrency)} />
-            <BalanceLine label="Taxable" value={formatMoneyAmount(preview.taxableTotal, edition.defaultCurrency)} />
-            <BalanceLine label="VAT" value={formatMoneyAmount(preview.taxTotal, edition.defaultCurrency)} />
-            <BalanceLine label="Total" value={formatMoneyAmount(preview.total, edition.defaultCurrency)} emphasized />
-          </div>
-        </LedgerPanel>
+        </PanelSection>
+        <ComplianceReadinessPanel
+          title={tc(edition.invoiceComplianceTitle)}
+          description={tc(edition.invoiceComplianceDescription)}
+          status={tc("Controlled beta")}
+          checks={[
+            { label: tc(edition.invoiceComplianceChecks.localReadinessLabel), status: customerId && lines.some((line) => line.description.trim()) ? "pass" : "pending", detail: tc(edition.invoiceComplianceChecks.localReadinessDetail) },
+            { label: tc(edition.invoiceComplianceChecks.disconnectedLabel), status: "warning", detail: tc(edition.invoiceComplianceChecks.disconnectedDetail) },
+            { label: tc("VAT handling"), status: taxMode === "NO_TAX" ? "warning" : "pass", detail: taxMode === "NO_TAX" ? tc("No-tax mode is explicit and should be reviewed before finalization.") : tc("VAT rate selection is visible on each line.") },
+          ]}
+        />
       </div>
 
-      <LedgerActionBar>
-        <LedgerButton type="submit" disabled={!organizationId || loading || submitting || !preview.valid} variant="primary" icon={SaveIcon}>
-          {submitting ? "Saving..." : initialInvoice ? "Save changes" : "Create draft invoice"}
-        </LedgerButton>
-        <LedgerButton href={returnTo || "/sales/invoices"}>
-          Cancel
-        </LedgerButton>
-      </LedgerActionBar>
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+        <div className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel">
+          <div>{tc("Item")}</div>
+          <div>{tc("Description")}</div>
+          <div>{tc("Revenue account")}</div>
+          <div>{tc("Qty")}</div>
+          <div>{tc("Price")}</div>
+          <div>{tc("Discount %")}</div>
+          <div>{tc("Tax")}</div>
+          <div>{tc("Total")}</div>
+          <div></div>
+        </div>
+        {lines.map((line, index) => {
+          const previewLine = preview.lines[index];
+          return (
+            <div key={line.id} className="grid min-w-[1240px] grid-cols-[1fr_1.2fr_1.25fr_0.55fr_0.65fr_0.55fr_0.8fr_0.7fr_0.45fr] gap-3 border-b border-slate-100 px-4 py-3">
+              <select value={line.itemId} onChange={(event) => selectItem(line.id, event.target.value)} className="rounded-md border border-slate-300 px-2 py-2 text-sm">
+                <option value="">{tc("No item")}</option>
+                {activeItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.sku ? `${item.sku} - ${item.name}` : item.name}
+                  </option>
+                ))}
+              </select>
+              <input value={line.description} onChange={(event) => updateLine(line.id, { description: event.target.value })} required className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <AccountPicker accounts={postingRevenueAccounts} value={line.accountId} onChange={(accountId) => updateLine(line.id, { accountId })} lineNumber={index + 1} tc={tc} />
+              <input inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <input inputMode="decimal" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <input inputMode="decimal" value={line.discountRate} onChange={(event) => updateLine(line.id, { discountRate: event.target.value })} className="rounded-md border border-slate-300 px-2 py-2 text-sm" />
+              <select value={taxMode === "NO_TAX" ? "" : line.taxRateId} onChange={(event) => updateLine(line.id, { taxRateId: event.target.value })} disabled={taxMode === "NO_TAX"} className="rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-400">
+                <option value="">{taxMode === "NO_TAX" ? tc("No tax mode") : tc("No tax")}</option>
+                {taxMode === "NO_TAX"
+                  ? null
+                  : activeSalesTaxRates.map((taxRate) => (
+                      <option key={taxRate.id} value={taxRate.id}>
+                        {taxRate.name}
+                      </option>
+                    ))}
+              </select>
+              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatAppMoney(previewLine.lineTotalUnits, edition.defaultCurrency, locale) : formatAppMoney("0.0000", edition.defaultCurrency, locale)}</div>
+              <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
+                {tc("Remove")}
+              </button>
+            </div>
+          );
+        })}
+        <div className="flex min-w-[1240px] items-center justify-between px-4 py-3 text-sm">
+          <button type="button" onClick={() => setLines((current) => [...current, makeLine()])} className="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50">
+            {tc("Add line")}
+          </button>
+          <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
+            <span className="text-steel">{tc("Subtotal")}</span>
+            <span className="font-mono">{formatAppMoney(preview.subtotal, edition.defaultCurrency, locale)}</span>
+            <span className="text-steel">{tc("Discount")}</span>
+            <span className="font-mono">{formatAppMoney(preview.discountTotal, edition.defaultCurrency, locale)}</span>
+            <span className="text-steel">{tc("Taxable")}</span>
+            <span className="font-mono">{formatAppMoney(preview.taxableTotal, edition.defaultCurrency, locale)}</span>
+            <span className="text-steel">{tc("VAT")}</span>
+            <span className="font-mono">{formatAppMoney(preview.taxTotal, edition.defaultCurrency, locale)}</span>
+            <span className="font-semibold text-ink">{tc("Total invoice")}</span>
+            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, edition.defaultCurrency, locale)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+          {submitting ? tc("Saving...") : initialInvoice ? tc("Save changes") : tc("Create draft invoice")}
+        </button>
+        <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          {tc("Cancel")}
+        </Link>
+      </div>
     </form>
   );
 }
@@ -518,11 +492,13 @@ function AccountPicker({
   value,
   onChange,
   lineNumber,
+  tc,
 }: {
   accounts: Account[];
   value: string;
   onChange: (accountId: string) => void;
   lineNumber: number;
+  tc: (value: string, params?: Record<string, string | number>) => string;
 }) {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
@@ -535,25 +511,25 @@ function AccountPicker({
   const grouped = groupAccountsByType(filteredAccounts);
 
   return (
-    <div className="flex flex-col gap-1">
-      <LedgerInput
+    <div className="space-y-1">
+      <input
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        aria-label={`Search posting account for line ${lineNumber}`}
-        placeholder="Search accounts"
-        className="h-7 text-xs"
+        aria-label={tc("Search posting account for line {number}", { number: lineNumber })}
+        placeholder={tc("Search accounts")}
+        className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-palm"
       />
-      <LedgerSelect
+      <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required
-        aria-label={`Posting account for line ${lineNumber}`}
-        className="h-8 px-2 py-1"
+        aria-label={tc("Posting account for line {number}", { number: lineNumber })}
+        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
       >
-        <option value="">Select account</option>
+        <option value="">{tc("Select account")}</option>
         {Object.entries(grouped).map(([type, group]) => (
-          <optgroup key={type} label={formatAccountType(type as AccountType)}>
+          <optgroup key={type} label={formatAccountType(type as AccountType, tc)}>
             {group.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.code} {account.name}
@@ -561,18 +537,7 @@ function AccountPicker({
             ))}
           </optgroup>
         ))}
-      </LedgerSelect>
-    </div>
-  );
-}
-
-function BalanceLine({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-sm text-steel">{label}</span>
-      <span className={emphasized ? "text-lg font-semibold text-ink" : "text-sm font-medium text-ink"}>
-        <LedgerMoney>{value}</LedgerMoney>
-      </span>
+      </select>
     </div>
   );
 }
@@ -585,27 +550,28 @@ function groupAccountsByType(accounts: Account[]): Partial<Record<AccountType, A
   }, {});
 }
 
-function formatAccountType(type: AccountType): string {
-  return type
+function formatAccountType(type: AccountType, tc: (value: string) => string): string {
+  const label = type
     .split("_")
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
     .join(" ");
+  return tc(label);
 }
 
-function getValidationError(customerId: string, lines: InvoiceLineState[], previewValid: boolean): string {
+function getValidationError(customerId: string, lines: InvoiceLineState[], previewValid: boolean, tc: (value: string, params?: Record<string, string | number>) => string): string {
   if (!customerId) {
-    return "Choose a customer.";
+    return tc("Choose a customer.");
   }
 
   for (const [index, line] of lines.entries()) {
     if (!line.description.trim()) {
-      return `Line ${index + 1} needs a description.`;
+      return tc("Line {number} needs a description.", { number: index + 1 });
     }
 
     if (!line.accountId) {
-      return `Line ${index + 1} needs a revenue account.`;
+      return tc("Line {number} needs a revenue account.", { number: index + 1 });
     }
   }
 
-  return previewValid ? "" : "Invoice lines need positive quantities, non-negative prices and tax, and discounts between 0% and 100%.";
+  return previewValid ? "" : tc("Invoice lines need positive quantities, non-negative prices and tax, and discounts between 0% and 100%.");
 }

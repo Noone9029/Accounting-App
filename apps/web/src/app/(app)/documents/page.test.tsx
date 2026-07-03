@@ -1,7 +1,12 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { GeneratedDocumentApEmailAction, GeneratedDocumentDownloadAction } from "./page";
+import { AppLocaleProvider } from "@/components/app-locale-provider";
 import type { GeneratedDocument } from "@/lib/types";
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn() }),
+}));
 
 describe("generated document AP email action", () => {
   it("renders local mock no-send wording for eligible AP generated documents", () => {
@@ -57,6 +62,26 @@ describe("generated document AP email action", () => {
 
     expect(screen.queryByRole("button", { name: "Create local email outbox" })).not.toBeInTheDocument();
   });
+
+  it("renders local mock no-send wording in Arabic when the app locale is Arabic", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <GeneratedDocumentApEmailAction
+          document={generatedDocumentFixture()}
+          visible
+          recipientEmail=""
+          loading={false}
+          onRecipientChange={jest.fn()}
+          onSubmit={jest.fn()}
+        />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "إنشاء صندوق بريد محلي" })).toBeInTheDocument();
+    expect(screen.getByText(/صندوق بريد محلي تجريبي فقط/)).toBeInTheDocument();
+    expect(screen.getByText(/لا يتم إرسال بريد حقيقي أو استدعاء مزود/)).toBeInTheDocument();
+    expect(screen.getByText(/لا يتم عرض جسم PDF/)).toBeInTheDocument();
+  });
 });
 
 describe("generated document download action", () => {
@@ -71,6 +96,16 @@ describe("generated document download action", () => {
 
     expect(screen.getByText("PDF unavailable until generation succeeds")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download archived PDF" })).not.toBeInTheDocument();
+  });
+
+  it("renders generated download states in Arabic when the app locale is Arabic", () => {
+    render(
+      <AppLocaleProvider initialLocale="ar">
+        <GeneratedDocumentDownloadAction document={generatedDocumentFixture()} loading={false} onDownload={jest.fn()} />
+      </AppLocaleProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "تنزيل PDF مؤرشف" })).toBeInTheDocument();
   });
 });
 
