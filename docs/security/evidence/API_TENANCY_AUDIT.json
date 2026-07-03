@@ -5,7 +5,7 @@
   "noDatabaseConnection": true,
   "noNetwork": true,
   "noMutation": true,
-  "sourceDir": "E:\\Worktrees\\Accounting-App\\security-safe-scripts-03\\apps\\api\\src",
+  "sourceDir": "E:\\Worktrees\\Accounting-App\\security-tenant-isolation-04\\apps\\api\\src",
   "scannedFiles": 144,
   "counts": {
     "tenant-guarded": 126,

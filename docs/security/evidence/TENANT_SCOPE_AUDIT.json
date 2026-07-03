@@ -5,7 +5,7 @@
   "noDatabaseConnection": true,
   "noNetwork": true,
   "noMutation": true,
-  "schemaPath": "E:\\Worktrees\\Accounting-App\\security-safe-scripts-03\\apps\\api\\prisma\\schema.prisma",
+  "schemaPath": "E:\\Worktrees\\Accounting-App\\security-tenant-isolation-04\\apps\\api\\prisma\\schema.prisma",
   "totalModels": 112,
   "counts": {
     "tenant-scoped-direct": 109,

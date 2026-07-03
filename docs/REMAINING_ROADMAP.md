@@ -2426,3 +2426,9 @@ Recommended next step:
 - Completed another local-only gap closure step for future UAE ASP onboarding: official draft invoice/credit-note models, draft validators, serializer readiness metadata, local fixture coverage, and a serializer readiness matrix.
 - Remaining UAE work: full official reference review, code-list completion, provider-envelope contract skeletons after real docs exist, persistent outbox/replay schema in a migration goal, evidence storage/retention implementation, sandbox validation evidence, FTA/provider reporting evidence, and legal/security review.
 - Still not done: real ASP call, Peppol transmission, FTA reporting, production UAE compliance, production provider endpoint, real credentials, storage/signed-URL operation, hosted mutation, migration, or deployment.
+
+# Tenant isolation evidence follow-up - 2026-07-03
+
+- Completed static/source evidence expansion for tenant relationships, tenant-aware indexes, API query scope patterns, cross-tenant fixture planning, RLS policy readiness, and runtime DB role readiness.
+- Remaining security roadmap work: manually review the 370 tenant index review items and 42 API query scope review-needed files, implement disposable local/test DB cross-tenant denial fixtures, execute hosted read-only grants/default-privilege checks, generate draft RLS policies for simulation only, and create/cut over a least-privilege runtime DB role under a separate approved hosted goal.
+- Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, hosted Data API/grant proof, production DB role separation, storage/PITR proof, provider/ZATCA/UAE production execution, or production compliance.

@@ -1972,3 +1972,11 @@ Recommended next step:
 - UAE package readiness improves for future ASP onboarding because official draft invoice/credit-note models, draft validators, serializer output metadata, and blocked provider behavior are now explicit and test-covered.
 - No production-readiness score increase is taken. This remains local draft/readiness modeling only.
 - Remaining blockers are unchanged: full official reference pack, provider-specific payload/envelope docs, sandbox credentials, legal/security review, persistent outbox/replay schema, object-storage/retention proof, FTA reporting evidence, production hosting, and official compliance review.
+
+## 2026-07-03 Tenant isolation evidence diagnostics
+
+- Security readiness evidence improves, but no production-readiness score increase is taken.
+- Added text-only tenant relationship graph, tenant-aware index review, and API query scope diagnostics with test coverage and generated Markdown/JSON evidence.
+- Added a cross-tenant fixture plan, model-by-model RLS policy readiness matrix, and runtime DB role readiness evidence.
+- Conservative review queues remain: tenant index review has 370 items and API query scope audit has 42 review-needed files. These are review inputs, not production security guarantees.
+- This does not prove hosted RLS, runtime role cutover, Data API posture, hosted tenant isolation, production hosting, provider/compliance readiness, storage/PITR proof, or paid-beta production readiness.

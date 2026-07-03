@@ -60,3 +60,16 @@ These diagnostics are source-shape evidence only. They do not replace API-level 
 `SECURITY-HARDENING-02` reviewed the 8 API tenancy audit findings from PR #222 and regenerated `docs/security/evidence/API_TENANCY_AUDIT.md` with status `NO_RISKY_ROUTES_DETECTED`.
 
 The resolved findings were static scanner review items, mostly local `where` variable reuse and parent-source line helper flows. This does not replace API-level cross-tenant denial tests or hosted runtime-role/RLS proof.
+
+## SECURITY-TENANT-ISOLATION-04 Evidence Expansion
+
+`SECURITY-TENANT-ISOLATION-04` adds deeper read-only tenant-isolation evidence after the Arabic UI merge. Arabic RTL frontend support is now baseline and is no longer a blocker for this security lane.
+
+- `corepack pnpm security:tenant-relationship-graph` writes `docs/security/evidence/TENANT_RELATIONSHIP_GRAPH.md` and JSON. Current result: `RELATIONSHIP_GRAPH_READY`, 112 Prisma models cataloged, 102 direct-tenant-key models, 7 join-table models, 1 tenant root, 1 user-scoped model, and 1 global-reference model.
+- `corepack pnpm security:tenant-index-review` writes `docs/security/evidence/TENANT_INDEX_REVIEW.md` and JSON. Current result: `TENANT_INDEX_REVIEW_ITEMS`, 784 constraints inventoried, 370 conservative review items, including 43 tenant-sensitive uniqueness items and 327 non-tenant-key index review items.
+- `corepack pnpm security:api-query-scope-audit` writes `docs/security/evidence/API_QUERY_SCOPE_AUDIT.md` and JSON. Current result: `QUERY_SCOPE_REVIEW_REQUIRED`, 72 files with Prisma queries scanned, 740 query calls inventoried, 26 tenant-scoped files, 42 review-needed files, 3 webhook files, and 1 public-safe file.
+- `docs/security/CROSS_TENANT_TEST_FIXTURE_PLAN.md` now defines the future disposable local/test DB fixture matrix for two-tenant denial tests.
+- `docs/security/SUPABASE_RLS_POLICY_READINESS_MATRIX.md` maps every model to a future RLS readiness status without writing executable SQL.
+- `docs/security/RUNTIME_DB_ROLE_READINESS_EVIDENCE.md` records runtime, migration/admin, and read-only diagnostic role expectations without creating roles or changing secret stores.
+
+This remains static/source evidence only. It does not enable RLS, change DB roles, run migrations, mutate hosted infrastructure, or prove hosted tenant isolation.

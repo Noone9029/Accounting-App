@@ -45,3 +45,14 @@ Phase 0 now includes local/source-only evidence under `docs/security/evidence/`:
 - Seed/demo/cleanup/deploy/migration/provider/compliance script inventory.
 
 This does not enable RLS, inspect live hosted grants, mutate Supabase, mutate Vercel, or prove Data API posture.
+
+## SECURITY-TENANT-ISOLATION-04 Matrix Update
+
+`docs/security/SUPABASE_RLS_POLICY_READINESS_MATRIX.md` now maps all 112 Prisma models to future RLS policy-design readiness:
+
+- Direct tenant-key models can move to draft policy design after API-level denial tests are planned.
+- Join-table and parent-path models need explicit parent path review before policy SQL exists.
+- Tenant root, user-scoped, system/admin, and global-reference models require separate grants/admin handling.
+- Data API exposure remains high risk unless tables stay API-only or RLS/grants are proven in a separate hosted goal.
+
+No executable SQL policy was written or applied. RLS remains inactive, Supabase hosted grants were not inspected, and browser Data API access to LedgerByte app tables is still not approved.
