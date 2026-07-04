@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { apiRequest, getAccessToken, getActiveOrganizationId, setActiveOrganizationId, subscribeToOrganizationChange } from "@/lib/api";
+import { ApiError, apiRequest, getActiveOrganizationId, setActiveOrganizationId, subscribeToOrganizationChange } from "@/lib/api";
 import { hasAllPermissions, hasAnyPermission, hasPermission, type Permission } from "@/lib/permissions";
 import type { MeResponse } from "@/lib/types";
 
@@ -38,14 +38,6 @@ export function PermissionProvider({ children }: Readonly<{ children: React.Reac
     let cancelled = false;
 
     async function loadMe() {
-      const token = getAccessToken();
-      if (!token) {
-        setUser(null);
-        setError("");
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
       try {
         const me = await apiRequest<MeResponse>("/auth/me", { organizationId: null });
@@ -71,7 +63,7 @@ export function PermissionProvider({ children }: Readonly<{ children: React.Reac
       } catch (loadError) {
         if (!cancelled) {
           setUser(null);
-          setError(loadError instanceof Error ? loadError.message : "Unable to load permissions.");
+          setError(loadError instanceof ApiError && loadError.status === 401 ? "" : loadError instanceof Error ? loadError.message : "Unable to load permissions.");
         }
       } finally {
         if (!cancelled) {

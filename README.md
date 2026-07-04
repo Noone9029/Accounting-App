@@ -126,6 +126,7 @@ Deployment safety docs:
 - [Supabase RLS review 2026-05-19](docs/deployment/SUPABASE_RLS_REVIEW_20260519.md)
 - [Supabase RLS/Data API hardening 2026-05-21](docs/deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md)
 - [User-testing environment cleanup](docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md)
+- [Security maintenance cleanup runbook](docs/SECURITY_MAINTENANCE_RUNBOOK.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 - [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
 - [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)

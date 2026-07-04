@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
+  authTokenSource?: "bearer" | "cookie";
+  authSessionId?: string;
   organizationId?: string;
   membership?: {
     id: string;

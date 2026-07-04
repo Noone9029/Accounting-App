@@ -1,0 +1,257 @@
+# Implementation Summary
+
+Date: 2026-07-04
+
+Branch: `codex/p0-security-hardening`
+
+## PR Validation Update - 2026-07-04
+
+- Branch validated on `codex/p0-security-hardening`.
+- Local-only Docker Compose Postgres was started with `docker compose -f infra/docker-compose.yml up -d postgres`.
+- Local Prisma migrations were applied successfully to the local Compose Postgres database on `localhost:5432/accounting`.
+  - The local run applied both P0 migrations:
+    - `20260704160000_login_rate_limits`
+    - `20260704170000_auth_sessions`
+  - Hosted migrations were not run.
+- `security:cleanup` help passed through both package and root scripts.
+- Local `security:cleanup -- --dry-run` initially exposed a CLI-only Nest dependency injection issue under `tsx`.
+  - The cleanup CLI module now wires only `ConfigModule`, `PrismaModule`, and `SecurityMaintenanceService` through an explicit factory provider.
+  - The CLI no longer imports the full `AuthModule` for cleanup execution.
+  - A regression test now covers the dry-run CLI path through a Nest application context.
+- Local cleanup dry-run passed after the CLI fix.
+  - Output contained aggregate counts only.
+  - `AuthSession` and `LoginRateLimit` counts were `0|0` before and after dry-run.
+  - `--execute` was not run.
+- Full verification passed after the CLI fix:
+  - install, Prisma generate, Prisma validate, targeted API/web tests, lint, typecheck, full test suite, and build.
+- Final deployment notes:
+  - Production must apply migrations through the approved deployment process.
+  - First production cleanup should be dry-run only.
+  - Execute cleanup should happen only after reviewing dry-run counts and backup/PITR posture.
+  - Production cleanup scheduling remains ops-owned.
+- Requested root files `SECURITY_REVIEW.md` and `CODEX_IMPLEMENTATION_PLAN.md` were not present in this worktree.
+
+## Implemented
+
+- Added fail-closed JWT secret handling for access-token signing and verification.
+  - Development/test environments may still use the explicit local fallback.
+  - Non-development environments must configure `JWT_SECRET`.
+  - Non-development `JWT_SECRET` values must not use the development fallback literal and must be at least 32 characters.
+- Hardened API CORS behavior.
+  - `CORS_ORIGIN=*` remains allowed only in development/test.
+  - Wildcard all-origin CORS now fails outside development/test when credentials are enabled.
+- Added baseline API security headers through the Nest bootstrap.
+  - `X-Content-Type-Options`
+  - `X-Frame-Options`
+  - `Referrer-Policy`
+  - `Permissions-Policy`
+  - `Cross-Origin-Opener-Policy`
+  - `Cross-Origin-Resource-Policy`
+  - `Content-Security-Policy`
+  - `Strict-Transport-Security` outside development/test
+- Migrated browser authentication to cookie-backed sessions.
+  - Login, registration, and invitation acceptance now set an httpOnly auth cookie.
+  - A readable double-submit CSRF cookie is issued alongside the auth cookie.
+  - Logout clears both auth and CSRF cookies.
+  - Browser requests use `credentials: "include"` and no longer attach bearer tokens from storage.
+  - Existing bearer-token guard support is preserved for non-browser API clients.
+- Added CSRF enforcement for unsafe cookie-authenticated API requests.
+  - Safe methods do not require CSRF.
+  - Bearer-token requests do not require CSRF.
+  - Unsafe cookie-authenticated requests require a matching CSRF cookie/header pair.
+  - Unauthenticated auth entry points remain exempt so login/register/invite acceptance can bootstrap sessions.
+- Removed browser token persistence from the web app.
+  - `localStorage` auth token reads/writes are no-op compatibility shims that clear legacy token keys.
+  - Session hydration now uses `/auth/me` with cookies.
+  - PDF, attachment, report, and audit CSV downloads use cookie credentials instead of bearer headers.
+- Added database-backed login throttling for `/auth/login`.
+  - Failed logins are counted by email, IP, and email+IP windows.
+  - Throttle keys are SHA-256 hashes with a server-side pepper; raw emails and IP addresses are not stored in the throttle table.
+  - Throttled requests return HTTP 429 with `Retry-After` and a generic user-facing error.
+  - Invalid credentials still return a generic `Invalid email or password.` response.
+  - Successful login clears email and email+IP counters while keeping the broader IP signal.
+  - Proxy headers are trusted only when `LOGIN_TRUST_PROXY_HEADERS=true`.
+  - Supported tuning env vars:
+    - `LOGIN_THROTTLE_WINDOW_SECONDS`
+    - `LOGIN_THROTTLE_MAX_BY_IP`
+    - `LOGIN_THROTTLE_MAX_BY_EMAIL`
+    - `LOGIN_THROTTLE_MAX_BY_EMAIL_IP`
+    - `LOGIN_THROTTLE_LOCKOUT_SECONDS`
+    - `LOGIN_THROTTLE_PEPPER`
+    - `LOGIN_TRUST_PROXY_HEADERS`
+- Added durable server-side auth session tracking and logout revocation.
+  - New JWTs include a `jti` session identifier.
+  - Issuing login, registration, and invitation-acceptance tokens creates an `AuthSession` row.
+  - `AuthSession` stores a SHA-256 hash of `jti`; raw JWTs, raw cookies, and raw `jti` values are not stored.
+  - `AuthSession.expiresAt` is calculated from `JWT_EXPIRES_IN` to match the signed token lifetime.
+  - `JwtAuthGuard` still verifies JWT signatures with the hardened secret helper, then rejects tokens when the durable session is missing, revoked, expired, or owned by a different user.
+  - Logout now revokes the current bearer or cookie session when a valid token is present, clears auth/CSRF cookies, and returns the same success response when no valid token exists.
+  - Bearer-token compatibility remains supported for newly issued `jti` tokens.
+  - Legacy JWTs without `jti` are intentionally rejected; users must sign in again after this migration.
+  - Optional `AUTH_SESSION_PEPPER` can be set; otherwise the JWT secret is used as the server-side hash pepper.
+- Added safe security maintenance cleanup for stale auth security records.
+  - New reusable `SecurityMaintenanceService` counts and cleans stale `AuthSession` and `LoginRateLimit` rows.
+  - Cleanup defaults to dry-run and requires explicit `--execute` for deletion.
+  - Auth sessions are eligible only when expired or revoked older than conservative retention windows.
+  - Login throttle records are eligible only when unlocked, outside the active throttle window, and older than retention.
+  - Execute mode deletes by ID in batches; it does not issue a public or admin HTTP endpoint.
+  - No raw JWTs, `jti` values, cookies, IPs, emails, passwords, or secrets are printed.
+  - Added production-safe cleanup runbook at `docs/SECURITY_MAINTENANCE_RUNBOOK.md`.
+  - Added cleanup env vars to root and API `.env.example` files.
+  - Added root helper scripts for dry-run and explicit execute cleanup usage.
+  - Scheduler config was intentionally skipped because the inspected repo has no established recurring production maintenance pattern.
+  - Supported cleanup env vars:
+    - `AUTH_SESSION_CLEANUP_EXPIRED_RETENTION_DAYS` default `30`
+    - `AUTH_SESSION_CLEANUP_REVOKED_RETENTION_DAYS` default `30`
+    - `LOGIN_RATE_LIMIT_CLEANUP_RETENTION_DAYS` default `7`
+    - `SECURITY_CLEANUP_BATCH_SIZE` default `500`
+  - Command usage:
+    - `corepack pnpm --filter @ledgerbyte/api security:cleanup -- --dry-run`
+    - `corepack pnpm --filter @ledgerbyte/api security:cleanup -- --execute`
+    - `corepack pnpm --filter @ledgerbyte/api security:cleanup -- --dry-run --batch-size=500`
+
+## Tests Added
+
+- `apps/api/src/auth/jwt-secret.spec.ts`
+  - Explicit configured secret.
+  - Development/test fallback boundary.
+  - Missing production secret failure.
+  - Weak production secret failure.
+  - Development fallback literal rejection outside development/test.
+- `apps/api/src/app-bootstrap.spec.ts`
+  - Production wildcard CORS rejection.
+  - Security header middleware installation.
+  - Production HSTS behavior.
+  - CSRF middleware rejection/acceptance paths for unsafe cookie-authenticated requests.
+- `apps/api/src/auth/auth-cookie.spec.ts`
+  - Production cookie attributes.
+  - Insecure production cookie configuration rejection.
+  - Auth-cookie extraction.
+  - CSRF double-submit validation and bearer bypass.
+- `apps/api/src/auth/auth.controller.spec.ts`
+  - Login auth/CSRF cookie issuance.
+  - Logout cookie clearing.
+  - Bearer and cookie logout session revocation.
+  - Idempotent logout when no token is present.
+  - 429 throttle response and `Retry-After` header when login attempts exceed the durable limiter.
+  - Failed-login recording only for invalid credentials.
+  - Successful-login throttle reset.
+- `apps/api/src/auth/auth-session.service.spec.ts`
+  - Durable session creation with hashed `jti`.
+  - Active-session validation.
+  - Missing, revoked, expired, and mismatched-session rejection.
+  - Idempotent session revocation by hashed `jti`.
+- `apps/api/src/auth/auth.service.spec.ts`
+  - Register, login, and invite acceptance create durable sessions and sign JWTs with `jti`.
+  - Logout revokes the current `jti` session.
+  - Invalid or legacy logout tokens do not leak existence and still return safely.
+- `apps/api/src/auth/login-throttle.service.spec.ts`
+  - Durable throttle records use hashed normalized identifiers, not raw emails/IPs.
+  - Email, IP, and email+IP throttle dimensions.
+  - Successful-login counter reset behavior.
+  - Conservative proxy-header IP extraction.
+- `apps/api/src/auth/security-maintenance.service.spec.ts`
+  - Active unexpired sessions are preserved.
+  - Expired sessions older than retention are cleaned.
+  - Expired sessions newer than retention are preserved.
+  - Revoked sessions older than retention are cleaned.
+  - Revoked sessions newer than retention are preserved.
+  - Dry-run reports counts without deletion.
+  - Execute mode deletes only eligible rows.
+  - Locked, active-window, and recently updated login throttle rows are preserved.
+  - Old unlocked throttle rows outside the active window are cleaned.
+- `apps/api/scripts/security-cleanup.spec.ts`
+  - CLI defaults to dry-run.
+  - Execute mode requires an explicit `--execute` flag.
+  - Optional positive batch size parsing.
+  - Invalid flags/batch sizes are rejected.
+  - Help output documents dry-run and execute usage without secret-bearing identifiers.
+  - Invalid CLI flags return non-zero before cleanup starts.
+  - Dry-run CLI path starts a Nest application context, resolves `SecurityMaintenanceService`, and renders aggregate output.
+  - Rendered output remains count-only.
+- `apps/api/src/auth/guards/jwt-auth.guard.spec.ts`
+  - Bearer token compatibility.
+  - Auth-cookie token acceptance.
+  - Active durable-session requirement after signature verification.
+  - Revoked/missing/expired durable-session rejection.
+  - Legacy no-`jti` token rejection.
+  - Missing and invalid token rejection.
+- `apps/web/src/lib/api.test.ts`
+  - No browser token persistence.
+  - Cookie credentials on API requests.
+  - CSRF header injection for unsafe requests.
+- `apps/web/src/lib/pdf-download.test.ts`
+  - Authenticated downloads use cookie credentials and no bearer header.
+- `apps/web/src/app/auth-pages.test.tsx`
+  - Login ignores returned access tokens and stores no browser auth token.
+- `apps/web/src/components/app-shell/topbar.test.tsx`
+  - Account logout calls the API-backed logout flow.
+
+## Verification Run
+
+- `corepack pnpm install --frozen-lockfile` - passed.
+  - Lockfile was already current.
+  - Existing pnpm ignored-build-scripts warning remained.
+- `docker compose -f infra/docker-compose.yml up -d postgres` - passed.
+  - Only the local `postgres` service was started.
+- `DATABASE_URL=... DIRECT_URL=... corepack pnpm --filter @ledgerbyte/api db:migrate` - passed against local Postgres.
+  - Applied both new P0 migrations locally.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
+- `DATABASE_URL=... DIRECT_URL=... corepack pnpm --filter @ledgerbyte/api exec prisma validate` - passed.
+- `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath src/auth/auth-cookie.spec.ts src/auth/auth-session.service.spec.ts src/auth/login-throttle.service.spec.ts src/auth/security-maintenance.service.spec.ts scripts/security-cleanup.spec.ts src/auth/auth.controller.spec.ts src/auth/guards/jwt-auth.guard.spec.ts` - passed.
+  - 7 suites, 41 tests passed.
+- `corepack pnpm --filter @ledgerbyte/web test -- --runTestsByPath src/lib/api.test.ts src/lib/pdf-download.test.ts src/app/auth-pages.test.tsx src/components/app-shell/topbar.test.tsx` - passed.
+  - 4 suites, 19 tests passed.
+- `corepack pnpm --filter @ledgerbyte/api security:cleanup -- --help` - passed.
+- `corepack pnpm security:cleanup -- --help` - passed.
+- `DATABASE_URL=... DIRECT_URL=... JWT_SECRET=... corepack pnpm --filter @ledgerbyte/api security:cleanup -- --dry-run` - passed against local Postgres.
+- `DATABASE_URL=... DIRECT_URL=... JWT_SECRET=... corepack pnpm security:cleanup:dry-run` - passed against local Postgres.
+  - Output was aggregate counts only: `AuthSession eligible/deleted` and `LoginRateLimit eligible/deleted`.
+  - Local target counts were `AuthSession=0` and `LoginRateLimit=0` before and after dry-run.
+  - Execute mode was not run.
+- `corepack pnpm lint` - passed.
+- `corepack pnpm typecheck` - passed.
+- `corepack pnpm test` - passed.
+  - API: 163 suites, 1456 tests passed.
+  - Web: 157 suites, 692 tests passed.
+- `corepack pnpm build` - passed.
+- `corepack pnpm verify:diff` - passed.
+- `git diff --check` - passed with existing CRLF normalization warnings.
+- `apps/web/next-env.d.ts` was generated build churn only and was restored.
+- Manual browser smoke was not performed in this local pass; coverage is from API/web unit tests, typecheck, full tests, and build.
+
+## Not Implemented In This Pass
+
+- Returning `accessToken` from auth responses was retained for API compatibility.
+  - Browser code no longer stores or uses it.
+  - Removing it from the API contract should be a separate compatibility-breaking cleanup.
+- Automatic hosted scheduler/cron wiring for the security cleanup command.
+  - The reusable service and CLI command exist; production should run the command on a deployment scheduler after reviewing dry-run counts.
+  - Scheduler config was skipped because the repo currently has Vercel configs without `crons`, PR/manual GitHub workflows, and local-only Docker Compose.
+- Logout-all-devices / session management UI.
+  - This pass revokes only the current session/token.
+- Hosted migration execution.
+  - The migrations were applied only to the local Docker Compose Postgres database.
+  - No hosted or shared database migration was run from this worktree.
+- Tenant-isolation expansions, accounting workflow proof packs, report drilldowns, dashboard exception queues, and Wafeq-parity features.
+  - These remain P1/P2 follow-ups after the security base is stable.
+
+## Database Changes
+
+- No additional schema change was required for the security cleanup command.
+  - It reuses the existing `AuthSession` and `LoginRateLimit` tables from this P0 branch.
+  - Hosted migrations were not run.
+  - Local Docker Compose Postgres migration deploy passed on 2026-07-04.
+- Added Prisma enum `LoginRateLimitKeyType`.
+- Added Prisma model/table `LoginRateLimit`.
+- Added migration `apps/api/prisma/migrations/20260704160000_login_rate_limits/migration.sql`.
+  - Creates `LoginRateLimitKeyType`.
+  - Creates `LoginRateLimit`.
+  - Adds a unique index on `(keyType, keyHash)`.
+  - Adds lookup indexes for `keyType`, `lockedUntil`, and `windowStartedAt`.
+- Added Prisma model/table `AuthSession`.
+- Added migration `apps/api/prisma/migrations/20260704170000_auth_sessions/migration.sql`.
+  - Creates `AuthSession`.
+  - Adds a unique index on `jtiHash`.
+  - Adds lookup indexes for `userId`, `expiresAt`, `revokedAt`, `(userId, revokedAt)`, and `createdAt`.
+  - Adds a cascade foreign key from `AuthSession.userId` to `User.id`.

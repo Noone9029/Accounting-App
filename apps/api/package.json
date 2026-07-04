@@ -12,6 +12,7 @@
     "test": "jest --config jest.config.cjs",
     "fixture:dev04": "tsx scripts/dev04-fixture-runner.ts",
     "cleanup:dev08m:ap": "tsx scripts/dev08m-ap-cleanup-planner.ts",
+    "security:cleanup": "tsx scripts/security-cleanup.ts",
     "tenant-isolation:proof": "tsx scripts/hosted-tenant-isolation-proof.ts",
     "test:tenant-isolation-proof": "jest --config jest.config.cjs --runTestsByPath src/hosted-tenant-isolation-proof.spec.ts",
     "smoke:accounting": "tsx scripts/smoke-accounting.ts",

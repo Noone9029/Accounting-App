@@ -17,7 +17,22 @@ import {
   supplierStatementPdfPath,
   supplierPaymentReceiptPdfPath,
   supplierRefundPdfPath,
+  downloadAuthenticatedFile,
 } from "./pdf-download";
+
+jest.mock("./api", () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public readonly status: number,
+      public readonly details?: unknown,
+    ) {
+      super(message);
+    }
+  },
+  apiBaseUrl: "http://localhost:4000",
+  getActiveOrganizationId: jest.fn(() => "org-1"),
+}));
 
 describe("PDF download helpers", () => {
   it("builds invoice and receipt PDF paths", () => {
@@ -57,5 +72,37 @@ describe("PDF download helpers", () => {
   it("builds bank reconciliation report download paths", () => {
     expect(bankReconciliationReportPdfPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.pdf");
     expect(bankReconciliationReportCsvPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.csv");
+  });
+
+  it("downloads authenticated files with cookie credentials and no bearer authorization", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(["pdf"], { type: "application/pdf" }),
+    } as Response);
+    URL.createObjectURL = jest.fn(() => "blob:test");
+    URL.revokeObjectURL = jest.fn();
+    jest.spyOn(document.body, "appendChild").mockImplementation((node: Node) => node);
+    const click = jest.fn();
+    const remove = jest.fn();
+    jest.spyOn(document, "createElement").mockReturnValue({
+      click,
+      remove,
+      set href(_value: string) {},
+      set target(_value: string) {},
+      set rel(_value: string) {},
+      set download(_value: string) {},
+    } as unknown as HTMLAnchorElement);
+
+    await downloadAuthenticatedFile("/reports/trial-balance.csv", "trial-balance.csv");
+
+    const init = jest.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
+    const headers = new Headers(init.headers);
+
+    expect(init.credentials).toBe("include");
+    expect(headers.get("x-organization-id")).toBe("org-1");
+    expect(headers.has("authorization")).toBe(false);
+    expect(click).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalled();
   });
 });
