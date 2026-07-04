@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FieldHelp, FieldLabel, FieldText, LedgerButton, LedgerInput } from "@/components/ui-ledger";
-import { apiRequest, setAccessToken, setActiveOrganizationId } from "@/lib/api";
+import { apiRequest, setActiveOrganizationId } from "@/lib/api";
 import type { AuthResponse, MeResponse } from "@/lib/types";
 
 type Mode = "login" | "register";
@@ -36,13 +36,12 @@ export function AuthForm({ mode }: AuthFormProps) {
           };
 
     try {
-      const result = await apiRequest<AuthResponse>(`/auth/${mode}`, {
+      await apiRequest<AuthResponse>(`/auth/${mode}`, {
         method: "POST",
         auth: false,
         organizationId: null,
         body,
       });
-      setAccessToken(result.accessToken);
 
       if (mode === "register") {
         setStatus("Account created. Set up an organization next.");

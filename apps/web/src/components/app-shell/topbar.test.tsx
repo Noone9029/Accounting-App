@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
-import { apiRequest, clearSession, getAccessToken, setActiveOrganizationId } from "@/lib/api";
+import { apiRequest, logoutSession, setActiveOrganizationId } from "@/lib/api";
 import { Topbar } from "./topbar";
 
 let mockPathname = "/dashboard";
@@ -36,15 +36,13 @@ jest.mock("@/lib/api", () => {
   return {
     ...actual,
     apiRequest: jest.fn(),
-    clearSession: jest.fn(),
-    getAccessToken: jest.fn(),
+    logoutSession: jest.fn(),
     setActiveOrganizationId: jest.fn(),
   };
 });
 
 const apiRequestMock = apiRequest as jest.MockedFunction<typeof apiRequest>;
-const clearSessionMock = clearSession as jest.MockedFunction<typeof clearSession>;
-const getAccessTokenMock = getAccessToken as jest.MockedFunction<typeof getAccessToken>;
+const logoutSessionMock = logoutSession as jest.MockedFunction<typeof logoutSession>;
 const setActiveOrganizationIdMock = setActiveOrganizationId as jest.MockedFunction<typeof setActiveOrganizationId>;
 
 describe("Topbar action menus", () => {
@@ -52,9 +50,8 @@ describe("Topbar action menus", () => {
     mockPathname = "/dashboard";
     mockPermissions = permissionState();
     apiRequestMock.mockReset();
-    clearSessionMock.mockReset();
-    getAccessTokenMock.mockReset();
-    getAccessTokenMock.mockReturnValue("token");
+    logoutSessionMock.mockReset();
+    logoutSessionMock.mockResolvedValue();
     setActiveOrganizationIdMock.mockReset();
     mockReplace.mockReset();
   });
@@ -112,7 +109,7 @@ describe("Topbar action menus", () => {
     expect(within(menu).getByText(/existing beta resources/i)).toBeInTheDocument();
   });
 
-  it("opens the account menu with organization controls and signs out", () => {
+  it("opens the account menu with organization controls and signs out", async () => {
     render(<Topbar />);
 
     fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
@@ -128,8 +125,8 @@ describe("Topbar action menus", () => {
     expect(setActiveOrganizationIdMock).toHaveBeenCalledWith("org-2");
 
     fireEvent.click(within(menu).getByRole("button", { name: "Sign out" }));
-    expect(clearSessionMock).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expect(logoutSessionMock).toHaveBeenCalled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
   });
 
   it("renders Arabic topbar labels when the locale provider is Arabic", async () => {

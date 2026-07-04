@@ -1,6 +1,8 @@
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 const TOKEN_KEY = "ledgerbyte.accessToken";
+const CSRF_COOKIE_NAME = process.env.NEXT_PUBLIC_CSRF_COOKIE_NAME ?? "ledgerbyte_csrf";
+const CSRF_HEADER_NAME = process.env.NEXT_PUBLIC_CSRF_HEADER_NAME ?? "x-csrf-token";
 const ORGANIZATION_KEY = "ledgerbyte.activeOrganizationId";
 const LEGACY_TOKEN_KEY = "accessToken";
 const LEGACY_ORGANIZATION_KEY = "organizationId";
@@ -23,16 +25,12 @@ interface ApiRequestOptions extends Omit<RequestInit, "body"> {
 }
 
 export function getAccessToken(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return localStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(LEGACY_TOKEN_KEY);
+  clearBrowserTokenStorage();
+  return null;
 }
 
-export function setAccessToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.removeItem(LEGACY_TOKEN_KEY);
+export function setAccessToken(_token: string | undefined): void {
+  clearBrowserTokenStorage();
 }
 
 export function getActiveOrganizationId(): string | null {
@@ -50,11 +48,23 @@ export function setActiveOrganizationId(organizationId: string): void {
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  clearBrowserTokenStorage();
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
   localStorage.removeItem(ORGANIZATION_KEY);
-  localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(LEGACY_ORGANIZATION_KEY);
   window.dispatchEvent(new CustomEvent(ORGANIZATION_CHANGED_EVENT));
+}
+
+export async function logoutSession(): Promise<void> {
+  try {
+    await apiRequest<{ message: string }>("/auth/logout", { method: "POST", organizationId: null });
+  } finally {
+    clearSession();
+  }
 }
 
 export function subscribeToOrganizationChange(listener: () => void): () => void {
@@ -75,10 +85,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers.set("content-type", "application/json");
   }
 
-  if (options.auth !== false) {
-    const token = getAccessToken();
-    if (token) {
-      headers.set("authorization", `Bearer ${token}`);
+  if (!headers.has(CSRF_HEADER_NAME) && isUnsafeMethod(method)) {
+    const csrfToken = readCookie(CSRF_COOKIE_NAME);
+    if (csrfToken) {
+      headers.set(CSRF_HEADER_NAME, csrfToken);
     }
   }
 
@@ -98,6 +108,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     ...options,
     method,
     cache: options.cache ?? "no-store",
+    credentials: options.credentials ?? "include",
     headers,
     body: serializeBody(options.body),
   });
@@ -152,4 +163,32 @@ function readErrorMessage(body: unknown, status: number): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function clearBrowserTokenStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+}
+
+function isUnsafeMethod(method: string): boolean {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  for (const part of document.cookie.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+
+  return null;
 }

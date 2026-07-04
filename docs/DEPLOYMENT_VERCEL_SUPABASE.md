@@ -77,6 +77,10 @@ DATABASE_URL="<supabase runtime pooler url>"
 DIRECT_URL="<supabase direct or session url for migrations>"
 JWT_SECRET="<long random production secret>"
 JWT_EXPIRES_IN="7d"
+AUTH_SESSION_CLEANUP_EXPIRED_RETENTION_DAYS="30"
+AUTH_SESSION_CLEANUP_REVOKED_RETENTION_DAYS="30"
+LOGIN_RATE_LIMIT_CLEANUP_RETENTION_DAYS="7"
+SECURITY_CLEANUP_BATCH_SIZE="500"
 PRISMA_TRANSACTION_MAX_WAIT_MS="10000"
 PRISMA_TRANSACTION_TIMEOUT_MS="20000"
 CORS_ORIGIN="https://<your-web-domain>,https://*.vercel.app"
@@ -220,6 +224,7 @@ The tail slice preserves the full smoke command but bounds the late AR/AP, custo
 - Prisma migrations should be run intentionally before promoting production deployments.
 - Supabase row-level security remains disabled on 76 public tables in the user-testing project. LedgerByte currently enforces tenant isolation in the Nest/Prisma layer, so RLS must not be enabled broadly until compatible policies and runtime role behavior are tested. The 2026-05-21 hardening pass revoked `anon`/`authenticated` public table/sequence/function grants as an immediate Data API mitigation, but it did not disable the Dashboard Data API toggle or create the least-privilege Prisma runtime role. The follow-up runtime-role pass designed `ledgerbyte_app_runtime_user_testing` but did not create it because Vercel API `DATABASE_URL` mutation was unavailable in the session; creating an unmanaged passworded role would not be safe. See [docs/deployment/SUPABASE_RLS_REVIEW_20260519.md](deployment/SUPABASE_RLS_REVIEW_20260519.md) and [docs/deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md](deployment/SUPABASE_RLS_DATA_API_HARDENING_20260521.md).
 - User-testing cleanup remains dry-run/planning only. Use [docs/deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md](deployment/USER_TESTING_ENVIRONMENT_CLEANUP.md) and `corepack pnpm user-testing:cleanup-plan` before any reviewed manual cleanup.
+- Security maintenance cleanup has a dry-run-default CLI and explicit execute mode. Use [docs/SECURITY_MAINTENANCE_RUNBOOK.md](SECURITY_MAINTENANCE_RUNBOOK.md) before scheduling or executing `corepack pnpm --filter @ledgerbyte/api security:cleanup`; no scheduler config is committed in this repository state.
 
 ## 7. Health Troubleshooting
 

@@ -12,7 +12,7 @@ import {
   LedgerFieldText,
   LedgerInput,
 } from "@/components/ui/ledger-system";
-import { apiRequest, setAccessToken, setActiveOrganizationId } from "@/lib/api";
+import { apiRequest, setActiveOrganizationId } from "@/lib/api";
 import { isValidAuthPassword } from "@/lib/email";
 import type { AuthResponse, InvitationPreviewResponse } from "@/lib/types";
 
@@ -57,7 +57,6 @@ export default function InviteAcceptPage() {
         organizationId: null,
         body: { name: name || undefined, password },
       });
-      setAccessToken(response.accessToken);
       if (response.organization?.id) {
         setActiveOrganizationId(response.organization.id);
       }

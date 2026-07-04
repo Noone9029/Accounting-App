@@ -7,6 +7,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuthSessionService, calculateJwtExpiresAt, readJwtExpiresIn } from "./auth-session.service";
 import { AuthTokenRateLimitService, type AuthTokenDeliveryRequestMeta } from "./auth-token-rate-limit.service";
 import { AuthTokenService } from "./auth-token.service";
 import { AcceptInvitationDto } from "./dto/accept-invitation.dto";
@@ -14,10 +15,17 @@ import { LoginDto } from "./dto/login.dto";
 import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
 import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { readJwtSecret } from "./jwt-secret";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 const PASSWORD_RESET_GENERIC_MESSAGE = "If an account exists, password reset instructions have been sent.";
+
+interface JwtPayload {
+  sub?: string;
+  email?: string;
+  jti?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -29,6 +37,7 @@ export class AuthService {
     private readonly authTokenRateLimitService: AuthTokenRateLimitService,
     private readonly emailService: EmailService,
     private readonly auditLogService: AuditLogService,
+    private readonly authSessionService: AuthSessionService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -295,13 +304,36 @@ export class AuthService {
     return this.authTokenService.cleanupExpiredUnconsumed(organizationId, 30);
   }
 
+  async logout(rawToken: string): Promise<{ revoked: boolean }> {
+    try {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(rawToken, {
+        secret: readJwtSecret(this.config),
+      });
+
+      if (!payload.sub || !payload.jti) {
+        return { revoked: false };
+      }
+
+      return this.authSessionService.revokeSession({
+        userId: payload.sub,
+        jti: payload.jti,
+        reason: "logout",
+      });
+    } catch {
+      return { revoked: false };
+    }
+  }
+
   private signAccessToken(userId: string, email: string): Promise<string> {
-    return this.jwtService.signAsync(
-      { sub: userId, email },
-      {
-        secret: this.config.get<string>("JWT_SECRET") ?? "dev-only-secret",
-        expiresIn: (this.config.get<string>("JWT_EXPIRES_IN") ?? "7d") as never,
-      },
+    const expiresAt = calculateJwtExpiresAt(this.config);
+    return this.authSessionService.createForJwt({ userId, expiresAt }).then(({ jti }) =>
+      this.jwtService.signAsync(
+        { sub: userId, email, jti },
+        {
+          secret: readJwtSecret(this.config),
+          expiresIn: readJwtExpiresIn(this.config) as never,
+        },
+      ),
     );
   }
 

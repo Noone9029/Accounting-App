@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PERMISSIONS } from "@ledgerbyte/shared";
-import type { Request } from "express";
+import type { Request, Response } from "express";
+import { clearAuthCookies, extractAuthCookieToken, setAuthCookies } from "./auth-cookie";
 import { CurrentUser } from "./decorators/current-user.decorator";
 import { AuthenticatedUser } from "./auth.types";
 import { AuthService } from "./auth.service";
@@ -12,21 +14,48 @@ import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
 import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { getLoginClientIp, LoginThrottleService } from "./login-throttle.service";
 import { OrganizationContextGuard } from "./guards/organization-context.guard";
 import { PermissionGuard } from "./guards/permission.guard";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+    private readonly loginThrottleService: LoginThrottleService,
+  ) {}
 
   @Post("register")
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
+    const result = await this.authService.register(dto);
+    setAuthCookies(response, this.config, result.accessToken);
+    return result;
   }
 
   @Post("login")
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const ipAddress = getLoginClientIp(request, readTrustProxyHeaders(this.config));
+    const throttle = await this.loginThrottleService.assertLoginAllowed({ email: dto.email, ipAddress });
+    if (!throttle.allowed) {
+      response.setHeader("Retry-After", String(throttle.retryAfterSeconds));
+      throw new HttpException("Too many login attempts. Please try again later.", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    let result: Awaited<ReturnType<AuthService["login"]>>;
+    try {
+      result = await this.authService.login(dto);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        await this.loginThrottleService.recordFailedLogin({ email: dto.email, ipAddress });
+        throw new UnauthorizedException("Invalid email or password.");
+      }
+      throw error;
+    }
+
+    await this.loginThrottleService.resetSuccessfulLogin({ email: dto.email, ipAddress });
+    setAuthCookies(response, this.config, result.accessToken);
+    return result;
   }
 
   @Get("invitations/:token/preview")
@@ -35,8 +64,10 @@ export class AuthController {
   }
 
   @Post("invitations/:token/accept")
-  acceptInvitation(@Param("token") token: string, @Body() dto: AcceptInvitationDto) {
-    return this.authService.acceptInvitation(token, dto);
+  async acceptInvitation(@Param("token") token: string, @Body() dto: AcceptInvitationDto, @Res({ passthrough: true }) response: Response) {
+    const result = await this.authService.acceptInvitation(token, dto);
+    setAuthCookies(response, this.config, result.accessToken);
+    return result;
   }
 
   @Post("password-reset/request")
@@ -54,6 +85,16 @@ export class AuthController {
   @RequirePermissions(PERMISSIONS.users.manage)
   cleanupExpiredTokens(@CurrentOrganizationId() organizationId: string) {
     return this.authService.cleanupExpiredTokens(organizationId);
+  }
+
+  @Post("logout")
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const token = extractRequestAuthToken(request, this.config);
+    if (token) {
+      await this.authService.logout(token);
+    }
+    clearAuthCookies(response, this.config);
+    return { message: "Logged out." };
   }
 
   @Get("me")
@@ -79,4 +120,17 @@ function getClientIp(request: Request): string | null {
     return forwardedFor[0].split(",")[0]?.trim() || null;
   }
   return request.ip ?? request.socket.remoteAddress ?? null;
+}
+
+function readTrustProxyHeaders(config: ConfigService): boolean {
+  return config.get<string>("LOGIN_TRUST_PROXY_HEADERS")?.toLowerCase() === "true";
+}
+
+function extractRequestAuthToken(request: Request, config: ConfigService): string | null {
+  const authorization = request.headers.authorization;
+  if (authorization?.startsWith("Bearer ")) {
+    return authorization.slice("Bearer ".length);
+  }
+
+  return extractAuthCookieToken(request, config);
 }

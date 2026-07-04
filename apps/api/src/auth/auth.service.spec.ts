@@ -6,11 +6,12 @@ describe("AuthService invite and password reset flows", () => {
   function makeService() {
     const prisma: {
       $transaction: jest.Mock;
-      user: { findUnique: jest.Mock; update: jest.Mock };
+      user: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
       organizationMember: { findFirst: jest.Mock; update: jest.Mock };
     } = {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
       user: {
+        create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
       },
@@ -19,7 +20,10 @@ describe("AuthService invite and password reset flows", () => {
         update: jest.fn(),
       },
     };
-    const jwt = { signAsync: jest.fn().mockResolvedValue("jwt-token") };
+    const jwt = {
+      signAsync: jest.fn((payload: { jti: string }) => Promise.resolve(`jwt-${payload.jti}`)),
+      verifyAsync: jest.fn().mockResolvedValue({ sub: "user-1", email: "user@example.com", jti: "jti-1" }),
+    };
     const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : undefined)) };
     const authTokenService = {
       preview: jest.fn(),
@@ -33,6 +37,10 @@ describe("AuthService invite and password reset flows", () => {
     };
     const emailService = { sendPasswordReset: jest.fn().mockResolvedValue({ id: "email-1" }) };
     const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+    const authSessionService = {
+      createForJwt: jest.fn().mockResolvedValue({ jti: "jti-1", expiresAt: new Date("2026-07-11T12:00:00.000Z") }),
+      revokeSession: jest.fn().mockResolvedValue({ revoked: true }),
+    };
     return {
       service: new AuthService(
         prisma as never,
@@ -42,6 +50,7 @@ describe("AuthService invite and password reset flows", () => {
         rateLimitService as never,
         emailService as never,
         auditLogService as never,
+        authSessionService as never,
       ),
       prisma,
       jwt,
@@ -49,11 +58,51 @@ describe("AuthService invite and password reset flows", () => {
       rateLimitService,
       emailService,
       auditLogService,
+      authSessionService,
     };
   }
 
+  it("registers a user, creates a durable auth session, and signs a JWT with jti", async () => {
+    const { service, prisma, jwt, authSessionService } = makeService();
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: "user-1", email: "new@example.com", name: "New User", createdAt: new Date() });
+
+    await expect(service.register({ email: "NEW@example.com", name: " New User ", password: "Password123!" })).resolves.toMatchObject({
+      user: { id: "user-1", email: "new@example.com", name: "New User" },
+      accessToken: "jwt-jti-1",
+    });
+
+    expect(authSessionService.createForJwt).toHaveBeenCalledWith({ userId: "user-1", expiresAt: expect.any(Date) });
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      { sub: "user-1", email: "new@example.com", jti: "jti-1" },
+      expect.objectContaining({ expiresIn: "7d" }),
+    );
+  });
+
+  it("logs in, creates a durable auth session, and signs a JWT with jti", async () => {
+    const { service, prisma, jwt, authSessionService } = makeService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      name: "User",
+      passwordHash: await bcrypt.hash("Password123!", 12),
+      memberships: [{ organizationId: "org-1" }],
+    });
+
+    await expect(service.login({ email: "USER@example.com", password: "Password123!" })).resolves.toMatchObject({
+      user: { id: "user-1", email: "user@example.com", name: "User" },
+      accessToken: "jwt-jti-1",
+    });
+
+    expect(authSessionService.createForJwt).toHaveBeenCalledWith({ userId: "user-1", expiresAt: expect.any(Date) });
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      { sub: "user-1", email: "user@example.com", jti: "jti-1" },
+      expect.objectContaining({ expiresIn: "7d" }),
+    );
+  });
+
   it("accepts a valid invitation, activates membership, consumes token, and signs in", async () => {
-    const { service, prisma, authTokenService, auditLogService } = makeService();
+    const { service, prisma, authTokenService, auditLogService, authSessionService, jwt } = makeService();
     authTokenService.getTokenForUse.mockResolvedValue({
       id: "token-1",
       userId: "user-1",
@@ -69,9 +118,14 @@ describe("AuthService invite and password reset flows", () => {
 
     await expect(service.acceptInvitation("raw-token", { name: "Accepted", password: "Password123!" })).resolves.toMatchObject({
       user: { id: "user-1", email: "invite@example.com", name: "Accepted" },
-      accessToken: "jwt-token",
+      accessToken: "jwt-jti-1",
       organization: { id: "org-1" },
     });
+    expect(authSessionService.createForJwt).toHaveBeenCalledWith({ userId: "user-1", expiresAt: expect.any(Date) });
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      { sub: "user-1", email: "invite@example.com", jti: "jti-1" },
+      expect.objectContaining({ expiresIn: "7d" }),
+    );
     expect(prisma.organizationMember.update).toHaveBeenCalledWith({ where: { id: "member-1" }, data: { status: MembershipStatus.ACTIVE } });
     expect(authTokenService.consume).toHaveBeenCalledWith("token-1", prisma);
     expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_INVITE_ACCEPTED", entityType: "OrganizationMember" }));
@@ -139,5 +193,27 @@ describe("AuthService invite and password reset flows", () => {
 
     await expect(service.cleanupExpiredTokens("org-1")).resolves.toMatchObject({ deletedCount: 1 });
     expect(authTokenService.cleanupExpiredUnconsumed).toHaveBeenCalledWith("org-1", 30);
+  });
+
+  it("revokes the current jti-bearing token on logout", async () => {
+    const { service, jwt, authSessionService } = makeService();
+
+    await expect(service.logout("jwt-token")).resolves.toEqual({ revoked: true });
+
+    expect(jwt.verifyAsync).toHaveBeenCalledWith("jwt-token", expect.any(Object));
+    expect(authSessionService.revokeSession).toHaveBeenCalledWith({
+      userId: "user-1",
+      jti: "jti-1",
+      reason: "logout",
+    });
+  });
+
+  it("keeps logout idempotent for invalid or legacy tokens", async () => {
+    const { service, jwt, authSessionService } = makeService();
+    jwt.verifyAsync.mockRejectedValueOnce(new Error("bad token"));
+
+    await expect(service.logout("bad-token")).resolves.toEqual({ revoked: false });
+
+    expect(authSessionService.revokeSession).not.toHaveBeenCalled();
   });
 });

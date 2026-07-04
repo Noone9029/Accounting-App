@@ -1,4 +1,4 @@
-import { ApiError, apiBaseUrl, getAccessToken, getActiveOrganizationId } from "./api";
+import { ApiError, apiBaseUrl, getActiveOrganizationId } from "./api";
 
 export function invoicePdfPath(invoiceId: string): string {
   return `/sales-invoices/${encodeURIComponent(invoiceId)}/pdf`;
@@ -96,17 +96,13 @@ export async function downloadPdf(path: string, filename?: string): Promise<void
 
 export async function downloadAuthenticatedFile(path: string, filename?: string): Promise<void> {
   const headers = new Headers();
-  const token = getAccessToken();
   const organizationId = getActiveOrganizationId();
 
-  if (token) {
-    headers.set("authorization", `Bearer ${token}`);
-  }
   if (organizationId) {
     headers.set("x-organization-id", organizationId);
   }
 
-  const response = await fetch(pdfApiUrl(path), { headers });
+  const response = await fetch(pdfApiUrl(path), { credentials: "include", headers });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new ApiError(text || `PDF request failed with ${response.status}`, response.status, text);

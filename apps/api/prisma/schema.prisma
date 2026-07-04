@@ -152,6 +152,12 @@ enum AuthTokenPurpose {
   PASSWORD_RESET
 }
 
+enum LoginRateLimitKeyType {
+  IP
+  EMAIL
+  EMAIL_IP
+}
+
 enum AccountType {
   ASSET
   LIABILITY
@@ -1072,6 +1078,7 @@ model User {
   deletedAttachments                                Attachment[]                                @relation("AttachmentDeletedBy")
   authTokens                                        AuthToken[]                                 @relation("AuthTokenUser")
   createdAuthTokens                                 AuthToken[]                                 @relation("AuthTokenCreatedBy")
+  authSessions                                      AuthSession[]                               @relation("AuthSessionUser")
   createdEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceCreatedBy")
   verifiedEmailSenderDomainEvidence                 EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceVerifiedBy")
   revokedEmailSenderDomainEvidence                  EmailSenderDomainEvidence[]                 @relation("EmailSenderDomainEvidenceRevokedBy")
@@ -2173,6 +2180,43 @@ model AuthTokenRateLimitEvent {
   @@index([email, purpose, createdAt])
   @@index([ipAddress, purpose, createdAt])
   @@index([organizationId, purpose, createdAt])
+}
+
+model LoginRateLimit {
+  id              String                @id @default(uuid()) @db.Uuid
+  keyHash         String
+  keyType         LoginRateLimitKeyType
+  attempts        Int                   @default(0)
+  windowStartedAt DateTime
+  lockedUntil     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([keyType, keyHash])
+  @@index([keyType])
+  @@index([lockedUntil])
+  @@index([windowStartedAt])
+}
+
+model AuthSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  jtiHash        String    @unique
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokedReason  String?
+  lastSeenAt     DateTime?
+  userAgentHash  String?
+  ipHash         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation("AuthSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@index([userId, revokedAt])
+  @@index([createdAt])
 }
 
 model Branch {

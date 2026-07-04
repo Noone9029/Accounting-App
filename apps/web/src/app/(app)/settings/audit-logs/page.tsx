@@ -17,7 +17,7 @@ import {
   LedgerToolbar,
 } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
-import { apiBaseUrl, apiRequest, getAccessToken } from "@/lib/api";
+import { apiBaseUrl, apiRequest } from "@/lib/api";
 import {
   auditActionLabel,
   auditEntityTypeLabel,
@@ -186,12 +186,12 @@ export default function AuditLogsPage() {
     try {
       const response = await fetch(`${apiBaseUrl}${buildAuditLogExportPath(appliedFilters)}`, {
         headers: {
-          authorization: `Bearer ${getAccessToken() ?? ""}`,
           "x-organization-id": organizationId,
           "cache-control": "no-store",
           pragma: "no-cache",
         },
         cache: "no-store",
+        credentials: "include",
       });
       if (!response.ok) {
         throw new Error(`Audit export failed with ${response.status}.`);

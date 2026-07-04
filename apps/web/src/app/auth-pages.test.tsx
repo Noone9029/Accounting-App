@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import InviteAcceptPage from "./(auth)/invite/accept/page";
 import LoginPage from "./(auth)/login/page";
@@ -8,6 +8,7 @@ import PasswordResetRequestPage from "./(auth)/password-reset/page";
 import RegisterPage from "./(auth)/register/page";
 
 const apiRequestMock = jest.fn();
+const setActiveOrganizationIdMock = jest.fn();
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -28,13 +29,14 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/lib/api", () => ({
   apiRequest: (...args: unknown[]) => apiRequestMock(...args),
-  setAccessToken: jest.fn(),
-  setActiveOrganizationId: jest.fn(),
+  setActiveOrganizationId: (...args: unknown[]) => setActiveOrganizationIdMock(...args),
 }));
 
 describe("auth pages", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+    setActiveOrganizationIdMock.mockReset();
+    localStorage.clear();
     window.history.replaceState(null, "", "/");
   });
 
@@ -75,5 +77,56 @@ describe("auth pages", () => {
     expect(screen.getByText("Invitation token is missing.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
     expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("logs in without storing the returned access token in browser storage", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/auth/login") {
+        return Promise.resolve({
+          user: { id: "user-1", name: "User", email: "user@example.com" },
+          accessToken: "server-token",
+        });
+      }
+
+      if (path === "/auth/me") {
+        return Promise.resolve({
+          id: "user-1",
+          name: "User",
+          email: "user@example.com",
+          memberships: [
+            {
+              id: "membership-1",
+              status: "ACTIVE",
+              organization: {
+                id: "org-1",
+                name: "Org",
+                legalName: null,
+                taxNumber: null,
+                countryCode: "AE",
+                baseCurrency: "AED",
+                timezone: "Asia/Dubai",
+              },
+              role: { id: "role-1", name: "Admin", permissions: ["*"] },
+            },
+          ],
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    const { container } = render(<LoginPage />);
+    const passwordInput = container.querySelector<HTMLInputElement>('input[name="password"]');
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "user@example.com" } });
+    expect(passwordInput).not.toBeNull();
+    fireEvent.change(passwordInput as HTMLInputElement, { target: { value: "Password123!" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/auth/me", { organizationId: null }));
+
+    expect(localStorage.getItem("ledgerbyte.accessToken")).toBeNull();
+    expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(setActiveOrganizationIdMock).toHaveBeenCalledWith("org-1");
   });
 });
