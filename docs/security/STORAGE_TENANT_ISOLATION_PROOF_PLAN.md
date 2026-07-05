@@ -34,6 +34,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-07-05 attachment S3 read-guard update: a local-only runtime hardening pass now passes the authorized organization and attachment id into attachment storage reads and makes `S3AttachmentStorageService` reject stored object keys that do not match that tenant/attachment prefix before any S3 `GetObject` call. S3 attachment object-key tenant and attachment id segments are normalized consistently with filenames. This does not run hosted storage, generate signed URLs, change accounting logic, change schemas, run migrations, or prove hosted bucket policy behavior.
 
+2026-07-06 real object-storage and signed URL proof packet update: `docs/security/OBJECT_STORAGE_SIGNED_URL_PROOF_APPROVAL_PACKET.md` and `docs/security/OBJECT_STORAGE_SIGNED_URL_PROOF_RUNBOOK.md` now define the approval and execution contract required before real-provider, bucket policy, signed URL generation/expiry, cross-tenant signed URL denial, revoked/deleted access denial, and cleanup failure-path proof. The proof remains `BLOCKED` until non-placeholder approvals, staging/proof bucket details, synthetic tenant IDs, credential references, allow flags, and evidence/cleanup owners are supplied.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -152,6 +154,7 @@ Mutation checks only in staging/proof environment after explicit approval:
 
 - No hosted storage proof has been run.
 - No real signed URL proof exists.
+- No approved real object-storage and signed URL proof packet has been supplied.
 - Generated document object storage is not implemented.
 - Generated document object-storage implementation is planned but not enabled.
 - Database/base64 remains the default storage mode.

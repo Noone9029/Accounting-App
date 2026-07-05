@@ -20,3 +20,5 @@ Scope: signed URL and object-storage tenant-boundary proof design.
 | Secret or URL logging | Not implemented | Harness output records no real URLs, no secrets, no signed URL bodies | Logging tests when URL issuance exists |
 | Cleanup removes unrelated objects | Not run | Harness cleanup scope is proof-run-id-only when proofRunId is valid | Staging cleanup adapter and review |
 | Signed URLs added before object-read proof | Not implemented | Implementation plan keeps API-mediated DB fallback first and makes signed URLs optional | Add URL issuance only after generated-document object storage and staging proof pass |
+| Real-provider signed URL proof runs without complete approvals | Blocked by packet | Approval packet requires exact phrase, synthetic tenants, dedicated staging/proof target, credential references, allow flags, redaction rules, and cleanup owner | Owner review and completed approval evidence |
+| Cleanup failure path hides leaked proof objects | Not proven | Runbook requires proof-run-scoped cleanup, failure capture, no broad retries, and manual cleanup owner | Future reviewed runner or approved manual proof |
