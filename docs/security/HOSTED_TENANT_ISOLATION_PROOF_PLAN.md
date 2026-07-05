@@ -48,6 +48,21 @@ Remaining prerequisites before staging execution:
 - Read-only probe result before any synthetic mutation mode.
 - Confirmation that all write-capable proof operations are proof-run-ID scoped and cleanup is not broad.
 
+## 2026-07-05 Read-Only Adapter Runbook Update
+
+PR #235 added a network-capable, GET-only `staging-read-only-probe` adapter behind the existing fail-closed gates. The adapter remains refused unless the approved staging/proof URL, proof-run ID, bearer token, synthetic tenant IDs, base allow gate, and read-only allow gate are supplied.
+
+The current approved-run instructions live in `docs/security/HOSTED_STAGING_TENANT_PROOF_RUNBOOK.md`.
+
+Current boundaries:
+
+- `staging-read-only-probe` can make hosted GET requests only after all staging read-only gates pass.
+- It records HTTP statuses only and does not capture response bodies.
+- It does not prove browser cookie auth or CSRF behavior.
+- It does not prove export, PDF, download, signed URL, object-storage, runtime-role, RLS, synthetic mutation, cleanup, backup/restore, or production readiness.
+- `staging-synthetic-proof` remains classification/contract-only until a separate reviewed mutation adapter and proof-run-ID cleanup path exist.
+- Hosted staging proof has still not been run from this repository without an approved staging/proof approval packet.
+
 ## Current Local Proof
 
 PR #67 merged into `origin/main` at `0b9de9e9ec9ffa7c7e8f048c75a8efc72516e223`.
@@ -261,7 +276,7 @@ Do not log customer data, document bodies, attachment bodies, database URLs, ser
 
 ## Disabled-By-Default Harness Status
 
-`apps/api/scripts/hosted-tenant-isolation-proof.ts` now provides the first harness shell plus a fail-closed staging execution contract. It is still a safety classifier and contract printer only in this branch. It does not make API calls, open database connections, call Supabase, call Vercel, call storage providers, call ZATCA, call Peppol, call ASPs, send email, connect bank feeds, create payment processor objects, or mutate hosted/customer data.
+`apps/api/scripts/hosted-tenant-isolation-proof.ts` now provides the harness shell plus a fail-closed staging execution contract. After PR #235, `staging-read-only-probe` has a network-capable GET-only adapter that runs only after all staging read-only gates pass. Other modes remain classification/contract modes. The harness does not open database connections, call Supabase, call Vercel, call storage providers, call ZATCA, call Peppol, call ASPs, send email, connect bank feeds, create payment processor objects, or mutate hosted/customer data.
 
 The harness:
 
@@ -280,7 +295,7 @@ The harness:
 - Refuses local mode when the target is not localhost-style.
 - Refuses staging proof modes unless the target is clearly staging, sandbox, test, or dedicated proof.
 - Refuses destructive or external operation flags such as seed, reset, delete, truncate, drop, migrate, deploy, provider, ZATCA, Peppol, ASP, email, bank-feed, or payment-processor calls.
-- Always reports `networkEnabled: false` and `mutationEnabled: false`.
+- Reports the safety plan as `networkEnabled: false` and `mutationEnabled: false`; the separate read-only probe result reports whether a gated GET-only network probe was attempted.
 - Redacts secret-like URL userinfo and query parameters before output and never prints auth token values.
 
 Current harness commands:
@@ -292,7 +307,7 @@ corepack pnpm tenant-isolation:proof -- --mode staging-read-only-probe --environ
 corepack pnpm tenant-isolation:proof -- --mode staging-synthetic-proof --environment staging --proof-run-id <proofRunId> --base-url <staging-proof-url>
 ```
 
-This harness does not complete hosted proof. Actual staging proof was not executed in the staging execution contract branch because the required staging URL, auth token, synthetic proof tenant IDs, read-only allow gate, and staging mutation allow gate were not present. The next arc still needs an approved staging/dedicated proof environment, a read-only probe adapter, a synthetic proof execution adapter, evidence archive format, and explicit approval before any networked staging run.
+This harness does not complete hosted proof. The next run still needs an approved staging/dedicated proof environment, an approved bearer token, synthetic proof tenant IDs, proof-run ID, explicit read-only allow gates, sanitized evidence capture, and explicit approval before any networked staging run. The synthetic proof execution adapter and cleanup path remain future work.
 
 ## Acceptance Criteria
 
