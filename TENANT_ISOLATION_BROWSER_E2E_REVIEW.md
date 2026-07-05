@@ -24,7 +24,7 @@ The fixture refuses non-local database hosts and refuses database names that loo
 - Organization switching correction when localStorage is poisoned with a foreign organization id.
 - Account menu organization switcher shows only organizations from the authenticated user's memberships.
 - Direct browser fetch with a foreign `x-organization-id` is rejected.
-- Dashboard summary totals are scoped to the active tenant.
+- Dashboard summary API totals and rendered dashboard money values are scoped to the active tenant.
 - Customer list UI shows tenant A customer records and not tenant B records.
 - Global search API and UI results exclude tenant B markers while tenant A results still appear.
 - Team settings UI shows tenant A membership data and not tenant B membership data.
@@ -56,6 +56,7 @@ The fixture gives User A full permissions in Organization A only and User B full
 - Added a local-only Prisma fixture for two synthetic tenants and browser-visible accounting records.
 - Added `tests/e2e/tenant-isolation-browser.spec.ts`.
 - Added a representative browser direct-URL proof for User A navigating to Tenant B's customer detail route.
+- Added an explicit rendered dashboard money assertion so the browser UI shows Tenant A's amount and not Tenant B's amount.
 - Tightened the team settings heading assertion to the exact page heading.
 - The direct foreign customer route assertion allows only the known browser resource error from the related collection lookup after proving the page renders a safe not-found state and no Tenant B markers.
 
@@ -88,6 +89,23 @@ None.
 - `corepack pnpm build` - passed.
 - `corepack pnpm verify:diff` - passed.
 - `git diff -- apps/web/next-env.d.ts` - showed generated Next.js churn only; restored.
+- Targeted high-risk secret scan on changed files - no real secrets; matches were token-storage assertions and the synthetic fixture password field.
+- Targeted trailing whitespace scan on changed files - no matches.
+- `git diff --check` - passed with existing CRLF normalization warnings for changed text files.
+
+Follow-up dashboard UI-scope assertion branch:
+
+- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - passed in default mode with 3 skipped tests.
+- Opt-in local browser proof with `LEDGERBYTE_BROWSER_TENANT_E2E=1`, local API/web on `http://localhost:4010` and `http://localhost:3010`, and disposable local Postgres URL - passed, 3 tests.
+- `corepack pnpm install --frozen-lockfile` - passed.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
+- `corepack pnpm --filter @ledgerbyte/api exec prisma validate` with local placeholder URL - passed.
+- `corepack pnpm lint` - passed.
+- `corepack pnpm typecheck` - passed.
+- `corepack pnpm test` - passed; API reported 167 suites passed with 9 skipped tests and the existing worker-exit warning, web reported 157 suites passed.
+- `corepack pnpm build` - passed; generated `apps/web/next-env.d.ts` churn was restored afterward.
+- `corepack pnpm verify:diff` - passed.
+- `git diff -- apps/web/next-env.d.ts` - no remaining diff after restore.
 - Targeted high-risk secret scan on changed files - no real secrets; matches were token-storage assertions and the synthetic fixture password field.
 - Targeted trailing whitespace scan on changed files - no matches.
 - `git diff --check` - passed with existing CRLF normalization warnings for changed text files.

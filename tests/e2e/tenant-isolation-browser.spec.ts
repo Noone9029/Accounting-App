@@ -79,6 +79,8 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     expect(asRecord(dashboardBody.sales).unpaidInvoiceBalance).toBe(fixtureSet.tenantA.reportAmount);
     expect(JSON.stringify(dashboardBody)).not.toContain(fixtureSet.tenantB.reportAmount);
     expect(JSON.stringify(dashboardBody)).not.toContain(fixtureSet.tenantB.customerName);
+    await expect(page.locator("main")).toContainText(dashboardMoneyPattern(fixtureSet.tenantA.reportAmount));
+    await expect(page.locator("main")).not.toContainText(dashboardMoneyPattern(fixtureSet.tenantB.reportAmount));
 
     await page.goto("/customers");
     await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
@@ -272,4 +274,9 @@ function asRecord(value: unknown): Record<string, unknown> {
 function asArray(value: unknown): unknown[] {
   expect(Array.isArray(value)).toBe(true);
   return value as unknown[];
+}
+
+function dashboardMoneyPattern(amount: string): RegExp {
+  const formattedAmount = Number.parseFloat(amount).toFixed(2).replace(".", "\\.");
+  return new RegExp(`SAR[\\s\\u00a0]*${formattedAmount}`);
 }
