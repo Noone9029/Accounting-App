@@ -42,14 +42,16 @@ No UI behavior changed.
 
 ## Test behavior
 
-The DB integration spec is opt-in and local-only.
+The Prisma-backed DB integration block is opt-in and local-only.
 
 It runs only when:
 
 - `LEDGERBYTE_TENANT_DB_INTEGRATION=1`
 - `LEDGERBYTE_TEST_DATABASE_URL` points to an allowed local/test Postgres URL
 
-The normal full test suite skips this DB spec by default.
+`LEDGERBYTE_TEST_DATABASE_URL` is required when the opt-in flag is enabled; the spec no longer falls back to `DATABASE_URL`.
+
+The normal full test suite skips the Prisma-backed DB block by default. Lightweight URL-gate tests still run without connecting to a database.
 
 ## Validation
 
@@ -63,11 +65,12 @@ The normal full test suite skips this DB spec by default.
 - `corepack pnpm --filter @ledgerbyte/api db:migrate` with local `postgresql://accounting:accounting@localhost:5432/accounting?schema=public` - passed; no pending migrations.
 - `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
 - `corepack pnpm --filter @ledgerbyte/api exec prisma validate` with placeholder local URL - passed.
-- Opt-in DB spec: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/tenant-isolation-db.integration.spec.ts` with local DB env - passed, 9 tests.
+- Default DB spec gate: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/tenant-isolation-db.integration.spec.ts` - passed, 5 URL-gate tests and 9 skipped Prisma-backed DB tests.
+- Opt-in DB spec: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/tenant-isolation-db.integration.spec.ts` with local DB env - passed, 14 tests.
 - Existing tenant proof tests: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/auth/guards/organization-context.guard.spec.ts apps/api/src/tenant-isolation-proof.spec.ts apps/api/src/tenant-isolation-http.integration.spec.ts` - passed, 63 tests.
 - `corepack pnpm lint` - passed.
 - `corepack pnpm typecheck` - passed.
-- `corepack pnpm test` - passed; API reported 166 passed suites and 1 skipped suite, with the DB spec skipped by default.
+- `corepack pnpm test` - passed; API reported 167 passed suites with 9 skipped Prisma-backed DB tests while URL-gate checks ran without a database connection.
 - `corepack pnpm build` - passed.
 - `corepack pnpm verify:diff` - passed.
 - `git diff --check` - passed.

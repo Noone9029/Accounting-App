@@ -8,14 +8,14 @@ No production runtime code, accounting logic, Prisma schema, or migration files 
 
 ## Local-only execution gate
 
-The new DB spec is skipped by default in normal Jest runs.
+The Prisma-backed DB block is skipped by default in normal Jest runs. Lightweight URL-gate tests still run without connecting to a database.
 
 To run it, the caller must set:
 
 - `LEDGERBYTE_TENANT_DB_INTEGRATION` to `1`.
 - `LEDGERBYTE_TEST_DATABASE_URL` to a disposable local Postgres URL.
 
-The spec refuses non-local database hosts and refuses database names that look production-oriented. This is intended to prevent accidental hosted mutations.
+`LEDGERBYTE_TEST_DATABASE_URL` is required when the opt-in flag is enabled; the spec does not fall back to `DATABASE_URL`. The spec refuses non-local database hosts and refuses database names that look production-oriented. This is intended to prevent accidental hosted mutations.
 
 ## Areas tested
 
@@ -44,6 +44,8 @@ Tenant-scoped API requests use the authenticated user plus `x-organization-id`. 
 
 No production tenant-isolation defect was found during this lane.
 
+PR review found one safety-contract defect in the test lane: when `LEDGERBYTE_TENANT_DB_INTEGRATION=1`, the spec accepted `process.env.DATABASE_URL` as a fallback if `LEDGERBYTE_TEST_DATABASE_URL` was missing. That weakened the documented explicit local test DB contract.
+
 The first opt-in DB spec run exposed two test expectation issues:
 
 - The search response correctly returned zero results but echoed the submitted query, so the assertion now checks only `search.results`.
@@ -54,6 +56,8 @@ The first opt-in DB spec run exposed two test expectation issues:
 Implemented a gated Prisma-backed tenant-isolation integration spec:
 
 - `apps/api/src/tenant-isolation-db.integration.spec.ts`
+
+The PR review blocker was fixed by requiring `LEDGERBYTE_TEST_DATABASE_URL` whenever `LEDGERBYTE_TENANT_DB_INTEGRATION=1`, adding URL-gate tests for default skip behavior, missing URL failure, hosted/prod-looking URL rejection, and explicit local URL acceptance.
 
 No runtime service/controller/guard code was changed. No accounting logic was changed.
 
@@ -72,12 +76,12 @@ No runtime service/controller/guard code was changed. No accounting logic was ch
 - `corepack pnpm --filter @ledgerbyte/api exec prisma validate` with placeholder local env - passed.
 - `docker compose -f infra/docker-compose.yml up -d postgres` - local Postgres started.
 - `corepack pnpm --filter @ledgerbyte/api db:migrate` against local Postgres - passed, no pending migrations.
-- Default DB spec gate: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/tenant-isolation-db.integration.spec.ts` - passed as skipped by default.
-- Opt-in DB spec gate with local test DB env - passed, 9 tests.
+- Default DB spec gate: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/tenant-isolation-db.integration.spec.ts` - passed, 5 URL-gate tests and 9 skipped Prisma-backed DB tests.
+- Opt-in DB spec gate with local test DB env - passed, 14 tests.
 - Existing tenant proof tests: `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath apps/api/src/auth/guards/organization-context.guard.spec.ts apps/api/src/tenant-isolation-proof.spec.ts apps/api/src/tenant-isolation-http.integration.spec.ts` - passed, 63 tests.
 - `corepack pnpm lint` - passed.
 - `corepack pnpm typecheck` - passed.
-- `corepack pnpm test` - passed; DB spec skipped by default.
+- `corepack pnpm test` - passed; API reported 167 passed suites with 9 skipped Prisma-backed DB tests while URL-gate checks ran without a database connection.
 - `corepack pnpm build` - passed.
 - `corepack pnpm verify:diff` - passed; generated `apps/web/next-env.d.ts` churn was restored afterward.
 - `git diff --check` - passed.

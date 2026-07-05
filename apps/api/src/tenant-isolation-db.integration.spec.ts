@@ -35,11 +35,57 @@ import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
 import { SearchService } from "./search/search.service";
 import { SupplierPaymentService } from "./supplier-payments/supplier-payment.service";
 
-const RUN_DB_INTEGRATION = process.env.LEDGERBYTE_TENANT_DB_INTEGRATION === "1";
-const DATABASE_URL = RUN_DB_INTEGRATION
-  ? requireLocalPostgresUrl(process.env.LEDGERBYTE_TEST_DATABASE_URL ?? process.env.DATABASE_URL)
-  : undefined;
-const describeTenantDb = RUN_DB_INTEGRATION ? describe : describe.skip;
+type TenantDbIntegrationSettings =
+  | { enabled: false; databaseUrl?: undefined }
+  | { enabled: true; databaseUrl: string };
+
+const DB_INTEGRATION_SETTINGS = resolveTenantDbIntegrationSettings(process.env);
+const DATABASE_URL = DB_INTEGRATION_SETTINGS.enabled ? DB_INTEGRATION_SETTINGS.databaseUrl : undefined;
+const describeTenantDb = DB_INTEGRATION_SETTINGS.enabled ? describe : describe.skip;
+
+describe("tenant isolation DB integration URL gate", () => {
+  it("skips safely when the opt-in environment variable is not set", () => {
+    expect(resolveTenantDbIntegrationSettings({} as NodeJS.ProcessEnv)).toEqual({ enabled: false });
+  });
+
+  it("requires LEDGERBYTE_TEST_DATABASE_URL when the DB integration spec is enabled", () => {
+    expect(() =>
+      resolveTenantDbIntegrationSettings({
+        LEDGERBYTE_TENANT_DB_INTEGRATION: "1",
+        DATABASE_URL: "postgresql://accounting:accounting@localhost:5432/accounting?schema=public",
+      } as NodeJS.ProcessEnv),
+    ).toThrow("LEDGERBYTE_TEST_DATABASE_URL is required when LEDGERBYTE_TENANT_DB_INTEGRATION=1");
+  });
+
+  it("rejects hosted or non-local database URLs", () => {
+    expect(() =>
+      resolveTenantDbIntegrationSettings({
+        LEDGERBYTE_TENANT_DB_INTEGRATION: "1",
+        LEDGERBYTE_TEST_DATABASE_URL: "postgresql://accounting:accounting@db.example.com/accounting?schema=public",
+      } as NodeJS.ProcessEnv),
+    ).toThrow("local-only");
+  });
+
+  it("rejects production-looking database names", () => {
+    expect(() =>
+      resolveTenantDbIntegrationSettings({
+        LEDGERBYTE_TENANT_DB_INTEGRATION: "1",
+        LEDGERBYTE_TEST_DATABASE_URL: "postgresql://accounting:accounting@localhost:5432/accounting_prod?schema=public",
+      } as NodeJS.ProcessEnv),
+    ).toThrow("disposable local database name");
+  });
+
+  it("accepts an explicit disposable local test database URL", () => {
+    const localUrl = "postgresql://accounting:accounting@localhost:5432/accounting?schema=public";
+
+    expect(
+      resolveTenantDbIntegrationSettings({
+        LEDGERBYTE_TENANT_DB_INTEGRATION: "1",
+        LEDGERBYTE_TEST_DATABASE_URL: localUrl,
+      } as NodeJS.ProcessEnv),
+    ).toEqual({ enabled: true, databaseUrl: localUrl });
+  });
+});
 
 describeTenantDb("tenant isolation: Prisma-backed local DB proof", () => {
   let prisma: PrismaClient;
@@ -405,7 +451,9 @@ interface TenantFixture {
 
 function requireLocalPostgresUrl(rawUrl: string | undefined): string {
   if (!rawUrl) {
-    throw new Error("Set LEDGERBYTE_TENANT_DB_INTEGRATION=1 with LEDGERBYTE_TEST_DATABASE_URL pointing at disposable local Postgres.");
+    throw new Error(
+      "LEDGERBYTE_TEST_DATABASE_URL is required when LEDGERBYTE_TENANT_DB_INTEGRATION=1. Point it at disposable local Postgres.",
+    );
   }
 
   let url: URL;
@@ -429,6 +477,17 @@ function requireLocalPostgresUrl(rawUrl: string | undefined): string {
   }
 
   return rawUrl;
+}
+
+function resolveTenantDbIntegrationSettings(env: NodeJS.ProcessEnv): TenantDbIntegrationSettings {
+  if (env.LEDGERBYTE_TENANT_DB_INTEGRATION !== "1") {
+    return { enabled: false };
+  }
+
+  return {
+    enabled: true,
+    databaseUrl: requireLocalPostgresUrl(env.LEDGERBYTE_TEST_DATABASE_URL),
+  };
 }
 
 function makeNumberSequenceService() {
