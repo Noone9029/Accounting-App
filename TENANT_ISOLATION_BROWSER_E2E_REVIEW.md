@@ -129,9 +129,13 @@ Expanded browser E2E tenant-surface branch:
 - `corepack pnpm install --frozen-lockfile` - passed.
 - `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
 - Prisma validate with local placeholder URL - passed.
-- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - blocked by missing local API/web servers; global setup expected `http://localhost:4000` and `http://localhost:3000`.
-- Local opt-in browser DB proof was not run in this environment because Docker Desktop was unavailable, `localhost:5432` was not listening, and no local `postgres`/`psql`/`pg_isready` binaries were available.
 - `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts --list` - passed; 3 browser tenant tests discovered.
+- Docker Desktop was started locally; `docker compose -p ledgerbyte-browser-e2e -f infra/docker-compose.yml up -d postgres redis` - passed with local Postgres and Redis healthy.
+- Local Prisma migrations were deployed to the disposable Compose Postgres database; 78 migrations applied.
+- Local API and web dev servers were started on `http://localhost:4000` and `http://localhost:3000`.
+- First opt-in expanded browser proof run reached the app and failed one dashboard assertion because the synthetic fixture used January 2026 activity while the dashboard summary reports current-month and last-six-month aggregates.
+- Updated the synthetic fixture dates and report query window so the browser proof creates real posted activity in the current dashboard/report period.
+- Opt-in expanded browser proof with `LEDGERBYTE_BROWSER_TENANT_E2E=1`, local API/web, and an allowed disposable local Postgres URL - passed, 3 tests.
 - `corepack pnpm lint` - passed.
 - `corepack pnpm typecheck` - passed.
 - First `corepack pnpm test` attempt - failed from a pre-existing `src/tenant-isolation-http.integration.spec.ts` `beforeAll` timeout during the full parallel API run.
@@ -145,7 +149,7 @@ Expanded browser E2E tenant-surface branch:
 - The browser E2E proof requires local API/web servers and a migrated disposable local database.
 - Normal E2E runs skip this tenant proof unless the explicit opt-in environment variable is set.
 - The browser spec samples representative high-risk UI/API surfaces and does not replace exhaustive route-by-route tenant testing.
-- The expanded assertions have parsed and passed repo type/build gates, but the opt-in browser execution still needs a local API/web/Postgres packet on a machine with those services available.
+- Hosted/staging browser tenant proof remains unrun and requires the separately prepared approval packet before any hosted execution.
 
 ## Next recommended prompt
 

@@ -211,6 +211,9 @@ function requireLocalPostgresUrl(rawUrl: string | undefined): string {
 }
 
 async function seedTenantRecords(prisma: PrismaClient, tenant: BrowserTenantFixture): Promise<void> {
+  const activityDate = currentUtcFixtureDate();
+  const dueDate = addUtcDays(activityDate, 15);
+
   await prisma.account.createMany({
     data: [
       {
@@ -262,8 +265,8 @@ async function seedTenantRecords(prisma: PrismaClient, tenant: BrowserTenantFixt
       organizationId: tenant.organizationId,
       invoiceNumber: tenant.invoiceNumber,
       customerId: tenant.customerId,
-      issueDate: new Date("2026-01-10T00:00:00.000Z"),
-      dueDate: new Date("2026-01-31T00:00:00.000Z"),
+      issueDate: activityDate,
+      dueDate,
       currency: "SAR",
       status: SalesInvoiceStatus.FINALIZED,
       subtotal: tenant.reportAmount,
@@ -293,8 +296,8 @@ async function seedTenantRecords(prisma: PrismaClient, tenant: BrowserTenantFixt
       organizationId: tenant.organizationId,
       billNumber: tenant.billNumber,
       supplierId: tenant.supplierId,
-      billDate: new Date("2026-01-11T00:00:00.000Z"),
-      dueDate: new Date("2026-01-31T00:00:00.000Z"),
+      billDate: activityDate,
+      dueDate,
       currency: "SAR",
       status: PurchaseBillStatus.FINALIZED,
       subtotal: "41.0000",
@@ -323,12 +326,12 @@ async function seedTenantRecords(prisma: PrismaClient, tenant: BrowserTenantFixt
       organizationId: tenant.organizationId,
       entryNumber: tenant.journalNumber,
       status: JournalEntryStatus.POSTED,
-      entryDate: new Date("2026-01-14T00:00:00.000Z"),
+      entryDate: activityDate,
       description: `${tenant.revenueAccountName} browser posted activity`,
       currency: "SAR",
       totalDebit: tenant.reportAmount,
       totalCredit: tenant.reportAmount,
-      postedAt: new Date("2026-01-14T00:00:00.000Z"),
+      postedAt: activityDate,
       postedById: tenant.userId,
       createdById: tenant.userId,
       lines: {
@@ -420,4 +423,13 @@ function fixtureIds(marker: string, suffix: "A" | "B", uniqueSuffix: string, rep
     attachmentId: randomUUID(),
     reportAmount,
   };
+}
+
+function currentUtcFixtureDate(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+}
+
+function addUtcDays(date: Date, days: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days, 0, 0, 0, 0));
 }

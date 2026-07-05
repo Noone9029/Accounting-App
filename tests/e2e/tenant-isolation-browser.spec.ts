@@ -21,7 +21,8 @@ const settings = resolveBrowserTenantE2eSettings(process.env);
 test.describe("tenant isolation: browser E2E organization switching", () => {
   test.skip(!settings.enabled, "Set LEDGERBYTE_BROWSER_TENANT_E2E=1 and LEDGERBYTE_TEST_DATABASE_URL to run this local-only browser tenant proof.");
 
-  const dateRangeQuery = "from=2026-01-01&to=2026-12-31";
+  const reportYear = new Date().getUTCFullYear();
+  const dateRangeQuery = `from=${reportYear}-01-01&to=${reportYear}-12-31`;
   let prisma: ReturnType<typeof createBrowserTenantPrisma> | undefined;
   let fixture: BrowserTenantFixtureSet | undefined;
 

@@ -79,9 +79,13 @@ Expanded tenant-surface validation on this branch:
 - `corepack pnpm install --frozen-lockfile` - passed.
 - `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
 - Prisma validate with local placeholder URL - passed.
-- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - blocked by missing local API/web servers at `http://localhost:4000` and `http://localhost:3000`.
-- Local opt-in browser DB proof was not run here because Docker Desktop was unavailable, `localhost:5432` was not listening, and no local Postgres binaries were available.
 - `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts --list` - passed; 3 browser tenant tests discovered.
+- Docker Desktop was started locally and `docker compose -p ledgerbyte-browser-e2e -f infra/docker-compose.yml up -d postgres redis` passed with local Postgres and Redis healthy.
+- Local Prisma migrations were deployed to the disposable Compose Postgres database.
+- Local API and web dev servers were started on `http://localhost:4000` and `http://localhost:3000`.
+- First opt-in expanded browser proof run reached the app and failed one dashboard assertion because the synthetic fixture used January 2026 activity while dashboard summary aggregates are current-period based.
+- The fixture dates and report query window were tightened to create real posted activity in the current dashboard/report period.
+- Opt-in expanded browser tenant proof with local API/web/Postgres - passed, 3 tests.
 - `corepack pnpm lint` - passed.
 - `corepack pnpm typecheck` - passed.
 - First `corepack pnpm test` attempt failed from a pre-existing API integration `beforeAll` timeout; the same suite passed by path in-band, and the second full `corepack pnpm test` passed.
