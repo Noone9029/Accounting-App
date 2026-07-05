@@ -54,14 +54,11 @@ The fixture gives User A full permissions in Organization A only and User B full
 
 ## Bugs found
 
-- Existing Playwright helper `loginByApi` wrote `ledgerbyte.accessToken` into browser localStorage. Runtime code already clears browser token storage, but the helper weakened browser E2E realism after the cookie-auth migration.
 - The settings team page assertion used a non-exact heading locator, so Playwright could match both `Team members` and `Loading team members...` during browser E2E runs.
+- The first expanded local proof run used synthetic January 2026 fixture activity, while dashboard summary aggregates are based on the current reporting window.
 
 ## Fixes implemented
 
-- Updated `loginByApi` to delegate to a new cookie-authenticated `loginByBrowserApi` helper.
-- `loginByBrowserApi` logs in through Playwright's browser request context so auth cookies are available to the browser page.
-- The helper still returns the access token only for test-side API setup and no longer writes token values into browser localStorage.
 - Added a local-only Prisma fixture for two synthetic tenants and browser-visible accounting records.
 - Added `tests/e2e/tenant-isolation-browser.spec.ts`.
 - Added a representative browser direct-URL proof for User A navigating to Tenant B's customer detail route.
@@ -73,6 +70,7 @@ The fixture gives User A full permissions in Organization A only and User B full
 - Expanded generated-document proof to include the `/documents` UI archive and tenant A download success before tenant B download denial.
 - Tightened the team settings heading assertion to the exact page heading.
 - The direct foreign customer route assertion allows only the known browser resource error from the related collection lookup after proving the page renders a safe not-found state and no Tenant B markers.
+- The browser fixture dates and report query window now create real posted activity in the current dashboard/report period.
 
 ## Database changes
 

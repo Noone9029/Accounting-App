@@ -4,14 +4,13 @@
 
 This PR adds and expands a local-only browser E2E tenant-isolation proof for organization switching, scoped UI reads, search, settings, reports, exports, direct URL probes, and downloads.
 
-It also updates the Playwright login helper to use cookie-authenticated browser-context login instead of persisting legacy auth tokens in browser localStorage.
+It uses the existing cookie-authenticated Playwright browser-context login helper and asserts that browser token persistence is not reintroduced.
 
 ## Files changed
 
 - `TENANT_ISOLATION_BROWSER_E2E_REVIEW.md`
 - `PR_TENANT_ISOLATION_BROWSER_E2E_SUMMARY.md`
 - `tests/e2e/tenant-isolation-browser.spec.ts`
-- `tests/e2e/utils/e2e-helpers.ts`
 - `tests/e2e/utils/tenant-isolation-browser-fixture.ts`
 
 ## Scope covered
@@ -69,7 +68,7 @@ The fixture refuses non-local database hosts and production-looking database nam
 - `corepack pnpm test` - passed. Existing web Jest worker open-handle warning was emitted, with all suites passing.
 - `corepack pnpm build` - passed.
 - `corepack pnpm verify:diff` - passed.
-- `git diff --check` - passed with an existing CRLF normalization warning for `tests/e2e/utils/e2e-helpers.ts`.
+- `git diff --check` - passed with existing CRLF normalization warnings for changed text files.
 - Targeted high-risk secret scan on changed files - no real secrets; matches were synthetic test field names and token-storage assertions.
 - Targeted trailing whitespace scan on changed files - no matches.
 - `apps/web/next-env.d.ts` generated churn was restored.
@@ -98,7 +97,7 @@ Expanded tenant-surface validation on this branch:
 - No hosted mutations were run.
 - No hosted migrations were run.
 - The browser fixture uses synthetic local test tenants.
-- The E2E helper no longer writes auth tokens to browser localStorage.
+- The browser spec uses cookie-authenticated login and asserts no auth tokens are persisted in browser localStorage.
 
 ## Remaining gaps
 
@@ -112,7 +111,7 @@ Expanded tenant-surface validation on this branch:
 
 Please review:
 
-- Cookie-authenticated Playwright login helper behavior.
+- Browser use of the existing cookie-authenticated Playwright login helper.
 - Local-only DB URL guard.
 - Browser fixture cleanup.
 - Cross-tenant assertions in `tests/e2e/tenant-isolation-browser.spec.ts`.
