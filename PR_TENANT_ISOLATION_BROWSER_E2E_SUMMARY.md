@@ -1,0 +1,96 @@
+# Browser E2E tenant isolation proof
+
+## Summary
+
+This PR adds a local-only browser E2E tenant-isolation proof for organization switching, scoped UI reads, search, settings, reports, exports, and downloads.
+
+It also updates the Playwright login helper to use cookie-authenticated browser-context login instead of persisting legacy auth tokens in browser localStorage.
+
+## Files changed
+
+- `TENANT_ISOLATION_BROWSER_E2E_REVIEW.md`
+- `PR_TENANT_ISOLATION_BROWSER_E2E_SUMMARY.md`
+- `tests/e2e/tenant-isolation-browser.spec.ts`
+- `tests/e2e/utils/e2e-helpers.ts`
+- `tests/e2e/utils/tenant-isolation-browser-fixture.ts`
+
+## Scope covered
+
+- Browser cookie-auth login.
+- No browser token persistence from E2E helper login.
+- Organization switching correction after invalid stored org context.
+- Account menu organization visibility.
+- Dashboard aggregates.
+- Customer list and customer detail URL/API boundary.
+- Global search API and UI.
+- Team settings.
+- Profit and loss JSON report.
+- Profit and loss CSV export.
+- Profit and loss PDF export.
+- Generated document list/download isolation.
+- Attachment download isolation.
+
+## Runtime impact
+
+No production runtime code changed.
+
+No accounting logic changed.
+
+No Prisma schema or migrations changed.
+
+No auth runtime logic changed.
+
+No UI behavior changed.
+
+## Test behavior
+
+The browser tenant spec is opt-in and local-only.
+
+It runs only when:
+
+- `LEDGERBYTE_BROWSER_TENANT_E2E=1`
+- `LEDGERBYTE_TEST_DATABASE_URL` points to an allowed local/test Postgres URL
+
+The fixture refuses non-local database hosts and production-looking database names. It does not fall back to `DATABASE_URL`.
+
+## Validation
+
+- `corepack pnpm install --frozen-lockfile` - passed.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed after stopping the local API helper that held the Prisma Windows query-engine DLL.
+- Prisma validate with local placeholder URL - passed.
+- Default browser tenant spec run - passed with 3 skipped tests.
+- Opt-in local browser tenant spec run against local API/web/Postgres - passed with 3 tests.
+- `corepack pnpm lint` - passed.
+- `corepack pnpm typecheck` - passed.
+- `corepack pnpm test` - passed. Existing web Jest worker open-handle warning was emitted, with all suites passing.
+- `corepack pnpm build` - passed.
+- `corepack pnpm verify:diff` - passed.
+- `git diff --check` - passed with an existing CRLF normalization warning for `tests/e2e/utils/e2e-helpers.ts`.
+- Targeted high-risk secret scan on changed files - no real secrets; matches were synthetic test field names and token-storage assertions.
+- Targeted trailing whitespace scan on changed files - no matches.
+- `apps/web/next-env.d.ts` generated churn was restored.
+
+## Security and safety
+
+- No hosted mutations were run.
+- No hosted migrations were run.
+- The browser fixture uses synthetic local test tenants.
+- The E2E helper no longer writes auth tokens to browser localStorage.
+
+## Remaining gaps
+
+- Hosted/staging browser tenant proof.
+- Real object-storage provider download isolation.
+- Exhaustive browser route coverage for every module.
+- Mutation-heavy browser cross-tenant form submissions.
+- Page-level navigation to every foreign detail route.
+
+## Reviewer focus areas
+
+Please review:
+
+- Cookie-authenticated Playwright login helper behavior.
+- Local-only DB URL guard.
+- Browser fixture cleanup.
+- Cross-tenant assertions in `tests/e2e/tenant-isolation-browser.spec.ts`.
+- Documented remaining gaps.
