@@ -66,7 +66,10 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     expect(JSON.stringify(foreignDashboard.body)).not.toContain(fixtureSet.tenantB.customerName);
   });
 
-  test("keeps customer lists, dashboard totals, search, settings, and customer detail URLs scoped to tenant A", async ({ page }) => {
+  test("keeps customer lists, dashboard totals, search, settings, and customer detail URLs scoped to tenant A", async ({
+    page,
+    criticalPageErrors,
+  }) => {
     const fixtureSet = requireFixture(fixture);
     await loginAsTenantA(page, fixtureSet);
 
@@ -104,13 +107,22 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     await expect(listbox.getByText(fixtureSet.tenantB.customerName)).toHaveCount(0);
 
     await page.goto("/settings/team");
-    await expect(page.getByRole("heading", { name: "Team members" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Team members", exact: true })).toBeVisible();
     await expect(page.getByText(fixtureSet.tenantA.userEmail)).toBeVisible();
     await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.userEmail);
 
     await page.goto(`/customers/${fixtureSet.tenantA.customerId}`);
     await expect(page.getByRole("heading", { name: fixtureSet.tenantA.customerName }).first()).toBeVisible();
     await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.customerName);
+
+    const expectedErrorsFromForeignCustomerUrl = criticalPageErrors.length;
+    await page.goto(`/customers/${fixtureSet.tenantB.customerId}`);
+    await expect(page.getByText("Customer not found.")).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.customerName);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.userEmail);
+    expect(criticalPageErrors.splice(expectedErrorsFromForeignCustomerUrl)).toEqual([
+      "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    ]);
 
     const foreignCustomerDetail = await browserContextFetch(page, `/contacts/customers/${fixtureSet.tenantB.customerId}`, fixtureSet.tenantA.organizationId);
     expect(foreignCustomerDetail.status).toBe(404);
