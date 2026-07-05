@@ -21,7 +21,8 @@ const settings = resolveBrowserTenantE2eSettings(process.env);
 test.describe("tenant isolation: browser E2E organization switching", () => {
   test.skip(!settings.enabled, "Set LEDGERBYTE_BROWSER_TENANT_E2E=1 and LEDGERBYTE_TEST_DATABASE_URL to run this local-only browser tenant proof.");
 
-  const dateRangeQuery = "from=2026-01-01&to=2026-12-31";
+  const reportYear = new Date().getUTCFullYear();
+  const dateRangeQuery = `from=${reportYear}-01-01&to=${reportYear}-12-31`;
   let prisma: ReturnType<typeof createBrowserTenantPrisma> | undefined;
   let fixture: BrowserTenantFixtureSet | undefined;
 
@@ -77,10 +78,22 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     expectOk(dashboard, "/dashboard/summary");
     const dashboardBody = asRecord(dashboard.body);
     expect(asRecord(dashboardBody.sales).unpaidInvoiceBalance).toBe(fixtureSet.tenantA.reportAmount);
+    expect(asRecord(dashboardBody.reports).profitAndLossNetProfit).toBe(fixtureSet.tenantA.reportAmount);
+    expect(asArray(asRecord(dashboardBody.trends).monthlySales).map(readAmount)).toContain(fixtureSet.tenantA.reportAmount);
+    expect(asArray(asRecord(dashboardBody.trends).monthlySales).map(readAmount)).not.toContain(fixtureSet.tenantB.reportAmount);
+    expect(asArray(asRecord(dashboardBody.trends).monthlyNetProfit).map(readAmount)).toContain(fixtureSet.tenantA.reportAmount);
+    expect(asArray(asRecord(dashboardBody.trends).monthlyNetProfit).map(readAmount)).not.toContain(fixtureSet.tenantB.reportAmount);
+    expect(asArray(asRecord(dashboardBody.aging).receivablesBuckets).map(readAmount)).toContain(fixtureSet.tenantA.reportAmount);
+    expect(asArray(asRecord(dashboardBody.aging).receivablesBuckets).map(readAmount)).not.toContain(fixtureSet.tenantB.reportAmount);
     expect(JSON.stringify(dashboardBody)).not.toContain(fixtureSet.tenantB.reportAmount);
     expect(JSON.stringify(dashboardBody)).not.toContain(fixtureSet.tenantB.customerName);
     await expect(page.locator("main")).toContainText(dashboardMoneyPattern(fixtureSet.tenantA.reportAmount));
     await expect(page.locator("main")).not.toContainText(dashboardMoneyPattern(fixtureSet.tenantB.reportAmount));
+
+    const foreignDashboardWithTenantAContext = await browserFetch(page, "/dashboard/summary", fixtureSet.tenantA.organizationId);
+    expectOk(foreignDashboardWithTenantAContext, "/dashboard/summary tenant A recheck");
+    expect(JSON.stringify(foreignDashboardWithTenantAContext.body)).not.toContain(fixtureSet.tenantB.invoiceNumber);
+    expect(JSON.stringify(foreignDashboardWithTenantAContext.body)).not.toContain(fixtureSet.tenantB.billNumber);
 
     await page.goto("/customers");
     await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
@@ -94,6 +107,34 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     );
     expectOk(foreignSearch, "/search");
     expect(asArray(asRecord(foreignSearch.body).results)).toHaveLength(0);
+
+    for (const foreignTerm of [
+      fixtureSet.tenantB.supplierName,
+      fixtureSet.tenantB.invoiceNumber,
+      fixtureSet.tenantB.billNumber,
+      fixtureSet.tenantB.journalNumber,
+      fixtureSet.tenantB.reportAmount,
+    ]) {
+      const result = await browserFetch(page, `/search?query=${encodeURIComponent(foreignTerm)}`, fixtureSet.tenantA.organizationId);
+      expectOk(result, `/search ${foreignTerm}`);
+      const results = asArray(asRecord(result.body).results);
+      expect(results).toHaveLength(0);
+      expect(JSON.stringify(results)).not.toContain(foreignTerm);
+    }
+
+    for (const tenantTerm of [
+      fixtureSet.tenantA.customerName,
+      fixtureSet.tenantA.supplierName,
+      fixtureSet.tenantA.invoiceNumber,
+      fixtureSet.tenantA.billNumber,
+      fixtureSet.tenantA.journalNumber,
+    ]) {
+      const result = await browserFetch(page, `/search?query=${encodeURIComponent(tenantTerm)}`, fixtureSet.tenantA.organizationId);
+      expectOk(result, `/search ${tenantTerm}`);
+      const results = asArray(asRecord(result.body).results);
+      expect(JSON.stringify(results)).toContain(tenantTerm);
+      expect(JSON.stringify(results)).not.toContain(fixtureSet.tenantB.organizationId);
+    }
 
     const searchInput = page.getByPlaceholder("Search transactions, contacts, reports, and pages");
     const foreignSearchResponse = page.waitForResponse((response) => response.url().includes("/search?") && response.status() === 200);
@@ -113,6 +154,37 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     await expect(page.getByText(fixtureSet.tenantA.userEmail)).toBeVisible();
     await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.userEmail);
 
+    await page.goto("/settings/security");
+    await expect(page.getByRole("heading", { name: "Security settings", exact: true })).toBeVisible();
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.userEmail);
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.organizationName);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.userEmail);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.organizationName);
+
+    await page.goto("/settings/documents");
+    await expect(page.getByRole("heading", { name: "Document settings", exact: true })).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.organizationName);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.userEmail);
+
+    const documentSettings = await browserFetch(page, "/organization-document-settings", fixtureSet.tenantA.organizationId);
+    expectOk(documentSettings, "/organization-document-settings");
+    expect(JSON.stringify(documentSettings.body)).not.toContain(fixtureSet.tenantB.organizationId);
+    const foreignDocumentSettings = await browserContextFetch(page, "/organization-document-settings", fixtureSet.tenantB.organizationId);
+    expect(foreignDocumentSettings.status).toBe(403);
+
+    const storageMigrationPlan = await browserFetch(page, "/storage/migration-plan", fixtureSet.tenantA.organizationId);
+    expectOk(storageMigrationPlan, "/storage/migration-plan");
+    expect(asRecord(storageMigrationPlan.body).attachmentCount).toBe(1);
+    expect(asRecord(storageMigrationPlan.body).generatedDocumentCount).toBe(1);
+    expect(asRecord(storageMigrationPlan.body).databaseStorageCount).toBe(2);
+    const foreignStorageMigrationPlan = await browserContextFetch(page, "/storage/migration-plan", fixtureSet.tenantB.organizationId);
+    expect(foreignStorageMigrationPlan.status).toBe(403);
+
+    await page.goto("/settings/storage");
+    await expect(page.getByRole("heading", { name: "Storage", exact: true })).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.invoiceNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.generatedDocumentId);
+
     await page.goto(`/customers/${fixtureSet.tenantA.customerId}`);
     await expect(page.getByRole("heading", { name: fixtureSet.tenantA.customerName }).first()).toBeVisible();
     await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.customerName);
@@ -129,6 +201,50 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     const foreignCustomerDetail = await browserContextFetch(page, `/contacts/customers/${fixtureSet.tenantB.customerId}`, fixtureSet.tenantA.organizationId);
     expect(foreignCustomerDetail.status).toBe(404);
     expect(JSON.stringify(foreignCustomerDetail.body)).not.toContain(fixtureSet.tenantB.customerName);
+
+    await page.goto("/sales/invoices");
+    await expect(page.getByRole("heading", { name: "Sales invoices", exact: true })).toBeVisible();
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.invoiceNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.invoiceNumber);
+
+    await page.goto(`/sales/invoices/${fixtureSet.tenantA.invoiceId}`);
+    await expect(page.getByRole("heading", { name: fixtureSet.tenantA.invoiceNumber }).first()).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.invoiceNumber);
+    await page.goto(`/sales/invoices/${fixtureSet.tenantB.invoiceId}`);
+    await expect(page.locator("main")).toContainText(/not found|HTTP 404|Unable to load/i);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.invoiceNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.customerName);
+
+    await page.goto("/purchases/bills");
+    await expect(page.getByRole("heading", { name: "Purchase bills", exact: true })).toBeVisible();
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.billNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.billNumber);
+
+    await page.goto(`/purchases/bills/${fixtureSet.tenantA.billId}`);
+    await expect(page.getByRole("heading", { name: fixtureSet.tenantA.billNumber }).first()).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.billNumber);
+    await page.goto(`/purchases/bills/${fixtureSet.tenantB.billId}`);
+    await expect(page.locator("main")).toContainText(/not found|HTTP 404|Unable to load/i);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.billNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.supplierName);
+
+    await page.goto("/journal-entries");
+    await expect(page.getByRole("heading", { name: "Manual journals", exact: true })).toBeVisible();
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.journalNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.journalNumber);
+
+    for (const [label, path, forbiddenMarker] of [
+      ["foreign sales invoice detail", `/sales-invoices/${fixtureSet.tenantB.invoiceId}`, fixtureSet.tenantB.invoiceNumber],
+      ["foreign sales invoice PDF data", `/sales-invoices/${fixtureSet.tenantB.invoiceId}/pdf-data`, fixtureSet.tenantB.invoiceNumber],
+      ["foreign purchase bill detail", `/purchase-bills/${fixtureSet.tenantB.billId}`, fixtureSet.tenantB.billNumber],
+      ["foreign purchase bill PDF data", `/purchase-bills/${fixtureSet.tenantB.billId}/pdf-data`, fixtureSet.tenantB.billNumber],
+      ["foreign journal detail", `/journal-entries/${fixtureSet.tenantB.journalId}`, fixtureSet.tenantB.journalNumber],
+      ["foreign account detail", `/accounts/${fixtureSet.tenantB.revenueAccountId}`, fixtureSet.tenantB.revenueAccountName],
+    ] as const) {
+      const response = await browserContextFetch(page, path, fixtureSet.tenantA.organizationId);
+      expect(response.status, `${label} should be hidden from tenant A context`).toBe(404);
+      expect(JSON.stringify(response.body)).not.toContain(forbiddenMarker);
+    }
   });
 
   test("keeps reports, exports, and downloads scoped to tenant A", async ({ page }) => {
@@ -160,6 +276,24 @@ test.describe("tenant isolation: browser E2E organization switching", () => {
     expectOk(generatedDocuments, "/generated-documents");
     expect(JSON.stringify(generatedDocuments.body)).toContain(fixtureSet.tenantA.generatedDocumentId);
     expect(JSON.stringify(generatedDocuments.body)).not.toContain(fixtureSet.tenantB.generatedDocumentId);
+
+    await page.goto("/documents");
+    await expect(page.getByRole("heading", { name: "Documents", exact: true })).toBeVisible();
+    await expect(page.locator("main")).toContainText(fixtureSet.tenantA.invoiceNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.invoiceNumber);
+    await expect(page.locator("main")).not.toContainText(fixtureSet.tenantB.generatedDocumentId);
+
+    const tenantDownload = await browserFetch(
+      page,
+      `/generated-documents/${fixtureSet.tenantA.generatedDocumentId}/download`,
+      fixtureSet.tenantA.organizationId,
+    );
+    expectOk(tenantDownload, "/generated-documents/:id/download");
+    expect(tenantDownload.contentType).toContain("application/pdf");
+
+    const tenantAttachmentDownload = await browserFetch(page, `/attachments/${fixtureSet.tenantA.attachmentId}/download`, fixtureSet.tenantA.organizationId);
+    expectOk(tenantAttachmentDownload, "/attachments/:id/download");
+    expect(tenantAttachmentDownload.contentType).toContain("application/pdf");
 
     const foreignGeneratedDocument = await browserContextFetch(
       page,
@@ -274,6 +408,11 @@ function asRecord(value: unknown): Record<string, unknown> {
 function asArray(value: unknown): unknown[] {
   expect(Array.isArray(value)).toBe(true);
   return value as unknown[];
+}
+
+function readAmount(value: unknown): string | undefined {
+  const row = asRecord(value);
+  return typeof row.amount === "string" ? row.amount : undefined;
 }
 
 function dashboardMoneyPattern(amount: string): RegExp {
