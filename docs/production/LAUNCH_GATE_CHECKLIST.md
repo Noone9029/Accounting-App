@@ -31,6 +31,12 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 - The guard checks that target approval, credential boundaries, synthetic tenant data, browser/API smoke coverage, tenant isolation probes, export/download scope, artifact redaction, abort conditions, forbidden actions, and evidence fields are documented.
 - This is not hosted smoke execution, production smoke approval, hosted migration approval, hosted mutation approval, seed/reset/delete approval, cleanup execute approval, monitoring setup, backup/PITR proof, or launch approval.
 
+## 2026-07-05 Production Security Cleanup Dry-Run Note
+
+- `docs/production/PRODUCTION_SECURITY_CLEANUP_DRY_RUN_RUNBOOK.md` and `node scripts/production-cleanup-dry-run-guard.cjs --json` now provide a metadata-only readiness guard for future security cleanup dry-run review.
+- The guard checks that target approval, dry-run-only commands, aggregate count evidence, redaction, abort conditions, execute-mode boundaries, forbidden actions, and root cleanup package scripts are documented.
+- This is not hosted cleanup execution, cleanup execute approval, hosted migration approval, hosted mutation approval, seed/reset/delete approval, cleanup scheduling, monitoring setup, backup/PITR proof, or launch approval.
+
 ## 2026-06-12 Production Trust Foundation Audit Note
 
 - `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
@@ -59,7 +65,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Billing workflow | partial | Billing readiness plan and payment provider decision log exist. | Decide manual invoicing vs payment provider test/live path; do not collect payment until approved. |
 | Support workflow | partial | Beta access/triage docs plus operations support and incident runbooks exist. | Select support channel/tooling, owners, response targets, and escalation. |
 | Production foundation roadmap | done | `PRODUCTION_FOUNDATION_ROADMAP.md`, gap matrix, and launch gates exist. | Convert roadmap items into owned implementation tasks. |
-| Hosting decision | blocked | Vercel is documented as beta/user-testing only; rollback runbook guard exists as metadata-only planning. | Select paid private beta hosting posture and complete approved rollback execution proof for the chosen hosting target. |
+| Hosting decision | blocked | Vercel is documented as beta/user-testing only; rollback, smoke-readiness, and security-cleanup dry-run guards exist as metadata-only planning/readiness evidence. | Select paid private beta hosting posture and complete approved rollback execution proof for the chosen hosting target. |
 | Database runtime role | blocked | Least-privilege runtime role is designed but not cut over. | Establish safe env mutation path, then validate runtime role. |
 | Hosted backup/PITR proof | blocked | Local restore-count drill and synthetic backup/restore harness exist, but no hosted PITR proof is recorded. | Prove hosted database backup/PITR in non-production. |
 | Object storage proof | blocked | Local/mock object-storage proof harness plus synthetic backup/restore harness exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
