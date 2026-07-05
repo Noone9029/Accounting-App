@@ -195,7 +195,11 @@ export class AttachmentService {
     if (attachment.status === AttachmentStatus.DELETED) {
       throw new NotFoundException("Attachment not found.");
     }
-    const buffer = await this.storage.read(attachment);
+    const buffer = await this.storage.read({
+      ...attachment,
+      organizationId,
+      attachmentId: attachment.id,
+    });
     return {
       filename: attachment.filename,
       mimeType: attachment.mimeType,

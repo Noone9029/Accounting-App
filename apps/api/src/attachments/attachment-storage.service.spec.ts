@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { NotFoundException } from "@nestjs/common";
 import { AttachmentStorageProvider } from "@prisma/client";
 import { StorageConfigurationService } from "../storage/storage-configuration.service";
 import { DatabaseAttachmentStorageService, S3AttachmentStorageService } from "./attachment-storage.service";
@@ -99,6 +100,55 @@ describe("S3AttachmentStorageService", () => {
     expect(saved.storageKey).toBe("org/org-1/attachments/attachment-1/tenant-b-secret.pdf");
     expect(saved.storageKey).not.toContain("..");
     expect(mockSend.mock.calls[0][0].input.Key).toBe("org/org-1/attachments/attachment-1/tenant-b-secret.pdf");
+  });
+
+  it("normalizes organization and attachment id object-key segments", async () => {
+    const storage = makeStorage(completeEnv);
+    mockSend.mockResolvedValueOnce({});
+
+    const saved = await storage.save({
+      buffer: Buffer.from("hello"),
+      filename: "invoice.pdf",
+      contentHash: "hash-1",
+      organizationId: "org 1",
+      attachmentId: "attachment 1",
+      mimeType: "application/pdf",
+    });
+
+    expect(saved.storageKey).toBe("org/org-1/attachments/attachment-1/invoice.pdf");
+    expect(mockSend.mock.calls[0][0].input.Key).toBe("org/org-1/attachments/attachment-1/invoice.pdf");
+  });
+
+  it("blocks S3 reads before network when the stored key belongs to another tenant", async () => {
+    const storage = makeStorage(completeEnv);
+    mockSend.mockResolvedValueOnce({ Body: Buffer.from("tenant-b-file") });
+
+    await expect(
+      storage.read({
+        storageProvider: "S3" as AttachmentStorageProvider,
+        storageKey: "org/org-2/attachments/attachment-2/invoice.pdf",
+        organizationId: "org-1",
+        attachmentId: "attachment-1",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("blocks S3 reads before network when the stored key belongs to another attachment", async () => {
+    const storage = makeStorage(completeEnv);
+    mockSend.mockResolvedValueOnce({ Body: Buffer.from("other-attachment-file") });
+
+    await expect(
+      storage.read({
+        storageProvider: "S3" as AttachmentStorageProvider,
+        storageKey: "org/org-1/attachments/attachment-2/invoice.pdf",
+        organizationId: "org-1",
+        attachmentId: "attachment-1",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it("downloads content from S3 storage", async () => {
