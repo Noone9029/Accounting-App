@@ -25,16 +25,25 @@ The fixture refuses non-local database hosts and refuses database names that loo
 - Account menu organization switcher shows only organizations from the authenticated user's memberships.
 - Direct browser fetch with a foreign `x-organization-id` is rejected.
 - Dashboard summary API totals and rendered dashboard money values are scoped to the active tenant.
+- Dashboard report net profit, monthly sales trend, monthly net-profit trend, and receivables aging bucket amounts are scoped to the active tenant.
 - Customer list UI shows tenant A customer records and not tenant B records.
 - Global search API and UI results exclude tenant B markers while tenant A results still appear.
+- Global search API denies tenant B supplier, invoice, bill, journal, and amount markers while still returning tenant A customer, supplier, invoice, bill, and journal markers.
 - Team settings UI shows tenant A membership data and not tenant B membership data.
+- Security settings UI shows tenant A identity and organization context without tenant B identity or organization data.
+- Document settings and storage settings load in tenant A context without tenant B identity, document, or storage markers.
+- Organization document settings and storage migration-plan APIs are rejected for a foreign organization context.
 - Tenant A customer detail URL renders tenant A data without tenant B markers.
 - Direct browser navigation to a tenant B customer detail URL from tenant A context renders a safe not-found state without tenant B markers.
 - Direct customer detail API URL for a tenant B customer id returns not found when requested from tenant A context.
+- Sales invoice list/detail UI, purchase bill list/detail UI, and journal list UI show tenant A records and not tenant B records.
+- Direct API probes for tenant B invoice detail/PDF data, bill detail/PDF data, journal detail, and chart-of-account detail return not found from tenant A context.
 - Profit and loss report JSON excludes tenant B activity.
 - Profit and loss CSV export excludes tenant B activity.
 - Profit and loss PDF export is available for tenant A and rejected for tenant B organization context.
 - Generated document listing excludes tenant B records.
+- Generated document archive UI shows tenant A generated documents and not tenant B generated documents.
+- Tenant A generated document and attachment downloads still work in browser cookie-auth context.
 - Tenant B generated document and attachment downloads return not found when requested from tenant A context.
 
 ## Guard and permission model summary
@@ -57,6 +66,11 @@ The fixture gives User A full permissions in Organization A only and User B full
 - Added `tests/e2e/tenant-isolation-browser.spec.ts`.
 - Added a representative browser direct-URL proof for User A navigating to Tenant B's customer detail route.
 - Added an explicit rendered dashboard money assertion so the browser UI shows Tenant A's amount and not Tenant B's amount.
+- Expanded dashboard API assertions beyond one money field to cover report net profit, sales/net-profit trends, and receivables aging.
+- Expanded search proof to tenant B supplier, invoice, bill, journal, and amount markers.
+- Expanded browser settings proof to team, security, document settings, and storage settings surfaces.
+- Expanded direct URL/API proof to sales invoice, purchase bill, journal, and chart-of-account surfaces.
+- Expanded generated-document proof to include the `/documents` UI archive and tenant A download success before tenant B download denial.
 - Tightened the team settings heading assertion to the exact page heading.
 - The direct foreign customer route assertion allows only the known browser resource error from the related collection lookup after proving the page renders a safe not-found state and no Tenant B markers.
 
@@ -74,7 +88,7 @@ None.
 - Real object-storage provider download isolation beyond database-backed generated documents and attachments.
 - Every route in inventory, banking, tax, compliance, returns, collections, and advanced document workflows.
 - Mutation-heavy browser workflows such as cross-tenant form submissions, because this lane focuses on switching, read, search, report, export, and download boundaries.
-- Page-level navigation to every foreign detail route; this lane uses a representative foreign customer detail URL plus direct API URL probes for foreign detail/download boundaries.
+- Page-level navigation to every foreign detail route; this lane covers customer, sales invoice, and purchase bill page-level foreign detail URLs plus direct API probes for journal and account boundaries. The web app currently has a journal list route, not a journal detail page.
 
 ## Commands run
 
@@ -110,11 +124,28 @@ Follow-up dashboard UI-scope assertion branch:
 - Targeted trailing whitespace scan on changed files - no matches.
 - `git diff --check` - passed with existing CRLF normalization warnings for changed text files.
 
+Expanded browser E2E tenant-surface branch:
+
+- `corepack pnpm install --frozen-lockfile` - passed.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
+- Prisma validate with local placeholder URL - passed.
+- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - blocked by missing local API/web servers; global setup expected `http://localhost:4000` and `http://localhost:3000`.
+- Local opt-in browser DB proof was not run in this environment because Docker Desktop was unavailable, `localhost:5432` was not listening, and no local `postgres`/`psql`/`pg_isready` binaries were available.
+- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts --list` - passed; 3 browser tenant tests discovered.
+- `corepack pnpm lint` - passed.
+- `corepack pnpm typecheck` - passed.
+- First `corepack pnpm test` attempt - failed from a pre-existing `src/tenant-isolation-http.integration.spec.ts` `beforeAll` timeout during the full parallel API run.
+- `corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath src/tenant-isolation-http.integration.spec.ts --runInBand` - passed, 11 tests.
+- Second `corepack pnpm test` attempt - passed; API reported 167 suites passed with 9 skipped tests, web reported 157 suites passed.
+- `corepack pnpm build` - passed; generated `apps/web/next-env.d.ts` churn was restored afterward.
+- `corepack pnpm verify:diff` - passed.
+
 ## Remaining risks
 
 - The browser E2E proof requires local API/web servers and a migrated disposable local database.
 - Normal E2E runs skip this tenant proof unless the explicit opt-in environment variable is set.
 - The browser spec samples representative high-risk UI/API surfaces and does not replace exhaustive route-by-route tenant testing.
+- The expanded assertions have parsed and passed repo type/build gates, but the opt-in browser execution still needs a local API/web/Postgres packet on a machine with those services available.
 
 ## Next recommended prompt
 

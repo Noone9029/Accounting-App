@@ -2,7 +2,7 @@
 
 ## Summary
 
-This PR adds a local-only browser E2E tenant-isolation proof for organization switching, scoped UI reads, search, settings, reports, exports, and downloads.
+This PR adds and expands a local-only browser E2E tenant-isolation proof for organization switching, scoped UI reads, search, settings, reports, exports, direct URL probes, and downloads.
 
 It also updates the Playwright login helper to use cookie-authenticated browser-context login instead of persisting legacy auth tokens in browser localStorage.
 
@@ -20,15 +20,19 @@ It also updates the Playwright login helper to use cookie-authenticated browser-
 - No browser token persistence from E2E helper login.
 - Organization switching correction after invalid stored org context.
 - Account menu organization visibility.
-- Dashboard aggregates.
+- Dashboard aggregates, report net profit, trends, and receivables aging buckets.
 - Customer list and customer detail URL/API boundary.
-- Global search API and UI.
-- Team settings.
+- Sales invoice list/detail URL/API boundary.
+- Purchase bill list/detail URL/API boundary.
+- Journal list and journal detail API boundary.
+- Chart of accounts detail API boundary.
+- Global search API and UI, including customer, supplier, invoice, bill, journal, and amount markers.
+- Team, security, document, and storage settings.
 - Profit and loss JSON report.
 - Profit and loss CSV export.
 - Profit and loss PDF export.
-- Generated document list/download isolation.
-- Attachment download isolation.
+- Generated document archive UI and list/download isolation.
+- Attachment download isolation, including tenant A success before tenant B denial.
 
 ## Runtime impact
 
@@ -70,6 +74,21 @@ The fixture refuses non-local database hosts and production-looking database nam
 - Targeted trailing whitespace scan on changed files - no matches.
 - `apps/web/next-env.d.ts` generated churn was restored.
 
+Expanded tenant-surface validation on this branch:
+
+- `corepack pnpm install --frozen-lockfile` - passed.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
+- Prisma validate with local placeholder URL - passed.
+- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - blocked by missing local API/web servers at `http://localhost:4000` and `http://localhost:3000`.
+- Local opt-in browser DB proof was not run here because Docker Desktop was unavailable, `localhost:5432` was not listening, and no local Postgres binaries were available.
+- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts --list` - passed; 3 browser tenant tests discovered.
+- `corepack pnpm lint` - passed.
+- `corepack pnpm typecheck` - passed.
+- First `corepack pnpm test` attempt failed from a pre-existing API integration `beforeAll` timeout; the same suite passed by path in-band, and the second full `corepack pnpm test` passed.
+- `corepack pnpm build` - passed.
+- `corepack pnpm verify:diff` - passed.
+- `apps/web/next-env.d.ts` generated churn was restored again.
+
 ## Security and safety
 
 - No hosted mutations were run.
@@ -83,7 +102,7 @@ The fixture refuses non-local database hosts and production-looking database nam
 - Real object-storage provider download isolation.
 - Exhaustive browser route coverage for every module.
 - Mutation-heavy browser cross-tenant form submissions.
-- Page-level navigation to every foreign detail route.
+- Page-level navigation to every foreign detail route. This branch covers customer, sales invoice, and purchase bill page-level foreign detail URLs plus direct API probes for journal/account boundaries; the web app currently has no journal detail page.
 
 ## Reviewer focus areas
 
