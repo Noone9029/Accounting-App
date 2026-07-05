@@ -32,6 +32,8 @@ Scope: planning, audit, and documentation only. This pass did not run hosted com
 
 2026-06-19 generated-document object adapter complete staging approval artifact intake update: the follow-up prompt still supplied placeholders only and no explicit safe approval evidence. Approval artifacts remain incomplete, gates remain `BLOCKED`, the runner remains `NOT_READY`, no storage tenant-isolation proof was executed, no hosted object storage was touched, no hosted/customer data was mutated, no signed URLs were generated, and no real object adapter was implemented.
 
+2026-07-05 attachment S3 read-guard update: a local-only runtime hardening pass now passes the authorized organization and attachment id into attachment storage reads and makes `S3AttachmentStorageService` reject stored object keys that do not match that tenant/attachment prefix before any S3 `GetObject` call. S3 attachment object-key tenant and attachment id segments are normalized consistently with filenames. This does not run hosted storage, generate signed URLs, change accounting logic, change schemas, run migrations, or prove hosted bucket policy behavior.
+
 ## Current Storage Architecture
 
 LedgerByte currently has two document/storage domains:
@@ -59,6 +61,7 @@ What is implemented:
 - Attachment upload validates the linked entity belongs to the same organization before storing metadata/body.
 - Attachment soft-delete blocks future downloads.
 - S3 attachment object keys include organization and attachment identifiers.
+- S3 attachment reads verify the stored key still matches the authorized organization and attachment identifiers before object-store access.
 - S3 readiness reporting is configuration-only and does not print secrets.
 - Storage migration planning is dry-run/count-only.
 

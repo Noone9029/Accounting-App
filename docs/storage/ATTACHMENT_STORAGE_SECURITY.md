@@ -12,6 +12,7 @@ Audit date: 2026-05-15
 - Filenames are sanitized.
 - SHA-256 `contentHash` is computed at upload.
 - When `ATTACHMENT_STORAGE_PROVIDER=s3`, new uploads are stored in the configured S3-compatible bucket and the database stores metadata plus `storageKey`, not file base64 content.
+- S3-backed attachment downloads verify that the stored object key still matches the authorized organization and attachment id before any object-store read.
 - List and detail endpoints return metadata only and exclude `contentBase64`.
 - Download is the only content path.
 - Deleted attachments are soft-deleted and cannot be downloaded.

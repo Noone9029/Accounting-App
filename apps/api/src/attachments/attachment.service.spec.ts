@@ -260,7 +260,13 @@ describe("AttachmentService", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from("hello"),
     });
-    expect(storage.read).toHaveBeenCalled();
+    expect(storage.read).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "attachment-1",
+        organizationId: "org-1",
+        attachmentId: "attachment-1",
+      }),
+    );
   });
 
   it("does not read attachment content when a tenant guesses another tenant attachment id", async () => {

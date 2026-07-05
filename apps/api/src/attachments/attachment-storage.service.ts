@@ -30,6 +30,8 @@ export interface StoredAttachmentPayload {
   storageProvider: AttachmentStorageProvider;
   storageKey?: string | null;
   contentBase64?: string | null;
+  organizationId?: string | null;
+  attachmentId?: string | null;
 }
 
 export abstract class AttachmentStorageService extends StorageProvider {
@@ -134,6 +136,7 @@ export class S3AttachmentStorageService extends AttachmentStorageService {
     if (!isS3Provider(payload.storageProvider) || !payload.storageKey) {
       throw new NotFoundException("Attachment content is not available from the configured storage provider.");
     }
+    assertS3StorageKeyMatchesAuthorizedAttachment(payload.storageKey, payload.organizationId, payload.attachmentId);
     const result = await this.s3Client().send(
       new GetObjectCommand({
         Bucket: this.storageConfig.s3Bucket,
@@ -187,7 +190,9 @@ function isS3Provider(provider: AttachmentStorageProvider): boolean {
 }
 
 function objectKey(organizationId: string, attachmentId: string, filename: string): string {
-  return `org/${organizationId}/attachments/${attachmentId}/${sanitizeObjectKeyFilename(filename)}`;
+  assertSafeObjectKeySegmentInput(organizationId);
+  assertSafeObjectKeySegmentInput(attachmentId);
+  return `org/${safeObjectKeySegment(organizationId)}/attachments/${safeObjectKeySegment(attachmentId)}/${sanitizeObjectKeyFilename(filename)}`;
 }
 
 function sanitizeObjectKeyFilename(value: string): string {
@@ -198,6 +203,55 @@ function sanitizeObjectKeyFilename(value: string): string {
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
   return cleaned || "attachment";
+}
+
+function assertS3StorageKeyMatchesAuthorizedAttachment(
+  storageKey: string,
+  organizationId?: string | null,
+  attachmentId?: string | null,
+): void {
+  if (hasUnsafeObjectKeyShape(storageKey)) {
+    throw attachmentContentUnavailable();
+  }
+  if (organizationId) {
+    const tenantPrefix = `org/${safeObjectKeySegment(organizationId)}/`;
+    if (!storageKey.startsWith(tenantPrefix)) {
+      throw attachmentContentUnavailable();
+    }
+  }
+  if (organizationId && attachmentId) {
+    const attachmentPrefix = `org/${safeObjectKeySegment(organizationId)}/attachments/${safeObjectKeySegment(attachmentId)}/`;
+    if (!storageKey.startsWith(attachmentPrefix)) {
+      throw attachmentContentUnavailable();
+    }
+  }
+}
+
+function hasUnsafeObjectKeyShape(storageKey: string): boolean {
+  const key = String(storageKey || "");
+  return key.startsWith("/") || key.endsWith("/") || key.includes("//") || key.split("/").some((part) => part === "." || part === "..");
+}
+
+function assertSafeObjectKeySegmentInput(value: string): void {
+  const parts = String(value || "").split(/[\\/]+/);
+  if (parts.some((part) => part === "." || part === "..")) {
+    throw new ServiceUnavailableException("S3 attachment object keys must not contain traversal segments.");
+  }
+}
+
+function safeObjectKeySegment(value: string): string {
+  return (
+    String(value || "")
+      .trim()
+      .replace(/\.\.+/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "") || "segment"
+  );
+}
+
+function attachmentContentUnavailable(): NotFoundException {
+  return new NotFoundException("Attachment content is not available from the configured storage provider.");
 }
 
 async function bodyToBuffer(body: unknown): Promise<Buffer> {
