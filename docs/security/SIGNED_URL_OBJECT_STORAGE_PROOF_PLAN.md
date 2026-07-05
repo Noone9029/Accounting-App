@@ -4,6 +4,8 @@ Date: 2026-06-19
 
 Scope: local-only signed URL and object-storage proof design plus safe validator scaffolding. This pass does not run hosted commands, mutate hosted/customer data, touch hosted object storage, generate real hosted signed URLs, change schemas, add migrations, apply SQL templates, roll out RLS, apply runtime DB roles, or start ZATCA/UAE provider work.
 
+2026-07-06 real-provider proof packet update: `docs/security/OBJECT_STORAGE_SIGNED_URL_PROOF_APPROVAL_PACKET.md` and `docs/security/OBJECT_STORAGE_SIGNED_URL_PROOF_RUNBOOK.md` now define the blocked-by-default approval fields, allow flags, proof matrix, evidence rules, and stop rules required before any future real provider adapter, bucket policy, signed URL generation/expiry, cross-tenant signed URL denial, revoked/deleted document denial, or cleanup failure-path proof. This update does not implement signed URLs, touch hosted storage, approve execution, or change runtime behavior.
+
 ## Current State
 
 - Signed URLs are not implemented in the current runtime path. `StorageProvider.getReadUrl` exists as an optional interface hook. Attachment storage now exposes a fail-closed implementation that rejects signed URL requests instead of issuing URLs.
@@ -129,3 +131,4 @@ Signed URL and object-storage access are not production-ready until:
 - This plan does not replace the disabled generated-document object adapter with a real object-storage adapter.
 - This plan does not change production readiness scores.
 - This plan does not remove the DB-backed fallback requirement for generated documents.
+- This plan's 2026-07-06 approval packet update does not approve or execute real-provider proof; it only defines the missing approval and evidence contract.
