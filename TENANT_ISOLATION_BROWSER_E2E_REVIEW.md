@@ -29,6 +29,7 @@ The fixture refuses non-local database hosts and refuses database names that loo
 - Global search API and UI results exclude tenant B markers while tenant A results still appear.
 - Team settings UI shows tenant A membership data and not tenant B membership data.
 - Tenant A customer detail URL renders tenant A data without tenant B markers.
+- Direct browser navigation to a tenant B customer detail URL from tenant A context renders a safe not-found state without tenant B markers.
 - Direct customer detail API URL for a tenant B customer id returns not found when requested from tenant A context.
 - Profit and loss report JSON excludes tenant B activity.
 - Profit and loss CSV export excludes tenant B activity.
@@ -45,6 +46,7 @@ The fixture gives User A full permissions in Organization A only and User B full
 ## Bugs found
 
 - Existing Playwright helper `loginByApi` wrote `ledgerbyte.accessToken` into browser localStorage. Runtime code already clears browser token storage, but the helper weakened browser E2E realism after the cookie-auth migration.
+- The settings team page assertion used a non-exact heading locator, so Playwright could match both `Team members` and `Loading team members...` during browser E2E runs.
 
 ## Fixes implemented
 
@@ -53,6 +55,9 @@ The fixture gives User A full permissions in Organization A only and User B full
 - The helper still returns the access token only for test-side API setup and no longer writes token values into browser localStorage.
 - Added a local-only Prisma fixture for two synthetic tenants and browser-visible accounting records.
 - Added `tests/e2e/tenant-isolation-browser.spec.ts`.
+- Added a representative browser direct-URL proof for User A navigating to Tenant B's customer detail route.
+- Tightened the team settings heading assertion to the exact page heading.
+- The direct foreign customer route assertion allows only the known browser resource error from the related collection lookup after proving the page renders a safe not-found state and no Tenant B markers.
 
 ## Database changes
 
@@ -68,24 +73,24 @@ None.
 - Real object-storage provider download isolation beyond database-backed generated documents and attachments.
 - Every route in inventory, banking, tax, compliance, returns, collections, and advanced document workflows.
 - Mutation-heavy browser workflows such as cross-tenant form submissions, because this lane focuses on switching, read, search, report, export, and download boundaries.
-- Page-level navigation to every foreign detail route; this lane uses a representative tenant A customer detail page plus direct API URL probes for foreign detail/download boundaries.
+- Page-level navigation to every foreign detail route; this lane uses a representative foreign customer detail URL plus direct API URL probes for foreign detail/download boundaries.
 
 ## Commands run
 
 - `corepack pnpm install --frozen-lockfile` - passed.
-- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed after stopping the local API helper that held the Prisma Windows query-engine DLL from the browser proof run.
+- `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.
 - `$env:DATABASE_URL='postgresql://accounting:accounting@localhost:5432/accounting?schema=public'; $env:DIRECT_URL=$env:DATABASE_URL; corepack pnpm --filter @ledgerbyte/api exec prisma validate` - passed.
-- `corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - passed in default mode with 3 skipped tests.
-- `LEDGERBYTE_BROWSER_TENANT_E2E=1 LEDGERBYTE_TEST_DATABASE_URL=<allowed local test Postgres URL> LEDGERBYTE_API_URL=http://localhost:4000 LEDGERBYTE_WEB_URL=http://localhost:3010 LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - passed with 3 tests.
+- `LEDGERBYTE_API_URL=http://localhost:4010 LEDGERBYTE_WEB_URL=http://localhost:3010 LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - passed in default mode with 3 skipped tests.
+- `LEDGERBYTE_BROWSER_TENANT_E2E=1 LEDGERBYTE_TEST_DATABASE_URL=<allowed local test Postgres URL> LEDGERBYTE_API_URL=http://localhost:4010 LEDGERBYTE_WEB_URL=http://localhost:3010 LEDGERBYTE_E2E_SEED_WORKFLOWS=false corepack pnpm exec playwright test tests/e2e/tenant-isolation-browser.spec.ts` - passed with 3 tests.
 - `corepack pnpm lint` - passed.
 - `corepack pnpm typecheck` - passed.
-- `corepack pnpm test` - passed. Existing web Jest worker open-handle warning was emitted, with all suites passing.
+- `corepack pnpm test` - passed. API: 167 suites passed, 1531 tests passed, 9 skipped. Web: 157 suites passed, 692 tests passed.
 - `corepack pnpm build` - passed.
 - `corepack pnpm verify:diff` - passed.
 - `git diff -- apps/web/next-env.d.ts` - showed generated Next.js churn only; restored.
-- Targeted high-risk secret scan on changed files - no real secrets; matches were synthetic test field names and token-storage assertions.
+- Targeted high-risk secret scan on changed files - no real secrets; matches were token-storage assertions and the synthetic fixture password field.
 - Targeted trailing whitespace scan on changed files - no matches.
-- `git diff --check` - passed with an existing CRLF normalization warning for `tests/e2e/utils/e2e-helpers.ts`.
+- `git diff --check` - passed with existing CRLF normalization warnings for changed text files.
 
 ## Remaining risks
 
