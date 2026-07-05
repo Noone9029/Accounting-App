@@ -132,3 +132,10 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - The preflight classifies `JWT_SECRET`, `CORS_ORIGIN`, auth cookie settings, `NEXT_PUBLIC_API_URL`, `DATABASE_URL`, `DIRECT_URL`, and security cleanup script wiring without printing secret values.
 - It makes no network calls, no database connections, no hosted mutations, no hosted migrations, no provider calls, no cleanup execute call, and no file writes.
 - This improves production deployment readiness evidence, but it does not replace approved hosted migration, secret-store, cleanup dry-run, monitoring/logging, backup/restore, rollback, or manual browser smoke processes.
+
+## 2026-07-05 Production Smoke Readiness Update
+
+- `scripts/production-smoke-readiness-guard.cjs` adds a metadata-only static guard for future manual/deployed smoke readiness.
+- The guard validates that `docs/production/PRODUCTION_SMOKE_READINESS_RUNBOOK.md` documents target approval, credential boundaries, synthetic tenant data, browser/API smoke coverage, tenant isolation probes, export/download scope, artifact redaction, abort conditions, forbidden actions, and evidence fields.
+- It makes no network calls, no database connections, no hosted mutations, no hosted migrations, no provider calls, no cleanup execute call, no file writes beyond normal command output, no smoke execution, no seed/reset/delete, no exports/downloads, no email sends, and no ZATCA network calls.
+- This improves readiness for production trust ticket 10, but it does not replace approved hosted smoke, manual browser smoke, monitoring/logging, backup/restore, support escalation, or launch approval.

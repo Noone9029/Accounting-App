@@ -16,6 +16,8 @@ PRE-ASP-PRODUCTION-FOUNDATION-01 status: [PRE_ASP_PRODUCTION_FOUNDATION_TRACKER]
 
 PROD-A7 status: [Production rollback runbook](PRODUCTION_ROLLBACK_RUNBOOK.md) is drafted with a local static guard in `scripts/production-rollback-runbook-guard.cjs`. This is metadata-only planning evidence, not rollback execution, hosted migration approval, database restore proof, provider mutation, DNS change, queue purge, or production-readiness approval.
 
+PROD-H3/H4 status: [Production smoke readiness runbook](PRODUCTION_SMOKE_READINESS_RUNBOOK.md) is drafted with a local static guard in `scripts/production-smoke-readiness-guard.cjs`. This is metadata-only readiness evidence, not hosted smoke execution, production smoke approval, hosted migration approval, hosted mutation approval, seed/reset/delete approval, cleanup execute approval, monitoring setup, backup/PITR proof, or launch approval.
+
 ## Ticket Field Guide
 
 - Stage: `controlled beta`, `paid private beta`, `public production`, or `ZATCA gate`.
