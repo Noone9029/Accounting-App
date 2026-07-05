@@ -33,6 +33,8 @@ Only `staging-read-only-probe` has a network-capable adapter today, and only aft
 
 ## Required Approval Packet
 
+Use `docs/security/HOSTED_STAGING_TENANT_PROOF_APPROVAL_PACKET.md` as the fillable packet template. Keep the committed packet secret-free; supply any bearer token or similarly sensitive value only out of band and inject it into the shell environment for the approved run.
+
 Do not run a hosted staging probe until the owner supplies an approval packet containing all of these fields:
 
 - Approved staging or dedicated proof API base URL.
