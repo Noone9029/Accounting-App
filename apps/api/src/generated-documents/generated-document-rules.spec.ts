@@ -1,5 +1,6 @@
 import { DocumentType, GeneratedDocumentStatus } from "@prisma/client";
 import { buildZatcaPdfA3ArchiveBoundary, GeneratedDocumentService, sanitizeFilename } from "./generated-document.service";
+import { FakeLocalGeneratedDocumentObjectStorageAdapter } from "./generated-document-storage";
 
 describe("generated document rules", () => {
   it("archives PDF content as metadata plus base64 content", async () => {
@@ -48,6 +49,7 @@ describe("generated document rules", () => {
         }),
       }),
     );
+    expect(prisma.generatedDocument.create.mock.calls[0]![0].data).not.toHaveProperty("id");
     expect(prisma.salesInvoice.findFirst).toHaveBeenCalledWith({
       where: { id: "invoice-1", organizationId: "org-1" },
       select: { id: true },
@@ -89,6 +91,74 @@ describe("generated document rules", () => {
       select: { id: true },
     });
     expect(prisma.generatedDocument.create).not.toHaveBeenCalled();
+  });
+
+  it("archives and downloads generated PDFs through the local object adapter with tenant-scoped keys", async () => {
+    let storedDocument: Record<string, unknown> | null = null;
+    const prisma = {
+      generatedDocument: {
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          storedDocument = {
+            ...data,
+            generatedAt: new Date("2026-07-05T00:00:00.000Z"),
+            createdAt: new Date("2026-07-05T00:00:00.000Z"),
+          };
+          return storedDocument;
+        }),
+        findFirst: jest.fn(async ({ where }: { where: { id: string; organizationId: string } }) => {
+          if (!storedDocument || storedDocument.id !== where.id || storedDocument.organizationId !== where.organizationId) {
+            return null;
+          }
+          return storedDocument;
+        }),
+      },
+      salesInvoice: { findFirst: jest.fn().mockResolvedValue({ id: "invoice-1" }) },
+    };
+    const auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+    const objectStorage = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+    const service = new GeneratedDocumentService(prisma as never, auditLogService as never, objectStorage);
+    const buffer = Buffer.from("%PDF object archive");
+
+    const document = await service.archivePdf({
+      organizationId: "org-1",
+      documentType: DocumentType.SALES_INVOICE,
+      sourceType: "SalesInvoice",
+      sourceId: "invoice-1",
+      documentNumber: "INV-000001",
+      filename: "invoice-INV-000001.pdf",
+      buffer,
+      generatedById: "user-1",
+    });
+
+    expect(document).toMatchObject({
+      organizationId: "org-1",
+      storageProvider: "local-test-object",
+      contentBase64: null,
+      contentHash: expect.any(String),
+      sizeBytes: buffer.byteLength,
+    });
+    expect(document.id).toEqual(expect.any(String));
+    expect(String(document.storageKey)).toMatch(
+      /^org\/org-1\/generated-documents\/[0-9a-f-]{36}\/invoice-INV-000001\.pdf$/,
+    );
+    expect(prisma.generatedDocument.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: document.id,
+          organizationId: "org-1",
+          storageProvider: "local-test-object",
+          storageKey: document.storageKey,
+          contentBase64: null,
+        }),
+      }),
+    );
+
+    await expect(service.download("org-1", String(document.id))).resolves.toMatchObject({
+      filename: "invoice-INV-000001.pdf",
+      mimeType: "application/pdf",
+      buffer,
+    });
+    await expect(service.download("org-2", String(document.id))).rejects.toThrow("Generated document not found.");
   });
 
   it("archives invoice PDFs through a metadata-only ZATCA PDF/A-3 boundary", async () => {

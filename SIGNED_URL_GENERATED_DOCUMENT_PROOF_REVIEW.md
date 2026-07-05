@@ -52,7 +52,7 @@ This lane adds local fail-closed proof around storage read URL paths. It does no
 - Real signed URL issuance. It remains unimplemented.
 - Hosted bucket policy and provider-side direct object access denial.
 - Hosted object-storage proof with synthetic tenants.
-- Generated-document real object-storage adapter behavior.
+- Real hosted generated-document object-storage provider behavior; local service-level object-adapter integration is covered separately in `GENERATED_DOCUMENT_OBJECT_STORAGE_PROOF_REVIEW.md`.
 - Archive object storage, retention, legal hold, malware scanning, backup/restore, URL TTL expiry, stale-permission revocation, and signed URL audit events.
 
 ## Commands run
