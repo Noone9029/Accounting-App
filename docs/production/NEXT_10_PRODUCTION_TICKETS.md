@@ -125,3 +125,10 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 ## Next Ticket Recommendation
 
 `Production trust implementation ticket 3: monitoring and runtime health proof`
+
+## 2026-07-05 Production Environment Preflight Update
+
+- `scripts/production-env-preflight.cjs` adds a local/read-only production environment posture preflight.
+- The preflight classifies `JWT_SECRET`, `CORS_ORIGIN`, auth cookie settings, `NEXT_PUBLIC_API_URL`, `DATABASE_URL`, `DIRECT_URL`, and security cleanup script wiring without printing secret values.
+- It makes no network calls, no database connections, no hosted mutations, no hosted migrations, no provider calls, no cleanup execute call, and no file writes.
+- This improves production deployment readiness evidence, but it does not replace approved hosted migration, secret-store, cleanup dry-run, monitoring/logging, backup/restore, rollback, or manual browser smoke processes.
