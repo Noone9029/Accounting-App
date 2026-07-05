@@ -25,6 +25,12 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 - The guard checks that rollback owner roles, deploy rollback, migration decision boundaries, environment rollback, queue/worker rollback, customer communication, post-rollback verification, abort conditions, forbidden actions, and evidence redaction are documented.
 - This is not rollback execution, hosted migration approval, database restore proof, provider mutation, DNS change, queue purge, staging smoke, manual browser smoke, or production-readiness approval.
 
+## 2026-07-05 Production Smoke Readiness Note
+
+- `docs/production/PRODUCTION_SMOKE_READINESS_RUNBOOK.md` and `node scripts/production-smoke-readiness-guard.cjs --json` now provide a metadata-only readiness guard for future manual/deployed smoke.
+- The guard checks that target approval, credential boundaries, synthetic tenant data, browser/API smoke coverage, tenant isolation probes, export/download scope, artifact redaction, abort conditions, forbidden actions, and evidence fields are documented.
+- This is not hosted smoke execution, production smoke approval, hosted migration approval, hosted mutation approval, seed/reset/delete approval, cleanup execute approval, monitoring setup, backup/PITR proof, or launch approval.
+
 ## 2026-06-12 Production Trust Foundation Audit Note
 
 - `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
@@ -40,8 +46,8 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Beta access workflow dry-run | done | Beta access dry run verified mock invite, role changes, suspension/reactivation/suspension for a dummy tester. | Invite real selected testers manually and revoke after testing. |
 | Beta feedback intake kit | done | Feedback form, triage guide, and issue templates exist. | Collect completed feedback; current intake has no findings. |
 | Accountant review packet | partial | Packet, checklist, findings template, and sample output index exist. | Qualified accountant review findings are still pending. |
-| Full smoke | blocked | Narrow deployed phases exist; full smoke remains intentionally pending. | Run only when target environment and credentials are approved. |
-| Full E2E | blocked | Manual deployed E2E runbook exists. | Run only against safe non-production data with approved credentials. |
+| Full smoke | blocked | Narrow deployed phases exist; full smoke remains intentionally pending. The production smoke readiness runbook guard now documents the target approval and synthetic-data safety contract. | Run only when target environment and credentials are approved. |
+| Full E2E | blocked | Manual deployed E2E runbook exists. The production smoke readiness runbook now links browser smoke to tenant-switching, dashboard, search, settings, export, download, refresh, and direct URL probes. | Run only against safe non-production data with approved credentials. |
 | ZATCA production compliance | not required for this stage | Beta docs state no real ZATCA production compliance. | Keep claims disabled. |
 | Real customer data | not required for this stage | Beta guidance requires dummy/test data unless explicitly approved. | Keep beta data policy enforced. |
 
