@@ -14,6 +14,8 @@ PROD-A2 status: [ADR-013 API hosting decision](adrs/ADR-013-api-hosting-decision
 
 PRE-ASP-PRODUCTION-FOUNDATION-01 status: [PRE_ASP_PRODUCTION_FOUNDATION_TRACKER](PRE_ASP_PRODUCTION_FOUNDATION_TRACKER.md) now centralizes pre-ASP foundation evidence. It adds docs and local helper tests only; hosted execution tickets below remain the authority for any future production-affecting command, credential change, provider mutation, backup/restore, email send, payment action, or compliance network action.
 
+PROD-A7 status: [Production rollback runbook](PRODUCTION_ROLLBACK_RUNBOOK.md) is drafted with a local static guard in `scripts/production-rollback-runbook-guard.cjs`. This is metadata-only planning evidence, not rollback execution, hosted migration approval, database restore proof, provider mutation, DNS change, queue purge, or production-readiness approval.
+
 ## Ticket Field Guide
 
 - Stage: `controlled beta`, `paid private beta`, `public production`, or `ZATCA gate`.

@@ -19,6 +19,12 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 - Public production gate improves from `not started` to `partial` for monitoring/support/incident documentation, but no monitoring provider, log drain, production alert, hosted PITR, object storage proof, signed URL proof, or production hosting decision is complete.
 - Security gate gains read-only diagnostics and strategy docs; runtime DB role, RLS/Data API hardening, and hosted cross-tenant proof remain blocked.
 
+## 2026-07-05 Production Rollback Runbook Note
+
+- `docs/production/PRODUCTION_ROLLBACK_RUNBOOK.md` and `node scripts/production-rollback-runbook-guard.cjs --json` now provide a metadata-only rollback runbook guard.
+- The guard checks that rollback owner roles, deploy rollback, migration decision boundaries, environment rollback, queue/worker rollback, customer communication, post-rollback verification, abort conditions, forbidden actions, and evidence redaction are documented.
+- This is not rollback execution, hosted migration approval, database restore proof, provider mutation, DNS change, queue purge, staging smoke, manual browser smoke, or production-readiness approval.
+
 ## 2026-06-12 Production Trust Foundation Audit Note
 
 - `docs/production/PRODUCTION_TRUST_FOUNDATION_AUDIT.md` and `corepack pnpm production:trust-foundation-gate -- --json --strict` now provide a non-mutating static honesty gate for production-trust posture.
@@ -47,7 +53,7 @@ Current practical stage: controlled beta/user-testing. Vercel is beta/user-testi
 | Billing workflow | partial | Billing readiness plan and payment provider decision log exist. | Decide manual invoicing vs payment provider test/live path; do not collect payment until approved. |
 | Support workflow | partial | Beta access/triage docs plus operations support and incident runbooks exist. | Select support channel/tooling, owners, response targets, and escalation. |
 | Production foundation roadmap | done | `PRODUCTION_FOUNDATION_ROADMAP.md`, gap matrix, and launch gates exist. | Convert roadmap items into owned implementation tasks. |
-| Hosting decision | blocked | Vercel is documented as beta/user-testing only. | Select paid private beta hosting posture and rollback plan. |
+| Hosting decision | blocked | Vercel is documented as beta/user-testing only; rollback runbook guard exists as metadata-only planning. | Select paid private beta hosting posture and complete approved rollback execution proof for the chosen hosting target. |
 | Database runtime role | blocked | Least-privilege runtime role is designed but not cut over. | Establish safe env mutation path, then validate runtime role. |
 | Hosted backup/PITR proof | blocked | Local restore-count drill and synthetic backup/restore harness exist, but no hosted PITR proof is recorded. | Prove hosted database backup/PITR in non-production. |
 | Object storage proof | blocked | Local/mock object-storage proof harness plus synthetic backup/restore harness exist, but real non-production bucket proof is still missing. | Validate a real non-production bucket and object-storage restore proof. |
