@@ -34,6 +34,8 @@
     "test:production-rollback-runbook-guard": "node --test scripts/production-rollback-runbook-guard.test.cjs",
     "production:smoke-readiness-guard": "node scripts/production-smoke-readiness-guard.cjs",
     "test:production-smoke-readiness-guard": "node --test scripts/production-smoke-readiness-guard.test.cjs",
+    "production:cleanup-dry-run-guard": "node scripts/production-cleanup-dry-run-guard.cjs",
+    "test:production-cleanup-dry-run-guard": "node --test scripts/production-cleanup-dry-run-guard.test.cjs",
     "tenant-isolation:proof": "corepack pnpm --filter @ledgerbyte/api tenant-isolation:proof",
     "test:tenant-isolation-proof": "corepack pnpm --filter @ledgerbyte/api test:tenant-isolation-proof",
     "pre-asp:diagnostics": "node scripts/pre-asp-readiness-diagnostics.cjs --json",

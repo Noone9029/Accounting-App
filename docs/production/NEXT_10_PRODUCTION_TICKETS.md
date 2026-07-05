@@ -139,3 +139,10 @@ Current state: controlled beta/user-testing. Vercel is beta/user-testing only, n
 - The guard validates that `docs/production/PRODUCTION_SMOKE_READINESS_RUNBOOK.md` documents target approval, credential boundaries, synthetic tenant data, browser/API smoke coverage, tenant isolation probes, export/download scope, artifact redaction, abort conditions, forbidden actions, and evidence fields.
 - It makes no network calls, no database connections, no hosted mutations, no hosted migrations, no provider calls, no cleanup execute call, no file writes beyond normal command output, no smoke execution, no seed/reset/delete, no exports/downloads, no email sends, and no ZATCA network calls.
 - This improves readiness for production trust ticket 10, but it does not replace approved hosted smoke, manual browser smoke, monitoring/logging, backup/restore, support escalation, or launch approval.
+
+## 2026-07-05 Production Security Cleanup Dry-Run Update
+
+- `scripts/production-cleanup-dry-run-guard.cjs` adds a metadata-only static guard for future production security cleanup dry-run readiness.
+- The guard validates that `docs/production/PRODUCTION_SECURITY_CLEANUP_DRY_RUN_RUNBOOK.md` documents target approval, dry-run-only commands, aggregate count evidence, redaction, abort conditions, execute-mode boundaries, forbidden actions, and root cleanup package script wiring.
+- It makes no network calls, no database connections, no hosted mutations, no hosted migrations, no provider calls, no cleanup dry-run call, no cleanup execute call, no seed/reset/delete, no email sends, and no ZATCA network calls.
+- This improves production cleanup dry-run readiness, but it does not replace owner-approved hosted dry-run execution, cleanup execute approval, cleanup scheduling, monitoring/logging, backup/restore, support escalation, or launch approval.
