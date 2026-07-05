@@ -71,6 +71,7 @@ describe("AttachmentService", () => {
       read: jest.fn().mockResolvedValue(Buffer.from("hello")),
       saveObject: jest.fn(),
       getObject: jest.fn(),
+      getReadUrl: jest.fn(),
       deleteObject: jest.fn(),
       readiness: jest.fn().mockReturnValue({ provider: "database", ready: true, blockingReasons: [], warnings: [] }),
     };

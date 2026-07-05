@@ -59,6 +59,10 @@ export abstract class AttachmentStorageService extends StorageProvider {
     return this.read({ storageProvider: AttachmentStorageProvider.DATABASE, ...input });
   }
 
+  async getReadUrl(_input: GetObjectInput): Promise<string | null> {
+    throw new ServiceUnavailableException("Attachment signed URLs are disabled and require separate storage proof before use.");
+  }
+
   async deleteObject(_input: DeleteObjectInput): Promise<void> {
     return undefined;
   }
@@ -147,6 +151,9 @@ export class S3AttachmentStorageService extends AttachmentStorageService {
   }
 
   async getObject(input: GetObjectInput): Promise<Buffer> {
+    if (!input.organizationId || !input.attachmentId) {
+      throw new ServiceUnavailableException("S3 attachment storage requires authorized organization and attachment identifiers before object reads.");
+    }
     return this.read({ storageProvider: AttachmentStorageProvider.S3, ...input });
   }
 

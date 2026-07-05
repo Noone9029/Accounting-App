@@ -6,12 +6,12 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 
 ## Current State
 
-- Signed URLs are not implemented in the current runtime path. `StorageProvider.getReadUrl` exists as an optional interface hook, but no provider implements signed URL issuance.
+- Signed URLs are not implemented in the current runtime path. `StorageProvider.getReadUrl` exists as an optional interface hook. Attachment storage now exposes a fail-closed implementation that rejects signed URL requests instead of issuing URLs.
 - Uploaded attachments are database/base64-backed by default. The S3-compatible attachment adapter is feature-flagged groundwork for new uploaded attachments and writes keys under `org/{organizationId}/attachments/{attachmentId}/{safeFilename}` when configured.
 - Generated documents remain database-backed through `GeneratedDocumentService.archivePdf()` and `contentBase64`. Generated-document S3 writes are not implemented.
 - Generated-document content now flows through `GeneratedDocumentStorageAdapter` with `DatabaseGeneratedDocumentStorageAdapter` as the runtime default. The fake local object adapter is test-only and not runtime-registered.
-- Explicit generated-document object/S3-compatible adapter selection now resolves to a disabled fail-closed adapter. The disabled adapter has no signed URL method and throws disabled/not-configured errors before any generated-document object read or write.
-- The fake local generated-document object adapter now proves in-memory object-style write/read/hash/size/key/missing-object/tenant-context/duplicate behavior for local tests only. It has no signed URL method and is refused for production-looking selection.
+- Explicit generated-document object/S3-compatible adapter selection now resolves to a disabled fail-closed adapter. The disabled adapter throws disabled/not-configured errors before any generated-document object read or write and rejects generated-document read URL requests.
+- The fake local generated-document object adapter now proves in-memory object-style write/read/hash/size/key/missing-object/tenant-context/duplicate behavior for local tests only. It rejects generated-document read URL requests and is refused for production-looking selection.
 - The generated-document object-storage contract now requires future generated-document object keys to be tenant-prefixed and generated-document-id anchored, with object keys resolved only after authorization.
 - The generated-document object-storage implementation plan keeps generated documents DB-backed by default and requires DB fallback, disabled object reads, synthetic staging proof, and owner approval before any object-backed rollout.
 - `docs/storage/GENERATED_DOCUMENT_OBJECT_ADAPTER_STAGING_PROOF_GATES.md` now defines the required gates before any future generated-document object adapter can run against staging object storage. Signed URLs remain outside that proof unless a separate signed URL gate is approved.
@@ -22,6 +22,8 @@ Scope: local-only signed URL and object-storage proof design plus safe validator
 - The current approval artifact intake supplied placeholders only. Approval artifacts remain incomplete, gates remain `BLOCKED`, proof remains not executed, and no signed URL support is added.
 - The complete approval artifact follow-up intake also supplied placeholders only. Approval artifacts remain incomplete, gates remain `BLOCKED`, proof remains not executed, and no signed URL support is added.
 - Attachment and generated-document downloads are API-mediated through JWT auth, organization context, permission guards, and service-level `{ id, organizationId }` predicates.
+- Generic S3 attachment object reads now require authorized `organizationId` and `attachmentId` context before issuing provider reads. Attachment signed URL requests fail closed before provider access.
+- Generated-document storage adapters now expose a generated-document-specific read URL method that fails closed for database, fake local object, and disabled object adapters.
 - Archive/future retention object storage is not implemented as a runtime object-storage path. It remains a proof and design requirement.
 
 ## Signed URL Authorization Rules
@@ -119,6 +121,7 @@ Signed URL and object-storage access are not production-ready until:
 ## Explicit Non-Claims
 
 - This plan does not implement signed URL infrastructure.
+- This plan documents fail-closed signed URL request behavior only; it does not issue real signed URLs.
 - This plan does not prove hosted bucket policy behavior.
 - This plan does not prove hosted object-storage tenant boundaries.
 - This plan does not make generated-document object storage active.
