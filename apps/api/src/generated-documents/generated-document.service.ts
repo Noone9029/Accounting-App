@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { DocumentType, GeneratedDocumentStatus, Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { GeneratedDocumentQueryDto } from "./dto/generated-document-query.dto";
@@ -148,14 +149,17 @@ export class GeneratedDocumentService {
 
   async archivePdf(input: ArchivePdfInput) {
     await this.assertSourceRecordBelongsToOrganization(input.organizationId, input.sourceType, input.sourceId);
+    const generatedDocumentId = this.generatedDocumentStorage.getStorageBackendName() === "database" ? undefined : randomUUID();
     const storedContent = await this.generatedDocumentStorage.writeGeneratedDocumentContent({
       organizationId: input.organizationId,
+      generatedDocumentId,
       filename: input.filename,
       mimeType: "application/pdf",
       buffer: input.buffer,
     });
     const document = await this.prisma.generatedDocument.create({
       data: {
+        ...(generatedDocumentId ? { id: generatedDocumentId } : {}),
         organizationId: input.organizationId,
         documentType: input.documentType,
         sourceType: input.sourceType,

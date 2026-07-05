@@ -50,7 +50,7 @@ This lane tightens local attachment object-storage tenant isolation. It does not
 - Hosted object-storage tenant isolation with a real bucket and synthetic tenants.
 - Bucket policy/direct object access denial.
 - Real signed URL behavior; signed URLs remain unimplemented.
-- Generated-document real object-storage behavior; generated documents remain database-backed by default.
+- Real hosted generated-document object-storage provider behavior; local service-level object-adapter integration is covered separately in `GENERATED_DOCUMENT_OBJECT_STORAGE_PROOF_REVIEW.md`, and generated documents remain database-backed by default.
 - Backup/restore, malware scanning, lifecycle, legal hold, immutable retention, and stale permission revocation behavior.
 
 ## Commands run
