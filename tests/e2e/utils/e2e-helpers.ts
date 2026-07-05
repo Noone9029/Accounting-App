@@ -8,6 +8,12 @@ export interface E2eSession {
   organizationId: string;
 }
 
+interface BrowserLoginOptions {
+  email?: string;
+  password?: string;
+  organizationId?: string;
+}
+
 export const test = base.extend<{ criticalPageErrors: string[] }>({
   criticalPageErrors: [
     async ({ page }, use) => {
@@ -59,15 +65,32 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, ses
 }
 
 export async function loginByApi(page: Page): Promise<E2eSession> {
-  const login = await apiRequest<{ accessToken: string }>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email: e2eConfig.email, password: e2eConfig.password }),
+  return loginByBrowserApi(page);
+}
+
+export async function loginByBrowserApi(page: Page, options: BrowserLoginOptions = {}): Promise<E2eSession> {
+  const email = options.email ?? e2eConfig.email;
+  const password = options.password ?? e2eConfig.password;
+  const preferredOrganizationId = options.organizationId ?? e2eConfig.organizationId;
+
+  const loginResponse = await page.context().request.post(`${e2eConfig.apiUrl}/auth/login`, {
+    data: { email, password },
   });
+  const loginText = await loginResponse.text();
+  const login = loginText ? safeJson(loginText) : undefined;
+  if (!loginResponse.ok()) {
+    const message = typeof login === "object" && login && "message" in login ? String(login.message) : loginText;
+    throw new Error(`POST /auth/login failed with HTTP ${loginResponse.status()}: ${message}`);
+  }
+  if (!isRecord(login) || typeof login.accessToken !== "string") {
+    throw new Error("Login response did not include an access token for test-side API setup.");
+  }
+
   const me = await apiRequest<{
     memberships: Array<{ organizationId?: string; organization?: { id?: string }; status: string }>;
   }>("/auth/me", {}, { token: login.accessToken, organizationId: "" });
   const membership =
-    me.memberships.find((item) => item.status === "ACTIVE" && (item.organizationId ?? item.organization?.id) === e2eConfig.organizationId) ??
+    me.memberships.find((item) => item.status === "ACTIVE" && (item.organizationId ?? item.organization?.id) === preferredOrganizationId) ??
     me.memberships.find((item) => item.status === "ACTIVE") ??
     me.memberships[0];
   if (!membership) {
@@ -78,8 +101,7 @@ export async function loginByApi(page: Page): Promise<E2eSession> {
     throw new Error("Seeded E2E user membership does not include an organization id.");
   }
   const session = { token: login.accessToken, organizationId };
-  await page.addInitScript(({ token, organizationId }) => {
-    window.localStorage.setItem("ledgerbyte.accessToken", token);
+  await page.addInitScript(({ organizationId }) => {
     window.localStorage.setItem("ledgerbyte.activeOrganizationId", organizationId);
   }, session);
   return session;
@@ -125,4 +147,8 @@ function safeJson(value: string) {
   } catch {
     return value;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
