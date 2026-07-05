@@ -6,6 +6,8 @@ This PR adds a metadata-only production rollback runbook plus a local static gua
 
 It improves paid-beta production readiness by documenting rollback owner roles, application rollback checks, migration decision boundaries, environment-variable rollback safety, queue/worker rollback safety, support communication, post-rollback verification, abort conditions, and evidence redaction.
 
+Review update: the guard now rejects absolute or repo-escaping `--runbook` paths before reading files, so the metadata-only/no-secret-read contract cannot be weakened by path traversal.
+
 ## Files changed
 
 - `docs/production/PRODUCTION_ROLLBACK_RUNBOOK.md`
@@ -46,9 +48,9 @@ No UI behavior changed.
 ## Validation
 
 - `node --test scripts/production-rollback-runbook-guard.test.cjs` before implementation - failed because the guard module did not exist.
-- `node --test scripts/production-rollback-runbook-guard.test.cjs` - passed, 4 tests.
+- `node --test scripts/production-rollback-runbook-guard.test.cjs` - passed, 5 tests.
 - `node scripts/production-rollback-runbook-guard.cjs --json` - passed with `PRODUCTION_ROLLBACK_RUNBOOK_GUARD_PASSED`.
-- `corepack pnpm test:production-rollback-runbook-guard` - passed, 4 tests.
+- `corepack pnpm test:production-rollback-runbook-guard` - passed, 5 tests.
 - `corepack pnpm production:rollback-runbook-guard -- --json` - passed with `PRODUCTION_ROLLBACK_RUNBOOK_GUARD_PASSED`.
 - `corepack pnpm install --frozen-lockfile` - passed.
 - `corepack pnpm --filter @ledgerbyte/api db:generate` - passed.

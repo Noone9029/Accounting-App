@@ -106,16 +106,18 @@ function usage() {
 
 function buildProductionRollbackRunbookGuard(options = {}) {
   const repoRoot = resolveRepoRoot(options.cwd || process.cwd());
-  const runbookPath = normalizeRunbookPath(options.runbook || RUNBOOK_PATH);
-  const fullRunbookPath = path.join(repoRoot, ...runbookPath.split("/"));
+  const resolvedRunbook = resolveRunbookFilePath(repoRoot, options.runbook || RUNBOOK_PATH);
+  const runbookPath = resolvedRunbook.runbookPath;
   const blockers = [];
   const warnings = [];
 
   let text = "";
-  if (!fs.existsSync(fullRunbookPath)) {
+  if (resolvedRunbook.blocker) {
+    blockers.push(resolvedRunbook.blocker);
+  } else if (!fs.existsSync(resolvedRunbook.fullRunbookPath)) {
     blockers.push(`BLOCKED_RUNBOOK_MISSING: ${runbookPath}`);
   } else {
-    text = fs.readFileSync(fullRunbookPath, "utf8");
+    text = fs.readFileSync(resolvedRunbook.fullRunbookPath, "utf8");
   }
 
   const missingSections = REQUIRED_SECTIONS.filter((section) => !hasHeading(text, section));
@@ -215,6 +217,27 @@ function normalizeRunbookPath(runbookPath) {
   return String(runbookPath || RUNBOOK_PATH).replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
+function resolveRunbookFilePath(repoRoot, rawRunbookPath) {
+  const rawPath = String(rawRunbookPath || RUNBOOK_PATH);
+  const runbookPath = normalizeRunbookPath(rawPath);
+  const fullRunbookPath = path.resolve(repoRoot, ...runbookPath.split("/").filter(Boolean));
+  const resolvedRepoRoot = path.resolve(repoRoot);
+  const relativeToRepo = path.relative(resolvedRepoRoot, fullRunbookPath);
+  const escapesRepo = relativeToRepo.startsWith("..") || path.isAbsolute(relativeToRepo);
+
+  if (path.isAbsolute(rawPath) || escapesRepo) {
+    return {
+      runbookPath,
+      blocker: `BLOCKED_RUNBOOK_PATH_OUTSIDE_REPO: ${runbookPath}`,
+    };
+  }
+
+  return {
+    runbookPath,
+    fullRunbookPath,
+  };
+}
+
 function resolveRepoRoot(start) {
   let current = path.resolve(start);
   while (true) {
@@ -280,4 +303,5 @@ module.exports = {
   usage,
   buildProductionRollbackRunbookGuard,
   formatText,
+  resolveRunbookFilePath,
 };

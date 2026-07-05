@@ -53,6 +53,22 @@ test("blocks when required sections and boundaries are absent", () => {
   assert.match(result.blockers.join("\n"), /BLOCKED_MISSING_SAFE_METADATA/);
 });
 
+test("blocks runbook paths outside the repository before reading them", () => {
+  const repoRoot = createFixtureRepo();
+  const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-rollback-outside-"));
+  const outsidePath = path.join(outsideDir, "secret-like-runbook.md");
+  fs.writeFileSync(outsidePath, validRunbookText());
+
+  const result = buildProductionRollbackRunbookGuard({
+    cwd: repoRoot,
+    runbook: path.relative(repoRoot, outsidePath),
+  });
+
+  assert.equal(result.status, STATUS_BLOCKED);
+  assert.equal(result.runbookRead, false);
+  assert.match(result.blockers.join("\n"), /BLOCKED_RUNBOOK_PATH_OUTSIDE_REPO/);
+});
+
 test("json CLI output is parseable and reports non-mutating behavior", () => {
   const repoRoot = createFixtureRepo();
   const scriptPath = path.join(__dirname, "production-rollback-runbook-guard.cjs");
