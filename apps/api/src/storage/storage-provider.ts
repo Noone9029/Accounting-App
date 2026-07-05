@@ -19,6 +19,8 @@ export interface SaveObjectResult {
 export interface GetObjectInput {
   storageKey?: string | null;
   contentBase64?: string | null;
+  organizationId?: string | null;
+  attachmentId?: string | null;
 }
 
 export interface DeleteObjectInput {

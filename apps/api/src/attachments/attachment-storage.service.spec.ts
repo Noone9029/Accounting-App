@@ -173,11 +173,40 @@ describe("S3AttachmentStorageService", () => {
     );
   });
 
-  it("supports the generic getObject path for S3-backed attachments", async () => {
+  it("blocks the generic getObject path for S3-backed attachments without tenant context", async () => {
     const storage = makeStorage(completeEnv);
     mockSend.mockResolvedValueOnce({ Body: Buffer.from("hello") });
 
-    await expect(storage.getObject({ storageKey: "org/org-1/attachments/attachment-1/invoice.pdf" })).resolves.toEqual(Buffer.from("hello"));
+    await expect(storage.getObject({ storageKey: "org/org-1/attachments/attachment-1/invoice.pdf" })).rejects.toThrow(
+      "S3 attachment storage requires authorized organization and attachment identifiers before object reads.",
+    );
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("supports the generic getObject path for S3-backed attachments with tenant context", async () => {
+    const storage = makeStorage(completeEnv);
+    mockSend.mockResolvedValueOnce({ Body: Buffer.from("hello") });
+
+    await expect(
+      storage.getObject({
+        storageKey: "org/org-1/attachments/attachment-1/invoice.pdf",
+        organizationId: "org-1",
+        attachmentId: "attachment-1",
+      }),
+    ).resolves.toEqual(Buffer.from("hello"));
+  });
+
+  it("fails closed for attachment signed URL requests", async () => {
+    const storage = makeStorage(completeEnv);
+
+    await expect(
+      storage.getReadUrl({
+        storageKey: "org/org-1/attachments/attachment-1/invoice.pdf",
+        organizationId: "org-1",
+        attachmentId: "attachment-1",
+      }),
+    ).rejects.toThrow("Attachment signed URLs are disabled and require separate storage proof before use.");
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it("supports the generic saveObject path with S3 attachment identifiers", async () => {

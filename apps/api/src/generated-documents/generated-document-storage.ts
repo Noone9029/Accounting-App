@@ -37,6 +37,7 @@ export abstract class GeneratedDocumentStorageAdapter {
   abstract getStorageBackendName(): string;
   abstract writeGeneratedDocumentContent(input: GeneratedDocumentContentWriteInput): Promise<GeneratedDocumentContentWriteResult>;
   abstract readGeneratedDocumentContent(payload: StoredGeneratedDocumentContent): Promise<Buffer>;
+  abstract getGeneratedDocumentReadUrl(payload: StoredGeneratedDocumentContent): Promise<string>;
   abstract verifyGeneratedDocumentContentHash(buffer: Buffer, expectedHash: string): boolean;
   abstract deriveGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string;
 }
@@ -75,6 +76,10 @@ export class DatabaseGeneratedDocumentStorageAdapter extends GeneratedDocumentSt
       throw new NotFoundException("Generated document content is not available from the configured storage provider.");
     }
     return Buffer.from(payload.contentBase64, "base64");
+  }
+
+  async getGeneratedDocumentReadUrl(_payload: StoredGeneratedDocumentContent): Promise<string> {
+    throw disabledGeneratedDocumentSignedUrlError();
   }
 
   verifyGeneratedDocumentContentHash(buffer: Buffer, expectedHash: string): boolean {
@@ -153,6 +158,10 @@ export class FakeLocalGeneratedDocumentObjectStorageAdapter extends GeneratedDoc
     return Buffer.from(buffer);
   }
 
+  async getGeneratedDocumentReadUrl(_payload: StoredGeneratedDocumentContent): Promise<string> {
+    throw disabledGeneratedDocumentSignedUrlError();
+  }
+
   verifyGeneratedDocumentContentHash(buffer: Buffer, expectedHash: string): boolean {
     return sha256(buffer) === expectedHash;
   }
@@ -173,6 +182,10 @@ export class DisabledGeneratedDocumentObjectStorageAdapter extends GeneratedDocu
 
   async readGeneratedDocumentContent(_payload: StoredGeneratedDocumentContent): Promise<Buffer> {
     throw disabledGeneratedDocumentObjectStorageError();
+  }
+
+  async getGeneratedDocumentReadUrl(_payload: StoredGeneratedDocumentContent): Promise<string> {
+    throw disabledGeneratedDocumentSignedUrlError();
   }
 
   verifyGeneratedDocumentContentHash(_buffer: Buffer, _expectedHash: string): boolean {
@@ -230,6 +243,10 @@ function normalizeGeneratedDocumentStorageMode(value: string | null | undefined)
 
 function disabledGeneratedDocumentObjectStorageError(): ServiceUnavailableException {
   return new ServiceUnavailableException("Generated-document object storage is disabled and has no configured runtime adapter.");
+}
+
+function disabledGeneratedDocumentSignedUrlError(): ServiceUnavailableException {
+  return new ServiceUnavailableException("Generated-document signed URLs are disabled and require separate storage proof before use.");
 }
 
 function buildGeneratedDocumentObjectKey(input: GeneratedDocumentObjectKeyInput): string {

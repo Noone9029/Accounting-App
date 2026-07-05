@@ -30,6 +30,21 @@ describe("generated document storage adapters", () => {
     expect(adapter.verifyGeneratedDocumentContentHash(buffer, saved.contentHash)).toBe(true);
   });
 
+  it("fails closed for database-backed generated-document read URL requests", async () => {
+    const adapter = new DatabaseGeneratedDocumentStorageAdapter();
+
+    await expect(
+      adapter.getGeneratedDocumentReadUrl({
+        organizationId: "org-1",
+        generatedDocumentId: "doc-1",
+        storageProvider: "database",
+        storageKey: null,
+        contentBase64: Buffer.from("%PDF generated document").toString("base64"),
+        contentHash: "hash",
+      }),
+    ).rejects.toThrow("Generated-document signed URLs are disabled and require separate storage proof before use.");
+  });
+
   it("fails closed when database-backed content is missing", async () => {
     const adapter = new DatabaseGeneratedDocumentStorageAdapter();
 
@@ -92,6 +107,25 @@ describe("generated document storage adapters", () => {
     await expect(adapter.readGeneratedDocumentContent(saved)).resolves.toEqual(buffer);
     expect(adapter.verifyGeneratedDocumentContentHash(buffer, saved.contentHash)).toBe(true);
     expect("getReadUrl" in adapter).toBe(false);
+  });
+
+  it("fails closed for fake local generated-document read URL requests", async () => {
+    const adapter = new FakeLocalGeneratedDocumentObjectStorageAdapter();
+    const saved = await adapter.writeGeneratedDocumentContent({
+      organizationId: "org-1",
+      generatedDocumentId: "doc-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF generated document"),
+    });
+
+    await expect(
+      adapter.getGeneratedDocumentReadUrl({
+        organizationId: "org-1",
+        generatedDocumentId: "doc-1",
+        ...saved,
+      }),
+    ).rejects.toThrow("Generated-document signed URLs are disabled and require separate storage proof before use.");
   });
 
   it("fails safely when fake local object content is missing", async () => {
@@ -194,6 +228,14 @@ describe("generated document storage adapters", () => {
       }),
     ).rejects.toThrow("Generated-document object storage is disabled and has no configured runtime adapter.");
     expect("getReadUrl" in adapter).toBe(false);
+    await expect(
+      adapter.getGeneratedDocumentReadUrl({
+        storageProvider: "object-storage-unavailable",
+        storageKey: "org/org-1/generated-documents/doc-1/invoice.pdf",
+        contentBase64: null,
+        contentHash: "",
+      }),
+    ).rejects.toThrow("Generated-document signed URLs are disabled and require separate storage proof before use.");
   });
 
   it("does not allow the fake local object adapter unless explicitly marked local-test-only", () => {
