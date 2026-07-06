@@ -158,20 +158,32 @@ export class AuditLogService {
   }
 
   async getRetentionSettings(organizationId: string) {
-    const settings =
-      (await this.prisma.auditLogRetentionSettings.findUnique({
+    let settings;
+    try {
+      settings = await this.prisma.auditLogRetentionSettings.upsert({
         where: { organizationId },
-        include: { updatedBy: { select: { id: true, name: true, email: true } } },
-      })) ??
-      (await this.prisma.auditLogRetentionSettings.create({
-        data: {
+        update: {},
+        create: {
           organizationId,
           retentionDays: DEFAULT_RETENTION_DAYS,
           autoPurgeEnabled: false,
           exportBeforePurgeRequired: true,
         },
         include: { updatedBy: { select: { id: true, name: true, email: true } } },
-      }));
+      });
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      settings = await this.prisma.auditLogRetentionSettings.findUnique({
+        where: { organizationId },
+        include: { updatedBy: { select: { id: true, name: true, email: true } } },
+      });
+      if (!settings) {
+        throw error;
+      }
+    }
 
     return this.toRetentionSettingsResponse(settings);
   }
@@ -403,4 +415,8 @@ export class AuditLogService {
     const normalized = key.toLowerCase();
     return CSV_RISKY_KEY_FRAGMENTS.some((fragment) => normalized.includes(fragment));
   }
+}
+
+function isPrismaUniqueConstraintError(error: unknown): error is { code: "P2002" } {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
