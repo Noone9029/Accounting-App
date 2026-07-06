@@ -42,6 +42,7 @@ describe("AuditLogService", () => {
       auditLogRetentionSettings: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        upsert: jest.fn().mockResolvedValue(makeRetentionSettings()),
         update: jest.fn(),
       },
     };
@@ -198,27 +199,41 @@ describe("AuditLogService", () => {
 
   it("creates default retention settings when missing", async () => {
     const { prisma, service } = makeService();
-    prisma.auditLogRetentionSettings.findUnique.mockResolvedValue(null);
-    prisma.auditLogRetentionSettings.create.mockResolvedValue(makeRetentionSettings());
+    prisma.auditLogRetentionSettings.upsert.mockResolvedValue(makeRetentionSettings());
 
     const result = await service.getRetentionSettings("org-1");
 
-    expect(prisma.auditLogRetentionSettings.create).toHaveBeenCalledWith(
+    expect(prisma.auditLogRetentionSettings.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        where: { organizationId: "org-1" },
+        update: {},
+        create: {
           organizationId: "org-1",
           retentionDays: 2555,
           autoPurgeEnabled: false,
           exportBeforePurgeRequired: true,
-        }),
+        },
       }),
     );
     expect(result).toMatchObject({ retentionDays: 2555, autoPurgeEnabled: false, exportBeforePurgeRequired: true });
   });
 
+  it("re-reads retention settings when concurrent default creation hits a unique constraint", async () => {
+    const { prisma, service } = makeService();
+    prisma.auditLogRetentionSettings.upsert.mockRejectedValueOnce({ code: "P2002" });
+    prisma.auditLogRetentionSettings.findUnique.mockResolvedValue(makeRetentionSettings({ id: "retention-race" }));
+
+    const result = await service.getRetentionSettings("org-1");
+
+    expect(prisma.auditLogRetentionSettings.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: "org-1" } }),
+    );
+    expect(result).toMatchObject({ id: "retention-race", retentionDays: 2555 });
+  });
+
   it("validates retention settings min and max", async () => {
     const { prisma, service } = makeService();
-    prisma.auditLogRetentionSettings.findUnique.mockResolvedValue(makeRetentionSettings());
+    prisma.auditLogRetentionSettings.upsert.mockResolvedValue(makeRetentionSettings());
 
     await expect(service.updateRetentionSettings("org-1", "user-1", { retentionDays: 364 })).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.updateRetentionSettings("org-1", "user-1", { retentionDays: 3651 })).rejects.toBeInstanceOf(BadRequestException);
@@ -226,7 +241,7 @@ describe("AuditLogService", () => {
 
   it("updates retention settings and writes an audit log", async () => {
     const { prisma, service } = makeService();
-    prisma.auditLogRetentionSettings.findUnique.mockResolvedValue(makeRetentionSettings());
+    prisma.auditLogRetentionSettings.upsert.mockResolvedValue(makeRetentionSettings());
     prisma.auditLogRetentionSettings.update.mockResolvedValue(makeRetentionSettings({ retentionDays: 365, autoPurgeEnabled: true }));
 
     const result = await service.updateRetentionSettings("org-1", "user-1", {
@@ -259,7 +274,7 @@ describe("AuditLogService", () => {
 
   it("returns dry-run retention preview counts", async () => {
     const { prisma, service } = makeService();
-    prisma.auditLogRetentionSettings.findUnique.mockResolvedValue(makeRetentionSettings({ retentionDays: 365 }));
+    prisma.auditLogRetentionSettings.upsert.mockResolvedValue(makeRetentionSettings({ retentionDays: 365 }));
     prisma.auditLog.count.mockResolvedValueOnce(10).mockResolvedValueOnce(3);
     prisma.auditLog.aggregate.mockResolvedValue({
       _min: { createdAt: new Date("2025-01-01T00:00:00.000Z") },
