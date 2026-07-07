@@ -19,7 +19,23 @@ function createCompleteFixture() {
   writeFile(rootDir, "docs/beta-testing/BETA_FIX_01_LIVE_ENVIRONMENT_CHECK.md", "Readiness route evidence.");
   writeFile(rootDir, "docs/deployment/CI_DATABASE_READINESS_CHECKLIST.md", "database: ok");
   writeFile(rootDir, "apps/api/src/email/email.controller.ts", '@Get("readiness") diagnosticsPlan runDiagnostics monitoring-plan monitoring-evidence retry-worker/plan retryWorkerPlan outbox queue worker');
-  writeFile(rootDir, "docs/operations/ALERTING_MATRIX.md", "Alerting Matrix Signal Critical outbox");
+  writeFile(
+    rootDir,
+    "docs/operations/ALERTING_MATRIX.md",
+    [
+      "Alerting Matrix Signal Critical outbox",
+      "API health failure",
+      "Readiness database failure",
+      "Email outbox stuck",
+      "Backup readiness missing",
+      "Restore evidence stale",
+      "Storage readiness blocked",
+      "Queue lag/failure",
+      "Suspicious tenant boundary alert",
+      "ZATCA network attempted unexpectedly",
+      "UAE ASP network attempted unexpectedly",
+    ].join("\n"),
+  );
   writeFile(rootDir, "docs/operations/MONITORING_AND_SUPPORT_READINESS_PLAN.md", "queue worker");
   writeFile(rootDir, "apps/api/src/system/system.controller.ts", "backup-readiness backup");
   writeFile(rootDir, "docs/operations/BACKUP_PITR_OBJECT_STORAGE_PRE_ASP_PLAN.md", "backup");
@@ -55,6 +71,26 @@ test("builds deterministic local readiness report without DB network mutation fl
   assert.equal(report.blocked.length, 0);
   assert.ok(report.checks.some((check) => check.id === "api-readiness-endpoint" && check.status === "available"));
   assert.ok(report.checks.some((check) => check.id === "queue-worker-readiness" && check.status === "partial"));
+});
+
+test("exposes evidence output and alerting-matrix coverage without claiming live monitoring", () => {
+  const report = buildReport({ rootDir: createCompleteFixture() });
+
+  assert.deepEqual(report.evidenceOutputFormat, {
+    format: "markdown+json",
+    markdownFile: "docs/operations/evidence/MONITORING_SUPPORT_READINESS.md",
+    jsonFile: "docs/operations/evidence/MONITORING_SUPPORT_READINESS.json",
+    includesSecretValues: false,
+    includesCustomerData: false,
+    includesProviderCredentials: false,
+    includesProviderResponses: false,
+  });
+  assert.equal(report.alertingMatrixCoverage.allRequiredSignalsPresent, true);
+  assert.deepEqual(report.alertingMatrixCoverage.missingSignals, []);
+  assert.equal(report.alertingMatrixCoverage.providerAlertRulesCreated, false);
+  assert.equal(report.alertingMatrixCoverage.hostedLogDrainConfigured, false);
+  assert.ok(report.alertingMatrixCoverage.presentSignals.includes("API health failure"));
+  assert.ok(report.alertingMatrixCoverage.presentSignals.includes("Suspicious tenant boundary alert"));
 });
 
 test("reports blocked checks when source evidence is absent", () => {

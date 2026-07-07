@@ -11,6 +11,46 @@
   "noStorageOperation": true,
   "noSecretsPrinted": true,
   "noCustomerDataPrinted": true,
+  "evidenceOutputFormat": {
+    "format": "markdown+json",
+    "markdownFile": "docs/operations/evidence/MONITORING_SUPPORT_READINESS.md",
+    "jsonFile": "docs/operations/evidence/MONITORING_SUPPORT_READINESS.json",
+    "includesSecretValues": false,
+    "includesCustomerData": false,
+    "includesProviderCredentials": false,
+    "includesProviderResponses": false
+  },
+  "alertingMatrixCoverage": {
+    "source": "docs/operations/ALERTING_MATRIX.md",
+    "requiredSignals": [
+      "API health failure",
+      "Readiness database failure",
+      "Email outbox stuck",
+      "Backup readiness missing",
+      "Restore evidence stale",
+      "Storage readiness blocked",
+      "Queue lag/failure",
+      "Suspicious tenant boundary alert",
+      "ZATCA network attempted unexpectedly",
+      "UAE ASP network attempted unexpectedly"
+    ],
+    "presentSignals": [
+      "API health failure",
+      "Readiness database failure",
+      "Email outbox stuck",
+      "Backup readiness missing",
+      "Restore evidence stale",
+      "Storage readiness blocked",
+      "Queue lag/failure",
+      "Suspicious tenant boundary alert",
+      "ZATCA network attempted unexpectedly",
+      "UAE ASP network attempted unexpectedly"
+    ],
+    "missingSignals": [],
+    "allRequiredSignalsPresent": true,
+    "providerAlertRulesCreated": false,
+    "hostedLogDrainConfigured": false
+  },
   "counts": {
     "available": 13,
     "partial": 5
