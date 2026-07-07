@@ -4583,6 +4583,98 @@ export interface AgingReport {
   grandTotal: string;
 }
 
+export interface CashFlowReport {
+  from: string | null;
+  to: string | null;
+  basis: string;
+  granularity: string;
+  rows: Array<{
+    period: string;
+    inflows: string;
+    outflows: string;
+    netCashFlow: string;
+    lineCount: number;
+  }>;
+  totals: {
+    openingCash: string;
+    inflows: string;
+    outflows: string;
+    netCashFlow: string;
+    closingCash: string;
+    accountCount: number;
+    lineCount: number;
+  };
+  notes: string[];
+}
+
+export interface RevenueTrendReport {
+  from: string | null;
+  to: string | null;
+  basis: string;
+  granularity: string;
+  rows: Array<{
+    period: string;
+    revenue: string;
+    lineCount: number;
+  }>;
+  totals: {
+    revenue: string;
+    lineCount: number;
+  };
+  notes: string[];
+}
+
+export interface TopCustomersReport {
+  from: string | null;
+  to: string | null;
+  basis: string;
+  limit: number;
+  rows: Array<{
+    customer: { id: string; name: string; displayName: string | null };
+    invoiceCount: number;
+    taxableAmount: string;
+    taxAmount: string;
+    grossAmount: string;
+    latestInvoiceDate: string | null;
+  }>;
+  totals: {
+    customerCount: number;
+    invoiceCount: number;
+    taxableAmount: string;
+    taxAmount: string;
+    grossAmount: string;
+  };
+  notes: string[];
+}
+
+export interface TopProductsServicesReport {
+  from: string | null;
+  to: string | null;
+  basis: string;
+  limit: number;
+  rows: Array<{
+    kind: "CATALOG_ITEM" | "UNCATALOGED_LINE";
+    label: string;
+    item: { id: string; name: string; sku: string | null; type: string } | null;
+    lineCount: number;
+    quantity: string;
+    taxableAmount: string;
+    taxAmount: string;
+    grossAmount: string;
+    latestInvoiceDate: string | null;
+  }>;
+  totals: {
+    lineCount: number;
+    catalogItemCount: number;
+    uncatalogedLineGroupCount: number;
+    quantity: string;
+    taxableAmount: string;
+    taxAmount: string;
+    grossAmount: string;
+  };
+  notes: string[];
+}
+
 export interface CustomerPaymentReceiptData {
   receiptNumber: string;
   paymentDate: string;

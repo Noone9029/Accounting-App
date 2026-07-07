@@ -48,12 +48,16 @@ describe("report helpers", () => {
     const groups = reportIndexGroups();
     const links = groups.flatMap((group) => group.links);
 
-    expect(groups.map((group) => group.label)).toEqual(["Financial statements", "Tax reports", "Aging", "Inventory"]);
+    expect(groups.map((group) => group.label)).toEqual(["Financial statements", "Management reports", "Tax reports", "Aging", "Inventory"]);
     expect(links.map((link) => link.href)).toEqual([
       "/reports/general-ledger",
       "/reports/trial-balance",
       "/reports/profit-and-loss",
       "/reports/balance-sheet",
+      "/reports/cash-flow",
+      "/reports/revenue-trend",
+      "/reports/top-customers",
+      "/reports/top-products-services",
       "/reports/vat-summary",
       "/reports/vat-return",
       "/reports/aged-receivables",
@@ -63,6 +67,7 @@ describe("report helpers", () => {
       "/inventory/reports/low-stock",
     ]);
     expect(links.map((link) => link.routeKey)).not.toContain("reportPacks");
+    expect(links.find((link) => link.routeKey === "reports.cashFlow")?.description).toContain("posted cash and bank journal lines");
     expect(links.every((link) => link.description.length > 20)).toBe(true);
     expect(links.find((link) => link.routeKey === "reports.vatReturn")?.description).toContain("not an official filing workflow");
     expect(JSON.stringify(groups)).not.toMatch(new RegExp("Open" + "Books", "i"));

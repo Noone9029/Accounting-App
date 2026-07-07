@@ -30,6 +30,15 @@ const STATIC_SEARCH_ACTIONS: readonly StaticSearchAction[] = [
   report("aged-payables", "Aged Payables", "/reports/aged-payables", ["ap", "supplier aging", "open payables"]),
   report("tax-report", "Tax Report", "/reports/vat-summary", ["vat", "tax", "return"]),
   report("general-ledger", "General Ledger", "/reports/general-ledger", ["gl", "ledger", "journal lines"]),
+  report("cash-flow", "Cash Flow", "/reports/cash-flow", ["cash", "bank", "cash movement", "cash flow"]),
+  report("revenue-trend", "Revenue Trend", "/reports/revenue-trend", ["revenue", "sales trend", "monthly revenue"]),
+  report("top-customers", "Top Customers", "/reports/top-customers", ["best customers", "customer ranking", "sales by customer"]),
+  report("top-products-services", "Top Products & Services", "/reports/top-products-services", [
+    "top products",
+    "top services",
+    "sales by item",
+    "product ranking",
+  ]),
   transactionPage("sales-quotes", "Sales Quotes", "/sales/quotes", PERMISSIONS.salesInvoices.view, ["quote", "quotation", "proforma"]),
   transactionPage("recurring-invoices", "Recurring Invoices", "/sales/recurring-invoices", PERMISSIONS.salesInvoices.view, [
     "recurring invoice",

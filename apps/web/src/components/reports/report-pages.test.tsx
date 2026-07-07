@@ -2,7 +2,18 @@ import "@testing-library/jest-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
-import { AgedReceivablesReportPage, AgingReportGuide, AgingTable, ReportsIndexPage, VatReturnReportPage, VatSummaryReportPage } from "./report-pages";
+import {
+  AgedReceivablesReportPage,
+  AgingReportGuide,
+  AgingTable,
+  CashFlowReportPage,
+  ReportsIndexPage,
+  RevenueTrendReportPage,
+  TopCustomersReportPage,
+  TopProductsServicesReportPage,
+  VatReturnReportPage,
+  VatSummaryReportPage,
+} from "./report-pages";
 import type { AgingReportRow } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
@@ -58,6 +69,18 @@ describe("reports index first-workflow guidance", () => {
       if (path.startsWith("/reports/vat-summary")) {
         return Promise.resolve(vatSummaryReport());
       }
+      if (path.startsWith("/reports/cash-flow")) {
+        return Promise.resolve(cashFlowReport());
+      }
+      if (path.startsWith("/reports/revenue-trend")) {
+        return Promise.resolve(revenueTrendReport());
+      }
+      if (path.startsWith("/reports/top-customers")) {
+        return Promise.resolve(topCustomersReport());
+      }
+      if (path.startsWith("/reports/top-products-services")) {
+        return Promise.resolve(topProductsServicesReport());
+      }
       return Promise.resolve({
         rows: [],
         bucketTotals: {
@@ -83,6 +106,10 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/VAT Return stays a draft accountant-review view with internal export only/i)).toBeInTheDocument();
     expect(screen.getByText(/Outstanding sales invoice balances after posted payments and credits/i)).toBeInTheDocument();
     expect(screen.getByText(/Account-basis VAT review/i)).toBeInTheDocument();
+    expect(screen.getByText("Cash Flow").closest("a")).toHaveAttribute("href", "/reports/cash-flow");
+    expect(screen.getByText("Revenue Trend").closest("a")).toHaveAttribute("href", "/reports/revenue-trend");
+    expect(screen.getByText("Top Customers").closest("a")).toHaveAttribute("href", "/reports/top-customers");
+    expect(screen.getByText("Top Products & Services").closest("a")).toHaveAttribute("href", "/reports/top-products-services");
   });
 
   it("renders the report index navigation in Arabic while preserving routes", () => {
@@ -97,6 +124,41 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "فتح الأرباح والخسائر" })).toHaveAttribute("href", "/reports/profit-and-loss");
     expect(screen.getByRole("link", { name: "العودة إلى لوحة التحكم" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByText("القوائم المالية")).toBeInTheDocument();
+  });
+
+  it("renders the cash-flow report from the existing advanced report API without export controls", async () => {
+    render(<CashFlowReportPage />);
+
+    expect(await screen.findByRole("heading", { name: "Cash Flow" })).toBeInTheDocument();
+    expect(screen.getByText("POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES")).toBeInTheDocument();
+    expect(screen.getByText("2026-06")).toBeInTheDocument();
+    expect(screen.getByText(/does not initiate payments/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    expect(apiRequestMock).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\/cash-flow\?from=.*&to=.*/));
+  });
+
+  it("renders revenue trend and top-sales reports from existing advanced report APIs", async () => {
+    const { rerender } = render(<RevenueTrendReportPage />);
+
+    expect(await screen.findByRole("heading", { name: "Revenue Trend" })).toBeInTheDocument();
+    expect(screen.getByText("POSTED_AND_REVERSED_REVENUE_JOURNAL_LINES")).toBeInTheDocument();
+    expect(screen.getByText("2026-06")).toBeInTheDocument();
+    expect(screen.getByText(/does not create filings or provider submissions/i)).toBeInTheDocument();
+
+    rerender(<TopCustomersReportPage />);
+
+    expect(await screen.findByRole("heading", { name: "Top Customers" })).toBeInTheDocument();
+    expect(screen.getByText("FINALIZED_SALES_INVOICES")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
+    expect(screen.getByText(/does not net credit notes/i)).toBeInTheDocument();
+
+    rerender(<TopProductsServicesReportPage />);
+
+    expect(await screen.findByRole("heading", { name: "Top Products & Services" })).toBeInTheDocument();
+    expect(screen.getByText("FINALIZED_SALES_INVOICE_LINES")).toBeInTheDocument();
+    expect(screen.getByText("Implementation Package")).toBeInTheDocument();
+    expect(screen.getByText(/cost of goods sold, or profitability/i)).toBeInTheDocument();
   });
 
   it("explains aged receivables after payment without changing report math", () => {
@@ -272,6 +334,103 @@ function agingRow(overrides: Partial<AgingReportRow> = {}): AgingReportRow {
     daysOverdue: 12,
     bucket: "1_30",
     ...overrides,
+  };
+}
+
+function cashFlowReport() {
+  return {
+    from: "2026-06-01",
+    to: "2026-06-30",
+    basis: "POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES",
+    granularity: "month",
+    rows: [{ period: "2026-06", inflows: "5000.0000", outflows: "1250.0000", netCashFlow: "3750.0000", lineCount: 3 }],
+    totals: {
+      openingCash: "1000.0000",
+      inflows: "5000.0000",
+      outflows: "1250.0000",
+      netCashFlow: "3750.0000",
+      closingCash: "4750.0000",
+      accountCount: 2,
+      lineCount: 3,
+    },
+    notes: [
+      "Cash flow is derived from posted and reversed journal lines for active LedgerByte cash and bank accounts.",
+      "This internal management report does not connect bank feeds, does not initiate payments, and does not create provider submissions.",
+    ],
+  };
+}
+
+function revenueTrendReport() {
+  return {
+    from: "2026-06-01",
+    to: "2026-06-30",
+    basis: "POSTED_AND_REVERSED_REVENUE_JOURNAL_LINES",
+    granularity: "month",
+    rows: [{ period: "2026-06", revenue: "8000.0000", lineCount: 2 }],
+    totals: { revenue: "8000.0000", lineCount: 2 },
+    notes: [
+      "Revenue trend is derived from posted and reversed revenue-account journal lines.",
+      "This internal management report does not create filings or provider submissions.",
+    ],
+  };
+}
+
+function topCustomersReport() {
+  return {
+    from: "2026-06-01",
+    to: "2026-06-30",
+    basis: "FINALIZED_SALES_INVOICES",
+    limit: 10,
+    rows: [
+      {
+        customer: { id: "customer-1", name: "Beta Customer", displayName: "Beta Customer" },
+        invoiceCount: 2,
+        taxableAmount: "7000.0000",
+        taxAmount: "1050.0000",
+        grossAmount: "8050.0000",
+        latestInvoiceDate: "2026-06-20T00:00:00.000Z",
+      },
+    ],
+    totals: { customerCount: 1, invoiceCount: 2, taxableAmount: "7000.0000", taxAmount: "1050.0000", grossAmount: "8050.0000" },
+    notes: [
+      "Top customers are ranked by finalized sales invoices in the selected period.",
+      "This report does not net credit notes, refunds, delivery notes, quotes, recurring templates, or payment timing.",
+    ],
+  };
+}
+
+function topProductsServicesReport() {
+  return {
+    from: "2026-06-01",
+    to: "2026-06-30",
+    basis: "FINALIZED_SALES_INVOICE_LINES",
+    limit: 10,
+    rows: [
+      {
+        kind: "CATALOG_ITEM",
+        label: "Implementation Package",
+        item: { id: "item-1", name: "Implementation Package", sku: "IMP-001", type: "SERVICE" },
+        lineCount: 2,
+        quantity: "2.0000",
+        taxableAmount: "7000.0000",
+        taxAmount: "1050.0000",
+        grossAmount: "8050.0000",
+        latestInvoiceDate: "2026-06-20T00:00:00.000Z",
+      },
+    ],
+    totals: {
+      lineCount: 2,
+      catalogItemCount: 1,
+      uncatalogedLineGroupCount: 0,
+      quantity: "2.0000",
+      taxableAmount: "7000.0000",
+      taxAmount: "1050.0000",
+      grossAmount: "8050.0000",
+    },
+    notes: [
+      "Top products and services are ranked by finalized sales invoice lines in the selected period.",
+      "This report does not net credit notes, refunds, returns, delivery notes, quotes, recurring templates, cost of goods sold, or profitability.",
+    ],
   };
 }
 

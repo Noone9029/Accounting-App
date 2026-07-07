@@ -21,6 +21,7 @@ import {
   buildReportQuery,
   buildVatReturnReviewExportPath,
   monthStartDateInput,
+  reportIndexGroups,
   REPORT_BUCKETS,
   VAT_REPORT_LABELS,
   reportExportFilename,
@@ -31,33 +32,22 @@ import type {
   AgingReportRow,
   BalanceSheetReport,
   BalanceSheetSection,
+  CashFlowReport,
   GeneralLedgerReport,
   ProfitAndLossReport,
+  RevenueTrendReport,
+  TopCustomersReport,
+  TopProductsServicesReport,
   TrialBalanceReport,
   VatReturnReport,
   VatSummaryReport,
 } from "@/lib/types";
 
-const reportLinks = [
-  { group: "Financial statements", href: "/reports/general-ledger", label: "General Ledger", description: "Trace posted journal lines by account." },
-  { group: "Financial statements", href: "/reports/trial-balance", label: "Trial Balance", description: "Confirm debits and credits stay balanced." },
-  { group: "Financial statements", href: "/reports/profit-and-loss", label: "Profit & Loss", description: "Review revenue, costs, expenses, and net profit." },
-  { group: "Financial statements", href: "/reports/balance-sheet", label: "Balance Sheet", description: "Check assets, liabilities, equity, and retained earnings." },
-  { group: "Tax reports", href: "/reports/vat-summary", label: "VAT Summary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },
-  { group: "Tax reports", href: "/reports/vat-return", label: "VAT Return", description: "Draft source-document VAT review with internal CSV export only. It is not an official filing workflow." },
-  { group: "Aging", href: "/reports/aged-receivables", label: "Aged Receivables", description: "Outstanding sales invoice balances after posted payments and credits. Quotes, recurring templates, delivery notes, and collection cases are excluded." },
-  { group: "Aging", href: "/reports/aged-payables", label: "Aged Payables", description: "See supplier bill balances by overdue bucket." },
-  { group: "Inventory", href: "/inventory/reports/movement-summary", label: "Inventory Movement", description: "Trace stock in, stock out, and closing quantity by item and warehouse." },
-  { group: "Inventory", href: "/inventory/reports/stock-valuation", label: "Stock Valuation", description: "Review moving-average operational stock value estimates." },
-  { group: "Inventory", href: "/inventory/reports/low-stock", label: "Low Stock", description: "Find tracked items at or below reorder point." },
-];
-
-const reportGroups = ["Financial statements", "Tax reports", "Aging", "Inventory"];
-
 type AgingReportKind = "receivables" | "payables";
 
 export function ReportsIndexPage() {
   const { tc } = useAppLocale();
+  const groups = reportIndexGroups();
   return (
     <section>
       <PageHeader
@@ -81,19 +71,17 @@ export function ReportsIndexPage() {
         </p>
       </Toolbar>
       <div className="space-y-6">
-        {reportGroups.map((group) => (
-          <section key={group}>
-            <h2 className="mb-3 text-base font-semibold text-ink">{tc(group)}</h2>
+        {groups.map((group) => (
+          <section key={group.label}>
+            <h2 className="mb-3 text-base font-semibold text-ink">{tc(group.label)}</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {reportLinks
-                .filter((link) => link.group === group)
-                .map((link) => (
-                  <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
-                    <div className="text-base font-semibold text-ink">{tc(link.label)}</div>
-                    <div className="mt-2 text-sm leading-6 text-steel">{tc(link.description)}</div>
-                    <div className="mt-4 text-sm font-medium text-palm">{tc("Open report")}</div>
-                  </Link>
-                ))}
+              {group.links.map((link) => (
+                <Link key={link.href} href={link.href} className="rounded-md border border-slate-200 bg-white p-5 shadow-panel hover:border-palm">
+                  <div className="text-base font-semibold text-ink">{tc(link.label)}</div>
+                  <div className="mt-2 text-sm leading-6 text-steel">{tc(link.description)}</div>
+                  <div className="mt-4 text-sm font-medium text-palm">{tc("Open report")}</div>
+                </Link>
+              ))}
             </div>
           </section>
         ))}
@@ -283,6 +271,242 @@ export function BalanceSheetReportPage() {
               <span className="font-mono text-xs">{formatAppMoney(report.retainedEarnings, "SAR", locale)}</span>
             </div>
           </div>
+        </div>
+      ) : null}
+    </ReportSection>
+  );
+}
+
+export function CashFlowReportPage() {
+  const { locale, tc } = useAppLocale();
+  const [report, setReport] = useState<CashFlowReport | null>(null);
+  const [from, setFrom] = useState(monthStartDateInput());
+  const [to, setTo] = useState(todayDateInput());
+  const { loading, error, load } = useReportLoader<CashFlowReport>((query) => `/reports/cash-flow${query}`, setReport);
+
+  useEffect(() => {
+    void load(buildReportQuery({ from, to }));
+  }, []);
+
+  return (
+    <ReportSection title={tc("Cash Flow")} description={tc("Cash movement by month from posted cash and bank journal lines. Read-only management report; no banking provider action is triggered.")}>
+      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <AdvancedReportExportBoundary />
+      <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No cash or bank journal lines found for this period." />
+      {report ? (
+        <div className="space-y-5">
+          <SummaryGrid
+            items={[
+              ["Opening cash", report.totals.openingCash],
+              ["Inflows", report.totals.inflows],
+              ["Outflows", report.totals.outflows],
+              ["Net cash flow", report.totals.netCashFlow],
+              ["Closing cash", report.totals.closingCash],
+            ]}
+          />
+          <AdvancedReportBasis basis={report.basis} details={`${tc("Granularity")}: ${report.granularity} / ${tc("Cash and bank accounts")}: ${report.totals.accountCount} / ${tc("Journal lines")}: ${report.totals.lineCount}`} />
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[760px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Period")}</th>
+                  <th className="px-4 py-3">{tc("Inflows")}</th>
+                  <th className="px-4 py-3">{tc("Outflows")}</th>
+                  <th className="px-4 py-3">{tc("Net cash flow")}</th>
+                  <th className="px-4 py-3">{tc("Lines")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {report.rows.map((row) => (
+                  <tr key={row.period}>
+                    <td className="px-4 py-3 font-medium text-ink">{row.period}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.inflows, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.outflows, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.netCashFlow, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ReportNotes notes={report.notes} />
+        </div>
+      ) : null}
+    </ReportSection>
+  );
+}
+
+export function RevenueTrendReportPage() {
+  const { locale, tc } = useAppLocale();
+  const [report, setReport] = useState<RevenueTrendReport | null>(null);
+  const [from, setFrom] = useState(monthStartDateInput());
+  const [to, setTo] = useState(todayDateInput());
+  const { loading, error, load } = useReportLoader<RevenueTrendReport>((query) => `/reports/revenue-trend${query}`, setReport);
+
+  useEffect(() => {
+    void load(buildReportQuery({ from, to }));
+  }, []);
+
+  return (
+    <ReportSection title={tc("Revenue Trend")} description={tc("Monthly revenue trend from posted revenue journal lines. Read-only management report; no filing or provider workflow is created.")}>
+      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <AdvancedReportExportBoundary />
+      <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No posted revenue journal lines found for this period." />
+      {report ? (
+        <div className="space-y-5">
+          <SummaryGrid items={[["Revenue", report.totals.revenue]]} />
+          <AdvancedReportBasis basis={report.basis} details={`${tc("Granularity")}: ${report.granularity} / ${tc("Journal lines")}: ${report.totals.lineCount}`} />
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[620px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Period")}</th>
+                  <th className="px-4 py-3">{tc("Revenue")}</th>
+                  <th className="px-4 py-3">{tc("Lines")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {report.rows.map((row) => (
+                  <tr key={row.period}>
+                    <td className="px-4 py-3 font-medium text-ink">{row.period}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.revenue, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ReportNotes notes={report.notes} />
+        </div>
+      ) : null}
+    </ReportSection>
+  );
+}
+
+export function TopCustomersReportPage() {
+  const { locale, tc } = useAppLocale();
+  const [report, setReport] = useState<TopCustomersReport | null>(null);
+  const [from, setFrom] = useState(monthStartDateInput());
+  const [to, setTo] = useState(todayDateInput());
+  const { loading, error, load } = useReportLoader<TopCustomersReport>((query) => `/reports/top-customers${query}`, setReport);
+
+  useEffect(() => {
+    void load(buildReportQuery({ from, to }));
+  }, []);
+
+  return (
+    <ReportSection title={tc("Top Customers")} description={tc("Customers ranked by finalized sales invoice gross totals in the selected period.")}>
+      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <AdvancedReportExportBoundary />
+      <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No finalized sales invoices found for this period." />
+      {report ? (
+        <div className="space-y-5">
+          <SummaryGrid
+            items={[
+              ["Taxable amount", report.totals.taxableAmount],
+              ["Tax amount", report.totals.taxAmount],
+              ["Gross amount", report.totals.grossAmount],
+            ]}
+          />
+          <AdvancedReportBasis basis={report.basis} details={`${tc("Customers")}: ${report.totals.customerCount} / ${tc("Invoices")}: ${report.totals.invoiceCount} / ${tc("Limit")}: ${report.limit}`} />
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[920px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Customer")}</th>
+                  <th className="px-4 py-3">{tc("Invoices")}</th>
+                  <th className="px-4 py-3">{tc("Taxable amount")}</th>
+                  <th className="px-4 py-3">{tc("Tax amount")}</th>
+                  <th className="px-4 py-3">{tc("Gross amount")}</th>
+                  <th className="px-4 py-3">{tc("Latest invoice")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {report.rows.map((row) => (
+                  <tr key={row.customer.id}>
+                    <td className="px-4 py-3 font-medium text-ink">
+                      <Link href={partyDetailHref("customer", row.customer.id)} className="hover:text-palm">
+                        {row.customer.displayName ?? row.customer.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.invoiceCount}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 text-steel">{formatAppDate(row.latestInvoiceDate, locale, "-")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ReportNotes notes={report.notes} />
+        </div>
+      ) : null}
+    </ReportSection>
+  );
+}
+
+export function TopProductsServicesReportPage() {
+  const { locale, tc } = useAppLocale();
+  const [report, setReport] = useState<TopProductsServicesReport | null>(null);
+  const [from, setFrom] = useState(monthStartDateInput());
+  const [to, setTo] = useState(todayDateInput());
+  const { loading, error, load } = useReportLoader<TopProductsServicesReport>((query) => `/reports/top-products-services${query}`, setReport);
+
+  useEffect(() => {
+    void load(buildReportQuery({ from, to }));
+  }, []);
+
+  return (
+    <ReportSection title={tc("Top Products & Services")} description={tc("Catalog items and uncataloged sales lines ranked by finalized sales invoice gross totals.")}>
+      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
+      <AdvancedReportExportBoundary />
+      <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No finalized sales invoice lines found for this period." />
+      {report ? (
+        <div className="space-y-5">
+          <SummaryGrid
+            items={[
+              ["Quantity", report.totals.quantity],
+              ["Taxable amount", report.totals.taxableAmount],
+              ["Tax amount", report.totals.taxAmount],
+              ["Gross amount", report.totals.grossAmount],
+            ]}
+          />
+          <AdvancedReportBasis basis={report.basis} details={`${tc("Lines")}: ${report.totals.lineCount} / ${tc("Catalog items")}: ${report.totals.catalogItemCount} / ${tc("Uncataloged groups")}: ${report.totals.uncatalogedLineGroupCount} / ${tc("Limit")}: ${report.limit}`} />
+          <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
+            <table className="w-full min-w-[980px] text-start text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
+                <tr>
+                  <th className="px-4 py-3">{tc("Product / service")}</th>
+                  <th className="px-4 py-3">{tc("Kind")}</th>
+                  <th className="px-4 py-3">{tc("Lines")}</th>
+                  <th className="px-4 py-3">{tc("Quantity")}</th>
+                  <th className="px-4 py-3">{tc("Taxable amount")}</th>
+                  <th className="px-4 py-3">{tc("Tax amount")}</th>
+                  <th className="px-4 py-3">{tc("Gross amount")}</th>
+                  <th className="px-4 py-3">{tc("Latest invoice")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {report.rows.map((row) => (
+                  <tr key={`${row.kind}-${row.item?.id ?? row.label}`}>
+                    <td className="px-4 py-3 font-medium text-ink">
+                      <span>{row.label}</span>
+                      {row.item?.sku ? <div className="mt-1 font-mono text-xs text-steel">{row.item.sku}</div> : null}
+                    </td>
+                    <td className="px-4 py-3 text-steel">{tc(reportSectionTitle(row.kind))}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.quantity}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 text-steel">{formatAppDate(row.latestInvoiceDate, locale, "-")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ReportNotes notes={report.notes} />
         </div>
       ) : null}
     </ReportSection>
@@ -502,6 +726,41 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
         </div>
       ) : null}
     </ReportSection>
+  );
+}
+
+function AdvancedReportExportBoundary() {
+  const { tc } = useAppLocale();
+  return (
+    <StatusMessage type="info">
+      {tc("This advanced report uses an existing read-only API endpoint. CSV/PDF export, report-pack generation, scheduled delivery, provider calls, and compliance submission are not implemented on this page.")}
+    </StatusMessage>
+  );
+}
+
+function AdvancedReportBasis({ basis, details }: { basis: string; details: string }) {
+  const { tc } = useAppLocale();
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+      <p>
+        <span className="font-semibold text-ink">{tc("Basis")}:</span> {basis}
+      </p>
+      <p className="mt-1">{details}</p>
+    </div>
+  );
+}
+
+function ReportNotes({ notes }: { notes: string[] }) {
+  const { tc } = useAppLocale();
+  if (notes.length === 0) {
+    return null;
+  }
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-6 text-steel shadow-panel">
+      {notes.map((note) => (
+        <p key={note}>{tc(note)}</p>
+      ))}
+    </div>
   );
 }
 

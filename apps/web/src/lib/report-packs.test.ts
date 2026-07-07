@@ -86,13 +86,28 @@ describe("report-pack preview helpers", () => {
     expect(disabledItems.map((item) => item.explanation).join(" ")).toMatch(/not implemented|remain unavailable|not send email/i);
   });
 
-  it("only treats existing web report routes as navigable", () => {
+  it("treats active web report routes as navigable", () => {
     expect(isReportPackSourceNavigable(manifestPreview().items[0]!)).toBe(true);
     expect(
       isReportPackSourceNavigable({
         source: { type: "ledgerbyte-report-route", href: "/reports/cash-flow" },
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      isReportPackSourceNavigable({
+        source: { type: "ledgerbyte-report-route", href: "/reports/revenue-trend" },
+      }),
+    ).toBe(true);
+    expect(
+      isReportPackSourceNavigable({
+        source: { type: "ledgerbyte-report-route", href: "/reports/top-customers" },
+      }),
+    ).toBe(true);
+    expect(
+      isReportPackSourceNavigable({
+        source: { type: "ledgerbyte-report-route", href: "/reports/top-products-services" },
+      }),
+    ).toBe(true);
   });
 
   it("labels review statuses", () => {
