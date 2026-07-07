@@ -77,8 +77,9 @@ export function createBrowserTenantPrisma(settings: BrowserTenantE2eSettings): P
   });
 }
 
-export async function seedBrowserTenantFixture(prisma: PrismaClient): Promise<BrowserTenantFixtureSet> {
-  const marker = `TI-BROWSER-${Date.now()}-${randomUUID().slice(0, 8)}`;
+export async function seedBrowserTenantFixture(prisma: PrismaClient, markerPrefix = "TI-BROWSER"): Promise<BrowserTenantFixtureSet> {
+  const safeMarkerPrefix = markerPrefix.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 80) || "TI-BROWSER";
+  const marker = `${safeMarkerPrefix}-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const uniqueSuffix = marker.replace(/[^A-Za-z0-9]/g, "").slice(-12);
   const password = `TenantBrowser-${uniqueSuffix}-123!`;
   const passwordHash = await bcrypt.hash(password, 12);
@@ -400,7 +401,7 @@ function fixtureIds(marker: string, suffix: "A" | "B", uniqueSuffix: string, rep
     organizationId: randomUUID(),
     organizationName: `${marker} Organization ${suffix}`,
     userId: randomUUID(),
-    userEmail: `${marker.toLowerCase()}-${suffix.toLowerCase()}@example.test`,
+    userEmail: `ti-browser-${uniqueSuffix.toLowerCase()}-${suffix.toLowerCase()}@example.test`,
     userName: `${marker} User ${suffix}`,
     roleId: randomUUID(),
     memberId: randomUUID(),
