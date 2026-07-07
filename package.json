@@ -61,6 +61,8 @@
     "security:cleanup:execute": "corepack pnpm --filter @ledgerbyte/api security:cleanup -- --execute",
     "monitoring:support-readiness": "node scripts/monitoring-support-readiness.cjs",
     "test:monitoring-support-readiness": "node --test scripts/monitoring-support-readiness.test.cjs",
+    "support:email-readiness-proof": "node scripts/support-email-readiness-proof.cjs",
+    "test:support-email-readiness-proof": "node --test scripts/support-email-readiness-proof.test.cjs",
     "fixture:dev04:plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --plan",
     "fixture:dev04:dry-run": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --dry-run",
     "fixture:dev04:cleanup-plan": "corepack pnpm --filter @ledgerbyte/api fixture:dev04 -- --cleanup-plan",
