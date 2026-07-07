@@ -22,6 +22,8 @@
     "test:production-trust-foundation-gate": "node --test scripts/production-trust-foundation-gate.test.cjs",
     "production:env-preflight": "node scripts/production-env-preflight.cjs",
     "test:production-env-preflight": "node --test scripts/production-env-preflight.test.cjs",
+    "production:env-verification-proof": "node scripts/production-env-verification-proof.cjs",
+    "test:production-env-verification-proof": "node --test scripts/production-env-verification-proof.test.cjs",
     "storage:proof-validate": "node scripts/object-storage-proof-validate.cjs",
     "test:storage-proof-validate": "node --test scripts/object-storage-proof-validate.test.cjs",
     "proof:generated-documents:object-staging-preflight": "node scripts/generated-document-object-adapter-staging-preflight.cjs --strict --dry-run",
