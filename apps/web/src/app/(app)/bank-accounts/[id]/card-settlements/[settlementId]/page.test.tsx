@@ -58,7 +58,7 @@ describe("CardSettlementDetailPage", () => {
     render(<CardSettlementDetailPage />);
 
     expect(await screen.findByText("Card settlement detail")).toBeInTheDocument();
-    expect(screen.getByText(/no live bank feed is added/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no live bank feed is added/i)).toBeInTheDocument();
     expect(screen.getAllByText(/no bank payment is sent/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/card paydowns and prepaid top-ups can be journal-posted/i)).toBeInTheDocument();
     expect(await screen.findByText("Posting blocked")).toBeInTheDocument();
