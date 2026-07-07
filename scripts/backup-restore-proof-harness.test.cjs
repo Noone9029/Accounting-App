@@ -58,6 +58,32 @@ test("mock-cycle writes only inside temp, validates manifest and counts, and cle
   assert.equal(fs.existsSync(result.mockCycle.artifactRoot), false);
 });
 
+test("proof result exposes evidence output and tenant-boundary summaries without artifact bodies", () => {
+  const result = buildBackupRestoreProof({
+    repoRoot,
+    mockCycle: true,
+  });
+
+  assert.deepEqual(result.evidenceOutputFormat, {
+    format: "json",
+    manifestFile: "backup-manifest.json",
+    payloadFile: "synthetic-backup.payload.json",
+    checksumAlgorithm: "sha256",
+    includesPayloadBody: false,
+    includesSecretValues: false,
+    includesProviderCredentials: false,
+    includesCustomerData: false,
+  });
+  assert.deepEqual(result.tenantBoundaryProof, {
+    sourceMode: "synthetic-local",
+    syntheticOrganizationIds: ["org-synth-001"],
+    organizationScopedObjectKeys: true,
+    crossTenantMarkersPresent: false,
+    customerDocumentBodiesPresent: false,
+    attachmentBodiesPresent: false,
+  });
+});
+
 test("mock-cycle can keep artifacts for debugging inside a safe temp directory", () => {
   const keptRoot = path.join(os.tmpdir(), `ledgerbyte-backup-proof-test-${Date.now()}`);
   const result = buildBackupRestoreProof({

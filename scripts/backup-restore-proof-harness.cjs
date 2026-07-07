@@ -158,6 +158,8 @@ function buildBackupRestoreProof(options = {}) {
     plannedBoundaries: buildPlannedBoundaries(),
     manifestSchema: plannedManifestSchema(),
     syntheticFixtureSummary: buildSyntheticFixtureSummary(),
+    evidenceOutputFormat: buildEvidenceOutputFormat(),
+    tenantBoundaryProof: buildTenantBoundaryProof(),
     mockCycle: null,
     blockers: [],
     warnings: [],
@@ -273,6 +275,45 @@ function buildSyntheticFixtureSummary() {
     generatedDocumentMetadata: fixture.generatedDocumentMetadata.length,
     auditEventMetadata: fixture.auditEventMetadata.length,
     sourceMode: "synthetic-local",
+  };
+}
+
+function buildEvidenceOutputFormat() {
+  return {
+    format: "json",
+    manifestFile: MANIFEST_FILENAME,
+    payloadFile: PAYLOAD_FILENAME,
+    checksumAlgorithm: "sha256",
+    includesPayloadBody: false,
+    includesSecretValues: false,
+    includesProviderCredentials: false,
+    includesCustomerData: false,
+  };
+}
+
+function buildTenantBoundaryProof() {
+  const fixture = buildSyntheticFixture();
+  const syntheticOrganizationIds = [...new Set([
+    ...fixture.organizationMetadata.map((entry) => entry.organizationId),
+    ...fixture.documentMetadata.map((entry) => entry.organizationId),
+    ...fixture.attachmentMetadata.map((entry) => entry.organizationId),
+    ...fixture.generatedDocumentMetadata.map((entry) => entry.organizationId),
+    ...fixture.auditEventMetadata.map((entry) => entry.organizationId),
+  ])].sort();
+  const objectKeys = [
+    ...fixture.attachmentMetadata.map((entry) => entry.objectKey),
+    ...fixture.generatedDocumentMetadata.map((entry) => entry.objectKey),
+  ];
+
+  return {
+    sourceMode: "synthetic-local",
+    syntheticOrganizationIds,
+    organizationScopedObjectKeys: objectKeys.every((key) =>
+      syntheticOrganizationIds.some((organizationId) => key.startsWith(`org/${organizationId}/`)),
+    ),
+    crossTenantMarkersPresent: syntheticOrganizationIds.length > 1,
+    customerDocumentBodiesPresent: false,
+    attachmentBodiesPresent: false,
   };
 }
 
@@ -724,7 +765,9 @@ module.exports = {
   buildBackupRestoreProof,
   buildManifest,
   buildRecordCounts,
+  buildEvidenceOutputFormat,
   buildSyntheticFixture,
+  buildTenantBoundaryProof,
   describeArtifactDirectory,
   formatResult,
   parseArgs,
