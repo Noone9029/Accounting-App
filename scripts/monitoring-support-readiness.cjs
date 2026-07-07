@@ -3,9 +3,24 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_EVIDENCE_PATH = path.join(process.cwd(), "docs", "operations", "evidence", "MONITORING_SUPPORT_READINESS.md");
-const DEFAULT_JSON_PATH = path.join(process.cwd(), "docs", "operations", "evidence", "MONITORING_SUPPORT_READINESS.json");
+const EVIDENCE_MARKDOWN_FILE = "docs/operations/evidence/MONITORING_SUPPORT_READINESS.md";
+const EVIDENCE_JSON_FILE = "docs/operations/evidence/MONITORING_SUPPORT_READINESS.json";
+const DEFAULT_EVIDENCE_PATH = path.join(process.cwd(), ...EVIDENCE_MARKDOWN_FILE.split("/"));
+const DEFAULT_JSON_PATH = path.join(process.cwd(), ...EVIDENCE_JSON_FILE.split("/"));
 const DETERMINISTIC_GENERATED_AT = "2026-07-02T00:00:00.000Z";
+
+const REQUIRED_ALERT_SIGNALS = [
+  "API health failure",
+  "Readiness database failure",
+  "Email outbox stuck",
+  "Backup readiness missing",
+  "Restore evidence stale",
+  "Storage readiness blocked",
+  "Queue lag/failure",
+  "Suspicious tenant boundary alert",
+  "ZATCA network attempted unexpectedly",
+  "UAE ASP network attempted unexpectedly",
+];
 
 const CHECKS = [
   {
@@ -260,13 +275,19 @@ function evaluateCheck(rootDir, definition) {
 function buildReport(options = {}) {
   const rootDir = options.rootDir || process.cwd();
   const checks = CHECKS.map((check) => evaluateCheck(rootDir, check));
+  const alertingMatrixCoverage = buildAlertingMatrixCoverage(rootDir);
   const counts = checks.reduce((acc, check) => {
     acc[check.status] = (acc[check.status] || 0) + 1;
     return acc;
   }, {});
   const blocked = checks.filter((check) => check.status === "blocked");
   const partial = checks.filter((check) => check.status === "partial");
-  const status = blocked.length ? "MONITORING_SUPPORT_REVIEW_REQUIRED" : partial.length ? "MONITORING_SUPPORT_PARTIAL_READY" : "MONITORING_SUPPORT_LOCAL_READY";
+  const status =
+    blocked.length || alertingMatrixCoverage.missingSignals.length
+      ? "MONITORING_SUPPORT_REVIEW_REQUIRED"
+      : partial.length
+        ? "MONITORING_SUPPORT_PARTIAL_READY"
+        : "MONITORING_SUPPORT_LOCAL_READY";
 
   return {
     status,
@@ -281,10 +302,41 @@ function buildReport(options = {}) {
     noStorageOperation: true,
     noSecretsPrinted: true,
     noCustomerDataPrinted: true,
+    evidenceOutputFormat: buildEvidenceOutputFormat(),
+    alertingMatrixCoverage,
     counts,
     checks,
     blocked: blocked.map(summarizeCheck),
     partial: partial.map(summarizeCheck),
+  };
+}
+
+function buildEvidenceOutputFormat() {
+  return {
+    format: "markdown+json",
+    markdownFile: EVIDENCE_MARKDOWN_FILE,
+    jsonFile: EVIDENCE_JSON_FILE,
+    includesSecretValues: false,
+    includesCustomerData: false,
+    includesProviderCredentials: false,
+    includesProviderResponses: false,
+  };
+}
+
+function buildAlertingMatrixCoverage(rootDir) {
+  const matrixPath = "docs/operations/ALERTING_MATRIX.md";
+  const matrixText = readIfExists(rootDir, matrixPath);
+  const presentSignals = REQUIRED_ALERT_SIGNALS.filter((signal) => matrixText.includes(signal));
+  const missingSignals = REQUIRED_ALERT_SIGNALS.filter((signal) => !presentSignals.includes(signal));
+
+  return {
+    source: matrixPath,
+    requiredSignals: [...REQUIRED_ALERT_SIGNALS],
+    presentSignals,
+    missingSignals,
+    allRequiredSignalsPresent: missingSignals.length === 0,
+    providerAlertRulesCreated: false,
+    hostedLogDrainConfigured: false,
   };
 }
 
@@ -308,6 +360,7 @@ function formatText(report) {
     `No email send: ${report.noEmailSend}`,
     `No provider call: ${report.noProviderCall}`,
     `No storage operation: ${report.noStorageOperation}`,
+    `Alerting matrix complete: ${report.alertingMatrixCoverage.allRequiredSignalsPresent}`,
     "",
     "Summary:",
     ...Object.entries(report.counts)
@@ -345,6 +398,21 @@ function formatMarkdown(report) {
     `- Available: ${report.counts.available || 0}`,
     `- Partial: ${report.counts.partial || 0}`,
     `- Blocked: ${report.counts.blocked || 0}`,
+    "",
+    "## Evidence Output",
+    "",
+    `- Markdown: \`${report.evidenceOutputFormat.markdownFile}\``,
+    `- JSON: \`${report.evidenceOutputFormat.jsonFile}\``,
+    "- Payload body/secrets/provider responses/customer data: not included.",
+    "",
+    "## Alerting Matrix Coverage",
+    "",
+    `- Required signals present: ${report.alertingMatrixCoverage.allRequiredSignalsPresent ? "yes" : "no"}`,
+    `- Provider alert rules created: ${report.alertingMatrixCoverage.providerAlertRulesCreated ? "yes" : "no"}`,
+    `- Hosted log drain configured: ${report.alertingMatrixCoverage.hostedLogDrainConfigured ? "yes" : "no"}`,
+    ...(report.alertingMatrixCoverage.missingSignals.length
+      ? ["", "Missing alert signals:", ...report.alertingMatrixCoverage.missingSignals.map((signal) => `- ${signal}`)]
+      : ["", "Required alert signals:", ...report.alertingMatrixCoverage.presentSignals.map((signal) => `- ${signal}`)]),
     "",
     "## Readiness Checks",
     "",
@@ -401,6 +469,8 @@ if (require.main === module) {
 module.exports = {
   CHECKS,
   buildReport,
+  buildAlertingMatrixCoverage,
+  buildEvidenceOutputFormat,
   evaluateCheck,
   formatMarkdown,
   formatText,
