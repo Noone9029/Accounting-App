@@ -176,13 +176,16 @@ export class AttachmentService {
     return deleted;
   }
 
-  async download(organizationId: string, id: string) {
+  async download(organizationId: string, id: string, actorUserId?: string) {
     const attachment = await this.prisma.attachment.findFirst({
       where: { id, organizationId },
       select: {
         id: true,
+        linkedEntityType: true,
+        linkedEntityId: true,
         filename: true,
         mimeType: true,
+        sizeBytes: true,
         status: true,
         storageProvider: true,
         storageKey: true,
@@ -199,6 +202,22 @@ export class AttachmentService {
       ...attachment,
       organizationId,
       attachmentId: attachment.id,
+    });
+    await this.auditLogService.log({
+      organizationId,
+      actorUserId,
+      action: "DOWNLOAD",
+      entityType: "Attachment",
+      entityId: attachment.id,
+      after: {
+        id: attachment.id,
+        linkedEntityType: attachment.linkedEntityType,
+        linkedEntityId: attachment.linkedEntityId,
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        storageProvider: attachment.storageProvider,
+      },
     });
     return {
       filename: attachment.filename,

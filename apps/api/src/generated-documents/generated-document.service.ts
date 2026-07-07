@@ -116,7 +116,7 @@ export class GeneratedDocumentService {
     return document;
   }
 
-  async download(organizationId: string, id: string) {
+  async download(organizationId: string, id: string, actorUserId?: string) {
     const document = await this.prisma.generatedDocument.findFirst({
       where: { id, organizationId },
       select: {
@@ -138,6 +138,21 @@ export class GeneratedDocumentService {
     const buffer = await this.generatedDocumentStorage.readGeneratedDocumentContent({
       ...document,
       generatedDocumentId: document.id,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: "DOWNLOAD",
+      entityType: "GeneratedDocument",
+      entityId: document.id,
+      after: {
+        id: document.id,
+        filename: document.filename,
+        mimeType: document.mimeType,
+        sizeBytes: document.sizeBytes,
+        storageProvider: document.storageProvider,
+      },
     });
 
     return {

@@ -253,10 +253,10 @@ describe("AttachmentService", () => {
     expect(prisma.attachment.findFirst.mock.calls[0][0].select).not.toHaveProperty("contentBase64");
   });
 
-  it("downloads active attachment content", async () => {
-    const { service, storage } = makeService();
+  it("downloads active attachment content and records a safe audit event", async () => {
+    const { service, storage, audit } = makeService();
 
-    await expect(service.download("org-1", "attachment-1")).resolves.toMatchObject({
+    await expect(service.download("org-1", "attachment-1", "user-1")).resolves.toMatchObject({
       filename: "invoice.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("hello"),
@@ -268,10 +268,27 @@ describe("AttachmentService", () => {
         attachmentId: "attachment-1",
       }),
     );
+    expect(audit.log).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "DOWNLOAD",
+      entityType: "Attachment",
+      entityId: "attachment-1",
+      after: {
+        id: "attachment-1",
+        linkedEntityType: AttachmentLinkedEntityType.SALES_INVOICE,
+        linkedEntityId: baseAttachment.linkedEntityId,
+        filename: "invoice.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 12,
+        storageProvider: AttachmentStorageProvider.DATABASE,
+      },
+    });
+    expect(JSON.stringify(audit.log.mock.calls[0][0])).not.toContain("contentBase64");
   });
 
   it("does not read attachment content when a tenant guesses another tenant attachment id", async () => {
-    const { service, prisma, storage } = makeService();
+    const { service, prisma, storage, audit } = makeService();
     prisma.attachment.findFirst.mockResolvedValue(null);
 
     await expect(service.download("org-2", "attachment-1")).rejects.toBeInstanceOf(NotFoundException);
@@ -280,6 +297,7 @@ describe("AttachmentService", () => {
       expect.objectContaining({ where: { id: "attachment-1", organizationId: "org-2" } }),
     );
     expect(storage.read).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   it("uses organization scope before updating or deleting guessed attachments", async () => {
@@ -297,10 +315,11 @@ describe("AttachmentService", () => {
   });
 
   it("blocks download for deleted attachments", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma, audit } = makeService();
     prisma.attachment.findFirst.mockResolvedValue({ ...baseAttachment, status: AttachmentStatus.DELETED, contentBase64: "aGVsbG8=" });
 
     await expect(service.download("org-1", "attachment-1")).rejects.toBeInstanceOf(NotFoundException);
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   it("soft deletes attachments", async () => {

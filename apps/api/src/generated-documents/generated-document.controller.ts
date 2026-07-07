@@ -2,7 +2,9 @@ import { Controller, Get, Param, Query, Res, StreamableFile, UseGuards } from "@
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
+import type { AuthenticatedUser } from "../auth/auth.types";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
@@ -30,10 +32,11 @@ export class GeneratedDocumentController {
   @RequirePermissions(PERMISSIONS.generatedDocuments.download)
   async download(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { filename, mimeType, buffer } = await this.generatedDocumentService.download(organizationId, id);
+    const { filename, mimeType, buffer } = await this.generatedDocumentService.download(organizationId, id, user.id);
     response.set({
       "Content-Type": mimeType,
       "Content-Disposition": `attachment; filename="${filename}"`,

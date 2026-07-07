@@ -119,6 +119,44 @@ describe("AuditLogService", () => {
     );
   });
 
+  it("standardizes attachment and generated-document download event names", async () => {
+    const { prisma, service } = makeService();
+
+    await service.log({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "DOWNLOAD",
+      entityType: "Attachment",
+      entityId: "attachment-1",
+    });
+    await service.log({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "DOWNLOAD",
+      entityType: "GeneratedDocument",
+      entityId: "document-1",
+    });
+
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: AUDIT_EVENTS.ATTACHMENT_DOWNLOADED,
+          entityType: "Attachment",
+        }),
+      }),
+    );
+    expect(prisma.auditLog.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: AUDIT_EVENTS.GENERATED_DOCUMENT_DOWNLOADED,
+          entityType: "GeneratedDocument",
+        }),
+      }),
+    );
+  });
+
   it("keeps standardized customer payment unapplied allocation events stable", async () => {
     const { prisma, service } = makeService();
 
