@@ -255,6 +255,26 @@ export const APP_ROUTES = [
   route("reports.balanceSheet", "Balance Sheet", "/reports/balance-sheet", "reports", "Balance sheet report.", [PERMISSIONS.reports.view], {
     sidebarGroup: "Financial statements",
   }),
+  route("reports.cashFlow", "Cash Flow", "/reports/cash-flow", "reports", "Cash flow report from posted cash and bank journal lines.", [PERMISSIONS.reports.view], {
+    sidebarGroup: "Management reports",
+  }),
+  route("reports.revenueTrend", "Revenue Trend", "/reports/revenue-trend", "reports", "Revenue trend report from posted revenue journal lines.", [PERMISSIONS.reports.view], {
+    sidebarGroup: "Management reports",
+  }),
+  route("reports.topCustomers", "Top Customers", "/reports/top-customers", "reports", "Top customers report from finalized sales invoices.", [PERMISSIONS.reports.view], {
+    sidebarGroup: "Management reports",
+  }),
+  route(
+    "reports.topProductsServices",
+    "Top Products & Services",
+    "/reports/top-products-services",
+    "reports",
+    "Top products and services report from finalized sales invoice lines.",
+    [PERMISSIONS.reports.view],
+    {
+      sidebarGroup: "Management reports",
+    },
+  ),
   route("reports.vatSummary", "VAT Summary", "/reports/vat-summary", "reports", "VAT summary report.", [PERMISSIONS.reports.view], {
     sidebarGroup: "Tax reports",
     sensitivity: ["compliance"],

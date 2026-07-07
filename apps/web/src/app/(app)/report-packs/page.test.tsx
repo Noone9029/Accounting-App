@@ -49,8 +49,11 @@ describe("ReportPacksPage", () => {
     expect(screen.getByText("Needs review")).toBeInTheDocument();
     expect(screen.getByText("Ready for review")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open reports" })).toHaveAttribute("href", "/reports");
-    expect(screen.getByRole("link", { name: "View source report" })).toHaveAttribute("href", "/reports/general-ledger");
-    expect(screen.getByText("Preview-only; no route linked")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "View source report" }).map((link) => link.getAttribute("href"))).toEqual([
+      "/reports/general-ledger",
+      "/reports/cash-flow",
+    ]);
+    expect(screen.queryByText("Preview-only; no route linked")).not.toBeInTheDocument();
     expect(fetchReportPackManifestPreviewMock).toHaveBeenCalledTimes(1);
   });
 
@@ -71,7 +74,7 @@ describe("ReportPacksPage", () => {
     expect(screen.getByText(/No ZATCA, UAE, Peppol, ASP, tax authority, or compliance submission is available/i)).toBeInTheDocument();
   });
 
-  it("does not render mutation action buttons or inactive future report links", async () => {
+  it("does not render mutation action buttons", async () => {
     const { container } = render(<ReportPacksPage />);
 
     await screen.findByText("General Ledger");
@@ -86,7 +89,7 @@ describe("ReportPacksPage", () => {
     expect(screen.queryByRole("link", { name: /send/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /store/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /submit/i })).not.toBeInTheDocument();
-    expect(container.querySelector('a[href="/reports/cash-flow"]')).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/generation enabled/i);
   });
 
   it("renders a safe empty state", async () => {

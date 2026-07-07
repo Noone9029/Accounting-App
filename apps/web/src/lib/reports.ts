@@ -3,7 +3,7 @@ import type { AgingBucket, BalanceSheetReport } from "./types";
 
 export const REPORT_BUCKETS: AgingBucket[] = ["CURRENT", "1_30", "31_60", "61_90", "90_PLUS"];
 export type ReportExportFormat = "csv" | "pdf";
-export type ReportIndexGroupLabel = "Financial statements" | "Tax reports" | "Aging" | "Inventory";
+export type ReportIndexGroupLabel = "Financial statements" | "Management reports" | "Tax reports" | "Aging" | "Inventory";
 
 export interface ReportIndexLink {
   routeKey: AppRouteKey;
@@ -24,13 +24,17 @@ interface ReportIndexRouteRef {
   description?: string;
 }
 
-const REPORT_INDEX_GROUP_LABELS: readonly ReportIndexGroupLabel[] = ["Financial statements", "Tax reports", "Aging", "Inventory"];
+const REPORT_INDEX_GROUP_LABELS: readonly ReportIndexGroupLabel[] = ["Financial statements", "Management reports", "Tax reports", "Aging", "Inventory"];
 
 const REPORT_INDEX_ROUTE_REFS: readonly ReportIndexRouteRef[] = [
   { group: "Financial statements", key: "reports.generalLedger", description: "Trace posted journal lines by account." },
   { group: "Financial statements", key: "reports.trialBalance", description: "Confirm debits and credits stay balanced." },
   { group: "Financial statements", key: "reports.profitLoss", description: "Review revenue, costs, expenses, and net profit." },
   { group: "Financial statements", key: "reports.balanceSheet", description: "Check assets, liabilities, equity, and retained earnings." },
+  { group: "Management reports", key: "reports.cashFlow", description: "Review cash movement from posted cash and bank journal lines." },
+  { group: "Management reports", key: "reports.revenueTrend", description: "Trend posted revenue-account journal lines by month." },
+  { group: "Management reports", key: "reports.topCustomers", description: "Rank customers by finalized sales invoice gross totals." },
+  { group: "Management reports", key: "reports.topProductsServices", description: "Rank catalog items and uncataloged lines from finalized sales invoice lines." },
   { group: "Tax reports", key: "reports.vatSummary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },
   { group: "Tax reports", key: "reports.vatReturn", description: "Draft source-document VAT review with internal CSV export only. It is not an official filing workflow." },
   {
