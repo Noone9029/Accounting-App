@@ -44,10 +44,11 @@ export class AttachmentController {
   @RequirePermissions(PERMISSIONS.attachments.download)
   async download(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { filename, mimeType, buffer } = await this.attachmentService.download(organizationId, id);
+    const { filename, mimeType, buffer } = await this.attachmentService.download(organizationId, id, user.id);
     response.set({
       "Content-Type": mimeType,
       "Content-Disposition": `attachment; filename="${filename}"`,

@@ -153,12 +153,32 @@ describe("generated document rules", () => {
       }),
     );
 
-    await expect(service.download("org-1", String(document.id))).resolves.toMatchObject({
+    auditLogService.log.mockClear();
+
+    await expect(service.download("org-1", String(document.id), "user-1")).resolves.toMatchObject({
       filename: "invoice-INV-000001.pdf",
       mimeType: "application/pdf",
       buffer,
     });
+    expect(auditLogService.log).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "DOWNLOAD",
+      entityType: "GeneratedDocument",
+      entityId: document.id,
+      after: {
+        id: document.id,
+        filename: "invoice-INV-000001.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: buffer.byteLength,
+        storageProvider: "local-test-object",
+      },
+    });
+    expect(JSON.stringify(auditLogService.log.mock.calls[0][0])).not.toContain("contentBase64");
+
+    auditLogService.log.mockClear();
     await expect(service.download("org-2", String(document.id))).rejects.toThrow("Generated document not found.");
+    expect(auditLogService.log).not.toHaveBeenCalled();
   });
 
   it("archives invoice PDFs through a metadata-only ZATCA PDF/A-3 boundary", async () => {
