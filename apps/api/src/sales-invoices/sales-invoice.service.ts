@@ -144,6 +144,28 @@ interface PreparedInvoice {
 
 type PrismaExecutor = PrismaService | Prisma.TransactionClient;
 
+interface SalesInvoiceWorkflowInput {
+  id: string;
+  invoiceNumber: string;
+  customerId: string | null;
+  status: SalesInvoiceStatus;
+  currency: string;
+  total: Prisma.Decimal | string | number | null;
+  balanceDue: Prisma.Decimal | string | number | null;
+  journalEntryId: string | null;
+  reversalJournalEntryId: string | null;
+  journalEntry?: { id: string; entryNumber: string; status: string } | null;
+  reversalJournalEntry?: { id: string; entryNumber: string; status: string } | null;
+}
+
+interface SalesInvoiceWorkflowGeneratedDocumentInput {
+  id: string;
+  filename: string;
+  status: string;
+  storageProvider: string;
+  generatedAt: string | Date;
+}
+
 @Injectable()
 export class SalesInvoiceService {
   constructor(
@@ -422,6 +444,43 @@ export class SalesInvoiceService {
   async generatePdf(organizationId: string, actorUserId: string, id: string) {
     const { document } = await this.pdf(organizationId, actorUserId, id);
     return document;
+  }
+
+  async workflowSummary(organizationId: string, id: string) {
+    const [invoice, generatedDocuments] = await Promise.all([
+      this.prisma.salesInvoice.findFirst({
+        where: { id, organizationId },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          customerId: true,
+          status: true,
+          currency: true,
+          total: true,
+          balanceDue: true,
+          journalEntryId: true,
+          reversalJournalEntryId: true,
+          journalEntry: { select: { id: true, entryNumber: true, status: true } },
+          reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+        },
+      }),
+      this.prisma.generatedDocument.findMany({
+        where: {
+          organizationId,
+          sourceType: "SalesInvoice",
+          sourceId: id,
+          documentType: DocumentType.SALES_INVOICE,
+        },
+        orderBy: { generatedAt: "desc" },
+        select: { id: true, filename: true, status: true, storageProvider: true, generatedAt: true },
+      }),
+    ]);
+
+    if (!invoice) {
+      throw new NotFoundException("Sales invoice not found.");
+    }
+
+    return buildSalesInvoiceWorkflowSummary(invoice, generatedDocuments);
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
@@ -1123,8 +1182,107 @@ function optionalBranchWhere(branchId?: string): { branchId?: string } {
   return targetBranchId ? { branchId: targetBranchId } : {};
 }
 
+export function buildSalesInvoiceWorkflowSummary(
+  invoice: SalesInvoiceWorkflowInput,
+  generatedDocuments: SalesInvoiceWorkflowGeneratedDocumentInput[],
+) {
+  const total = toMoney(invoice.total);
+  const balanceDue = toMoney(invoice.balanceDue);
+  const paidAmount = total.minus(balanceDue).lt(0) ? toMoney(0) : total.minus(balanceDue);
+  const latestPdf = [...generatedDocuments].sort((left, right) => new Date(right.generatedAt).getTime() - new Date(left.generatedAt).getTime())[0] ?? null;
+  const paymentState =
+    invoice.status === SalesInvoiceStatus.VOIDED
+      ? "VOIDED"
+      : invoice.status === SalesInvoiceStatus.DRAFT
+        ? "NOT_COLLECTIBLE_DRAFT"
+        : balanceDue.lte(0)
+          ? "PAID"
+          : paidAmount.gt(0)
+            ? "PARTIALLY_PAID"
+            : "UNPAID";
+  const postingState =
+    invoice.status === SalesInvoiceStatus.VOIDED
+      ? "VOIDED"
+      : invoice.status === SalesInvoiceStatus.DRAFT
+        ? "DRAFT_NOT_POSTED"
+        : invoice.journalEntryId
+          ? "POSTED"
+          : "FINALIZED_MISSING_JOURNAL";
+  const availableActions = ["generatePdf", "downloadPdf", "reviewCustomerLedger"];
+  const blockedActions: Array<{ action: string; reason: string }> = [];
+
+  if (invoice.status === SalesInvoiceStatus.DRAFT) {
+    availableActions.unshift("finalize");
+    blockedActions.push({ action: "recordPayment", reason: "Draft invoices are not receivable until finalized and posted." });
+  } else {
+    blockedActions.push({ action: "finalize", reason: "Only draft invoices can be finalized." });
+  }
+
+  if (invoice.status === SalesInvoiceStatus.FINALIZED && balanceDue.gt(0) && invoice.customerId) {
+    availableActions.unshift("recordPayment");
+  } else if (invoice.status === SalesInvoiceStatus.FINALIZED && balanceDue.lte(0)) {
+    blockedActions.push({ action: "recordPayment", reason: "Invoice balance is already cleared." });
+  } else if (invoice.status === SalesInvoiceStatus.FINALIZED && !invoice.customerId) {
+    blockedActions.push({ action: "recordPayment", reason: "Invoice does not have a customer target for payment allocation." });
+  }
+
+  if (invoice.status === SalesInvoiceStatus.VOIDED) {
+    blockedActions.push({ action: "recordPayment", reason: "Voided invoices are closed for payment allocation." });
+  }
+
+  return {
+    document: {
+      id: invoice.id,
+      type: "SalesInvoice",
+      number: invoice.invoiceNumber,
+      status: invoice.status,
+      customerId: invoice.customerId,
+      currency: invoice.currency,
+      total: workflowMoneyString(total),
+      balanceDue: workflowMoneyString(balanceDue),
+    },
+    posting: {
+      state: postingState,
+      journalEntryId: invoice.journalEntryId,
+      journalEntryNumber: invoice.journalEntry?.entryNumber ?? null,
+      journalEntryStatus: invoice.journalEntry?.status ?? null,
+      reversalJournalEntryId: invoice.reversalJournalEntryId,
+      reversalJournalEntryNumber: invoice.reversalJournalEntry?.entryNumber ?? null,
+      reversalJournalEntryStatus: invoice.reversalJournalEntry?.status ?? null,
+    },
+    payment: {
+      state: paymentState,
+      balanceDue: workflowMoneyString(balanceDue),
+      paidAmount: workflowMoneyString(paidAmount),
+    },
+    generatedDocuments: {
+      pdfCount: generatedDocuments.length,
+      latestPdf: latestPdf
+        ? {
+            id: latestPdf.id,
+            filename: latestPdf.filename,
+            status: latestPdf.status,
+            storageProvider: latestPdf.storageProvider,
+            generatedAt: new Date(latestPdf.generatedAt).toISOString(),
+          }
+        : null,
+    },
+    availableActions,
+    blockedActions,
+    notes: [
+      "This workflow summary is read-only: it does not finalize, void, allocate payments, generate PDFs, send email, and does not submit compliance data.",
+      "PDF generation and download remain explicit user actions behind the existing sales invoice and generated-document permissions.",
+      "Generated document storage information reflects the current archive record only; it is not a production storage-provider claim.",
+    ],
+  };
+}
+
 function moneyString(value: unknown): string {
   return String(value ?? "0");
+}
+
+function workflowMoneyString(value: Prisma.Decimal | string | number | null | ReturnType<typeof toMoney>): string {
+  return toMoney(value).toFixed(4);
 }
 
 function toZatcaPdfA3ArchiveMetadata(zatca: InvoicePdfData["zatca"]): ZatcaPdfA3ArchiveMetadataInput | null {
