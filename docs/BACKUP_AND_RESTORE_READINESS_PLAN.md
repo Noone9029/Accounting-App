@@ -24,16 +24,29 @@ LedgerByte now has a metadata-only backup and restore readiness surface for cont
   - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode backup --execute --backup-output-dir artifacts/backup-restore-drill/backups`
   - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode restore --execute --backup-file artifacts/backup-restore-drill/backups/<file>.dump`
   - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode verify --execute`
+  - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode drill --execute --prepare-fixture --backup-output-dir artifacts/backup-restore-drill/backups --evidence-dir artifacts/backup-restore-drill`
 - Execution modes require:
   - `LEDGERBYTE_DR_SOURCE_DATABASE_URL` for backup/drill,
   - `LEDGERBYTE_DR_RESTORE_DATABASE_URL` for restore/verify/drill,
   - `LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL=I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET`.
+- `--prepare-fixture` is execution-only and drill-only. It drops and recreates only the classified disposable local source/restore databases, applies Prisma migrations to the source database, and seeds local synthetic production-shaped rows before backup.
+- When local PostgreSQL client tools are not installed, the drill can run `pg_dump`, `pg_restore`, and `psql` inside the local Docker compose `postgres` service with `LEDGERBYTE_DR_PG_TOOLS=docker-compose` and `LEDGERBYTE_DR_PG_DOCKER_COMPOSE_FILE=infra/docker-compose.yml`.
 - The classifier blocks hosted, remote, production, beta, staging, user-testing, customer-looking, and non-PostgreSQL targets.
 - Restore execution is additionally blocked unless the restore database is local and disposable-looking, such as a database name containing `restore`, `drill`, `disposable`, `tmp`, `temp`, `test`, or `local`.
+- Fixture preparation additionally requires the source database to be disposable-looking; the active local development `accounting` database is not accepted as a fixture source.
 - Backup output is limited to `artifacts/` or the OS temp directory and reports filename, SHA-256 checksum, size, and sanitized target classification.
-- Restore verification checks core accounting tables, Prisma migration history, tenant-scoped counts, nullable `requestId` coverage on audit/generated-document/document-inbox/payment-provider records, and invoice payment-link table restoration if present.
+- Restore verification checks seeded core accounting tables, Prisma migration history, tenant-scoped counts, a no-cross-tenant journal-line/account check, nullable and non-null `requestId` coverage on audit/generated-document/document-inbox/payment-provider records, and seeded invoice payment-link table restoration.
 - Evidence output can be generated as redacted JSON and Markdown. It never includes database URLs, passwords, tokens, provider payloads, document bodies, PDFs, XML contents, private data, or raw customer data.
 - This tooling still does not prove hosted production recovery, hosted PITR, object-storage recovery, RPO/RTO approval, or disaster-recovery readiness.
+
+### Evidence Modes
+
+- Plan-mode evidence: produced by `--mode plan`; no database backup, restore, migration, seed, `pg_dump`, `pg_restore`, or `psql` execution occurs.
+- Executed local drill evidence: produced by `--mode drill --execute --prepare-fixture` against localhost/Docker disposable databases only; it can prove local PostgreSQL dump/restore mechanics and seeded restore checks for that machine.
+- Hosted production recovery: still unproven. This local drill must not be used as proof that production backups or restores work.
+- Hosted PITR: still unproven. PITR needs provider-specific non-production evidence.
+- Object-storage recovery: still unproven. Database-backed document metadata can be counted here, but object backup/export/import is outside this drill.
+- RPO/RTO: still unapproved. This drill records elapsed mechanics only and does not infer business recovery targets.
 
 ## Current Storage Story
 

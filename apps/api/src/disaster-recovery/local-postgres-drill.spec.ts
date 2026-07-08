@@ -2,12 +2,15 @@ import {
   LOCAL_DRILL_APPROVAL_ENV,
   OWNER_APPROVAL_PHRASE,
   STATUS_PLAN_READY,
+  STATUS_RESTORE_VERIFIED,
   assertBackupAllowed,
   assertRestoreAllowed,
   buildEvidenceReport,
+  buildLocalDrillSeedSql,
   classifyDatabaseTarget,
   formatRestoreVerificationResult,
   getRestoreVerificationChecks,
+  prepareLocalDrillDatabases,
   redactEvidenceText,
   renderEvidenceMarkdown,
 } from "./local-postgres-drill";
@@ -68,6 +71,34 @@ describe("local PostgreSQL disaster recovery drill", () => {
     ).toThrow("disposable local PostgreSQL database");
   });
 
+  it("requires disposable local source and restore databases before fixture preparation", () => {
+    expect(() =>
+      prepareLocalDrillDatabases(
+        {
+          mode: "drill",
+          sourceDatabaseUrl: "postgresql://user:secret@localhost:5432/accounting",
+          restoreDatabaseUrl: "postgresql://user:secret@localhost:5432/accounting_restore_drill",
+          env: { [LOCAL_DRILL_APPROVAL_ENV]: OWNER_APPROVAL_PHRASE },
+        },
+        { run: jest.fn() },
+      ),
+    ).toThrow("Restore target must be a disposable local PostgreSQL database name");
+  });
+
+  it("keeps unsafe execution blocked even when fixture preparation is requested", () => {
+    expect(() =>
+      prepareLocalDrillDatabases(
+        {
+          mode: "drill",
+          sourceDatabaseUrl: "postgresql://user:secret@db.supabase.co:5432/ledgerbyte_dr_source_local",
+          restoreDatabaseUrl: "postgresql://user:secret@localhost:5432/ledgerbyte_dr_restore_local",
+          env: { [LOCAL_DRILL_APPROVAL_ENV]: OWNER_APPROVAL_PHRASE },
+        },
+        { run: jest.fn() },
+      ),
+    ).toThrow("Hosted or remote database targets are blocked");
+  });
+
   it("redacts evidence and markdown so secrets and URLs are not exposed", () => {
     const evidence = buildEvidenceReport({
       mode: "plan",
@@ -119,6 +150,60 @@ describe("local PostgreSQL disaster recovery drill", () => {
     ]);
     expect(checks.map((check) => check.table)).toContain("InvoicePaymentLink");
     expect(checks.map((check) => check.table)).toContain("_prisma_migrations");
+    expect(checks.find((check) => check.id === "tenant-scope-no-cross-org-journal-lines")).toMatchObject({
+      expected: "true",
+    });
+  });
+
+  it("seeds production-shaped local data for requestId-bearing model verification", () => {
+    const seedSql = buildLocalDrillSeedSql();
+
+    for (const table of ["AuditLog", "GeneratedDocument", "DocumentExtractionResult", "DocumentReviewDecision", "PaymentProviderEvent", "InvoicePaymentLink"]) {
+      expect(seedSql).toContain(`"${table}"`);
+    }
+    expect(seedSql).toContain("req_local_drill_");
+    expect(seedSql).toContain("NULL");
+    expect(seedSql).toContain("Local DR Tenant B");
+    expect(seedSql).not.toContain("postgresql://");
+    expect(seedSql).not.toContain("super-secret");
+  });
+
+  it("redacts evidence after executed local drill verification succeeds", () => {
+    const verification = formatRestoreVerificationResult(
+      getRestoreVerificationChecks().map((check) => ({
+        ...check,
+        passed: true,
+        observedValue: check.expected === "true" ? "t" : "1",
+        message: "Verification passed against local disposable restore database.",
+      })),
+    );
+    const evidence = buildEvidenceReport({
+      mode: "drill",
+      gitCommit: "abc1234",
+      sourceDatabaseUrl: "postgresql://user:super-secret@localhost:5432/ledgerbyte_dr_source_local",
+      restoreDatabaseUrl: "postgresql://user:super-secret@localhost:5432/ledgerbyte_dr_restore_local",
+      now: new Date("2026-07-08T12:00:00.000Z"),
+      status: STATUS_RESTORE_VERIFIED,
+      backup: {
+        filename: "ledgerbyte-local-backup.dump",
+        absolutePath: "E:/tmp/ledgerbyte-local-backup.dump",
+        checksumSha256: "a".repeat(64),
+        sizeBytes: 1024,
+      },
+      verification,
+      warnings: ["Hosted/prod mutation was blocked/not attempted."],
+    });
+
+    const json = JSON.stringify(evidence);
+    expect(evidence.restoreVerification.passed).toBe(true);
+    expect(evidence.status).toBe(STATUS_RESTORE_VERIFIED);
+    expect(json).not.toContain("super-secret");
+    expect(json).not.toContain("postgresql://user");
+    expect(json).not.toContain("E:/tmp");
+    expect(evidence.productionRecoveryProven).toBe(false);
+    expect(evidence.hostedProductionRecoveryProven).toBe(false);
+    expect(evidence.hostedProdMutationAttempted).toBe(false);
+    expect(evidence.warnings).toContain("Hosted/prod/beta/staging database mutation was blocked/not attempted.");
   });
 
   it("redacts sensitive text from command failures", () => {
