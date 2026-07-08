@@ -33,6 +33,7 @@ export interface ConfigReadinessSummary {
     objectStorage: ConfigReadinessItem & { attachmentMode: string; generatedDocumentMode: string };
     bankIntegration: ConfigReadinessItem & { mode: string };
     email: ConfigReadinessItem & { mode: string };
+    outboundWebhooks: ConfigReadinessItem & { mode: string; publicDeliveryApproved: boolean; externalDeliveryEnabled: boolean };
     telemetry: ConfigReadinessItem & { sentryEnabled: boolean; openTelemetryEnabled: boolean };
   };
   apiDocs: ConfigReadinessItem & { exposed: boolean };
@@ -95,6 +96,7 @@ export function buildStartupConfigSummary(config: EnvSource): StartupConfigSumma
       objectStorage: readiness.providers.objectStorage.status,
       bankIntegration: readiness.providers.bankIntegration.status,
       emailProvider: readiness.providers.email.status,
+      outboundWebhooks: readiness.providers.outboundWebhooks.status,
       telemetry: readiness.providers.telemetry.status,
       apiDocs: readiness.apiDocs.status,
       publicApi: readiness.publicApi.status,
@@ -120,6 +122,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
   const objectStorage = objectStorageReadiness(config, productionLike);
   const bankIntegration = bankIntegrationReadiness(config, productionLike);
   const email = emailReadiness(config, productionLike);
+  const outboundWebhooks = outboundWebhookReadiness(config, productionLike);
   const telemetry = telemetryReadiness(config, productionLike);
   const apiDocs = apiDocsReadiness(config, productionLike);
   const publicApi = publicApiReadiness(config, productionLike);
@@ -139,6 +142,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
     ...objectStorage.blockers,
     ...bankIntegration.blockers,
     ...email.blockers,
+    ...outboundWebhooks.blockers,
     ...telemetry.blockers,
     ...apiDocs.blockers,
     ...publicApi.blockers,
@@ -160,6 +164,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
       objectStorage,
       bankIntegration,
       email,
+      outboundWebhooks,
       telemetry,
     },
     apiDocs,
@@ -304,6 +309,25 @@ function emailReadiness(config: EnvSource, productionLike: boolean): ConfigReadi
   if (productionLike && isMockMode(mode)) blockers.push("Mock email provider mode is not allowed in production-like modes.");
   if (productionLike && mode === "smtp" && !clean(config.SMTP_PASSWORD)) blockers.push("SMTP credentials are required when EMAIL_PROVIDER=smtp in production-like modes.");
   return readiness(mode !== "smtp-disabled", blockers, mode === "smtp-disabled" ? "Disabled" : "Needs Configuration", [], { mode });
+}
+
+function outboundWebhookReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["providers"]["outboundWebhooks"] {
+  const mode = normalizeProvider(config.LEDGERBYTE_OUTBOUND_WEBHOOKS_MODE, "DISABLED").toUpperCase();
+  const publicDeliveryApproved = readBoolean(config.LEDGERBYTE_OUTBOUND_WEBHOOKS_PUBLIC_APPROVED) === true;
+  const blockers: string[] = [];
+  if (productionLike && mode === "MOCK_LOCAL") {
+    blockers.push("MOCK_LOCAL outbound webhook delivery is not allowed in production-like modes.");
+  }
+  if (productionLike && mode !== "DISABLED" && !publicDeliveryApproved) {
+    blockers.push("Outbound webhook delivery cannot be enabled in production-like modes without explicit public delivery approval.");
+  }
+  return readiness(mode !== "DISABLED", blockers, mode === "DISABLED" ? "Disabled" : "Needs Configuration", [
+    "Outbound webhooks are disabled by default and do not call external URLs unless a future production provider is approved.",
+  ], {
+    mode,
+    publicDeliveryApproved,
+    externalDeliveryEnabled: false,
+  });
 }
 
 function telemetryReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["providers"]["telemetry"] {

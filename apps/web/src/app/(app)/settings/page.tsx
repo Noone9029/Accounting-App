@@ -45,6 +45,12 @@ const adminSections = [
     status: "Internal docs",
   },
   {
+    title: "Webhook outbox",
+    description: "Review outbound webhook and event outbox readiness without enabling external delivery or storing signing secrets.",
+    href: "/settings/webhooks",
+    status: "Disabled",
+  },
+  {
     title: "Email outbox",
     description: "Review local outbox records where supported. Provider sending remains explicit and bounded.",
     href: "/settings/email-outbox",

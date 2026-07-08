@@ -64,6 +64,7 @@ import { StorageModule } from "./storage/storage.module";
 import { SystemModule } from "./system/system.module";
 import { WarehouseTransferModule } from "./warehouse-transfers/warehouse-transfer.module";
 import { WarehouseModule } from "./warehouses/warehouse.module";
+import { WebhookOutboxModule } from "./webhooks/webhook-outbox.module";
 import { ZatcaModule } from "./zatca/zatca.module";
 import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
 import { validateLedgerByteConfig } from "./config/production-config";
@@ -113,6 +114,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     InventoryAdjustmentModule,
     WarehouseTransferModule,
     InventoryModule,
+    WebhookOutboxModule,
     SalesInvoiceModule,
     SalesInventoryReturnModule,
     SalesQuoteModule,

@@ -1356,6 +1356,10 @@ model Organization {
   paymentProviderEvents                     PaymentProviderEvent[]
   invoicePaymentLinks                       InvoicePaymentLink[]
   apiIdempotencyRecords                     ApiIdempotencyRecord[]
+  webhookEndpoints                          WebhookEndpoint[]
+  webhookEvents                             WebhookEvent[]
+  webhookDeliveryAttempts                   WebhookDeliveryAttempt[]
+  eventOutboxItems                          EventOutboxItem[]
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
@@ -5489,6 +5493,87 @@ model ApiIdempotencyRecord {
 
   @@unique([organizationId, route, keyHash])
   @@index([organizationId])
+  @@index([requestId])
+}
+
+model WebhookEndpoint {
+  id                       String                   @id @default(uuid()) @db.Uuid
+  organizationId           String                   @db.Uuid
+  name                     String
+  status                   String                   @default("DISABLED")
+  targetUrlHost            String?
+  redactedTargetUrl        String?
+  eventTypes               Json
+  signingSecretStorageMode String                   @default("NOT_STORED")
+  signingSecretConfigured  Boolean                  @default(false)
+  createdById              String?                  @db.Uuid
+  requestId                String?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  organization             Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events                   WebhookEvent[]
+  deliveryAttempts         WebhookDeliveryAttempt[]
+
+  @@index([organizationId])
+  @@index([requestId])
+}
+
+model WebhookEvent {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @db.Uuid
+  webhookEndpointId  String?                  @db.Uuid
+  eventType          String
+  status             String                   @default("PENDING")
+  safePayloadSummary Json
+  requestId          String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpoint           WebhookEndpoint?         @relation(fields: [webhookEndpointId], references: [id], onDelete: SetNull)
+  deliveryAttempts   WebhookDeliveryAttempt[]
+
+  @@index([organizationId])
+  @@index([webhookEndpointId])
+  @@index([requestId])
+}
+
+model WebhookDeliveryAttempt {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @db.Uuid
+  webhookEventId    String           @db.Uuid
+  webhookEndpointId String?          @db.Uuid
+  attemptNumber     Int
+  status            String           @default("QUEUED")
+  nextAttemptAt     DateTime?
+  responseSummary   Json?
+  requestId         String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event             WebhookEvent     @relation(fields: [webhookEventId], references: [id], onDelete: Cascade)
+  endpoint          WebhookEndpoint? @relation(fields: [webhookEndpointId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([webhookEventId])
+  @@index([webhookEndpointId])
+  @@index([requestId])
+}
+
+model EventOutboxItem {
+  id                 String       @id @default(uuid()) @db.Uuid
+  organizationId     String       @db.Uuid
+  eventType          String
+  aggregateType      String
+  aggregateId        String
+  status             String       @default("PENDING")
+  safePayloadSummary Json
+  requestId          String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([eventType])
   @@index([requestId])
 }
 
