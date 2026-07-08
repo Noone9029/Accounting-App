@@ -439,6 +439,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage];
   }
 
+  if (pathname.startsWith("/settings/data-management")) {
+    return [PERMISSIONS.documentSettings.view, PERMISSIONS.auditLogs.view];
+  }
+
   if (pathname.startsWith("/settings/email-outbox")) {
     return [PERMISSIONS.emailOutbox.view];
   }
