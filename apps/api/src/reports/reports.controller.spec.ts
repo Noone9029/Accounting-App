@@ -1,4 +1,4 @@
-import { ForbiddenException, StreamableFile } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, StreamableFile } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { REQUIRED_PERMISSIONS_KEY } from "../auth/decorators/require-permissions.decorator";
 import { ReportsController } from "./reports.controller";
@@ -132,6 +132,42 @@ describe("ReportsController exports", () => {
     expect(result).toMatchObject({ basis: "FINALIZED_SALES_INVOICE_LINES", rows: [] });
     expect(service.topProductsServices).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31", limit: "5" });
     expect(service.coreReportCsvFile).not.toHaveBeenCalledWith("org-1", "top-products-services", expect.anything());
+  });
+
+  it.each([
+    ["cash flow", "json", "cashFlow", () => controller.cashFlow("org-1", { format: "json" })],
+    ["cash flow", "JSON", "cashFlow", () => controller.cashFlow("org-1", { format: "JSON" })],
+    ["cash flow", "JsOn", "cashFlow", () => controller.cashFlow("org-1", { format: "JsOn" })],
+    ["revenue trend", "json", "revenueTrend", () => controller.revenueTrend("org-1", { format: "json" })],
+    ["revenue trend", "JSON", "revenueTrend", () => controller.revenueTrend("org-1", { format: "JSON" })],
+    ["top customers", "json", "topCustomers", () => controller.topCustomers("org-1", { format: "json" })],
+    ["top customers", "JSON", "topCustomers", () => controller.topCustomers("org-1", { format: "JSON" })],
+    ["top products and services", "json", "topProductsServices", () => controller.topProductsServices("org-1", { format: "json" })],
+    ["top products and services", "JSON", "topProductsServices", () => controller.topProductsServices("org-1", { format: "JSON" })],
+  ])("keeps explicit %s %s requests on the JSON advanced report path", async (_label, _format, serviceMethod, callEndpoint) => {
+    await expect(callEndpoint()).resolves.toEqual(expect.any(Object));
+
+    expect(service[serviceMethod as keyof typeof service]).toHaveBeenCalled();
+    expect(service.coreReportCsvFile).not.toHaveBeenCalled();
+    expect(service.coreReportPdf).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["cash flow", "csv", "cashFlow", () => controller.cashFlow("org-1", { format: "csv" })],
+    ["cash flow", "pdf", "cashFlow", () => controller.cashFlow("org-1", { format: "pdf" })],
+    ["revenue trend", "csv", "revenueTrend", () => controller.revenueTrend("org-1", { format: "csv" })],
+    ["revenue trend", "pdf", "revenueTrend", () => controller.revenueTrend("org-1", { format: "pdf" })],
+    ["top customers", "csv", "topCustomers", () => controller.topCustomers("org-1", { format: "csv" })],
+    ["top customers", "pdf", "topCustomers", () => controller.topCustomers("org-1", { format: "pdf" })],
+    ["top products and services", "csv", "topProductsServices", () => controller.topProductsServices("org-1", { format: "csv" })],
+    ["top products and services", "pdf", "topProductsServices", () => controller.topProductsServices("org-1", { format: "pdf" })],
+  ])("rejects unsupported %s %s export requests before report generation", async (_label, format, serviceMethod, callEndpoint) => {
+    await expect(callEndpoint()).rejects.toThrow(BadRequestException);
+    await expect(callEndpoint()).rejects.toThrow(new RegExp(`${format.toUpperCase()} export is not implemented`, "i"));
+
+    expect(service[serviceMethod as keyof typeof service]).not.toHaveBeenCalled();
+    expect(service.coreReportCsvFile).not.toHaveBeenCalled();
+    expect(service.coreReportPdf).not.toHaveBeenCalled();
   });
 
   it("allows generated document download permission to export reports", async () => {
