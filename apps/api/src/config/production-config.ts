@@ -32,7 +32,12 @@ export interface ConfigReadinessSummary {
     payment: ConfigReadinessItem & { mode: string };
     objectStorage: ConfigReadinessItem & { attachmentMode: string; generatedDocumentMode: string };
     bankIntegration: ConfigReadinessItem & { mode: string };
-    email: ConfigReadinessItem & { mode: string };
+    email: ConfigReadinessItem & {
+      mode: string;
+      invoicePaymentProviderState: string;
+      invoicePaymentStatus: "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider";
+      invoicePaymentSendEnabled: false;
+    };
     outboundWebhooks: ConfigReadinessItem & { mode: string; publicDeliveryApproved: boolean; externalDeliveryEnabled: boolean };
     telemetry: ConfigReadinessItem & { sentryEnabled: boolean; openTelemetryEnabled: boolean };
   };
@@ -303,12 +308,23 @@ function bankIntegrationReadiness(config: EnvSource, productionLike: boolean): C
   });
 }
 
-function emailReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessItem & { mode: string } {
+function emailReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["providers"]["email"] {
   const mode = normalizeProvider(config.EMAIL_PROVIDER, "smtp-disabled");
+  const invoicePaymentProviderState = normalizeProvider(config.LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER, "NONE").toUpperCase();
   const blockers: string[] = [];
   if (productionLike && isMockMode(mode)) blockers.push("Mock email provider mode is not allowed in production-like modes.");
   if (productionLike && mode === "smtp" && !clean(config.SMTP_PASSWORD)) blockers.push("SMTP credentials are required when EMAIL_PROVIDER=smtp in production-like modes.");
-  return readiness(mode !== "smtp-disabled", blockers, mode === "smtp-disabled" ? "Disabled" : "Needs Configuration", [], { mode });
+  if (productionLike && invoicePaymentProviderState === "MOCK_EMAIL") {
+    blockers.push("MOCK_EMAIL invoice/payment email provider is not allowed in production-like modes.");
+  }
+  return readiness(mode !== "smtp-disabled" || invoicePaymentProviderState !== "NONE", blockers, mode === "smtp-disabled" ? "Disabled" : "Needs Configuration", [
+    "Invoice/payment email delivery is disabled by default and actual sending remains blocked.",
+  ], {
+    mode,
+    invoicePaymentProviderState,
+    invoicePaymentStatus: invoicePaymentProviderStateLabel(invoicePaymentProviderState),
+    invoicePaymentSendEnabled: false as const,
+  });
 }
 
 function outboundWebhookReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["providers"]["outboundWebhooks"] {
@@ -455,7 +471,14 @@ function isWeakOrDefaultSecret(secret: string): boolean {
 }
 
 function isMockMode(mode: string): boolean {
-  return ["MOCK", "mock", "mock-no-send"].includes(mode);
+  return ["MOCK", "mock", "mock-no-send", "MOCK_EMAIL"].includes(mode);
+}
+
+function invoicePaymentProviderStateLabel(value: string): "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider" {
+  if (value === "MOCK_EMAIL") return "Local Mock Only";
+  if (value === "DISABLED_PROVIDER_PLACEHOLDER") return "Needs Configuration";
+  if (value === "FUTURE_SMTP_OR_PROVIDER") return "Future Provider";
+  return "Disabled";
 }
 
 function isLocalObjectStorageMode(mode: string): boolean {

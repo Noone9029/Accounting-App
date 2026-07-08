@@ -1530,6 +1530,7 @@ Status values:
 - `POST /email/diagnostics` is disabled by default with `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`; default responses are `SKIPPED_DISABLED`, `executionAttempted=false`, `noEmailSent=true`, `noCustomerEmailSent=true`, and `noMutation=true`.
 - Optional diagnostics execution requires an explicit recipient plus `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS` or `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`; responses use masked recipients and redacted delivery summaries only.
 - Environment variables now documented: `EMAIL_FROM`, `EMAIL_REPLY_TO`, SMTP settings, `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED`, `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS`, and `LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_DOMAINS`.
+- Invoice/payment email readiness is separately gated by `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=NONE` by default. `GET /email/invoice-payment/readiness` reports disabled/local-mock/future-provider state; `POST /email/invoice-payment/preview` renders fake/local templates only when `MOCK_EMAIL` is explicitly selected; `POST /email/invoice-payment/delivery-blocked` records blocked metadata. Real invoice, payment-link, receipt, and failed-delivery email sends remain unimplemented and unproven.
 - `/settings/email-outbox` shows production readiness, invite/password-reset reliability warnings, disabled diagnostics status, and no-customer-email messaging.
 - Verification scope: targeted API email tests, targeted web email helper/status tests, typecheck, build, `smoke:accounting`, and `git diff --check`.
 

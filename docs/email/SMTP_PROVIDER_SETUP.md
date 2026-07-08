@@ -14,6 +14,7 @@ LedgerByte supports an opt-in SMTP adapter for transactional emails. The default
 
 ```bash
 EMAIL_PROVIDER=smtp
+LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER="NONE"
 EMAIL_FROM="no-reply@example.com"
 EMAIL_REPLY_TO="support@example.com"
 SMTP_HOST="smtp.example.com"
@@ -32,6 +33,17 @@ EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS=""
 ```
 
 Never commit real SMTP credentials or webhook secrets. `SMTP_PASSWORD` and `EMAIL_PROVIDER_WEBHOOK_SECRET` are not returned by readiness APIs and must not be logged.
+
+## Invoice/Payment Workflow Gate
+
+Invoice/payment email delivery is disabled separately from invite/password-reset email:
+
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=NONE`: default disabled state.
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=MOCK_EMAIL`: local/test preview only; rejected in production-like modes.
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=DISABLED_PROVIDER_PLACEHOLDER`: configuration placeholder; actual sending blocked.
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=FUTURE_SMTP_OR_PROVIDER`: future provider placeholder; actual sending blocked.
+
+`GET /email/invoice-payment/readiness` reports the state. `POST /email/invoice-payment/preview` uses fake/local invoice/payment data only and records redacted metadata when local mock preview is enabled. `POST /email/invoice-payment/delivery-blocked` records that an actual send remains blocked. None of these endpoints send real invoice, payment-link, receipt, or failed-delivery emails.
 
 ## Sender-Domain Evidence
 
@@ -65,6 +77,7 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 - `GET /email/suppressions` and manual `POST /email/suppressions` store masked/hash metadata only; active suppressions block future matched send/retry attempts without returning the raw email.
 - If diagnostics sending is explicitly enabled, use only an allowlisted sandbox recipient; responses mask the recipient and return a redacted delivery summary.
 - `POST /email/test-send` still creates an `EmailOutbox` record with `SENT_PROVIDER` when explicitly used against a configured SMTP relay.
+- Invoice/payment email readiness remains preview-only or blocked; real invoice/payment sends are not implemented.
 - The provider message id is stored when the SMTP relay returns one.
 - Failed sends store a safe failure summary without credentials.
 
@@ -74,7 +87,7 @@ Use a sandbox SMTP service such as Mailtrap, Resend SMTP, or another provider te
 - Provider-agnostic signed webhook verification and suppression metadata exist, but no provider-specific production webhook adapter or scheduled provider webhook exposure has been approved.
 - Metadata-only monitoring evidence exists for retry throughput, bounce/complaint thresholds, suppression trends, delivery dashboards, and webhook health, but no real alert delivery, dashboard integration, or external monitoring tool is connected.
 - DKIM/SPF/DMARC evidence is metadata-only; no live DNS or provider validation workflow is implemented.
-- No invoice/statement email sending yet.
+- No real invoice/payment/statement email sending yet.
 - Mock remains the default and should remain active for tests/smoke.
 
 Tests run for this phase: targeted API email specs, targeted frontend email specs, typecheck, build, `smoke:accounting`, `git diff --check`, and `git diff --cached --check`.

@@ -11,6 +11,7 @@ import { CreateApGeneratedDocumentEmailDto } from "./dto/create-ap-generated-doc
 import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { InvoicePaymentEmailPreviewDto } from "./dto/invoice-payment-email-preview.dto";
 import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
 import { RevokeEmailDeliveryMonitoringEvidenceDto } from "./dto/revoke-email-delivery-monitoring-evidence.dto";
@@ -39,6 +40,34 @@ export class EmailController {
   @RequirePermissions(PERMISSIONS.users.manage)
   diagnosticsPlan(@Query("toEmail") toEmail?: string) {
     return this.emailService.diagnosticsPlan(toEmail);
+  }
+
+  @Get("invoice-payment/readiness")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  invoicePaymentReadiness(@CurrentOrganizationId() organizationId: string) {
+    return this.emailService.invoicePaymentReadiness(organizationId);
+  }
+
+  @Post("invoice-payment/preview")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  invoicePaymentPreview(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: InvoicePaymentEmailPreviewDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.emailService.previewInvoicePaymentEmail(organizationId, user.id, dto, request.requestId);
+  }
+
+  @Post("invoice-payment/delivery-blocked")
+  @RequirePermissions(PERMISSIONS.users.manage)
+  invoicePaymentDeliveryBlocked(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: InvoicePaymentEmailPreviewDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.emailService.blockInvoicePaymentDelivery(organizationId, user.id, dto, request.requestId);
   }
 
   @Post("diagnostics")

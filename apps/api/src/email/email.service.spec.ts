@@ -1,4 +1,11 @@
-import { DocumentType, EmailDeliveryStatus, EmailTemplateType, GeneratedDocumentStatus } from "@prisma/client";
+import {
+  DocumentType,
+  EmailDeliveryEventStatus,
+  EmailDeliveryStatus,
+  EmailDeliveryTargetType,
+  EmailTemplateType,
+  GeneratedDocumentStatus,
+} from "@prisma/client";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { EmailService } from "./email.service";
 
@@ -31,6 +38,12 @@ describe("EmailService", () => {
         ),
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
+      },
+      emailDeliveryEvent: {
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
+          Promise.resolve({ id: "delivery-event-1", createdAt: new Date("2026-05-15T00:00:00.000Z"), ...args.data }),
+        ),
       },
       emailSuppression: {
         create: jest.fn((args: { data: Record<string, unknown>; select: unknown }) =>
@@ -229,6 +242,142 @@ describe("EmailService", () => {
     expect(serialized).not.toContain("smtp-password-secret");
     expect(serialized).not.toContain("api-key-secret");
     expect(serialized).not.toContain("SMTP_PASSWORD");
+  });
+
+  it("keeps invoice/payment email delivery disabled by default", async () => {
+    const { service, prisma, provider } = makeService();
+
+    const readiness = await service.invoicePaymentReadiness("org-1");
+
+    expect(readiness).toEqual(
+      expect.objectContaining({
+        providerState: "NONE",
+        status: "Disabled",
+        sendEnabled: false,
+        actualSendBlocked: true,
+        noProviderCalls: true,
+        noCredentialsStored: true,
+        noCustomerEmailSent: true,
+        previewEnabled: false,
+      }),
+    );
+    expect(readiness.supportedTemplates.map((template) => template.templateType)).toEqual(
+      expect.arrayContaining([
+        EmailTemplateType.SALES_INVOICE,
+        EmailTemplateType.INVOICE_PAYMENT_LINK,
+        EmailTemplateType.PAYMENT_RECEIPT,
+        EmailTemplateType.FAILED_DELIVERY_NOTIFICATION,
+      ]),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailDeliveryEvent.create).not.toHaveBeenCalled();
+  });
+
+  it("renders local invoice/payment previews with fake data and requestId in the delivery event", async () => {
+    const { service, prisma, provider, audit } = makeService({
+      config: {
+        LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER: "MOCK_EMAIL",
+      },
+    });
+
+    const preview = await service.previewInvoicePaymentEmail(
+      "org-1",
+      "user-1",
+      {
+        templateType: EmailTemplateType.INVOICE_PAYMENT_LINK,
+        targetType: EmailDeliveryTargetType.INVOICE_PAYMENT_LINK,
+        targetId: "11111111-1111-4111-8111-111111111111",
+      },
+      "req_email_preview_1",
+    );
+
+    expect(preview).toEqual(
+      expect.objectContaining({
+        localOnly: true,
+        noEmailSent: true,
+        providerCalled: false,
+        fakeDataOnly: true,
+        redactedRecipient: "p***@example.test",
+        requestId: "req_email_preview_1",
+      }),
+    );
+    expect(preview.preview.subject).toContain("Payment link");
+    expect(JSON.stringify(preview)).not.toContain("customer@example.com");
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailDeliveryEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          status: EmailDeliveryEventStatus.PREVIEWED,
+          templateType: EmailTemplateType.INVOICE_PAYMENT_LINK,
+          targetType: EmailDeliveryTargetType.INVOICE_PAYMENT_LINK,
+          targetId: "11111111-1111-4111-8111-111111111111",
+          redactedRecipient: "p***@example.test",
+          providerState: "MOCK_EMAIL",
+          requestId: "req_email_preview_1",
+        }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_DELIVERY_PREVIEWED" }));
+  });
+
+  it("blocks invoice/payment delivery attempts without provider calls", async () => {
+    const { service, prisma, provider, audit } = makeService({
+      config: {
+        LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER: "FUTURE_SMTP_OR_PROVIDER",
+      },
+    });
+
+    const result = await service.blockInvoicePaymentDelivery(
+      "org-1",
+      "user-1",
+      {
+        templateType: EmailTemplateType.SALES_INVOICE,
+        targetType: EmailDeliveryTargetType.SALES_INVOICE,
+      },
+      "req_email_block_1",
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "BLOCKED",
+        actualSendBlocked: true,
+        noEmailSent: true,
+        providerCalled: false,
+        noProviderCalls: true,
+        noCustomerEmailSent: true,
+        requestId: "req_email_block_1",
+      }),
+    );
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.emailDeliveryEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: EmailDeliveryEventStatus.BLOCKED,
+          templateType: EmailTemplateType.SALES_INVOICE,
+          targetType: EmailDeliveryTargetType.SALES_INVOICE,
+          redactedRecipient: "p***@example.test",
+          providerState: "FUTURE_SMTP_OR_PROVIDER",
+          requestId: "req_email_block_1",
+        }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_DELIVERY_BLOCKED" }));
+  });
+
+  it("rejects invoice/payment previews unless local mock mode is explicitly configured", async () => {
+    const { service, prisma, provider } = makeService();
+
+    await expect(
+      service.previewInvoicePaymentEmail("org-1", "user-1", {
+        templateType: EmailTemplateType.SALES_INVOICE,
+        targetType: EmailDeliveryTargetType.SALES_INVOICE,
+      }),
+    ).rejects.toThrow("MOCK_EMAIL");
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(prisma.emailDeliveryEvent.create).not.toHaveBeenCalled();
   });
 
   it("returns production SMTP readiness blockers without sending email", async () => {

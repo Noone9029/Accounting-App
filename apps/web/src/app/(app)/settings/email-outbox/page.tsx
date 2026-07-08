@@ -21,6 +21,7 @@ import {
   emailProviderLabel,
   emailProviderEventIngestionStatusLabel,
   emailProviderWarningText,
+  invoicePaymentEmailProviderStateLabel,
   emailReadinessLabel,
   emailDiagnosticsStatusLabel,
   emailMonitoringEvidenceStatusLabel,
@@ -45,11 +46,14 @@ import type {
   EmailDeliveryMonitoringEvidenceResponse,
   EmailDeliveryMonitoringEvidenceType,
   EmailDiagnosticsResponse,
+  EmailDeliveryTargetType,
   EmailMonitoringPlan,
   EmailOutboxDetail,
   EmailOutboxEntry,
   EmailProviderEventsPlan,
   EmailProviderWebhookPlan,
+  InvoicePaymentEmailPreviewResponse,
+  InvoicePaymentEmailReadinessResponse,
   EmailReadinessResponse,
   EmailRetryPlan,
   EmailRetryWorkerPlan,
@@ -79,6 +83,9 @@ export default function EmailOutboxPage() {
   const canManageEmail = can(PERMISSIONS.users.manage);
   const [emails, setEmails] = useState<EmailOutboxEntry[]>([]);
   const [readiness, setReadiness] = useState<EmailReadinessResponse | null>(null);
+  const [invoicePaymentReadiness, setInvoicePaymentReadiness] = useState<InvoicePaymentEmailReadinessResponse | null>(null);
+  const [invoicePaymentPreview, setInvoicePaymentPreview] = useState<InvoicePaymentEmailPreviewResponse | null>(null);
+  const [invoicePaymentPreviewLoading, setInvoicePaymentPreviewLoading] = useState(false);
   const [senderEvidence, setSenderEvidence] = useState<EmailSenderDomainEvidence[]>([]);
   const [monitoringEvidence, setMonitoringEvidence] = useState<EmailDeliveryMonitoringEvidence[]>([]);
   const [suppressions, setSuppressions] = useState<EmailSuppression[]>([]);
@@ -151,19 +158,24 @@ export default function EmailOutboxPage() {
           redactionGuarantees: [],
           evidence: [],
         } as EmailDeliveryMonitoringEvidenceListResponse);
+    const invoicePaymentReadinessRequest = canManageEmail
+      ? apiRequest<InvoicePaymentEmailReadinessResponse>("/email/invoice-payment/readiness")
+      : Promise.resolve(null);
     Promise.all([
       apiRequest<EmailOutboxEntry[]>("/email/outbox"),
       apiRequest<EmailReadinessResponse>("/email/readiness"),
       evidenceRequest,
       suppressionRequest,
       monitoringEvidenceRequest,
+      invoicePaymentReadinessRequest,
     ])
-      .then(([outbox, emailReadiness, evidenceResponse, suppressionResponse, monitoringEvidenceResponse]) => {
+      .then(([outbox, emailReadiness, evidenceResponse, suppressionResponse, monitoringEvidenceResponse, invoicePaymentResponse]) => {
         setEmails(outbox);
         setReadiness(emailReadiness);
         setSenderEvidence(evidenceResponse.evidence);
         setSuppressions(suppressionResponse.suppressions);
         setMonitoringEvidence(monitoringEvidenceResponse.evidence);
+        setInvoicePaymentReadiness(invoicePaymentResponse);
       })
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : "Unable to load email outbox."))
       .finally(() => setLoading(false));
@@ -266,6 +278,27 @@ export default function EmailOutboxPage() {
       setError(webhookError instanceof Error ? webhookError.message : "Unable to load provider webhook readiness.");
     } finally {
       setWebhookPlanLoading(false);
+    }
+  }
+
+  async function previewInvoicePaymentEmail(templateType: InvoicePaymentEmailPreviewResponse["templateType"], targetType: EmailDeliveryTargetType) {
+    setInvoicePaymentPreviewLoading(true);
+    setInvoicePaymentPreview(null);
+    setError("");
+    try {
+      setInvoicePaymentPreview(
+        await apiRequest<InvoicePaymentEmailPreviewResponse>("/email/invoice-payment/preview", {
+          method: "POST",
+          body: {
+            templateType,
+            targetType,
+          },
+        }),
+      );
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Unable to render invoice/payment email preview.");
+    } finally {
+      setInvoicePaymentPreviewLoading(false);
     }
   }
 
@@ -667,6 +700,69 @@ export default function EmailOutboxPage() {
                   <span className="font-medium text-ink">{diagnosticsResult.provider}</span>;{" "}
                   {diagnosticsResult.noEmailSent ? "no email sent" : "delivery was attempted"}.
                 </p>
+              ) : null}
+            </div>
+          ) : null}
+          {invoicePaymentReadiness ? (
+            <div className="mt-4 rounded-md border border-line bg-mist p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Invoice and payment email readiness</h3>
+                  <p className="mt-1 text-sm text-steel">
+                    Invoice, payment-link, receipt, and failed-delivery templates are preview-only. Actual sending remains blocked and no provider
+                    credentials are stored here.
+                  </p>
+                </div>
+                <LedgerStatusBadge tone={invoicePaymentReadiness.previewEnabled ? "success" : "warning"}>
+                  {invoicePaymentEmailProviderStateLabel(invoicePaymentReadiness.providerState)}
+                </LedgerStatusBadge>
+              </div>
+              <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+                <Detail label="Workflow status" value={invoicePaymentReadiness.status} />
+                <Detail label="Provider state" value={invoicePaymentReadiness.providerState} />
+                <Detail label="Actual sending" value={invoicePaymentReadiness.sendEnabled ? "Enabled" : "Blocked"} />
+                <Detail label="Recent events" value={String(invoicePaymentReadiness.recentEventCount)} />
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {invoicePaymentReadiness.supportedTemplates.map((template) => (
+                  <div key={template.templateType} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+                    <div className="font-medium text-ink">{template.label}</div>
+                    <div className="mt-1 text-xs text-steel">
+                      Preview {template.previewAvailable ? "available" : "unavailable"}; delivery {template.deliveryStatus.toLowerCase()}.
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {invoicePaymentReadiness.blockers.length > 0 ? (
+                <div className="mt-3">
+                  <LedgerSummaryBand tone="warning">
+                    {invoicePaymentReadiness.blockers.map((blocker) => (
+                      <div key={blocker}>{blocker}</div>
+                    ))}
+                  </LedgerSummaryBand>
+                </div>
+              ) : null}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => void previewInvoicePaymentEmail("INVOICE_PAYMENT_LINK", "INVOICE_PAYMENT_LINK")}
+                  disabled={!invoicePaymentReadiness.previewEnabled || invoicePaymentPreviewLoading}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {invoicePaymentPreviewLoading ? "Rendering..." : "Preview payment-link template"}
+                </button>
+              </div>
+              {invoicePaymentPreview ? (
+                <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+                  <div className="text-xs uppercase tracking-wide text-steel">Safe preview</div>
+                  <div className="mt-1 text-sm font-semibold text-ink">{invoicePaymentPreview.preview.subject}</div>
+                  <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-mist p-3 text-sm text-ink">
+                    {invoicePaymentPreview.preview.bodyText}
+                  </pre>
+                  <p className="mt-2 text-xs text-steel">
+                    Recipient {invoicePaymentPreview.redactedRecipient}; request {invoicePaymentPreview.requestId ?? "not available"}; no email sent.
+                  </p>
+                </div>
               ) : null}
             </div>
           ) : null}

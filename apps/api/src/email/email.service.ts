@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   DocumentType,
+  EmailDeliveryEventStatus,
+  EmailDeliveryTargetType,
   EmailDeliveryMonitoringEvidenceStatus,
   EmailDeliveryMonitoringEvidenceType,
   EmailDeliveryStatus,
@@ -27,6 +29,7 @@ import { CreateApGeneratedDocumentEmailDto } from "./dto/create-ap-generated-doc
 import { CreateEmailDeliveryMonitoringEvidenceDto } from "./dto/create-email-delivery-monitoring-evidence.dto";
 import { CreateEmailSuppressionDto } from "./dto/create-email-suppression.dto";
 import { CreateEmailSenderDomainEvidenceDto } from "./dto/create-email-sender-domain-evidence.dto";
+import { InvoicePaymentEmailPreviewDto } from "./dto/invoice-payment-email-preview.dto";
 import { ReceiveEmailProviderWebhookDto } from "./dto/receive-email-provider-webhook.dto";
 import { ReceiveMockEmailProviderEventDto } from "./dto/receive-mock-email-provider-event.dto";
 import { RevokeEmailDeliveryMonitoringEvidenceDto } from "./dto/revoke-email-delivery-monitoring-evidence.dto";
@@ -36,7 +39,15 @@ import { RunEmailRetryProcessDto } from "./dto/run-email-retry-process.dto";
 import { RunEmailRetryWorkerDto } from "./dto/run-email-retry-worker.dto";
 import { VerifyEmailDeliveryMonitoringEvidenceDto } from "./dto/verify-email-delivery-monitoring-evidence.dto";
 import { VerifyEmailSenderDomainEvidenceDto } from "./dto/verify-email-sender-domain-evidence.dto";
-import { buildOrganizationInviteEmail, buildPasswordResetEmail, buildTestEmail } from "./email-templates";
+import {
+  buildFailedDeliveryNotificationPreview,
+  buildInvoiceEmailPreview,
+  buildOrganizationInviteEmail,
+  buildPasswordResetEmail,
+  buildPaymentLinkEmailPreview,
+  buildPaymentReceiptEmailPreview,
+  buildTestEmail,
+} from "./email-templates";
 import { EMAIL_PROVIDER, type EmailMessage, type EmailProvider } from "./email-provider";
 import {
   EMAIL_REDACTION_GUARANTEES,
@@ -86,6 +97,7 @@ type EmailRetryWorkerSchedulerProvider = "NONE" | "FUTURE_CRON" | "FUTURE_QUEUE"
 type EmailRetryProcessStatus = "SKIPPED_DISABLED" | "ATTEMPTED";
 type EmailRetryWorkerRunStatus = "SKIPPED_DISABLED" | "SKIPPED_PROCESSOR_DISABLED" | "ATTEMPTED";
 type EmailWebhookProcessStatus = "REJECTED_UNVERIFIED" | "ACCEPTED_VERIFIED";
+type InvoicePaymentEmailProviderState = "NONE" | "MOCK_EMAIL" | "DISABLED_PROVIDER_PLACEHOLDER" | "FUTURE_SMTP_OR_PROVIDER";
 
 const REQUIRED_SENDER_DOMAIN_EVIDENCE_TYPES = [
   EmailSenderDomainEvidenceType.SPF,
@@ -104,6 +116,19 @@ const REQUIRED_MONITORING_EVIDENCE_TYPES = [
   EmailDeliveryMonitoringEvidenceType.DELIVERY_DASHBOARD,
   EmailDeliveryMonitoringEvidenceType.PROVIDER_WEBHOOK_HEALTH,
 ];
+const INVOICE_PAYMENT_EMAIL_PROVIDER_STATES = new Set<InvoicePaymentEmailProviderState>([
+  "NONE",
+  "MOCK_EMAIL",
+  "DISABLED_PROVIDER_PLACEHOLDER",
+  "FUTURE_SMTP_OR_PROVIDER",
+]);
+const INVOICE_PAYMENT_EMAIL_TEMPLATES: EmailTemplateType[] = [
+  EmailTemplateType.SALES_INVOICE,
+  EmailTemplateType.INVOICE_PAYMENT_LINK,
+  EmailTemplateType.PAYMENT_RECEIPT,
+  EmailTemplateType.FAILED_DELIVERY_NOTIFICATION,
+];
+const SAFE_PREVIEW_RECIPIENT = "preview-recipient@example.test";
 
 @Injectable()
 export class EmailService {
@@ -213,6 +238,157 @@ export class EmailService {
       suppressionTrendMonitoringConfigured: monitoringPlan.suppressionTrendMonitoringConfigured,
       providerWebhookHealthMonitoringConfigured: monitoringPlan.providerWebhookHealthMonitoringConfigured,
       providerWebhookAlertsReady: monitoringPlan.providerWebhookHealthMonitoringConfigured && monitoringPlan.alertingConfigured,
+    };
+  }
+
+  async invoicePaymentReadiness(organizationId: string) {
+    const providerState = this.invoicePaymentEmailProviderState;
+    const recentEventCount = await this.prisma.emailDeliveryEvent.count({
+      where: { organizationId },
+    });
+    const localMockOnly = providerState === "MOCK_EMAIL";
+    const configured = providerState !== "NONE";
+    const blockers = [
+      "Actual invoice/payment email delivery is blocked until a production provider, credential custody, and operational approval exist.",
+    ];
+    const warnings = [
+      "Preview rendering uses fake local data only.",
+      "No SMTP credentials or provider secrets are accepted on this screen.",
+      "No real customer email is sent by invoice/payment email readiness endpoints.",
+    ];
+
+    return {
+      providerState,
+      status: providerStateLabel(providerState),
+      configured,
+      localMockOnly,
+      sendEnabled: false,
+      actualSendBlocked: true,
+      noProviderCalls: true,
+      noCredentialsStored: true,
+      noCustomerEmailSent: true,
+      previewEnabled: providerState === "MOCK_EMAIL",
+      supportedTemplates: INVOICE_PAYMENT_EMAIL_TEMPLATES.map((templateType) => ({
+        templateType,
+        label: invoicePaymentTemplateLabel(templateType),
+        previewAvailable: true,
+        deliveryStatus: "Blocked",
+      })),
+      recentEventCount,
+      blockers,
+      warnings,
+      redactionGuarantees: [
+        ...EMAIL_REDACTION_GUARANTEES,
+        "Invoice/payment email readiness stores only masked preview recipients, target metadata, requestId, and safe template labels.",
+      ],
+    };
+  }
+
+  async previewInvoicePaymentEmail(organizationId: string, actorUserId: string, dto: InvoicePaymentEmailPreviewDto, requestId?: string) {
+    const readiness = await this.invoicePaymentReadiness(organizationId);
+    if (!readiness.previewEnabled) {
+      throw new BadRequestException("Invoice/payment email preview is available only when LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=MOCK_EMAIL in local/test.");
+    }
+    this.assertInvoicePaymentEmailTemplate(dto.templateType);
+    const preview = buildInvoicePaymentTemplatePreview(dto.templateType);
+    const event = await this.prisma.emailDeliveryEvent.create({
+      data: {
+        organizationId,
+        status: EmailDeliveryEventStatus.PREVIEWED,
+        templateType: dto.templateType,
+        targetType: dto.targetType,
+        targetId: dto.targetId ?? null,
+        redactedRecipient: maskEmailAddress(SAFE_PREVIEW_RECIPIENT),
+        providerState: readiness.providerState,
+        requestId: normalizeOptionalText(requestId),
+        eventSummaryJson: sanitizeEvidenceSummary({
+          action: "preview",
+          templateLabel: invoicePaymentTemplateLabel(dto.templateType),
+          targetType: dto.targetType,
+          fakeDataOnly: true,
+          noProviderCall: true,
+          noCustomerEmailSent: true,
+        }),
+      },
+      select: EMAIL_DELIVERY_EVENT_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_DELIVERY_PREVIEWED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_DELIVERY_EVENT,
+      entityId: event.id,
+      after: {
+        event,
+        noProviderCall: true,
+        noCustomerEmailSent: true,
+      },
+    });
+
+    return {
+      localOnly: true,
+      noEmailSent: true,
+      providerCalled: false,
+      fakeDataOnly: true,
+      redactedRecipient: maskEmailAddress(SAFE_PREVIEW_RECIPIENT),
+      templateType: dto.templateType,
+      targetType: dto.targetType,
+      requestId: requestId ?? null,
+      preview,
+      event,
+    };
+  }
+
+  async blockInvoicePaymentDelivery(organizationId: string, actorUserId: string, dto: InvoicePaymentEmailPreviewDto, requestId?: string) {
+    const readiness = await this.invoicePaymentReadiness(organizationId);
+    this.assertInvoicePaymentEmailTemplate(dto.templateType);
+    const event = await this.prisma.emailDeliveryEvent.create({
+      data: {
+        organizationId,
+        status: EmailDeliveryEventStatus.BLOCKED,
+        templateType: dto.templateType,
+        targetType: dto.targetType,
+        targetId: dto.targetId ?? null,
+        redactedRecipient: maskEmailAddress(SAFE_PREVIEW_RECIPIENT),
+        providerState: readiness.providerState,
+        requestId: normalizeOptionalText(requestId),
+        eventSummaryJson: sanitizeEvidenceSummary({
+          action: "delivery-blocked",
+          templateLabel: invoicePaymentTemplateLabel(dto.templateType),
+          targetType: dto.targetType,
+          reason: "Invoice/payment email delivery is disabled by default.",
+          noProviderCall: true,
+          noCustomerEmailSent: true,
+        }),
+      },
+      select: EMAIL_DELIVERY_EVENT_SELECT,
+    });
+
+    await this.auditLogService?.log({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.EMAIL_DELIVERY_BLOCKED,
+      entityType: AUDIT_ENTITY_TYPES.EMAIL_DELIVERY_EVENT,
+      entityId: event.id,
+      after: {
+        event,
+        actualSendBlocked: true,
+        noProviderCall: true,
+        noCustomerEmailSent: true,
+      },
+    });
+
+    return {
+      status: "BLOCKED",
+      actualSendBlocked: true,
+      noEmailSent: true,
+      providerCalled: false,
+      noProviderCalls: true,
+      noCustomerEmailSent: true,
+      reason: "Invoice/payment email delivery is disabled by default and no provider is configured for this workflow.",
+      requestId: requestId ?? null,
+      event,
     };
   }
 
@@ -1528,6 +1704,19 @@ export class EmailService {
     });
   }
 
+  private get invoicePaymentEmailProviderState(): InvoicePaymentEmailProviderState {
+    const configured = this.config.get<string>("LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER")?.trim().toUpperCase();
+    return configured && INVOICE_PAYMENT_EMAIL_PROVIDER_STATES.has(configured as InvoicePaymentEmailProviderState)
+      ? (configured as InvoicePaymentEmailProviderState)
+      : "NONE";
+  }
+
+  private assertInvoicePaymentEmailTemplate(templateType: EmailTemplateType) {
+    if (!INVOICE_PAYMENT_EMAIL_TEMPLATES.includes(templateType)) {
+      throw new BadRequestException("Invoice/payment email template is not supported for this readiness workflow.");
+    }
+  }
+
   private get fromEmail(): string {
     return this.configuredFromEmail || "no-reply@ledgerbyte.local";
   }
@@ -2086,6 +2275,20 @@ const EMAIL_PROVIDER_EVENT_SELECT = {
   createdAt: true,
 } satisfies Prisma.EmailProviderEventSelect;
 
+const EMAIL_DELIVERY_EVENT_SELECT = {
+  id: true,
+  organizationId: true,
+  status: true,
+  templateType: true,
+  targetType: true,
+  targetId: true,
+  redactedRecipient: true,
+  providerState: true,
+  requestId: true,
+  eventSummaryJson: true,
+  createdAt: true,
+} satisfies Prisma.EmailDeliveryEventSelect;
+
 const EMAIL_SUPPRESSION_SELECT = {
   id: true,
   organizationId: true,
@@ -2209,6 +2412,50 @@ function apGeneratedDocumentEmailOutboxResponse(email: Prisma.EmailOutboxGetPayl
     createdAt: email.createdAt,
     updatedAt: email.updatedAt,
   };
+}
+
+function providerStateLabel(providerState: InvoicePaymentEmailProviderState): "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider" {
+  if (providerState === "MOCK_EMAIL") {
+    return "Local Mock Only";
+  }
+  if (providerState === "DISABLED_PROVIDER_PLACEHOLDER") {
+    return "Needs Configuration";
+  }
+  if (providerState === "FUTURE_SMTP_OR_PROVIDER") {
+    return "Future Provider";
+  }
+  return "Disabled";
+}
+
+function invoicePaymentTemplateLabel(templateType: EmailTemplateType): string {
+  const labels: Partial<Record<EmailTemplateType, string>> = {
+    [EmailTemplateType.SALES_INVOICE]: "Invoice email",
+    [EmailTemplateType.INVOICE_PAYMENT_LINK]: "Payment link email",
+    [EmailTemplateType.PAYMENT_RECEIPT]: "Receipt/payment confirmation email",
+    [EmailTemplateType.FAILED_DELIVERY_NOTIFICATION]: "Failed delivery notification",
+  };
+  return labels[templateType] ?? templateType;
+}
+
+function buildInvoicePaymentTemplatePreview(templateType: EmailTemplateType) {
+  const fakeInput = {
+    organizationName: "LedgerByte Demo Company",
+    customerName: "Preview Customer",
+    documentNumber: "INV-PREVIEW-001",
+    amount: "AED 1,250.00",
+    dueDate: "2026-07-31",
+    paymentLinkUrl: "https://pay.example.test/invoice/preview",
+  };
+  if (templateType === EmailTemplateType.INVOICE_PAYMENT_LINK) {
+    return buildPaymentLinkEmailPreview(fakeInput);
+  }
+  if (templateType === EmailTemplateType.PAYMENT_RECEIPT) {
+    return buildPaymentReceiptEmailPreview(fakeInput);
+  }
+  if (templateType === EmailTemplateType.FAILED_DELIVERY_NOTIFICATION) {
+    return buildFailedDeliveryNotificationPreview(fakeInput);
+  }
+  return buildInvoiceEmailPreview(fakeInput);
 }
 
 function sanitizeEvidenceSummary(value: Record<string, unknown>): Prisma.InputJsonValue {

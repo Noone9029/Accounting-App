@@ -1655,6 +1655,7 @@ LedgerByte includes safe email-token groundwork for organization invitations and
 Configuration:
 
 - `EMAIL_PROVIDER=mock`
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=NONE`
 - `EMAIL_FROM="no-reply@ledgerbyte.local"`
 - `APP_WEB_URL="http://localhost:3000"`
 - Supported provider modes: `mock`, `smtp-disabled`, and `smtp`.
@@ -1673,6 +1674,9 @@ Behavior:
 - `POST /auth/password-reset/confirm` validates a one-hour reset token, updates the password, and consumes the token.
 - `GET /email/readiness` reports active provider readiness, production SMTP configuration booleans, diagnostics gate state, retry/bounce/provider-event/webhook/suppression/alerting/monitoring gaps, warnings, and blocking reasons without sending email or returning secret values.
 - `POST /email/diagnostics` is disabled by default, sends no customer email, creates no outbox record, and only attempts an allowlisted test recipient when explicitly enabled.
+- `GET /email/invoice-payment/readiness` reports disabled/local-mock/future-provider state for invoice, payment-link, receipt, and failed-delivery templates. `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=MOCK_EMAIL` is local/test preview only and rejected in production-like modes.
+- `POST /email/invoice-payment/preview` renders fake/local invoice/payment template previews only, stores a redacted `EmailDeliveryEvent` with requestId, sends no email, and calls no provider.
+- `POST /email/invoice-payment/delivery-blocked` records a blocked metadata event for an attempted invoice/payment delivery path; actual sending remains blocked and no outbox row or provider call is created.
 - `GET /email/retry-plan` is read-only/no-mutation and reports retryable, blocked, suppressed, active-suppression, and due outbox counts without sending email.
 - `POST /email/retry-process` is disabled by default with `LEDGERBYTE_EMAIL_RETRY_PROCESSOR_ENABLED=false`; default responses are skipped/no-send/no-mutation. When explicitly enabled, it processes due retryable records only, obeys max attempts, skips active suppressions without provider calls, updates existing outbox retry metadata, and returns redacted provider summaries.
 - `GET /email/retry-worker/plan` is read-only/no-mutation and reports scheduled worker readiness, scheduler provider `NONE` by default, due retry counts, suppressed counts, and the recommended five-minute worker cadence without sending email.
