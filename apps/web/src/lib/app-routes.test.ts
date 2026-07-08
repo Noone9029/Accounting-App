@@ -64,6 +64,7 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("sales.creditNote.list")?.href).toBe("/sales/credit-notes");
     expect(getAppRouteByKey("purchase.bill.list")?.href).toBe("/purchases/bills");
     expect(getAppRouteByKey("purchase.debitNote.list")?.href).toBe("/purchases/debit-notes");
+    expect(getAppRouteByKey("purchase.supplierPayoutRequest.list")?.href).toBe("/purchases/supplier-payout-requests");
     expect(getAppRouteByKey("documents")?.href).toBe("/documents");
     expect(getAppRouteByKey("documentInbox")?.href).toBe("/document-inbox");
     expect(getAppRouteByKey("reports")?.href).toBe("/reports");
@@ -84,6 +85,7 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("documentInbox")?.sensitivity).toEqual(expect.arrayContaining(["storage", "provider"]));
     expect(getAppRouteByKey("settings.payments")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
     expect(getAppRouteByKey("settings.bankIntegrations")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
+    expect(getAppRouteByKey("purchase.supplierPayoutRequest.list")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
   });
 
   it("looks up routes by section and known href without production-source vendor references", () => {

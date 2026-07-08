@@ -17,6 +17,7 @@ import { resolveBankProviderAdapter, type BankProviderAdapter } from "./bank-pro
 import {
   CreateBankConnectionDto,
   CreateBankPaymentRequestDto,
+  ListBankPaymentRequestsDto,
   ManualExternalReleaseDto,
   ReconcileBankPaymentRequestDto,
   RecordMockFeedSyncDto,
@@ -53,9 +54,62 @@ const paymentRequestSelect = {
   memo: true,
   externalReleaseReferenceMasked: true,
   releaseBlockedReason: true,
+  approvedAt: true,
+  cancelledAt: true,
+  manuallyReleasedAt: true,
+  reconciledAt: true,
   requestId: true,
   createdAt: true,
   updatedAt: true,
+} satisfies Prisma.BankPaymentRequestSelect;
+
+const paymentRequestDetailSelect = {
+  ...paymentRequestSelect,
+  supplier: { select: { id: true, name: true, displayName: true } },
+  purchaseBill: { select: { id: true, billNumber: true, billDate: true, dueDate: true, status: true, total: true, balanceDue: true, currency: true } },
+  bankConnection: {
+    select: {
+      id: true,
+      provider: true,
+      status: true,
+      displayName: true,
+      externalConnectionRefMasked: true,
+      externalInstitutionName: true,
+    },
+  },
+  beneficiaryMapping: {
+    select: {
+      id: true,
+      provider: true,
+      status: true,
+      beneficiaryDisplayName: true,
+      beneficiaryRefMasked: true,
+      externalBeneficiaryRefMasked: true,
+    },
+  },
+  bankFeedTransaction: {
+    select: {
+      id: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+      type: true,
+      amount: true,
+      currency: true,
+      externalTransactionRefMasked: true,
+    },
+  },
+  bankStatementTransaction: {
+    select: {
+      id: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+      type: true,
+      amount: true,
+      status: true,
+    },
+  },
 } satisfies Prisma.BankPaymentRequestSelect;
 
 @Injectable()
@@ -397,8 +451,34 @@ export class BankIntegrationService {
     return { ...updated, noMoneyMovement: true };
   }
 
-  async listPaymentRequests(organizationId: string) {
-    return this.prisma.bankPaymentRequest.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, select: paymentRequestSelect });
+  async listPaymentRequests(organizationId: string, query: ListBankPaymentRequestsDto = {}) {
+    const rows = await this.prisma.bankPaymentRequest.findMany({
+      where: buildPaymentRequestWhere(organizationId, query),
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      select: paymentRequestDetailSelect,
+    });
+    return rows.map((row) => this.safePaymentRequest(row));
+  }
+
+  async getPaymentRequest(organizationId: string, id: string) {
+    const request = await this.prisma.bankPaymentRequest.findFirst({
+      where: { id, organizationId },
+      select: paymentRequestDetailSelect,
+    });
+    if (!request) throw new NotFoundException("Bank payment request not found.");
+
+    const auditTimeline = await this.prisma.auditLog.findMany({
+      where: { organizationId, entityType: AUDIT_ENTITY_TYPES.BANK_PAYMENT_REQUEST, entityId: id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, action: true, actorUserId: true, requestId: true, createdAt: true },
+    });
+
+    return {
+      ...this.safePaymentRequest(request),
+      auditTimeline,
+      noSecretsReturned: true,
+      noMoneyMovement: true,
+    };
   }
 
   private connectionReadinessFromAdapter(adapter: BankProviderAdapter) {
@@ -468,6 +548,44 @@ export class BankIntegrationService {
     const request = await this.prisma.bankPaymentRequest.findFirst({ where: { id, organizationId }, select: paymentRequestSelect });
     if (!request) throw new NotFoundException("Bank payment request not found.");
     return request;
+  }
+
+  private safePaymentRequest(request: Prisma.BankPaymentRequestGetPayload<{ select: typeof paymentRequestDetailSelect }>) {
+    return {
+      id: request.id,
+      organizationId: request.organizationId,
+      supplierId: request.supplierId,
+      purchaseBillId: request.purchaseBillId,
+      bankConnectionId: request.bankConnectionId,
+      beneficiaryMappingId: request.beneficiaryMappingId,
+      bankFeedTransactionId: request.bankFeedTransactionId,
+      bankStatementTransactionId: request.bankStatementTransactionId,
+      status: request.status,
+      amount: request.amount,
+      currency: request.currency,
+      memo: request.memo,
+      externalReleaseReferenceMasked: request.externalReleaseReferenceMasked,
+      releaseBlockedReason: request.releaseBlockedReason,
+      approvedAt: request.approvedAt,
+      manuallyReleasedAt: request.manuallyReleasedAt,
+      reconciledAt: request.reconciledAt,
+      cancelledAt: request.cancelledAt,
+      requestId: request.requestId,
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt,
+      supplier: request.supplier,
+      purchaseBill: request.purchaseBill,
+      bankConnection: request.bankConnection,
+      beneficiaryMapping: request.beneficiaryMapping,
+      reconciliation: {
+        state: request.bankFeedTransactionId || request.bankStatementTransactionId ? "RECONCILED" : "UNRECONCILED",
+        bankFeedTransaction: request.bankFeedTransaction,
+        bankStatementTransaction: request.bankStatementTransaction,
+      },
+      noSecretsReturned: true,
+      noBankCredentialsStored: true,
+      noMoneyMovement: true,
+    };
   }
 
   private async assertSupplier(organizationId: string, supplierId: string) {
@@ -540,4 +658,34 @@ function money(value: string) {
   } catch {
     throw new BadRequestException("amount must be a valid decimal value.");
   }
+}
+
+function buildPaymentRequestWhere(organizationId: string, query: ListBankPaymentRequestsDto): Prisma.BankPaymentRequestWhereInput {
+  const where: Prisma.BankPaymentRequestWhereInput = { organizationId };
+  if (query.status) where.status = query.status;
+  if (query.supplierId) where.supplierId = query.supplierId;
+  if (query.purchaseBillId) where.purchaseBillId = query.purchaseBillId;
+  if (query.from || query.to) {
+    where.createdAt = {};
+    if (query.from) where.createdAt.gte = parseDate(query.from, "from");
+    if (query.to) where.createdAt.lte = parseDate(query.to, "to");
+  }
+
+  switch (query.reconciliationState) {
+    case "UNRECONCILED":
+      where.bankFeedTransactionId = null;
+      where.bankStatementTransactionId = null;
+      break;
+    case "RECONCILED":
+      where.OR = [{ bankFeedTransactionId: { not: null } }, { bankStatementTransactionId: { not: null } }];
+      break;
+    case "FEED":
+      where.bankFeedTransactionId = { not: null };
+      break;
+    case "STATEMENT":
+      where.bankStatementTransactionId = { not: null };
+      break;
+  }
+
+  return where;
 }

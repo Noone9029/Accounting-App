@@ -42,9 +42,61 @@ describe("BankIntegrationService", () => {
       memo: null,
       externalReleaseReferenceMasked: null,
       releaseBlockedReason: null,
+      approvedAt: null,
+      cancelledAt: null,
+      manuallyReleasedAt: null,
+      reconciledAt: null,
       requestId: "req-bank-1",
       createdAt: new Date("2026-07-08T12:00:00.000Z"),
       updatedAt: new Date("2026-07-08T12:00:00.000Z"),
+    };
+    const paymentRequestDetail = {
+      ...paymentRequest,
+      status: BankPaymentRequestStatus.RELEASED_EXTERNALLY,
+      purchaseBillId: "bill-1",
+      bankFeedTransactionId: "feed-txn-1",
+      externalReleaseReferenceMasked: "masked_7890",
+      approvedAt: new Date("2026-07-08T12:05:00.000Z"),
+      manuallyReleasedAt: new Date("2026-07-08T12:10:00.000Z"),
+      reconciledAt: null,
+      supplier: { id: "supplier-1", name: "Supplier One LLC", displayName: "Supplier One" },
+      purchaseBill: {
+        id: "bill-1",
+        billNumber: "BILL-1",
+        billDate: new Date("2026-07-01T00:00:00.000Z"),
+        dueDate: new Date("2026-07-31T00:00:00.000Z"),
+        status: "FINALIZED",
+        total: "50.0000",
+        balanceDue: "50.0000",
+        currency: "AED",
+      },
+      bankConnection: {
+        id: "conn-1",
+        provider: BankIntegrationProvider.MOCK_WIO,
+        status: BankIntegrationStatus.SYNCED,
+        displayName: "Wio fixture",
+        externalConnectionRefMasked: "masked_7890",
+        externalInstitutionName: "Wio local mock",
+      },
+      beneficiaryMapping: {
+        id: "mapping-1",
+        provider: BankIntegrationProvider.MOCK_WIO,
+        status: BankBeneficiaryMappingStatus.MAPPED,
+        beneficiaryDisplayName: "Supplier One",
+        beneficiaryRefMasked: "masked_4321",
+        externalBeneficiaryRefMasked: "masked_7777",
+      },
+      bankFeedTransaction: {
+        id: "feed-txn-1",
+        transactionDate: new Date("2026-07-08T00:00:00.000Z"),
+        description: "Supplier payout fixture",
+        reference: "masked-statement-ref",
+        type: BankStatementTransactionType.DEBIT,
+        amount: "50.0000",
+        currency: "AED",
+        externalTransactionRefMasked: "masked_3456",
+      },
+      bankStatementTransaction: null,
     };
     const prisma = {
       bankConnection: {
@@ -75,10 +127,21 @@ describe("BankIntegrationService", () => {
       },
       bankPaymentRequest: {
         count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([paymentRequest]),
+        findMany: jest.fn().mockResolvedValue([paymentRequestDetail]),
         findFirst: jest.fn().mockResolvedValue(paymentRequest),
         create: jest.fn((args: { data: Record<string, unknown> }) => Promise.resolve({ ...paymentRequest, ...args.data })),
         update: jest.fn((args: { data: Record<string, unknown> }) => Promise.resolve({ ...paymentRequest, ...args.data })),
+      },
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "audit-1",
+            action: "BANK_PAYMENT_REQUEST_APPROVED",
+            actorUserId: "approver-1",
+            requestId: "req-bank-1",
+            createdAt: new Date("2026-07-08T12:05:00.000Z"),
+          },
+        ]),
       },
       contact: {
         findFirst: jest.fn().mockResolvedValue({ id: "supplier-1", type: ContactType.SUPPLIER }),
@@ -96,7 +159,7 @@ describe("BankIntegrationService", () => {
     const config = { get: jest.fn((key: string) => env[key]) };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
     const observability = { getRequestId: jest.fn(() => "req-bank-1") };
-    return { service: new BankIntegrationService(prisma as never, config as never, audit as never, observability as never), prisma, audit };
+    return { service: new BankIntegrationService(prisma as never, config as never, audit as never, observability as never), prisma, audit, paymentRequestDetail };
   }
 
   it("reports disabled readiness by default without exposing secrets or claiming Wio", async () => {
@@ -230,6 +293,77 @@ describe("BankIntegrationService", () => {
     );
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "BANK_PAYMENT_REQUEST_RECONCILED", entityId: created.id }));
   });
+
+  it("filters supplier payout requests by safe workflow fields and reconciliation state", async () => {
+    const { service, prisma } = makeService({ APP_ENV: "local" });
+
+    const result = await service.listPaymentRequests("org-1", {
+      status: BankPaymentRequestStatus.RELEASED_EXTERNALLY,
+      supplierId: "supplier-1",
+      purchaseBillId: "bill-1",
+      from: "2026-07-01T00:00:00.000Z",
+      to: "2026-07-31T23:59:59.000Z",
+      reconciliationState: "FEED",
+    });
+
+    expect(prisma.bankPaymentRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          status: BankPaymentRequestStatus.RELEASED_EXTERNALLY,
+          supplierId: "supplier-1",
+          purchaseBillId: "bill-1",
+          bankFeedTransactionId: { not: null },
+          createdAt: expect.objectContaining({
+            gte: new Date("2026-07-01T00:00:00.000Z"),
+            lte: new Date("2026-07-31T23:59:59.000Z"),
+          }),
+        }),
+      }),
+    );
+    expect(result[0]).toMatchObject({
+      supplier: { displayName: "Supplier One" },
+      purchaseBill: { billNumber: "BILL-1" },
+      externalReleaseReferenceMasked: "masked_7890",
+      noMoneyMovement: true,
+      noSecretsReturned: true,
+    });
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain("AE070331234567890123456");
+    expect(serialized).not.toMatch(/password-value|raw-api-key|authorization:|cookie:/i);
+  });
+
+  it("returns safe supplier payout detail with masked references and audit timeline", async () => {
+    const { service, prisma, paymentRequestDetail } = makeService({ APP_ENV: "local" });
+    prisma.bankPaymentRequest.findFirst.mockResolvedValueOnce(paymentRequestDetail);
+
+    const detail = await service.getPaymentRequest("org-1", "payreq-1");
+
+    expect(prisma.bankPaymentRequest.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "payreq-1", organizationId: "org-1" } }));
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          organizationId: "org-1",
+          entityType: "BankPaymentRequest",
+          entityId: "payreq-1",
+        },
+      }),
+    );
+    expect(detail).toMatchObject({
+      id: "payreq-1",
+      supplier: { id: "supplier-1", displayName: "Supplier One" },
+      purchaseBill: { id: "bill-1", billNumber: "BILL-1" },
+      beneficiaryMapping: { beneficiaryRefMasked: "masked_4321" },
+      reconciliation: { state: "RECONCILED", bankFeedTransaction: { externalTransactionRefMasked: "masked_3456" } },
+      auditTimeline: [{ action: "BANK_PAYMENT_REQUEST_APPROVED", requestId: "req-bank-1" }],
+      noBankCredentialsStored: true,
+      noMoneyMovement: true,
+    });
+    const serialized = JSON.stringify(detail);
+    expect(serialized).not.toContain("manual-bank-confirmation-1234567890");
+    expect(serialized).not.toContain("beneficiary-account");
+    expect(serialized).not.toMatch(/password-value|raw-api-key|authorization:|cookie:/i);
+  });
 });
 
 describe("BankIntegrationController permissions", () => {
@@ -245,6 +379,15 @@ describe("BankIntegrationController permissions", () => {
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankIntegrationController.prototype.createPaymentRequest)).toEqual([
       PERMISSIONS.bankIntegrations.vendorPaymentCreate,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankIntegrationController.prototype.listPaymentRequests)).toEqual([
+      PERMISSIONS.bankIntegrations.vendorPaymentCreate,
+      PERMISSIONS.bankIntegrations.vendorPaymentApprove,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankIntegrationController.prototype.getPaymentRequest)).toEqual([
+      PERMISSIONS.bankIntegrations.vendorPaymentCreate,
+      PERMISSIONS.bankIntegrations.vendorPaymentApprove,
+      PERMISSIONS.bankIntegrations.vendorPaymentReconcile,
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, BankIntegrationController.prototype.approvePaymentRequest)).toEqual([
       PERMISSIONS.bankIntegrations.vendorPaymentApprove,

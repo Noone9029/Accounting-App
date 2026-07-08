@@ -117,6 +117,15 @@ export const APP_ROUTES = [
     PERMISSIONS.supplierPayments.view,
   ]),
   route(
+    "purchase.supplierPayoutRequest.list",
+    "Payout requests",
+    "/purchases/supplier-payout-requests",
+    "purchases",
+    "Wio-shaped supplier payout request review, approval status, blocked release, and reconciliation workspace.",
+    [PERMISSIONS.bankIntegrations.vendorPaymentCreate, PERMISSIONS.bankIntegrations.vendorPaymentApprove, PERMISSIONS.bankIntegrations.vendorPaymentReconcile],
+    { sidebarGroup: "Review and operations", sensitivity: ["provider"] },
+  ),
+  route(
     "purchase.apDashboard",
     "AP dashboard",
     "/purchases/ap-dashboard",
