@@ -9,6 +9,8 @@ describe("observability redaction", () => {
       nested: {
         apiKey: "sk_test_123",
         customerEmail: "customer@example.com",
+        iban: "AE070331234567890123456",
+        bankCredential: "wio-secret",
         providerPayload: { id: "evt_1" },
       },
       list: [{ webhookSecret: "whsec_123" }],
@@ -21,6 +23,8 @@ describe("observability redaction", () => {
       nested: {
         apiKey: REDACTED_DIAGNOSTIC_VALUE,
         customerEmail: REDACTED_DIAGNOSTIC_VALUE,
+        iban: REDACTED_DIAGNOSTIC_VALUE,
+        bankCredential: REDACTED_DIAGNOSTIC_VALUE,
         providerPayload: REDACTED_DIAGNOSTIC_VALUE,
       },
       list: [{ webhookSecret: REDACTED_DIAGNOSTIC_VALUE }],

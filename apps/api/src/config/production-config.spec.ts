@@ -29,6 +29,7 @@ describe("production configuration hardening", () => {
     expect(readiness.database.targetClass).toBe("local");
     expect(readiness.providers.ocr.status).toBe("Disabled");
     expect(readiness.providers.payment.status).toBe("Disabled");
+    expect(readiness.providers.bankIntegration).toMatchObject({ status: "Disabled", mode: "NONE" });
     expect(readiness.blockers).toEqual([]);
     expect(() =>
       validateLedgerByteConfig({
@@ -97,6 +98,12 @@ describe("production configuration hardening", () => {
         LEDGERBYTE_STRIPE_MOCK_LINKS_ENABLED: "true",
       }),
     ).toThrow("mock payment links");
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_BANK_INTEGRATION_PROVIDER: "MOCK_WIO",
+      }),
+    ).toThrow("MOCK_WIO bank integration provider");
     expect(() =>
       validateLedgerByteConfig({
         ...validProductionConfig(),
@@ -204,6 +211,7 @@ function validProductionConfig() {
     LEDGERBYTE_STRIPE_MOCK_LINKS_ENABLED: "false",
     LEDGERBYTE_STRIPE_SECRET_KEY: STRIPE_PRIVATE_FIXTURE,
     LEDGERBYTE_STRIPE_WEBHOOK_SECRET: WEBHOOK_PRIVATE_FIXTURE,
+    LEDGERBYTE_BANK_INTEGRATION_PROVIDER: "NONE",
     EMAIL_PROVIDER: "smtp",
     SMTP_PASSWORD: SMTP_PRIVATE_FIXTURE,
     ATTACHMENT_STORAGE_PROVIDER: "s3",

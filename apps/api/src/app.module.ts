@@ -5,6 +5,7 @@ import { AttachmentModule } from "./attachments/attachment.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
+import { BankIntegrationModule } from "./bank-integrations/bank-integration.module";
 import { BankingAccountingModule } from "./banking-accounting/banking-accounting.module";
 import { BankDepositModule } from "./bank-deposits/bank-deposit.module";
 import { BankReconciliationModule } from "./bank-reconciliations/bank-reconciliation.module";
@@ -75,6 +76,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     EmailModule,
     AuthModule,
     BankAccountModule,
+    BankIntegrationModule,
     BankingAccountingModule,
     BankDepositModule,
     BankReconciliationModule,

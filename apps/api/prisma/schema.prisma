@@ -676,6 +676,39 @@ enum BankAccountStatus {
   ARCHIVED
 }
 
+enum BankIntegrationProvider {
+  NONE
+  MOCK_WIO
+  WIO_DISABLED_PLACEHOLDER
+}
+
+enum BankIntegrationStatus {
+  NOT_CONFIGURED
+  DISABLED
+  READY_FOR_MOCK
+  SYNCED
+  FAILED
+  BLOCKED
+}
+
+enum BankBeneficiaryMappingStatus {
+  UNMAPPED
+  MAPPED
+  NEEDS_REVIEW
+  BLOCKED
+  ARCHIVED
+}
+
+enum BankPaymentRequestStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  RELEASE_BLOCKED
+  RELEASED_EXTERNALLY
+  RECONCILED
+  CANCELLED
+}
+
 enum BankTransferStatus {
   POSTED
   VOIDED
@@ -1107,6 +1140,15 @@ model User {
   closedBankReconciliations                         BankReconciliation[]                        @relation("BankReconciliationClosedBy")
   voidedBankReconciliations                         BankReconciliation[]                        @relation("BankReconciliationVoidedBy")
   bankReconciliationReviewEvents                    BankReconciliationReviewEvent[]             @relation("BankReconciliationReviewEventActor")
+  createdBankConnections                            BankConnection[]                            @relation("BankConnectionCreatedBy")
+  updatedBankConnections                            BankConnection[]                            @relation("BankConnectionUpdatedBy")
+  createdBankBeneficiaryMappings                    BankBeneficiaryMapping[]                     @relation("BankBeneficiaryMappingCreatedBy")
+  updatedBankBeneficiaryMappings                    BankBeneficiaryMapping[]                     @relation("BankBeneficiaryMappingUpdatedBy")
+  createdBankPaymentRequests                        BankPaymentRequest[]                         @relation("BankPaymentRequestCreatedBy")
+  approvedBankPaymentRequests                       BankPaymentRequest[]                         @relation("BankPaymentRequestApprovedBy")
+  cancelledBankPaymentRequests                      BankPaymentRequest[]                         @relation("BankPaymentRequestCancelledBy")
+  manuallyReleasedBankPaymentRequests               BankPaymentRequest[]                         @relation("BankPaymentRequestManuallyReleasedBy")
+  reconciledBankPaymentRequests                     BankPaymentRequest[]                         @relation("BankPaymentRequestReconciledBy")
   reversedCreditNoteAllocations                     CreditNoteAllocation[]                      @relation("CreditNoteAllocationReversedBy")
   reversedPurchaseDebitNoteAllocations              PurchaseDebitNoteAllocation[]               @relation("PurchaseDebitNoteAllocationReversedBy")
   reversedCustomerPaymentUnappliedAllocations       CustomerPaymentUnappliedAllocation[]        @relation("CustomerPaymentUnappliedAllocationReversedBy")
@@ -1237,6 +1279,13 @@ model Organization {
   chequeInstruments                         ChequeInstrument[]
   bankingClearingAccountConfig              BankingClearingAccountConfig?
   bankReconciliations                       BankReconciliation[]
+  bankConnections                           BankConnection[]
+  bankFeedAccounts                          BankFeedAccount[]
+  bankFeedSyncRuns                          BankFeedSyncRun[]
+  bankFeedTransactions                      BankFeedTransaction[]
+  bankProviderEvents                        BankProviderEvent[]
+  bankBeneficiaryMappings                   BankBeneficiaryMapping[]
+  bankPaymentRequests                       BankPaymentRequest[]
   bankReconciliationItems                   BankReconciliationItem[]
   bankReconciliationReviewEvents            BankReconciliationReviewEvent[]
   taxRates                                  TaxRate[]
@@ -2526,6 +2575,8 @@ model Contact {
   collectionActivities       CollectionActivity[]         @relation("CollectionActivityCustomer")
   inventoryVarianceProposals InventoryVarianceProposal[] @relation("InventoryVarianceProposalSupplier")
   purchaseMatchingReviews    PurchaseMatchingReview[]    @relation("PurchaseMatchingReviewSupplier")
+  bankBeneficiaryMappings     BankBeneficiaryMapping[]     @relation("BankBeneficiaryMappingSupplier")
+  bankPaymentRequests         BankPaymentRequest[]         @relation("BankPaymentRequestSupplier")
 
   @@index([organizationId])
   @@index([organizationId, type])
@@ -2612,6 +2663,8 @@ model BankAccountProfile {
   incomingTransfers            BankTransfer[]             @relation("BankTransferToProfile")
   statementImports             BankStatementImport[]
   statementTransactions        BankStatementTransaction[]
+  bankFeedAccounts             BankFeedAccount[]
+  bankFeedTransactions         BankFeedTransaction[]
   bankRules                    BankRule[]
   bankRuleApplications         BankRuleApplication[]
   bankDepositBatches           BankDepositBatch[]
@@ -2688,6 +2741,172 @@ model BankStatementImport {
   @@index([organizationId, importedAt])
 }
 
+model BankConnection {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  organizationId              String                  @db.Uuid
+  provider                    BankIntegrationProvider @default(NONE)
+  status                      BankIntegrationStatus   @default(DISABLED)
+  displayName                 String
+  externalConnectionRefMasked String?
+  externalInstitutionName     String?
+  metadataJson                Json?
+  disabledAt                  DateTime?
+  createdById                 String?                 @db.Uuid
+  updatedById                 String?                 @db.Uuid
+  requestId                   String?
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  organization                Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy                   User?                   @relation("BankConnectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                   User?                   @relation("BankConnectionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  feedAccounts                BankFeedAccount[]
+  feedSyncRuns                BankFeedSyncRun[]
+  feedTransactions            BankFeedTransaction[]
+  providerEvents              BankProviderEvent[]
+  beneficiaryMappings         BankBeneficiaryMapping[]
+  paymentRequests             BankPaymentRequest[]
+
+  @@index([organizationId])
+  @@index([organizationId, provider])
+  @@index([organizationId, status])
+  @@index([requestId])
+}
+
+model BankFeedAccount {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  organizationId              String                  @db.Uuid
+  bankConnectionId            String                  @db.Uuid
+  bankAccountProfileId        String?                 @db.Uuid
+  provider                    BankIntegrationProvider @default(NONE)
+  status                      BankIntegrationStatus   @default(DISABLED)
+  displayName                 String
+  currency                    String                  @default("AED")
+  accountRefMasked            String?
+  ibanMasked                  String?
+  externalAccountRefMasked    String?
+  availableBalance            Decimal?                @db.Decimal(20, 4)
+  ledgerBalance               Decimal?                @db.Decimal(20, 4)
+  lastSyncedAt                DateTime?
+  metadataJson                Json?
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+  organization                Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankConnection              BankConnection           @relation(fields: [bankConnectionId], references: [id], onDelete: Cascade)
+  bankAccountProfile          BankAccountProfile?      @relation(fields: [bankAccountProfileId], references: [id], onDelete: SetNull)
+  feedTransactions            BankFeedTransaction[]
+
+  @@index([organizationId])
+  @@index([bankConnectionId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, status])
+}
+
+model BankFeedSyncRun {
+  id                   String                @id @default(uuid()) @db.Uuid
+  organizationId       String                @db.Uuid
+  bankConnectionId     String                @db.Uuid
+  status               BankIntegrationStatus @default(NOT_CONFIGURED)
+  startedAt            DateTime              @default(now())
+  finishedAt           DateTime?
+  transactionCount     Int                   @default(0)
+  errorCode            String?
+  errorMessage         String?
+  requestId            String?
+  metadataJson         Json?
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankConnection       BankConnection         @relation(fields: [bankConnectionId], references: [id], onDelete: Cascade)
+  feedTransactions     BankFeedTransaction[]
+
+  @@index([organizationId])
+  @@index([bankConnectionId])
+  @@index([organizationId, status])
+  @@index([requestId])
+}
+
+model BankFeedTransaction {
+  id                           String                        @id @default(uuid()) @db.Uuid
+  organizationId               String                        @db.Uuid
+  bankConnectionId             String                        @db.Uuid
+  bankFeedAccountId            String                        @db.Uuid
+  bankFeedSyncRunId            String?                       @db.Uuid
+  bankAccountProfileId         String?                       @db.Uuid
+  provider                     BankIntegrationProvider       @default(NONE)
+  transactionDate              DateTime
+  description                  String
+  reference                    String?
+  type                         BankStatementTransactionType
+  amount                       Decimal                       @db.Decimal(20, 4)
+  currency                     String                        @default("AED")
+  externalTransactionRefMasked String?
+  accountRefMasked             String?
+  redactedMetadataJson          Json?
+  createdAt                    DateTime                      @default(now())
+  updatedAt                    DateTime                      @updatedAt
+  organization                 Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankConnection               BankConnection                 @relation(fields: [bankConnectionId], references: [id], onDelete: Cascade)
+  bankFeedAccount              BankFeedAccount                @relation(fields: [bankFeedAccountId], references: [id], onDelete: Cascade)
+  bankFeedSyncRun              BankFeedSyncRun?               @relation(fields: [bankFeedSyncRunId], references: [id], onDelete: SetNull)
+  bankAccountProfile           BankAccountProfile?            @relation(fields: [bankAccountProfileId], references: [id], onDelete: SetNull)
+  bankPaymentRequests          BankPaymentRequest[]
+
+  @@index([organizationId])
+  @@index([bankConnectionId])
+  @@index([bankFeedAccountId])
+  @@index([bankFeedSyncRunId])
+  @@index([bankAccountProfileId])
+  @@index([organizationId, transactionDate])
+}
+
+model BankProviderEvent {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  organizationId         String                  @db.Uuid
+  bankConnectionId       String?                 @db.Uuid
+  provider               BankIntegrationProvider @default(NONE)
+  status                 BankIntegrationStatus   @default(BLOCKED)
+  eventType              String
+  externalEventRefMasked String?
+  requestId              String?
+  redactedPayloadJson    Json?
+  receivedAt             DateTime                @default(now())
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankConnection         BankConnection?          @relation(fields: [bankConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([bankConnectionId])
+  @@index([organizationId, provider])
+  @@index([requestId])
+}
+
+model BankBeneficiaryMapping {
+  id                           String                       @id @default(uuid()) @db.Uuid
+  organizationId               String                       @db.Uuid
+  supplierId                   String                       @db.Uuid
+  bankConnectionId             String?                      @db.Uuid
+  provider                     BankIntegrationProvider      @default(NONE)
+  status                       BankBeneficiaryMappingStatus @default(UNMAPPED)
+  beneficiaryDisplayName       String
+  beneficiaryRefMasked         String?
+  externalBeneficiaryRefMasked String?
+  metadataJson                 Json?
+  createdById                  String?                      @db.Uuid
+  updatedById                  String?                      @db.Uuid
+  requestId                    String?
+  createdAt                    DateTime                     @default(now())
+  updatedAt                    DateTime                     @updatedAt
+  organization                 Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier                     Contact                      @relation("BankBeneficiaryMappingSupplier", fields: [supplierId], references: [id], onDelete: Cascade)
+  bankConnection               BankConnection?              @relation(fields: [bankConnectionId], references: [id], onDelete: SetNull)
+  createdBy                    User?                        @relation("BankBeneficiaryMappingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                    User?                        @relation("BankBeneficiaryMappingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  paymentRequests              BankPaymentRequest[]
+
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([bankConnectionId])
+  @@index([organizationId, status])
+  @@index([requestId])
+}
+
 model BankStatementTransaction {
   id                    String                         @id @default(uuid()) @db.Uuid
   organizationId        String                         @db.Uuid
@@ -2720,6 +2939,7 @@ model BankStatementTransaction {
   matchedDepositBatch   BankDepositBatch?
   matchedCardSettlement CardSettlement?
   matchedChequeInstrument ChequeInstrument?
+  bankPaymentRequests   BankPaymentRequest[]
 
   @@index([organizationId])
   @@index([importId])
@@ -4110,6 +4330,7 @@ model PurchaseBill {
   purchaseReceipts                    PurchaseReceipt[]
   inventoryVarianceProposals          InventoryVarianceProposal[]
   purchaseReturns                     PurchaseReturn[]
+  bankPaymentRequests                 BankPaymentRequest[]
 
   @@unique([organizationId, billNumber])
   @@index([organizationId])
@@ -4117,6 +4338,58 @@ model PurchaseBill {
   @@index([purchaseOrderId])
   @@index([status])
   @@index([inventoryPostingMode])
+}
+
+model BankPaymentRequest {
+  id                              String                   @id @default(uuid()) @db.Uuid
+  organizationId                  String                   @db.Uuid
+  supplierId                      String?                  @db.Uuid
+  purchaseBillId                  String?                  @db.Uuid
+  bankConnectionId                String?                  @db.Uuid
+  beneficiaryMappingId            String?                  @db.Uuid
+  bankFeedTransactionId           String?                  @db.Uuid
+  bankStatementTransactionId      String?                  @db.Uuid
+  status                          BankPaymentRequestStatus @default(DRAFT)
+  amount                          Decimal                  @db.Decimal(20, 4)
+  currency                        String                   @default("AED")
+  memo                            String?
+  externalReleaseReferenceMasked  String?
+  releaseBlockedReason            String?
+  createdById                     String?                  @db.Uuid
+  approvedById                    String?                  @db.Uuid
+  cancelledById                   String?                  @db.Uuid
+  manuallyReleasedById            String?                  @db.Uuid
+  reconciledById                  String?                  @db.Uuid
+  approvedAt                      DateTime?
+  cancelledAt                     DateTime?
+  manuallyReleasedAt              DateTime?
+  reconciledAt                    DateTime?
+  requestId                       String?
+  redactedMetadataJson            Json?
+  createdAt                       DateTime                 @default(now())
+  updatedAt                       DateTime                 @updatedAt
+  organization                    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier                        Contact?                 @relation("BankPaymentRequestSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseBill                    PurchaseBill?            @relation(fields: [purchaseBillId], references: [id], onDelete: SetNull)
+  bankConnection                  BankConnection?           @relation(fields: [bankConnectionId], references: [id], onDelete: SetNull)
+  beneficiaryMapping              BankBeneficiaryMapping?   @relation(fields: [beneficiaryMappingId], references: [id], onDelete: SetNull)
+  bankFeedTransaction             BankFeedTransaction?      @relation(fields: [bankFeedTransactionId], references: [id], onDelete: SetNull)
+  bankStatementTransaction        BankStatementTransaction? @relation(fields: [bankStatementTransactionId], references: [id], onDelete: SetNull)
+  createdBy                       User?                    @relation("BankPaymentRequestCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy                      User?                    @relation("BankPaymentRequestApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  cancelledBy                     User?                    @relation("BankPaymentRequestCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  manuallyReleasedBy              User?                    @relation("BankPaymentRequestManuallyReleasedBy", fields: [manuallyReleasedById], references: [id], onDelete: SetNull)
+  reconciledBy                    User?                    @relation("BankPaymentRequestReconciledBy", fields: [reconciledById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([purchaseBillId])
+  @@index([bankConnectionId])
+  @@index([beneficiaryMappingId])
+  @@index([bankFeedTransactionId])
+  @@index([bankStatementTransactionId])
+  @@index([organizationId, status])
+  @@index([requestId])
 }
 
 model PurchaseBillLine {

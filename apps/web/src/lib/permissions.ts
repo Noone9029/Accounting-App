@@ -447,6 +447,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.payments.providerReadinessView];
   }
 
+  if (pathname.startsWith("/settings/bank-integrations")) {
+    return [PERMISSIONS.bankIntegrations.connectionManage, PERMISSIONS.bankIntegrations.feedRead];
+  }
+
   if (pathname.startsWith("/settings/api-docs")) {
     return [PERMISSIONS.users.view];
   }
