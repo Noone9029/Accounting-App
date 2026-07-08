@@ -36,6 +36,16 @@ export interface ConfigReadinessSummary {
     telemetry: ConfigReadinessItem & { sentryEnabled: boolean; openTelemetryEnabled: boolean };
   };
   apiDocs: ConfigReadinessItem & { exposed: boolean };
+  publicApi: ConfigReadinessItem & {
+    enabled: boolean;
+    version: "v1";
+    accessMode: "Disabled" | "Internal Only";
+    rateLimitEnabled: boolean;
+    rateLimitStrategy: string;
+    apiKeysEnabled: boolean;
+    oauthEnabled: boolean;
+    publicUnauthenticatedAccess: false;
+  };
   diagnostics: ConfigReadinessItem & { adminGuardRequired: true; publicExposureRequested: boolean };
   backupRestoreDrill: ConfigReadinessItem & { destructiveApprovalPresent: boolean };
   noSecretsReturned: true;
@@ -87,6 +97,7 @@ export function buildStartupConfigSummary(config: EnvSource): StartupConfigSumma
       emailProvider: readiness.providers.email.status,
       telemetry: readiness.providers.telemetry.status,
       apiDocs: readiness.apiDocs.status,
+      publicApi: readiness.publicApi.status,
       diagnostics: readiness.diagnostics.status,
       backupRestoreDrill: readiness.backupRestoreDrill.status,
     },
@@ -111,6 +122,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
   const email = emailReadiness(config, productionLike);
   const telemetry = telemetryReadiness(config, productionLike);
   const apiDocs = apiDocsReadiness(config, productionLike);
+  const publicApi = publicApiReadiness(config, productionLike);
   const diagnostics = diagnosticsReadiness(config, productionLike);
   const backupRestoreDrill = backupRestoreReadiness(config, productionLike);
   const warnings = [
@@ -129,6 +141,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
     ...email.blockers,
     ...telemetry.blockers,
     ...apiDocs.blockers,
+    ...publicApi.blockers,
     ...diagnostics.blockers,
     ...backupRestoreDrill.blockers,
   ];
@@ -150,6 +163,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
       telemetry,
     },
     apiDocs,
+    publicApi,
     diagnostics,
     backupRestoreDrill,
     noSecretsReturned: true,
@@ -312,6 +326,39 @@ function apiDocsReadiness(config: EnvSource, productionLike: boolean): ConfigRea
     blockers.push("API docs cannot be publicly exposed in production-like modes without explicit approval.");
   }
   return readiness(exposed, blockers, exposed ? "Needs Configuration" : "Disabled", [], { exposed });
+}
+
+function publicApiReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["publicApi"] {
+  const enabled = readBoolean(config.LEDGERBYTE_PUBLIC_API_ENABLED) === true;
+  const rateLimitEnabled = readBoolean(config.LEDGERBYTE_PUBLIC_API_RATE_LIMIT_ENABLED) === true;
+  const rateLimitStrategy = clean(config.LEDGERBYTE_PUBLIC_API_RATE_LIMIT_STRATEGY) || "DISABLED";
+  const apiKeysEnabled = readBoolean(config.LEDGERBYTE_PUBLIC_API_KEYS_ENABLED) === true;
+  const oauthEnabled = readBoolean(config.LEDGERBYTE_PUBLIC_API_OAUTH_ENABLED) === true;
+  const blockers: string[] = [];
+  const warnings: string[] = [
+    "Public API v1 remains authenticated/internal by default and does not issue production API keys or OAuth clients.",
+  ];
+
+  if (productionLike && enabled && (!rateLimitEnabled || rateLimitStrategy === "DISABLED")) {
+    blockers.push("Public API v1 cannot be enabled in production-like modes without an explicit rate-limit strategy.");
+  }
+  if (productionLike && apiKeysEnabled) {
+    blockers.push("Public API keys are placeholder-only and cannot be enabled in production-like modes.");
+  }
+  if (productionLike && oauthEnabled) {
+    blockers.push("Public API OAuth is placeholder-only and cannot be enabled in production-like modes.");
+  }
+
+  return readiness(enabled || rateLimitEnabled || apiKeysEnabled || oauthEnabled, blockers, enabled ? "Needs Configuration" : "Disabled", warnings, {
+    enabled,
+    version: "v1" as const,
+    accessMode: enabled ? ("Internal Only" as const) : ("Disabled" as const),
+    rateLimitEnabled,
+    rateLimitStrategy,
+    apiKeysEnabled,
+    oauthEnabled,
+    publicUnauthenticatedAccess: false as const,
+  });
 }
 
 function diagnosticsReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessSummary["diagnostics"] {

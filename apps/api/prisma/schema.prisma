@@ -1355,6 +1355,7 @@ model Organization {
   paymentProviderConfigs                    PaymentProviderConfig[]
   paymentProviderEvents                     PaymentProviderEvent[]
   invoicePaymentLinks                       InvoicePaymentLink[]
+  apiIdempotencyRecords                     ApiIdempotencyRecord[]
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
@@ -5470,6 +5471,24 @@ model AuditLog {
   @@index([organizationId])
   @@index([entityType, entityId])
   @@index([actorUserId])
+  @@index([requestId])
+}
+
+model ApiIdempotencyRecord {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  route          String
+  keyHash        String
+  requestHash    String
+  responseJson   Json
+  statusCode     Int
+  requestId      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, route, keyHash])
+  @@index([organizationId])
   @@index([requestId])
 }
 

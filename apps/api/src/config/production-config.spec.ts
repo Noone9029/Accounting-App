@@ -30,6 +30,12 @@ describe("production configuration hardening", () => {
     expect(readiness.providers.ocr.status).toBe("Disabled");
     expect(readiness.providers.payment.status).toBe("Disabled");
     expect(readiness.providers.bankIntegration).toMatchObject({ status: "Disabled", mode: "NONE" });
+    expect(readiness.publicApi).toMatchObject({
+      status: "Disabled",
+      enabled: false,
+      accessMode: "Disabled",
+      publicUnauthenticatedAccess: false,
+    });
     expect(readiness.blockers).toEqual([]);
     expect(() =>
       validateLedgerByteConfig({
@@ -169,6 +175,47 @@ describe("production configuration hardening", () => {
         LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL: "I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET",
       }),
     ).toThrow("destructive drill approval");
+  });
+
+  it("fails closed when public API v1 is enabled without production rate-limit strategy", () => {
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_PUBLIC_API_ENABLED: "true",
+      }),
+    ).toThrow("Public API v1 cannot be enabled");
+
+    const readiness = buildConfigReadiness({
+      ...validProductionConfig(),
+      LEDGERBYTE_PUBLIC_API_ENABLED: "true",
+      LEDGERBYTE_PUBLIC_API_RATE_LIMIT_ENABLED: "true",
+      LEDGERBYTE_PUBLIC_API_RATE_LIMIT_STRATEGY: "edge-gateway",
+    });
+
+    expect(readiness.publicApi).toMatchObject({
+      status: "Needs Configuration",
+      enabled: true,
+      accessMode: "Internal Only",
+      rateLimitEnabled: true,
+      rateLimitStrategy: "edge-gateway",
+      publicUnauthenticatedAccess: false,
+    });
+    expect(readiness.blockers).toEqual([]);
+  });
+
+  it("keeps API keys and OAuth placeholder-only in production-like modes", () => {
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_PUBLIC_API_KEYS_ENABLED: "true",
+      }),
+    ).toThrow("Public API keys are placeholder-only");
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_PUBLIC_API_OAUTH_ENABLED: "true",
+      }),
+    ).toThrow("Public API OAuth is placeholder-only");
   });
 
   it("redacts startup summaries and readiness payloads", () => {
