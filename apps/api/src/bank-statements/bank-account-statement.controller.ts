@@ -37,10 +37,11 @@ export class BankAccountStatementController {
   @RequirePermissions(PERMISSIONS.bankStatements.previewImport)
   previewImport(
     @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Param("bankAccountProfileId") bankAccountProfileId: string,
     @Body() dto: PreviewBankStatementImportDto,
   ) {
-    return this.bankStatementService.previewImport(organizationId, bankAccountProfileId, dto);
+    return this.bankStatementService.previewImport(organizationId, bankAccountProfileId, dto, user.id);
   }
 
   @Get("statement-transactions")
