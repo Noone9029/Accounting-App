@@ -20,7 +20,7 @@ import { Decimal } from "decimal.js";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
+import { advancedReportCsv, AdvancedReportKind, coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
 import {
   REPORT_PACK_SUPPORTED_REPORTS,
   buildReportPackManifest,
@@ -585,10 +585,29 @@ export class ReportsService {
     }
   }
 
+  async advancedReport(organizationId: string, kind: AdvancedReportKind, query: ReportDateQuery) {
+    switch (kind) {
+      case "cash-flow":
+        return this.cashFlow(organizationId, query);
+      case "revenue-trend":
+        return this.revenueTrend(organizationId, query);
+      case "top-customers":
+        return this.topCustomers(organizationId, query);
+      case "top-products-services":
+        return this.topProductsServices(organizationId, query);
+    }
+  }
+
   async coreReportCsvFile(organizationId: string, kind: CoreReportKind, query: ReportDateQuery) {
     const generatedAt = new Date();
     const report = await this.coreReport(organizationId, kind, query);
     return coreReportCsv(kind, report, generatedAt);
+  }
+
+  async advancedReportCsvFile(organizationId: string, kind: AdvancedReportKind, query: ReportDateQuery) {
+    const generatedAt = new Date();
+    const report = await this.advancedReport(organizationId, kind, query);
+    return advancedReportCsv(kind, report, generatedAt);
   }
 
   async vatReturnCsvFile(organizationId: string, query: ReportDateQuery) {

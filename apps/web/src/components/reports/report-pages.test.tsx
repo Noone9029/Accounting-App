@@ -126,16 +126,32 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText("القوائم المالية")).toBeInTheDocument();
   });
 
-  it("renders the cash-flow report from the existing advanced report API without export controls", async () => {
+  it("renders the cash-flow report with CSV-only export controls", async () => {
     render(<CashFlowReportPage />);
 
     expect(await screen.findByRole("heading", { name: "Cash Flow" })).toBeInTheDocument();
     expect(screen.getByText("POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES")).toBeInTheDocument();
     expect(screen.getByText("2026-06")).toBeInTheDocument();
     expect(screen.getByText(/does not initiate payments/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Download CSV" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download CSV" })).toBeInTheDocument();
+    expect(screen.getByText("PDF export not implemented")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
     expect(apiRequestMock).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\/cash-flow\?from=.*&to=.*/));
+  });
+
+  it("downloads advanced reports as CSV using current filters", async () => {
+    render(<RevenueTrendReportPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Download CSV" }));
+
+    await waitFor(() =>
+      expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/reports\/revenue-trend\?from=.*&to=.*&format=csv$/),
+        expect.stringMatching(/^revenue-trend-\d{4}-\d{2}-\d{2}\.csv$/),
+      ),
+    );
+    expect(screen.getByText(/PDF export, scheduled delivery, provider calls, and compliance submission are not implemented/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
   });
 
   it("renders revenue trend and top-sales reports from existing advanced report APIs", async () => {

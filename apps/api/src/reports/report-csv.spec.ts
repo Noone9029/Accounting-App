@@ -1,4 +1,4 @@
-import { bankReconciliationReportCsv, coreReportCsv, csvEscape, toCsv, vatReturnCsv } from "./report-csv";
+import { advancedReportCsv, bankReconciliationReportCsv, coreReportCsv, csvEscape, toCsv, vatReturnCsv } from "./report-csv";
 
 describe("report CSV helpers", () => {
   it("escapes commas, quotes, and newlines", () => {
@@ -6,6 +6,14 @@ describe("report CSV helpers", () => {
     expect(csvEscape("Cash, Bank")).toBe('"Cash, Bank"');
     expect(csvEscape('Say "yes"')).toBe('"Say ""yes"""');
     expect(csvEscape("line 1\nline 2")).toBe('"line 1\nline 2"');
+  });
+
+  it("protects formula-like CSV cells while preserving negative numeric amounts", () => {
+    expect(csvEscape("=HYPERLINK(\"https://example.test\")")).toBe('"\'=HYPERLINK(""https://example.test"")"');
+    expect(csvEscape("+SUM(1,1)")).toBe('"\'+SUM(1,1)"');
+    expect(csvEscape("@cmd")).toBe("'@cmd");
+    expect(csvEscape("-cmd")).toBe("'-cmd");
+    expect(csvEscape("-10.5000")).toBe("-10.5000");
   });
 
   it("builds CRLF-terminated CSV rows", () => {
@@ -174,5 +182,98 @@ describe("report CSV helpers", () => {
     expect(csv.content).toContain("Official Filing Format,Not implemented");
     expect(csv.content).toContain("INV-001,2026-05-03,100.0000,15.0000,115.0000");
     expect(csv.content).toContain("BILL-001,2026-05-04,33.3333,5.0000,38.3333");
+  });
+
+  it("exports advanced cash flow CSV without changing report math or implying PDF support", () => {
+    const csv = advancedReportCsv(
+      "cash-flow",
+      {
+        from: "2026-05-01",
+        to: "2026-05-31",
+        basis: "POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES",
+        granularity: "month",
+        rows: [{ period: "2026-05", inflows: "100.0000", outflows: "25.0000", netCashFlow: "75.0000", lineCount: 2 }],
+        totals: {
+          openingCash: "10.0000",
+          inflows: "100.0000",
+          outflows: "25.0000",
+          netCashFlow: "75.0000",
+          closingCash: "85.0000",
+          accountCount: 1,
+          lineCount: 2,
+        },
+        notes: ["No provider calls are made."],
+      },
+      new Date("2026-05-13T10:00:00.000Z"),
+    );
+
+    expect(csv.filename).toBe("cash-flow-2026-05-13.csv");
+    expect(csv.content).toContain("Cash Flow");
+    expect(csv.content).toContain("Export Status,CSV supported");
+    expect(csv.content).toContain("PDF Export,Not implemented");
+    expect(csv.content).toContain("Opening Cash,10.0000");
+    expect(csv.content).toContain("2026-05,100.0000,25.0000,75.0000,2");
+    expect(csv.content).not.toContain("rawData");
+  });
+
+  it("exports advanced sales ranking CSVs with formula-cell protection", () => {
+    const customers = advancedReportCsv(
+      "top-customers",
+      {
+        from: "2026-05-01",
+        to: "2026-05-31",
+        basis: "FINALIZED_SALES_INVOICES",
+        limit: 10,
+        rows: [
+          {
+            customer: { id: "customer-1", name: "=SUM(1,1)", displayName: "+Acme" },
+            invoiceCount: 1,
+            taxableAmount: "100.0000",
+            taxAmount: "15.0000",
+            grossAmount: "115.0000",
+            latestInvoiceDate: "2026-05-03T00:00:00.000Z",
+          },
+        ],
+        totals: { customerCount: 1, invoiceCount: 1, taxableAmount: "100.0000", taxAmount: "15.0000", grossAmount: "115.0000" },
+        notes: [],
+      },
+      new Date("2026-05-13T10:00:00.000Z"),
+    );
+    const products = advancedReportCsv(
+      "top-products-services",
+      {
+        from: "2026-05-01",
+        to: "2026-05-31",
+        basis: "FINALIZED_SALES_INVOICE_LINES",
+        limit: 10,
+        rows: [
+          {
+            kind: "UNCATALOGED_LINE",
+            label: "-cmd",
+            item: null,
+            lineCount: 1,
+            quantity: "2.0000",
+            taxableAmount: "100.0000",
+            taxAmount: "15.0000",
+            grossAmount: "115.0000",
+            latestInvoiceDate: "2026-05-03T00:00:00.000Z",
+          },
+        ],
+        totals: {
+          lineCount: 1,
+          catalogItemCount: 0,
+          uncatalogedLineGroupCount: 1,
+          quantity: "2.0000",
+          taxableAmount: "100.0000",
+          taxAmount: "15.0000",
+          grossAmount: "115.0000",
+        },
+        notes: [],
+      },
+      new Date("2026-05-13T10:00:00.000Z"),
+    );
+
+    expect(customers.content).toContain("'+Acme,1,100.0000,15.0000,115.0000,2026-05-03");
+    expect(products.content).toContain("UNCATALOGED_LINE,'-cmd,,1,2.0000,100.0000,15.0000,115.0000,2026-05-03");
   });
 });
