@@ -17,8 +17,12 @@ describe("app bootstrap", () => {
 
   it("installs baseline security headers through the bootstrap middleware", () => {
     const middleware = expect.any(Function);
+    const observabilityContext = { run: jest.fn((_context: unknown, callback: () => void) => callback()) };
     const app = {
-      get: jest.fn().mockReturnValue({ get: jest.fn() }),
+      get: jest.fn((token: unknown) => {
+        const tokenName = typeof token === "function" ? token.name : String(token);
+        return tokenName === "ObservabilityContextService" ? observabilityContext : { get: jest.fn() };
+      }),
       enableCors: jest.fn(),
       use: jest.fn(),
       useGlobalPipes: jest.fn(),
@@ -30,7 +34,13 @@ describe("app bootstrap", () => {
     });
 
     expect(app.use).toHaveBeenCalledWith(middleware);
-    const securityMiddleware = app.use.mock.calls[0][0] as (request: unknown, response: { setHeader: jest.Mock }, next: jest.Mock) => void;
+    const securityMiddleware = app.use.mock.calls.find(([candidate]) => {
+      const response = { setHeader: jest.fn() };
+      const next = jest.fn();
+      (candidate as (request: unknown, response: { setHeader: jest.Mock }, next: jest.Mock) => void)({ headers: {} }, response, next);
+      return response.setHeader.mock.calls.some(([header]) => header === "X-Content-Type-Options");
+    })?.[0] as (request: unknown, response: { setHeader: jest.Mock }, next: jest.Mock) => void;
+    expect(securityMiddleware).toEqual(expect.any(Function));
     const response = { setHeader: jest.fn() };
     const next = jest.fn();
 
@@ -63,6 +73,7 @@ describe("app bootstrap", () => {
       {
         method: "POST",
         path: "/sales-invoices",
+        requestId: "req-csrf",
         headers: {
           cookie: "ledgerbyte_auth=jwt-token; ledgerbyte_csrf=csrf-token",
         },
@@ -73,9 +84,12 @@ describe("app bootstrap", () => {
 
     expect(response.status).toHaveBeenCalledWith(403);
     expect(response.json).toHaveBeenCalledWith({
-      statusCode: 403,
-      message: "Invalid CSRF token.",
-      error: "Forbidden",
+      error: {
+        code: "FORBIDDEN",
+        message: "Invalid CSRF token.",
+        statusCode: 403,
+        requestId: "req-csrf",
+      },
     });
     expect(next).not.toHaveBeenCalled();
   });

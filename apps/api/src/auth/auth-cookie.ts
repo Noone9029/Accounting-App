@@ -23,6 +23,7 @@ type RequestLike = {
   method?: string;
   path?: string;
   url?: string;
+  requestId?: string;
   headers: Record<string, HeaderValue>;
 };
 
@@ -123,9 +124,12 @@ export function createCsrfProtectionMiddleware(config: ConfigService) {
     } catch (error) {
       if (error instanceof ForbiddenException) {
         response.status(403).json({
-          statusCode: 403,
-          message: "Invalid CSRF token.",
-          error: "Forbidden",
+          error: {
+            code: "FORBIDDEN",
+            message: "Invalid CSRF token.",
+            statusCode: 403,
+            requestId: request.requestId ?? "unavailable",
+          },
         });
         return;
       }

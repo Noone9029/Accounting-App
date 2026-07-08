@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type { Request } from "express";
 import { PrismaService } from "../prisma/prisma.service";
 import { AUDIT_ENTITY_TYPES } from "./audit-events";
 import { standardizeAuditAction } from "./audit-events";
 import { sanitizeAuditMetadata } from "./audit-sanitize";
+import { ObservabilityContextService } from "../observability/observability-context.service";
 
 const DEFAULT_RETENTION_DAYS = 2555;
 const MIN_RETENTION_DAYS = 365;
@@ -37,7 +38,7 @@ export interface AuditLogInput {
   entityId: string;
   before?: unknown;
   after?: unknown;
-  request?: Request;
+  request?: Request & { requestId?: string };
 }
 
 export interface AuditLogListQuery {
@@ -60,7 +61,10 @@ export interface AuditLogRetentionSettingsPatch {
 
 @Injectable()
 export class AuditLogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly observabilityContext?: ObservabilityContextService,
+  ) {}
 
   async log(input: AuditLogInput): Promise<void> {
     const action = standardizeAuditAction(input.action, input.entityType);
@@ -75,6 +79,7 @@ export class AuditLogService {
         after: input.after === undefined ? undefined : this.toJson(sanitizeAuditMetadata(input.after)),
         ipAddress: input.request?.ip,
         userAgent: input.request?.headers["user-agent"],
+        requestId: input.request?.requestId ?? this.observabilityContext?.getRequestId(),
       },
     });
   }

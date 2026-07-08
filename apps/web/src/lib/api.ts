@@ -13,6 +13,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly details?: unknown,
+    public readonly requestId?: string | null,
   ) {
     super(message);
   }
@@ -115,7 +116,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new ApiError(readErrorMessage(body, response.status), response.status, body);
+    throw new ApiError(readErrorMessage(body, response.status), response.status, body, readErrorRequestId(body) ?? response.headers.get("x-request-id"));
   }
 
   if (response.status === 204) {
@@ -153,12 +154,32 @@ function readErrorMessage(body: unknown, status: number): string {
       return message.message;
     }
 
+    if (isRecord(body.error) && typeof body.error.message === "string") {
+      return body.error.message;
+    }
+
     if (typeof body.error === "string") {
       return body.error;
     }
   }
 
   return `Request failed with ${status}`;
+}
+
+export function readErrorRequestId(body: unknown): string | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  if (typeof body.requestId === "string") {
+    return body.requestId;
+  }
+
+  if (isRecord(body.error) && typeof body.error.requestId === "string") {
+    return body.error.requestId;
+  }
+
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
