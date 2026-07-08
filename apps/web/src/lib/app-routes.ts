@@ -234,6 +234,12 @@ export const APP_ROUTES = [
     shellVisible: true,
     sensitivity: ["storage"],
   }),
+  route("documentInbox", "Document inbox", "/document-inbox", "documents", "Uploaded bill and receipt extraction review queue.", [
+    PERMISSIONS.documentInbox.view,
+  ], {
+    shellVisible: true,
+    sensitivity: ["storage", "provider"],
+  }),
   route("tax.workspace", "VAT", "/tax", "compliance", "Tax workspace and VAT workflow shortcut.", [PERMISSIONS.reports.view], {
     mobileVisible: true,
     sensitivity: ["compliance"],
@@ -310,6 +316,14 @@ export const APP_ROUTES = [
   ], {
     sensitivity: ["storage"],
   }),
+  route("settings.payments", "Payment readiness", "/settings/payments", "settings", "Stripe payment-link readiness, webhook, and provider-disabled status.", [
+    PERMISSIONS.payments.providerReadinessView,
+  ], {
+    sensitivity: ["provider"],
+  }),
+  route("settings.apiDocs", "API docs", "/settings/api-docs", "settings", "OpenAPI documentation access and beta endpoint guidance.", [PERMISSIONS.users.view], {
+    sensitivity: ["provider"],
+  }),
   route("settings.compliance", "Compliance settings", "/settings/compliance", "settings", "Compliance readiness and provider planning settings.", [
     PERMISSIONS.compliance.view,
   ], {
@@ -344,10 +358,6 @@ export const APP_ROUTES = [
   ], {
     capabilityStatus: "planned",
     sensitivity: ["provider"],
-  }),
-  route("documentReview", "Document review", "/documents/review", "future", "Planned document review capability placeholder.", [PERMISSIONS.generatedDocuments.view], {
-    capabilityStatus: "planned",
-    sensitivity: ["storage"],
   }),
 ] as const satisfies readonly AppRouteDefinition[];
 

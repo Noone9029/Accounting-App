@@ -24,6 +24,7 @@ import { CustomerPaymentModule } from "./customer-payments/customer-payment.modu
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DeliveryNoteModule } from "./delivery-notes/delivery-note.module";
+import { DocumentInboxModule } from "./document-inbox/document-inbox.module";
 import { EmailModule } from "./email/email.module";
 import { GeneratedDocumentModule } from "./generated-documents/generated-document.module";
 import { HealthModule } from "./health/health.module";
@@ -36,6 +37,7 @@ import { OrganizationMemberModule } from "./organization-members/organization-me
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
 import { OnboardingModule } from "./onboarding/onboarding.module";
+import { PaymentProviderModule } from "./payments/payment-provider.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
@@ -90,10 +92,12 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
     CustomerRefundModule,
     DashboardModule,
     DeliveryNoteModule,
+    DocumentInboxModule,
     GeneratedDocumentModule,
     FiscalPeriodModule,
     OrganizationMemberModule,
     OrganizationDocumentSettingsModule,
+    PaymentProviderModule,
     ItemModule,
     WarehouseModule,
     StockMovementModule,

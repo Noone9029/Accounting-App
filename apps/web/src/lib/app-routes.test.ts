@@ -44,7 +44,7 @@ describe("app route registry", () => {
   });
 
   it("keeps planned capabilities out of active shell helpers", () => {
-    const plannedKeys = ["inbox", "ai.proposals", "reportPacks", "integrationHealth", "documentReview"] as const;
+    const plannedKeys = ["inbox", "ai.proposals", "reportPacks", "integrationHealth"] as const;
     const shellKeys = getVisibleShellRoutes().map((route) => route.key);
     const mobileKeys = getMobileShellRoutes().map((route) => route.key);
 
@@ -65,8 +65,11 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("purchase.bill.list")?.href).toBe("/purchases/bills");
     expect(getAppRouteByKey("purchase.debitNote.list")?.href).toBe("/purchases/debit-notes");
     expect(getAppRouteByKey("documents")?.href).toBe("/documents");
+    expect(getAppRouteByKey("documentInbox")?.href).toBe("/document-inbox");
     expect(getAppRouteByKey("reports")?.href).toBe("/reports");
     expect(getAppRouteByKey("settings.storage")?.href).toBe("/settings/storage");
+    expect(getAppRouteByKey("settings.payments")?.href).toBe("/settings/payments");
+    expect(getAppRouteByKey("settings.apiDocs")?.href).toBe("/settings/api-docs");
     expect(getAppRouteByKey("settings.compliance")?.href).toBe("/settings/compliance");
     expect(getAppRouteByKey("settings.zatca")?.href).toBe("/settings/zatca");
     expect(getAppRouteByKey("contacts")?.href).toBe("/contacts");
@@ -77,6 +80,8 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("settings.compliance")?.sensitivity).toEqual(expect.arrayContaining(["compliance", "provider"]));
     expect(getAppRouteByKey("settings.zatca")?.sensitivity).toEqual(expect.arrayContaining(["compliance", "provider"]));
     expect(getAppRouteByKey("documents")?.sensitivity).toEqual(expect.arrayContaining(["storage"]));
+    expect(getAppRouteByKey("documentInbox")?.sensitivity).toEqual(expect.arrayContaining(["storage", "provider"]));
+    expect(getAppRouteByKey("settings.payments")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
   });
 
   it("looks up routes by section and known href without production-source vendor references", () => {

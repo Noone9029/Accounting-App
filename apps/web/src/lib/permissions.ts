@@ -431,12 +431,24 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.generatedDocuments.view, PERMISSIONS.documents.view];
   }
 
+  if (pathname.startsWith("/document-inbox")) {
+    return [PERMISSIONS.documentInbox.view];
+  }
+
   if (pathname.startsWith("/settings/documents")) {
     return [PERMISSIONS.documentSettings.view];
   }
 
   if (pathname.startsWith("/settings/storage")) {
     return [PERMISSIONS.documentSettings.view, PERMISSIONS.attachments.manage];
+  }
+
+  if (pathname.startsWith("/settings/payments")) {
+    return [PERMISSIONS.payments.providerReadinessView];
+  }
+
+  if (pathname.startsWith("/settings/api-docs")) {
+    return [PERMISSIONS.users.view];
   }
 
   if (pathname.startsWith("/settings/email-outbox")) {

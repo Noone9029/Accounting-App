@@ -147,6 +147,64 @@ enum BackupRestoreEvidenceType {
   OTHER
 }
 
+enum DocumentInboxStatus {
+  UPLOADED
+  EXTRACTION_DISABLED
+  EXTRACTION_FAILED
+  REVIEW_REQUIRED
+  REVIEWED
+  REJECTED
+}
+
+enum DocumentInboxSourceType {
+  BILL
+  RECEIPT
+  OTHER
+}
+
+enum DocumentExtractionProviderType {
+  NONE
+  MOCK
+  FUTURE_PROVIDER
+}
+
+enum DocumentExtractionStatus {
+  SKIPPED_DISABLED
+  EXTRACTED_MOCK
+  FAILED
+}
+
+enum DocumentReviewDecisionType {
+  MARK_REVIEWED
+  REJECT
+  CREATE_DRAFT_PURCHASE_BILL
+  CREATE_DRAFT_CASH_EXPENSE
+}
+
+enum PaymentProviderType {
+  NONE
+  STRIPE
+}
+
+enum PaymentProviderConfigStatus {
+  DISABLED
+  READY_FOR_NON_PRODUCTION_TEST
+  ENABLED
+}
+
+enum PaymentProviderEventStatus {
+  REJECTED_UNVERIFIED
+  ACCEPTED_VERIFIED
+}
+
+enum InvoicePaymentLinkStatus {
+  BLOCKED_PROVIDER_DISABLED
+  READY_FOR_NON_PRODUCTION_TEST
+  CREATED_MOCK
+  CREATED_PROVIDER
+  FAILED
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -1120,6 +1178,13 @@ model User {
   updatedBankingClearingAccountConfigs              BankingClearingAccountConfig[]              @relation("BankingClearingAccountConfigUpdatedBy")
   complianceEvents                                  ComplianceEventLog[]                        @relation("ComplianceEventActor")
   createdDocumentArchiveRecords                     DocumentArchiveRecord[]                      @relation("DocumentArchiveRecordCreatedBy")
+  createdDocumentInboxItems                         DocumentInboxItem[]                         @relation("DocumentInboxItemCreatedBy")
+  reviewedDocumentInboxItems                        DocumentInboxItem[]                         @relation("DocumentInboxItemReviewedBy")
+  createdDocumentExtractionResults                  DocumentExtractionResult[]                  @relation("DocumentExtractionResultCreatedBy")
+  reviewedDocumentReviewDecisions                   DocumentReviewDecision[]                    @relation("DocumentReviewDecisionReviewedBy")
+  createdPaymentProviderConfigs                     PaymentProviderConfig[]                     @relation("PaymentProviderConfigCreatedBy")
+  updatedPaymentProviderConfigs                     PaymentProviderConfig[]                     @relation("PaymentProviderConfigUpdatedBy")
+  createdInvoicePaymentLinks                        InvoicePaymentLink[]                        @relation("InvoicePaymentLinkCreatedBy")
   createdOnboardingProfiles                         OnboardingProfile[]                         @relation("OnboardingProfileCreatedBy")
   updatedOnboardingProfiles                         OnboardingProfile[]                         @relation("OnboardingProfileUpdatedBy")
   createdOnboardingChecklists                       OnboardingChecklist[]                       @relation("OnboardingChecklistCreatedBy")
@@ -1235,6 +1300,12 @@ model Organization {
   documentSettings                          OrganizationDocumentSettings?
   generatedDocuments                        GeneratedDocument[]
   attachments                               Attachment[]
+  documentInboxItems                        DocumentInboxItem[]
+  documentExtractionResults                 DocumentExtractionResult[]
+  documentReviewDecisions                   DocumentReviewDecision[]
+  paymentProviderConfigs                    PaymentProviderConfig[]
+  paymentProviderEvents                     PaymentProviderEvent[]
+  invoicePaymentLinks                       InvoicePaymentLink[]
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
@@ -1536,6 +1607,7 @@ model Attachment {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy   User?        @relation("AttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   deletedBy    User?        @relation("AttachmentDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  documentInboxItem DocumentInboxItem?
 
   @@index([organizationId])
   @@index([organizationId, linkedEntityType, linkedEntityId])
@@ -1543,6 +1615,147 @@ model Attachment {
   @@index([contentHash])
   @@index([uploadedById])
   @@index([deletedById])
+}
+
+model DocumentInboxItem {
+  id                  String             @id @default(uuid()) @db.Uuid
+  organizationId      String             @db.Uuid
+  attachmentId        String             @unique @db.Uuid
+  sourceType          DocumentInboxSourceType @default(BILL)
+  status              DocumentInboxStatus @default(UPLOADED)
+  title               String
+  supplierName        String?
+  documentDate        DateTime?
+  currency            String?            @db.VarChar(3)
+  totalAmount         Decimal?           @db.Decimal(20, 4)
+  taxAmount           Decimal?           @db.Decimal(20, 4)
+  notes               String?
+  createdById         String?            @db.Uuid
+  reviewedById        String?            @db.Uuid
+  reviewedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachment          Attachment         @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+  createdBy           User?              @relation("DocumentInboxItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewedBy          User?              @relation("DocumentInboxItemReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  extractionResults   DocumentExtractionResult[]
+  reviewDecisions     DocumentReviewDecision[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, sourceType])
+  @@index([createdById])
+  @@index([reviewedById])
+}
+
+model DocumentExtractionResult {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  organizationId      String                         @db.Uuid
+  documentInboxItemId String                         @db.Uuid
+  provider            DocumentExtractionProviderType
+  status              DocumentExtractionStatus
+  confidence          Decimal?                       @db.Decimal(7, 4)
+  extractedJson       Json?
+  redactedRawJson     Json?
+  blockers            String[]                       @default([])
+  createdById         String?                        @db.Uuid
+  createdAt           DateTime                       @default(now())
+  organization        Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentInboxItem   DocumentInboxItem              @relation(fields: [documentInboxItemId], references: [id], onDelete: Cascade)
+  createdBy           User?                          @relation("DocumentExtractionResultCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([documentInboxItemId])
+  @@index([organizationId, status])
+  @@index([createdById])
+}
+
+model DocumentReviewDecision {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  organizationId      String                     @db.Uuid
+  documentInboxItemId String                     @db.Uuid
+  decisionType        DocumentReviewDecisionType
+  targetType          String?
+  targetId            String?                    @db.Uuid
+  reviewerNote        String?
+  reviewedById        String?                    @db.Uuid
+  reviewedAt          DateTime                   @default(now())
+  createdAt           DateTime                   @default(now())
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentInboxItem   DocumentInboxItem          @relation(fields: [documentInboxItemId], references: [id], onDelete: Cascade)
+  reviewedBy          User?                      @relation("DocumentReviewDecisionReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([documentInboxItemId])
+  @@index([organizationId, decisionType])
+  @@index([reviewedById])
+}
+
+model PaymentProviderConfig {
+  id                   String                      @id @default(uuid()) @db.Uuid
+  organizationId       String                      @db.Uuid
+  provider             PaymentProviderType
+  status               PaymentProviderConfigStatus @default(DISABLED)
+  displayName          String
+  publishableKeyLast4  String?
+  webhookSecretLast4   String?
+  metadataJson         Json?
+  createdById          String?                     @db.Uuid
+  updatedById          String?                     @db.Uuid
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  organization         Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy            User?                       @relation("PaymentProviderConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy            User?                       @relation("PaymentProviderConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model PaymentProviderEvent {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  organizationId     String                     @db.Uuid
+  provider           PaymentProviderType
+  status             PaymentProviderEventStatus
+  eventType          String
+  externalEventId    String?
+  redactedPayloadJson Json?
+  signatureVerified  Boolean                    @default(false)
+  receivedAt         DateTime                   @default(now())
+  createdAt          DateTime                   @default(now())
+  organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, provider])
+  @@index([organizationId, status])
+  @@index([externalEventId])
+}
+
+model InvoicePaymentLink {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @db.Uuid
+  salesInvoiceId     String                   @db.Uuid
+  provider           PaymentProviderType
+  status             InvoicePaymentLinkStatus
+  paymentUrl         String?
+  externalReference  String?
+  redactedMetadataJson Json?
+  createdById        String?                  @db.Uuid
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesInvoice       SalesInvoice             @relation(fields: [salesInvoiceId], references: [id], onDelete: Cascade)
+  createdBy          User?                    @relation("InvoicePaymentLinkCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([salesInvoiceId])
+  @@index([organizationId, provider])
+  @@index([organizationId, status])
+  @@index([createdById])
 }
 
 model ZatcaOrganizationProfile {
@@ -3219,6 +3432,7 @@ model SalesInvoice {
   collectionCases             CollectionCase[]                      @relation("CollectionCaseSalesInvoice")
   collectionActivities        CollectionActivity[]                   @relation("CollectionActivitySalesInvoice")
   salesInventoryReturns       SalesInventoryReturn[]                 @relation("SalesInventoryReturnSourceInvoice")
+  paymentLinks                InvoicePaymentLink[]
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId])
