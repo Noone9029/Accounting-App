@@ -814,6 +814,48 @@ export interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyHtml: string | null;
 }
 
+export interface EmailNotificationCenterSummaryItem {
+  id: string;
+  templateType: EmailTemplateType;
+  status: EmailDeliveryStatus;
+  provider: string;
+  providerEventStatus: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: string | null;
+  lastAttemptAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  deliveredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailNotificationCenterSummary {
+  generatedAt: string;
+  readOnly: true;
+  noMutation: true;
+  noCustomerEmailSent: true;
+  productionReady: false;
+  outboxCounts: {
+    queuedCount: number;
+    sentMockCount: number;
+    sentProviderCount: number;
+    failedCount: number;
+    dueRetryCount: number;
+  };
+  providerEventCounts: {
+    deliveredCount: number;
+    bouncedCount: number;
+    complainedCount: number;
+    failedEventCount: number;
+  };
+  activeSuppressionCount: number;
+  recentItems: EmailNotificationCenterSummaryItem[];
+  reviewNotice: string;
+  blockedActions: string[];
+}
+
 export interface EmailSenderDomainEvidence {
   id: string;
   organizationId: string;
