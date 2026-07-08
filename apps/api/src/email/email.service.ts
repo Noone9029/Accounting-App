@@ -216,6 +216,125 @@ export class EmailService {
     };
   }
 
+  async notificationCenterSummary(organizationId: string) {
+    const now = new Date();
+    const [
+      queuedCount,
+      sentMockCount,
+      sentProviderCount,
+      failedCount,
+      dueRetryCount,
+      deliveredCount,
+      bouncedCount,
+      complainedCount,
+      failedEventCount,
+      activeSuppressionCount,
+      recentItems,
+    ] = await Promise.all([
+      this.prisma.emailOutbox.count({
+        where: {
+          organizationId,
+          status: EmailDeliveryStatus.QUEUED,
+        },
+      }),
+      this.prisma.emailOutbox.count({
+        where: {
+          organizationId,
+          status: EmailDeliveryStatus.SENT_MOCK,
+        },
+      }),
+      this.prisma.emailOutbox.count({
+        where: {
+          organizationId,
+          status: EmailDeliveryStatus.SENT_PROVIDER,
+        },
+      }),
+      this.prisma.emailOutbox.count({
+        where: {
+          organizationId,
+          status: EmailDeliveryStatus.FAILED,
+        },
+      }),
+      this.prisma.emailOutbox.count({
+        where: {
+          organizationId,
+          status: { in: [EmailDeliveryStatus.QUEUED, EmailDeliveryStatus.FAILED] },
+          attemptCount: { lt: DEFAULT_EMAIL_MAX_ATTEMPTS },
+          bouncedAt: null,
+          complainedAt: null,
+          NOT: { providerEventStatus: EMAIL_SUPPRESSED_STATUS },
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        },
+      }),
+      this.prisma.emailProviderEvent.count({
+        where: {
+          organizationId,
+          eventType: EmailProviderEventType.DELIVERED,
+        },
+      }),
+      this.prisma.emailProviderEvent.count({
+        where: {
+          organizationId,
+          eventType: EmailProviderEventType.BOUNCED,
+        },
+      }),
+      this.prisma.emailProviderEvent.count({
+        where: {
+          organizationId,
+          eventType: EmailProviderEventType.COMPLAINED,
+        },
+      }),
+      this.prisma.emailProviderEvent.count({
+        where: {
+          organizationId,
+          eventType: EmailProviderEventType.FAILED,
+        },
+      }),
+      this.prisma.emailSuppression.count({
+        where: {
+          organizationId,
+          active: true,
+        },
+      }),
+      this.prisma.emailOutbox.findMany({
+        where: { organizationId },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: EMAIL_NOTIFICATION_CENTER_ITEM_SELECT,
+      }),
+    ]);
+
+    return {
+      generatedAt: now.toISOString(),
+      readOnly: true,
+      noMutation: true,
+      noCustomerEmailSent: true,
+      productionReady: false,
+      outboxCounts: {
+        queuedCount,
+        sentMockCount,
+        sentProviderCount,
+        failedCount,
+        dueRetryCount,
+      },
+      providerEventCounts: {
+        deliveredCount,
+        bouncedCount,
+        complainedCount,
+        failedEventCount,
+      },
+      activeSuppressionCount,
+      recentItems,
+      reviewNotice:
+        "Notification center summary is read-only and exposes operational metadata only; recipient addresses, message subjects, and message bodies are intentionally excluded.",
+      blockedActions: [
+        "No email, reminder, notification, or provider call is sent from this endpoint.",
+        "No retry worker, retry process, outbox update, suppression update, or provider webhook processing is run.",
+        "No provider, storage, VAT, ZATCA, UAE, Peppol, or production-readiness action or claim is made.",
+      ],
+    };
+  }
+
   diagnosticsPlan(toEmail?: string) {
     const providerReadiness = this.provider.readiness();
     return {
@@ -2019,6 +2138,23 @@ const EMAIL_OUTBOX_RETRY_SELECT = {
   ...EMAIL_OUTBOX_DETAIL_SELECT,
   retryLockedAt: true,
   retryLockedBy: true,
+} satisfies Prisma.EmailOutboxSelect;
+
+const EMAIL_NOTIFICATION_CENTER_ITEM_SELECT = {
+  id: true,
+  templateType: true,
+  status: true,
+  provider: true,
+  providerEventStatus: true,
+  attemptCount: true,
+  maxAttempts: true,
+  nextAttemptAt: true,
+  lastAttemptAt: true,
+  bouncedAt: true,
+  complainedAt: true,
+  deliveredAt: true,
+  createdAt: true,
+  updatedAt: true,
 } satisfies Prisma.EmailOutboxSelect;
 
 const AP_GENERATED_DOCUMENT_EMAIL_DOCUMENT_SELECT = {
