@@ -44,6 +44,18 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/system/backup-evidence/:id/verify` | Verify backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; marks reviewed metadata as verified; can contribute to backup readiness only for the relevant evidence type and does not run backup/restore. |
 | POST | `/system/backup-evidence/:id/revoke` | Revoke backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; revokes metadata evidence without backup execution, restore execution, customer export, or secret exposure. |
 
+## Migration Toolkit
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/migration-toolkit/templates` | List local CSV import templates | Yes | Yes | Groundwork | Requires `migrationToolkit.view`; returns supported local master-data imports, unsupported imports, and limitations without provider upload or hosted migration claims. |
+| GET | `/migration-toolkit/templates/:entityType.csv` | Download local CSV template | Yes | Yes | Groundwork | Requires `migrationToolkit.view`; returns `text/csv` for customers, suppliers, products/services, or chart of accounts. |
+| GET | `/migration-toolkit/import-jobs` | List local import preview jobs | Yes | Yes | Groundwork | Requires `migrationToolkit.view`; tenant-scoped preview/commit metadata only. |
+| POST | `/migration-toolkit/import-jobs` | Create local import preview job | Yes | Yes | Groundwork | Requires `migrationToolkit.import`; parses CSV, stores tenant-scoped row previews and validation issues, detects duplicates, and does not mutate accounting records or call providers. |
+| GET | `/migration-toolkit/import-jobs/:id` | Import preview detail | Yes | Yes | Groundwork | Requires `migrationToolkit.view`; tenant scoped. |
+| POST | `/migration-toolkit/import-jobs/:id/commit` | Commit reviewed local master-data import | Yes | Yes | Groundwork | Requires `migrationToolkit.commit`; requires explicit reviewed confirmation and blocks jobs with validation errors. No hosted/prod migration proof. |
+| GET | `/migration-toolkit/exports/:entityType.csv` | Export safe CSV master data | Yes | Yes | Groundwork | Requires `migrationToolkit.export`; tenant-scoped exports for customers, suppliers, products/services, and chart of accounts with CSV formula-injection protection and safe audit metadata. |
+
 ## Dashboard
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

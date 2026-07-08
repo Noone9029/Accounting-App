@@ -129,6 +129,7 @@ Deployment safety docs:
 - [Security maintenance cleanup runbook](docs/SECURITY_MAINTENANCE_RUNBOOK.md)
 - [Deployed E2E runbook](docs/deployment/DEPLOYED_E2E_RUNBOOK.md)
 - [Backup and restore readiness plan](docs/BACKUP_AND_RESTORE_READINESS_PLAN.md)
+- [Local CSV import/export toolkit](docs/migration-toolkit/LOCAL_CSV_IMPORT_EXPORT.md)
 - [Production foundation roadmap](docs/production/PRODUCTION_FOUNDATION_ROADMAP.md)
 - [Paid SaaS v1 gap matrix](docs/production/PAID_SAAS_V1_GAP_MATRIX.md)
 - [Launch gate checklist](docs/production/LAUNCH_GATE_CHECKLIST.md)

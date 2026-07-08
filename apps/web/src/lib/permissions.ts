@@ -467,6 +467,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.users.manage];
   }
 
+  if (pathname.startsWith("/settings/import-export")) {
+    return [PERMISSIONS.migrationToolkit.view];
+  }
+
   if (pathname.startsWith("/settings/email-outbox")) {
     return [PERMISSIONS.emailOutbox.view];
   }

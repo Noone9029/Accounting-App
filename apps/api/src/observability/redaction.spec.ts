@@ -78,4 +78,22 @@ describe("observability redaction", () => {
       self: "[Circular]",
     });
   });
+
+  it("redacts bulk import and migration payload bodies", () => {
+    expect(redactForDiagnostics({
+      requestId: "req-import-1",
+      module: "migration-toolkit",
+      importCsvContent: "name,email\nAlice,alice@example.test",
+      rawJson: { name: "Alice", email: "alice@example.test" },
+      normalizedJson: { email: "alice@example.test" },
+      migrationPayload: { databaseUrl: "LOCAL_DATABASE_URL_PLACEHOLDER" },
+    })).toEqual({
+      requestId: "req-import-1",
+      module: "migration-toolkit",
+      importCsvContent: REDACTED_DIAGNOSTIC_VALUE,
+      rawJson: REDACTED_DIAGNOSTIC_VALUE,
+      normalizedJson: REDACTED_DIAGNOSTIC_VALUE,
+      migrationPayload: REDACTED_DIAGNOSTIC_VALUE,
+    });
+  });
 });

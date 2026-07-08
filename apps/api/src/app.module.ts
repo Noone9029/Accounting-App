@@ -32,6 +32,7 @@ import { HealthModule } from "./health/health.module";
 import { InventoryAdjustmentModule } from "./inventory-adjustments/inventory-adjustment.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { ItemModule } from "./items/item.module";
+import { MigrationToolkitModule } from "./migration-toolkit/migration-toolkit.module";
 import { FiscalPeriodModule } from "./fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "./number-sequences/number-sequence.module";
 import { OrganizationMemberModule } from "./organization-members/organization-member.module";
@@ -107,6 +108,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     PaymentProviderModule,
     PublicApiModule,
     ItemModule,
+    MigrationToolkitModule,
     WarehouseModule,
     StockMovementModule,
     StorageModule,

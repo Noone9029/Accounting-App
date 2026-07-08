@@ -852,6 +852,35 @@ enum BankReconciliationReviewAction {
   VOID
 }
 
+enum ImportEntityType {
+  CUSTOMERS
+  SUPPLIERS
+  PRODUCTS_SERVICES
+  CHART_OF_ACCOUNTS
+}
+
+enum ImportJobStatus {
+  UPLOADED
+  VALIDATING
+  READY_FOR_REVIEW
+  COMMITTED_LOCAL
+  FAILED
+  CANCELLED
+}
+
+enum ImportJobRowStatus {
+  VALID
+  INVALID
+  DUPLICATE
+  COMMIT_BLOCKED
+  COMMITTED
+}
+
+enum ImportValidationIssueSeverity {
+  ERROR
+  WARNING
+}
+
 enum DocumentType {
   SALES_INVOICE
   SALES_QUOTE
@@ -1200,6 +1229,8 @@ model User {
   reviewedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewReviewedBy")
   generatedDocuments                                GeneratedDocument[]                         @relation("GeneratedDocumentGeneratedBy")
   requestedReportPacks                              ReportPack[]                                @relation("ReportPackRequestedBy")
+  createdImportJobs                                 ImportJob[]                                 @relation("ImportJobCreatedBy")
+  committedImportJobs                               ImportJob[]                                 @relation("ImportJobCommittedBy")
   uploadedAttachments                               Attachment[]                                @relation("AttachmentUploadedBy")
   deletedAttachments                                Attachment[]                                @relation("AttachmentDeletedBy")
   authTokens                                        AuthToken[]                                 @relation("AuthTokenUser")
@@ -1393,6 +1424,10 @@ model Organization {
   emailDeliveryEvents                       EmailDeliveryEvent[]
   emailSuppressions                         EmailSuppression[]
   emailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]
+  importJobs                                ImportJob[]
+  importJobRows                             ImportJobRow[]
+  importTemplates                           ImportTemplate[]
+  importValidationIssues                    ImportValidationIssue[]
   backupRestoreEvidence                     BackupRestoreEvidence[]
   authTokens                                AuthToken[]
   authTokenRateLimitEvents                  AuthTokenRateLimitEvent[]
@@ -1523,6 +1558,87 @@ model ReportPack {
   @@index([organizationId, status])
   @@index([requestedById])
   @@index([requestId])
+}
+
+model ImportJob {
+  id               String          @id @default(uuid()) @db.Uuid
+  organizationId   String          @db.Uuid
+  entityType       ImportEntityType
+  status           ImportJobStatus @default(UPLOADED)
+  filename         String
+  sourceKind       String          @default("LOCAL_CSV_UPLOAD")
+  previewOnly      Boolean         @default(true)
+  summaryJson      Json
+  requestId        String?
+  createdById      String?         @db.Uuid
+  committedById    String?         @db.Uuid
+  committedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy        User?           @relation("ImportJobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  committedBy      User?           @relation("ImportJobCommittedBy", fields: [committedById], references: [id], onDelete: SetNull)
+  rows             ImportJobRow[]
+  validationIssues ImportValidationIssue[]
+
+  @@index([organizationId, entityType, status])
+  @@index([organizationId, createdAt])
+}
+
+model ImportJobRow {
+  id               String             @id @default(uuid()) @db.Uuid
+  organizationId   String             @db.Uuid
+  importJobId      String             @db.Uuid
+  rowNumber        Int
+  status           ImportJobRowStatus @default(VALID)
+  rawJson          Json
+  normalizedJson   Json
+  fingerprint      String
+  duplicate        Boolean            @default(false)
+  createdRecordId  String?
+  createdAt        DateTime           @default(now())
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJob        ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  validationIssues ImportValidationIssue[]
+
+  @@unique([importJobId, rowNumber])
+  @@index([organizationId, importJobId])
+  @@index([organizationId, fingerprint])
+}
+
+model ImportTemplate {
+  id                  String           @id @default(uuid()) @db.Uuid
+  organizationId      String           @db.Uuid
+  entityType          ImportEntityType
+  version             String
+  headersJson         Json
+  requiredHeadersJson Json
+  notesJson           Json
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, entityType, version])
+  @@index([organizationId, entityType])
+}
+
+model ImportValidationIssue {
+  id             String                        @id @default(uuid()) @db.Uuid
+  organizationId String                        @db.Uuid
+  importJobId    String                        @db.Uuid
+  importJobRowId String?                       @db.Uuid
+  rowNumber      Int?
+  field          String?
+  code           String
+  message        String
+  severity       ImportValidationIssueSeverity @default(ERROR)
+  createdAt      DateTime                      @default(now())
+  organization   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJob      ImportJob                     @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJobRow   ImportJobRow?                 @relation(fields: [importJobRowId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, importJobId])
+  @@index([organizationId, importJobRowId])
 }
 
 model ComplianceProvider {

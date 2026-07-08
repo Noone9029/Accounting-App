@@ -236,6 +236,12 @@ export const PERMISSIONS = {
   emailOutbox: {
     view: "emailOutbox.view",
   },
+  migrationToolkit: {
+    view: "migrationToolkit.view",
+    import: "migrationToolkit.import",
+    commit: "migrationToolkit.commit",
+    export: "migrationToolkit.export",
+  },
   auditLogs: {
     view: "auditLogs.view",
     export: "auditLogs.export",
@@ -400,6 +406,10 @@ export const ALL_PERMISSIONS = [
   PERMISSIONS.attachments.delete,
   PERMISSIONS.attachments.manage,
   PERMISSIONS.emailOutbox.view,
+  PERMISSIONS.migrationToolkit.view,
+  PERMISSIONS.migrationToolkit.import,
+  PERMISSIONS.migrationToolkit.commit,
+  PERMISSIONS.migrationToolkit.export,
   PERMISSIONS.auditLogs.view,
   PERMISSIONS.auditLogs.export,
   PERMISSIONS.auditLogs.manageRetention,

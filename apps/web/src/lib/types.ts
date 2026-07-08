@@ -26,6 +26,51 @@ export type FiscalPeriodStatus = "OPEN" | "CLOSED" | "LOCKED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type ItemTrackingMode = "NONE" | "SERIAL" | "BATCH" | "SERIAL_AND_BATCH";
+export type ImportEntityType = "CUSTOMERS" | "SUPPLIERS" | "PRODUCTS_SERVICES" | "CHART_OF_ACCOUNTS";
+export type ImportJobStatus = "UPLOADED" | "VALIDATING" | "READY_FOR_REVIEW" | "COMMITTED_LOCAL" | "FAILED" | "CANCELLED";
+export type ImportJobRowStatus = "VALID" | "INVALID" | "DUPLICATE" | "COMMIT_BLOCKED" | "COMMITTED";
+export interface MigrationToolkitTemplate {
+  entityType: ImportEntityType;
+  label: string;
+  headers: string[];
+  requiredHeaders: string[];
+  notes: string[];
+}
+export interface MigrationToolkitTemplatesResponse {
+  supportedImports: MigrationToolkitTemplate[];
+  unsupportedImports: string[];
+  limitations: string[];
+}
+export interface ImportValidationIssue {
+  id: string;
+  rowNumber: number | null;
+  field: string | null;
+  code: string;
+  message: string;
+  severity: "ERROR" | "WARNING";
+}
+export interface ImportJobRow {
+  id: string;
+  rowNumber: number;
+  status: ImportJobRowStatus;
+  duplicate: boolean;
+  rawJson: Record<string, unknown>;
+  normalizedJson: Record<string, unknown>;
+  createdRecordId: string | null;
+}
+export interface ImportJob {
+  id: string;
+  entityType: ImportEntityType;
+  status: ImportJobStatus;
+  filename: string;
+  previewOnly: boolean;
+  summaryJson: Record<string, unknown>;
+  requestId: string | null;
+  createdAt: string;
+  committedAt: string | null;
+  rows: ImportJobRow[];
+  validationIssues: ImportValidationIssue[];
+}
 export type WarehouseStatus = "ACTIVE" | "ARCHIVED";
 export type InventoryBinLocationType = "BIN" | "SHELF" | "ZONE" | "STAGING" | "RECEIVING" | "SHIPPING" | "IN_TRANSIT" | "RETURNS" | "QUARANTINE" | "OTHER";
 export type InventoryBinLocationStatus = "ACTIVE" | "INACTIVE";
