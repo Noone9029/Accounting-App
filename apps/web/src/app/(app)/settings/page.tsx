@@ -27,6 +27,18 @@ const adminSections = [
     status: "Readiness",
   },
   {
+    title: "Payment readiness",
+    description: "Review Stripe payment-link beta readiness, disabled-provider state, webhook requirements, and payload redaction boundaries.",
+    href: "/settings/payments",
+    status: "Provider gated",
+  },
+  {
+    title: "API docs",
+    description: "Open the local/internal OpenAPI docs and review the beta API surface without production-public claims.",
+    href: "/settings/api-docs",
+    status: "Internal docs",
+  },
+  {
     title: "Email outbox",
     description: "Review local outbox records where supported. Provider sending remains explicit and bounded.",
     href: "/settings/email-outbox",
