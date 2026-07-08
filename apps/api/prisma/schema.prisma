@@ -1005,6 +1005,25 @@ enum NumberSequenceScope {
   SALES_INVENTORY_RETURN
 }
 
+enum PaymentInstructionTemplateType {
+  BANK_PROFILE
+  MANUAL_BANK_TRANSFER
+  PAYMENT_LINK_TEXT
+  OTHER_TEXT
+}
+
+enum PaymentInstructionTemplateStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PaymentInstructionDocumentScope {
+  SALES_INVOICE
+  SALES_QUOTE
+  RECURRING_INVOICE_TEMPLATE
+  CUSTOMER_STATEMENT
+}
+
 model User {
   id                                                String                                      @id @default(uuid()) @db.Uuid
   email                                             String                                      @unique
@@ -1132,6 +1151,11 @@ model User {
   onboardingChecklistEvents                         OnboardingChecklistEvent[]                  @relation("OnboardingChecklistEventActor")
   createdOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionCreatedBy")
   updatedOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionUpdatedBy")
+  createdPaymentInstructionTemplates                PaymentInstructionTemplate[]                @relation("PaymentInstructionTemplateCreatedBy")
+  updatedPaymentInstructionTemplates                PaymentInstructionTemplate[]                @relation("PaymentInstructionTemplateUpdatedBy")
+  createdOrganizationDocumentDefaults               OrganizationDocumentDefault[]               @relation("OrganizationDocumentDefaultCreatedBy")
+  updatedOrganizationDocumentDefaults               OrganizationDocumentDefault[]               @relation("OrganizationDocumentDefaultUpdatedBy")
+  createdPaymentInstructionRenderSnapshots          PaymentInstructionRenderSnapshot[]          @relation("PaymentInstructionRenderSnapshotCreatedBy")
 }
 
 model Organization {
@@ -1234,6 +1258,9 @@ model Organization {
   numberSequences                           NumberSequence[]
   documentSettings                          OrganizationDocumentSettings?
   generatedDocuments                        GeneratedDocument[]
+  paymentInstructionTemplates               PaymentInstructionTemplate[]
+  organizationDocumentDefaults              OrganizationDocumentDefault[]
+  paymentInstructionRenderSnapshots         PaymentInstructionRenderSnapshot[]
   attachments                               Attachment[]
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
@@ -1287,6 +1314,97 @@ model OrganizationDocumentSettings {
   organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
+model PaymentInstructionTemplate {
+  id                            String                           @id @default(uuid()) @db.Uuid
+  organizationId                String                           @db.Uuid
+  label                         String
+  normalizedLabel               String
+  type                          PaymentInstructionTemplateType   @default(OTHER_TEXT)
+  status                        PaymentInstructionTemplateStatus @default(ACTIVE)
+  isDefault                     Boolean                          @default(false)
+  bankAccountProfileId          String?                          @db.Uuid
+  currency                      String?
+  displayBeneficiaryName        String?
+  displayBankName               String?
+  displayAccountReference       String?
+  displayIbanOrRoutingReference String?
+  instructions                  String?
+  metadata                      Json?
+  createdById                   String?                          @db.Uuid
+  updatedById                   String?                          @db.Uuid
+  disabledAt                    DateTime?
+  createdAt                     DateTime                         @default(now())
+  updatedAt                     DateTime                         @updatedAt
+  organization                  Organization                     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccountProfile            BankAccountProfile?              @relation(fields: [bankAccountProfileId], references: [id], onDelete: SetNull)
+  createdBy                     User?                            @relation("PaymentInstructionTemplateCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                     User?                            @relation("PaymentInstructionTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  documentDefaults              OrganizationDocumentDefault[]
+  renderSnapshots               PaymentInstructionRenderSnapshot[]
+
+  @@unique([organizationId, normalizedLabel])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, type])
+  @@index([bankAccountProfileId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model OrganizationDocumentDefault {
+  id                                  String                          @id @default(uuid()) @db.Uuid
+  organizationId                      String                          @db.Uuid
+  documentScope                       PaymentInstructionDocumentScope
+  defaultTerms                        String?
+  defaultNotes                        String?
+  defaultPaymentInstructionTemplateId String?                         @db.Uuid
+  createdById                         String?                         @db.Uuid
+  updatedById                         String?                         @db.Uuid
+  createdAt                           DateTime                        @default(now())
+  updatedAt                           DateTime                        @updatedAt
+  organization                        Organization                    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultPaymentInstructionTemplate   PaymentInstructionTemplate?      @relation(fields: [defaultPaymentInstructionTemplateId], references: [id], onDelete: SetNull)
+  createdBy                           User?                           @relation("OrganizationDocumentDefaultCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                           User?                           @relation("OrganizationDocumentDefaultUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, documentScope])
+  @@index([organizationId])
+  @@index([organizationId, documentScope])
+  @@index([defaultPaymentInstructionTemplateId])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model PaymentInstructionRenderSnapshot {
+  id                            String                          @id @default(uuid()) @db.Uuid
+  organizationId                String                          @db.Uuid
+  sourceType                    PaymentInstructionDocumentScope
+  sourceId                      String
+  paymentInstructionTemplateId  String?                         @db.Uuid
+  generatedDocumentId           String?                         @db.Uuid
+  label                         String
+  type                          PaymentInstructionTemplateType
+  currency                      String?
+  displayBeneficiaryName        String?
+  displayBankName               String?
+  displayAccountReference       String?
+  displayIbanOrRoutingReference String?
+  instructions                  String?
+  createdById                   String?                         @db.Uuid
+  createdAt                     DateTime                        @default(now())
+  organization                  Organization                    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  paymentInstructionTemplate    PaymentInstructionTemplate?      @relation(fields: [paymentInstructionTemplateId], references: [id], onDelete: SetNull)
+  generatedDocument             GeneratedDocument?               @relation(fields: [generatedDocumentId], references: [id], onDelete: SetNull)
+  createdBy                     User?                           @relation("PaymentInstructionRenderSnapshotCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([generatedDocumentId])
+  @@index([organizationId])
+  @@index([organizationId, sourceType, sourceId])
+  @@index([paymentInstructionTemplateId])
+  @@index([generatedDocumentId])
+  @@index([createdById])
+}
+
 model InventorySettings {
   id                               String                       @id @default(uuid()) @db.Uuid
   organizationId                   String                       @unique @db.Uuid
@@ -1338,6 +1456,7 @@ model GeneratedDocument {
   organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   generatedBy     User?                   @relation("GeneratedDocumentGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
   emailOutbox      EmailOutbox[]           @relation("EmailOutboxGeneratedDocument")
+  paymentInstructionRenderSnapshot PaymentInstructionRenderSnapshot?
 
   @@index([organizationId])
   @@index([organizationId, documentType])
@@ -2398,6 +2517,7 @@ model BankAccountProfile {
   cardSettlements              CardSettlement[]           @relation("CardSettlementCardProfile")
   chequeInstruments            ChequeInstrument[]
   reconciliations              BankReconciliation[]
+  paymentInstructionTemplates  PaymentInstructionTemplate[]
 
   @@index([organizationId])
   @@index([organizationId, status])
