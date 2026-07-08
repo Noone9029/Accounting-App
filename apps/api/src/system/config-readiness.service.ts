@@ -1,0 +1,44 @@
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { buildConfigReadiness, type ConfigReadinessSummary } from "../config/production-config";
+
+@Injectable()
+export class ConfigReadinessService {
+  constructor(private readonly config: ConfigService) {}
+
+  read(): ConfigReadinessSummary {
+    return buildConfigReadiness({
+      APP_ENV: this.value("APP_ENV"),
+      NODE_ENV: this.value("NODE_ENV"),
+      DATABASE_URL: this.value("DATABASE_URL"),
+      JWT_SECRET: this.value("JWT_SECRET"),
+      AUTH_COOKIE_SECURE: this.value("AUTH_COOKIE_SECURE"),
+      AUTH_COOKIE_SAME_SITE: this.value("AUTH_COOKIE_SAME_SITE"),
+      CORS_ORIGIN: this.value("CORS_ORIGIN"),
+      LEDGERBYTE_DOCUMENT_EXTRACTION_PROVIDER: this.value("LEDGERBYTE_DOCUMENT_EXTRACTION_PROVIDER"),
+      LEDGERBYTE_STRIPE_PAYMENT_LINKS_ENABLED: this.value("LEDGERBYTE_STRIPE_PAYMENT_LINKS_ENABLED"),
+      LEDGERBYTE_STRIPE_MOCK_LINKS_ENABLED: this.value("LEDGERBYTE_STRIPE_MOCK_LINKS_ENABLED"),
+      LEDGERBYTE_STRIPE_SECRET_KEY: this.value("LEDGERBYTE_STRIPE_SECRET_KEY"),
+      LEDGERBYTE_STRIPE_WEBHOOK_SECRET: this.value("LEDGERBYTE_STRIPE_WEBHOOK_SECRET"),
+      EMAIL_PROVIDER: this.value("EMAIL_PROVIDER"),
+      SMTP_PASSWORD: this.value("SMTP_PASSWORD"),
+      ATTACHMENT_STORAGE_PROVIDER: this.value("ATTACHMENT_STORAGE_PROVIDER"),
+      GENERATED_DOCUMENT_STORAGE_PROVIDER: this.value("GENERATED_DOCUMENT_STORAGE_PROVIDER"),
+      S3_BUCKET: this.value("S3_BUCKET"),
+      S3_ACCESS_KEY_ID: this.value("S3_ACCESS_KEY_ID"),
+      S3_SECRET_ACCESS_KEY: this.value("S3_SECRET_ACCESS_KEY"),
+      LEDGERBYTE_API_DOCS_ENABLED: this.value("LEDGERBYTE_API_DOCS_ENABLED"),
+      LEDGERBYTE_API_DOCS_PUBLIC_APPROVED: this.value("LEDGERBYTE_API_DOCS_PUBLIC_APPROVED"),
+      LEDGERBYTE_OBSERVABILITY_DIAGNOSTICS_PUBLIC: this.value("LEDGERBYTE_OBSERVABILITY_DIAGNOSTICS_PUBLIC"),
+      LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL: this.value("LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL"),
+      LEDGERBYTE_SENTRY_ENABLED: this.value("LEDGERBYTE_SENTRY_ENABLED"),
+      SENTRY_DSN: this.value("SENTRY_DSN"),
+      LEDGERBYTE_OTEL_ENABLED: this.value("LEDGERBYTE_OTEL_ENABLED"),
+      OTEL_EXPORTER_OTLP_ENDPOINT: this.value("OTEL_EXPORTER_OTLP_ENDPOINT"),
+    });
+  }
+
+  private value(key: string): string | undefined {
+    return this.config.get<string>(key) ?? process.env[key];
+  }
+}

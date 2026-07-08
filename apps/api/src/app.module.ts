@@ -64,10 +64,11 @@ import { WarehouseTransferModule } from "./warehouse-transfers/warehouse-transfe
 import { WarehouseModule } from "./warehouses/warehouse.module";
 import { ZatcaModule } from "./zatca/zatca.module";
 import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
+import { validateLedgerByteConfig } from "./config/production-config";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateLedgerByteConfig }),
     ObservabilityModule,
     PrismaModule,
     AttachmentModule,
