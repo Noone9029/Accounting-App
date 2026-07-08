@@ -34,6 +34,7 @@
     "test:generated-documents:object-staging-runner": "node --test scripts/generated-document-object-adapter-staging-runner.test.cjs",
     "backup:restore-proof": "node scripts/backup-restore-proof-harness.cjs",
     "test:backup-restore-proof": "node --test scripts/backup-restore-proof-harness.test.cjs",
+    "backup:local-postgres-drill": "corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill",
     "production:rollback-runbook-guard": "node scripts/production-rollback-runbook-guard.cjs",
     "test:production-rollback-runbook-guard": "node --test scripts/production-rollback-runbook-guard.test.cjs",
     "production:smoke-readiness-guard": "node scripts/production-smoke-readiness-guard.cjs",
