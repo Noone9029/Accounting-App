@@ -34,13 +34,18 @@ describe("report pack manifest contract", () => {
     ]);
   });
 
-  it("builds a planning-only manifest with execution boundaries disabled", () => {
+  it("builds a planning-only manifest with execution boundaries disabled and safe export references", () => {
     const manifest = buildReportPackManifest({
       id: "pack-1",
       organizationId: "org-1",
       title: "Monthly owner review",
       createdAt: "2026-06-21T10:00:00.000Z",
+      generatedAt: "2026-06-21T10:00:01.000Z",
       requestedByUserId: "user-1",
+      requestedBy: { id: "user-1", name: "Owner" },
+      organization: { id: "org-1", name: "LedgerByte Demo" },
+      period: { from: "2026-06-01", to: "2026-06-30" },
+      requestId: "req-123",
       items: [
         { id: "item-1", reportKind: "profit-and-loss", query: { from: "2026-06-01", to: "2026-06-30" } },
         { id: "item-2", reportKind: "balance-sheet", query: { asOf: "2026-06-30" }, reviewStatus: "READY_FOR_REVIEW" },
@@ -52,6 +57,11 @@ describe("report pack manifest contract", () => {
       organizationId: "org-1",
       title: "Monthly owner review",
       status: "PLANNING_ONLY",
+      generatedAt: "2026-06-21T10:00:01.000Z",
+      requestedBy: { id: "user-1", name: "Owner" },
+      organization: { id: "org-1", name: "LedgerByte Demo" },
+      period: { from: "2026-06-01", to: "2026-06-30", asOf: null },
+      requestId: "req-123",
       executionBoundary: REPORT_PACK_EXECUTION_BOUNDARY,
       items: [
         {
@@ -59,6 +69,10 @@ describe("report pack manifest contract", () => {
           reportKind: "profit-and-loss",
           title: "Profit & Loss",
           source: { type: "ledgerbyte-report-route", href: "/reports/profit-and-loss" },
+          exports: {
+            csv: { supported: true, href: "/reports/profit-and-loss?from=2026-06-01&to=2026-06-30&format=csv" },
+            pdf: { supported: true, href: "/reports/profit-and-loss/pdf", reason: null },
+          },
           reviewStatus: "NEEDS_REVIEW",
         },
         {
@@ -66,6 +80,10 @@ describe("report pack manifest contract", () => {
           reportKind: "balance-sheet",
           title: "Balance Sheet",
           source: { type: "ledgerbyte-report-route", href: "/reports/balance-sheet" },
+          exports: {
+            csv: { supported: true, href: "/reports/balance-sheet?asOf=2026-06-30&format=csv" },
+            pdf: { supported: true, href: "/reports/balance-sheet/pdf", reason: null },
+          },
           reviewStatus: "READY_FOR_REVIEW",
         },
       ],
@@ -80,6 +98,12 @@ describe("report pack manifest contract", () => {
       storageMutationEnabled: false,
       providerCallEnabled: false,
       complianceSubmissionEnabled: false,
+    });
+    expect(manifest.downloadReadiness).toEqual({
+      packDownloadEnabled: false,
+      storageProvider: "disabled",
+      signedUrlEnabled: false,
+      reason: "Pack-level download is blocked until local storage/archive and signed URL proof are approved.",
     });
   });
 
@@ -97,9 +121,43 @@ describe("report pack manifest contract", () => {
     });
 
     expect(manifest.items).toMatchObject([
-      { reportKind: "cash-flow", title: "Cash Flow", source: { href: "/reports/cash-flow" } },
-      { reportKind: "revenue-trend", title: "Revenue Trend", source: { href: "/reports/revenue-trend" } },
+      {
+        reportKind: "cash-flow",
+        title: "Cash Flow",
+        source: { href: "/reports/cash-flow" },
+        exports: {
+          csv: { supported: true, href: "/reports/cash-flow?from=2026-06-01&to=2026-06-30&format=csv" },
+          pdf: { supported: false, href: null, reason: "PDF export is not implemented for this report." },
+        },
+      },
+      {
+        reportKind: "revenue-trend",
+        title: "Revenue Trend",
+        source: { href: "/reports/revenue-trend" },
+        exports: {
+          csv: { supported: true, href: "/reports/revenue-trend?from=2026-06-01&to=2026-06-30&format=csv" },
+          pdf: { supported: false, href: null, reason: "PDF export is not implemented for this report." },
+        },
+      },
     ]);
+  });
+
+  it("keeps manifest metadata redacted and free of document/provider bodies", () => {
+    const manifest = buildReportPackManifest({
+      id: "pack-1",
+      organizationId: "org-1",
+      title: "Monthly owner review",
+      createdAt: "2026-06-21T10:00:00.000Z",
+      requestedByUserId: "user-1",
+      requestId: "req-123",
+      status: "READY_LOCAL",
+      items: [{ id: "item-1", reportKind: "cash-flow", query: { from: "2026-06-01", to: "2026-06-30" } }],
+    });
+
+    const serialized = JSON.stringify(manifest);
+
+    expect(serialized).toContain("req-123");
+    expect(serialized).not.toMatch(/contentBase64|providerPayload|redactedRawJson|storageKey|databaseUrl|authorization|cookie/i);
   });
 
   it("rejects empty, unsupported, or duplicate manifest items", () => {

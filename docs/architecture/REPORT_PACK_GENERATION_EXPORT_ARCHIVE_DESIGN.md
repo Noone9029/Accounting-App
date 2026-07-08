@@ -2,24 +2,32 @@
 
 Date: 2026-06-21
 
+Updated: 2026-07-09
+
 Goal ID: `OB-REPORT-PACK-DESIGN-01`
 
-Status: `DESIGN_ONLY`
+Status: `LOCAL_MANIFEST_GROUNDWORK`
 
 ## Current Baseline
 
-LedgerByte currently has a read-only report-pack manifest preview:
+LedgerByte now has local/test-safe report-pack manifest groundwork:
 
 - API: `GET /reports/report-pack/manifest-preview`
+- API: `POST /reports/report-pack`
+- API: `GET /reports/report-pack`
+- API: `GET /reports/report-pack/:id`
+- API: `POST /reports/report-pack/:id/download-readiness`
 - Web: `/report-packs`
-- Manifest status: `PLANNING_ONLY`
-- Execution boundaries: generation, download, email, scheduling, archive writes, generated-document mutation, storage mutation, provider calls, and compliance submission are disabled.
+- Manifest statuses: `PLANNING_ONLY`, `DRAFT`, `GENERATING`, `READY_LOCAL`, `FAILED`, `DOWNLOAD_BLOCKED`, and `EXPIRED`.
+- Persisted rows store report-pack manifest metadata only: selected report kinds, period, organization, generatedAt, requestedBy, requestId, and links to existing per-report CSV/PDF routes where supported.
+- Pack-level downloads are explicitly blocked until storage/archive/signed URL proof is separately approved.
+- Email, scheduling, archive writes, generated-document mutation, storage mutation, provider calls, and compliance submission remain disabled.
 
-This design does not change that runtime baseline. It records the future workflow that must be reviewed before any report-pack execution, export, download, delivery, schedule, storage, or archive behavior is implemented.
+This groundwork does not generate bundled report artifacts. It records the local manifest boundary and keeps the future workflow below as the review path before any bundle generation, storage, delivery, schedule, archive, or hosted behavior is implemented.
 
 ## Non-Goals
 
-This design does not add runtime API endpoints, runtime UI behavior, Prisma migrations, report generation, PDF/CSV/XLSX generation, download/export behavior, email sending, scheduling, archive writes, generated-document mutation, object storage behavior, signed URLs, provider calls, compliance behavior, ZATCA/UAE/Peppol/ASP behavior, AI proposals, Inbox behavior, or hosted mutations.
+This groundwork does not add report body generation, bundled PDF/CSV/XLSX artifacts, pack-level downloads, email sending, scheduling, archive writes, generated-document mutation, object storage behavior, signed URLs, provider calls, compliance behavior, ZATCA/UAE/Peppol/ASP behavior, AI proposals, Inbox behavior, hosted mutations, or production recovery proof.
 
 ## Guardrails
 
@@ -31,6 +39,7 @@ This design does not add runtime API endpoints, runtime UI behavior, Prisma migr
 - Download links remain blocked until signed URL behavior is proven.
 - Every future execution mutation must be tenant-scoped, permission-checked, idempotent where retried, and audited.
 - Future report calculations must use LedgerByte report/ledger foundations, not simplified paid-invoice or source-document shortcuts.
+- Current local manifest creation is tenant-scoped and audited, but it is not hosted/customer-data production proof.
 
 ## Shared Types
 

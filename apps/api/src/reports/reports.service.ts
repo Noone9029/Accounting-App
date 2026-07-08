@@ -1,10 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountType,
   BankAccountStatus,
   DocumentType,
   JournalEntryStatus,
+  Prisma,
   PurchaseBillStatus,
+  ReportPackStatus,
   SalesInvoiceStatus,
 } from "@prisma/client";
 import {
@@ -20,6 +23,8 @@ import { Decimal } from "decimal.js";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { advancedReportCsv, AdvancedReportKind, coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
 import {
   REPORT_PACK_SUPPORTED_REPORTS,
@@ -44,6 +49,19 @@ export interface ReportDateQuery {
 
 export interface ReportPackManifestPreviewQuery {
   reportKinds?: string | string[];
+}
+
+export interface ReportPackCreateInput extends ReportPackManifestPreviewQuery {
+  title?: string;
+  from?: string;
+  to?: string;
+  asOf?: string;
+  branchId?: string;
+}
+
+export interface ReportPackListQuery {
+  status?: string;
+  limit?: string | number;
 }
 
 export interface ReportAccountInput {
@@ -132,6 +150,7 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
+    @Optional() private readonly auditLogService?: AuditLogService,
   ) {}
 
   reportPackManifestPreview(
@@ -152,6 +171,251 @@ export class ReportsService {
         query: {},
         reviewStatus: "NEEDS_REVIEW",
       })),
+    });
+  }
+
+  async createReportPack(
+    organizationId: string,
+    requestedByUserId: string,
+    input: ReportPackCreateInput = {},
+    request?: { requestId?: string },
+  ): Promise<ReportPackManifest> {
+    const organization = await this.prisma.organization.findFirst({
+      where: { id: organizationId },
+      select: { id: true, name: true },
+    });
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+
+    const id = randomUUID();
+    const now = new Date();
+    const query = reportPackReportQuery(input);
+    const reportKinds = parseReportPackManifestPreviewKinds(input.reportKinds);
+    const manifest = buildReportPackManifest({
+      id,
+      organizationId,
+      title: cleanReportPackTitle(input.title) ?? "Local accountant review pack",
+      createdAt: now.toISOString(),
+      generatedAt: now.toISOString(),
+      requestedByUserId,
+      requestedBy: { id: requestedByUserId },
+      organization,
+      period: {
+        from: query.from ?? null,
+        to: query.to ?? null,
+        asOf: query.asOf ?? null,
+      },
+      requestId: request?.requestId ?? null,
+      status: "READY_LOCAL",
+      items: reportKinds.map((reportKind) => ({
+        id: `${id}-${reportKind}`,
+        reportKind,
+        query,
+        reviewStatus: "READY_FOR_REVIEW",
+      })),
+    });
+
+    await this.logReportPackAudit({
+      organizationId,
+      actorUserId: requestedByUserId,
+      action: AUDIT_EVENTS.REPORT_PACK_GENERATION_REQUESTED,
+      entityId: id,
+      request,
+      after: reportPackAuditSummary(manifest),
+    });
+
+    const record = await this.prisma.reportPack.create({
+      data: {
+        id,
+        organizationId,
+        title: manifest.title,
+        status: ReportPackStatus.READY_LOCAL,
+        periodFrom: manifest.period.from,
+        periodTo: manifest.period.to,
+        periodAsOf: manifest.period.asOf,
+        manifestJson: manifest as unknown as Prisma.InputJsonObject,
+        requestId: manifest.requestId,
+        requestedById: requestedByUserId,
+        generatedAt: now,
+      },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+    });
+
+    await this.logReportPackAudit({
+      organizationId,
+      actorUserId: requestedByUserId,
+      action: AUDIT_EVENTS.REPORT_PACK_GENERATED,
+      entityId: id,
+      request,
+      after: reportPackAuditSummary(manifest),
+    });
+
+    return this.toReportPackManifest(record);
+  }
+
+  async listReportPacks(organizationId: string, query: ReportPackListQuery = {}) {
+    const status = parseReportPackStatusFilter(query.status);
+    const limit = parseReportPackLimit(query.limit);
+    const packs = await this.prisma.reportPack.findMany({
+      where: { organizationId, ...(status ? { status } : {}) },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+    });
+
+    return {
+      data: packs.map((pack) => this.toReportPackManifest(pack)),
+      pagination: {
+        limit,
+        total: packs.length,
+        hasMore: packs.length === limit,
+      },
+    };
+  }
+
+  async getReportPack(organizationId: string, id: string): Promise<ReportPackManifest> {
+    const pack = await this.prisma.reportPack.findFirst({
+      where: { id, organizationId },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+    });
+    if (!pack) {
+      throw new NotFoundException("Report pack not found.");
+    }
+    return this.toReportPackManifest(pack);
+  }
+
+  async reportPackDownloadReadiness(
+    organizationId: string,
+    actorUserId: string,
+    id: string,
+    request?: { requestId?: string },
+  ) {
+    const before = await this.getReportPack(organizationId, id);
+
+    await this.logReportPackAudit({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.REPORT_PACK_DOWNLOAD_ATTEMPTED,
+      entityId: id,
+      request,
+      after: {
+        packDownloadEnabled: false,
+        storageProvider: "disabled",
+        signedUrlEnabled: false,
+      },
+    });
+
+    const updated = await this.prisma.reportPack.update({
+      where: { id },
+      data: { status: ReportPackStatus.DOWNLOAD_BLOCKED },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+    });
+    if (updated.organizationId !== organizationId) {
+      throw new NotFoundException("Report pack not found.");
+    }
+
+    const manifest = this.toReportPackManifest(updated);
+    await this.logReportPackAudit({
+      organizationId,
+      actorUserId,
+      action: AUDIT_EVENTS.REPORT_PACK_DOWNLOAD_BLOCKED,
+      entityId: id,
+      request,
+      before: reportPackAuditSummary(before),
+      after: reportPackAuditSummary(manifest),
+    });
+
+    return {
+      id,
+      status: "DOWNLOAD_BLOCKED" as const,
+      downloadEnabled: false,
+      storageProvider: "disabled" as const,
+      signedUrlEnabled: false,
+      reason: manifest.downloadReadiness.reason,
+      manifest,
+    };
+  }
+
+  private toReportPackManifest(record: {
+    id: string;
+    organizationId: string;
+    title: string;
+    status: ReportPackStatus;
+    periodFrom: string | null;
+    periodTo: string | null;
+    periodAsOf: string | null;
+    manifestJson: Prisma.JsonValue;
+    requestId: string | null;
+    requestedById: string | null;
+    generatedAt: Date | null;
+    createdAt: Date;
+    requestedBy?: { id: string; name: string | null } | null;
+    organization?: { id: string; name: string | null } | null;
+  }): ReportPackManifest {
+    const manifest = isReportPackManifest(record.manifestJson)
+      ? (record.manifestJson as unknown as ReportPackManifest)
+      : buildReportPackManifest({
+          id: record.id,
+          organizationId: record.organizationId,
+          title: record.title,
+          createdAt: record.createdAt.toISOString(),
+          generatedAt: record.generatedAt?.toISOString() ?? null,
+          requestedByUserId: record.requestedById ?? "",
+          requestedBy: record.requestedBy ?? undefined,
+          organization: record.organization ?? undefined,
+          period: { from: record.periodFrom, to: record.periodTo, asOf: record.periodAsOf },
+          requestId: record.requestId,
+          status: record.status,
+          items: REPORT_PACK_SUPPORTED_REPORTS.map((report) => ({
+            id: `${record.id}-${report.kind}`,
+            reportKind: report.kind,
+            query: reportPackReportQuery({ from: record.periodFrom ?? undefined, to: record.periodTo ?? undefined, asOf: record.periodAsOf ?? undefined }),
+            reviewStatus: "READY_FOR_REVIEW",
+          })),
+        });
+
+    return {
+      ...manifest,
+      id: record.id,
+      organizationId: record.organizationId,
+      title: record.title,
+      status: record.status,
+      generatedAt: record.generatedAt?.toISOString() ?? manifest.generatedAt,
+      requestId: record.requestId ?? manifest.requestId,
+      requestedByUserId: record.requestedById ?? manifest.requestedByUserId,
+      requestedBy: record.requestedBy
+        ? { id: record.requestedBy.id, name: record.requestedBy.name ?? null }
+        : manifest.requestedBy,
+      organization: record.organization
+        ? { id: record.organization.id, name: record.organization.name ?? null }
+        : manifest.organization,
+      period: {
+        from: record.periodFrom ?? manifest.period.from,
+        to: record.periodTo ?? manifest.period.to,
+        asOf: record.periodAsOf ?? manifest.period.asOf,
+      },
+    };
+  }
+
+  private async logReportPackAudit(input: {
+    organizationId: string;
+    actorUserId: string;
+    action: string;
+    entityId: string;
+    before?: unknown;
+    after?: unknown;
+    request?: { requestId?: string };
+  }): Promise<void> {
+    await this.auditLogService?.log({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      action: input.action,
+      entityType: AUDIT_ENTITY_TYPES.REPORT_PACK,
+      entityId: input.entityId,
+      before: input.before,
+      after: input.after,
+      request: input.request as never,
     });
   }
 
@@ -823,12 +1087,55 @@ function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
   return suffix ? `${kind}?${suffix}` : kind;
 }
 
+function cleanReportPackTitle(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.slice(0, 160);
+}
+
+function reportPackReportQuery(input: {
+  from?: string | null;
+  to?: string | null;
+  asOf?: string | null;
+  branchId?: string | null;
+}): Record<string, string | undefined> {
+  const query: Record<string, string | undefined> = {};
+  for (const key of ["from", "to", "asOf", "branchId"] as const) {
+    const value = cleanOptionalFilterId(input[key] ?? undefined);
+    if (value) {
+      query[key] = value;
+    }
+  }
+  return query;
+}
+
 function cleanOptionalFilterId(value?: string): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
 }
 
 const supportedReportPackKindValues = new Set<string>(REPORT_PACK_SUPPORTED_REPORTS.map((report) => report.kind));
+
+function parseReportPackStatusFilter(status?: string): ReportPackStatus | undefined {
+  const normalized = status?.trim().toUpperCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (!Object.values(ReportPackStatus).includes(normalized as ReportPackStatus)) {
+    throw new BadRequestException(`Unsupported report pack status: ${status}.`);
+  }
+  return normalized as ReportPackStatus;
+}
+
+function parseReportPackLimit(limit?: string | number): number {
+  const parsed = limit === undefined ? 50 : Number(limit);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+    throw new BadRequestException("limit must be an integer between 1 and 100.");
+  }
+  return parsed;
+}
 
 function parseReportPackManifestPreviewKinds(input: string | string[] | undefined): ReportPackReportKind[] {
   const requested = (Array.isArray(input) ? input : input ? [input] : [])
@@ -852,6 +1159,34 @@ function parseReportPackManifestPreviewKinds(input: string | string[] | undefine
     }
   }
   return reportKinds;
+}
+
+function isReportPackManifest(value: Prisma.JsonValue): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    typeof candidate.organizationId === "string" &&
+    typeof candidate.title === "string" &&
+    Array.isArray(candidate.items)
+  );
+}
+
+function reportPackAuditSummary(manifest: ReportPackManifest) {
+  return {
+    status: manifest.status,
+    itemCount: manifest.items.length,
+    reportKinds: manifest.items.map((item) => item.reportKind),
+    requestId: manifest.requestId,
+    packDownloadEnabled: false,
+    storageProvider: "disabled",
+    signedUrlEnabled: false,
+    generatedDocumentMutationEnabled: false,
+    providerCallEnabled: false,
+    complianceSubmissionEnabled: false,
+  };
 }
 
 function journalEntryBranchFilter(organizationId: string, branchId?: string) {

@@ -2,7 +2,14 @@ import type { CoreReportKind } from "./report-csv";
 
 export type ReportPackReportKind = CoreReportKind | "cash-flow" | "revenue-trend" | "top-customers" | "top-products-services";
 export type ReportPackReviewStatus = "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "BLOCKED";
-export type ReportPackManifestStatus = "PLANNING_ONLY";
+export type ReportPackManifestStatus =
+  | "PLANNING_ONLY"
+  | "DRAFT"
+  | "GENERATING"
+  | "READY_LOCAL"
+  | "FAILED"
+  | "DOWNLOAD_BLOCKED"
+  | "EXPIRED";
 
 export interface ReportPackSourceReport {
   kind: ReportPackReportKind;
@@ -23,7 +30,23 @@ export interface ReportPackManifestInput {
   organizationId: string;
   title: string;
   createdAt: string;
+  generatedAt?: string | null;
   requestedByUserId: string;
+  requestedBy?: {
+    id: string;
+    name?: string | null;
+  };
+  organization?: {
+    id: string;
+    name?: string | null;
+  };
+  period?: {
+    from?: string | null;
+    to?: string | null;
+    asOf?: string | null;
+  };
+  requestId?: string | null;
+  status?: ReportPackManifestStatus;
   items: ReportPackItemInput[];
 }
 
@@ -35,6 +58,18 @@ export interface ReportPackManifestItem {
   source: {
     type: "ledgerbyte-report-route";
     href: `/reports/${ReportPackReportKind}`;
+  };
+  exports: {
+    csv: {
+      supported: boolean;
+      href: string | null;
+      filename: string | null;
+    };
+    pdf: {
+      supported: boolean;
+      href: string | null;
+      reason: string | null;
+    };
   };
   reviewStatus: ReportPackReviewStatus;
 }
@@ -56,9 +91,30 @@ export interface ReportPackManifest {
   organizationId: string;
   title: string;
   createdAt: string;
+  generatedAt: string | null;
   requestedByUserId: string;
+  requestedBy: {
+    id: string;
+    name: string | null;
+  } | null;
+  organization: {
+    id: string;
+    name: string | null;
+  } | null;
+  period: {
+    from: string | null;
+    to: string | null;
+    asOf: string | null;
+  };
+  requestId: string | null;
   status: ReportPackManifestStatus;
   executionBoundary: ReportPackExecutionBoundary;
+  downloadReadiness: {
+    packDownloadEnabled: false;
+    storageProvider: "disabled";
+    signedUrlEnabled: false;
+    reason: string;
+  };
   items: ReportPackManifestItem[];
 }
 
@@ -92,6 +148,16 @@ const supportedReportByKind = new Map<ReportPackReportKind, ReportPackSourceRepo
   REPORT_PACK_SUPPORTED_REPORTS.map((report) => [report.kind, report]),
 );
 
+const REPORT_PACK_PDF_SUPPORTED_KINDS = new Set<ReportPackReportKind>([
+  "general-ledger",
+  "trial-balance",
+  "profit-and-loss",
+  "balance-sheet",
+  "vat-summary",
+  "aged-receivables",
+  "aged-payables",
+]);
+
 export function buildReportPackManifest(input: ReportPackManifestInput): ReportPackManifest {
   if (input.items.length === 0) {
     throw new Error("Report pack manifest requires at least one report item.");
@@ -115,6 +181,7 @@ export function buildReportPackManifest(input: ReportPackManifestInput): ReportP
       title: item.title ?? sourceReport.title,
       query: item.query,
       source: { type: "ledgerbyte-report-route", href: sourceReport.href },
+      exports: reportPackExports(sourceReport.kind, item.query),
       reviewStatus: item.reviewStatus ?? "NEEDS_REVIEW",
     };
   });
@@ -124,9 +191,68 @@ export function buildReportPackManifest(input: ReportPackManifestInput): ReportP
     organizationId: input.organizationId,
     title: input.title,
     createdAt: input.createdAt,
+    generatedAt: input.generatedAt ?? null,
     requestedByUserId: input.requestedByUserId,
-    status: "PLANNING_ONLY",
+    requestedBy: input.requestedBy
+      ? {
+          id: input.requestedBy.id,
+          name: input.requestedBy.name ?? null,
+        }
+      : null,
+    organization: input.organization
+      ? {
+          id: input.organization.id,
+          name: input.organization.name ?? null,
+        }
+      : null,
+    period: {
+      from: input.period?.from ?? null,
+      to: input.period?.to ?? null,
+      asOf: input.period?.asOf ?? null,
+    },
+    requestId: input.requestId ?? null,
+    status: input.status ?? "PLANNING_ONLY",
     executionBoundary: REPORT_PACK_EXECUTION_BOUNDARY,
+    downloadReadiness: {
+      packDownloadEnabled: false,
+      storageProvider: "disabled",
+      signedUrlEnabled: false,
+      reason: "Pack-level download is blocked until local storage/archive and signed URL proof are approved.",
+    },
     items,
   };
+}
+
+function reportPackExports(reportKind: ReportPackReportKind, query: Record<string, string | undefined>) {
+  const csvHref = reportHrefWithQuery(reportKind, { ...query, format: "csv" });
+  return {
+    csv: {
+      supported: true,
+      href: csvHref,
+      filename: `${reportKind}.csv`,
+    },
+    pdf: REPORT_PACK_PDF_SUPPORTED_KINDS.has(reportKind)
+      ? {
+          supported: true,
+          href: `/reports/${reportKind}/pdf`,
+          reason: null,
+        }
+      : {
+          supported: false,
+          href: null,
+          reason: "PDF export is not implemented for this report.",
+        },
+  };
+}
+
+function reportHrefWithQuery(reportKind: ReportPackReportKind, query: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    const normalizedValue = value?.trim();
+    if (normalizedValue) {
+      params.set(key, normalizedValue);
+    }
+  }
+  const suffix = params.toString();
+  return suffix ? `/reports/${reportKind}?${suffix}` : `/reports/${reportKind}`;
 }
