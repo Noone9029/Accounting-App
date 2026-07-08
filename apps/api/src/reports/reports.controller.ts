@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { BadRequestException, Controller, ForbiddenException, Get, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { hasAnyPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
@@ -152,22 +152,26 @@ export class ReportsController {
   }
 
   @Get("cash-flow")
-  cashFlow(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+  async cashFlow(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    assertJsonOnlyAdvancedReportFormat("Cash Flow", query);
     return this.reportsService.cashFlow(organizationId, query);
   }
 
   @Get("revenue-trend")
-  revenueTrend(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+  async revenueTrend(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    assertJsonOnlyAdvancedReportFormat("Revenue Trend", query);
     return this.reportsService.revenueTrend(organizationId, query);
   }
 
   @Get("top-customers")
-  topCustomers(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+  async topCustomers(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    assertJsonOnlyAdvancedReportFormat("Top Customers", query);
     return this.reportsService.topCustomers(organizationId, query);
   }
 
   @Get("top-products-services")
-  topProductsServices(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+  async topProductsServices(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
+    assertJsonOnlyAdvancedReportFormat("Top Products & Services", query);
     return this.reportsService.topProductsServices(organizationId, query);
   }
 
@@ -267,4 +271,14 @@ function assertExportPermission(request: AuthenticatedRequest): void {
     return;
   }
   throw new ForbiddenException("You do not have permission to export reports.");
+}
+
+function assertJsonOnlyAdvancedReportFormat(title: string, query: ReportDateQuery): void {
+  const requestedFormat = query.format?.trim().toLowerCase();
+  if (!requestedFormat || requestedFormat === "json") {
+    return;
+  }
+  throw new BadRequestException(
+    `${title} ${requestedFormat.toUpperCase()} export is not implemented. Use the JSON endpoint; CSV/PDF exports are available only for implemented core reports.`,
+  );
 }
