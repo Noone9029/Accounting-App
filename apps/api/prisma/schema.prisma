@@ -1403,6 +1403,7 @@ model GeneratedDocument {
   contentHash     String
   sizeBytes       Int
   status          GeneratedDocumentStatus @default(GENERATED)
+  requestId       String?
   generatedById   String?                 @db.Uuid
   generatedAt     DateTime                @default(now())
   createdAt       DateTime                @default(now())
@@ -1414,6 +1415,7 @@ model GeneratedDocument {
   @@index([organizationId, documentType])
   @@index([organizationId, sourceType, sourceId])
   @@index([organizationId, status])
+  @@index([requestId])
   @@index([generatedById])
 }
 
@@ -1659,6 +1661,7 @@ model DocumentExtractionResult {
   extractedJson       Json?
   redactedRawJson     Json?
   blockers            String[]                       @default([])
+  requestId           String?
   createdById         String?                        @db.Uuid
   createdAt           DateTime                       @default(now())
   organization        Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1668,6 +1671,7 @@ model DocumentExtractionResult {
   @@index([organizationId])
   @@index([documentInboxItemId])
   @@index([organizationId, status])
+  @@index([requestId])
   @@index([createdById])
 }
 
@@ -1679,6 +1683,7 @@ model DocumentReviewDecision {
   targetType          String?
   targetId            String?                    @db.Uuid
   reviewerNote        String?
+  requestId           String?
   reviewedById        String?                    @db.Uuid
   reviewedAt          DateTime                   @default(now())
   createdAt           DateTime                   @default(now())
@@ -1689,6 +1694,7 @@ model DocumentReviewDecision {
   @@index([organizationId])
   @@index([documentInboxItemId])
   @@index([organizationId, decisionType])
+  @@index([requestId])
   @@index([reviewedById])
 }
 
@@ -1725,6 +1731,7 @@ model PaymentProviderEvent {
   externalEventId    String?
   redactedPayloadJson Json?
   signatureVerified  Boolean                    @default(false)
+  requestId          String?
   receivedAt         DateTime                   @default(now())
   createdAt          DateTime                   @default(now())
   organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1733,6 +1740,7 @@ model PaymentProviderEvent {
   @@index([organizationId, provider])
   @@index([organizationId, status])
   @@index([externalEventId])
+  @@index([requestId])
 }
 
 model InvoicePaymentLink {
@@ -5177,6 +5185,7 @@ model AuditLog {
   after          Json?
   ipAddress      String?
   userAgent      String?
+  requestId      String?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   actorUser      User?        @relation("AuditActor", fields: [actorUserId], references: [id])
@@ -5184,6 +5193,7 @@ model AuditLog {
   @@index([organizationId])
   @@index([entityType, entityId])
   @@index([actorUserId])
+  @@index([requestId])
 }
 
 model AuditLogRetentionSettings {

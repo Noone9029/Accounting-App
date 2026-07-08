@@ -1,6 +1,8 @@
 import { ValidationPipe, type INestApplication } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createCsrfProtectionMiddleware } from "./auth/auth-cookie";
+import { ObservabilityContextService } from "./observability/observability-context.service";
+import { createRequestContextMiddleware } from "./observability/request-context.middleware";
 
 export { createCsrfProtectionMiddleware } from "./auth/auth-cookie";
 
@@ -20,7 +22,9 @@ type NextFunction = () => void;
 export function configureApp(app: INestApplication): void {
   const config = app.get(ConfigService);
   const environment = readRuntimeEnvironment(config);
+  const observabilityContext = app.get(ObservabilityContextService);
 
+  app.use(createRequestContextMiddleware(observabilityContext));
   app.use(createSecurityHeadersMiddleware(environment));
   app.use(createCsrfProtectionMiddleware(config));
 

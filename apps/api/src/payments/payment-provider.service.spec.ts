@@ -38,7 +38,8 @@ describe("PaymentProviderService", () => {
     };
     const config = { get: jest.fn((key: string) => env[key]) };
     const audit = { log: jest.fn() };
-    return { service: new PaymentProviderService(prisma as never, config as never, audit as never), prisma, config, audit };
+    const observability = { getRequestId: jest.fn(() => "req-payment-1") };
+    return { service: new PaymentProviderService(prisma as never, config as never, audit as never, observability as never), prisma, config, audit, observability };
   }
 
   it("reports Stripe readiness as disabled by default without returning secrets", async () => {
@@ -134,11 +135,12 @@ describe("PaymentProviderService", () => {
             data: {
               object: {
                 client_secret: "[REDACTED]",
-                customer_email: "customer@example.com",
+                customer_email: "[REDACTED]",
                 nested: { authorization: "[REDACTED]" },
               },
             },
           }),
+          requestId: "req-payment-1",
         }),
       }),
     );

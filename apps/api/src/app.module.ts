@@ -36,6 +36,7 @@ import { NumberSequenceModule } from "./number-sequences/number-sequence.module"
 import { OrganizationMemberModule } from "./organization-members/organization-member.module";
 import { OrganizationDocumentSettingsModule } from "./document-settings/organization-document-settings.module";
 import { OrganizationModule } from "./organizations/organization.module";
+import { ObservabilityModule } from "./observability/observability.module";
 import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PaymentProviderModule } from "./payments/payment-provider.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -67,6 +68,7 @@ import { ZatcaSdkModule } from "./zatca-sdk/zatca-sdk.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ObservabilityModule,
     PrismaModule,
     AttachmentModule,
     EmailModule,

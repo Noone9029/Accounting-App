@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, NotFoundException, Optional } 
 import { DocumentType, GeneratedDocumentStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { GeneratedDocumentQueryDto } from "./dto/generated-document-query.dto";
 import {
@@ -23,6 +24,7 @@ const generatedDocumentSelect = {
   contentHash: true,
   sizeBytes: true,
   status: true,
+  requestId: true,
   generatedById: true,
   generatedAt: true,
   createdAt: true,
@@ -85,6 +87,7 @@ export class GeneratedDocumentService {
     @Optional()
     @Inject(GeneratedDocumentStorageAdapter)
     generatedDocumentStorage?: GeneratedDocumentStorageAdapter,
+    @Optional() private readonly observabilityContext?: ObservabilityContextService,
   ) {
     this.generatedDocumentStorage = generatedDocumentStorage ?? new DatabaseGeneratedDocumentStorageAdapter();
   }
@@ -188,6 +191,7 @@ export class GeneratedDocumentService {
         contentHash: storedContent.contentHash,
         sizeBytes: storedContent.sizeBytes,
         status: GeneratedDocumentStatus.GENERATED,
+        requestId: this.observabilityContext?.getRequestId(),
         generatedById: input.generatedById ?? null,
       },
       select: generatedDocumentSelect,

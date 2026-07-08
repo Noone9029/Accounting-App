@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateDocumentInboxItemDto } from "./dto/create-document-inbox-item.dto";
 import { DocumentInboxQueryDto } from "./dto/document-inbox-query.dto";
@@ -57,6 +58,7 @@ const documentInboxSelect = {
       extractedJson: true,
       redactedRawJson: true,
       blockers: true,
+      requestId: true,
       createdAt: true,
     },
   },
@@ -69,6 +71,7 @@ const documentInboxSelect = {
       targetType: true,
       targetId: true,
       reviewerNote: true,
+      requestId: true,
       reviewedById: true,
       reviewedAt: true,
     },
@@ -85,6 +88,7 @@ export class DocumentInboxService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @Optional() private readonly auditLogService?: AuditLogService,
+    @Optional() private readonly observabilityContext?: ObservabilityContextService,
   ) {}
 
   list(organizationId: string, query: DocumentInboxQueryDto = {}) {
@@ -156,6 +160,7 @@ export class DocumentInboxService {
           status: DocumentExtractionStatus.SKIPPED_DISABLED,
           blockers: ["Document extraction provider is not configured. Review required."],
           createdById: actorUserId,
+          requestId: this.observabilityContext?.getRequestId(),
           redactedRawJson: { provider: "none", noDocumentScanned: true },
         },
       });
@@ -182,6 +187,7 @@ export class DocumentInboxService {
           status: DocumentExtractionStatus.FAILED,
           blockers: ["Configured extraction provider is a placeholder and is blocked until a real adapter is approved."],
           createdById: actorUserId,
+          requestId: this.observabilityContext?.getRequestId(),
           redactedRawJson: { provider, noDocumentScanned: true },
         },
       });
@@ -215,6 +221,7 @@ export class DocumentInboxService {
         redactedRawJson: normalized.redactedRaw as Prisma.InputJsonObject,
         blockers: ["Mock extraction only. Review required before posting or draft creation."],
         createdById: actorUserId,
+        requestId: this.observabilityContext?.getRequestId(),
       },
     });
 
@@ -252,6 +259,7 @@ export class DocumentInboxService {
         decisionType,
         targetType,
         reviewerNote: cleanOptional(dto.reviewerNote),
+        requestId: this.observabilityContext?.getRequestId(),
         reviewedById: actorUserId,
       },
     });

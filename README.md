@@ -165,6 +165,18 @@ API status links:
 - `GET /` returns a public, non-sensitive LedgerByte API status response with links to `/health` and `/readiness`.
 - `GET /health` returns the lightweight function health response `{ "status": "ok", "service": "api" }`.
 - `GET /readiness` checks database connectivity and returns safe JSON, using `503` when the API is reachable but the database is unavailable.
+- `GET /diagnostics/observability-readiness` is authenticated and admin-gated. It reports request ID, structured logging, redaction, safe error response, and external telemetry readiness without returning secrets, provider payloads, environment values, or tenant data.
+
+Observability placeholders are disabled by default:
+
+```env
+LEDGERBYTE_SENTRY_ENABLED=false
+SENTRY_DSN=
+LEDGERBYTE_OTEL_ENABLED=false
+OTEL_EXPORTER_OTLP_ENDPOINT=
+```
+
+Setting a DSN or OTLP endpoint alone does not enable external telemetry. A later approved production setup must explicitly enable the matching `LEDGERBYTE_*_ENABLED` flag and configure the provider outside source control.
 
 Seed login:
 

@@ -10,6 +10,8 @@ import {
 } from "@prisma/client";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { ObservabilityContextService } from "../observability/observability-context.service";
+import { redactForDiagnostics } from "../observability/redaction";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateInvoicePaymentLinkDto } from "./dto/create-invoice-payment-link.dto";
 import { ReceiveStripeProviderEventDto } from "./dto/receive-stripe-provider-event.dto";
@@ -33,6 +35,7 @@ export class PaymentProviderService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @Optional() private readonly auditLogService?: AuditLogService,
+    @Optional() private readonly observabilityContext?: ObservabilityContextService,
   ) {}
 
   async providerReadiness(organizationId: string) {
@@ -130,7 +133,8 @@ export class PaymentProviderService {
         eventType: cleanRequired(dto.type, "Stripe event type is required."),
         externalEventId: cleanOptional(dto.id),
         signatureVerified,
-        redactedPayloadJson: redactProviderPayload(dto) as Prisma.InputJsonObject,
+        requestId: this.observabilityContext?.getRequestId(),
+        redactedPayloadJson: redactForDiagnostics(dto) as Prisma.InputJsonObject,
       },
     });
 
@@ -208,26 +212,6 @@ function stripeReadinessBlockers(input: {
     blockers.push("Stripe payment-link creation is disabled by default.");
   }
   return blockers;
-}
-
-function redactProviderPayload(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(redactProviderPayload);
-  }
-  if (typeof value !== "object" || value === null) {
-    return value;
-  }
-  const redacted: Record<string, unknown> = {};
-  for (const [key, rawValue] of Object.entries(value)) {
-    if (/secret|token|key|authorization|client_secret|payment_method|card/i.test(key)) {
-      redacted[key] = "[REDACTED]";
-    } else if (typeof rawValue === "string" && /sk_(test|live)_|whsec_|Bearer\s+/i.test(rawValue)) {
-      redacted[key] = "[REDACTED]";
-    } else {
-      redacted[key] = redactProviderPayload(rawValue);
-    }
-  }
-  return redacted;
 }
 
 function cleanRequired(value: string | undefined, message: string) {
