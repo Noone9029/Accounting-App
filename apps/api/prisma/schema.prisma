@@ -2788,6 +2788,7 @@ model BankFeedAccount {
   ledgerBalance               Decimal?                @db.Decimal(20, 4)
   lastSyncedAt                DateTime?
   metadataJson                Json?
+  requestId                   String?
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
   organization                Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -2799,6 +2800,7 @@ model BankFeedAccount {
   @@index([bankConnectionId])
   @@index([bankAccountProfileId])
   @@index([organizationId, status])
+  @@index([requestId])
 }
 
 model BankFeedSyncRun {
@@ -2840,6 +2842,7 @@ model BankFeedTransaction {
   externalTransactionRefMasked String?
   accountRefMasked             String?
   redactedMetadataJson          Json?
+  requestId                    String?
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
   organization                 Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -2855,6 +2858,7 @@ model BankFeedTransaction {
   @@index([bankFeedSyncRunId])
   @@index([bankAccountProfileId])
   @@index([organizationId, transactionDate])
+  @@index([requestId])
 }
 
 model BankProviderEvent {

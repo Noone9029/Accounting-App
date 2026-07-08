@@ -220,6 +220,7 @@ export class BankIntegrationService {
         externalAccountRefMasked: maskReference(dto.account.externalAccountRef),
         metadataJson: adapter.redactPayload({ source: "mock-local-sync" }) as Prisma.InputJsonObject,
         lastSyncedAt: new Date(),
+        requestId: this.requestId(),
       },
     });
     const syncRun = await this.prisma.bankFeedSyncRun.create({
@@ -252,6 +253,7 @@ export class BankIntegrationService {
             externalTransactionRefMasked: maskReference(transaction.externalTransactionRef),
             accountRefMasked: maskReference(dto.account.accountRef),
             redactedMetadataJson: adapter.redactPayload({ source: "mock-local-sync" }) as Prisma.InputJsonObject,
+            requestId: this.requestId(),
           },
         }),
       ),
