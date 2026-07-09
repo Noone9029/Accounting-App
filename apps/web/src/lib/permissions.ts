@@ -262,6 +262,14 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.supplierPayments.view];
   }
 
+  if (pathname.startsWith("/purchases/supplier-payout-requests")) {
+    return [
+      PERMISSIONS.bankIntegrations.vendorPaymentCreate,
+      PERMISSIONS.bankIntegrations.vendorPaymentApprove,
+      PERMISSIONS.bankIntegrations.vendorPaymentReconcile,
+    ];
+  }
+
   if (pathname === "/purchases/debit-notes/new") {
     return [PERMISSIONS.purchaseDebitNotes.create];
   }

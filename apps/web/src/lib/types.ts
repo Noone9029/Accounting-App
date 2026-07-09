@@ -191,6 +191,90 @@ export interface BankIntegrationReadinessResponse {
   };
   warnings: string[];
 }
+export type BankPaymentRequestReconciliationState = "ANY" | "UNRECONCILED" | "RECONCILED" | "FEED" | "STATEMENT";
+export interface BankPaymentRequestAuditTimelineItem {
+  id: string;
+  action: string;
+  actorUserId: string | null;
+  requestId: string | null;
+  createdAt: string;
+}
+export interface BankPaymentRequestSafeDetail {
+  id: string;
+  organizationId: string;
+  supplierId: string | null;
+  purchaseBillId: string | null;
+  bankConnectionId: string | null;
+  beneficiaryMappingId: string | null;
+  bankFeedTransactionId: string | null;
+  bankStatementTransactionId: string | null;
+  status: BankPaymentRequestStatus;
+  amount: string;
+  currency: string;
+  memo: string | null;
+  externalReleaseReferenceMasked: string | null;
+  releaseBlockedReason: string | null;
+  approvedAt: string | null;
+  manuallyReleasedAt: string | null;
+  reconciledAt: string | null;
+  cancelledAt: string | null;
+  requestId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  supplier: { id: string; name: string; displayName: string | null } | null;
+  purchaseBill: {
+    id: string;
+    billNumber: string;
+    billDate: string;
+    dueDate: string | null;
+    status: PurchaseBillStatus;
+    total: string;
+    balanceDue: string;
+    currency: string;
+  } | null;
+  bankConnection: {
+    id: string;
+    provider: BankIntegrationProvider;
+    status: BankIntegrationStatus;
+    displayName: string;
+    externalConnectionRefMasked: string | null;
+    externalInstitutionName: string | null;
+  } | null;
+  beneficiaryMapping: {
+    id: string;
+    provider: BankIntegrationProvider;
+    status: BankBeneficiaryMappingStatus;
+    beneficiaryDisplayName: string;
+    beneficiaryRefMasked: string | null;
+    externalBeneficiaryRefMasked: string | null;
+  } | null;
+  reconciliation: {
+    state: "UNRECONCILED" | "RECONCILED";
+    bankFeedTransaction: {
+      id: string;
+      transactionDate: string;
+      description: string;
+      reference: string | null;
+      type: BankStatementTransactionType;
+      amount: string;
+      currency: string;
+      externalTransactionRefMasked: string | null;
+    } | null;
+    bankStatementTransaction: {
+      id: string;
+      transactionDate: string;
+      description: string;
+      reference: string | null;
+      type: BankStatementTransactionType;
+      amount: string;
+      status: BankStatementTransactionStatus;
+    } | null;
+  };
+  auditTimeline?: BankPaymentRequestAuditTimelineItem[];
+  noSecretsReturned: true;
+  noBankCredentialsStored: true;
+  noMoneyMovement: true;
+}
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"

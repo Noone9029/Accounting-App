@@ -56,6 +56,7 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
       { key: "purchase.bill.list" },
       { key: "purchase.debitNote.list" },
       { key: "purchase.supplierPayment.list" },
+      { key: "purchase.supplierPayoutRequest.list" },
       { key: "purchase.apDashboard" },
       { key: "purchase.order.list" },
       { key: "purchase.return.list" },

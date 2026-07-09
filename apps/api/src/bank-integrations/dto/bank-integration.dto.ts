@@ -1,5 +1,5 @@
 import { BankBeneficiaryMappingStatus, BankIntegrationProvider, BankPaymentRequestStatus, BankStatementTransactionType } from "@prisma/client";
-import { IsArray, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested, IsNumberString } from "class-validator";
+import { IsArray, IsDateString, IsEnum, IsIn, IsNumberString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateBankConnectionDto {
@@ -144,6 +144,32 @@ export class CreateBankPaymentRequestDto {
   @IsString()
   @Length(0, 240)
   memo?: string;
+}
+
+export class ListBankPaymentRequestsDto {
+  @IsOptional()
+  @IsEnum(BankPaymentRequestStatus)
+  status?: BankPaymentRequestStatus;
+
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  purchaseBillId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  @IsOptional()
+  @IsIn(["ANY", "UNRECONCILED", "RECONCILED", "FEED", "STATEMENT"])
+  reconciliationState?: "ANY" | "UNRECONCILED" | "RECONCILED" | "FEED" | "STATEMENT";
 }
 
 export class UpdateBankPaymentRequestStatusDto {

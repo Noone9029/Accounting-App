@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -12,6 +12,7 @@ import { BankIntegrationService } from "./bank-integration.service";
 import {
   CreateBankConnectionDto,
   CreateBankPaymentRequestDto,
+  ListBankPaymentRequestsDto,
   ManualExternalReleaseDto,
   ReconcileBankPaymentRequestDto,
   RecordMockFeedSyncDto,
@@ -107,8 +108,14 @@ export class BankIntegrationController {
 
   @Get("vendor-payment-requests")
   @RequirePermissions(PERMISSIONS.bankIntegrations.vendorPaymentCreate, PERMISSIONS.bankIntegrations.vendorPaymentApprove)
-  listPaymentRequests(@CurrentOrganizationId() organizationId: string) {
-    return this.bankIntegrationService.listPaymentRequests(organizationId);
+  listPaymentRequests(@CurrentOrganizationId() organizationId: string, @Query() query: ListBankPaymentRequestsDto) {
+    return this.bankIntegrationService.listPaymentRequests(organizationId, query);
+  }
+
+  @Get("vendor-payment-requests/:id")
+  @RequirePermissions(PERMISSIONS.bankIntegrations.vendorPaymentCreate, PERMISSIONS.bankIntegrations.vendorPaymentApprove, PERMISSIONS.bankIntegrations.vendorPaymentReconcile)
+  getPaymentRequest(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.bankIntegrationService.getPaymentRequest(organizationId, id);
   }
 
   @Post("vendor-payment-requests")
