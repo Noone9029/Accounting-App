@@ -138,7 +138,7 @@ describe("BankStatementService", () => {
     const tx = {
       bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
     };
-    const { service, prisma } = makeService({
+    const { service, prisma, audit } = makeService({
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     });
 
@@ -236,6 +236,46 @@ describe("BankStatementService", () => {
       validRows: [expect.objectContaining({ description: "Receipt", reference: "PAY-1", type: BankStatementTransactionType.CREDIT })],
       invalidRows: [],
     });
+  });
+
+  it("audits import preview with safe counts and warning codes only", async () => {
+    const { service, audit } = makeService();
+
+    await expect(
+      service.previewImport(
+        "org-1",
+        "profile-1",
+        {
+          filename: "preview-sensitive.csv",
+          csvText:
+            "date,description,reference,bankReference,debit,credit,counterparty,currency\n2026-05-13,Receipt AE070331234567890123456,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR\n2026-05-13,Receipt AE070331234567890123456,PAY-1,BANK-REF-1,0.0000,50.0000,Customer LLC,SAR",
+        },
+        "user-1",
+      ),
+    ).resolves.toMatchObject({
+      summary: expect.objectContaining({ sourceRowCount: 2, duplicateInFileCount: 1 }),
+    });
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "PREVIEW_IMPORT",
+        entityType: "BankStatementImport",
+        entityId: "profile-1",
+        actorUserId: "user-1",
+        after: expect.objectContaining({
+          mode: "preview",
+          sourceRowCount: 2,
+          importedRowCount: 0,
+          duplicateInFileCount: 1,
+          rawRowsStoredInAudit: false,
+          noLiveBankProviderCalls: true,
+        }),
+      }),
+    );
+    const auditText = JSON.stringify(audit.log.mock.calls);
+    expect(auditText).toContain("DUPLICATE_IN_FILE");
+    expect(auditText).not.toContain("AE070331234567890123456");
+    expect(auditText).not.toContain("Customer LLC");
   });
 
   it("previews XLSX statement imports with source metadata without writing to the database", async () => {
@@ -464,7 +504,7 @@ describe("BankStatementService", () => {
     const tx = {
       bankStatementImport: { create: jest.fn().mockResolvedValue(createdImport) },
     };
-    const { service, prisma } = makeService({
+    const { service, prisma, audit } = makeService({
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     });
     prisma.bankStatementTransaction.findMany.mockResolvedValue([
@@ -502,6 +542,22 @@ describe("BankStatementService", () => {
         }),
       }),
     );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "IMPORT",
+        after: expect.objectContaining({
+          mode: "commit",
+          sourceRowCount: 2,
+          importedRowCount: 1,
+          skippedRowCount: 1,
+          duplicateExistingCount: 1,
+          rawRowsStoredInAudit: false,
+        }),
+      }),
+    );
+    const auditText = JSON.stringify(audit.log.mock.calls);
+    expect(auditText).not.toContain("BANK-REF-1");
+    expect(auditText).not.toContain("Customer LLC");
   });
 
   it("warns for open reconciliation overlap without blocking preview", async () => {

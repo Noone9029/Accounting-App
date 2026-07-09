@@ -152,11 +152,39 @@ export class BankStatementService {
     });
   }
 
-  async previewImport(organizationId: string, bankAccountProfileId: string, dto: PreviewBankStatementImportDto) {
+  async previewImport(organizationId: string, bankAccountProfileId: string, dto: PreviewBankStatementImportDto, actorUserId?: string) {
     const profile = await this.findProfile(organizationId, bankAccountProfileId, { requireActive: true });
     const filename = this.requiredText(dto.filename, "Filename");
     const parsed = await parseBankStatementImportInput(dto);
     const validation = await this.validateImportRows(organizationId, profile.id, profile.currency, parsed.rows);
+    const summary = this.importValidationSummary(parsed.rows.length, validation, validation.validRows.length);
+
+    if (actorUserId) {
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "PREVIEW_IMPORT",
+        entityType: "BankStatementImport",
+        entityId: profile.id,
+        after: this.safeImportAuditSummary({
+          sourceRowCount: parsed.rows.length,
+          importedRowCount: 0,
+          skippedRowCount: 0,
+          invalidRowCount: validation.invalidRows.length,
+          duplicateInFileCount: validation.duplicateInFileRowNumbers.length,
+          duplicateExistingCount: validation.duplicateExistingHighConfidenceRowNumbers.length + validation.duplicateExistingPossibleRowNumbers.length,
+          blockedByClosedReconciliationCount: validation.closedPeriodRowNumbers.length,
+          openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
+          currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
+          totalCredits: validation.totalCredits.toFixed(4),
+          totalDebits: validation.totalDebits.toFixed(4),
+          sourceFormat: parsed.format,
+          sourceSheetName: parsed.sourceSheetName ?? null,
+          rowWarnings: validation.rowWarnings,
+          mode: "preview",
+        }),
+      });
+    }
 
     return {
       filename,
@@ -170,7 +198,7 @@ export class BankStatementService {
       sourceSheetName: parsed.sourceSheetName ?? null,
       warnings: [...parsed.warnings, ...validation.warnings],
       rowWarnings: validation.rowWarnings,
-      summary: this.importValidationSummary(parsed.rows.length, validation, validation.validRows.length),
+      summary,
     };
   }
 
@@ -246,34 +274,36 @@ export class BankStatementService {
       }),
     );
 
+    const importSummary = {
+      sourceRowCount: parsed.rows.length,
+      importedRowCount: rows.length,
+      skippedRowCount: parsed.rows.length - rows.length,
+      invalidRowCount: validation.invalidRows.length,
+      duplicateInFileCount: validation.duplicateInFileRowNumbers.length,
+      duplicateExistingCount: duplicateExistingRowNumbers.size,
+      blockedByClosedReconciliationCount: validation.closedPeriodRowNumbers.length,
+      openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
+      currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
+      totalCredits: importedTotals.totalCredits.toFixed(4),
+      totalDebits: importedTotals.totalDebits.toFixed(4),
+      sourceFormat: parsed.format,
+      sourceSheetName: parsed.sourceSheetName ?? null,
+      warnings: [...parsed.warnings, ...validation.warnings],
+      rowWarnings: validation.rowWarnings,
+    };
+
     await this.auditLogService.log({
       organizationId,
       actorUserId,
       action: "IMPORT",
       entityType: "BankStatementImport",
       entityId: created.id,
-      after: created,
+      after: this.safeImportAuditSummary({ mode: "commit", ...importSummary }),
     });
     return {
       ...created,
       invalidRows: dto.allowPartial ? validation.invalidRows : [],
-      importSummary: {
-        sourceRowCount: parsed.rows.length,
-        importedRowCount: rows.length,
-        skippedRowCount: parsed.rows.length - rows.length,
-        invalidRowCount: validation.invalidRows.length,
-        duplicateInFileCount: validation.duplicateInFileRowNumbers.length,
-        duplicateExistingCount: duplicateExistingRowNumbers.size,
-        blockedByClosedReconciliationCount: validation.closedPeriodRowNumbers.length,
-        openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
-        currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
-        totalCredits: importedTotals.totalCredits.toFixed(4),
-        totalDebits: importedTotals.totalDebits.toFixed(4),
-        sourceFormat: parsed.format,
-        sourceSheetName: parsed.sourceSheetName ?? null,
-        warnings: [...parsed.warnings, ...validation.warnings],
-        rowWarnings: validation.rowWarnings,
-      },
+      importSummary,
     };
   }
 
@@ -1120,6 +1150,49 @@ export class BankStatementService {
       openReconciliationOverlapCount: validation.openPeriodRowNumbers.length,
       currencyMismatchCount: validation.currencyMismatchRowNumbers.length,
       blockedRowCount,
+    };
+  }
+
+  private safeImportAuditSummary(input: {
+    mode: "preview" | "commit";
+    sourceRowCount: number;
+    importedRowCount: number;
+    skippedRowCount: number;
+    invalidRowCount: number;
+    duplicateInFileCount: number;
+    duplicateExistingCount: number;
+    blockedByClosedReconciliationCount: number;
+    openReconciliationOverlapCount: number;
+    currencyMismatchCount: number;
+    totalCredits: string;
+    totalDebits: string;
+    sourceFormat: string;
+    sourceSheetName: string | null;
+    rowWarnings: StatementImportRowWarning[];
+  }) {
+    return {
+      mode: input.mode,
+      sourceRowCount: input.sourceRowCount,
+      importedRowCount: input.importedRowCount,
+      skippedRowCount: input.skippedRowCount,
+      invalidRowCount: input.invalidRowCount,
+      duplicateInFileCount: input.duplicateInFileCount,
+      duplicateExistingCount: input.duplicateExistingCount,
+      blockedByClosedReconciliationCount: input.blockedByClosedReconciliationCount,
+      openReconciliationOverlapCount: input.openReconciliationOverlapCount,
+      currencyMismatchCount: input.currencyMismatchCount,
+      totalCredits: input.totalCredits,
+      totalDebits: input.totalDebits,
+      sourceFormat: input.sourceFormat,
+      sourceSheetName: input.sourceSheetName,
+      rowWarningSummary: input.rowWarnings.map((warning) => ({
+        rowNumber: warning.rowNumber,
+        code: warning.code,
+        severity: warning.severity,
+      })),
+      rawRowsStoredInAudit: false,
+      noBankCredentialsStored: true,
+      noLiveBankProviderCalls: true,
     };
   }
 
