@@ -30,6 +30,7 @@ import { OrganizationMemberController } from "./organization-members/organizatio
 import { OrganizationMemberService } from "./organization-members/organization-member.service";
 import { OrganizationController } from "./organizations/organization.controller";
 import { OrganizationService } from "./organizations/organization.service";
+import { ObservabilityContextService } from "./observability/observability-context.service";
 import { PrismaService } from "./prisma/prisma.service";
 import { PurchaseBillController } from "./purchase-bills/purchase-bill.controller";
 import { PurchaseBillService } from "./purchase-bills/purchase-bill.service";
@@ -115,6 +116,7 @@ describe("tenant isolation HTTP integration", () => {
         JwtAuthGuard,
         OrganizationContextGuard,
         PermissionGuard,
+        ObservabilityContextService,
         { provide: ConfigService, useValue: config },
         { provide: JwtService, useValue: jwtService },
         { provide: AuthSessionService, useValue: authSessionService },
