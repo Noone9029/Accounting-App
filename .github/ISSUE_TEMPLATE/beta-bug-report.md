@@ -17,11 +17,14 @@ assignees: ""
 
 - Browser/device:
 - Route/page:
-- Workflow step:
-- Beta organization/test account identifier:
+- Date, time, and timezone:
+- User role:
+- Beta tenant/organization identifier:
+- Request ID or support reference, if available:
 
 ## Issue
 
+- User action immediately before the issue:
 - Expected behavior:
 - Actual behavior:
 - Reproduction steps:
@@ -40,4 +43,6 @@ assignees: ""
 ## Evidence
 
 - Redacted screenshot/video reference:
+- Redacted log reference:
+- Request ID source: error panel / response header / Vercel log / unavailable
 - Notes:

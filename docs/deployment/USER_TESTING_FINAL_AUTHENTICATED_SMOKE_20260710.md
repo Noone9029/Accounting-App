@@ -111,6 +111,33 @@ No bearer-token interception was used for this final smoke.
 - No payment link, bank sync, payout release, email send, OCR extraction, storage write, import commit, compliance execution, or money movement occurred.
 - Cookie behavior was verified with the current automated Chromium runtime. Browser privacy policies that block cross-site cookies may require a shared-site/custom-domain or same-origin proxy architecture before production use.
 
+## Controlled Beta Tester Package
+
+The post-deploy controlled-beta package is maintained in:
+
+- [Controlled beta tester checklist](../beta-testing/CONTROLLED_BETA_TESTER_CHECKLIST_20260710.md)
+- [Controlled beta known limitations](../beta-testing/CONTROLLED_BETA_KNOWN_LIMITATIONS_20260710.md)
+- [Controlled beta issue triage template](../beta-testing/CONTROLLED_BETA_ISSUE_TRIAGE_TEMPLATE_20260710.md)
+- [Controlled beta support and debug guide](../beta-testing/CONTROLLED_BETA_SUPPORT_DEBUG_GUIDE_20260710.md)
+
+These documents do not expand the deployment proof or enable any provider, compliance, storage, migration, or money-movement behavior.
+
+## Post-Documentation Beta Stabilization Smoke
+
+After the controlled-beta tester package was added, a second read-only pass was run against the unchanged stable aliases:
+
+- API `/`, `/health`, and `/readiness`: 200
+- Web `/` and `/login`: 200
+- Normal browser `POST /auth/login`: 201
+- Cookie-authenticated `GET /auth/me`: 200
+- Dashboard redirect and assigned organization selection: passed
+- Protected web routes: 15 of 15 returned 200
+- Protected API GET routes: 15 of 15 returned 200
+- Browser page exceptions: 0
+- Browser console errors: 0
+
+The protected pass covered dashboard, customers, suppliers, sales invoices, purchase bills, document inbox, reports, report packs, settings/readiness, and import/export surfaces. It used navigation and GET requests only after login. No record creation, finalization, payment, payout, import commit, provider action, email, OCR, storage write, compliance execution, or money movement was triggered.
+
 ## Conclusion
 
 The canonical API and web aliases resolve to READY deployments. Public API health/readiness passes, normal browser cookie authentication completes, `/auth/me` returns 200 after UI login, the dashboard loads as authenticated, and every requested protected GET/read-only web and API surface passed without browser runtime or console errors.
