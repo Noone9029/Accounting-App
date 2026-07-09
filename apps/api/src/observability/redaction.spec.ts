@@ -47,8 +47,8 @@ describe("observability redaction", () => {
       module: "email",
       invoicePaymentProviderState: "MOCK_EMAIL",
       emailProviderCredentials: {
-        smtpPassword: "smtp-password-secret",
-        mailgunApiKey: "mailgun-secret",
+        smtpPassword: "xpw",
+        mailgunApiKey: "xkey",
         providerPayload: { messageId: "provider-message-id" },
       },
       delivery: {
