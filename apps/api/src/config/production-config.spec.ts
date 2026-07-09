@@ -62,10 +62,44 @@ describe("production configuration hardening", () => {
     expect(serialized).not.toContain(SMTP_PRIVATE_FIXTURE);
   });
 
+  it("uses NODE_ENV when APP_ENV is absent", () => {
+    expect(resolveRuntimeEnvironment({ NODE_ENV: "production" })).toEqual({
+      appEnvironment: "production",
+      nodeEnvironment: "production",
+      productionLike: true,
+    });
+  });
+
+  it("uses NODE_ENV when APP_ENV is empty", () => {
+    expect(resolveRuntimeEnvironment({ APP_ENV: "", NODE_ENV: "production" })).toEqual({
+      appEnvironment: "production",
+      nodeEnvironment: "production",
+      productionLike: true,
+    });
+  });
+
+  it("uses NODE_ENV when APP_ENV contains only whitespace", () => {
+    expect(resolveRuntimeEnvironment({ APP_ENV: "   ", NODE_ENV: "production" })).toEqual({
+      appEnvironment: "production",
+      nodeEnvironment: "production",
+      productionLike: true,
+    });
+  });
+
+  it("respects a valid APP_ENV when it is present", () => {
+    expect(resolveRuntimeEnvironment({ APP_ENV: "beta", NODE_ENV: "production" })).toEqual({
+      appEnvironment: "beta",
+      nodeEnvironment: "production",
+      productionLike: true,
+    });
+  });
+
   it("rejects ambiguous or missing runtime environment values", () => {
     expect(() => resolveRuntimeEnvironment({})).toThrow("APP_ENV or NODE_ENV must be explicitly set");
+    expect(() => resolveRuntimeEnvironment({ APP_ENV: "   ", NODE_ENV: "   " })).toThrow("APP_ENV or NODE_ENV must be explicitly set");
     expect(() => resolveRuntimeEnvironment({ APP_ENV: "local", NODE_ENV: "production" })).toThrow("classify different production-safety modes");
     expect(() => resolveRuntimeEnvironment({ APP_ENV: "demo", NODE_ENV: "development" })).toThrow("must be one of");
+    expect(() => resolveRuntimeEnvironment({ NODE_ENV: "demo" })).toThrow("must be one of");
   });
 
   it("rejects weak or default secrets in production-like modes", () => {
