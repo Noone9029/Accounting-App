@@ -1,6 +1,15 @@
 import { createCsrfProtectionMiddleware, createSecurityHeadersMiddleware, isCorsOriginAllowed, readCorsOrigin } from "./app-bootstrap";
+import { resolveRuntimeEnvironment } from "./config/production-config";
 
 describe("app bootstrap", () => {
+  it("accepts Vercel-like NODE_ENV without APP_ENV", () => {
+    expect(resolveRuntimeEnvironment({ NODE_ENV: "production" })).toMatchObject({
+      appEnvironment: "production",
+      nodeEnvironment: "production",
+      productionLike: true,
+    });
+  });
+
   it("defaults CORS to localhost web development", () => {
     expect(readCorsOrigin(undefined)).toBe("http://localhost:3000");
   });

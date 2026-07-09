@@ -191,7 +191,7 @@ export function resolveRuntimeEnvironment(config: EnvSource): RuntimeEnvironment
     throw new Error("APP_ENV or NODE_ENV must be explicitly set to local, test, staging, beta, or production.");
   }
 
-  const appEnvironment = normalizeAppEnvironment(appEnvRaw ?? nodeEnvRaw);
+  const appEnvironment = normalizeAppEnvironment(appEnvRaw || nodeEnvRaw);
   const nodeEnvironment = nodeEnvRaw ? normalizeNodeEnvironment(nodeEnvRaw) : appEnvironment === "test" ? "test" : appEnvironment === "local" ? "development" : "production";
   const nodeAsAppEnvironment = nodeEnvRaw ? normalizeAppEnvironment(nodeEnvRaw) : appEnvironment;
   const appProductionLike = PRODUCTION_LIKE_ENVS.has(appEnvironment);
