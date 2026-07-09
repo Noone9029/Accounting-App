@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { BackupReadinessService } from "./backup-readiness.service";
+import { ConfigReadinessService } from "./config-readiness.service";
 import { CreateBackupRestoreEvidenceDto } from "./dto/create-backup-restore-evidence.dto";
 import { RevokeBackupRestoreEvidenceDto } from "./dto/revoke-backup-restore-evidence.dto";
 import { VerifyBackupRestoreEvidenceDto } from "./dto/verify-backup-restore-evidence.dto";
@@ -15,7 +16,16 @@ import { VerifyBackupRestoreEvidenceDto } from "./dto/verify-backup-restore-evid
 @Controller("system")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class SystemController {
-  constructor(private readonly backupReadinessService: BackupReadinessService) {}
+  constructor(
+    private readonly backupReadinessService: BackupReadinessService,
+    private readonly configReadinessService: ConfigReadinessService,
+  ) {}
+
+  @Get("config-readiness")
+  @RequirePermissions(PERMISSIONS.auditLogs.manageRetention)
+  configReadiness() {
+    return this.configReadinessService.read();
+  }
 
   @Get("backup-readiness")
   @RequirePermissions(PERMISSIONS.auditLogs.manageRetention)
