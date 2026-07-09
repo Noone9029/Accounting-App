@@ -5,11 +5,13 @@ import {
   OWNER_APPROVAL_PHRASE,
   STATUS_BACKUP_CREATED,
   STATUS_BLOCKED_UNSAFE_TARGET,
+  STATUS_FIXTURE_PREPARED,
   STATUS_PLAN_READY,
   STATUS_RESTORE_COMPLETED,
   STATUS_RESTORE_VERIFIED,
   buildEvidenceReport,
   createBackup,
+  prepareLocalDrillDatabases,
   restoreBackup,
   verifyRestore,
   writeEvidenceFiles,
@@ -23,11 +25,12 @@ interface CliArgs {
   evidenceDir?: string;
   backupFile?: string;
   backupOutputDir?: string;
+  prepareFixture: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const parsed: CliArgs = { mode: "plan", execute: false, json: false, help: false };
+  const parsed: CliArgs = { mode: "plan", execute: false, json: false, prepareFixture: false, help: false };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -46,6 +49,10 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (arg === "--json") {
       parsed.json = true;
+      continue;
+    }
+    if (arg === "--prepare-fixture") {
+      parsed.prepareFixture = true;
       continue;
     }
     if (arg === "--evidence-dir") {
@@ -83,11 +90,14 @@ function usage(): string {
     "  corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode backup --execute --backup-output-dir artifacts/dr/backups",
     "  corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode restore --execute --backup-file artifacts/dr/backups/<file>.dump",
     "  corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode verify --execute",
+    "  corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode drill --execute --prepare-fixture --backup-output-dir artifacts/dr/backups --evidence-dir artifacts/dr",
     "",
     "Execution modes require:",
     `  ${LOCAL_DRILL_APPROVAL_ENV}=${OWNER_APPROVAL_PHRASE}`,
     "  LEDGERBYTE_DR_SOURCE_DATABASE_URL for backup/drill",
     "  LEDGERBYTE_DR_RESTORE_DATABASE_URL for restore/verify/drill",
+    "  Optional LEDGERBYTE_DR_ADMIN_DATABASE_URL for --prepare-fixture; otherwise the source URL is rewritten to the postgres database.",
+    "  Optional LEDGERBYTE_DR_PG_TOOLS=docker-compose and LEDGERBYTE_DR_PG_DOCKER_COMPOSE_FILE=infra/docker-compose.yml when local pg tools are not installed.",
     "",
     "Hosted, production, beta, staging, and non-disposable restore targets are blocked.",
   ].join("\n");
@@ -112,6 +122,7 @@ function main(): void {
     mode: args.mode,
     sourceDatabaseUrl: process.env.LEDGERBYTE_DR_SOURCE_DATABASE_URL,
     restoreDatabaseUrl: process.env.LEDGERBYTE_DR_RESTORE_DATABASE_URL,
+    adminDatabaseUrl: process.env.LEDGERBYTE_DR_ADMIN_DATABASE_URL,
     backupFile: args.backupFile,
     backupOutputDir: args.backupOutputDir,
     gitCommit: readGitCommit(),
@@ -128,6 +139,9 @@ function main(): void {
     if (args.mode !== "plan" && !args.execute) {
       status = STATUS_BLOCKED_UNSAFE_TARGET;
       blockers.push("Execution mode requested without --execute. No backup, restore, or verification command was run.");
+    } else if (args.prepareFixture && args.mode !== "drill") {
+      status = STATUS_BLOCKED_UNSAFE_TARGET;
+      blockers.push("--prepare-fixture is only supported with --mode drill.");
     } else if (args.mode === "backup") {
       backup = createBackup(input);
       status = STATUS_BACKUP_CREATED;
@@ -138,6 +152,10 @@ function main(): void {
       verification = verifyRestore(input);
       status = verification.passed ? STATUS_RESTORE_VERIFIED : STATUS_BLOCKED_UNSAFE_TARGET;
     } else if (args.mode === "drill") {
+      if (args.prepareFixture) {
+        prepareLocalDrillDatabases(input);
+        status = STATUS_FIXTURE_PREPARED;
+      }
       backup = createBackup(input);
       restoreBackup({ ...input, backupFile: backup.absolutePath });
       verification = verifyRestore(input);

@@ -64,17 +64,30 @@ Scope: safe local/mock proof only. This harness validates backup-manifest creati
 - Command family: `corepack pnpm backup:local-postgres-drill -- --mode <plan|backup|restore|verify|drill>`.
 - Default plan mode writes redacted JSON/Markdown evidence only when `--evidence-dir` is provided.
 - Execution modes call local `pg_dump`, `pg_restore`, and `psql` only after target classification passes and the owner approval phrase is present.
+- `--mode drill --execute --prepare-fixture` can create a fully local execution proof against disposable localhost/Docker PostgreSQL databases. It drops/recreates only disposable-looking source and restore database names, runs Prisma migrations on the source, seeds local synthetic production-shaped data, backs up the source, restores into the restore database, and verifies the restored data.
 - Required execution approval: `LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL=I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET`.
 - Source database target must be a local PostgreSQL URL and must not look hosted, production, beta, staging, user-testing, or customer-like.
 - Restore database target must be local and disposable-looking; active development database names such as `accounting` are not accepted as restore targets.
+- Fixture-preparation source targets must also be disposable-looking. The local development `accounting` database is not used as a seed source and is not dropped by the drill.
+- When Windows does not have PostgreSQL client tools installed, set `LEDGERBYTE_DR_PG_TOOLS=docker-compose` and `LEDGERBYTE_DR_PG_DOCKER_COMPOSE_FILE=infra/docker-compose.yml` to execute PostgreSQL tools inside the local compose `postgres` service.
 - Restore verification coverage includes:
-  - core accounting tables,
+  - seeded organizations/tenants and users,
+  - seeded accounting tables and records,
   - Prisma migration history,
-  - tenant-scoped organization/account counts,
-  - nullable `requestId` on `AuditLog`, `GeneratedDocument`, `DocumentExtractionResult`, `DocumentReviewDecision`, and `PaymentProviderEvent`,
-  - `InvoicePaymentLink` records if present.
+  - tenant-scoped organization/account counts and a no-cross-tenant journal-line/account check,
+  - nullable and non-null `requestId` on `AuditLog`, `GeneratedDocument`, `DocumentExtractionResult`, `DocumentReviewDecision`, and `PaymentProviderEvent`,
+  - seeded `InvoicePaymentLink` records.
 - Evidence output includes timestamp, git commit, sanitized source/restore classifications, backup filename/checksum/size when a backup is created, verification checks, pass/fail status, and hosted/prod mutation blocking status.
 - Evidence output does not include database URLs, passwords, tokens, provider payloads, document bodies, PDFs, XML contents, storage credentials, or raw private/customer data.
+
+## Evidence Boundaries
+
+- Plan-mode evidence proves only that the local guardrails and planned verification list are configured.
+- Executed local drill evidence proves only local PostgreSQL dump/restore mechanics against disposable localhost/Docker databases and seeded synthetic data.
+- Hosted production recovery remains unproven.
+- Hosted PITR remains unproven.
+- Object-storage backup and recovery remain unproven.
+- RPO/RTO remains unapproved and must not be inferred from local drill duration.
 
 ## Synthetic-Data-Only Boundary
 
