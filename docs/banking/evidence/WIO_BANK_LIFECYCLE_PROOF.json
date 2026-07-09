@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-07-08T00:00:00.000Z",
+  "gitCommit": "d9c24c2f",
+  "sourceBase": "codex/wio-bank-integration-readiness",
+  "proofScope": "local-test-only",
+  "provider": "MOCK_WIO",
+  "result": "PASS",
+  "lifecycle": {
+    "connectionStatus": "READY_FOR_MOCK",
+    "feedAccountStatus": "SYNCED",
+    "syncRunStatus": "SYNCED",
+    "feedTransactionCount": 1,
+    "beneficiaryMappingStatus": "MAPPED",
+    "paymentRequestStatuses": ["DRAFT", "APPROVED", "RELEASE_BLOCKED", "RELEASED_EXTERNALLY", "RECONCILED"],
+    "releaseAttempted": false,
+    "externalReleaseRecordedOnly": true,
+    "reconciliationLinked": true
+  },
+  "counts": {
+    "organizationsSeeded": 2,
+    "suppliersSeeded": 2,
+    "purchaseBillsSeeded": 2,
+    "bankConnections": 1,
+    "bankFeedAccounts": 1,
+    "bankFeedSyncRuns": 1,
+    "bankFeedTransactions": 1,
+    "beneficiaryMappings": 1,
+    "paymentRequests": 1,
+    "auditEvents": 8,
+    "requestIdsCaptured": 8
+  },
+  "tenantIsolation": {
+    "crossTenantSupplierBlocked": true,
+    "crossTenantFeedTransactionBlocked": true,
+    "tenantBRecordsHiddenFromTenantAList": true
+  },
+  "auditTrail": [
+    { "action": "BANK_CONNECTION_CREATED", "entityType": "BankConnection", "hasRequestId": true },
+    { "action": "BANK_MOCK_SYNC_RECORDED", "entityType": "BankFeedSyncRun", "hasRequestId": true },
+    { "action": "BANK_BENEFICIARY_MAPPING_CREATED", "entityType": "BankBeneficiaryMapping", "hasRequestId": true },
+    { "action": "BANK_PAYMENT_REQUEST_CREATED", "entityType": "BankPaymentRequest", "hasRequestId": true },
+    { "action": "BANK_PAYMENT_REQUEST_APPROVED", "entityType": "BankPaymentRequest", "hasRequestId": true },
+    { "action": "BANK_PAYMENT_RELEASE_BLOCKED", "entityType": "BankPaymentRequest", "hasRequestId": true },
+    { "action": "BANK_PAYMENT_REQUEST_EXTERNALLY_RELEASED", "entityType": "BankPaymentRequest", "hasRequestId": true },
+    { "action": "BANK_PAYMENT_REQUEST_RECONCILED", "entityType": "BankPaymentRequest", "hasRequestId": true }
+  ],
+  "safety": {
+    "noRealWioApiCalls": true,
+    "noRealMoneyMovement": true,
+    "noBankCredentialsStored": true,
+    "noHostedMutation": true,
+    "rawProviderPayloadsStored": false,
+    "rawBankDetailsIncluded": false,
+    "zatcaOrUaeComplianceTouched": false
+  }
+}
