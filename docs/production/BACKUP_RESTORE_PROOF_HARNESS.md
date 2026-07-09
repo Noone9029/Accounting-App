@@ -59,6 +59,23 @@ Scope: safe local/mock proof only. This harness validates backup-manifest creati
   - verifies manifest version, artifact type, created-at format, source mode, checksum, and record counts,
   - removes the temp artifact directory by default after verification.
 
+## Local PostgreSQL Drill Groundwork - 2026-07-08
+
+- Command family: `corepack pnpm backup:local-postgres-drill -- --mode <plan|backup|restore|verify|drill>`.
+- Default plan mode writes redacted JSON/Markdown evidence only when `--evidence-dir` is provided.
+- Execution modes call local `pg_dump`, `pg_restore`, and `psql` only after target classification passes and the owner approval phrase is present.
+- Required execution approval: `LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL=I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET`.
+- Source database target must be a local PostgreSQL URL and must not look hosted, production, beta, staging, user-testing, or customer-like.
+- Restore database target must be local and disposable-looking; active development database names such as `accounting` are not accepted as restore targets.
+- Restore verification coverage includes:
+  - core accounting tables,
+  - Prisma migration history,
+  - tenant-scoped organization/account counts,
+  - nullable `requestId` on `AuditLog`, `GeneratedDocument`, `DocumentExtractionResult`, `DocumentReviewDecision`, and `PaymentProviderEvent`,
+  - `InvoicePaymentLink` records if present.
+- Evidence output includes timestamp, git commit, sanitized source/restore classifications, backup filename/checksum/size when a backup is created, verification checks, pass/fail status, and hosted/prod mutation blocking status.
+- Evidence output does not include database URLs, passwords, tokens, provider payloads, document bodies, PDFs, XML contents, storage credentials, or raw private/customer data.
+
 ## Synthetic-Data-Only Boundary
 
 - Record families:
@@ -91,6 +108,9 @@ Scope: safe local/mock proof only. This harness validates backup-manifest creati
 - Real non-production object-storage restore proof.
 - RPO/RTO review and owner sign-off.
 - Monitoring and alerting for stale or failed backups.
+- Regularly scheduled restore drills with approved RPO/RTO targets.
+- A provider decision for production backup retention, PITR, immutable backup storage, and alert ownership.
+- Object-storage backup and restore plan for attachments and generated documents.
 
 ## Next Implementation Ticket
 

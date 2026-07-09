@@ -16,6 +16,25 @@ LedgerByte now has a metadata-only backup and restore readiness surface for cont
 - This harness is synthetic-only and temp-directory-only. It does not run `pg_dump`, `pg_restore`, Supabase PITR, object-storage export/import, or any real customer-data restore path.
 - This harness does not replace hosted backup/PITR proof, hosted restore-drill proof, object-storage backup proof, or object-storage restore proof.
 
+## 2026-07-08 Local PostgreSQL Drill Groundwork
+
+- `apps/api/src/disaster-recovery/local-postgres-drill.ts` and `apps/api/scripts/local-postgres-drill.ts` add local PostgreSQL backup/restore drill tooling.
+- Package scripts:
+  - `corepack pnpm backup:local-postgres-drill -- --mode plan --json --evidence-dir artifacts/backup-restore-drill`
+  - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode backup --execute --backup-output-dir artifacts/backup-restore-drill/backups`
+  - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode restore --execute --backup-file artifacts/backup-restore-drill/backups/<file>.dump`
+  - `corepack pnpm --filter @ledgerbyte/api backup:local-postgres-drill -- --mode verify --execute`
+- Execution modes require:
+  - `LEDGERBYTE_DR_SOURCE_DATABASE_URL` for backup/drill,
+  - `LEDGERBYTE_DR_RESTORE_DATABASE_URL` for restore/verify/drill,
+  - `LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL=I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET`.
+- The classifier blocks hosted, remote, production, beta, staging, user-testing, customer-looking, and non-PostgreSQL targets.
+- Restore execution is additionally blocked unless the restore database is local and disposable-looking, such as a database name containing `restore`, `drill`, `disposable`, `tmp`, `temp`, `test`, or `local`.
+- Backup output is limited to `artifacts/` or the OS temp directory and reports filename, SHA-256 checksum, size, and sanitized target classification.
+- Restore verification checks core accounting tables, Prisma migration history, tenant-scoped counts, nullable `requestId` coverage on audit/generated-document/document-inbox/payment-provider records, and invoice payment-link table restoration if present.
+- Evidence output can be generated as redacted JSON and Markdown. It never includes database URLs, passwords, tokens, provider payloads, document bodies, PDFs, XML contents, private data, or raw customer data.
+- This tooling still does not prove hosted production recovery, hosted PITR, object-storage recovery, RPO/RTO approval, or disaster-recovery readiness.
+
 ## Current Storage Story
 
 - Database: Supabase/Postgres is the intended production database, with Prisma migrations as the application schema history.
