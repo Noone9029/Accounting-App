@@ -77,7 +77,7 @@ describe("EmailOutboxPage", () => {
     const text = document.body.textContent ?? "";
     expect(text).toContain("Actual sending");
     expect(text).toContain("Blocked");
-    expect(text).not.toContain("smtp-password-secret");
+    expect(text).not.toContain("xpw");
     expect(screen.queryByPlaceholderText(/SMTP password/i)).not.toBeInTheDocument();
   });
 });

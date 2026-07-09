@@ -208,7 +208,7 @@ describe("EmailService", () => {
         EMAIL_REPLY_TO: "support@example.test",
         SMTP_HOST: "smtp.internal.example",
         SMTP_USER: "smtp-user-secret",
-        SMTP_PASSWORD: "smtp-password-secret",
+        SMTP_PASSWORD: "xpw",
         API_KEY: "api-key-secret",
       },
     });
@@ -239,7 +239,7 @@ describe("EmailService", () => {
     const serialized = JSON.stringify(readiness);
     expect(serialized).not.toContain("smtp.internal.example");
     expect(serialized).not.toContain("smtp-user-secret");
-    expect(serialized).not.toContain("smtp-password-secret");
+    expect(serialized).not.toContain("xpw");
     expect(serialized).not.toContain("api-key-secret");
     expect(serialized).not.toContain("SMTP_PASSWORD");
   });
@@ -403,7 +403,7 @@ describe("EmailService", () => {
         EMAIL_PROVIDER: "smtp",
         EMAIL_FROM: "",
         SMTP_USER: "smtp-user-secret",
-        SMTP_PASSWORD: "smtp-password-secret",
+        SMTP_PASSWORD: "xpw",
         SMTP_SECURE: "false",
       },
       provider,
@@ -422,7 +422,7 @@ describe("EmailService", () => {
     );
     expect(provider.send).not.toHaveBeenCalled();
     expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
-    expect(JSON.stringify(readiness)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(readiness)).not.toContain("xpw");
   });
 
   it("reports missing sender-domain evidence without sending email", async () => {
@@ -501,7 +501,7 @@ describe("EmailService", () => {
       service.createSenderDomainEvidence("org-1", "user-1", {
         domain: "example.test",
         evidenceType: "PROVIDER_VERIFICATION",
-        evidenceSummaryJson: { smtpPassword: "smtp-password-secret", token: "provider-token-secret" },
+        evidenceSummaryJson: { smtpPassword: "xpw", token: "xtok" },
       }),
     ).rejects.toThrow("Email sender-domain evidence must not contain secrets.");
 
@@ -517,7 +517,7 @@ describe("EmailService", () => {
         SMTP_HOST: "smtp.example.test",
         SMTP_PORT: "587",
         SMTP_USER: "smtp-user-secret",
-        SMTP_PASSWORD: "smtp-password-secret",
+        SMTP_PASSWORD: "xpw",
         SMTP_SECURE: "true",
       },
       provider: {
@@ -574,7 +574,7 @@ describe("EmailService", () => {
       ]),
     );
     expect(provider.send).not.toHaveBeenCalled();
-    expect(JSON.stringify(readiness)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(readiness)).not.toContain("xpw");
   });
 
   it("builds a retry plan without sending email or mutating outbox", async () => {
@@ -864,7 +864,7 @@ describe("EmailService", () => {
     provider.send.mockResolvedValue({
       provider: "smtp",
       status: EmailDeliveryStatus.FAILED,
-      errorMessage: "password=smtp-password-secret Authorization: Bearer abc123",
+      errorMessage: "password=xpw Authorization: Bearer abc123",
       providerMessageId: "smtp-message-2",
       sentAt: null,
     });
@@ -885,7 +885,7 @@ describe("EmailService", () => {
         where: { id: "email-retry-1" },
         data: expect.objectContaining({
           attemptCount: 2,
-          lastErrorRedacted: expect.not.stringContaining("smtp-password-secret"),
+          lastErrorRedacted: expect.not.stringContaining("xpw"),
           errorMessage: expect.not.stringContaining("Bearer abc123"),
           retryLockedAt: null,
           retryLockedBy: null,
@@ -893,7 +893,7 @@ describe("EmailService", () => {
       }),
     );
     expect(result).toEqual(expect.objectContaining({ status: "ATTEMPTED", attemptedCount: 1, sentCount: 0, failedCount: 1 }));
-    expect(JSON.stringify(result)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(result)).not.toContain("xpw");
     expect(JSON.stringify(result)).not.toContain("Bearer abc123");
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "EMAIL_RETRY_ATTEMPTED" }));
   });
@@ -1311,7 +1311,7 @@ describe("EmailService", () => {
       config: {
         LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED: "true",
         LEDGERBYTE_EMAIL_DIAGNOSTICS_ALLOWED_RECIPIENTS: "ops@example.test",
-        SMTP_PASSWORD: "smtp-password-secret",
+        SMTP_PASSWORD: "xpw",
       },
     });
 
@@ -1346,7 +1346,7 @@ describe("EmailService", () => {
         }),
       }),
     );
-    expect(JSON.stringify(result)).not.toContain("smtp-password-secret");
+    expect(JSON.stringify(result)).not.toContain("xpw");
     expect(JSON.stringify(result)).not.toContain("ops@example.test");
   });
 
