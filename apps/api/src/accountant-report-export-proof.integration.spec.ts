@@ -52,6 +52,7 @@ import { GeneratedDocumentController } from "./generated-documents/generated-doc
 import { GeneratedDocumentService } from "./generated-documents/generated-document.service";
 import { AccountingService } from "./accounting/accounting.service";
 import { NumberSequenceService } from "./number-sequences/number-sequence.service";
+import { ObservabilityContextService } from "./observability/observability-context.service";
 import { PrismaService } from "./prisma/prisma.service";
 import { PurchaseBillController } from "./purchase-bills/purchase-bill.controller";
 import { PurchaseBillService } from "./purchase-bills/purchase-bill.service";
@@ -211,6 +212,7 @@ describeReportExportDb("accountant report/export proof: guarded HTTP routes agai
         JwtAuthGuard,
         OrganizationContextGuard,
         PermissionGuard,
+        ObservabilityContextService,
         JwtService,
         AuthSessionService,
         AuthService,
