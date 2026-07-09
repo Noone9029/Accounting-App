@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, LockKeyhole } from "lucide-react";
+import { BookOpen, ExternalLink, Gauge, KeyRound, LockKeyhole, Repeat2 } from "lucide-react";
 import {
   LedgerAlert,
   LedgerButton,
@@ -29,6 +29,49 @@ export default function ApiDocsSettingsPage() {
         <LedgerSummaryBand tone="warning">
           These docs do not mean the API is public production infrastructure. Provider-backed routes remain gated, and UI copy should continue to say beta readiness or provider not configured unless real evidence exists.
         </LedgerSummaryBand>
+
+        <section className="grid gap-4 lg:grid-cols-4">
+          <LedgerPanel>
+            <div className="flex items-start gap-3">
+              <LockKeyhole className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
+              <div>
+                <h2 className="text-sm font-semibold text-ink">Public API v1</h2>
+                <p className="mt-1 text-sm text-steel">Disabled by default. Current proof routes remain authenticated and admin-gated.</p>
+                <LedgerStatusBadge tone="draft">Internal Only</LedgerStatusBadge>
+              </div>
+            </div>
+          </LedgerPanel>
+          <LedgerPanel>
+            <div className="flex items-start gap-3">
+              <Repeat2 className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
+              <div>
+                <h2 className="text-sm font-semibold text-ink">Idempotency</h2>
+                <p className="mt-1 text-sm text-steel">One local proof route stores hashed keys and safe response summaries only.</p>
+                <LedgerStatusBadge tone="info">Ready for Local Proof</LedgerStatusBadge>
+              </div>
+            </div>
+          </LedgerPanel>
+          <LedgerPanel>
+            <div className="flex items-start gap-3">
+              <Gauge className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
+              <div>
+                <h2 className="text-sm font-semibold text-ink">Rate limits</h2>
+                <p className="mt-1 text-sm text-steel">Production-like enablement fails closed without an approved strategy.</p>
+                <LedgerStatusBadge tone="warning">Needs Production Approval</LedgerStatusBadge>
+              </div>
+            </div>
+          </LedgerPanel>
+          <LedgerPanel>
+            <div className="flex items-start gap-3">
+              <KeyRound className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
+              <div>
+                <h2 className="text-sm font-semibold text-ink">API keys and OAuth</h2>
+                <p className="mt-1 text-sm text-steel">Placeholder only. No production API secrets or OAuth clients are issued.</p>
+                <LedgerStatusBadge tone="draft">Disabled</LedgerStatusBadge>
+              </div>
+            </div>
+          </LedgerPanel>
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
           <LedgerWorkflowCard

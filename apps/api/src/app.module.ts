@@ -41,6 +41,7 @@ import { ObservabilityModule } from "./observability/observability.module";
 import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PaymentProviderModule } from "./payments/payment-provider.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { PublicApiModule } from "./public-api/public-api.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
 import { PurchaseMatchingModule } from "./purchase-matching/purchase-matching.module";
@@ -103,6 +104,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     OrganizationMemberModule,
     OrganizationDocumentSettingsModule,
     PaymentProviderModule,
+    PublicApiModule,
     ItemModule,
     WarehouseModule,
     StockMovementModule,
