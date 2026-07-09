@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+## 2026-07-09 - Local CSV import/export toolkit groundwork
+
+- Added tenant-scoped import preview metadata for customers, suppliers, products/services, and chart of accounts, with row validation issues, duplicate detection, explicit reviewed local commit, and safe CSV exports.
+- Added `/settings/import-export` for local templates, preview validation, guarded commit status, unsupported import visibility, and export links.
+- Added docs in `docs/migration-toolkit/LOCAL_CSV_IMPORT_EXPORT.md`.
+- This is local master-data migration groundwork only. It does not prove hosted production migration, hosted PITR, object-storage recovery, RPO/RTO, bank credential migration, provider upload, posted transaction import, ZATCA/UAE compliance, real email, live bank feeds, or production customer-data migration.
+
 ## 2026-07-02 - UAE fake provider sandbox harness added
 
 - UAE-PRE-ASP-ADAPTER-04 adds provider-neutral envelope contract skeletons, sandbox onboarding state-machine helpers, deterministic fake provider submission/status/webhook simulators, provider capability negotiation helpers, and provider error fixtures.

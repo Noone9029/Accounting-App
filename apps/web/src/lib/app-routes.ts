@@ -349,6 +349,17 @@ export const APP_ROUTES = [
   ], {
     sensitivity: ["provider"],
   }),
+  route(
+    "settings.importExport",
+    "Import and export",
+    "/settings/import-export",
+    "settings",
+    "Local CSV templates, preview validation, guarded import commits, and safe master-data exports.",
+    [PERMISSIONS.migrationToolkit.view],
+    {
+      sensitivity: ["storage"],
+    },
+  ),
   route("settings.compliance", "Compliance settings", "/settings/compliance", "settings", "Compliance readiness and provider planning settings.", [
     PERMISSIONS.compliance.view,
   ], {

@@ -51,6 +51,12 @@ const adminSections = [
     status: "Disabled",
   },
   {
+    title: "Import and export",
+    description: "Review local CSV templates, preview validation, guarded import commits, and safe master-data exports.",
+    href: "/settings/import-export",
+    status: "Local toolkit",
+  },
+  {
     title: "Email outbox",
     description: "Review local outbox records where supported. Provider sending remains explicit and bounded.",
     href: "/settings/email-outbox",

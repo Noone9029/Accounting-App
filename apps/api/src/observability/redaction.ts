@@ -1,7 +1,7 @@
 const REDACTED = "[REDACTED]";
 
 const SENSITIVE_KEY_PATTERN =
-  /password|passphrase|token|secret|authorization|cookie|jwt|api[-_]?key|private[-_]?key|signature|stripe[-_]?signature|webhook[-_]?secret|access[-_]?token|refresh[-_]?token|smtp|database[-_]?url|direct[-_]?url|storage[-_]?(key|secret|credential)|provider[-_]?payload|bank[-_]?(credential|secret|token|payload)|customer[-_]?email|email|payment[-_]?method|card|iban|account[-_]?number|routing[-_]?number|beneficiary[-_]?(account|iban)|contentbase64|bodybase64|pdf|xml/i;
+  /password|passphrase|token|secret|authorization|cookie|jwt|api[-_]?key|private[-_]?key|signature|stripe[-_]?signature|webhook[-_]?secret|access[-_]?token|refresh[-_]?token|smtp|database[-_]?url|direct[-_]?url|storage[-_]?(key|secret|credential)|provider[-_]?payload|bank[-_]?(credential|secret|token|payload)|customer[-_]?email|email|payment[-_]?method|card|iban|account[-_]?number|routing[-_]?number|beneficiary[-_]?(account|iban)|import[-_]?(csv|payload|content|body|row|raw)|migration[-_]?(payload|content)|rawjson|normalizedjson|contentbase64|bodybase64|pdf|xml/i;
 
 const SENSITIVE_VALUE_PATTERN =
   /Bearer\s+[A-Za-z0-9._~+/=-]+|sk_(test|live)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|-----BEGIN [A-Z ]+-----|postgres(ql)?:\/\/[^\s]+|AKIA[0-9A-Z]{16}|<\?xml|<Invoice\b|<\w+:Invoice\b/i;
