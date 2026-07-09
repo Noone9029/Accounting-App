@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, ForbiddenException, Get, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { hasAnyPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
@@ -9,7 +9,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import type { AdvancedReportKind, CoreReportKind } from "./report-csv";
-import { ReportDateQuery, ReportPackManifestPreviewQuery, ReportsService } from "./reports.service";
+import { ReportDateQuery, ReportPackCreateInput, ReportPackListQuery, ReportPackManifestPreviewQuery, ReportsService } from "./reports.service";
 
 @Controller("reports")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -149,6 +149,38 @@ export class ReportsController {
     @Query() query: ReportPackManifestPreviewQuery,
   ) {
     return this.reportsService.reportPackManifestPreview(organizationId, user.id, query);
+  }
+
+  @Post("report-pack")
+  createReportPack(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() input: ReportPackCreateInput,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    assertExportPermission(request);
+    return this.reportsService.createReportPack(organizationId, user.id, input, request);
+  }
+
+  @Get("report-pack")
+  listReportPacks(@CurrentOrganizationId() organizationId: string, @Query() query: ReportPackListQuery) {
+    return this.reportsService.listReportPacks(organizationId, query);
+  }
+
+  @Get("report-pack/:id")
+  getReportPack(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.reportsService.getReportPack(organizationId, id);
+  }
+
+  @Post("report-pack/:id/download-readiness")
+  reportPackDownloadReadiness(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    assertExportPermission(request);
+    return this.reportsService.reportPackDownloadReadiness(organizationId, user.id, id, request);
   }
 
   @Get("cash-flow")

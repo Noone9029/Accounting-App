@@ -18,6 +18,14 @@ describe("ReportsController exports", () => {
       status: "PLANNING_ONLY",
       items: [{ reportKind: "cash-flow" }],
     }),
+    createReportPack: jest.fn().mockResolvedValue({
+      id: "pack-1",
+      status: "READY_LOCAL",
+      items: [{ reportKind: "cash-flow" }],
+    }),
+    listReportPacks: jest.fn().mockResolvedValue({ data: [{ id: "pack-1", status: "READY_LOCAL" }], pagination: { limit: 50, total: 1, hasMore: false } }),
+    getReportPack: jest.fn().mockResolvedValue({ id: "pack-1", status: "READY_LOCAL" }),
+    reportPackDownloadReadiness: jest.fn().mockResolvedValue({ id: "pack-1", status: "DOWNLOAD_BLOCKED", downloadEnabled: false }),
     cashFlow: jest.fn().mockResolvedValue({ totals: { netCashFlow: "110.0000" } }),
     revenueTrend: jest.fn().mockResolvedValue({ rows: [{ period: "2026-01", revenue: "120.0000" }] }),
     topCustomers: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICES", rows: [] }),
@@ -104,6 +112,38 @@ describe("ReportsController exports", () => {
     });
     expect(service.coreReportCsvFile).not.toHaveBeenCalled();
     expect(service.coreReportPdf).not.toHaveBeenCalled();
+  });
+
+  it("routes report-pack create/list/detail/download readiness requests to the local metadata service", async () => {
+    const exportRequest = { ...request(), requestId: "req-pack-1" };
+
+    await expect(
+      controller.createReportPack("org-1", { id: "user-1" } as never, { reportKinds: "cash-flow", from: "2026-01-01" }, exportRequest as never),
+    ).resolves.toMatchObject({ status: "READY_LOCAL" });
+    await expect(controller.listReportPacks("org-1", { status: "READY_LOCAL" })).resolves.toMatchObject({ data: [{ id: "pack-1" }] });
+    await expect(controller.getReportPack("org-1", "pack-1")).resolves.toMatchObject({ id: "pack-1", status: "READY_LOCAL" });
+    await expect(
+      controller.reportPackDownloadReadiness("org-1", { id: "user-2" } as never, "pack-1", exportRequest as never),
+    ).resolves.toMatchObject({ status: "DOWNLOAD_BLOCKED", downloadEnabled: false });
+
+    expect(service.createReportPack).toHaveBeenCalledWith("org-1", "user-1", { reportKinds: "cash-flow", from: "2026-01-01" }, exportRequest);
+    expect(service.listReportPacks).toHaveBeenCalledWith("org-1", { status: "READY_LOCAL" });
+    expect(service.getReportPack).toHaveBeenCalledWith("org-1", "pack-1");
+    expect(service.reportPackDownloadReadiness).toHaveBeenCalledWith("org-1", "user-2", "pack-1", exportRequest);
+  });
+
+  it("requires export permission for report-pack generation and download readiness", async () => {
+    const viewOnlyRequest = request([PERMISSIONS.reports.view]);
+
+    expect(() =>
+      controller.createReportPack("org-1", { id: "user-1" } as never, { reportKinds: "cash-flow" }, viewOnlyRequest as never),
+    ).toThrow(ForbiddenException);
+    expect(() =>
+      controller.reportPackDownloadReadiness("org-1", { id: "user-1" } as never, "pack-1", viewOnlyRequest as never),
+    ).toThrow(ForbiddenException);
+
+    expect(service.createReportPack).not.toHaveBeenCalled();
+    expect(service.reportPackDownloadReadiness).not.toHaveBeenCalled();
   });
 
   it("routes cash flow requests to the journal-line report engine", async () => {

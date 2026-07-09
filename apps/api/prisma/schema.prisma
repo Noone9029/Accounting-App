@@ -867,6 +867,15 @@ enum GeneratedDocumentStatus {
   SUPERSEDED
 }
 
+enum ReportPackStatus {
+  DRAFT
+  GENERATING
+  READY_LOCAL
+  FAILED
+  DOWNLOAD_BLOCKED
+  EXPIRED
+}
+
 enum AttachmentStorageProvider {
   DATABASE
   LOCAL_PLACEHOLDER
@@ -1174,6 +1183,7 @@ model User {
   assignedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewAssignedTo")
   reviewedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewReviewedBy")
   generatedDocuments                                GeneratedDocument[]                         @relation("GeneratedDocumentGeneratedBy")
+  requestedReportPacks                              ReportPack[]                                @relation("ReportPackRequestedBy")
   uploadedAttachments                               Attachment[]                                @relation("AttachmentUploadedBy")
   deletedAttachments                                Attachment[]                                @relation("AttachmentDeletedBy")
   authTokens                                        AuthToken[]                                 @relation("AuthTokenUser")
@@ -1348,6 +1358,7 @@ model Organization {
   numberSequences                           NumberSequence[]
   documentSettings                          OrganizationDocumentSettings?
   generatedDocuments                        GeneratedDocument[]
+  reportPacks                               ReportPack[]
   attachments                               Attachment[]
   documentInboxItems                        DocumentInboxItem[]
   documentExtractionResults                 DocumentExtractionResult[]
@@ -1471,6 +1482,30 @@ model GeneratedDocument {
   @@index([organizationId, status])
   @@index([requestId])
   @@index([generatedById])
+}
+
+model ReportPack {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  title          String
+  status         ReportPackStatus @default(DRAFT)
+  periodFrom     String?
+  periodTo       String?
+  periodAsOf     String?
+  manifestJson   Json
+  requestId      String?
+  requestedById  String?          @db.Uuid
+  generatedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy    User?            @relation("ReportPackRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([requestedById])
+  @@index([requestId])
 }
 
 model ComplianceProvider {

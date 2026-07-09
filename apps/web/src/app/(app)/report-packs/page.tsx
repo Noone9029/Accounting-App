@@ -21,8 +21,10 @@ import {
   disabledReportPackBoundaryItems,
   fetchReportPackManifestPreview,
   isReportPackSourceNavigable,
+  reportPackStatusLabel,
   reportPackReviewStatusLabel,
   type ReportPackManifestPreview,
+  type ReportPackManifestStatus,
   type ReportPackReviewStatus,
 } from "@/lib/report-packs";
 
@@ -60,15 +62,15 @@ export default function ReportPacksPage() {
   return (
     <LedgerPage>
       <LedgerPageHeader
-        eyebrow="Read-only preview"
+        eyebrow="Local groundwork"
         title="Report packs"
-        badge={<LedgerStatusBadge tone="warning">Execution disabled</LedgerStatusBadge>}
-        description="View the report-pack manifest preview that LedgerByte can currently describe. This page does not generate, download, export, email, schedule, archive, store, submit, or send anything."
+        badge={<LedgerStatusBadge tone="warning">Pack download blocked</LedgerStatusBadge>}
+        description="View report-pack manifest metadata and per-report export availability. Pack-level downloads, email, scheduling, archive writes, storage, signed URLs, provider calls, and compliance submissions remain disabled."
         actions={<LedgerButton href="/reports">Open reports</LedgerButton>}
       />
 
       <LedgerSummaryBand tone="warning">
-        Report-pack preview is metadata only. Generation, exports, downloads, email sending, scheduling, archive writes, generated-document mutation, object storage, signed URLs, provider calls, and compliance submission remain disabled.
+        LedgerByte can describe local manifest records and link to existing per-report CSV/PDF routes where supported. It does not create a bundled artifact, signed URL, hosted storage object, email, schedule, provider call, or compliance submission.
       </LedgerSummaryBand>
 
       {previewState.status === "loading" ? <ReportPackLoadingState /> : null}
@@ -85,9 +87,9 @@ function ReportPackManifestView({ manifest }: { manifest: ReportPackManifestPrev
   return (
     <LedgerPageBody>
       <LedgerMetricGrid className="md:grid-cols-3 xl:grid-cols-3">
-        <LedgerStatCard label="Preview status" value={manifest.status.replaceAll("_", " ")} detail="Planning preview only; no bundle execution is designed here." />
-        <LedgerStatCard label="Supported report kinds" value={items.length} detail="Items are listed from the API manifest. Missing web pages remain preview-only." />
-        <LedgerStatCard label="Disabled boundaries" value={disabledBoundaries.length} detail="All execution boundaries remain disabled in this UI slice." />
+        <LedgerStatCard label="Pack status" value={reportPackStatusLabel(manifest.status)} detail={packStatusDetail(manifest.status)} />
+        <LedgerStatCard label="Supported report kinds" value={items.length} detail="Items are listed from the API manifest with per-report export availability." />
+        <LedgerStatCard label="Pack download" value="Blocked" detail={manifest.downloadReadiness?.reason ?? "Pack-level download remains blocked until storage proof is approved."} />
       </LedgerMetricGrid>
 
       <section>
@@ -103,6 +105,8 @@ function ReportPackManifestView({ manifest }: { manifest: ReportPackManifestPrev
                 <th className="px-4 py-3">Report</th>
                 <th className="px-4 py-3">Kind</th>
                 <th className="px-4 py-3">Source</th>
+                <th className="px-4 py-3">CSV</th>
+                <th className="px-4 py-3">PDF</th>
                 <th className="px-4 py-3">Review</th>
                 <th className="px-4 py-3">Action</th>
               </tr>
@@ -113,6 +117,20 @@ function ReportPackManifestView({ manifest }: { manifest: ReportPackManifestPrev
                   <td className="px-4 py-3 font-semibold text-ink">{item.title}</td>
                   <td className="px-4 py-3 font-mono text-xs text-steel">{item.reportKind}</td>
                   <td className="px-4 py-3 text-steel">{item.source.type === "ledgerbyte-report-route" ? "LedgerByte report route" : item.source.type}</td>
+                  <td className="px-4 py-3">
+                    {item.exports.csv.supported && item.exports.csv.href ? (
+                      <Link href={item.exports.csv.href} className="font-semibold text-palm hover:underline">CSV route</Link>
+                    ) : (
+                      <span className="text-xs text-steel">{item.exports.csv.reason ?? "CSV unavailable"}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {item.exports.pdf.supported && item.exports.pdf.href ? (
+                      <Link href={item.exports.pdf.href} className="font-semibold text-palm hover:underline">PDF route</Link>
+                    ) : (
+                      <span className="text-xs text-steel">{item.exports.pdf.reason ?? "PDF unavailable"}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><LedgerStatusBadge tone={reviewStatusTone(item.reviewStatus)}>{reportPackReviewStatusLabel(item.reviewStatus)}</LedgerStatusBadge></td>
                   <td className="px-4 py-3">
                     {isReportPackSourceNavigable(item) ? (
@@ -146,7 +164,7 @@ function ReportPackManifestView({ manifest }: { manifest: ReportPackManifestPrev
 }
 
 function ReportPackLoadingState() {
-  return <LedgerLoadingState title="Loading report-pack preview" description="Reading manifest metadata only." />;
+  return <LedgerLoadingState title="Loading report-pack preview" description="Reading local manifest metadata only." />;
 }
 
 function ReportPackErrorState({ message }: { message: string }) {
@@ -161,5 +179,24 @@ function reviewStatusTone(status: ReportPackReviewStatus): "success" | "warning"
       return "danger";
     case "NEEDS_REVIEW":
       return "warning";
+  }
+}
+
+function packStatusDetail(status: ReportPackManifestStatus): string {
+  switch (status) {
+    case "READY_LOCAL":
+      return "Local manifest metadata is ready for review; no bundled artifact exists.";
+    case "DOWNLOAD_BLOCKED":
+      return "A pack-level download was requested and blocked because storage/download proof is not approved.";
+    case "PLANNING_ONLY":
+      return "Preview metadata only; create a local manifest through the API when approved.";
+    case "DRAFT":
+      return "Draft metadata exists; no bundle execution is running.";
+    case "GENERATING":
+      return "Generation status is reserved for local metadata processing only.";
+    case "FAILED":
+      return "Metadata generation failed; no artifact or provider call should be assumed.";
+    case "EXPIRED":
+      return "The local manifest is expired and must be regenerated before review.";
   }
 }

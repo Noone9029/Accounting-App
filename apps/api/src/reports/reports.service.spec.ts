@@ -7,6 +7,7 @@ import {
   PurchaseBillStatus,
   SalesInvoiceStatus,
 } from "@prisma/client";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import {
   agingBucket,
   buildAgingReport,
@@ -130,6 +131,124 @@ describe("report pack manifest preview", () => {
       providerCallEnabled: false,
       complianceSubmissionEnabled: false,
     });
+  });
+});
+
+describe("report pack generation groundwork", () => {
+  it("creates a tenant-scoped READY_LOCAL report pack manifest with requestId and audit events", async () => {
+    const prisma = reportPackPrisma();
+    const audit = { log: jest.fn().mockResolvedValue(undefined) };
+    const service = new ReportsService(prisma as never, undefined, undefined, audit as never);
+
+    const manifest = await service.createReportPack(
+      "org-1",
+      "user-1",
+      {
+        title: "  June accountant pack  ",
+        reportKinds: "cash-flow,profit-and-loss",
+        from: "2026-06-01",
+        to: "2026-06-30",
+        branchId: " branch-1 ",
+      },
+      { requestId: "req-pack-1" },
+    );
+
+    expect(manifest).toMatchObject({
+      organizationId: "org-1",
+      title: "June accountant pack",
+      status: "READY_LOCAL",
+      requestId: "req-pack-1",
+      generatedAt: expect.any(String),
+      period: { from: "2026-06-01", to: "2026-06-30", asOf: null },
+      downloadReadiness: {
+        packDownloadEnabled: false,
+        storageProvider: "disabled",
+        signedUrlEnabled: false,
+      },
+    });
+    expect(manifest.items.map((item) => item.reportKind)).toEqual(["cash-flow", "profit-and-loss"]);
+    expect(manifest.items[0]!.exports.csv.href).toBe("/reports/cash-flow?from=2026-06-01&to=2026-06-30&branchId=branch-1&format=csv");
+    expect(manifest.items[0]!.exports.pdf).toMatchObject({ supported: false, href: null });
+    expect(manifest.items[1]!.exports.pdf).toMatchObject({ supported: true, href: "/reports/profit-and-loss/pdf" });
+    expect(prisma.reportPack.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: "org-1",
+          title: "June accountant pack",
+          status: "READY_LOCAL",
+          requestId: "req-pack-1",
+          requestedById: "user-1",
+          manifestJson: expect.objectContaining({
+            items: expect.any(Array),
+          }),
+        }),
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_EVENTS.REPORT_PACK_GENERATION_REQUESTED,
+        entityType: AUDIT_ENTITY_TYPES.REPORT_PACK,
+        request: { requestId: "req-pack-1" },
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_EVENTS.REPORT_PACK_GENERATED,
+        after: expect.objectContaining({
+          itemCount: 2,
+          packDownloadEnabled: false,
+          providerCallEnabled: false,
+        }),
+      }),
+    );
+  });
+
+  it("lists and reads report packs through organization-scoped queries", async () => {
+    const prisma = reportPackPrisma();
+    const service = new ReportsService(prisma as never);
+    await service.createReportPack("org-1", "user-1", { reportKinds: "trial-balance" }, { requestId: "req-pack-2" });
+
+    const list = await service.listReportPacks("org-1", { status: "READY_LOCAL", limit: "10" });
+    const detail = await service.getReportPack("org-1", list.data[0]!.id);
+
+    expect(list.data).toHaveLength(1);
+    expect(detail.status).toBe("READY_LOCAL");
+    expect(prisma.reportPack.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", status: "READY_LOCAL" } }));
+    expect(prisma.reportPack.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: list.data[0]!.id, organizationId: "org-1" } }));
+  });
+
+  it("blocks pack-level download readiness while preserving manifest metadata", async () => {
+    const prisma = reportPackPrisma();
+    const audit = { log: jest.fn().mockResolvedValue(undefined) };
+    const service = new ReportsService(prisma as never, undefined, undefined, audit as never);
+    const manifest = await service.createReportPack("org-1", "user-1", { reportKinds: "cash-flow" }, { requestId: "req-pack-3" });
+
+    const readiness = await service.reportPackDownloadReadiness("org-1", "user-2", manifest.id, { requestId: "req-download-1" });
+
+    expect(readiness).toMatchObject({
+      id: manifest.id,
+      status: "DOWNLOAD_BLOCKED",
+      downloadEnabled: false,
+      storageProvider: "disabled",
+      signedUrlEnabled: false,
+      reason: expect.stringContaining("blocked"),
+      manifest: {
+        status: "DOWNLOAD_BLOCKED",
+        items: [{ reportKind: "cash-flow" }],
+      },
+    });
+    expect(prisma.reportPack.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: manifest.id }, data: { status: "DOWNLOAD_BLOCKED" } }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: AUDIT_EVENTS.REPORT_PACK_DOWNLOAD_ATTEMPTED }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: AUDIT_EVENTS.REPORT_PACK_DOWNLOAD_BLOCKED }));
+  });
+
+  it("rejects unsupported filters and missing tenant-scoped records", async () => {
+    const prisma = reportPackPrisma();
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.listReportPacks("org-1", { status: "SENT" })).rejects.toThrow(BadRequestException);
+    await expect(service.listReportPacks("org-1", { limit: "500" })).rejects.toThrow(BadRequestException);
+    await expect(service.getReportPack("org-2", "missing-pack")).rejects.toThrow("Report pack not found.");
   });
 });
 
@@ -1037,6 +1156,48 @@ function line(accountId: string, date: string, debit: string, credit: string, de
       entryDate: `${date}T00:00:00.000Z`,
       description,
       reference: null,
+    },
+  };
+}
+
+function reportPackPrisma() {
+  const records: any[] = [];
+  return {
+    organization: {
+      findFirst: jest.fn(async (args: any) =>
+        args.where.id === "org-1" ? { id: "org-1", name: "LedgerByte Demo" } : null,
+      ),
+    },
+    reportPack: {
+      create: jest.fn(async (args: any) => {
+        const record = {
+          ...args.data,
+          createdAt: new Date("2026-06-21T10:00:00.000Z"),
+          updatedAt: new Date("2026-06-21T10:00:00.000Z"),
+          requestedBy: { id: args.data.requestedById, name: "Owner" },
+          organization: { id: args.data.organizationId, name: "LedgerByte Demo" },
+        };
+        records.push(record);
+        return record;
+      }),
+      findMany: jest.fn(async (args: any) =>
+        records.filter(
+          (record) =>
+            record.organizationId === args.where.organizationId &&
+            (!args.where.status || record.status === args.where.status),
+        ),
+      ),
+      findFirst: jest.fn(async (args: any) =>
+        records.find((record) => record.id === args.where.id && record.organizationId === args.where.organizationId) ?? null,
+      ),
+      update: jest.fn(async (args: any) => {
+        const record = records.find((candidate) => candidate.id === args.where.id);
+        if (!record) {
+          throw new Error("Missing report pack.");
+        }
+        Object.assign(record, args.data, { updatedAt: new Date("2026-06-21T10:01:00.000Z") });
+        return record;
+      }),
     },
   };
 }

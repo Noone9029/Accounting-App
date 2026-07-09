@@ -38,14 +38,21 @@ describe("ReportPacksPage", () => {
     render(<ReportPacksPage />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading report-pack preview");
-    expect(screen.getByText("Reading manifest metadata only.")).toBeInTheDocument();
+    expect(screen.getByText("Reading local manifest metadata only.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Report packs" })).toBeInTheDocument();
-    expect(screen.getByText("Read-only preview")).toBeInTheDocument();
-    expect(await screen.findByText("PLANNING ONLY")).toBeInTheDocument();
+    expect(screen.getByText("Local groundwork")).toBeInTheDocument();
+    expect(await screen.findByText("Planning only")).toBeInTheDocument();
     expect(screen.getByText("General Ledger")).toBeInTheDocument();
     expect(screen.getByText("Cash Flow")).toBeInTheDocument();
     expect(screen.getByText("general-ledger")).toBeInTheDocument();
     expect(screen.getByText("cash-flow")).toBeInTheDocument();
+    expect(screen.getByText("Pack download")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "CSV route" }).map((link) => link.getAttribute("href"))).toEqual([
+      "/reports/general-ledger?format=csv",
+      "/reports/cash-flow?format=csv",
+    ]);
+    expect(screen.getByRole("link", { name: "PDF route" })).toHaveAttribute("href", "/reports/general-ledger/pdf");
+    expect(screen.getByText("PDF export is not implemented for this report.")).toBeInTheDocument();
     expect(screen.getByText("Needs review")).toBeInTheDocument();
     expect(screen.getByText("Ready for review")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open reports" })).toHaveAttribute("href", "/reports");
@@ -61,7 +68,7 @@ describe("ReportPacksPage", () => {
     render(<ReportPacksPage />);
 
     expect(await screen.findByRole("heading", { name: "Disabled capabilities" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Generation" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pack artifact generation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Download and export" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Email sending" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Scheduling" })).toBeInTheDocument();
@@ -89,7 +96,7 @@ describe("ReportPacksPage", () => {
     expect(screen.queryByRole("link", { name: /send/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /store/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /submit/i })).not.toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/generation enabled/i);
+    expect(container.textContent).not.toMatch(/generation enabled|download all pdfs/i);
   });
 
   it("renders a safe empty state", async () => {
@@ -142,8 +149,16 @@ function manifestPreview(overrides: Partial<ReportPackManifestPreview> = {}): Re
     organizationId: "org-1",
     title: "Report pack manifest preview",
     createdAt: "2026-06-21T00:00:00.000Z",
+    generatedAt: null,
     requestedByUserId: "user-1",
+    requestId: "req-1",
     status: "PLANNING_ONLY",
+    downloadReadiness: {
+      packDownloadEnabled: false,
+      storageProvider: "disabled",
+      signedUrlEnabled: false,
+      reason: "Pack-level download is blocked until local storage/archive and signed URL proof are approved.",
+    },
     executionBoundary: {
       generationEnabled: false,
       downloadEnabled: false,
@@ -162,6 +177,10 @@ function manifestPreview(overrides: Partial<ReportPackManifestPreview> = {}): Re
         title: "General Ledger",
         query: {},
         source: { type: "ledgerbyte-report-route", href: "/reports/general-ledger" },
+        exports: {
+          csv: { supported: true, href: "/reports/general-ledger?format=csv", filename: "general-ledger.csv" },
+          pdf: { supported: true, href: "/reports/general-ledger/pdf", reason: null },
+        },
         reviewStatus: "NEEDS_REVIEW",
       },
       {
@@ -170,6 +189,10 @@ function manifestPreview(overrides: Partial<ReportPackManifestPreview> = {}): Re
         title: "Cash Flow",
         query: {},
         source: { type: "ledgerbyte-report-route", href: "/reports/cash-flow" },
+        exports: {
+          csv: { supported: true, href: "/reports/cash-flow?format=csv", filename: "cash-flow.csv" },
+          pdf: { supported: false, href: null, reason: "PDF export is not implemented for this report." },
+        },
         reviewStatus: "READY_FOR_REVIEW",
       },
     ],

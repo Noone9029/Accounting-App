@@ -7,7 +7,7 @@ import { REPORT_PACK_EXECUTION_BOUNDARY, REPORT_PACK_SUPPORTED_REPORTS } from ".
 import { ReportsService } from "./reports/reports.service";
 
 describe("report-pack generation proof: current safe boundary", () => {
-  it("exposes only the read-only manifest preview report-pack route", () => {
+  it("exposes only the conservative local report-pack readiness routes", () => {
     const routes = controllerRoutes(ReportsController).filter((route) => route.path.includes("report-pack"));
 
     expect(routes).toEqual([
@@ -16,8 +16,28 @@ describe("report-pack generation proof: current safe boundary", () => {
         method: RequestMethod.GET,
         path: "reports/report-pack/manifest-preview",
       },
+      {
+        handlerName: "createReportPack",
+        method: RequestMethod.POST,
+        path: "reports/report-pack",
+      },
+      {
+        handlerName: "listReportPacks",
+        method: RequestMethod.GET,
+        path: "reports/report-pack",
+      },
+      {
+        handlerName: "getReportPack",
+        method: RequestMethod.GET,
+        path: "reports/report-pack/:id",
+      },
+      {
+        handlerName: "reportPackDownloadReadiness",
+        method: RequestMethod.POST,
+        path: "reports/report-pack/:id/download-readiness",
+      },
     ]);
-    expect(routes.map((route) => route.path).join(" ")).not.toMatch(/runs|generate|download|artifacts|schedules|archive|email|export/i);
+    expect(routes.map((route) => route.path).join(" ")).not.toMatch(/runs|generate|artifacts|schedules|archive|email|export/i);
   });
 
   it("keeps the report-pack route behind the existing report view permission", () => {

@@ -116,7 +116,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | `/reports/vat-summary` | VAT Summary. | VAT payable/receivable activity from configured VAT accounts. | Run filters, download CSV, download PDF. | Implemented | Not an official VAT filing export. |
 | `/reports/aged-receivables` | Aged Receivables. | Open finalized customer invoice balances by aging bucket. | Run as-of filter, download CSV, download PDF. | Implemented | No collection workflow. |
 | `/reports/aged-payables` | Aged Payables. | Open finalized supplier bill balances by aging bucket. | Run as-of filter, download CSV, download PDF. | Implemented | No payment run workflow. |
-| `/report-packs` | Report pack planning. | None. | Review pack contents, generation boundaries, and report/document review links. | Groundwork | No report-pack generation, download, email, archive, or background job. |
+| `/report-packs` | Report pack planning. | Manifest preview metadata. | Review pack status, per-report CSV/PDF availability, disabled boundaries, and source report links. | Groundwork | Local manifest records exist through API, but no pack-level download, email, archive, storage, signed URL, or background job. |
 
 ## Contacts
 

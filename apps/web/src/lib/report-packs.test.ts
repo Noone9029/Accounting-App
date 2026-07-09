@@ -4,6 +4,7 @@ import {
   fetchReportPackManifestPreview,
   isReportPackSourceNavigable,
   reportPackReviewStatusLabel,
+  reportPackStatusLabel,
   type ReportPackManifestPreview,
 } from "./report-packs";
 
@@ -46,7 +47,9 @@ describe("report-pack preview helpers", () => {
       organizationId: "",
       title: "Report pack manifest preview",
       createdAt: "",
+      generatedAt: null,
       requestedByUserId: "",
+      requestId: null,
       status: "PLANNING_ONLY",
       items: [],
       executionBoundary: {
@@ -73,7 +76,7 @@ describe("report-pack preview helpers", () => {
     const disabledItems = disabledReportPackBoundaryItems(manifestPreview().executionBoundary);
 
     expect(disabledItems.map((item) => item.label)).toEqual([
-      "Generation",
+      "Pack artifact generation",
       "Download and export",
       "Email sending",
       "Scheduling",
@@ -83,7 +86,7 @@ describe("report-pack preview helpers", () => {
       "Provider calls",
       "Compliance submission",
     ]);
-    expect(disabledItems.map((item) => item.explanation).join(" ")).toMatch(/not implemented|remain unavailable|not send email/i);
+    expect(disabledItems.map((item) => item.explanation).join(" ")).toMatch(/Local manifest records|remain blocked|not send email/i);
   });
 
   it("treats active web report routes as navigable", () => {
@@ -116,6 +119,12 @@ describe("report-pack preview helpers", () => {
     expect(reportPackReviewStatusLabel("BLOCKED")).toBe("Blocked");
   });
 
+  it("labels report-pack statuses", () => {
+    expect(reportPackStatusLabel("PLANNING_ONLY")).toBe("Planning only");
+    expect(reportPackStatusLabel("READY_LOCAL")).toBe("Ready local");
+    expect(reportPackStatusLabel("DOWNLOAD_BLOCKED")).toBe("Download blocked");
+  });
+
   it("does not use browser durable persistence directly", async () => {
     apiRequestMock.mockResolvedValue(manifestPreview());
     const localGet = jest.spyOn(Storage.prototype, "getItem");
@@ -143,7 +152,9 @@ function manifestPreview(): ReportPackManifestPreview {
     organizationId: "org-1",
     title: "Report pack manifest preview",
     createdAt: "2026-06-21T00:00:00.000Z",
+    generatedAt: null,
     requestedByUserId: "user-1",
+    requestId: "req-1",
     status: "PLANNING_ONLY",
     executionBoundary: {
       generationEnabled: false,
@@ -163,6 +174,10 @@ function manifestPreview(): ReportPackManifestPreview {
         title: "General Ledger",
         query: {},
         source: { type: "ledgerbyte-report-route", href: "/reports/general-ledger" },
+        exports: {
+          csv: { supported: true, href: "/reports/general-ledger?format=csv", filename: "general-ledger.csv" },
+          pdf: { supported: true, href: "/reports/general-ledger/pdf", reason: null },
+        },
         reviewStatus: "NEEDS_REVIEW",
       },
     ],

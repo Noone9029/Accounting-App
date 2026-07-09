@@ -14,7 +14,21 @@ export type ReportPackReportKind =
   | "top-products-services";
 
 export type ReportPackReviewStatus = "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "BLOCKED";
-export type ReportPackManifestStatus = "PLANNING_ONLY";
+export type ReportPackManifestStatus =
+  | "PLANNING_ONLY"
+  | "DRAFT"
+  | "GENERATING"
+  | "READY_LOCAL"
+  | "FAILED"
+  | "DOWNLOAD_BLOCKED"
+  | "EXPIRED";
+
+export interface ReportPackExportReference {
+  supported: boolean;
+  href: string | null;
+  filename?: string | null;
+  reason?: string | null;
+}
 
 export interface ReportPackManifestItem {
   id: string;
@@ -24,6 +38,10 @@ export interface ReportPackManifestItem {
   source: {
     type: "ledgerbyte-report-route";
     href: `/reports/${ReportPackReportKind}`;
+  };
+  exports: {
+    csv: ReportPackExportReference;
+    pdf: ReportPackExportReference;
   };
   reviewStatus: ReportPackReviewStatus;
 }
@@ -45,9 +63,17 @@ export interface ReportPackManifestPreview {
   organizationId: string;
   title: string;
   createdAt: string;
+  generatedAt: string | null;
   requestedByUserId: string;
+  requestId: string | null;
   status: ReportPackManifestStatus;
   executionBoundary: ReportPackExecutionBoundary;
+  downloadReadiness?: {
+    packDownloadEnabled: false;
+    storageProvider: "disabled";
+    signedUrlEnabled: false;
+    reason: string;
+  };
   items: ReportPackManifestItem[];
 }
 
@@ -74,13 +100,13 @@ export const REPORT_PACK_DEFAULT_EXECUTION_BOUNDARY: ReportPackExecutionBoundary
 export const REPORT_PACK_DISABLED_BOUNDARY_COPY: readonly ReportPackDisabledBoundaryItem[] = [
   {
     key: "generationEnabled",
-    label: "Generation",
-    explanation: "Report-pack generation is not implemented in this preview slice.",
+    label: "Pack artifact generation",
+    explanation: "Local manifest records may be generated, but bundle artifacts and background generation remain disabled.",
   },
   {
     key: "downloadEnabled",
     label: "Download and export",
-    explanation: "Pack-level downloads, CSV exports, and PDF bundle exports remain unavailable.",
+    explanation: "Pack-level downloads remain blocked. Per-report CSV links are shown where the report route supports CSV.",
   },
   {
     key: "emailSendingEnabled",
@@ -159,16 +185,63 @@ export function reportPackReviewStatusLabel(status: ReportPackReviewStatus): str
   }
 }
 
+export function reportPackStatusLabel(status: ReportPackManifestStatus): string {
+  switch (status) {
+    case "PLANNING_ONLY":
+      return "Planning only";
+    case "DRAFT":
+      return "Draft";
+    case "GENERATING":
+      return "Generating";
+    case "READY_LOCAL":
+      return "Ready local";
+    case "FAILED":
+      return "Failed";
+    case "DOWNLOAD_BLOCKED":
+      return "Download blocked";
+    case "EXPIRED":
+      return "Expired";
+  }
+}
+
 function normalizeReportPackManifestPreview(response: Partial<ReportPackManifestPreview> | null | undefined): ReportPackManifestPreview {
   return {
     id: typeof response?.id === "string" ? response.id : "report-pack-manifest-preview",
     organizationId: typeof response?.organizationId === "string" ? response.organizationId : "",
     title: typeof response?.title === "string" ? response.title : "Report pack manifest preview",
     createdAt: typeof response?.createdAt === "string" ? response.createdAt : "",
+    generatedAt: typeof response?.generatedAt === "string" ? response.generatedAt : null,
     requestedByUserId: typeof response?.requestedByUserId === "string" ? response.requestedByUserId : "",
-    status: response?.status === "PLANNING_ONLY" ? response.status : "PLANNING_ONLY",
+    requestId: typeof response?.requestId === "string" ? response.requestId : null,
+    status: normalizeReportPackStatus(response?.status),
     executionBoundary: normalizeReportPackExecutionBoundary(response?.executionBoundary),
-    items: Array.isArray(response?.items) ? response.items : [],
+    downloadReadiness: response?.downloadReadiness,
+    items: Array.isArray(response?.items) ? response.items.map(normalizeReportPackManifestItem) : [],
+  };
+}
+
+function normalizeReportPackStatus(status: ReportPackManifestPreview["status"] | undefined): ReportPackManifestStatus {
+  switch (status) {
+    case "PLANNING_ONLY":
+    case "DRAFT":
+    case "GENERATING":
+    case "READY_LOCAL":
+    case "FAILED":
+    case "DOWNLOAD_BLOCKED":
+    case "EXPIRED":
+      return status;
+    default:
+      return "PLANNING_ONLY";
+  }
+}
+
+function normalizeReportPackManifestItem(item: ReportPackManifestItem): ReportPackManifestItem {
+  return {
+    ...item,
+    exports: {
+      csv: item.exports?.csv ?? { supported: false, href: null, filename: null, reason: "CSV export reference unavailable." },
+      pdf: item.exports?.pdf ?? { supported: false, href: null, reason: "PDF export reference unavailable." },
+    },
   };
 }
 

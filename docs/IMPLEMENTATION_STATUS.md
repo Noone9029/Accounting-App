@@ -116,9 +116,9 @@ Frontend redesign continuation (2026-06-22):
 Report-pack generation/export/download/archive design (2026-06-21):
 
 - Added `docs/architecture/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN.md` and evidence in `docs/development/openbooks-adoption/REPORT_PACK_GENERATION_EXPORT_ARCHIVE_DESIGN_EVIDENCE.md`.
-- This is docs/design-only planning for future report-pack generation, PDF/CSV/XLSX export, download links, archive writes, email delivery, scheduling, audit events, and failure/retry handling.
-- No runtime API endpoint, runtime UI behavior, Prisma migration, report generation, export/download behavior, email sending, scheduling, archive write, generated-document mutation, object storage behavior, signed URL behavior, provider call, hosted mutation, or compliance behavior changed in this slice.
-- Report-pack runtime remains read-only preview only: `GET /reports/report-pack/manifest-preview` plus `/report-packs`.
+- This started as docs/design-only planning for future report-pack generation, PDF/CSV/XLSX export, download links, archive writes, email delivery, scheduling, audit events, and failure/retry handling.
+- Report-pack runtime now has local manifest metadata groundwork: `GET /reports/report-pack/manifest-preview`, `POST /reports/report-pack`, `GET /reports/report-pack`, `GET /reports/report-pack/:id`, `POST /reports/report-pack/:id/download-readiness`, plus `/report-packs`.
+- Pack-level downloads, bundled artifacts, storage writes, signed URLs, email delivery, scheduling, archive writes, generated-document mutation, provider calls, hosted behavior, and compliance submissions remain blocked/unproven.
 - Object storage approval remains `BLOCKED`; real object storage remains unimplemented/unproven; signed URLs remain unimplemented/unproven; runtime generated documents remain DB-backed unless separately changed.
 - Report-pack archive writes remain blocked until storage approval; download links remain blocked until signed URL behavior is proven.
 
