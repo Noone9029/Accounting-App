@@ -41,6 +41,34 @@ describe("observability redaction", () => {
     });
   });
 
+  it("redacts invoice and payment email provider credential shapes", () => {
+    const redacted = redactForDiagnostics({
+      requestId: "req_email_1",
+      module: "email",
+      invoicePaymentProviderState: "MOCK_EMAIL",
+      emailProviderCredentials: {
+        smtpPassword: "xpw",
+        mailgunApiKey: "xkey",
+        providerPayload: { messageId: "provider-message-id" },
+      },
+      delivery: {
+        redactedRecipient: "p***@example.test",
+        rawEmailBody: "customer@example.com invoice body",
+      },
+    });
+
+    expect(redacted).toEqual({
+      requestId: "req_email_1",
+      module: "email",
+      invoicePaymentProviderState: "MOCK_EMAIL",
+      emailProviderCredentials: REDACTED_DIAGNOSTIC_VALUE,
+      delivery: {
+        redactedRecipient: "p***@example.test",
+        rawEmailBody: REDACTED_DIAGNOSTIC_VALUE,
+      },
+    });
+  });
+
   it("handles circular structures without throwing", () => {
     const value: Record<string, unknown> = { requestId: "req-1" };
     value.self = value;

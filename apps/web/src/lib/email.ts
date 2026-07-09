@@ -30,8 +30,22 @@ export function emailTemplateLabel(templateType: EmailTemplateType | string): st
     PASSWORD_RESET: "Password reset",
     TEST_EMAIL: "Test email",
     AP_GENERATED_DOCUMENT: "AP generated document",
+    SALES_INVOICE: "Invoice email",
+    INVOICE_PAYMENT_LINK: "Payment link email",
+    PAYMENT_RECEIPT: "Receipt/payment confirmation",
+    FAILED_DELIVERY_NOTIFICATION: "Failed delivery notification",
   };
   return labels[templateType as EmailTemplateType] ?? templateType;
+}
+
+export function invoicePaymentEmailProviderStateLabel(providerState: string): string {
+  const labels: Record<string, string> = {
+    NONE: "Disabled",
+    MOCK_EMAIL: "Local Mock Only",
+    DISABLED_PROVIDER_PLACEHOLDER: "Needs Configuration",
+    FUTURE_SMTP_OR_PROVIDER: "Future Provider",
+  };
+  return labels[providerState] ?? providerState;
 }
 
 export function emailProviderLabel(provider: EmailProviderName): string {

@@ -441,8 +441,19 @@ export interface ComplianceSourceReadinessResponse {
 }
 export type AttachmentStorageProvider = "DATABASE" | "LOCAL_PLACEHOLDER" | "S3_PLACEHOLDER" | "S3";
 export type EmailDeliveryStatus = "QUEUED" | "SENT_MOCK" | "SENT_PROVIDER" | "FAILED";
-export type EmailTemplateType = "ORGANIZATION_INVITE" | "PASSWORD_RESET" | "TEST_EMAIL" | "AP_GENERATED_DOCUMENT";
+export type EmailTemplateType =
+  | "ORGANIZATION_INVITE"
+  | "PASSWORD_RESET"
+  | "TEST_EMAIL"
+  | "AP_GENERATED_DOCUMENT"
+  | "SALES_INVOICE"
+  | "INVOICE_PAYMENT_LINK"
+  | "PAYMENT_RECEIPT"
+  | "FAILED_DELIVERY_NOTIFICATION";
 export type EmailProviderName = "mock" | "smtp-disabled" | "smtp" | "invalid" | string;
+export type InvoicePaymentEmailProviderState = "NONE" | "MOCK_EMAIL" | "DISABLED_PROVIDER_PLACEHOLDER" | "FUTURE_SMTP_OR_PROVIDER" | string;
+export type EmailDeliveryTargetType = "SALES_INVOICE" | "INVOICE_PAYMENT_LINK" | "CUSTOMER_PAYMENT" | "SYSTEM_NOTIFICATION";
+export type EmailDeliveryEventStatus = "PREVIEWED" | "BLOCKED";
 export type EmailSenderDomainEvidenceStatus = "DRAFT" | "VERIFIED" | "REVOKED" | "SUPERSEDED";
 export type EmailSenderDomainEvidenceType = "SPF" | "DKIM" | "DMARC" | "MX" | "RETURN_PATH" | "PROVIDER_VERIFICATION" | "OTHER";
 export type EmailSenderDomainReadinessStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
@@ -941,6 +952,54 @@ export interface EmailOutboxEntry {
 export interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyText: string;
   bodyHtml: string | null;
+}
+
+export interface InvoicePaymentEmailReadinessResponse {
+  providerState: InvoicePaymentEmailProviderState;
+  status: "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider";
+  configured: boolean;
+  localMockOnly: boolean;
+  sendEnabled: false;
+  actualSendBlocked: boolean;
+  noProviderCalls: boolean;
+  noCredentialsStored: boolean;
+  noCustomerEmailSent: boolean;
+  previewEnabled: boolean;
+  supportedTemplates: Array<{
+    templateType: EmailTemplateType;
+    label: string;
+    previewAvailable: boolean;
+    deliveryStatus: "Blocked";
+  }>;
+  recentEventCount: number;
+  blockers: string[];
+  warnings: string[];
+  redactionGuarantees: string[];
+}
+
+export interface InvoicePaymentEmailPreviewResponse {
+  localOnly: true;
+  noEmailSent: true;
+  providerCalled: false;
+  fakeDataOnly: true;
+  redactedRecipient: string;
+  templateType: EmailTemplateType;
+  targetType: EmailDeliveryTargetType;
+  requestId: string | null;
+  preview: {
+    subject: string;
+    bodyText: string;
+    bodyHtml?: string | null;
+  };
+  event: {
+    id: string;
+    status: EmailDeliveryEventStatus;
+    templateType: EmailTemplateType;
+    targetType: EmailDeliveryTargetType;
+    redactedRecipient: string;
+    providerState: string;
+    requestId: string | null;
+  };
 }
 
 export interface EmailSenderDomainEvidence {

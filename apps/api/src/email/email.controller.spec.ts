@@ -10,6 +10,9 @@ describe("EmailController permissions", () => {
     ]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.runDiagnostics)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.diagnosticsPlan)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.invoicePaymentReadiness)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.invoicePaymentPreview)).toEqual([PERMISSIONS.users.manage]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.invoicePaymentDeliveryBlocked)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.listSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.createSenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, EmailController.prototype.verifySenderDomainEvidence)).toEqual([PERMISSIONS.users.manage]);

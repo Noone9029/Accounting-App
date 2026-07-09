@@ -69,6 +69,22 @@ enum EmailTemplateType {
   PASSWORD_RESET
   TEST_EMAIL
   AP_GENERATED_DOCUMENT
+  SALES_INVOICE
+  INVOICE_PAYMENT_LINK
+  PAYMENT_RECEIPT
+  FAILED_DELIVERY_NOTIFICATION
+}
+
+enum EmailDeliveryEventStatus {
+  PREVIEWED
+  BLOCKED
+}
+
+enum EmailDeliveryTargetType {
+  SALES_INVOICE
+  INVOICE_PAYMENT_LINK
+  CUSTOMER_PAYMENT
+  SYSTEM_NOTIFICATION
 }
 
 enum EmailSenderDomainEvidenceStatus {
@@ -1374,6 +1390,7 @@ model Organization {
   emailOutbox                               EmailOutbox[]
   emailSenderDomainEvidence                 EmailSenderDomainEvidence[]
   emailProviderEvents                       EmailProviderEvent[]
+  emailDeliveryEvents                       EmailDeliveryEvent[]
   emailSuppressions                         EmailSuppression[]
   emailDeliveryMonitoringEvidence           EmailDeliveryMonitoringEvidence[]
   backupRestoreEvidence                     BackupRestoreEvidence[]
@@ -2330,6 +2347,27 @@ model EmailProviderEvent {
   @@index([organizationId, eventType])
   @@index([organizationId, emailOutboxId])
   @@index([organizationId, signatureVerified])
+}
+
+model EmailDeliveryEvent {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  organizationId     String                   @db.Uuid
+  status             EmailDeliveryEventStatus
+  templateType       EmailTemplateType
+  targetType         EmailDeliveryTargetType
+  targetId           String?                  @db.Uuid
+  redactedRecipient  String
+  providerState      String
+  requestId          String?
+  eventSummaryJson   Json
+  createdAt          DateTime                 @default(now())
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, templateType])
+  @@index([organizationId, targetType, targetId])
+  @@index([requestId])
 }
 
 model EmailSuppression {

@@ -17,6 +17,7 @@ The SMTP provider must fail safely. Selecting `smtp` without complete configurat
 Required local/default values:
 
 - `EMAIL_PROVIDER=mock`
+- `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=NONE`
 - `EMAIL_FROM="no-reply@ledgerbyte.local"`
 - `EMAIL_REPLY_TO=""`
 - `LEDGERBYTE_EMAIL_DIAGNOSTICS_SEND_ENABLED=false`
@@ -43,6 +44,34 @@ SMTP configuration:
 - `EMAIL_PROVIDER_WEBHOOK_ALLOWED_PROVIDERS`
 
 `SMTP_PASSWORD` and `EMAIL_PROVIDER_WEBHOOK_SECRET` must never be logged, returned from an API, stored in frontend bundles, or copied into documentation with a real value.
+
+## Invoice And Payment Email Readiness
+
+Invoice/payment email delivery has its own conservative gate and does not inherit the older invite/password-reset provider mode.
+
+Provider states:
+
+- `NONE`: default. Invoice/payment email delivery is disabled.
+- `MOCK_EMAIL`: local/test preview only. It can render fake invoice/payment templates and store redacted `EmailDeliveryEvent` metadata.
+- `DISABLED_PROVIDER_PLACEHOLDER`: provider setup placeholder. Actual sending remains blocked.
+- `FUTURE_SMTP_OR_PROVIDER`: future provider placeholder. Actual sending remains blocked.
+
+Endpoints:
+
+- `GET /email/invoice-payment/readiness`
+- `POST /email/invoice-payment/preview`
+- `POST /email/invoice-payment/delivery-blocked`
+
+Templates:
+
+- `SALES_INVOICE`
+- `INVOICE_PAYMENT_LINK`
+- `PAYMENT_RECEIPT`
+- `FAILED_DELIVERY_NOTIFICATION`
+
+Preview rendering uses fake/local data only, stores a masked preview recipient, preserves requestId on the delivery event, and never calls SMTP or an external provider. The blocked-delivery endpoint records a metadata event for audit/diagnostics without creating an outbox row or sending email. No SMTP credentials, provider secrets, customer recipient lists, raw message bodies, provider payloads, PDFs, XML, or document bodies are accepted or returned by this readiness surface.
+
+Production-like environments reject `LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER=MOCK_EMAIL`. Real invoice/payment email sending remains unimplemented and unproven.
 
 ## Readiness Endpoint
 

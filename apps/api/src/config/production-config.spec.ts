@@ -120,6 +120,12 @@ describe("production configuration hardening", () => {
     expect(() =>
       validateLedgerByteConfig({
         ...validProductionConfig(),
+        LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER: "MOCK_EMAIL",
+      }),
+    ).toThrow("MOCK_EMAIL invoice/payment email provider");
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
         ATTACHMENT_STORAGE_PROVIDER: "local-placeholder",
       }),
     ).toThrow("Fake local object-storage");
@@ -247,6 +253,20 @@ describe("production configuration hardening", () => {
         LEDGERBYTE_PUBLIC_API_OAUTH_ENABLED: "true",
       }),
     ).toThrow("Public API OAuth is placeholder-only");
+  });
+
+  it("reports invoice/payment email provider readiness without enabling sends", () => {
+    const readiness = buildConfigReadiness({
+      ...validProductionConfig(),
+      LEDGERBYTE_INVOICE_PAYMENT_EMAIL_PROVIDER: "FUTURE_SMTP_OR_PROVIDER",
+    });
+
+    expect(readiness.providers.email).toMatchObject({
+      invoicePaymentProviderState: "FUTURE_SMTP_OR_PROVIDER",
+      invoicePaymentStatus: "Future Provider",
+      invoicePaymentSendEnabled: false,
+    });
+    expect(readiness.providers.email.warnings).toEqual(expect.arrayContaining(["Invoice/payment email delivery is disabled by default and actual sending remains blocked."]));
   });
 
   it("redacts startup summaries and readiness payloads", () => {

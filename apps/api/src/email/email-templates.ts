@@ -14,6 +14,15 @@ interface TestEmailTemplateInput {
   provider: string;
 }
 
+interface InvoicePaymentPreviewTemplateInput {
+  organizationName: string;
+  customerName: string;
+  documentNumber: string;
+  amount: string;
+  dueDate: string;
+  paymentLinkUrl: string;
+}
+
 export function buildOrganizationInviteEmail(input: OrganizationInviteTemplateInput) {
   const subject = `You're invited to ${input.organizationName} on LedgerByte`;
   const bodyText = [
@@ -70,6 +79,87 @@ export function buildTestEmail(input: TestEmailTemplateInput) {
     subject,
     bodyText,
     bodyHtml: `<p>This is a LedgerByte test email.</p><p>Provider: ${escapeHtml(input.provider)}</p><p>If you received this through a real SMTP mailbox, the configured provider is able to deliver messages.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildInvoiceEmailPreview(input: InvoicePaymentPreviewTemplateInput) {
+  const subject = `Invoice ${input.documentNumber} from ${input.organizationName}`;
+  const bodyText = [
+    `Hello ${input.customerName},`,
+    "",
+    `${input.organizationName} has prepared invoice ${input.documentNumber} for ${input.amount}.`,
+    `Due date: ${input.dueDate}.`,
+    "",
+    "This is a LedgerByte local preview. No real email was sent.",
+    "",
+    "LedgerByte",
+  ].join("\n");
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml: `<p>Hello ${escapeHtml(input.customerName)},</p><p>${escapeHtml(input.organizationName)} has prepared invoice <strong>${escapeHtml(input.documentNumber)}</strong> for ${escapeHtml(input.amount)}.</p><p>Due date: ${escapeHtml(input.dueDate)}.</p><p>This is a LedgerByte local preview. No real email was sent.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildPaymentLinkEmailPreview(input: InvoicePaymentPreviewTemplateInput) {
+  const subject = `Payment link for invoice ${input.documentNumber}`;
+  const bodyText = [
+    `Hello ${input.customerName},`,
+    "",
+    `A payment link is ready for invoice ${input.documentNumber}.`,
+    `Amount: ${input.amount}.`,
+    `Preview payment link: ${input.paymentLinkUrl}`,
+    "",
+    "This is a LedgerByte local preview. No real email was sent.",
+    "",
+    "LedgerByte",
+  ].join("\n");
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml: `<p>Hello ${escapeHtml(input.customerName)},</p><p>A payment link is ready for invoice <strong>${escapeHtml(input.documentNumber)}</strong>.</p><p>Amount: ${escapeHtml(input.amount)}.</p><p><a href="${escapeHtml(input.paymentLinkUrl)}">Preview payment link</a></p><p>This is a LedgerByte local preview. No real email was sent.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildPaymentReceiptEmailPreview(input: InvoicePaymentPreviewTemplateInput) {
+  const subject = `Payment receipt for ${input.documentNumber}`;
+  const bodyText = [
+    `Hello ${input.customerName},`,
+    "",
+    `${input.organizationName} has recorded a payment for ${input.documentNumber}.`,
+    `Amount received: ${input.amount}.`,
+    "",
+    "This is a LedgerByte local preview. No real email was sent.",
+    "",
+    "LedgerByte",
+  ].join("\n");
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml: `<p>Hello ${escapeHtml(input.customerName)},</p><p>${escapeHtml(input.organizationName)} has recorded a payment for ${escapeHtml(input.documentNumber)}.</p><p>Amount received: ${escapeHtml(input.amount)}.</p><p>This is a LedgerByte local preview. No real email was sent.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildFailedDeliveryNotificationPreview(input: InvoicePaymentPreviewTemplateInput) {
+  const subject = `Delivery review needed for ${input.documentNumber}`;
+  const bodyText = [
+    `Invoice/payment email delivery needs review for ${input.documentNumber}.`,
+    "",
+    `Customer: ${input.customerName}.`,
+    `Amount: ${input.amount}.`,
+    "",
+    "This is a LedgerByte local preview. No real email was sent.",
+    "",
+    "LedgerByte",
+  ].join("\n");
+
+  return {
+    subject,
+    bodyText,
+    bodyHtml: `<p>Invoice/payment email delivery needs review for <strong>${escapeHtml(input.documentNumber)}</strong>.</p><p>Customer: ${escapeHtml(input.customerName)}.</p><p>Amount: ${escapeHtml(input.amount)}.</p><p>This is a LedgerByte local preview. No real email was sent.</p><p>LedgerByte</p>`,
   };
 }
 
