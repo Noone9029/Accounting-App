@@ -344,6 +344,11 @@ export const APP_ROUTES = [
   route("settings.apiDocs", "API docs", "/settings/api-docs", "settings", "OpenAPI documentation access and beta endpoint guidance.", [PERMISSIONS.users.view], {
     sensitivity: ["provider"],
   }),
+  route("settings.webhooks", "Webhook outbox", "/settings/webhooks", "settings", "Outbound webhook and event outbox readiness without external delivery.", [
+    PERMISSIONS.users.manage,
+  ], {
+    sensitivity: ["provider"],
+  }),
   route("settings.compliance", "Compliance settings", "/settings/compliance", "settings", "Compliance readiness and provider planning settings.", [
     PERMISSIONS.compliance.view,
   ], {

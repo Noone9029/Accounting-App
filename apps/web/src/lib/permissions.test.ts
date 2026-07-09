@@ -109,6 +109,7 @@ describe("permission helpers", () => {
       PERMISSIONS.documentSettings.view,
       PERMISSIONS.attachments.manage,
     ]);
+    expect(getRequiredPermissionsForPathname("/settings/webhooks")).toEqual([PERMISSIONS.users.manage]);
     expect(getRequiredPermissionsForPathname("/settings/email-outbox")).toEqual([PERMISSIONS.emailOutbox.view]);
     expect(getRequiredPermissionsForPathname("/settings/banking-accounting")).toEqual([PERMISSIONS.accounts.view]);
     expect(getRequiredPermissionsForPathname("/settings/audit-logs")).toEqual([PERMISSIONS.auditLogs.view]);

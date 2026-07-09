@@ -72,6 +72,7 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("settings.payments")?.href).toBe("/settings/payments");
     expect(getAppRouteByKey("settings.bankIntegrations")?.href).toBe("/settings/bank-integrations");
     expect(getAppRouteByKey("settings.apiDocs")?.href).toBe("/settings/api-docs");
+    expect(getAppRouteByKey("settings.webhooks")?.href).toBe("/settings/webhooks");
     expect(getAppRouteByKey("settings.compliance")?.href).toBe("/settings/compliance");
     expect(getAppRouteByKey("settings.zatca")?.href).toBe("/settings/zatca");
     expect(getAppRouteByKey("contacts")?.href).toBe("/contacts");
@@ -85,6 +86,7 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("documentInbox")?.sensitivity).toEqual(expect.arrayContaining(["storage", "provider"]));
     expect(getAppRouteByKey("settings.payments")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
     expect(getAppRouteByKey("settings.bankIntegrations")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
+    expect(getAppRouteByKey("settings.webhooks")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
     expect(getAppRouteByKey("purchase.supplierPayoutRequest.list")?.sensitivity).toEqual(expect.arrayContaining(["provider"]));
   });
 

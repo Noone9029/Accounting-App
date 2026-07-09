@@ -463,6 +463,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.users.view];
   }
 
+  if (pathname.startsWith("/settings/webhooks")) {
+    return [PERMISSIONS.users.manage];
+  }
+
   if (pathname.startsWith("/settings/email-outbox")) {
     return [PERMISSIONS.emailOutbox.view];
   }

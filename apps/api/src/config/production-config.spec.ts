@@ -30,6 +30,7 @@ describe("production configuration hardening", () => {
     expect(readiness.providers.ocr.status).toBe("Disabled");
     expect(readiness.providers.payment.status).toBe("Disabled");
     expect(readiness.providers.bankIntegration).toMatchObject({ status: "Disabled", mode: "NONE" });
+    expect(readiness.providers.outboundWebhooks).toMatchObject({ status: "Disabled", mode: "DISABLED", externalDeliveryEnabled: false });
     expect(readiness.publicApi).toMatchObject({
       status: "Disabled",
       enabled: false,
@@ -175,6 +176,36 @@ describe("production configuration hardening", () => {
         LEDGERBYTE_LOCAL_BACKUP_RESTORE_APPROVAL: "I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_NON_PRODUCTION_TARGET",
       }),
     ).toThrow("destructive drill approval");
+  });
+
+  it("rejects mock or unapproved outbound webhook delivery in production-like modes", () => {
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_OUTBOUND_WEBHOOKS_MODE: "MOCK_LOCAL",
+      }),
+    ).toThrow("MOCK_LOCAL outbound webhook delivery");
+
+    expect(() =>
+      validateLedgerByteConfig({
+        ...validProductionConfig(),
+        LEDGERBYTE_OUTBOUND_WEBHOOKS_MODE: "PROVIDER_PLACEHOLDER",
+      }),
+    ).toThrow("Outbound webhook delivery cannot be enabled");
+
+    const readiness = buildConfigReadiness({
+      ...validProductionConfig(),
+      LEDGERBYTE_OUTBOUND_WEBHOOKS_MODE: "PROVIDER_PLACEHOLDER",
+      LEDGERBYTE_OUTBOUND_WEBHOOKS_PUBLIC_APPROVED: "true",
+    });
+
+    expect(readiness.providers.outboundWebhooks).toMatchObject({
+      status: "Needs Configuration",
+      mode: "PROVIDER_PLACEHOLDER",
+      publicDeliveryApproved: true,
+      externalDeliveryEnabled: false,
+    });
+    expect(readiness.blockers).toEqual([]);
   });
 
   it("fails closed when public API v1 is enabled without production rate-limit strategy", () => {
