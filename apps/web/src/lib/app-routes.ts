@@ -321,6 +321,17 @@ export const APP_ROUTES = [
   ], {
     sensitivity: ["provider"],
   }),
+  route(
+    "settings.bankIntegrations",
+    "Bank integration readiness",
+    "/settings/bank-integrations",
+    "settings",
+    "Wio-shaped bank integration readiness, disabled-provider state, feed, beneficiary, and vendor-payment blockers.",
+    [PERMISSIONS.bankIntegrations.connectionManage, PERMISSIONS.bankIntegrations.feedRead],
+    {
+      sensitivity: ["provider"],
+    },
+  ),
   route("settings.apiDocs", "API docs", "/settings/api-docs", "settings", "OpenAPI documentation access and beta endpoint guidance.", [PERMISSIONS.users.view], {
     sensitivity: ["provider"],
   }),

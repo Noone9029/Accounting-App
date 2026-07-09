@@ -31,7 +31,7 @@ export interface ConfigReadinessSummary {
     ocr: ConfigReadinessItem & { mode: string };
     payment: ConfigReadinessItem & { mode: string };
     objectStorage: ConfigReadinessItem & { attachmentMode: string; generatedDocumentMode: string };
-    bankIntegration: ConfigReadinessItem & { mode: "disabled-placeholder" };
+    bankIntegration: ConfigReadinessItem & { mode: string };
     email: ConfigReadinessItem & { mode: string };
     telemetry: ConfigReadinessItem & { sentryEnabled: boolean; openTelemetryEnabled: boolean };
   };
@@ -83,6 +83,7 @@ export function buildStartupConfigSummary(config: EnvSource): StartupConfigSumma
       ocrProvider: readiness.providers.ocr.status,
       paymentProvider: readiness.providers.payment.status,
       objectStorage: readiness.providers.objectStorage.status,
+      bankIntegration: readiness.providers.bankIntegration.status,
       emailProvider: readiness.providers.email.status,
       telemetry: readiness.providers.telemetry.status,
       apiDocs: readiness.apiDocs.status,
@@ -106,6 +107,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
   const ocr = providerReadiness("ocr", normalizeProvider(config.LEDGERBYTE_DOCUMENT_EXTRACTION_PROVIDER, "NONE"), productionLike);
   const payment = paymentReadiness(config, productionLike);
   const objectStorage = objectStorageReadiness(config, productionLike);
+  const bankIntegration = bankIntegrationReadiness(config, productionLike);
   const email = emailReadiness(config, productionLike);
   const telemetry = telemetryReadiness(config, productionLike);
   const apiDocs = apiDocsReadiness(config, productionLike);
@@ -123,6 +125,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
     ...ocr.blockers,
     ...payment.blockers,
     ...objectStorage.blockers,
+    ...bankIntegration.blockers,
     ...email.blockers,
     ...telemetry.blockers,
     ...apiDocs.blockers,
@@ -142,13 +145,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
       ocr,
       payment,
       objectStorage,
-      bankIntegration: {
-        mode: "disabled-placeholder",
-        status: "Disabled",
-        configured: false,
-        blockers: [],
-        warnings: ["Live bank integration remains a future placeholder and is disabled by default."],
-      },
+      bankIntegration,
       email,
       telemetry,
     },
@@ -265,6 +262,25 @@ function objectStorageReadiness(config: EnvSource, productionLike: boolean): Con
   return readiness(configured, blockers, configured && s3Configured ? "Ready" : configured ? "Needs Configuration" : "Disabled", [], {
     attachmentMode,
     generatedDocumentMode,
+  });
+}
+
+function bankIntegrationReadiness(config: EnvSource, productionLike: boolean): ConfigReadinessItem & { mode: string } {
+  const mode = normalizeProvider(config.LEDGERBYTE_BANK_INTEGRATION_PROVIDER, "NONE").toUpperCase();
+  const blockers: string[] = [];
+  if (productionLike && mode === "MOCK_WIO") {
+    blockers.push("MOCK_WIO bank integration provider is not allowed in production-like modes.");
+  }
+  if (mode === "WIO" || mode === "WIO_DISABLED_PLACEHOLDER") {
+    return readiness(true, blockers, "Blocked", ["Real Wio provider remains a disabled placeholder. No live Wio API calls or money movement are implemented."], {
+      mode: "WIO_DISABLED_PLACEHOLDER",
+    });
+  }
+  if (mode === "MOCK_WIO") {
+    return readiness(true, blockers, "Needs Configuration", ["MOCK_WIO is local/test-only and stores masked fixture metadata only."], { mode });
+  }
+  return readiness(false, blockers, "Disabled", ["Bank integration remains disabled by default. Manual import and reconciliation are still supported."], {
+    mode: "NONE",
   });
 }
 

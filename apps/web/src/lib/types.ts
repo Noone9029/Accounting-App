@@ -146,6 +146,51 @@ export type BankStatementMatchType =
   | "OTHER";
 export type BankReconciliationStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "CLOSED" | "VOIDED";
 export type BankReconciliationReviewAction = "SUBMIT" | "APPROVE" | "REOPEN" | "CLOSE" | "VOID";
+export type BankIntegrationProvider = "NONE" | "MOCK_WIO" | "WIO_DISABLED_PLACEHOLDER";
+export type BankIntegrationStatus = "NOT_CONFIGURED" | "DISABLED" | "READY_FOR_MOCK" | "SYNCED" | "FAILED" | "BLOCKED";
+export type BankBeneficiaryMappingStatus = "UNMAPPED" | "MAPPED" | "NEEDS_REVIEW" | "BLOCKED" | "ARCHIVED";
+export type BankPaymentRequestStatus =
+  | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
+  | "RELEASE_BLOCKED"
+  | "RELEASED_EXTERNALLY"
+  | "RECONCILED"
+  | "CANCELLED";
+export interface BankIntegrationReadinessSurface {
+  provider: BankIntegrationProvider;
+  status: BankIntegrationStatus | BankBeneficiaryMappingStatus | BankPaymentRequestStatus;
+  stateLabel: "Disabled" | "Local Mock Only" | "Blocked" | "Needs Configuration" | "Future Provider";
+  blockers: string[];
+  count?: number;
+  accountCount?: number;
+  syncRunCount?: number;
+  canCreateLocalMockConnection?: boolean;
+  canRecordMockSync?: boolean;
+  safeReferencesOnly?: boolean;
+  releaseBlocked?: boolean;
+}
+export interface BankIntegrationReadinessResponse {
+  provider: BankIntegrationProvider;
+  providerStateLabel: "Disabled" | "Local Mock Only" | "Blocked" | "Needs Configuration" | "Future Provider";
+  noSecretsReturned: true;
+  noBankCredentialsStored: true;
+  noRealWioApiCalls: true;
+  noMoneyMovement: true;
+  manualImportStillSupported: true;
+  counts: {
+    connections: number;
+    feedAccounts: number;
+    paymentRequests: number;
+  };
+  surfaces: {
+    bankConnection: BankIntegrationReadinessSurface;
+    bankFeed: BankIntegrationReadinessSurface;
+    beneficiaryMapping: BankIntegrationReadinessSurface;
+    vendorPayment: BankIntegrationReadinessSurface;
+  };
+  warnings: string[];
+}
 export type CustomerLedgerRowType =
   | "INVOICE"
   | "CREDIT_NOTE"

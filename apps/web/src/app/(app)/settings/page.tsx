@@ -33,6 +33,12 @@ const adminSections = [
     status: "Provider gated",
   },
   {
+    title: "Bank integration readiness",
+    description: "Review Wio-shaped readiness, disabled-provider state, feed blockers, beneficiary mapping, and vendor payment release boundaries.",
+    href: "/settings/bank-integrations",
+    status: "Wio placeholder",
+  },
+  {
     title: "API docs",
     description: "Open the local/internal OpenAPI docs and review the beta API surface without production-public claims.",
     href: "/settings/api-docs",
