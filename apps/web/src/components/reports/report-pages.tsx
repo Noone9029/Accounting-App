@@ -291,7 +291,7 @@ export function CashFlowReportPage() {
   return (
     <ReportSection title={tc("Cash Flow")} description={tc("Cash movement by month from posted cash and bank journal lines. Read-only management report; no banking provider action is triggered.")}>
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
-      <AdvancedReportExportBoundary />
+      <AdvancedReportCsvExportCard endpoint="/reports/cash-flow" slug="cash-flow" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No cash or bank journal lines found for this period." />
       {report ? (
         <div className="space-y-5">
@@ -350,7 +350,7 @@ export function RevenueTrendReportPage() {
   return (
     <ReportSection title={tc("Revenue Trend")} description={tc("Monthly revenue trend from posted revenue journal lines. Read-only management report; no filing or provider workflow is created.")}>
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
-      <AdvancedReportExportBoundary />
+      <AdvancedReportCsvExportCard endpoint="/reports/revenue-trend" slug="revenue-trend" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No posted revenue journal lines found for this period." />
       {report ? (
         <div className="space-y-5">
@@ -397,7 +397,7 @@ export function TopCustomersReportPage() {
   return (
     <ReportSection title={tc("Top Customers")} description={tc("Customers ranked by finalized sales invoice gross totals in the selected period.")}>
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
-      <AdvancedReportExportBoundary />
+      <AdvancedReportCsvExportCard endpoint="/reports/top-customers" slug="top-customers" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No finalized sales invoices found for this period." />
       {report ? (
         <div className="space-y-5">
@@ -460,7 +460,7 @@ export function TopProductsServicesReportPage() {
   return (
     <ReportSection title={tc("Top Products & Services")} description={tc("Catalog items and uncataloged sales lines ranked by finalized sales invoice gross totals.")}>
       <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
-      <AdvancedReportExportBoundary />
+      <AdvancedReportCsvExportCard endpoint="/reports/top-products-services" slug="top-products-services" params={{ from, to }} />
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No finalized sales invoice lines found for this period." />
       {report ? (
         <div className="space-y-5">
@@ -729,12 +729,42 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
   );
 }
 
-function AdvancedReportExportBoundary() {
+function AdvancedReportCsvExportCard({ endpoint, slug, params }: { endpoint: string; slug: string; params: Record<string, string | null | undefined> }) {
   const { tc } = useAppLocale();
+  const { canAny } = usePermissions();
+  const canExportReports = canAny(PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!canExportReports) {
+    return <StatusMessage type="info">{tc("Advanced report CSV export requires report export or generated document download permission.")}</StatusMessage>;
+  }
+
+  async function download() {
+    setDownloading(true);
+    setError("");
+    try {
+      await downloadAuthenticatedFile(buildReportExportPath(endpoint, params, "csv"), reportExportFilename(slug, "csv"));
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : tc("Unable to download advanced report CSV."));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
-    <StatusMessage type="info">
-      {tc("This advanced report uses an existing read-only API endpoint. CSV/PDF export, report-pack generation, scheduled delivery, provider calls, and compliance submission are not implemented on this page.")}
-    </StatusMessage>
+    <div className="space-y-3 rounded-md border border-slate-200 bg-white p-4 shadow-panel">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => void download()} disabled={downloading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+          {downloading ? tc("Downloading CSV...") : tc("Download CSV")}
+        </button>
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-steel">{tc("PDF export not implemented")}</span>
+      </div>
+      <p className="text-xs leading-5 text-steel">
+        {tc("CSV export uses the current advanced report filters. PDF export, scheduled delivery, provider calls, and compliance submission are not implemented for this report.")}
+      </p>
+      {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+    </div>
   );
 }
 

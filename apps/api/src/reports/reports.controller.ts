@@ -8,7 +8,7 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
-import type { CoreReportKind } from "./report-csv";
+import type { AdvancedReportKind, CoreReportKind } from "./report-csv";
 import { ReportDateQuery, ReportPackManifestPreviewQuery, ReportsService } from "./reports.service";
 
 @Controller("reports")
@@ -152,27 +152,43 @@ export class ReportsController {
   }
 
   @Get("cash-flow")
-  async cashFlow(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
-    assertJsonOnlyAdvancedReportFormat("Cash Flow", query);
-    return this.reportsService.cashFlow(organizationId, query);
+  async cashFlow(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: ReportDateQuery,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.advancedReportResponse(organizationId, "cash-flow", "Cash Flow", query, request, response);
   }
 
   @Get("revenue-trend")
-  async revenueTrend(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
-    assertJsonOnlyAdvancedReportFormat("Revenue Trend", query);
-    return this.reportsService.revenueTrend(organizationId, query);
+  async revenueTrend(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: ReportDateQuery,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.advancedReportResponse(organizationId, "revenue-trend", "Revenue Trend", query, request, response);
   }
 
   @Get("top-customers")
-  async topCustomers(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
-    assertJsonOnlyAdvancedReportFormat("Top Customers", query);
-    return this.reportsService.topCustomers(organizationId, query);
+  async topCustomers(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: ReportDateQuery,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.advancedReportResponse(organizationId, "top-customers", "Top Customers", query, request, response);
   }
 
   @Get("top-products-services")
-  async topProductsServices(@CurrentOrganizationId() organizationId: string, @Query() query: ReportDateQuery) {
-    assertJsonOnlyAdvancedReportFormat("Top Products & Services", query);
-    return this.reportsService.topProductsServices(organizationId, query);
+  async topProductsServices(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: ReportDateQuery,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.advancedReportResponse(organizationId, "top-products-services", "Top Products & Services", query, request, response);
   }
 
   @Get("aged-receivables")
@@ -232,6 +248,24 @@ export class ReportsController {
     return this.reportsService.coreReport(organizationId, kind, query);
   }
 
+  private async advancedReportResponse(
+    organizationId: string,
+    kind: AdvancedReportKind,
+    title: string,
+    query: ReportDateQuery,
+    request: AuthenticatedRequest,
+    response: Response,
+  ) {
+    const requestedFormat = normalizeReportFormat(query.format);
+    if (requestedFormat === "csv") {
+      assertExportPermission(request);
+      const file = await this.reportsService.advancedReportCsvFile(organizationId, kind, query);
+      return csvResponse(response, file.filename, file.content);
+    }
+    assertJsonOrUnsupportedAdvancedReportFormat(title, requestedFormat);
+    return this.reportsService.advancedReport(organizationId, kind, query);
+  }
+
   private async pdfResponse(
     organizationId: string,
     actorUserId: string,
@@ -273,12 +307,15 @@ function assertExportPermission(request: AuthenticatedRequest): void {
   throw new ForbiddenException("You do not have permission to export reports.");
 }
 
-function assertJsonOnlyAdvancedReportFormat(title: string, query: ReportDateQuery): void {
-  const requestedFormat = query.format?.trim().toLowerCase();
+function normalizeReportFormat(format: ReportDateQuery["format"]): string | undefined {
+  return format?.trim().toLowerCase();
+}
+
+function assertJsonOrUnsupportedAdvancedReportFormat(title: string, requestedFormat: string | undefined): void {
   if (!requestedFormat || requestedFormat === "json") {
     return;
   }
   throw new BadRequestException(
-    `${title} ${requestedFormat.toUpperCase()} export is not implemented. Use the JSON endpoint; CSV/PDF exports are available only for implemented core reports.`,
+    `${title} ${requestedFormat.toUpperCase()} export is not implemented. Use format=json or format=csv; PDF export is not implemented for this advanced report.`,
   );
 }

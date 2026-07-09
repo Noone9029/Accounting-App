@@ -7,6 +7,8 @@ export type CoreReportKind =
   | "aged-receivables"
   | "aged-payables";
 
+export type AdvancedReportKind = "cash-flow" | "revenue-trend" | "top-customers" | "top-products-services";
+
 export interface CsvFile {
   filename: string;
   content: string;
@@ -57,8 +59,15 @@ const reportTitles: Record<CoreReportKind, string> = {
   "aged-payables": "Aged Payables",
 };
 
+const advancedReportTitles: Record<AdvancedReportKind, string> = {
+  "cash-flow": "Cash Flow",
+  "revenue-trend": "Revenue Trend",
+  "top-customers": "Top Customers",
+  "top-products-services": "Top Products & Services",
+};
+
 export function csvEscape(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
+  const text = csvSafeCellText(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll("\"", "\"\"")}"` : text;
 }
 
@@ -127,6 +136,97 @@ export function coreReportCsv(kind: CoreReportKind, report: any, generatedAt = n
     rows.push([], ["Grand Total", report.grandTotal]);
   }
 
+  return { filename: `${kind}-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
+}
+
+export function advancedReportCsv(kind: AdvancedReportKind, report: any, generatedAt = new Date()): CsvFile {
+  const rows: unknown[][] = reportHeaderRows(advancedReportTitles[kind], report, generatedAt);
+  rows.push(["Export Status", "CSV supported"]);
+  rows.push(["PDF Export", "Not implemented"]);
+
+  if (kind === "cash-flow") {
+    rows.push(
+      [],
+      ["Summary"],
+      ["Opening Cash", report.totals?.openingCash],
+      ["Inflows", report.totals?.inflows],
+      ["Outflows", report.totals?.outflows],
+      ["Net Cash Flow", report.totals?.netCashFlow],
+      ["Closing Cash", report.totals?.closingCash],
+      ["Cash and Bank Accounts", report.totals?.accountCount],
+      ["Journal Lines", report.totals?.lineCount],
+      [],
+      ["Period", "Inflows", "Outflows", "Net Cash Flow", "Journal Lines"],
+    );
+    for (const row of report.rows ?? []) {
+      rows.push([row.period, row.inflows, row.outflows, row.netCashFlow, row.lineCount]);
+    }
+  } else if (kind === "revenue-trend") {
+    rows.push(
+      [],
+      ["Summary"],
+      ["Revenue", report.totals?.revenue],
+      ["Journal Lines", report.totals?.lineCount],
+      [],
+      ["Period", "Revenue", "Journal Lines"],
+    );
+    for (const row of report.rows ?? []) {
+      rows.push([row.period, row.revenue, row.lineCount]);
+    }
+  } else if (kind === "top-customers") {
+    rows.push(
+      [],
+      ["Summary"],
+      ["Customer Count", report.totals?.customerCount],
+      ["Invoice Count", report.totals?.invoiceCount],
+      ["Taxable Amount", report.totals?.taxableAmount],
+      ["Tax Amount", report.totals?.taxAmount],
+      ["Gross Amount", report.totals?.grossAmount],
+      ["Limit", report.limit],
+      [],
+      ["Customer", "Invoice Count", "Taxable Amount", "Tax Amount", "Gross Amount", "Latest Invoice Date"],
+    );
+    for (const row of report.rows ?? []) {
+      rows.push([
+        row.customer?.displayName ?? row.customer?.name ?? "",
+        row.invoiceCount,
+        row.taxableAmount,
+        row.taxAmount,
+        row.grossAmount,
+        dateOnly(row.latestInvoiceDate),
+      ]);
+    }
+  } else {
+    rows.push(
+      [],
+      ["Summary"],
+      ["Line Count", report.totals?.lineCount],
+      ["Catalog Item Count", report.totals?.catalogItemCount],
+      ["Uncataloged Line Groups", report.totals?.uncatalogedLineGroupCount],
+      ["Quantity", report.totals?.quantity],
+      ["Taxable Amount", report.totals?.taxableAmount],
+      ["Tax Amount", report.totals?.taxAmount],
+      ["Gross Amount", report.totals?.grossAmount],
+      ["Limit", report.limit],
+      [],
+      ["Kind", "Product or Service", "SKU", "Line Count", "Quantity", "Taxable Amount", "Tax Amount", "Gross Amount", "Latest Invoice Date"],
+    );
+    for (const row of report.rows ?? []) {
+      rows.push([
+        row.kind,
+        row.label,
+        row.item?.sku ?? "",
+        row.lineCount,
+        row.quantity,
+        row.taxableAmount,
+        row.taxAmount,
+        row.grossAmount,
+        dateOnly(row.latestInvoiceDate),
+      ]);
+    }
+  }
+
+  appendReportNotes(rows, report.notes ?? []);
   return { filename: `${kind}-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
 }
 
@@ -256,6 +356,24 @@ function reportHeaderRows(title: string, report: any, generatedAt: Date): unknow
     rows.push(["As Of", report.asOf ?? ""]);
   }
   return rows;
+}
+
+function appendReportNotes(rows: unknown[][], notes: unknown[]): void {
+  if (notes.length === 0) {
+    return;
+  }
+  rows.push([], ["Notes"]);
+  for (const note of notes) {
+    rows.push([note]);
+  }
+}
+
+function csvSafeCellText(value: unknown): string {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/^[=+@]/.test(text) || /^-(?!\d+(\.\d+)?$)/.test(text)) {
+    return `'${text}`;
+  }
+  return text;
 }
 
 function appendAmountSection(rows: unknown[][], title: string, section: any): void {
