@@ -4,6 +4,7 @@ import {
   createCsrfToken,
   extractAuthCookieToken,
   readAuthCookieSettings,
+  setAuthCookies,
   validateCsrfRequest,
 } from "./auth-cookie";
 
@@ -14,7 +15,7 @@ function config(values: Record<string, string | undefined>) {
 }
 
 describe("auth cookie helpers", () => {
-  it("uses httpOnly secure auth cookies and readable CSRF cookies in production", () => {
+  it("uses cross-site-compatible secure cookies by default in production", () => {
     const settings = readAuthCookieSettings(
       config({
         APP_ENV: "production",
@@ -29,7 +30,7 @@ describe("auth cookie helpers", () => {
       expect.objectContaining({
         httpOnly: true,
         secure: true,
-        sameSite: "lax",
+        sameSite: "none",
         path: "/",
         maxAge: 2 * 60 * 60 * 1000,
       }),
@@ -38,10 +39,42 @@ describe("auth cookie helpers", () => {
       expect.objectContaining({
         httpOnly: false,
         secure: true,
-        sameSite: "lax",
+        sameSite: "none",
         path: "/",
       }),
     );
+  });
+
+  it("respects an explicit production SameSite policy", () => {
+    const settings = readAuthCookieSettings(
+      config({
+        APP_ENV: "production",
+        AUTH_COOKIE_SAME_SITE: "lax",
+      }),
+    );
+
+    expect(settings.authCookieOptions).toEqual(expect.objectContaining({ secure: true, sameSite: "lax" }));
+    expect(settings.csrfCookieOptions).toEqual(expect.objectContaining({ secure: true, sameSite: "lax" }));
+  });
+
+  it("emits secure host-only auth and CSRF cookies for cross-site production clients", () => {
+    const response = { cookie: jest.fn() };
+
+    setAuthCookies(response as never, config({ APP_ENV: "production" }), "jwt-fixture");
+
+    expect(response.cookie).toHaveBeenCalledWith(
+      "ledgerbyte_auth",
+      "jwt-fixture",
+      expect.objectContaining({ httpOnly: true, secure: true, sameSite: "none", path: "/" }),
+    );
+    expect(response.cookie).toHaveBeenCalledWith(
+      "ledgerbyte_csrf",
+      expect.any(String),
+      expect.objectContaining({ httpOnly: false, secure: true, sameSite: "none", path: "/" }),
+    );
+    for (const [, , options] of response.cookie.mock.calls) {
+      expect(options).not.toHaveProperty("domain");
+    }
   });
 
   it("rejects insecure production auth cookie configuration", () => {

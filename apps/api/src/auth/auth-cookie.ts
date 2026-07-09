@@ -46,7 +46,7 @@ export interface AuthCookieSettings {
 export function readAuthCookieSettings(config: ConfigService): AuthCookieSettings {
   const environment = readRuntimeEnvironment(config);
   const secure = readSecureCookieFlag(config, environment);
-  const sameSite = readSameSite(config);
+  const sameSite = readSameSite(config, environment);
   const domain = readOptionalString(config.get<string>("AUTH_COOKIE_DOMAIN"));
   const maxAge = parseDurationMs(config.get<string>("JWT_EXPIRES_IN"), DEFAULT_SESSION_MAX_AGE_MS);
   const baseOptions: CookieOptions = {
@@ -169,13 +169,13 @@ function readSecureCookieFlag(config: ConfigService, environment: string): boole
   return !isDevelopmentLikeEnvironment(environment);
 }
 
-function readSameSite(config: ConfigService): SameSite {
+function readSameSite(config: ConfigService, environment: string): SameSite {
   const configured = readOptionalString(config.get<string>("AUTH_COOKIE_SAME_SITE"))?.toLowerCase();
-  if (configured === "strict" || configured === "none") {
+  if (configured === "lax" || configured === "strict" || configured === "none") {
     return configured;
   }
 
-  return "lax";
+  return isDevelopmentLikeEnvironment(environment) ? "lax" : "none";
 }
 
 function parseDurationMs(value: string | undefined, fallback: number): number {
