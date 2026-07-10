@@ -61,6 +61,26 @@ import { Decimal } from "decimal.js";
 
 const ZERO = new Decimal(0);
 
+export type ExactDecimalInput = string | Decimal;
+
+export function convertTransactionToBaseAmount(
+  transactionAmount: ExactDecimalInput,
+  exchangeRate: ExactDecimalInput,
+): string {
+  const amount = parsePositiveExactDecimal(
+    transactionAmount,
+    "Transaction amount must be a positive finite decimal string or Decimal value.",
+    "FX_INVALID_TRANSACTION_AMOUNT",
+  );
+  const rate = parsePositiveExactDecimal(
+    exchangeRate,
+    "Exchange rate must be a positive finite decimal string or Decimal value.",
+    "FX_INVALID_EXCHANGE_RATE",
+  );
+
+  return roundMoney(amount.mul(rate)).toFixed(4);
+}
+
 export function toMoney(value: Decimal.Value | null | undefined): Decimal {
   if (value === null || value === undefined || value === "") {
     return ZERO;
@@ -261,4 +281,22 @@ export function assertDraftInvoiceEditable(status: InvoiceStatus): void {
 
 function roundMoney(value: Decimal): Decimal {
   return value.toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
+}
+
+function parsePositiveExactDecimal(value: ExactDecimalInput, message: string, code: string): Decimal {
+  if ((typeof value !== "string" && !Decimal.isDecimal(value)) || (typeof value === "string" && value.trim() === "")) {
+    throw new AccountingRuleError(message, code);
+  }
+
+  let parsed: Decimal;
+  try {
+    parsed = new Decimal(value);
+  } catch {
+    throw new AccountingRuleError(message, code);
+  }
+
+  if (!parsed.isFinite() || parsed.lte(0)) {
+    throw new AccountingRuleError(message, code);
+  }
+  return parsed;
 }
