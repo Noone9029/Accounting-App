@@ -197,6 +197,48 @@ describe("report PDF renderers", () => {
       textSpy.mockRestore();
     }
   });
+
+  it("spaces wrapped dimension labels and expands the report metadata block", async () => {
+    const textSpy = jest.spyOn(PDFDocument.prototype, "text");
+    const roundedRectSpy = jest.spyOn(PDFDocument.prototype, "roundedRect");
+
+    try {
+      await renderGeneralLedgerReportPdf({
+        organization,
+        currency: "SAR",
+        from: "2026-01-01",
+        to: "2026-12-31",
+        filters: {
+          costCenter: {
+            id: "cost-center-long",
+            code: "UTCC-LONG",
+            name: "User Testing Cost Center With A Long Wrapped Display Name",
+            status: "ARCHIVED",
+          },
+          project: {
+            id: "project-long",
+            code: "UTPR-LONG",
+            name: "User Testing Project With A Long Wrapped Display Name",
+            status: "ARCHIVED",
+          },
+        },
+        accounts: [],
+        generatedAt: "2026-07-10T12:00:00.000Z",
+      });
+
+      const costCenterCall = textSpy.mock.calls.find(([value]) => String(value).startsWith("Cost Center:"));
+      const projectCall = textSpy.mock.calls.find(([value]) => String(value).startsWith("Project:"));
+      expect(costCenterCall).toBeDefined();
+      expect(projectCall).toBeDefined();
+      expect(Number(projectCall?.[2]) - Number(costCenterCall?.[2])).toBeGreaterThanOrEqual(20);
+
+      const leftBlock = roundedRectSpy.mock.calls[0];
+      expect(Number(leftBlock?.[3])).toBeGreaterThan(104);
+    } finally {
+      textSpy.mockRestore();
+      roundedRectSpy.mockRestore();
+    }
+  });
 });
 
 function emptyAccountTotals(extra: { balanced: boolean }) {
