@@ -66,7 +66,7 @@ export class ForeignExchangeService {
         transactionCurrency,
         rateDate: query.rateDate ? this.dateOnly(query.rateDate) : undefined,
       },
-      orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * limit,
       take: limit + 1,
     });

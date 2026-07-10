@@ -83,7 +83,7 @@ describe("ForeignExchangeService", () => {
         transactionCurrency: "USD",
         rateDate: new Date("2026-07-10T00:00:00.000Z"),
       },
-      orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       skip: 0,
       take: 51,
     });
