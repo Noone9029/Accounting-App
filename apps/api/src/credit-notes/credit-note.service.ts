@@ -229,6 +229,7 @@ export class CreditNoteService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           total: true,
           unappliedAmount: true,
@@ -249,6 +250,7 @@ export class CreditNoteService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           balanceDue: true,
         },
@@ -258,6 +260,11 @@ export class CreditNoteService {
       }
       if (invoice.customerId !== creditNote.customerId) {
         throw new BadRequestException("Credit note and invoice must belong to the same customer.");
+      }
+      if (invoice.currency !== creditNote.currency) {
+        throw new BadRequestException(
+          "Credit note and invoice currencies must match until realized FX accounting is available.",
+        );
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException("Credit notes can only be applied to finalized, non-voided invoices.");

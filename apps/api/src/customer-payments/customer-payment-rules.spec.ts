@@ -98,6 +98,18 @@ describe("customer payment rules", () => {
     await expect(service.create("org-1", "user-1", basePaymentDto)).rejects.toThrow("Allocation amount cannot exceed invoice balance due.");
   });
 
+  it("rejects cross-currency invoice allocations until realized FX accounting exists", async () => {
+    const tx = makeCreateTransactionMock({ invoiceCurrency: "SAR" });
+    const prisma = makeCreatePrismaMock({ tx });
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD" })).rejects.toThrow(
+      "Customer payment and invoice currencies must match",
+    );
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("rejects stale concurrent allocations without creating payment records", async () => {
     const tx = makeCreateTransactionMock({ allocationUpdateCount: 0 });
     const prisma = makeCreatePrismaMock({ tx });
@@ -362,6 +374,7 @@ describe("customer payment rules", () => {
       id: "invoice-other-org",
       organizationId: "org-2",
       customerId: "customer-1",
+      currency: "SAR",
       status: SalesInvoiceStatus.FINALIZED,
       balanceDue: "100.0000",
     };
@@ -457,6 +470,21 @@ describe("customer payment rules", () => {
         entityId: "payment-1",
       }),
     );
+  });
+
+  it("rejects applying unapplied customer payment credit across currencies until realized FX accounting exists", async () => {
+    const tx = makeApplyUnappliedTransactionMock({ paymentCurrency: "USD", invoiceCurrency: "SAR" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
+    ).rejects.toThrow("Customer payment and invoice currencies must match");
+
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1285,7 +1313,10 @@ type RollbackSequenceScope = typeof PAYMENT_SEQUENCE_SCOPE | typeof JOURNAL_ENTR
 
 interface CreateRollbackState {
   arAccountAvailable: boolean;
-  invoices: Record<string, { id: string; organizationId: string; customerId: string; status: SalesInvoiceStatus; balanceDue: string }>;
+  invoices: Record<
+    string,
+    { id: string; organizationId: string; customerId: string; currency: string; status: SalesInvoiceStatus; balanceDue: string }
+  >;
   customerPayments: Array<{ id: string; paymentNumber: string; status: CustomerPaymentStatus; journalEntryId: string }>;
   customerPaymentAllocations: Array<{ id: string; paymentId: string; invoiceId: string; amountApplied: string }>;
   journalEntries: Array<{ id: string; entryNumber: string; status: JournalEntryStatus }>;
@@ -1300,6 +1331,7 @@ function makeCreateRollbackHarness(options: { invoiceBalanceDue?: string; arAcco
         id: "invoice-1",
         organizationId: "org-1",
         customerId: "customer-1",
+        currency: "SAR",
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: options.invoiceBalanceDue ?? "100.0000",
       },
@@ -1370,7 +1402,7 @@ function makeCreateRollbackTransaction(state: CreateRollbackState) {
               invoice.status === where.status &&
               where.id.in.includes(invoice.id),
           )
-          .map((invoice) => ({ id: invoice.id, balanceDue: invoice.balanceDue })),
+          .map((invoice) => ({ id: invoice.id, balanceDue: invoice.balanceDue, currency: invoice.currency })),
       ),
       updateMany: jest.fn(
         async ({
@@ -1508,11 +1540,12 @@ function flattenValidationMessages(errors: ValidationError[]): string[] {
   return errors.flatMap((error) => [...Object.values(error.constraints ?? {}), ...flattenValidationMessages(error.children ?? [])]);
 }
 
-function makeCreateTransactionMock(
+  function makeCreateTransactionMock(
   options: {
     customer?: { id: string; name: string; displayName: string | null } | null;
     paidThroughAccount?: { id: string } | null;
     invoiceBalanceDue?: string;
+    invoiceCurrency?: string;
     allocationUpdateCount?: number;
   } = {},
 ) {
@@ -1540,6 +1573,7 @@ function makeCreateTransactionMock(
         {
           id: "invoice-1",
           balanceDue: options.invoiceBalanceDue ?? "100.0000",
+          currency: options.invoiceCurrency ?? "SAR",
           status: SalesInvoiceStatus.FINALIZED,
         },
       ]),
@@ -1558,6 +1592,8 @@ function makeApplyUnappliedTransactionMock(
     paymentUpdateCount?: number;
     invoiceUpdateCount?: number;
     paymentVoidReversalJournalEntryId?: string | null;
+    paymentCurrency?: string;
+    invoiceCurrency?: string;
   } = {},
 ) {
   return {
@@ -1569,6 +1605,7 @@ function makeApplyUnappliedTransactionMock(
         amountReceived: "100.0000",
         unappliedAmount: options.unappliedAmount ?? "100.0000",
         voidReversalJournalEntryId: options.paymentVoidReversalJournalEntryId ?? null,
+        currency: options.paymentCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: options.paymentUpdateCount ?? 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({
@@ -1584,6 +1621,7 @@ function makeApplyUnappliedTransactionMock(
         customerId: options.invoiceCustomerId ?? "customer-1",
         status: options.invoiceStatus ?? SalesInvoiceStatus.FINALIZED,
         balanceDue: options.invoiceBalanceDue ?? "100.0000",
+        currency: options.invoiceCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: options.invoiceUpdateCount ?? 1 }),
     },

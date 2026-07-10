@@ -474,7 +474,7 @@ export class SupplierPaymentService {
         throw new BadRequestException("Paid-through account must be an active posting asset account in this organization.");
       }
 
-      await this.validateBillsForAllocation(organizationId, supplier.id, allocations, tx);
+      await this.validateBillsForAllocation(organizationId, supplier.id, currency, allocations, tx);
       const accountsPayableAccount = await this.findPostingAccountByCode(organizationId, "210", tx);
       const paymentNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PAYMENT, tx);
       const journalLines = buildSupplierPaymentJournalLines({
@@ -566,6 +566,7 @@ export class SupplierPaymentService {
         select: {
           id: true,
           supplierId: true,
+          currency: true,
           status: true,
           amountPaid: true,
           unappliedAmount: true,
@@ -583,13 +584,18 @@ export class SupplierPaymentService {
 
       const bill = await tx.purchaseBill.findFirst({
         where: { id: dto.billId, organizationId },
-        select: { id: true, supplierId: true, status: true, total: true, balanceDue: true },
+        select: { id: true, supplierId: true, currency: true, status: true, total: true, balanceDue: true },
       });
       if (!bill) {
         throw new BadRequestException("Purchase bill must belong to this organization.");
       }
       if (bill.supplierId !== payment.supplierId) {
         throw new BadRequestException("Supplier payment and bill must belong to the same supplier.");
+      }
+      if (bill.currency !== payment.currency) {
+        throw new BadRequestException(
+          "Supplier payment and bill currencies must match until realized FX accounting is available.",
+        );
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Supplier payment unapplied amounts can only be applied to finalized, non-voided bills.");
@@ -855,6 +861,7 @@ export class SupplierPaymentService {
   private async validateBillsForAllocation(
     organizationId: string,
     supplierId: string,
+    paymentCurrency: string,
     allocations: SupplierPaymentAllocationDto[],
     tx: Prisma.TransactionClient,
   ): Promise<void> {
@@ -869,7 +876,7 @@ export class SupplierPaymentService {
 
     const bills = await tx.purchaseBill.findMany({
       where: { organizationId, id: { in: billIds } },
-      select: { id: true, supplierId: true, status: true, balanceDue: true },
+      select: { id: true, supplierId: true, currency: true, status: true, balanceDue: true },
     });
     if (bills.length !== billIds.length) {
       throw new BadRequestException("Supplier payment bills must belong to this organization.");
@@ -887,6 +894,11 @@ export class SupplierPaymentService {
       }
       if (bill.supplierId !== supplierId) {
         throw new BadRequestException("Supplier payment bills must belong to the same supplier.");
+      }
+      if (bill.currency !== paymentCurrency) {
+        throw new BadRequestException(
+          "Supplier payment and bill currencies must match until realized FX accounting is available.",
+        );
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Supplier payments can only be allocated to finalized, non-voided bills.");

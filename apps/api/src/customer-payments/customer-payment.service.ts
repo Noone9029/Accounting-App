@@ -200,6 +200,7 @@ export class CustomerPaymentService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           amountReceived: true,
           unappliedAmount: true,
@@ -229,6 +230,7 @@ export class CustomerPaymentService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           balanceDue: true,
         },
@@ -238,6 +240,11 @@ export class CustomerPaymentService {
       }
       if (invoice.customerId !== payment.customerId) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.CUSTOMER_MISMATCH);
+      }
+      if (invoice.currency !== payment.currency) {
+        throw new BadRequestException(
+          "Customer payment and invoice currencies must match until realized FX accounting is available.",
+        );
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.INVOICE_NOT_FINALIZED);
@@ -670,7 +677,7 @@ export class CustomerPaymentService {
         this.findCustomer(organizationId, dto.customerId, tx),
         this.findPaidThroughAccount(organizationId, dto.accountId, tx),
       ]);
-      await this.findAndValidateInvoices(organizationId, dto.customerId, dto.allocations, tx);
+      await this.findAndValidateInvoices(organizationId, dto.customerId, currency, dto.allocations, tx);
 
       // Conditional balance updates are the allocation concurrency boundary.
       // The row update locks each invoice and only succeeds while balanceDue
@@ -924,6 +931,7 @@ export class CustomerPaymentService {
   private async findAndValidateInvoices(
     organizationId: string,
     customerId: string,
+    paymentCurrency: string,
     allocations: CreateCustomerPaymentDto["allocations"],
     executor: PrismaExecutor = this.prisma,
   ) {
@@ -939,7 +947,7 @@ export class CustomerPaymentService {
         customerId,
         status: SalesInvoiceStatus.FINALIZED,
       },
-      select: { id: true, balanceDue: true },
+      select: { id: true, balanceDue: true, currency: true },
     });
 
     if (invoices.length !== invoiceIds.length) {
@@ -950,6 +958,11 @@ export class CustomerPaymentService {
     for (const allocation of allocations) {
       const invoice = invoicesById.get(allocation.invoiceId);
       const amountApplied = this.assertPositiveMoney(allocation.amountApplied, "Allocation amount");
+      if (invoice && invoice.currency !== paymentCurrency) {
+        throw new BadRequestException(
+          "Customer payment and invoice currencies must match until realized FX accounting is available.",
+        );
+      }
       if (!invoice || amountApplied.gt(invoice.balanceDue)) {
         throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
       }

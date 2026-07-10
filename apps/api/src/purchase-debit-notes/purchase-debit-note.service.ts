@@ -567,6 +567,7 @@ export class PurchaseDebitNoteService {
         select: {
           id: true,
           supplierId: true,
+          currency: true,
           status: true,
           total: true,
           unappliedAmount: true,
@@ -584,13 +585,18 @@ export class PurchaseDebitNoteService {
 
       const bill = await tx.purchaseBill.findFirst({
         where: { id: dto.billId, organizationId },
-        select: { id: true, supplierId: true, status: true, balanceDue: true },
+        select: { id: true, supplierId: true, currency: true, status: true, balanceDue: true },
       });
       if (!bill) {
         throw new BadRequestException("Purchase bill must belong to this organization.");
       }
       if (bill.supplierId !== debitNote.supplierId) {
         throw new BadRequestException("Purchase debit note and bill must belong to the same supplier.");
+      }
+      if (bill.currency !== debitNote.currency) {
+        throw new BadRequestException(
+          "Purchase debit note and bill currencies must match until realized FX accounting is available.",
+        );
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Purchase debit notes can only be applied to finalized, non-voided bills.");
