@@ -207,7 +207,7 @@ describe("purchase debit note rules", () => {
     );
   });
 
-  it("reverses an active debit allocation and restores bill/debit note balances", async () => {
+  it("reverses a historical cross-currency debit allocation and restores balances", async () => {
     const tx = makeReverseTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new PurchaseDebitNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -436,12 +436,14 @@ function makeReverseTransactionMock(options: { reversedAt?: Date | null } = {}) 
         reversedAt: options.reversedAt ?? null,
         debitNote: {
           id: "debit-note-1",
+          currency: "USD",
           status: PurchaseDebitNoteStatus.FINALIZED,
           total: "100.0000",
           unappliedAmount: "25.0000",
         },
         bill: {
           id: "bill-1",
+          currency: "SAR",
           status: PurchaseBillStatus.FINALIZED,
           total: "100.0000",
           balanceDue: "50.0000",

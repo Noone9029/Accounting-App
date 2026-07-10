@@ -201,7 +201,7 @@ describe("supplier payment rules", () => {
     expect(tx.supplierPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
 
-  it("reverses unapplied supplier payment allocation and restores balances", async () => {
+  it("reverses historical cross-currency supplier payment allocation and restores balances", async () => {
     const tx = makeReverseUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -369,12 +369,14 @@ function makeReverseUnappliedTransactionMock() {
         reversedAt: null,
         payment: {
           id: "payment-1",
+          currency: "USD",
           status: SupplierPaymentStatus.POSTED,
           amountPaid: "100.0000",
           unappliedAmount: "15.0000",
         },
         bill: {
           id: "bill-2",
+          currency: "SAR",
           status: PurchaseBillStatus.FINALIZED,
           total: "100.0000",
           balanceDue: "50.0000",

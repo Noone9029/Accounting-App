@@ -271,7 +271,7 @@ describe("credit note rules", () => {
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
-  it("reverses active allocations and restores invoice and credit balances without a journal", async () => {
+  it("reverses historical cross-currency allocations without a journal", async () => {
     const tx = makeReverseAllocationTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -565,12 +565,14 @@ function makeReverseAllocationTransactionMock(options: {
     reversedAt: options.reversedAt ?? null,
     creditNote: {
       id: "credit-note-1",
+      currency: "USD",
       status: options.creditNoteStatus ?? CreditNoteStatus.FINALIZED,
       total: "100.0000",
       unappliedAmount: options.creditUnappliedAmount ?? "60.0000",
     },
     invoice: {
       id: "invoice-1",
+      currency: "SAR",
       status: options.invoiceStatus ?? "FINALIZED",
       total: "100.0000",
       balanceDue: options.invoiceBalanceDue ?? "60.0000",

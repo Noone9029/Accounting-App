@@ -648,7 +648,7 @@ describe("customer payment rules", () => {
     expect(tx.customerPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
   });
 
-  it("reverses unapplied payment allocations and restores balances without a journal", async () => {
+  it("reverses historical cross-currency unapplied payment allocations without a journal", async () => {
     const tx = makeReverseUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const auditLog = { log: jest.fn() };
@@ -1665,6 +1665,7 @@ function makeReverseUnappliedTransactionMock(
     reversedAt: options.reversedAt ?? null,
     payment: {
       id: "payment-1",
+      currency: "USD",
       status: options.paymentStatus ?? CustomerPaymentStatus.POSTED,
       amountReceived: "100.0000",
       unappliedAmount: options.paymentUnappliedAmount ?? "60.0000",
@@ -1672,6 +1673,7 @@ function makeReverseUnappliedTransactionMock(
     },
     invoice: {
       id: "invoice-1",
+      currency: "SAR",
       status: options.invoiceStatus ?? SalesInvoiceStatus.FINALIZED,
       total: "100.0000",
       balanceDue: options.invoiceBalanceDue ?? "60.0000",
