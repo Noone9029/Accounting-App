@@ -145,7 +145,8 @@ describe("FX persistence schema", () => {
       'FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE',
     );
 
-    expect(migration).not.toMatch(/^\s*(?:INSERT INTO|UPDATE\s+"|DELETE FROM)\b/im);
+    expect(migration).not.toMatch(/^\s*(?:INSERT INTO|DELETE FROM)\b/im);
+    expect(migration).not.toMatch(/^\s*UPDATE\s+"(?!Role")/im);
   });
 
   it("keeps the new tables unavailable to Supabase Data API roles without requiring those roles locally", () => {
@@ -159,5 +160,27 @@ describe("FX persistence schema", () => {
     }
     expect(migration).not.toMatch(/\bGRANT\b/i);
     expect(migration).not.toMatch(/ENABLE ROW LEVEL SECURITY/i);
+  });
+
+  it("additively backfills dedicated FX permissions only onto known system roles", () => {
+    expect(migration).toContain('UPDATE "Role"');
+    expect(migration).toContain('WHERE "isSystem" = true');
+    for (const roleName of ["Owner", "Admin", "Accountant", "Sales", "Purchases", "Viewer"]) {
+      expect(migration).toContain(`WHEN '${roleName}' THEN`);
+    }
+    for (const permission of [
+      "currencies.read",
+      "currencies.manage",
+      "fxRates.read",
+      "fxRates.manage",
+      "fxRevaluation.read",
+      "fxRevaluation.run",
+      "fxRevaluation.reverse",
+    ]) {
+      expect(migration).toContain(permission);
+    }
+    expect(migration).toContain(
+      'AND "name" IN (\'Owner\', \'Admin\', \'Accountant\', \'Sales\', \'Purchases\', \'Viewer\')',
+    );
   });
 });

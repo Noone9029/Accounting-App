@@ -51,6 +51,19 @@ ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_real
 ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_unrealizedGainAccount_fkey" FOREIGN KEY ("organizationId", "unrealizedGainAccountId") REFERENCES "Account"("organizationId", "id") ON DELETE NO ACTION ON UPDATE CASCADE;
 ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_unrealizedLossAccount_fkey" FOREIGN KEY ("organizationId", "unrealizedLossAccountId") REFERENCES "Account"("organizationId", "id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
+UPDATE "Role"
+SET "permissions" = "permissions" || CASE "name"
+    WHEN 'Owner' THEN '["currencies.read", "currencies.manage", "fxRates.read", "fxRates.manage", "fxRevaluation.read", "fxRevaluation.run", "fxRevaluation.reverse"]'::jsonb
+    WHEN 'Admin' THEN '["currencies.read", "currencies.manage", "fxRates.read", "fxRates.manage", "fxRevaluation.read", "fxRevaluation.run", "fxRevaluation.reverse"]'::jsonb
+    WHEN 'Accountant' THEN '["currencies.read", "currencies.manage", "fxRates.read", "fxRates.manage", "fxRevaluation.read", "fxRevaluation.run", "fxRevaluation.reverse"]'::jsonb
+    WHEN 'Sales' THEN '["currencies.read", "fxRates.read"]'::jsonb
+    WHEN 'Purchases' THEN '["currencies.read", "fxRates.read"]'::jsonb
+    WHEN 'Viewer' THEN '["currencies.read", "fxRates.read", "fxRevaluation.read"]'::jsonb
+    ELSE '[]'::jsonb
+END
+WHERE "isSystem" = true
+  AND "name" IN ('Owner', 'Admin', 'Accountant', 'Sales', 'Purchases', 'Viewer');
+
 REVOKE ALL PRIVILEGES ON TABLE "CurrencyRateSnapshot" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE "FxAccountConfiguration" FROM PUBLIC;
 

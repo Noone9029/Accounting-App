@@ -154,6 +154,12 @@ export class OrganizationService {
     if (!hasPermission(membership.role.permissions, PERMISSIONS.organization.update)) {
       throw new ForbiddenException("You do not have permission to perform this action.");
     }
+    if (
+      dto.baseCurrency !== undefined &&
+      !hasPermission(membership.role.permissions, PERMISSIONS.currencies.manage)
+    ) {
+      throw new ForbiddenException("You do not have permission to perform this action.");
+    }
 
     const requestedBaseCurrency = dto.baseCurrency === undefined ? undefined : this.requiredBaseCurrency(dto.baseCurrency);
     return this.prisma.$transaction(

@@ -1,8 +1,9 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { PERMISSIONS } from "@ledgerbyte/shared";
 import { OrganizationService } from "./organization.service";
 
 describe("organization base currency safeguards", () => {
-  function makeService() {
+  function makeService(permissions: string[] = [PERMISSIONS.organization.update, PERMISSIONS.currencies.manage]) {
     const tx: any = {
       organization: {
         findUnique: jest.fn().mockResolvedValue({ id: "org-1", baseCurrency: "AED" }),
@@ -14,13 +15,36 @@ describe("organization base currency safeguards", () => {
     };
     const prisma: any = {
       organizationMember: {
-        findFirst: jest.fn().mockResolvedValue({ role: { permissions: ["organization.update"] } }),
+        findFirst: jest.fn().mockResolvedValue({ role: { permissions } }),
       },
       $transaction: jest.fn(async (callback: (executor: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const audit = { log: jest.fn() };
     return { service: new OrganizationService(prisma, audit as never), prisma, tx, audit };
   }
+
+  it.each([
+    [[PERMISSIONS.organization.update], "currency management"],
+    [[PERMISSIONS.currencies.manage], "organization update"],
+  ])("requires both permissions for base-currency changes: %s", async (permissions, _label) => {
+    const { service, prisma, tx } = makeService(permissions);
+
+    await expect(service.updateForUser("user-1", "org-1", { baseCurrency: "SAR" })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.organization.update).not.toHaveBeenCalled();
+  });
+
+  it("keeps ordinary organization updates available without currencies.manage", async () => {
+    const { service, tx } = makeService([PERMISSIONS.organization.update]);
+
+    await service.updateForUser("user-1", "org-1", { name: "Updated organization" });
+
+    expect(tx.organization.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: "Updated organization", baseCurrency: undefined }) }),
+    );
+  });
 
   it("rejects unsupported base currencies even when called outside controller validation", async () => {
     const { service, tx } = makeService();
