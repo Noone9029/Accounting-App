@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
@@ -50,7 +50,11 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
 
 export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialOrder?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const { locale, tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -184,6 +188,14 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this purchase order."));
+      return;
+    }
+    if (currencyMismatch) {
+      setError(tc("This purchase-order currency does not match the organization base currency. It was not changed or saved."));
+      return;
+    }
 
     const validationError = getValidationError(supplierId, lines, preview.valid);
     if (validationError) {
@@ -198,7 +210,7 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
         branchId: branchId || null,
         orderDate: `${orderDate}T00:00:00.000Z`,
         expectedDeliveryDate: expectedDeliveryDate ? `${expectedDeliveryDate}T00:00:00.000Z` : null,
-        currency: "SAR",
+        currency: documentCurrency,
         notes: notes || undefined,
         terms: terms || undefined,
         lines: lines.map((line, index) => ({
@@ -375,16 +387,17 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
           {tc("Add line")}
         </button>
         <div className="min-w-[260px] space-y-2 text-sm">
-          <TotalRow label={tc("Subtotal")} value={formatAppMoney(preview.subtotal, "SAR", locale)} />
-          <TotalRow label={tc("Discount")} value={formatAppMoney(preview.discountTotal, "SAR", locale)} />
-          <TotalRow label={tc("Taxable")} value={formatAppMoney(preview.taxableTotal, "SAR", locale)} />
-          <TotalRow label={tc("VAT / Tax")} value={formatAppMoney(preview.taxTotal, "SAR", locale)} />
-          <TotalRow label={tc("Total")} value={formatAppMoney(preview.total, "SAR", locale)} strong />
+          <TotalRow label={tc("Subtotal")} value={documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"} />
+          <TotalRow label={tc("Discount")} value={documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label={tc("Taxable")} value={documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label={tc("VAT / Tax")} value={documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label={tc("Total")} value={documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"} strong />
         </div>
       </div>
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to create purchase orders.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This stored purchase-order currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading purchase order setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!preview.valid ? <StatusMessage type="info">{tc("Every purchase order line needs a positive quantity, non-negative unit price, and valid discount.")}</StatusMessage> : null}
@@ -396,7 +409,7 @@ export function PurchaseOrderForm({ initialOrder }: PurchaseOrderFormProps) {
         <Link href={returnTo || "/purchases/purchase-orders"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           {tc("Cancel")}
         </Link>
-        <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={submitting || !organizationId || !documentCurrency || currencyMismatch} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialOrder ? tc("Save changes") : tc("Save draft")}
         </button>
       </div>

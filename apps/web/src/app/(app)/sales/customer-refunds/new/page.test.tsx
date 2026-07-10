@@ -6,6 +6,8 @@ import NewCustomerRefundPage from "./page";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockBaseCurrency = "SAR";
+let mockSourceCurrency = "SAR";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -28,6 +30,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganization: () => ({ id: "org-1", baseCurrency: mockBaseCurrency }),
   useActiveOrganizationId: () => "org-1",
 }));
 
@@ -44,6 +47,8 @@ describe("NewCustomerRefundPage", () => {
     );
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    mockBaseCurrency = "SAR";
+    mockSourceCurrency = "SAR";
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/contacts") {
         return Promise.resolve([{ id: "customer-1", name: "Beta Customer", displayName: "Beta Customer", type: "CUSTOMER", isActive: true }]);
@@ -65,7 +70,7 @@ describe("NewCustomerRefundPage", () => {
               status: "POSTED",
               amountReceived: "115.0000",
               unappliedAmount: "115.0000",
-              currency: "SAR",
+              currency: mockSourceCurrency,
             },
           ],
           creditNotes: [],
@@ -92,5 +97,16 @@ describe("NewCustomerRefundPage", () => {
     expect(screen.getByRole("link", { name: "رجوع" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("button", { name: "تسجيل رد" })).toBeInTheDocument();
+  });
+
+  it("blocks a refund source whose currency differs from the active base currency", async () => {
+    mockBaseCurrency = "AED";
+    mockSourceCurrency = "SAR";
+
+    render(<NewCustomerRefundPage />);
+
+    expect(await screen.findByText(/source currency does not match the organization base currency/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record refund" })).toBeDisabled();
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/customer-refunds", expect.objectContaining({ method: "POST" }));
   });
 });

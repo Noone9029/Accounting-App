@@ -211,6 +211,7 @@ function makeCustomerPaymentAllocationHarness() {
         {
           id: "invoice-1",
           balanceDue: state.invoiceBalanceDue,
+          currency: "SAR",
           status: SalesInvoiceStatus.FINALIZED,
         },
       ]),

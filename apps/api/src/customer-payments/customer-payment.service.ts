@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
 import { PaymentReceiptPdfData, renderPaymentReceiptPdf } from "@ledgerbyte/pdf-core";
 import {
@@ -16,6 +16,10 @@ import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -94,6 +98,7 @@ export class CustomerPaymentService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -200,6 +205,7 @@ export class CustomerPaymentService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           amountReceived: true,
           unappliedAmount: true,
@@ -229,6 +235,7 @@ export class CustomerPaymentService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           balanceDue: true,
         },
@@ -238,6 +245,11 @@ export class CustomerPaymentService {
       }
       if (invoice.customerId !== payment.customerId) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.CUSTOMER_MISMATCH);
+      }
+      if (invoice.currency !== payment.currency) {
+        throw new BadRequestException(
+          "Customer payment and invoice currencies must match until realized FX accounting is available.",
+        );
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.INVOICE_NOT_FINALIZED);
@@ -661,16 +673,24 @@ export class CustomerPaymentService {
     }
 
     const unappliedAmount = amountReceived.minus(totalAllocated).toFixed(4);
-    const currency = (dto.currency ?? "SAR").toUpperCase();
-
     const payment = await this.prisma.$transaction(async (tx) => {
       const paymentDate = new Date(dto.paymentDate);
       await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
+      const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(
+        organizationId,
+        dto.currency,
+        tx,
+      );
+      const currency =
+        guardedCurrency ??
+        (dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase());
       const [customer, paidThroughAccount] = await Promise.all([
         this.findCustomer(organizationId, dto.customerId, tx),
         this.findPaidThroughAccount(organizationId, dto.accountId, tx),
       ]);
-      await this.findAndValidateInvoices(organizationId, dto.customerId, dto.allocations, tx);
+      await this.findAndValidateInvoices(organizationId, dto.customerId, currency, dto.allocations, tx);
 
       // Conditional balance updates are the allocation concurrency boundary.
       // The row update locks each invoice and only succeeds while balanceDue
@@ -924,6 +944,7 @@ export class CustomerPaymentService {
   private async findAndValidateInvoices(
     organizationId: string,
     customerId: string,
+    paymentCurrency: string,
     allocations: CreateCustomerPaymentDto["allocations"],
     executor: PrismaExecutor = this.prisma,
   ) {
@@ -939,7 +960,7 @@ export class CustomerPaymentService {
         customerId,
         status: SalesInvoiceStatus.FINALIZED,
       },
-      select: { id: true, balanceDue: true },
+      select: { id: true, balanceDue: true, currency: true },
     });
 
     if (invoices.length !== invoiceIds.length) {
@@ -950,6 +971,11 @@ export class CustomerPaymentService {
     for (const allocation of allocations) {
       const invoice = invoicesById.get(allocation.invoiceId);
       const amountApplied = this.assertPositiveMoney(allocation.amountApplied, "Allocation amount");
+      if (invoice && invoice.currency !== paymentCurrency) {
+        throw new BadRequestException(
+          "Customer payment and invoice currencies must match until realized FX accounting is available.",
+        );
+      }
       if (!invoice || amountApplied.gt(invoice.balanceDue)) {
         throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
       }

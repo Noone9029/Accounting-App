@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useAppLocale } from "@/components/app-locale-provider";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel, bankAccountTypeLabel, hasPostedOpeningBalance } from "@/lib/bank-accounts";
-import { DEFAULT_BASE_CURRENCY, SUPPORTED_CURRENCIES, isSupportedCurrencyCode } from "@/lib/currencies";
+import { SUPPORTED_CURRENCIES, isSupportedCurrencyCode } from "@/lib/currencies";
 import type { Account, BankAccountSummary, BankAccountType } from "@/lib/types";
 
 const BANK_ACCOUNT_TYPES: BankAccountType[] = ["BANK", "CASH", "WALLET", "CARD", "OTHER"];
@@ -19,7 +19,9 @@ interface BankAccountProfileFormProps {
 
 export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { tc } = useAppLocale();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [profiles, setProfiles] = useState<BankAccountSummary[]>(profile ? [profile] : []);
@@ -29,16 +31,22 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
   const [bankName, setBankName] = useState(profile?.bankName ?? "");
   const [accountNumberMasked, setAccountNumberMasked] = useState(profile?.accountNumberMasked ?? "");
   const [ibanMasked, setIbanMasked] = useState(profile?.ibanMasked ?? "");
-  const [currency, setCurrency] = useState(profile?.currency ?? DEFAULT_BASE_CURRENCY);
+  const [currency, setCurrency] = useState(profile?.currency ?? "");
   const [openingBalance, setOpeningBalance] = useState(profile?.openingBalance ?? "0.0000");
   const [openingBalanceDate, setOpeningBalanceDate] = useState(profile?.openingBalanceDate?.slice(0, 10) ?? "");
   const [notes, setNotes] = useState(profile?.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const currencyOrganizationId = useRef<string | null>(profile?.organizationId ?? null);
   const openingBalanceLocked = profile ? hasPostedOpeningBalance(profile) : false;
   const currencyLocked = profile ? openingBalanceLocked || profile.transactionCount > 0 : false;
   const unsupportedProfileCurrency = Boolean(profile?.currency && !isSupportedCurrencyCode(profile.currency));
+  const profileOrganizationMismatch = Boolean(profile && organizationId && profile.organizationId !== organizationId);
+  const selectedAccount = accounts.find((account) => account.id === accountId);
+  const selectedAccountOrganizationMismatch = Boolean(
+    !profile && selectedAccount && organizationId && selectedAccount.organizationId !== organizationId,
+  );
 
   const usedAccountIds = new Set(profiles.filter((candidate) => candidate.id !== profile?.id).map((candidate) => candidate.accountId));
   const linkableAccounts = useMemo(
@@ -53,7 +61,20 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
   );
 
   useEffect(() => {
+    if (!profile && currencyOrganizationId.current !== organizationId) {
+      currencyOrganizationId.current = organizationId;
+      setCurrency(baseCurrency ?? "");
+    }
+  }, [baseCurrency, organizationId, profile]);
+
+  useEffect(() => {
+    setAccounts([]);
+    setProfiles(profile ? [profile] : []);
+    if (!profile) {
+      setAccountId("");
+    }
     if (!organizationId) {
+      setLoading(false);
       return;
     }
 
@@ -76,10 +97,8 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
               account.isActive &&
               !profileResult.some((candidate) => candidate.accountId === account.id),
           );
-          setAccountId((current) => current || defaultAccount?.id || "");
-          if (defaultAccount && !displayName) {
-            setDisplayName(defaultAccount.name);
-          }
+          setAccountId(defaultAccount?.id || "");
+          setDisplayName((current) => current || defaultAccount?.name || "");
         }
       })
       .catch((loadError: unknown) => {
@@ -96,12 +115,16 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
     return () => {
       cancelled = true;
     };
-  }, [displayName, organizationId, profile]);
+  }, [organizationId, profile]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
+    if (loading || !organizationId || profileOrganizationMismatch || selectedAccountOrganizationMismatch) {
+      setError(tc("Wait for bank-account setup data from the active organization before saving this profile."));
+      return;
+    }
     if (!profile && !accountId) {
       setError(tc("Select a chart of accounts asset account to link."));
       return;
@@ -248,6 +271,7 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to manage bank accounts.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading bank account setup data...")}</StatusMessage> : null}
         {!profile && !loading && organizationId && linkableAccounts.length === 0 ? <StatusMessage type="empty">{tc("No active posting asset accounts are available to link.")}</StatusMessage> : null}
+        {profileOrganizationMismatch || selectedAccountOrganizationMismatch ? <StatusMessage type="error">{tc("This bank-account setup data does not belong to the active organization. Reload before saving.")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
@@ -255,7 +279,7 @@ export function BankAccountProfileForm({ profile }: BankAccountProfileFormProps)
         <Link href={profile ? `/bank-accounts/${profile.id}` : "/bank-accounts"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           {tc("Cancel")}
         </Link>
-        <button type="submit" disabled={submitting || !organizationId || (!profile && !linkableAccounts.length)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={loading || submitting || !organizationId || profileOrganizationMismatch || selectedAccountOrganizationMismatch || (!profile && !linkableAccounts.length)} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : tc("Save profile")}
         </button>
       </div>

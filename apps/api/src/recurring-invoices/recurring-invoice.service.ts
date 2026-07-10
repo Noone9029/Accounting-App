@@ -14,6 +14,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { resolveOrganizationBaseCurrency } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateRecurringInvoiceDto } from "./dto/create-recurring-invoice.dto";
@@ -165,11 +166,14 @@ export class RecurringInvoiceService {
     const schedule = this.normalizeSchedule(dto);
     const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
     const prepared = await this.prepareTemplate(organizationId, dto.lines, taxMode);
-    const currency = (dto.currency ?? "SAR").toUpperCase();
     const name = this.requiredText(dto.name, "Template name is required.");
 
     try {
       const template = await this.prisma.$transaction(async (tx) => {
+        const currency =
+          dto.currency === undefined
+            ? await resolveOrganizationBaseCurrency(organizationId, tx)
+            : dto.currency.toUpperCase();
         const templateNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.RECURRING_INVOICE_TEMPLATE, tx);
         return tx.recurringInvoiceTemplate.create({
           data: {

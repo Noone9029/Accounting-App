@@ -39,6 +39,8 @@ import { ReportsService } from "./reports/reports.service";
 import { SalesInvoiceController } from "./sales-invoices/sales-invoice.controller";
 import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
 import { CreditNoteService } from "./credit-notes/credit-note.service";
+import { ForeignExchangeController } from "./foreign-exchange/foreign-exchange.controller";
+import { ForeignExchangeService } from "./foreign-exchange/foreign-exchange.service";
 import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
 
@@ -73,6 +75,8 @@ const ids = {
   attachmentB: "20000000-0000-4000-8000-000000000901",
   auditA: "10000000-0000-4000-8000-000000001001",
   auditB: "20000000-0000-4000-8000-000000001001",
+  rateA: "10000000-0000-4000-8000-000000001101",
+  rateB: "20000000-0000-4000-8000-000000001101",
 };
 
 const markerA = "TENANT-A-HTTP-PROOF";
@@ -111,6 +115,7 @@ describe("tenant isolation HTTP integration", () => {
         OrganizationMemberController,
         AuditLogController,
         SearchController,
+        ForeignExchangeController,
       ],
       providers: [
         JwtAuthGuard,
@@ -138,6 +143,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: OrganizationMemberService, useValue: makeOrganizationMemberService(tenantStore) },
         { provide: AuditLogService, useValue: makeAuditLogService(tenantStore) },
         { provide: SearchService, useValue: makeSearchService(tenantStore) },
+        { provide: ForeignExchangeService, useValue: makeForeignExchangeService(tenantStore) },
       ],
     }).compile();
 
@@ -177,6 +183,38 @@ describe("tenant isolation HTTP integration", () => {
 
     expect(hiddenOrganization.status).toBe(404);
     expect(JSON.stringify(body)).not.toContain(markerB);
+  });
+
+  it("keeps FX rate reads and account configuration writes inside the active tenant", async () => {
+    const rates = await request("/fx/rates", { session: sessionA, organizationId: ids.orgA });
+    const ratesText = await rates.text();
+    expect(rates.status).toBe(200);
+    expect(ratesText).toContain(markerA);
+    expect(ratesText).not.toContain(markerB);
+
+    const ownedRate = await request(`/fx/rates/${ids.rateA}`, { session: sessionA, organizationId: ids.orgA });
+    expect(ownedRate.status).toBe(200);
+    expect(await ownedRate.text()).toContain(markerA);
+
+    const foreignRate = await request(`/fx/rates/${ids.rateB}`, { session: sessionA, organizationId: ids.orgA });
+    expect(foreignRate.status).toBe(404);
+
+    const blockedByGuard = await request("/fx/rates", { session: sessionA, organizationId: ids.orgB });
+    expect(blockedByGuard.status).toBe(403);
+
+    const foreignAccount = await request("/fx/account-configuration", {
+      method: "PUT",
+      session: sessionA,
+      organizationId: ids.orgA,
+      body: {
+        realizedGainAccountId: ids.accountB,
+        realizedLossAccountId: null,
+        unrealizedGainAccountId: null,
+        unrealizedLossAccountId: null,
+      },
+    });
+    expect(foreignAccount.status).toBe(400);
+    expect(tenantStore.fxConfigUpdates).toBe(0);
   });
 
   it("keeps customer and supplier HTTP reads, writes, and search scoped to the active organization", async () => {
@@ -490,11 +528,16 @@ function makeTenantStore() {
       [ids.auditA, { id: ids.auditA, organizationId: ids.orgA, action: `${markerA} ACTION` }],
       [ids.auditB, { id: ids.auditB, organizationId: ids.orgB, action: `${markerB} ACTION` }],
     ]),
+    currencyRates: new Map([
+      [ids.rateA, { id: ids.rateA, organizationId: ids.orgA, transactionCurrency: "USD", baseCurrency: "AED", marker: markerA }],
+      [ids.rateB, { id: ids.rateB, organizationId: ids.orgB, transactionCurrency: "USD", baseCurrency: "SAR", marker: markerB }],
+    ]),
     createdInvoices: 0,
     createdBills: 0,
     createdPayments: 0,
     createdJournals: 0,
     createdInvites: 0,
+    fxConfigUpdates: 0,
   };
 }
 
@@ -777,6 +820,29 @@ function makeSearchService(store: TenantStore) {
         .map((contact) => ({ id: contact.id, label: contact.name }));
       return { query: query ?? "", results };
     }),
+  };
+}
+
+function makeForeignExchangeService(store: TenantStore) {
+  return {
+    currencies: jest.fn((organizationId: string) => ({ baseCurrency: organizationId === ids.orgA ? "AED" : "SAR" })),
+    listRates: jest.fn((organizationId: string) => ({
+      data: Array.from(store.currencyRates.values()).filter((rate) => rate.organizationId === organizationId),
+      pagination: { page: 1, limit: 50, hasMore: false },
+    })),
+    getRate: jest.fn((organizationId: string, id: string) => scopedGet(store.currencyRates, id, organizationId)),
+    createRate: jest.fn(),
+    getAccountConfiguration: jest.fn(() => null),
+    updateAccountConfiguration: jest.fn((organizationId: string, _actorUserId: string, dto: Record<string, string | null>) => {
+      for (const accountId of Object.values(dto)) {
+        if (accountId) {
+          assertBelongsTo(store.accounts, accountId, organizationId, "FX account");
+        }
+      }
+      store.fxConfigUpdates += 1;
+      return { organizationId, ...dto };
+    }),
+    readiness: jest.fn(() => ({ status: "BLOCKED", foreignDocumentPostingEnabled: false })),
   };
 }
 

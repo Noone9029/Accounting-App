@@ -25,6 +25,7 @@ import { buildSalesStockIssueCogsJournal, SalesStockIssueCogsLineInput } from ".
 import { CreateSalesStockIssueDto, SalesStockIssueLineDto } from "./dto/create-sales-stock-issue.dto";
 import { ReverseSalesStockIssueCogsDto } from "./dto/reverse-sales-stock-issue-cogs.dto";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { resolveOrganizationBaseCurrency } from "../foreign-exchange/base-currency-posting-guard.service";
 
 const salesStockIssueInclude = {
   customer: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
@@ -140,9 +141,10 @@ export class SalesStockIssueService {
       }
 
       await this.assertPostingDateAllowed(organizationId, issue.issueDate, tx);
+      const currency = await resolveOrganizationBaseCurrency(organizationId, tx);
       const postedAt = new Date();
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
-      const journalLines = this.previewJournalToCoreLines(preview.journal.lines);
+      const journalLines = this.previewJournalToCoreLines(preview.journal.lines, currency);
       const totals = getJournalTotals(journalLines);
       const journalEntry = await tx.journalEntry.create({
         data: {
@@ -152,7 +154,7 @@ export class SalesStockIssueService {
           entryDate: issue.issueDate,
           description: `COGS for sales stock issue ${issue.issueNumber}`,
           reference: issue.issueNumber,
-          currency: "SAR",
+          currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt,
@@ -810,6 +812,7 @@ export class SalesStockIssueService {
       amount: string;
       description: string;
     }>,
+    currency: string,
   ): JournalLineInput[] {
     return lines.map((line) => {
       if (!line.accountId) {
@@ -820,7 +823,7 @@ export class SalesStockIssueService {
         debit: line.side === "DEBIT" ? line.amount : "0",
         credit: line.side === "CREDIT" ? line.amount : "0",
         description: line.description,
-        currency: "SAR",
+        currency,
       };
     });
   }
@@ -846,7 +849,7 @@ export class SalesStockIssueService {
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
-      currency: line.currency ?? "SAR",
+      currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
     }));
   }

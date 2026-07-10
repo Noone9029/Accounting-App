@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertDraftInvoiceEditable,
@@ -29,6 +29,10 @@ import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetadataInput } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -154,6 +158,7 @@ export class SalesInvoiceService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -428,9 +433,11 @@ export class SalesInvoiceService {
     await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
     const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
     const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode);
-    const currency = (dto.currency ?? "SAR").toUpperCase();
-
     const invoice = await this.prisma.$transaction(async (tx) => {
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase();
       const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
 
       return tx.salesInvoice.create({
@@ -566,6 +573,7 @@ export class SalesInvoiceService {
         throw new BadRequestException("Only draft invoices can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, invoice.issueDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, invoice.currency, tx);
 
       this.assertFinalizableInvoice({
         subtotal: String(invoice.subtotal),

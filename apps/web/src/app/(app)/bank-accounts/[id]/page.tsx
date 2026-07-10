@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
   bankAccountStatusLabel,
@@ -29,7 +29,9 @@ function todayInputValue(offsetDays = 0): string {
 export default function BankAccountDetailPage() {
   const params = useParams<{ id: string }>();
   const { locale, tc } = useAppLocale();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { can } = usePermissions();
   const [profile, setProfile] = useState<BankAccountSummary | null>(null);
   const [transactions, setTransactions] = useState<BankAccountTransactionsResponse | null>(null);
@@ -50,6 +52,8 @@ export default function BankAccountDetailPage() {
   const canViewStatements = can(PERMISSIONS.bankStatements.view);
   const canImportStatements = can(PERMISSIONS.bankStatements.import);
   const canViewReconciliations = can(PERMISSIONS.bankReconciliations.view);
+  const profileOrganizationMismatch = Boolean(profile && organizationId && profile.organizationId !== organizationId);
+  const openingBalanceCurrencyMismatch = Boolean(profile && baseCurrency && profile.currency !== baseCurrency);
   const transactionPath = useMemo(() => {
     const query = new URLSearchParams();
     if (from) {
@@ -63,7 +67,9 @@ export default function BankAccountDetailPage() {
   }, [from, params.id, to]);
 
   useEffect(() => {
+    setProfile(null);
     if (!organizationId || !params.id) {
+      setLoading(false);
       return;
     }
 
@@ -94,7 +100,9 @@ export default function BankAccountDetailPage() {
   }, [organizationId, params.id, reloadToken]);
 
   useEffect(() => {
+    setTransactions(null);
     if (!organizationId || !params.id || !canViewTransactions) {
+      setLoadingTransactions(false);
       return;
     }
 
@@ -144,6 +152,14 @@ export default function BankAccountDetailPage() {
 
   async function postOpeningBalance() {
     if (!profile) {
+      return;
+    }
+    if (loading || !organizationId || profile.organizationId !== organizationId) {
+      setError(tc("Wait for the bank account from the active organization before posting its opening balance."));
+      return;
+    }
+    if (!baseCurrency || openingBalanceCurrencyMismatch) {
+      setError(tc("Opening balances can post only in the organization base currency. Change the unposted bank profile currency or use a base-currency account."));
       return;
     }
     setPostingOpeningBalance(true);
@@ -258,7 +274,7 @@ export default function BankAccountDetailPage() {
                 </Link>
               ) : null}
               {canPostOpening && canPostOpeningBalance(profile) ? (
-                <button type="button" disabled={postingOpeningBalance} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                <button type="button" disabled={loading || postingOpeningBalance || profileOrganizationMismatch || openingBalanceCurrencyMismatch || !baseCurrency} onClick={() => void postOpeningBalance()} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-slate-400">
                   {postingOpeningBalance ? tc("Posting...") : tc("Post opening balance")}
                 </button>
               ) : null}
@@ -276,6 +292,8 @@ export default function BankAccountDetailPage() {
                 </button>
               ) : null}
             </div>
+            {profileOrganizationMismatch ? <StatusMessage type="error">{tc("This bank profile does not belong to the active organization. Reload before posting its opening balance.")}</StatusMessage> : null}
+            {openingBalanceCurrencyMismatch ? <StatusMessage type="error">{tc("This bank profile uses {currency}; the organization base currency is {baseCurrency}. Its opening balance cannot be posted in this phase.", { currency: profile.currency, baseCurrency: baseCurrency ?? "" })}</StatusMessage> : null}
           </div>
 
           <div className="mt-5 rounded-md border border-slate-200 bg-white p-5 shadow-panel">

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
@@ -75,7 +75,11 @@ function optionalDateInputValue(value?: string | null): string {
 
 export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }: RecurringInvoiceFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialTemplate?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -232,6 +236,14 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this recurring invoice template."));
+      return;
+    }
+    if (currencyMismatch) {
+      setError(tc("This recurring-template currency does not match the organization base currency. It was not changed or saved."));
+      return;
+    }
 
     const validationError = getValidationError({ customerId, name, lines, previewValid: preview.valid, startDate, nextRunDate, endDate, tc });
     if (validationError) {
@@ -253,7 +265,7 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
         paymentTermsDays: Number(paymentTermsDays || 0),
         invoiceDateMode: "RUN_DATE",
         reference: reference || undefined,
-        currency: "SAR",
+        currency: documentCurrency,
         taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
@@ -386,6 +398,7 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating recurring invoice templates.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This stored recurring-template currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading recurring invoice setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
@@ -474,7 +487,7 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
                       </option>
                     ))}
               </select>
-              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatAppMoney(previewLine.lineTotalUnits, "SAR", locale) : formatAppMoney("0.0000", "SAR", locale)}</div>
+              <div className="flex items-center font-mono text-xs text-ink">{documentCurrency ? (previewLine ? formatAppMoney(previewLine.lineTotalUnits, documentCurrency, locale) : formatAppMoney("0.0000", documentCurrency, locale)) : "-"}</div>
               <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
                 {tc("Remove")}
               </button>
@@ -487,21 +500,21 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
           </button>
           <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="font-mono">{formatAppMoney(preview.subtotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="font-mono">{formatAppMoney(preview.discountTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxableTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"}</span>
             <span className="font-semibold text-ink">{tc("Total")}</span>
-            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, "SAR", locale)}</span>
+            <span className="font-mono font-semibold text-ink">{documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"}</span>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialTemplate ? tc("Save draft template") : tc("Create draft template")}
         </button>
         <Link href={returnTo || "/sales/recurring-invoices"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

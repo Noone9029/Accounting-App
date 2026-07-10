@@ -4,6 +4,7 @@ import { BankAccountService } from "./bank-account.service";
 describe("BankAccountService", () => {
   function makeService(overrides: Record<string, unknown> = {}) {
     const prisma = {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       account: { findFirst: jest.fn() },
       bankAccountProfile: {
         findMany: jest.fn(),
@@ -14,8 +15,10 @@ describe("BankAccountService", () => {
         count: jest.fn(),
       },
       journalLine: { findMany: jest.fn(), count: jest.fn() },
+      $transaction: jest.fn(),
       ...overrides,
     };
+    prisma.$transaction.mockImplementation((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma));
     const audit = { log: jest.fn() };
     const numbers = { next: jest.fn() };
     const fiscal = { assertPostingDateAllowed: jest.fn() };
@@ -70,6 +73,25 @@ describe("BankAccountService", () => {
       }),
     );
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "BankAccountProfile" }));
+  });
+
+  it("defaults an omitted bank account currency to the AED tenant base currency", async () => {
+    const { service, prisma } = makeService();
+    prisma.account.findFirst.mockResolvedValue(account);
+    prisma.bankAccountProfile.findUnique.mockResolvedValue(null);
+    prisma.bankAccountProfile.create.mockResolvedValue({ ...profile, currency: "AED" });
+    prisma.journalLine.findMany.mockResolvedValue([]);
+
+    await service.create("org-1", "user-1", {
+      accountId: "account-1",
+      type: BankAccountType.BANK,
+      displayName: "Operating Bank",
+    });
+
+    expect(prisma.bankAccountProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ currency: "AED" }) }),
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unsupported bank account currencies on create", async () => {
@@ -299,6 +321,7 @@ describe("BankAccountService", () => {
       openingBalancePostedAt: null,
     };
     const tx = {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       bankAccountProfile: {
         findFirst: jest.fn().mockResolvedValue(openingProfile),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -323,12 +346,13 @@ describe("BankAccountService", () => {
     expect(tx.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          currency: "AED",
           totalDebit: "250.0000",
           totalCredit: "250.0000",
           lines: {
             create: [
-              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "250.0000", credit: "0.0000" }),
-              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "0.0000", credit: "250.0000" }),
+              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "250.0000", credit: "0.0000", currency: "AED" }),
+              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "0.0000", credit: "250.0000", currency: "AED" }),
             ],
           },
         }),
@@ -345,6 +369,7 @@ describe("BankAccountService", () => {
       openingBalancePostedAt: null,
     };
     const tx = {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       bankAccountProfile: {
         findFirst: jest.fn().mockResolvedValue(openingProfile),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -369,10 +394,11 @@ describe("BankAccountService", () => {
     expect(tx.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          currency: "SAR",
           lines: {
             create: [
-              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "75.0000", credit: "0.0000" }),
-              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "0.0000", credit: "75.0000" }),
+              expect.objectContaining({ account: { connect: { id: "equity-1" } }, debit: "75.0000", credit: "0.0000", currency: "SAR" }),
+              expect.objectContaining({ account: { connect: { id: "account-1" } }, debit: "0.0000", credit: "75.0000", currency: "SAR" }),
             ],
           },
         }),

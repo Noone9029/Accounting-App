@@ -131,6 +131,18 @@ describe("purchase debit note rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("rejects cross-currency debit note allocation until realized FX accounting exists", async () => {
+    const tx = makeApplyTransactionMock({ debitNoteCurrency: "USD", billCurrency: "SAR" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseDebitNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "debit-note-1", status: PurchaseDebitNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "debit-note-1", { billId: "bill-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "Purchase debit note and bill currencies must match",
+    );
+    expect(tx.purchaseDebitNote.updateMany).not.toHaveBeenCalled();
+  });
+
   it("rejects applying draft debit notes", async () => {
     const tx = makeApplyTransactionMock({ debitNoteStatus: PurchaseDebitNoteStatus.DRAFT });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -195,7 +207,7 @@ describe("purchase debit note rules", () => {
     );
   });
 
-  it("reverses an active debit allocation and restores bill/debit note balances", async () => {
+  it("reverses a historical cross-currency debit allocation and restores balances", async () => {
     const tx = makeReverseTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new PurchaseDebitNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -381,7 +393,7 @@ function makeFinalizeTransactionMock() {
 }
 
 function makeApplyTransactionMock(
-  options: { debitNoteStatus?: PurchaseDebitNoteStatus; debitNoteUnappliedAmount?: string; billBalanceDue?: string } = {},
+  options: { debitNoteStatus?: PurchaseDebitNoteStatus; debitNoteUnappliedAmount?: string; billBalanceDue?: string; debitNoteCurrency?: string; billCurrency?: string } = {},
 ) {
   return {
     purchaseDebitNote: {
@@ -391,6 +403,7 @@ function makeApplyTransactionMock(
         status: options.debitNoteStatus ?? PurchaseDebitNoteStatus.FINALIZED,
         total: "100.0000",
         unappliedAmount: options.debitNoteUnappliedAmount ?? "50.0000",
+        currency: options.debitNoteCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "debit-note-1", status: PurchaseDebitNoteStatus.FINALIZED }),
@@ -401,6 +414,7 @@ function makeApplyTransactionMock(
         supplierId: "supplier-1",
         status: PurchaseBillStatus.FINALIZED,
         balanceDue: options.billBalanceDue ?? "75.0000",
+        currency: options.billCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
@@ -422,12 +436,14 @@ function makeReverseTransactionMock(options: { reversedAt?: Date | null } = {}) 
         reversedAt: options.reversedAt ?? null,
         debitNote: {
           id: "debit-note-1",
+          currency: "USD",
           status: PurchaseDebitNoteStatus.FINALIZED,
           total: "100.0000",
           unappliedAmount: "25.0000",
         },
         bill: {
           id: "bill-1",
+          currency: "SAR",
           status: PurchaseBillStatus.FINALIZED,
           total: "100.0000",
           balanceDue: "50.0000",

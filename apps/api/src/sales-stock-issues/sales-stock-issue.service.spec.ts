@@ -115,6 +115,7 @@ describe("SalesStockIssueService", () => {
 
   function makeTx(overrides: Record<string, unknown> = {}) {
     return {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       warehouse: { findFirst: jest.fn().mockResolvedValue(warehouse) },
       salesInvoice: {
         findFirst: jest.fn().mockResolvedValue({
@@ -389,10 +390,17 @@ describe("SalesStockIssueService", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: JournalEntryStatus.POSTED,
+          currency: "SAR",
           entryDate: issue.issueDate,
           description: "COGS for sales stock issue SSI-000001",
           totalDebit: "10.5000",
           totalCredit: "10.5000",
+          lines: expect.objectContaining({
+            create: expect.arrayContaining([
+              expect.objectContaining({ currency: "SAR" }),
+              expect.objectContaining({ currency: "SAR" }),
+            ]),
+          }),
         }),
       }),
     );

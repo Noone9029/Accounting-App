@@ -63,6 +63,12 @@ describe("PermissionGuard", () => {
     await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
   });
 
+  it("rejects manual FX rate capture when the role can only read rates", async () => {
+    const { guard, context } = makeGuard([PERMISSIONS.fxRates.manage], [PERMISSIONS.fxRates.read]);
+
+    await expect(guard.canActivate(context)).rejects.toThrow("You do not have permission to perform this action.");
+  });
+
   it("rejects invoice finalization without salesInvoices.finalize", async () => {
     const { guard, context } = makeGuard([PERMISSIONS.salesInvoices.finalize], [PERMISSIONS.salesInvoices.view]);
 

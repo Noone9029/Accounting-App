@@ -133,6 +133,7 @@ describe("PurchaseReceiptService", () => {
 
   function makeTx(overrides: Record<string, unknown> = {}) {
     return {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       warehouse: { findFirst: jest.fn().mockResolvedValue(warehouse) },
       contact: { findFirst: jest.fn().mockResolvedValue(supplier) },
       item: { findFirst: jest.fn().mockResolvedValue(item) },
@@ -408,10 +409,17 @@ describe("PurchaseReceiptService", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: JournalEntryStatus.POSTED,
+          currency: "AED",
           entryDate: receipt.receiptDate,
           description: "Inventory asset posting for purchase receipt PRC-000001",
           totalDebit: "14.0000",
           totalCredit: "14.0000",
+          lines: expect.objectContaining({
+            create: expect.arrayContaining([
+              expect.objectContaining({ currency: "AED" }),
+              expect.objectContaining({ currency: "AED" }),
+            ]),
+          }),
         }),
       }),
     );

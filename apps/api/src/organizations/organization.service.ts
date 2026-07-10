@@ -1,6 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import { DEFAULT_ROLE_PERMISSIONS, hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
+import { DEFAULT_ROLE_PERMISSIONS, hasPermission, normalizeSupportedCurrencyCode, PERMISSIONS } from "@ledgerbyte/shared";
 import {
   DEFAULT_ACCOUNTS,
   DEFAULT_BANK_ACCOUNT_PROFILES,
@@ -20,14 +20,20 @@ export class OrganizationService {
   ) {}
 
   async create(userId: string, dto: CreateOrganizationDto) {
+    const countryCode = dto.countryCode?.trim().toUpperCase() ?? "SA";
+    const baseCurrency = dto.baseCurrency !== undefined
+      ? this.requiredBaseCurrency(dto.baseCurrency)
+      : countryCode === "AE"
+        ? "AED"
+        : "SAR";
     const organization = await this.prisma.$transaction(async (tx) => {
       const created = await tx.organization.create({
         data: {
           name: dto.name.trim(),
           legalName: dto.legalName?.trim(),
           taxNumber: dto.taxNumber?.trim(),
-          countryCode: dto.countryCode ?? "SA",
-          baseCurrency: dto.baseCurrency ?? "SAR",
+          countryCode,
+          baseCurrency,
           timezone: dto.timezone ?? "Asia/Riyadh",
         },
       });
@@ -53,7 +59,7 @@ export class OrganizationService {
           name: "Main Branch",
           displayName: dto.name.trim(),
           taxNumber: dto.taxNumber?.trim(),
-          countryCode: dto.countryCode ?? "SA",
+          countryCode,
           isDefault: true,
         },
       });
@@ -148,40 +154,67 @@ export class OrganizationService {
     if (!hasPermission(membership.role.permissions, PERMISSIONS.organization.update)) {
       throw new ForbiddenException("You do not have permission to perform this action.");
     }
+    if (
+      dto.baseCurrency !== undefined &&
+      !hasPermission(membership.role.permissions, PERMISSIONS.currencies.manage)
+    ) {
+      throw new ForbiddenException("You do not have permission to perform this action.");
+    }
 
-    const organization = await this.prisma.organization.update({
-      where: { id },
-      data: {
-        name: dto.name?.trim(),
-        legalName: dto.legalName?.trim(),
-        taxNumber: dto.taxNumber?.trim(),
-        countryCode: dto.countryCode?.trim(),
-        baseCurrency: dto.baseCurrency?.trim(),
-        timezone: dto.timezone?.trim(),
-        tradeLicenseNumber: dto.tradeLicenseNumber?.trim(),
-        uaeTrn: dto.uaeTrn?.trim(),
-        uaeTin: dto.uaeTin?.trim(),
-        uaeVatRegistrationStatus: dto.uaeVatRegistrationStatus?.trim(),
-        uaeAddressLine1: dto.uaeAddressLine1?.trim(),
-        uaeAddressLine2: dto.uaeAddressLine2?.trim(),
-        uaeEmirate: dto.uaeEmirate?.trim(),
-        uaeBusinessActivity: dto.uaeBusinessActivity?.trim(),
-        peppolParticipantId: dto.peppolParticipantId?.trim(),
-        uaeAspSelected: dto.uaeAspSelected?.trim(),
-        uaeAspOnboardingStatus: dto.uaeAspOnboardingStatus?.trim(),
+    const requestedBaseCurrency = dto.baseCurrency === undefined ? undefined : this.requiredBaseCurrency(dto.baseCurrency);
+    return this.prisma.$transaction(
+      async (tx) => {
+        const before = await tx.organization.findUnique({ where: { id } });
+        if (!before) {
+          throw new NotFoundException("Organization not found.");
+        }
+        if (requestedBaseCurrency && requestedBaseCurrency !== before.baseCurrency) {
+          const journalCount = await tx.journalEntry.count({ where: { organizationId: id } });
+          const rateCount = await tx.currencyRateSnapshot.count({ where: { organizationId: id } });
+          if (journalCount > 0 || rateCount > 0) {
+            throw new BadRequestException("Base currency cannot change after financial or FX activity exists.");
+          }
+        }
+
+        const organization = await tx.organization.update({
+          where: { id },
+          data: {
+            name: dto.name?.trim(),
+            legalName: dto.legalName?.trim(),
+            taxNumber: dto.taxNumber?.trim(),
+            countryCode: dto.countryCode?.trim().toUpperCase(),
+            baseCurrency: requestedBaseCurrency,
+            timezone: dto.timezone?.trim(),
+            tradeLicenseNumber: dto.tradeLicenseNumber?.trim(),
+            uaeTrn: dto.uaeTrn?.trim(),
+            uaeTin: dto.uaeTin?.trim(),
+            uaeVatRegistrationStatus: dto.uaeVatRegistrationStatus?.trim(),
+            uaeAddressLine1: dto.uaeAddressLine1?.trim(),
+            uaeAddressLine2: dto.uaeAddressLine2?.trim(),
+            uaeEmirate: dto.uaeEmirate?.trim(),
+            uaeBusinessActivity: dto.uaeBusinessActivity?.trim(),
+            peppolParticipantId: dto.peppolParticipantId?.trim(),
+            uaeAspSelected: dto.uaeAspSelected?.trim(),
+            uaeAspOnboardingStatus: dto.uaeAspOnboardingStatus?.trim(),
+          },
+        });
+
+        await this.auditLogService.log(
+          {
+            organizationId: organization.id,
+            actorUserId: userId,
+            action: "UPDATE",
+            entityType: "Organization",
+            entityId: organization.id,
+            before,
+            after: organization,
+          },
+          tx,
+        );
+        return organization;
       },
-    });
-
-    await this.auditLogService.log({
-      organizationId: organization.id,
-      actorUserId: userId,
-      action: "UPDATE",
-      entityType: "Organization",
-      entityId: organization.id,
-      after: organization,
-    });
-
-    return organization;
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async userCanViewOrganization(userId: string, organizationId: string): Promise<boolean> {
@@ -210,6 +243,14 @@ export class OrganizationService {
     }
 
     return roles;
+  }
+
+  private requiredBaseCurrency(value: string): string {
+    const currency = normalizeSupportedCurrencyCode(value);
+    if (!currency) {
+      throw new BadRequestException("Base currency is unsupported.");
+    }
+    return currency;
   }
 
   private async createFoundationData(tx: Prisma.TransactionClient, organizationId: string): Promise<void> {

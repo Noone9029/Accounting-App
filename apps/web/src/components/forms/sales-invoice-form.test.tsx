@@ -6,6 +6,7 @@ import { SalesInvoiceForm } from "./sales-invoice-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockActiveOrganization = organizationFixture("SAR");
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -27,7 +28,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
-  useActiveOrganizationId: () => "org-1",
+  useActiveOrganization: () => mockActiveOrganization,
+  useActiveOrganizationId: () => mockActiveOrganization.id,
 }));
 
 jest.mock("@/lib/api", () => ({
@@ -39,6 +41,7 @@ describe("SalesInvoiceForm", () => {
     window.history.pushState({}, "", "/sales/invoices/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    mockActiveOrganization = organizationFixture("SAR");
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/contacts") {
         return Promise.resolve([
@@ -77,6 +80,33 @@ describe("SalesInvoiceForm", () => {
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
+  });
+
+  it.each(["AED", "SAR"])("renders and submits the active organization's %s base currency", async (baseCurrency) => {
+    mockActiveOrganization = organizationFixture(baseCurrency);
+    const { container } = render(<SalesInvoiceForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Currency")).toHaveValue(baseCurrency));
+    await screen.findByRole("option", { name: "Beta Customer" });
+    fireEvent.change(screen.getByLabelText("Customer"), { target: { value: "customer-1" } });
+
+    const lineDescription = container.querySelector<HTMLInputElement>('input[required]:not([type])');
+    const amountInputs = container.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]');
+    fireEvent.change(lineDescription!, { target: { value: "Consulting" } });
+    fireEvent.change(screen.getByLabelText("Posting account for line 1"), { target: { value: "revenue-1" } });
+    fireEvent.change(amountInputs[1]!, { target: { value: "100.0000" } });
+    expect(screen.getByLabelText("Customer")).toHaveValue("customer-1");
+    expect(lineDescription).toHaveValue("Consulting");
+    expect(screen.getByLabelText("Posting account for line 1")).toHaveValue("revenue-1");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create draft invoice" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Create draft invoice" }));
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        "/sales-invoices",
+        expect.objectContaining({ method: "POST", body: expect.objectContaining({ currency: baseCurrency }) }),
+      ),
+    );
   });
 
   it("prefills the customer from the new-invoice route query string", async () => {
@@ -248,6 +278,32 @@ describe("SalesInvoiceForm", () => {
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/customers/customer-1"));
   });
+
+  it("preserves and blocks a stored draft currency that differs from the active base currency", () => {
+    mockActiveOrganization = organizationFixture("AED");
+
+    render(
+      <SalesInvoiceForm
+        initialInvoice={{
+          id: "invoice-foreign",
+          status: "DRAFT",
+          currency: "SAR",
+          customerId: "customer-1",
+          branchId: null,
+          issueDate: "2026-06-11T00:00:00.000Z",
+          dueDate: null,
+          taxMode: "TAX_EXCLUSIVE",
+          notes: null,
+          terms: null,
+          lines: [],
+        } as any}
+      />,
+    );
+
+    expect(screen.getByLabelText("Currency")).toHaveValue("SAR");
+    expect(screen.getByText(/will not be rewritten automatically/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  });
 });
 
 function contactFixture(id: string, name: string) {
@@ -260,5 +316,17 @@ function contactFixture(id: string, name: string) {
     phone: null,
     taxNumber: null,
     isActive: true,
+  };
+}
+
+function organizationFixture(baseCurrency: string) {
+  return {
+    id: "org-1",
+    name: "Test Organization",
+    legalName: null,
+    taxNumber: null,
+    countryCode: baseCurrency === "AED" ? "AE" : "SA",
+    baseCurrency,
+    timezone: baseCurrency === "AED" ? "Asia/Dubai" : "Asia/Riyadh",
   };
 }

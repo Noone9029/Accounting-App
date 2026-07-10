@@ -1,9 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { getJournalTotals, JournalLineInput } from "@ledgerbyte/accounting-core";
-import { DEFAULT_BASE_CURRENCY, normalizeSupportedCurrencyCode } from "@ledgerbyte/shared";
+import { normalizeSupportedCurrencyCode } from "@ledgerbyte/shared";
 import { AccountType, BankAccountStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import {
+  resolveBaseOnlyPostingCurrency,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BankAccountTransactionsQueryDto } from "./dto/bank-account-transactions-query.dto";
@@ -103,27 +107,32 @@ export class BankAccountService {
 
   async create(organizationId: string, actorUserId: string, dto: CreateBankAccountProfileDto) {
     const account = await this.validateLinkedAccount(organizationId, dto.accountId);
-    const existing = await this.prisma.bankAccountProfile.findUnique({ where: { accountId: account.id }, select: { id: true } });
-    if (existing) {
-      throw new BadRequestException("This account already has a bank account profile.");
-    }
-    const currency = this.normalizeCurrency(dto.currency, DEFAULT_BASE_CURRENCY);
+    const profile = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.bankAccountProfile.findUnique({ where: { accountId: account.id }, select: { id: true } });
+      if (existing) {
+        throw new BadRequestException("This account already has a bank account profile.");
+      }
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : this.normalizeCurrency(dto.currency);
 
-    const profile = await this.prisma.bankAccountProfile.create({
-      data: {
-        organizationId,
-        accountId: account.id,
-        type: dto.type,
-        displayName: this.requiredText(dto.displayName, "Display name"),
-        bankName: this.cleanOptional(dto.bankName),
-        accountNumberMasked: this.cleanOptional(dto.accountNumberMasked),
-        ibanMasked: this.cleanOptional(dto.ibanMasked),
-        currency,
-        openingBalance: this.money(dto.openingBalance ?? "0.0000"),
-        openingBalanceDate: dto.openingBalanceDate ? new Date(dto.openingBalanceDate) : null,
-        notes: this.cleanOptional(dto.notes),
-      },
-      include: bankAccountInclude,
+      return tx.bankAccountProfile.create({
+        data: {
+          organizationId,
+          accountId: account.id,
+          type: dto.type,
+          displayName: this.requiredText(dto.displayName, "Display name"),
+          bankName: this.cleanOptional(dto.bankName),
+          accountNumberMasked: this.cleanOptional(dto.accountNumberMasked),
+          ibanMasked: this.cleanOptional(dto.ibanMasked),
+          currency,
+          openingBalance: this.money(dto.openingBalance ?? "0.0000"),
+          openingBalanceDate: dto.openingBalanceDate ? new Date(dto.openingBalanceDate) : null,
+          notes: this.cleanOptional(dto.notes),
+        },
+        include: bankAccountInclude,
+      });
     });
 
     await this.auditLogService.log({
@@ -205,6 +214,7 @@ export class BankAccountService {
       }
 
       await this.fiscalPeriodGuardService.assertPostingDateAllowed(organizationId, current.openingBalanceDate, tx);
+      const currency = await resolveBaseOnlyPostingCurrency(organizationId, current.currency, tx);
       const equityAccount = await this.findPostingAccountByCode(organizationId, "310", tx);
       const amount = openingBalance.abs().toFixed(4);
       const journalLines = buildOpeningBalanceJournalLines({
@@ -212,7 +222,7 @@ export class BankAccountService {
         equityAccountId: equityAccount.id,
         displayName: current.displayName,
         amount,
-        currency: current.currency,
+        currency,
         isPositive: openingBalance.gt(0),
       });
       const totals = getJournalTotals(journalLines);
@@ -226,7 +236,7 @@ export class BankAccountService {
           entryDate: current.openingBalanceDate,
           description: `Opening balance for ${current.displayName}`,
           reference: `OPENING-${current.account.code}`,
-          currency: current.currency,
+          currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt,

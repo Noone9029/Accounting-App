@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ContactType, Prisma, PurchaseReturnStatus } from "@prisma/client";
+import { resolveOrganizationBaseCurrency } from "../foreign-exchange/base-currency-posting-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { LandedCostAllocationMethod, LandedCostCategory, LandedCostLineDto, LandedCostPreviewDto, LandedCostSourceType } from "./dto/landed-cost-preview.dto";
 
@@ -204,6 +205,9 @@ export class InventoryLandedCostPreviewService {
     if (!receipt) {
       throw new NotFoundException("Landed cost source not found.");
     }
+    const currency =
+      receipt.purchaseBill?.currency ??
+      await resolveOrganizationBaseCurrency(organizationId, this.prisma);
 
     const source: LandedCostSourceSummary = {
       sourceType: "PURCHASE_RECEIPT",
@@ -211,7 +215,7 @@ export class InventoryLandedCostPreviewService {
       sourceNumber: receipt.receiptNumber,
       supplier: receipt.supplier,
       date: receipt.receiptDate.toISOString(),
-      currency: receipt.purchaseBill?.currency ?? "SAR",
+      currency,
     };
 
     return {

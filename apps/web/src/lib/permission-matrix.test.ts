@@ -1,4 +1,4 @@
-import { ALL_PERMISSIONS } from "./permissions";
+import { ALL_PERMISSIONS, PERMISSIONS } from "./permissions";
 import { PERMISSION_GROUPS } from "./permission-matrix";
 
 describe("permission matrix catalog", () => {
@@ -23,5 +23,22 @@ describe("permission matrix catalog", () => {
       "ZATCA",
       "Admin",
     ]);
+  });
+
+  it("labels the dedicated currency, rate, and revaluation permissions in accounting", () => {
+    const accounting = PERMISSION_GROUPS.find((group) => group.id === "accounting");
+    const permissions = accounting?.permissions.map((item) => item.permission);
+
+    expect(permissions).toEqual(
+      expect.arrayContaining([
+        PERMISSIONS.currencies.read,
+        PERMISSIONS.currencies.manage,
+        PERMISSIONS.fxRates.read,
+        PERMISSIONS.fxRates.manage,
+        PERMISSIONS.fxRevaluation.read,
+        PERMISSIONS.fxRevaluation.run,
+        PERMISSIONS.fxRevaluation.reverse,
+      ]),
+    );
   });
 });

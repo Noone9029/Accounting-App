@@ -303,6 +303,32 @@ describe("sales invoice rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("blocks foreign-currency finalization before any accounting mutation", async () => {
+    const tx = makeFinalizeTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const postingGuard = {
+      assertPostingAllowed: jest.fn().mockRejectedValue(new Error("Foreign-currency posting is disabled.")),
+    };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+      undefined,
+      undefined,
+      undefined,
+      postingGuard as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
+
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow(
+      "Foreign-currency posting is disabled.",
+    );
+    expect(postingGuard.assertPostingAllowed).toHaveBeenCalledWith("org-1", "SAR", tx);
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("does not link a journal when finalization journal creation fails", async () => {
     const tx = makeFinalizeTransactionMock({ journalCreateError: new Error("journal failed") });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -354,6 +380,27 @@ describe("sales invoice rules", () => {
     jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "VOIDED", reversalJournalEntryId: "rev-1" } as never);
     await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps historical invoice reversal available when forward posting is blocked", async () => {
+    const tx = makeVoidTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const postingGuard = { assertPostingAllowed: jest.fn().mockRejectedValue(new Error("must not run")) };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+      undefined,
+      undefined,
+      undefined,
+      postingGuard as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValueOnce({ id: "invoice-1", status: "FINALIZED", journalEntryId: "je-1" } as never);
+
+    await expect(service.void("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "VOIDED" });
+    expect(postingGuard.assertPostingAllowed).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
   it("rejects voiding finalized invoices with active payment allocations", async () => {

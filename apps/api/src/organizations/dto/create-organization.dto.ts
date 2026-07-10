@@ -1,4 +1,6 @@
-import { IsOptional, IsString, Length } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsIn, IsOptional, IsString, Length } from "class-validator";
+import { SUPPORTED_CURRENCY_CODES } from "@ledgerbyte/shared";
 
 export class CreateOrganizationDto {
   @IsString()
@@ -18,7 +20,9 @@ export class CreateOrganizationDto {
   countryCode?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim().toUpperCase() : value))
   @IsString()
+  @IsIn(SUPPORTED_CURRENCY_CODES)
   baseCurrency?: string;
 
   @IsOptional()

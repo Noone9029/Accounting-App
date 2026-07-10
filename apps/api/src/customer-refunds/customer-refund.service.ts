@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
 import { CustomerRefundPdfData, renderCustomerRefundPdf } from "@ledgerbyte/pdf-core";
 import {
@@ -18,6 +18,7 @@ import { GeneratedDocumentService, sanitizeFilename } from "../generated-documen
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildCustomerRefundJournalLines } from "./customer-refund-accounting";
 import { CreateCustomerRefundDto } from "./dto/create-customer-refund.dto";
@@ -71,6 +72,7 @@ export class CustomerRefundService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -152,6 +154,7 @@ export class CustomerRefundService {
       const paidFromAccount = await this.findPaidFromAccount(organizationId, dto.accountId, tx);
       const source = await this.claimRefundSource(organizationId, dto, amountRefunded.toFixed(4), tx);
       const currency = this.resolveCurrency(dto.currency, source.currency);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, currency, tx);
       const refundNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CUSTOMER_REFUND, tx);
       const accountsReceivableAccount = await this.findPostingAccountByCode(organizationId, "120", tx);
       const journalLines = buildCustomerRefundJournalLines({
@@ -757,7 +760,7 @@ export class CustomerRefundService {
   }
 
   private resolveCurrency(requestedCurrency: string | undefined, sourceCurrency: string): string {
-    const currency = (requestedCurrency ?? sourceCurrency ?? "SAR").toUpperCase();
+    const currency = (requestedCurrency ?? sourceCurrency).toUpperCase();
     if (currency !== sourceCurrency.toUpperCase()) {
       throw new BadRequestException("Refund currency must match the source currency.");
     }

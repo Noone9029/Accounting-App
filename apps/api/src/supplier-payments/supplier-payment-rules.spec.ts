@@ -114,6 +114,17 @@ describe("supplier payment rules", () => {
     ).rejects.toThrow("Total allocations cannot exceed amount paid.");
   });
 
+  it("rejects cross-currency bill allocations until realized FX accounting exists", async () => {
+    const tx = makeCreateTransactionMock({ billCurrency: "SAR" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+
+    await expect(service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD" })).rejects.toThrow(
+      "Supplier payment and bill currencies must match",
+    );
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
   it("voids a posted supplier payment and restores bill balances once", async () => {
     const tx = makeVoidTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -175,7 +186,22 @@ describe("supplier payment rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
-  it("reverses unapplied supplier payment allocation and restores balances", async () => {
+  it("rejects applying unapplied supplier payment credit across currencies until realized FX accounting exists", async () => {
+    const tx = makeApplyUnappliedTransactionMock({ paymentCurrency: "USD", billCurrency: "SAR" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: SupplierPaymentStatus.POSTED } as never);
+
+    await expect(
+      service.applyUnapplied("org-1", "user-1", "payment-1", { billId: "bill-2", amountApplied: "25.0000" }),
+    ).rejects.toThrow("Supplier payment and bill currencies must match");
+
+    expect(tx.supplierPayment.updateMany).not.toHaveBeenCalled();
+    expect(tx.purchaseBill.updateMany).not.toHaveBeenCalled();
+    expect(tx.supplierPaymentUnappliedAllocation.create).not.toHaveBeenCalled();
+  });
+
+  it("reverses historical cross-currency supplier payment allocation and restores balances", async () => {
     const tx = makeReverseUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -211,7 +237,7 @@ describe("supplier payment rules", () => {
   });
 });
 
-function makeCreateTransactionMock() {
+function makeCreateTransactionMock(options: { billCurrency?: string } = {}) {
   const accountFindFirst = jest.fn();
   accountFindFirst.mockResolvedValueOnce({ id: "bank-1" });
   accountFindFirst.mockResolvedValue({ id: "ap-1" });
@@ -226,6 +252,7 @@ function makeCreateTransactionMock() {
           supplierId: "supplier-1",
           status: PurchaseBillStatus.FINALIZED,
           balanceDue: "100.0000",
+          currency: options.billCurrency ?? "SAR",
         },
       ]),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -295,7 +322,7 @@ function makeVoidTransactionMock() {
   };
 }
 
-function makeApplyUnappliedTransactionMock() {
+function makeApplyUnappliedTransactionMock(options: { paymentCurrency?: string; billCurrency?: string } = {}) {
   return {
     supplierPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -304,6 +331,7 @@ function makeApplyUnappliedTransactionMock() {
         status: SupplierPaymentStatus.POSTED,
         amountPaid: "100.0000",
         unappliedAmount: "40.0000",
+        currency: options.paymentCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({
@@ -319,6 +347,7 @@ function makeApplyUnappliedTransactionMock() {
         status: PurchaseBillStatus.FINALIZED,
         total: "100.0000",
         balanceDue: "50.0000",
+        currency: options.billCurrency ?? "SAR",
       }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
@@ -340,12 +369,14 @@ function makeReverseUnappliedTransactionMock() {
         reversedAt: null,
         payment: {
           id: "payment-1",
+          currency: "USD",
           status: SupplierPaymentStatus.POSTED,
           amountPaid: "100.0000",
           unappliedAmount: "15.0000",
         },
         bill: {
           id: "bill-2",
+          currency: "SAR",
           status: PurchaseBillStatus.FINALIZED,
           total: "100.0000",
           balanceDue: "50.0000",

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { CreditNoteForm } from "./credit-note-form";
@@ -7,6 +7,9 @@ import type { CreditNote } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockBaseCurrency = "SAR";
+let mockInvoiceCurrency = "SAR";
+let mockInvoicesAvailable = true;
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -26,6 +29,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganization: () => ({ id: "org-1", baseCurrency: mockBaseCurrency }),
   useActiveOrganizationId: () => "org-1",
 }));
 
@@ -37,13 +41,16 @@ describe("CreditNoteForm", () => {
   beforeEach(() => {
     pushMock.mockReset();
     apiRequestMock.mockReset();
+    mockBaseCurrency = "SAR";
+    mockInvoiceCurrency = "SAR";
+    mockInvoicesAvailable = true;
     window.history.pushState({}, "", "/sales/credit-notes/new?returnTo=/customers/customer-1");
     apiRequestMock.mockImplementation((path: string) => {
       switch (path) {
         case "/contacts":
           return Promise.resolve([{ id: "customer-1", name: "Visual Customer", displayName: "Visual Customer", type: "CUSTOMER", isActive: true }]);
         case "/sales-invoices":
-          return Promise.resolve([{ id: "invoice-1", invoiceNumber: "INV-001", customerId: "customer-1", status: "FINALIZED", total: "115.0000", currency: "SAR" }]);
+          return Promise.resolve(mockInvoicesAvailable ? [{ id: "invoice-1", invoiceNumber: "INV-001", customerId: "customer-1", status: "FINALIZED", total: "115.0000", currency: mockInvoiceCurrency }] : []);
         case "/items":
           return Promise.resolve([{ id: "item-1", name: "Visual Item", description: "Visual item", status: "ACTIVE", sellingPrice: "100.0000", revenueAccountId: "revenue-1", salesTaxRateId: "tax-1" }]);
         case "/accounts":
@@ -85,6 +92,35 @@ describe("CreditNoteForm", () => {
 
     expect(screen.getByText("يمكن تعديل الإشعارات الدائنة المسودة فقط.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "العودة إلى الإشعار الدائن" })).toHaveAttribute("href", "/sales/credit-notes/credit-note-1");
+  });
+
+  it("blocks linking an AED-base credit note to a historical SAR invoice", async () => {
+    mockBaseCurrency = "AED";
+    mockInvoiceCurrency = "SAR";
+    window.history.pushState({}, "", "/sales/credit-notes/new?customerId=customer-1&invoiceId=invoice-1");
+
+    render(<CreditNoteForm />);
+
+    expect(await screen.findByText(/linked invoice currency does not match/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create draft credit note" })).toBeDisabled();
+  });
+
+  it("rejects a query-prefilled original invoice when the active organization has no matching invoice", async () => {
+    mockInvoicesAvailable = false;
+    window.history.pushState({}, "", "/sales/credit-notes/new?customerId=customer-1&invoiceId=prior-org-invoice");
+    const { container } = render(<CreditNoteForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Customer")).toHaveValue("customer-1"));
+    const descriptionInput = container.querySelector<HTMLInputElement>('input[required]:not([type])');
+    const amountInputs = container.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]');
+    fireEvent.change(descriptionInput!, { target: { value: "Credit adjustment" } });
+    fireEvent.change(amountInputs[1]!, { target: { value: "100.0000" } });
+    const revenueOption = screen.getByRole("option", { name: "4010 Sales" });
+    fireEvent.change(revenueOption.parentElement!, { target: { value: "revenue-1" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Create draft credit note" }).closest("form")!);
+
+    expect(await screen.findByText(/original invoice does not belong to the active organization/i)).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/credit-notes", expect.objectContaining({ method: "POST" }));
   });
 });
 

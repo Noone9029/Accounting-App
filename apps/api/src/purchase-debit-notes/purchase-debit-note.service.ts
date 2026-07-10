@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -26,6 +26,10 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
@@ -122,6 +126,7 @@ export class PurchaseDebitNoteService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -241,8 +246,11 @@ export class PurchaseDebitNoteService {
       this.prisma,
     );
 
-    const currency = (dto.currency ?? "SAR").toUpperCase();
     const debitNote = await this.prisma.$transaction(async (tx) => {
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase();
       const debitNoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PURCHASE_DEBIT_NOTE, tx);
 
       return tx.purchaseDebitNote.create({
@@ -382,6 +390,7 @@ export class PurchaseDebitNoteService {
         throw new BadRequestException("Only draft purchase debit notes can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, debitNote.issueDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, debitNote.currency, tx);
 
       this.assertFinalizablePurchaseDebitNote({
         subtotal: String(debitNote.subtotal),
@@ -567,6 +576,7 @@ export class PurchaseDebitNoteService {
         select: {
           id: true,
           supplierId: true,
+          currency: true,
           status: true,
           total: true,
           unappliedAmount: true,
@@ -584,13 +594,18 @@ export class PurchaseDebitNoteService {
 
       const bill = await tx.purchaseBill.findFirst({
         where: { id: dto.billId, organizationId },
-        select: { id: true, supplierId: true, status: true, balanceDue: true },
+        select: { id: true, supplierId: true, currency: true, status: true, balanceDue: true },
       });
       if (!bill) {
         throw new BadRequestException("Purchase bill must belong to this organization.");
       }
       if (bill.supplierId !== debitNote.supplierId) {
         throw new BadRequestException("Purchase debit note and bill must belong to the same supplier.");
+      }
+      if (bill.currency !== debitNote.currency) {
+        throw new BadRequestException(
+          "Purchase debit note and bill currencies must match until realized FX accounting is available.",
+        );
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Purchase debit notes can only be applied to finalized, non-voided bills.");

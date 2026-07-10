@@ -69,6 +69,12 @@ const adminSections = [
     status: "Manual controls",
   },
   {
+    title: "Currencies and FX",
+    description: "Capture immutable manual rates and review FX account and foreign-posting readiness.",
+    href: "/settings/currencies-fx",
+    status: "Foundation only",
+  },
+  {
     title: "Compliance readiness",
     description: "Track local readiness and edition-aware compliance fields without production submission claims.",
     href: "/settings/compliance",

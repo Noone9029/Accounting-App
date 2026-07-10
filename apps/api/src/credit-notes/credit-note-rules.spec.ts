@@ -153,6 +153,18 @@ describe("credit note rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
+  it("rejects cross-currency credit note allocation until realized FX accounting exists", async () => {
+    const tx = makeApplyTransactionMock({ creditNoteCurrency: "USD", invoiceCurrency: "SAR" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "credit-note-1", status: CreditNoteStatus.FINALIZED } as never);
+
+    await expect(service.apply("org-1", "user-1", "credit-note-1", { invoiceId: "invoice-1", amountApplied: "25.0000" })).rejects.toThrow(
+      "Credit note and invoice currencies must match",
+    );
+    expect(tx.creditNote.updateMany).not.toHaveBeenCalled();
+  });
+
   it("rejects applying draft or voided credit notes", async () => {
     const tx = makeApplyTransactionMock({ creditNoteStatus: CreditNoteStatus.DRAFT });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
@@ -259,7 +271,7 @@ describe("credit note rules", () => {
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
-  it("reverses active allocations and restores invoice and credit balances without a journal", async () => {
+  it("reverses historical cross-currency allocations without a journal", async () => {
     const tx = makeReverseAllocationTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -490,6 +502,8 @@ function makeApplyTransactionMock(options: {
   invoiceBalanceDue?: string;
   creditUpdateCount?: number;
   invoiceUpdateCount?: number;
+  creditNoteCurrency?: string;
+  invoiceCurrency?: string;
 } = {}) {
   const creditNote = {
     id: "credit-note-1",
@@ -497,12 +511,14 @@ function makeApplyTransactionMock(options: {
     status: options.creditNoteStatus ?? CreditNoteStatus.FINALIZED,
     total: "100.0000",
     unappliedAmount: options.unappliedAmount ?? "100.0000",
+    currency: options.creditNoteCurrency ?? "SAR",
   };
   const invoice = {
     id: "invoice-1",
     customerId: options.invoiceCustomerId ?? "customer-1",
     status: options.invoiceStatus ?? "FINALIZED",
     balanceDue: options.invoiceBalanceDue ?? "100.0000",
+    currency: options.invoiceCurrency ?? "SAR",
   };
 
   return {
@@ -549,12 +565,14 @@ function makeReverseAllocationTransactionMock(options: {
     reversedAt: options.reversedAt ?? null,
     creditNote: {
       id: "credit-note-1",
+      currency: "USD",
       status: options.creditNoteStatus ?? CreditNoteStatus.FINALIZED,
       total: "100.0000",
       unappliedAmount: options.creditUnappliedAmount ?? "60.0000",
     },
     invoice: {
       id: "invoice-1",
+      currency: "SAR",
       status: options.invoiceStatus ?? "FINALIZED",
       total: "100.0000",
       balanceDue: options.invoiceBalanceDue ?? "60.0000",

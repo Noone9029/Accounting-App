@@ -373,6 +373,14 @@ export const APP_ROUTES = [
   route("settings.bankingAccounting", "Banking accounting", "/settings/banking-accounting", "settings", "Banking accounting configuration route.", [
     PERMISSIONS.accounts.view,
   ]),
+  route(
+    "settings.currenciesFx",
+    "Currencies and FX",
+    "/settings/currencies-fx",
+    "settings",
+    "Manual exchange-rate evidence, FX account configuration, and foreign-document posting readiness.",
+    [PERMISSIONS.currencies.read],
+  ),
   route("settings.emailOutbox", "Email outbox", "/settings/email-outbox", "settings", "Email outbox review settings route.", [PERMISSIONS.emailOutbox.view]),
   route("settings.auditLogs", "Audit logs", "/settings/audit-logs", "settings", "Audit log review route.", [PERMISSIONS.auditLogs.view]),
   route("settings.zatca", "ZATCA readiness", "/settings/zatca", "settings", "KSA ZATCA local-readiness settings route.", [PERMISSIONS.zatca.view], {

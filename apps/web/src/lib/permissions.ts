@@ -479,6 +479,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.accounts.view];
   }
 
+  if (pathname.startsWith("/settings/currencies-fx")) {
+    return [PERMISSIONS.currencies.read];
+  }
+
   if (pathname.startsWith("/settings/compliance")) {
     return [PERMISSIONS.compliance.view];
   }

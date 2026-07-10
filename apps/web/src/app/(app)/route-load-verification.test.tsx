@@ -18,6 +18,7 @@ import NewSalesInvoicePage from "./sales/invoices/new/page";
 import SalesInventoryReturnsPage from "./sales/inventory-returns/page";
 import SalesQuotesPage from "./sales/quotes/page";
 import BankingAccountingSettingsPage from "./settings/banking-accounting/page";
+import CurrenciesAndFxSettingsPage from "./settings/currencies-fx/page";
 import SettingsPage from "./settings/page";
 import StorageSettingsPage from "./settings/storage/page";
 import SuppliersPage from "./suppliers/page";
@@ -178,6 +179,13 @@ describe("controlled beta route-load verification batch", () => {
     render(<BankingAccountingSettingsPage />);
 
     expect(screen.getByText("Log in and select an organization to configure banking accounting.")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the currencies and FX settings route safely without an organization", () => {
+    render(<CurrenciesAndFxSettingsPage />);
+
+    expect(screen.getByText("Log in and select an organization to review currency and FX settings.")).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
 

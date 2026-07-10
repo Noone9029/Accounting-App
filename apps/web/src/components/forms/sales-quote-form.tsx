@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
@@ -62,7 +62,11 @@ function optionalDateInputValue(value?: string | null): string {
 
 export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQuoteFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialQuote?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -202,6 +206,14 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this sales quote."));
+      return;
+    }
+    if (currencyMismatch) {
+      setError(tc("This quote currency does not match the organization base currency. It was not changed or saved."));
+      return;
+    }
 
     const validationError = getValidationError(customerId, lines, preview.valid, tc);
     if (validationError) {
@@ -217,7 +229,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
         issueDate: `${issueDate}T00:00:00.000Z`,
         expiryDate: expiryDate ? `${expiryDate}T00:00:00.000Z` : null,
         reference: reference || undefined,
-        currency: "SAR",
+        currency: documentCurrency,
         taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
@@ -329,6 +341,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating sales quotes.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This stored quote currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading quote setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && postingRevenueAccounts.length === 0 ? (
@@ -381,7 +394,7 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
                       </option>
                     ))}
               </select>
-              <div className="flex items-center font-mono text-xs text-ink">{formatAppMoney(previewLine?.lineTotalUnits ?? 0, "SAR", locale)}</div>
+              <div className="flex items-center font-mono text-xs text-ink">{documentCurrency ? formatAppMoney(previewLine?.lineTotalUnits ?? 0, documentCurrency, locale) : "-"}</div>
               <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
                 {tc("Remove")}
               </button>
@@ -394,21 +407,21 @@ export function SalesQuoteForm({ initialQuote, initialCustomerId = "" }: SalesQu
           </button>
           <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="font-mono">{formatAppMoney(preview.subtotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="font-mono">{formatAppMoney(preview.discountTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxableTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"}</span>
             <span className="font-semibold text-ink">{tc("Total")}</span>
-            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, "SAR", locale)}</span>
+            <span className="font-mono font-semibold text-ink">{documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"}</span>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialQuote ? tc("Save draft quote") : tc("Create draft quote")}
         </button>
         <Link href={returnTo || "/sales/quotes"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

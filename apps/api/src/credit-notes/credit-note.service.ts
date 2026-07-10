@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -25,6 +25,10 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -113,6 +117,7 @@ export class CreditNoteService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -229,6 +234,7 @@ export class CreditNoteService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           total: true,
           unappliedAmount: true,
@@ -249,6 +255,7 @@ export class CreditNoteService {
         select: {
           id: true,
           customerId: true,
+          currency: true,
           status: true,
           balanceDue: true,
         },
@@ -258,6 +265,11 @@ export class CreditNoteService {
       }
       if (invoice.customerId !== creditNote.customerId) {
         throw new BadRequestException("Credit note and invoice must belong to the same customer.");
+      }
+      if (invoice.currency !== creditNote.currency) {
+        throw new BadRequestException(
+          "Credit note and invoice currencies must match until realized FX accounting is available.",
+        );
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException("Credit notes can only be applied to finalized, non-voided invoices.");
@@ -583,8 +595,11 @@ export class CreditNoteService {
       this.prisma,
     );
 
-    const currency = (dto.currency ?? "SAR").toUpperCase();
     const creditNote = await this.prisma.$transaction(async (tx) => {
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase();
       const creditNoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CREDIT_NOTE, tx);
 
       return tx.creditNote.create({
@@ -717,6 +732,7 @@ export class CreditNoteService {
         throw new BadRequestException("Only draft credit notes can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, creditNote.issueDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, creditNote.currency, tx);
 
       this.assertFinalizableCreditNote({
         subtotal: String(creditNote.subtotal),

@@ -5,6 +5,8 @@ import { BankAccountProfileForm } from "./bank-account-profile-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockOrganizationId = "org-1";
+let mockBaseCurrency = "SAR";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -26,7 +28,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
-  useActiveOrganizationId: () => "org-1",
+  useActiveOrganization: () => ({ id: mockOrganizationId, baseCurrency: mockBaseCurrency }),
+  useActiveOrganizationId: () => mockOrganizationId,
 }));
 
 jest.mock("@/lib/api", () => ({
@@ -37,12 +40,14 @@ describe("BankAccountProfileForm", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    mockOrganizationId = "org-1";
+    mockBaseCurrency = "SAR";
     apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/accounts") {
         return Promise.resolve([
           {
-            id: "account-1",
-            organizationId: "org-1",
+            id: mockOrganizationId === "org-1" ? "account-1" : "account-2",
+            organizationId: mockOrganizationId,
             parentId: null,
             code: "112",
             name: "Bank Account",
@@ -64,14 +69,18 @@ describe("BankAccountProfileForm", () => {
     });
   });
 
-  it("renders currency as a supported-code dropdown instead of free text", async () => {
+  it.each([
+    ["AED", "AED - UAE Dirham"],
+    ["SAR", "SAR - Saudi Riyal"],
+  ])("defaults a new bank profile to the active organization's %s base currency", async (baseCurrency, displayValue) => {
+    mockBaseCurrency = baseCurrency;
     render(<BankAccountProfileForm />);
 
     const currency = screen.getByRole("combobox", { name: "Currency" });
 
     await waitFor(() => expect(screen.getByLabelText("Linked chart account")).toHaveValue("account-1"));
-    expect(currency).toHaveValue("SAR");
-    expect(currency).toHaveDisplayValue("SAR - Saudi Riyal");
+    expect(currency).toHaveValue(baseCurrency);
+    expect(currency).toHaveDisplayValue(displayValue);
     expect(screen.getByRole("option", { name: "AED - UAE Dirham" })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Currency" })).not.toBeInTheDocument();
   });
@@ -103,6 +112,20 @@ describe("BankAccountProfileForm", () => {
         }),
       ),
     );
+  });
+
+  it("resets base currency and linked accounts when the active organization changes", async () => {
+    const { rerender } = render(<BankAccountProfileForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Linked chart account")).toHaveValue("account-1"));
+    expect(screen.getByRole("combobox", { name: "Currency" })).toHaveValue("SAR");
+
+    mockOrganizationId = "org-2";
+    mockBaseCurrency = "AED";
+    rerender(<BankAccountProfileForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Linked chart account")).toHaveValue("account-2"));
+    expect(screen.getByRole("combobox", { name: "Currency" })).toHaveValue("AED");
   });
 
   it("locks currency when the existing profile has ledger transactions", async () => {
