@@ -6,6 +6,7 @@ import {
   getVisibleShellRoutes,
   isKnownAppRoute,
 } from "./app-routes";
+import { PERMISSIONS } from "./permissions";
 
 describe("app route registry", () => {
   it("uses unique route keys and active hrefs", () => {
@@ -71,6 +72,8 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("settings.storage")?.href).toBe("/settings/storage");
     expect(getAppRouteByKey("settings.payments")?.href).toBe("/settings/payments");
     expect(getAppRouteByKey("settings.bankIntegrations")?.href).toBe("/settings/bank-integrations");
+    expect(getAppRouteByKey("settings.currenciesFx")?.href).toBe("/settings/currencies-fx");
+    expect(getAppRouteByKey("settings.currenciesFx")?.requiredAny).toEqual([PERMISSIONS.currencies.read]);
     expect(getAppRouteByKey("settings.apiDocs")?.href).toBe("/settings/api-docs");
     expect(getAppRouteByKey("settings.webhooks")?.href).toBe("/settings/webhooks");
     expect(getAppRouteByKey("settings.importExport")?.href).toBe("/settings/import-export");

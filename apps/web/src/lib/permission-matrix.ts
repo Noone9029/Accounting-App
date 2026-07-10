@@ -42,6 +42,13 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: [
       permission(PERMISSIONS.accounts.view, "View accounts", "See the chart of accounts."),
       permission(PERMISSIONS.accounts.manage, "Manage accounts", "Create, update, and delete accounts."),
+      permission(PERMISSIONS.currencies.read, "View currencies", "Review the organization base currency, supported currencies, and FX readiness."),
+      permission(PERMISSIONS.currencies.manage, "Manage currency settings", "Configure the guarded posting accounts used by future FX accounting workflows."),
+      permission(PERMISSIONS.fxRates.read, "View FX rates", "Review captured immutable manual exchange-rate evidence."),
+      permission(PERMISSIONS.fxRates.manage, "Manage FX rates", "Capture new immutable manual exchange-rate snapshots."),
+      permission(PERMISSIONS.fxRevaluation.read, "View FX revaluations", "Review controlled period-end FX revaluation runs and evidence."),
+      permission(PERMISSIONS.fxRevaluation.run, "Run FX revaluations", "Create controlled period-end FX revaluation runs when that workflow is enabled."),
+      permission(PERMISSIONS.fxRevaluation.reverse, "Reverse FX revaluations", "Reverse eligible FX revaluation runs through controlled accounting corrections."),
       permission(PERMISSIONS.bankAccounts.view, "View bank accounts", "See cash/bank account profiles and balances."),
       permission(PERMISSIONS.bankAccounts.manage, "Manage bank accounts", "Create, edit, archive, and reactivate bank account profiles."),
       permission(PERMISSIONS.bankAccounts.transactionsView, "View bank transactions", "See posted journal activity for linked cash/bank accounts."),
