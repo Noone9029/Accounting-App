@@ -16,6 +16,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { resolveOrganizationBaseCurrency } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSalesQuoteDto } from "./dto/create-sales-quote.dto";
@@ -283,10 +284,12 @@ export class SalesQuoteService {
     this.assertExpiryDate(dto.issueDate, dto.expiryDate ?? undefined);
     const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
     const prepared = await this.prepareQuote(organizationId, dto.lines, taxMode);
-    const currency = (dto.currency ?? "SAR").toUpperCase();
-
     try {
       const quote = await this.prisma.$transaction(async (tx) => {
+        const currency =
+          dto.currency === undefined
+            ? await resolveOrganizationBaseCurrency(organizationId, tx)
+            : dto.currency.toUpperCase();
         const quoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.SALES_QUOTE, tx);
 
         return tx.salesQuote.create({

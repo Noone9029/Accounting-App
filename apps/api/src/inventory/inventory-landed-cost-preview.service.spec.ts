@@ -10,6 +10,7 @@ describe("InventoryLandedCostPreviewService", () => {
 
   function makeService(overrides: Record<string, unknown> = {}) {
     const prisma = {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       contact: { count: jest.fn().mockResolvedValue(0) },
       purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(receipt()) },
       purchaseBill: { findFirst: jest.fn().mockResolvedValue(bill()) },
@@ -39,6 +40,20 @@ describe("InventoryLandedCostPreviewService", () => {
       previewLandedInventoryValue: "230.0000",
     });
     expect(prisma.purchaseReceipt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "receipt-1", organizationId: "org-1" } }));
+  });
+
+  it("uses the AED tenant base currency for a standalone receipt preview", async () => {
+    const { service, prisma } = makeService({
+      purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(receipt({ purchaseBill: null })) },
+    });
+
+    const preview = await service.preview("org-1", dto());
+
+    expect(preview.source?.currency).toBe("AED");
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      select: { baseCurrency: true },
+    });
   });
 
   it("allocates landed costs by quantity", async () => {

@@ -19,6 +19,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
+import { resolveOrganizationBaseCurrency } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
@@ -224,8 +225,11 @@ export class PurchaseOrderService {
     const prepared = await this.preparePurchaseOrder(organizationId, dto.lines);
     await this.validateHeaderReferences(organizationId, dto.supplierId, dto.branchId ?? undefined);
 
-    const currency = (dto.currency ?? "SAR").toUpperCase();
     const order = await this.prisma.$transaction(async (tx) => {
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase();
       const purchaseOrderNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PURCHASE_ORDER, tx);
 
       return tx.purchaseOrder.create({

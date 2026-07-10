@@ -23,7 +23,10 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
-import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CashExpenseLineDto } from "./dto/cash-expense-line.dto";
@@ -132,11 +135,19 @@ export class CashExpenseService {
     );
     this.assertPostableCashExpense(prepared);
 
-    const currency = (dto.currency ?? "SAR").toUpperCase();
     const expense = await this.prisma.$transaction(async (tx) => {
       const expenseDate = new Date(dto.expenseDate);
       await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
-      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, currency, tx);
+      const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(
+        organizationId,
+        dto.currency,
+        tx,
+      );
+      const currency =
+        guardedCurrency ??
+        (dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency.toUpperCase());
       const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
       const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
       const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);

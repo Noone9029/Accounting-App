@@ -757,7 +757,7 @@ export class SupplierRefundService {
   }
 
   private resolveCurrency(requestedCurrency: string | undefined, sourceCurrency: string): string {
-    const currency = (requestedCurrency ?? sourceCurrency ?? "SAR").toUpperCase();
+    const currency = (requestedCurrency ?? sourceCurrency).toUpperCase();
     if (currency !== sourceCurrency.toUpperCase()) {
       throw new BadRequestException("Refund currency must match the source currency.");
     }

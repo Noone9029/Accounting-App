@@ -10,7 +10,10 @@ import {
 import { DimensionStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
-import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
+import {
+  BaseCurrencyPostingGuardService,
+  resolveOrganizationBaseCurrency,
+} from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateJournalEntryDto } from "./dto/create-journal-entry.dto";
@@ -87,6 +90,10 @@ export class AccountingService {
 
     const entry = await this.prisma.$transaction(async (tx) => {
       await this.lockActiveLineDimensions(tx, organizationId, dto.lines);
+      const currency =
+        dto.currency === undefined
+          ? await resolveOrganizationBaseCurrency(organizationId, tx)
+          : dto.currency;
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
 
       return tx.journalEntry.create({
@@ -96,7 +103,7 @@ export class AccountingService {
           entryDate: new Date(dto.entryDate),
           description: dto.description.trim(),
           reference: dto.reference?.trim(),
-          currency: dto.currency ?? "SAR",
+          currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           createdById: actorUserId,

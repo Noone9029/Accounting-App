@@ -19,10 +19,16 @@ describe("BaseCurrencyPostingGuardService", () => {
   it("allows only the organization's normalized base currency", async () => {
     const { service } = makeService("AED");
 
-    await expect(service.assertPostingAllowed("org-1", " aed ")).resolves.toBeUndefined();
+    await expect(service.assertPostingAllowed("org-1", " aed ")).resolves.toBe("AED");
     await expect(service.assertPostingAllowed("org-1", "USD")).rejects.toEqual(
       new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE),
     );
+  });
+
+  it.each(["AED", "SAR"])("resolves an omitted posting currency to the tenant's %s base currency", async (baseCurrency) => {
+    const { service } = makeService(baseCurrency);
+
+    await expect(service.assertPostingAllowed("org-1", undefined)).resolves.toBe(baseCurrency);
   });
 
   it("fails closed when the organization is unavailable", async () => {
@@ -39,7 +45,7 @@ describe("BaseCurrencyPostingGuardService", () => {
       organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
     };
 
-    await expect(service.assertPostingAllowed("org-1", "AED", transaction as never)).resolves.toBeUndefined();
+    await expect(service.assertPostingAllowed("org-1", "AED", transaction as never)).resolves.toBe("AED");
     expect(transaction.organization.findUnique).toHaveBeenCalledWith({
       where: { id: "org-1" },
       select: { baseCurrency: true },
@@ -80,5 +86,42 @@ describe("base-currency posting guard coverage", () => {
   ])("wires the application guard into %s", (relativePath) => {
     const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
     expect(source).toContain("baseCurrencyPostingGuardService?.assert");
+  });
+
+  it.each([
+    "sales-invoices/sales-invoice.service.ts",
+    "purchase-bills/purchase-bill.service.ts",
+    "credit-notes/credit-note.service.ts",
+    "purchase-debit-notes/purchase-debit-note.service.ts",
+    "customer-payments/customer-payment.service.ts",
+    "supplier-payments/supplier-payment.service.ts",
+    "customer-refunds/customer-refund.service.ts",
+    "supplier-refunds/supplier-refund.service.ts",
+    "cash-expenses/cash-expense.service.ts",
+    "accounting/accounting.service.ts",
+    "bank-accounts/bank-account.service.ts",
+    "sales-quotes/sales-quote.service.ts",
+    "purchase-orders/purchase-order.service.ts",
+    "recurring-invoices/recurring-invoice.service.ts",
+  ])("does not hard-code SAR as the omitted currency fallback in %s", (relativePath) => {
+    const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
+    expect(source).not.toMatch(/(?:\?\?|\|\|)\s*["']SAR["']/);
+    expect(source).not.toContain("DEFAULT_BASE_CURRENCY");
+    if (relativePath.includes("refunds/")) {
+      expect(source).toContain("requestedCurrency ?? sourceCurrency");
+    } else {
+      expect(source).toContain("resolveOrganizationBaseCurrency");
+    }
+  });
+
+  it.each([
+    "purchase-receipts/purchase-receipt.service.ts",
+    "inventory/inventory-variance-proposal.service.ts",
+    "sales-stock-issues/sales-stock-issue.service.ts",
+  ])("does not hard-code SAR into forward posted journal data in %s", (relativePath) => {
+    const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
+    expect(source).not.toMatch(/currency:\s*["']SAR["']/);
+    expect(source).not.toMatch(/line\.currency\s*\?\?\s*["']SAR["']/);
+    expect(source).toContain("resolveOrganizationBaseCurrency");
   });
 });

@@ -61,6 +61,7 @@ const archivedDimensionJournal = {
 describe("AccountingService journal dimensions", () => {
   function makeService() {
     const prisma = {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       account: { findMany: jest.fn() },
       taxRate: { findMany: jest.fn() },
       journalLine: { deleteMany: jest.fn() },
@@ -121,6 +122,28 @@ describe("AccountingService journal dimensions", () => {
           },
         }),
       }),
+    );
+  });
+
+  it("defaults an omitted manual-journal header currency to the AED tenant base", async () => {
+    const { service, prisma } = makeService();
+    const lines = dimensionedLines.map(({ costCenterId: _costCenterId, projectId: _projectId, ...line }) => ({
+      ...line,
+      currency: "AED",
+    }));
+    allowAccounts(prisma);
+    prisma.journalEntry.create.mockResolvedValue({ ...journal, currency: "AED", lines });
+
+    const dto = createDto(lines);
+    delete (dto as { currency?: string }).currency;
+    await service.create("org-1", "user-1", dto as never);
+
+    expect(prisma.organization.findUnique).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      select: { baseCurrency: true },
+    });
+    expect(prisma.journalEntry.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ currency: "AED" }) }),
     );
   });
 

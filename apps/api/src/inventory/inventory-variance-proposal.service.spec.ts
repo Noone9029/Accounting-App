@@ -151,6 +151,7 @@ describe("InventoryVarianceProposalService", () => {
 
   function makeTx(overrides: Record<string, unknown> = {}) {
     return {
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       inventoryVarianceProposal: {
         create: jest.fn().mockResolvedValue(proposal()),
         update: jest.fn().mockResolvedValue(proposal({ status: InventoryVarianceProposalStatus.PENDING_APPROVAL })),
@@ -307,12 +308,13 @@ describe("InventoryVarianceProposalService", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: JournalEntryStatus.POSTED,
+          currency: "AED",
           totalDebit: "2.0000",
           totalCredit: "2.0000",
           lines: expect.objectContaining({
             create: expect.arrayContaining([
-              expect.objectContaining({ debit: "2.0000", credit: "0" }),
-              expect.objectContaining({ debit: "0", credit: "2.0000" }),
+              expect.objectContaining({ debit: "2.0000", credit: "0", currency: "AED" }),
+              expect.objectContaining({ debit: "0", credit: "2.0000", currency: "AED" }),
             ]),
           }),
         }),
