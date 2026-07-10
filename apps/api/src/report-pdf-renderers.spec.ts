@@ -239,6 +239,20 @@ describe("report PDF renderers", () => {
       roundedRectSpy.mockRestore();
     }
   });
+
+  it("does not create a blank footer-only page for an empty report", async () => {
+    const buffer = await renderGeneralLedgerReportPdf({
+      organization,
+      currency: "SAR",
+      from: "2026-01-01",
+      to: "2026-12-31",
+      accounts: [],
+      generatedAt: "2026-07-10T12:00:00.000Z",
+    });
+
+    const pageObjects = buffer.toString("latin1").match(/\/Type \/Page\b/g) ?? [];
+    expect(pageObjects).toHaveLength(1);
+  });
 });
 
 function emptyAccountTotals(extra: { balanced: boolean }) {

@@ -2254,10 +2254,15 @@ function addFooters(doc: PdfDocument, settings: ResolvedDocumentRenderSettings):
   const range = doc.bufferedPageRange();
   for (let pageIndex = range.start; pageIndex < range.start + range.count; pageIndex += 1) {
     doc.switchToPage(pageIndex);
-    doc.font("Helvetica").fontSize(8).fillColor(mutedColor).text(`${settings.footerText} - Page ${pageIndex + 1}`, pageMargin, doc.page.height - 34, {
-      align: "center",
-      width: pageWidth(doc),
-    });
+    doc
+      .font("Helvetica")
+      .fontSize(8)
+      .fillColor(mutedColor)
+      .text(`${settings.footerText} - Page ${pageIndex + 1}`, pageMargin, doc.page.height - pageMargin - 10, {
+        align: "center",
+        lineBreak: false,
+        width: pageWidth(doc),
+      });
   }
 }
 
