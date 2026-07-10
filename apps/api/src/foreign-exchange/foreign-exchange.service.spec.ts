@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { AccountType, CurrencyRateSource, Prisma } from "@prisma/client";
 import { ForeignExchangeService } from "./foreign-exchange.service";
 
@@ -6,7 +6,7 @@ describe("ForeignExchangeService", () => {
   function makeService() {
     const prisma: any = {
       organization: { findUnique: jest.fn() },
-      currencyRateSnapshot: { findMany: jest.fn(), create: jest.fn() },
+      currencyRateSnapshot: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
       fxAccountConfiguration: { findUnique: jest.fn(), upsert: jest.fn() },
       account: { findMany: jest.fn() },
     };
@@ -86,6 +86,22 @@ describe("ForeignExchangeService", () => {
       orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       skip: 0,
       take: 51,
+    });
+  });
+
+  it("returns a rate snapshot only through its owning tenant", async () => {
+    const { service, prisma } = makeService();
+    prisma.currencyRateSnapshot.findFirst
+      .mockResolvedValueOnce({ id: "rate-1", organizationId: "org-1" })
+      .mockResolvedValueOnce(null);
+
+    await expect(service.getRate("org-1", "rate-1")).resolves.toMatchObject({ id: "rate-1" });
+    await expect(service.getRate("org-2", "rate-1")).rejects.toEqual(new NotFoundException("FX rate snapshot not found."));
+    expect(prisma.currencyRateSnapshot.findFirst).toHaveBeenNthCalledWith(1, {
+      where: { id: "rate-1", organizationId: "org-1" },
+    });
+    expect(prisma.currencyRateSnapshot.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { id: "rate-1", organizationId: "org-2" },
     });
   });
 

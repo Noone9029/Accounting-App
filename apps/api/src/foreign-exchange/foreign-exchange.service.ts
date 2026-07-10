@@ -76,6 +76,16 @@ export class ForeignExchangeService {
     };
   }
 
+  async getRate(organizationId: string, id: string) {
+    const snapshot = await this.prisma.currencyRateSnapshot.findFirst({
+      where: { id, organizationId },
+    });
+    if (!snapshot) {
+      throw new NotFoundException("FX rate snapshot not found.");
+    }
+    return snapshot;
+  }
+
   async createRate(
     organizationId: string,
     actorUserId: string,

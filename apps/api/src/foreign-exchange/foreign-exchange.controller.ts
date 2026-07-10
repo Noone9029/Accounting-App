@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -27,6 +27,15 @@ export class ForeignExchangeController {
   @RequirePermissions(PERMISSIONS.fxRates.read)
   listRates(@CurrentOrganizationId() organizationId: string, @Query() query: CurrencyRateQueryDto) {
     return this.foreignExchangeService.listRates(organizationId, query);
+  }
+
+  @Get("rates/:id")
+  @RequirePermissions(PERMISSIONS.fxRates.read)
+  getRate(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+  ) {
+    return this.foreignExchangeService.getRate(organizationId, id);
   }
 
   @Post("rates")

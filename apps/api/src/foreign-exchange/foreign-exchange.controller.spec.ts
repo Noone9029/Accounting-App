@@ -22,8 +22,8 @@ describe("ForeignExchangeController", () => {
     ]);
   });
 
-  it("requires fxRates.read for rate listing", () => {
-    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.listRates)).toEqual([
+  it.each(["listRates", "getRate"] as const)("requires fxRates.read for %s", (method) => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype[method])).toEqual([
       PERMISSIONS.fxRates.read,
     ]);
   });

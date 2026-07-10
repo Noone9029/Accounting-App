@@ -192,6 +192,13 @@ describe("tenant isolation HTTP integration", () => {
     expect(ratesText).toContain(markerA);
     expect(ratesText).not.toContain(markerB);
 
+    const ownedRate = await request(`/fx/rates/${ids.rateA}`, { session: sessionA, organizationId: ids.orgA });
+    expect(ownedRate.status).toBe(200);
+    expect(await ownedRate.text()).toContain(markerA);
+
+    const foreignRate = await request(`/fx/rates/${ids.rateB}`, { session: sessionA, organizationId: ids.orgA });
+    expect(foreignRate.status).toBe(404);
+
     const blockedByGuard = await request("/fx/rates", { session: sessionA, organizationId: ids.orgB });
     expect(blockedByGuard.status).toBe(403);
 
@@ -823,6 +830,7 @@ function makeForeignExchangeService(store: TenantStore) {
       data: Array.from(store.currencyRates.values()).filter((rate) => rate.organizationId === organizationId),
       pagination: { page: 1, limit: 50, hasMore: false },
     })),
+    getRate: jest.fn((organizationId: string, id: string) => scopedGet(store.currencyRates, id, organizationId)),
     createRate: jest.fn(),
     getAccountConfiguration: jest.fn(() => null),
     updateAccountConfiguration: jest.fn((organizationId: string, _actorUserId: string, dto: Record<string, string | null>) => {
