@@ -13,6 +13,22 @@ describe("foreign exchange arithmetic", () => {
     );
   });
 
+  it("retains enough intermediate precision before four-place base rounding", () => {
+    expect(convertTransactionToBaseAmount("100000000000000.1041", "1.10324679")).toBe(
+      "110324679000000.1148",
+    );
+  });
+
+  it("does not change the shared Decimal configuration", () => {
+    const originalPrecision = Decimal.precision;
+    const originalRounding = Decimal.rounding;
+
+    convertTransactionToBaseAmount("100000000000000.1041", "1.10324679");
+
+    expect(Decimal.precision).toBe(originalPrecision);
+    expect(Decimal.rounding).toBe(originalRounding);
+  });
+
   it("rounds base amounts to four places using half-up rounding", () => {
     expect(convertTransactionToBaseAmount("1.00005", "1")).toBe("1.0001");
     expect(convertTransactionToBaseAmount("1.00004", "1")).toBe("1.0000");

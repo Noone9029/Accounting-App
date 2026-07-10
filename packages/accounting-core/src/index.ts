@@ -60,6 +60,7 @@ export class AccountingRuleError extends Error {
 import { Decimal } from "decimal.js";
 
 const ZERO = new Decimal(0);
+const FxDecimal = Decimal.clone({ precision: 50, rounding: Decimal.ROUND_HALF_UP });
 const PLAIN_DECIMAL_PATTERN = /^\+?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const INVALID_TRANSACTION_AMOUNT_MESSAGE = "Transaction amount must be a non-negative finite decimal string or Decimal value.";
 const INVALID_EXCHANGE_RATE_MESSAGE = "Exchange rate must be a positive finite decimal string or Decimal value.";
@@ -305,7 +306,7 @@ function parseExactDecimal(value: ExactDecimalInput, message: string, code: stri
 
   let parsed: Decimal;
   try {
-    parsed = new Decimal(normalized);
+    parsed = new FxDecimal(normalized);
   } catch {
     throw new AccountingRuleError(message, code);
   }
