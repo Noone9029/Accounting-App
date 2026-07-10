@@ -4,12 +4,13 @@ import { ForeignExchangeService } from "./foreign-exchange.service";
 
 describe("ForeignExchangeService", () => {
   function makeService() {
-    const prisma = {
+    const prisma: any = {
       organization: { findUnique: jest.fn() },
       currencyRateSnapshot: { findMany: jest.fn(), create: jest.fn() },
       fxAccountConfiguration: { findUnique: jest.fn(), upsert: jest.fn() },
       account: { findMany: jest.fn() },
     };
+    prisma.$transaction = jest.fn(async (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma));
     const audit = { log: jest.fn() };
     return { service: new ForeignExchangeService(prisma as never, audit as never), prisma, audit };
   }
@@ -37,13 +38,18 @@ describe("ForeignExchangeService", () => {
         sourceReference: "Treasury sheet",
       },
     });
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
-      organizationId: "org-1",
-      actorUserId: "user-1",
-      action: "CREATE",
-      entityType: "CurrencyRateSnapshot",
-      entityId: "rate-1",
-    }));
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        action: "CREATE",
+        entityType: "CurrencyRateSnapshot",
+        entityId: "rate-1",
+        after: expect.objectContaining({ rate: "3.67250000" }),
+      }),
+      prisma,
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unsupported, same-currency, zero, and non-decimal rates before writes", async () => {
@@ -78,6 +84,8 @@ describe("ForeignExchangeService", () => {
         rateDate: new Date("2026-07-10T00:00:00.000Z"),
       },
       orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }],
+      skip: 0,
+      take: 51,
     });
   });
 
@@ -120,7 +128,11 @@ describe("ForeignExchangeService", () => {
       update: dto,
       include: expect.any(Object),
     });
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ before: expect.any(Object), after: expect.any(Object) }));
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ before: expect.any(Object), after: expect.any(Object) }),
+      prisma,
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("reports manual-only readiness honestly and never enables foreign posting", async () => {

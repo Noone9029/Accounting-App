@@ -81,6 +81,28 @@ describe("AuditLogService", () => {
     );
   });
 
+  it("can write through a transaction-scoped audit delegate", async () => {
+    const { prisma, service } = makeService();
+    const transaction = { auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-tx" }) } };
+
+    await service.log(
+      {
+        organizationId: "org-1",
+        actorUserId: "user-1",
+        action: "CREATE",
+        entityType: "CurrencyRateSnapshot",
+        entityId: "rate-1",
+        after: { rate: "3.67250000" },
+      },
+      transaction as never,
+    );
+
+    expect(transaction.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: "CURRENCY_RATE_SNAPSHOT_CREATED" }) }),
+    );
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("standardizes customer payment unapplied allocation event names", async () => {
     const { prisma, service } = makeService();
 

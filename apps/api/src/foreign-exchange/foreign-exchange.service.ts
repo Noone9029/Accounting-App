@@ -57,7 +57,9 @@ export class ForeignExchangeService {
     const transactionCurrency = query.transactionCurrency
       ? this.supportedCurrency(query.transactionCurrency, "Transaction currency is unsupported.")
       : undefined;
-    return this.prisma.currencyRateSnapshot.findMany({
+    const page = this.boundedInteger(query.page, 1, 1_000_000, 1);
+    const limit = this.boundedInteger(query.limit, 1, 100, 50);
+    const rows = await this.prisma.currencyRateSnapshot.findMany({
       where: {
         organizationId,
         baseCurrency,
@@ -65,7 +67,13 @@ export class ForeignExchangeService {
         rateDate: query.rateDate ? this.dateOnly(query.rateDate) : undefined,
       },
       orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }],
+      skip: (page - 1) * limit,
+      take: limit + 1,
     });
+    return {
+      data: rows.slice(0, limit),
+      pagination: { page, limit, hasMore: rows.length > limit },
+    };
   }
 
   async createRate(
@@ -73,41 +81,60 @@ export class ForeignExchangeService {
     actorUserId: string,
     dto: CreateCurrencyRateSnapshotDto,
   ) {
-    const baseCurrency = await this.baseCurrency(organizationId);
-    const transactionCurrency = this.supportedCurrency(
-      dto.transactionCurrency,
-      "Transaction currency is unsupported.",
-    );
-    if (transactionCurrency === baseCurrency) {
-      throw new BadRequestException("Transaction currency must differ from the organization base currency.");
-    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const baseCurrency = await this.baseCurrency(organizationId, tx);
+        const transactionCurrency = this.supportedCurrency(
+          dto.transactionCurrency,
+          "Transaction currency is unsupported.",
+        );
+        if (transactionCurrency === baseCurrency) {
+          throw new BadRequestException("Transaction currency must differ from the organization base currency.");
+        }
 
-    const rate = this.exchangeRate(dto.rate);
-    const snapshot = await this.prisma.currencyRateSnapshot.create({
-      data: {
-        organizationId,
-        transactionCurrency,
-        baseCurrency,
-        rate,
-        rateDate: this.dateOnly(dto.rateDate),
-        source: CurrencyRateSource.MANUAL,
-        sourceReference: this.optionalText(dto.sourceReference),
+        const rate = this.exchangeRate(dto.rate);
+        const snapshot = await tx.currencyRateSnapshot.create({
+          data: {
+            organizationId,
+            transactionCurrency,
+            baseCurrency,
+            rate,
+            rateDate: this.dateOnly(dto.rateDate),
+            source: CurrencyRateSource.MANUAL,
+            sourceReference: this.optionalText(dto.sourceReference),
+          },
+        });
+
+        await this.auditLogService.log(
+          {
+            organizationId,
+            actorUserId,
+            action: "CREATE",
+            entityType: "CurrencyRateSnapshot",
+            entityId: snapshot.id,
+            after: {
+              ...snapshot,
+              rate: snapshot.rate.toFixed(8),
+              rateDate: snapshot.rateDate.toISOString().slice(0, 10),
+            },
+          },
+          tx,
+        );
+        return snapshot;
       },
-    });
-
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "CREATE",
-      entityType: "CurrencyRateSnapshot",
-      entityId: snapshot.id,
-      after: snapshot,
-    });
-    return snapshot;
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   getAccountConfiguration(organizationId: string) {
-    return this.prisma.fxAccountConfiguration.findUnique({
+    return this.accountConfiguration(this.prisma, organizationId);
+  }
+
+  private accountConfiguration(
+    executor: Pick<Prisma.TransactionClient, "fxAccountConfiguration">,
+    organizationId: string,
+  ) {
+    return executor.fxAccountConfiguration.findUnique({
       where: { organizationId },
       include: CONFIG_INCLUDE,
     });
@@ -118,53 +145,58 @@ export class ForeignExchangeService {
     actorUserId: string,
     dto: UpdateFxAccountConfigurationDto,
   ) {
-    const selections = [
-      ["realizedGainAccountId", dto.realizedGainAccountId, AccountType.REVENUE],
-      ["realizedLossAccountId", dto.realizedLossAccountId, AccountType.EXPENSE],
-      ["unrealizedGainAccountId", dto.unrealizedGainAccountId, AccountType.REVENUE],
-      ["unrealizedLossAccountId", dto.unrealizedLossAccountId, AccountType.EXPENSE],
-    ] as const;
-    const ids = [...new Set(selections.flatMap(([, id]) => (id ? [id] : [])))];
-    const accounts = ids.length
-      ? await this.prisma.account.findMany({
-          where: { organizationId, id: { in: ids } },
-          select: ACCOUNT_SELECT,
-        })
-      : [];
-    const accountById = new Map(accounts.map((account) => [account.id, account]));
-    const invalid = selections.some(([, id, expectedType]) => {
-      if (!id) return false;
-      const account = accountById.get(id);
-      return !account || account.type !== expectedType || !account.isActive || !account.allowPosting;
-    });
-    if (invalid || accounts.length !== ids.length) {
-      throw new BadRequestException("One or more FX accounts are invalid for this organization.");
-    }
+    return this.prisma.$transaction(async (tx) => {
+      const selections = [
+        ["realizedGainAccountId", dto.realizedGainAccountId, AccountType.REVENUE],
+        ["realizedLossAccountId", dto.realizedLossAccountId, AccountType.EXPENSE],
+        ["unrealizedGainAccountId", dto.unrealizedGainAccountId, AccountType.REVENUE],
+        ["unrealizedLossAccountId", dto.unrealizedLossAccountId, AccountType.EXPENSE],
+      ] as const;
+      const ids = [...new Set(selections.flatMap(([, id]) => (id ? [id] : [])))];
+      const accounts = ids.length
+        ? await tx.account.findMany({
+            where: { organizationId, id: { in: ids } },
+            select: ACCOUNT_SELECT,
+          })
+        : [];
+      const accountById = new Map(accounts.map((account) => [account.id, account]));
+      const invalid = selections.some(([, id, expectedType]) => {
+        if (!id) return false;
+        const account = accountById.get(id);
+        return !account || account.type !== expectedType || !account.isActive || !account.allowPosting;
+      });
+      if (invalid || accounts.length !== ids.length) {
+        throw new BadRequestException("One or more FX accounts are invalid for this organization.");
+      }
 
-    const before = await this.getAccountConfiguration(organizationId);
-    const data = {
-      realizedGainAccountId: dto.realizedGainAccountId,
-      realizedLossAccountId: dto.realizedLossAccountId,
-      unrealizedGainAccountId: dto.unrealizedGainAccountId,
-      unrealizedLossAccountId: dto.unrealizedLossAccountId,
-    };
-    const configuration = await this.prisma.fxAccountConfiguration.upsert({
-      where: { organizationId },
-      create: { organizationId, ...data },
-      update: data,
-      include: CONFIG_INCLUDE,
-    });
+      const before = await this.accountConfiguration(tx, organizationId);
+      const data = {
+        realizedGainAccountId: dto.realizedGainAccountId,
+        realizedLossAccountId: dto.realizedLossAccountId,
+        unrealizedGainAccountId: dto.unrealizedGainAccountId,
+        unrealizedLossAccountId: dto.unrealizedLossAccountId,
+      };
+      const configuration = await tx.fxAccountConfiguration.upsert({
+        where: { organizationId },
+        create: { organizationId, ...data },
+        update: data,
+        include: CONFIG_INCLUDE,
+      });
 
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: before ? "UPDATE" : "CREATE",
-      entityType: "FxAccountConfiguration",
-      entityId: configuration.id,
-      before: before ?? undefined,
-      after: configuration,
+      await this.auditLogService.log(
+        {
+          organizationId,
+          actorUserId,
+          action: before ? "UPDATE" : "CREATE",
+          entityType: "FxAccountConfiguration",
+          entityId: configuration.id,
+          before: before ?? undefined,
+          after: configuration,
+        },
+        tx,
+      );
+      return configuration;
     });
-    return configuration;
   }
 
   async readiness(organizationId: string) {
@@ -196,8 +228,11 @@ export class ForeignExchangeService {
     };
   }
 
-  private async baseCurrency(organizationId: string) {
-    const organization = await this.prisma.organization.findUnique({
+  private async baseCurrency(
+    organizationId: string,
+    executor: Pick<Prisma.TransactionClient, "organization"> = this.prisma,
+  ) {
+    const organization = await executor.organization.findUnique({
       where: { id: organizationId },
       select: { baseCurrency: true },
     });
@@ -244,5 +279,9 @@ export class ForeignExchangeService {
 
   private readyAccount(account: ConfigAccount, expectedType: AccountType): boolean {
     return Boolean(account && account.type === expectedType && account.isActive && account.allowPosting);
+  }
+
+  private boundedInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+    return Number.isInteger(value) ? Math.min(Math.max(value as number, min), max) : fallback;
   }
 }

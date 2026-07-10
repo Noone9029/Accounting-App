@@ -66,9 +66,12 @@ export class AuditLogService {
     @Optional() private readonly observabilityContext?: ObservabilityContextService,
   ) {}
 
-  async log(input: AuditLogInput): Promise<void> {
+  async log(
+    input: AuditLogInput,
+    executor: Pick<Prisma.TransactionClient, "auditLog"> = this.prisma,
+  ): Promise<void> {
     const action = standardizeAuditAction(input.action, input.entityType);
-    await this.prisma.auditLog.create({
+    await executor.auditLog.create({
       data: {
         organizationId: input.organizationId,
         actorUserId: input.actorUserId,
