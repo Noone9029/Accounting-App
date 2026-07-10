@@ -16,7 +16,7 @@ export interface CurrencyRateSnapshot {
   baseCurrency: string;
   rate: string;
   rateDate: string;
-  source: "MANUAL";
+  source: "MANUAL" | "IMPORT" | "SYSTEM_RATE_1" | "FUTURE_PROVIDER_DISABLED";
   sourceReference: string | null;
   createdAt: string;
 }
@@ -84,6 +84,10 @@ export function listCurrencyRates(query: CurrencyRateQuery = {}) {
   if (query.limit) search.set("limit", String(query.limit));
   const suffix = search.size ? `?${search.toString()}` : "";
   return apiRequest<CurrencyRateListResponse>(`/fx/rates${suffix}`);
+}
+
+export function getCurrencyRate(id: string) {
+  return apiRequest<CurrencyRateSnapshot>(`/fx/rates/${id}`);
 }
 
 export function createCurrencyRate(body: CreateCurrencyRateInput) {

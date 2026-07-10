@@ -2,6 +2,7 @@ import { apiRequest } from "./api";
 import {
   createCurrencyRate,
   formatFxRate,
+  getCurrencyRate,
   getFxAccountConfiguration,
   getFxCurrencies,
   getFxReadiness,
@@ -34,6 +35,12 @@ describe("foreign exchange API helpers", () => {
     await listCurrencyRates({ transactionCurrency: "USD", rateDate: "", page: 2, limit: 25 });
 
     expect(apiRequestMock).toHaveBeenCalledWith("/fx/rates?transactionCurrency=USD&page=2&limit=25");
+  });
+
+  it("loads one immutable rate snapshot by id", async () => {
+    await getCurrencyRate("11111111-1111-4111-8111-111111111111");
+
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/rates/11111111-1111-4111-8111-111111111111");
   });
 
   it("posts an exact manual rate snapshot and saves the full account configuration", async () => {
