@@ -17,7 +17,9 @@ function modelBlock(source: string, name: string): string {
 describe("FX persistence schema", () => {
   it("stores immutable tenant-scoped rate snapshots with exact rate and date types", () => {
     expect(schema).toContain("enum CurrencyRateSource {");
-    expect(schema).toMatch(/enum CurrencyRateSource \{\s+MANUAL\s+IMPORT\s+SYSTEM_BACKFILL\s+\}/);
+    expect(schema).toMatch(
+      /enum CurrencyRateSource \{\s+MANUAL\s+IMPORT\s+SYSTEM_RATE_1\s+FUTURE_PROVIDER_DISABLED\s+\}/,
+    );
 
     const rateSnapshot = modelBlock(schema, "CurrencyRateSnapshot");
     expect(rateSnapshot).not.toBe("");
@@ -78,7 +80,9 @@ describe("FX persistence schema", () => {
 
   it("creates only additive FX structures with exact SQL types, constraints, and tenant indexes", () => {
     expect(migration).not.toBe("");
-    expect(migration).toContain('CREATE TYPE "CurrencyRateSource" AS ENUM (\'MANUAL\', \'IMPORT\', \'SYSTEM_BACKFILL\')');
+    expect(migration).toContain(
+      'CREATE TYPE "CurrencyRateSource" AS ENUM (\'MANUAL\', \'IMPORT\', \'SYSTEM_RATE_1\', \'FUTURE_PROVIDER_DISABLED\')',
+    );
     expect(migration).toContain('CREATE TABLE "CurrencyRateSnapshot"');
     expect(migration).toContain('"rate" DECIMAL(18,8) NOT NULL');
     expect(migration).toContain('"rateDate" DATE NOT NULL');

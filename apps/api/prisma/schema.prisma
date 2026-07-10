@@ -376,7 +376,8 @@ enum DimensionStatus {
 enum CurrencyRateSource {
   MANUAL
   IMPORT
-  SYSTEM_BACKFILL
+  SYSTEM_RATE_1
+  FUTURE_PROVIDER_DISABLED
 }
 
 enum InventoryBinLocationType {

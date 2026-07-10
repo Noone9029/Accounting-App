@@ -1,4 +1,4 @@
-CREATE TYPE "CurrencyRateSource" AS ENUM ('MANUAL', 'IMPORT', 'SYSTEM_BACKFILL');
+CREATE TYPE "CurrencyRateSource" AS ENUM ('MANUAL', 'IMPORT', 'SYSTEM_RATE_1', 'FUTURE_PROVIDER_DISABLED');
 
 CREATE TABLE "CurrencyRateSnapshot" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
