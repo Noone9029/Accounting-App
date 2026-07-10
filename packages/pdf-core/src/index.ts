@@ -2107,23 +2107,30 @@ function writeTwoColumnBlocks(
   rightRows: Array<[string, string]>,
   settings: ResolvedDocumentRenderSettings,
 ): void {
-  ensureSpace(doc, 120);
-  const top = doc.y;
   const gap = 24;
   const columnWidth = (pageWidth(doc) - gap) / 2;
+  const normalizedLeftLines = leftLines.length > 0 ? leftLines : ["-"];
+  const normalizedRightLines = rightRows.map(([label, value]) => `${label}: ${value}`);
+  const blockHeight = Math.max(
+    measureBlockHeight(doc, columnWidth, normalizedLeftLines),
+    measureBlockHeight(doc, columnWidth, normalizedRightLines),
+  );
+  ensureSpace(doc, blockHeight + 16);
+  const top = doc.y;
 
-  writeBlock(doc, pageMargin, top, columnWidth, leftTitle, leftLines, settings);
+  writeBlock(doc, pageMargin, top, columnWidth, blockHeight, leftTitle, normalizedLeftLines, settings);
   writeBlock(
     doc,
     pageMargin + columnWidth + gap,
     top,
     columnWidth,
+    blockHeight,
     rightTitle,
-    rightRows.map(([label, value]) => `${label}: ${value}`),
+    normalizedRightLines,
     settings,
   );
 
-  doc.y = Math.max(doc.y, top + 116);
+  doc.y = Math.max(doc.y, top + blockHeight + 12);
 }
 
 function writeBlock(
@@ -2131,18 +2138,26 @@ function writeBlock(
   x: number,
   y: number,
   width: number,
+  height: number,
   title: string,
   lines: string[],
   settings: ResolvedDocumentRenderSettings,
 ): void {
-  doc.roundedRect(x, y, width, 104, 4).strokeColor(lineColor).lineWidth(0.75).stroke();
+  doc.roundedRect(x, y, width, height, 4).strokeColor(lineColor).lineWidth(0.75).stroke();
   doc.font("Helvetica-Bold").fontSize(10).fillColor(settings.primaryColor).text(title, x + 10, y + 10, { width: width - 20 });
   doc.font("Helvetica").fontSize(9).fillColor(mutedColor);
   let currentY = y + 29;
-  for (const line of lines.length > 0 ? lines : ["-"]) {
+  for (const line of lines) {
+    const lineHeight = Math.max(13, doc.heightOfString(line, { width: width - 20 }));
     doc.text(line, x + 10, currentY, { width: width - 20 });
-    currentY += 13;
+    currentY += lineHeight;
   }
+}
+
+function measureBlockHeight(doc: PdfDocument, width: number, lines: string[]): number {
+  doc.font("Helvetica").fontSize(9);
+  const contentHeight = lines.reduce((height, line) => height + Math.max(13, doc.heightOfString(line, { width: width - 20 })), 0);
+  return Math.max(104, 29 + contentHeight + 10);
 }
 
 function writeSectionTitle(doc: PdfDocument, title: string, settings: ResolvedDocumentRenderSettings): void {
@@ -2239,10 +2254,15 @@ function addFooters(doc: PdfDocument, settings: ResolvedDocumentRenderSettings):
   const range = doc.bufferedPageRange();
   for (let pageIndex = range.start; pageIndex < range.start + range.count; pageIndex += 1) {
     doc.switchToPage(pageIndex);
-    doc.font("Helvetica").fontSize(8).fillColor(mutedColor).text(`${settings.footerText} - Page ${pageIndex + 1}`, pageMargin, doc.page.height - 34, {
-      align: "center",
-      width: pageWidth(doc),
-    });
+    doc
+      .font("Helvetica")
+      .fontSize(8)
+      .fillColor(mutedColor)
+      .text(`${settings.footerText} - Page ${pageIndex + 1}`, pageMargin, doc.page.height - pageMargin - 10, {
+        align: "center",
+        lineBreak: false,
+        width: pageWidth(doc),
+      });
   }
 }
 
