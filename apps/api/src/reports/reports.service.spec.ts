@@ -1109,6 +1109,145 @@ describe("reports service builders", () => {
     );
   });
 
+  it("resolves active and archived dimensions once and applies both to general ledger opening and period reads", async () => {
+    const prisma = dimensionReportPrisma();
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.generalLedger("org-1", {
+      from: "2026-01-01",
+      to: "2026-01-31",
+      accountId: "cash",
+      branchId: " branch-1 ",
+      costCenterId: "cost-center-1",
+      projectId: "project-1",
+    });
+
+    expect(report.filters).toEqual({
+      costCenter: { id: "cost-center-1", code: "CC-OPS", name: "Operations", status: "ACTIVE" },
+      project: { id: "project-1", code: "PRJ-ALPHA", name: "Alpha", status: "ARCHIVED" },
+    });
+    expect(prisma.costCenter.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.costCenter.findFirst).toHaveBeenCalledWith({
+      where: { id: "cost-center-1", organizationId: "org-1" },
+      select: { id: true, code: true, name: true, status: true },
+    });
+    expect(prisma.project.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.project.findFirst).toHaveBeenCalledWith({
+      where: { id: "project-1", organizationId: "org-1" },
+      select: { id: true, code: true, name: true, status: true },
+    });
+    expect(prisma.account.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: "org-1", id: "cash" } }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenCalledTimes(2);
+    for (const call of prisma.journalLine.findMany.mock.calls) {
+      expect(call[0]).toEqual(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: "org-1",
+            accountId: "cash",
+            costCenterId: "cost-center-1",
+            projectId: "project-1",
+            journalEntry: expect.objectContaining({
+              OR: expect.arrayContaining([
+                { salesInvoice: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+                { purchaseBill: { is: { organizationId: "org-1", branchId: "branch-1" } } },
+              ]),
+            }),
+          }),
+        }),
+      );
+    }
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({ entryDate: { lt: new Date("2026-01-01T00:00:00.000Z") } }),
+        }),
+      }),
+    );
+    expect(prisma.journalLine.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          journalEntry: expect.objectContaining({
+            entryDate: { gte: new Date("2026-01-01T00:00:00.000Z"), lte: new Date("2026-01-31T23:59:59.999Z") },
+          }),
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ["trial balance", "costCenterId", "cost-center-1", (service: ReportsService, query: any) => service.trialBalance("org-1", query)],
+    ["profit and loss", "projectId", "project-1", (service: ReportsService, query: any) => service.profitAndLoss("org-1", query)],
+    ["balance sheet", "costCenterId", "cost-center-1", (service: ReportsService, query: any) => service.balanceSheet("org-1", query)],
+    ["VAT summary", "projectId", "project-1", (service: ReportsService, query: any) => service.vatSummary("org-1", query)],
+    ["cash flow", "costCenterId", "cost-center-1", (service: ReportsService, query: any) => service.cashFlow("org-1", query)],
+  ])("applies an individual dimension and returns exact filter metadata for %s", async (_name, filterKey, filterId, run) => {
+    const prisma = dimensionReportPrisma();
+    const service = new ReportsService(prisma as never);
+    const query = { [filterKey]: filterId };
+
+    const report = await run(service, query);
+
+    const expectedCostCenter = filterKey === "costCenterId" ? prisma.costCenterRecord : null;
+    const expectedProject = filterKey === "projectId" ? prisma.projectRecord : null;
+    expect(report.filters).toEqual({ costCenter: expectedCostCenter, project: expectedProject });
+    expect(prisma.costCenter.findFirst).toHaveBeenCalledTimes(filterKey === "costCenterId" ? 1 : 0);
+    expect(prisma.project.findFirst).toHaveBeenCalledTimes(filterKey === "projectId" ? 1 : 0);
+    expect(prisma.journalLine.findMany).toHaveBeenCalled();
+    for (const call of prisma.journalLine.findMany.mock.calls) {
+      expect(call[0].where).toEqual(expect.objectContaining({ [filterKey]: filterId }));
+    }
+  });
+
+  it("does not query dimension catalogs when filters are absent and returns null filter metadata", async () => {
+    const prisma = dimensionReportPrisma();
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.trialBalance("org-1", {});
+
+    expect(report.filters).toEqual({ costCenter: null, project: null });
+    expect(prisma.costCenter.findFirst).not.toHaveBeenCalled();
+    expect(prisma.project.findFirst).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing cost center", "costCenterId", "missing-cost-center", "Cost center not found in this organization."],
+    ["cross-tenant cost center", "costCenterId", "other-tenant-cost-center", "Cost center not found in this organization."],
+    ["missing project", "projectId", "missing-project", "Project not found in this organization."],
+    ["cross-tenant project", "projectId", "other-tenant-project", "Project not found in this organization."],
+  ])("rejects a %s before report aggregation", async (_name, filterKey, filterId, message) => {
+    const prisma = dimensionReportPrisma();
+    if (filterKey === "costCenterId") {
+      prisma.costCenter.findFirst.mockResolvedValue(null);
+    } else {
+      prisma.project.findFirst.mockResolvedValue(null);
+    }
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.generalLedger("org-1", { [filterKey]: filterId })).rejects.toEqual(new BadRequestException(message));
+    expect(prisma.account.findMany).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["dashboard summary", (service: ReportsService, query: any) => service.dashboardSummary("org-1", query)],
+    ["VAT return", (service: ReportsService, query: any) => service.vatReturn("org-1", query)],
+    ["revenue trend", (service: ReportsService, query: any) => service.revenueTrend("org-1", query)],
+    ["top customers", (service: ReportsService, query: any) => service.topCustomers("org-1", query)],
+    ["top products and services", (service: ReportsService, query: any) => service.topProductsServices("org-1", query)],
+    ["aged receivables", (service: ReportsService, query: any) => service.agedReceivables("org-1", query)],
+    ["aged payables", (service: ReportsService, query: any) => service.agedPayables("org-1", query)],
+  ])("rejects dimension filters for unsupported %s reports", async (_name, run) => {
+    const service = new ReportsService({} as never);
+    const error = new BadRequestException("Dimension filtering is not available for this report until source documents carry dimensions.");
+
+    await expect(run(service, { costCenterId: "cost-center-1" })).rejects.toEqual(error);
+    await expect(run(service, { projectId: "project-1" })).rejects.toEqual(error);
+  });
+
   it("archives generated report PDFs", async () => {
     const prisma = {
       organization: {
@@ -1157,6 +1296,24 @@ function line(accountId: string, date: string, debit: string, credit: string, de
       description,
       reference: null,
     },
+  };
+}
+
+function dimensionReportPrisma() {
+  const costCenterRecord = { id: "cost-center-1", code: "CC-OPS", name: "Operations", status: "ACTIVE" };
+  const projectRecord = { id: "project-1", code: "PRJ-ALPHA", name: "Alpha", status: "ARCHIVED" };
+  return {
+    costCenterRecord,
+    projectRecord,
+    costCenter: { findFirst: jest.fn().mockResolvedValue(costCenterRecord) },
+    project: { findFirst: jest.fn().mockResolvedValue(projectRecord) },
+    account: { findMany: jest.fn().mockResolvedValue([]) },
+    bankAccountProfile: {
+      findMany: jest.fn().mockResolvedValue([
+        { accountId: "cash", displayName: "Cash", account: { id: "cash", code: "111", name: "Cash", type: AccountType.ASSET } },
+      ]),
+    },
+    journalLine: { findMany: jest.fn().mockResolvedValue([]) },
   };
 }
 
