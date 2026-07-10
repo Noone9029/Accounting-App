@@ -20,6 +20,7 @@ import { ChartOfAccountsModule } from "./chart-of-accounts/chart-of-accounts.mod
 import { CollectionModule } from "./collections/collection.module";
 import { ComplianceCoreModule } from "./compliance-core/compliance-core.module";
 import { ContactModule } from "./contacts/contact.module";
+import { CostCenterModule } from "./cost-centers/cost-center.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
@@ -43,6 +44,7 @@ import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PaymentProviderModule } from "./payments/payment-provider.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublicApiModule } from "./public-api/public-api.module";
+import { ProjectModule } from "./projects/project.module";
 import { PurchaseBillModule } from "./purchase-bills/purchase-bill.module";
 import { PurchaseDebitNoteModule } from "./purchase-debit-notes/purchase-debit-note.module";
 import { PurchaseMatchingModule } from "./purchase-matching/purchase-matching.module";
@@ -95,6 +97,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     CashExpenseModule,
     CollectionModule,
     ContactModule,
+    CostCenterModule,
     CreditNoteModule,
     CustomerPaymentModule,
     CustomerRefundModule,
@@ -106,6 +109,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     OrganizationMemberModule,
     OrganizationDocumentSettingsModule,
     PaymentProviderModule,
+    ProjectModule,
     PublicApiModule,
     ItemModule,
     MigrationToolkitModule,

@@ -355,7 +355,17 @@ function reportHeaderRows(title: string, report: any, generatedAt: Date): unknow
   if ("asOf" in report) {
     rows.push(["As Of", report.asOf ?? ""]);
   }
+  if (report.filters?.costCenter) {
+    rows.push(["Cost Center", reportDimensionLabel(report.filters.costCenter)]);
+  }
+  if (report.filters?.project) {
+    rows.push(["Project", reportDimensionLabel(report.filters.project)]);
+  }
   return rows;
+}
+
+function reportDimensionLabel(dimension: { code: unknown; name: unknown }): string {
+  return `${dimension.code} ${dimension.name}`;
 }
 
 function appendReportNotes(rows: unknown[][], notes: unknown[]): void {

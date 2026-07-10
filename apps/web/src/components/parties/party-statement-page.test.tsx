@@ -89,7 +89,7 @@ describe("party statement routes", () => {
       "href",
       "/contacts/customer-1?section=statement&returnTo=%2Fcustomers%2Fcustomer-1",
     );
-    expect(screen.getByRole("link", { name: "View AR activity" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "View AR activity" })).toHaveAttribute(
       "href",
       "/sales/customer-payments?customerId=customer-1&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1",
     );

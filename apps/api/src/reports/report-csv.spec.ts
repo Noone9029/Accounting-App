@@ -57,6 +57,28 @@ describe("report CSV helpers", () => {
     expect(csv.content).toContain("111,Operating Bank,ASSET");
   });
 
+  it("includes readable dimension filter labels in supported core and advanced CSV exports", () => {
+    const filters = {
+      costCenter: { id: "cost-center-1", code: "CC-OPS", name: "Operations", status: "ACTIVE" },
+      project: { id: "project-1", code: "PRJ-ALPHA", name: "Alpha", status: "ARCHIVED" },
+    };
+    const coreCsv = coreReportCsv(
+      "trial-balance",
+      { from: null, to: null, filters, accounts: [], totals: {} },
+      new Date("2026-05-13T10:00:00.000Z"),
+    );
+    const advancedCsv = advancedReportCsv(
+      "cash-flow",
+      { from: null, to: null, filters, rows: [], totals: {} },
+      new Date("2026-05-13T10:00:00.000Z"),
+    );
+
+    for (const csv of [coreCsv, advancedCsv]) {
+      expect(csv.content).toContain("Cost Center,CC-OPS Operations\r\n");
+      expect(csv.content).toContain("Project,PRJ-ALPHA Alpha\r\n");
+    }
+  });
+
   it("exports bank reconciliation report snapshots", () => {
     const csv = bankReconciliationReportCsv(
       {

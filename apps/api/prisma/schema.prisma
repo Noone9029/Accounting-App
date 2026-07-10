@@ -368,6 +368,11 @@ enum WarehouseStatus {
   ARCHIVED
 }
 
+enum DimensionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum InventoryBinLocationType {
   BIN
   SHELF
@@ -1324,6 +1329,8 @@ model Organization {
   branches                                  Branch[]
   contacts                                  Contact[]
   accounts                                  Account[]
+  costCenters                               CostCenter[]
+  projects                                  Project[]
   bankAccountProfiles                       BankAccountProfile[]
   bankTransfers                             BankTransfer[]
   bankStatementImports                      BankStatementImport[]
@@ -2830,6 +2837,40 @@ model Account {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([parentId])
+}
+
+model CostCenter {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  code           String
+  name           String
+  description    String?
+  status         DimensionStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines   JournalLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model Project {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  code           String
+  name           String
+  description    String?
+  status         DimensionStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines   JournalLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model BankAccountProfile {
@@ -5445,6 +5486,8 @@ model JournalLine {
   journalEntryId                   String                     @db.Uuid
   accountId                        String                     @db.Uuid
   taxRateId                        String?                    @db.Uuid
+  costCenterId                     String?                    @db.Uuid
+  projectId                        String?                    @db.Uuid
   lineNumber                       Int
   description                      String?
   debit                            Decimal                    @default(0) @db.Decimal(20, 4)
@@ -5456,11 +5499,15 @@ model JournalLine {
   journalEntry                     JournalEntry               @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account                          Account                    @relation(fields: [accountId], references: [id])
   taxRate                          TaxRate?                   @relation(fields: [taxRateId], references: [id])
+  costCenter                       CostCenter?                @relation(fields: [costCenterId], references: [id], onDelete: NoAction)
+  project                          Project?                   @relation(fields: [projectId], references: [id], onDelete: NoAction)
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalLine")
 
   @@index([organizationId])
   @@index([journalEntryId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model FiscalPeriod {
