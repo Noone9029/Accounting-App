@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PermissionBoundary } from "./permission-boundary";
 
 let mockOrganizationId = "org-1";
+let mockBaseCurrency = "AED";
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/organization/setup",
@@ -11,7 +12,7 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("./permission-provider", () => ({
   usePermissions: () => ({
-    activeMembership: { organization: { id: mockOrganizationId } },
+    activeMembership: { organization: { id: mockOrganizationId, baseCurrency: mockBaseCurrency } },
     error: "",
     loading: false,
     user: { id: "user-1", memberships: [] },
@@ -21,31 +22,41 @@ jest.mock("./permission-provider", () => ({
 describe("PermissionBoundary organization isolation", () => {
   beforeEach(() => {
     mockOrganizationId = "org-1";
+    mockBaseCurrency = "AED";
   });
 
-  it("remounts route state when the active organization changes", () => {
-    const { rerender } = render(
-      <PermissionBoundary>
-        <StatefulRoute />
-      </PermissionBoundary>,
-    );
+  it.each(["AED", "SAR"])(
+    "remounts route state and clears a stale selected ID on a same-%s organization switch",
+    (baseCurrency) => {
+      mockBaseCurrency = baseCurrency;
+      mockOrganizationId = `org-1-${baseCurrency.toLowerCase()}`;
+      const { rerender } = render(
+        <PermissionBoundary>
+          <StatefulRoute />
+        </PermissionBoundary>,
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Count 0" }));
-    expect(screen.getByRole("button", { name: "Count 1" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "No selection" }));
+      expect(screen.getByRole("button", { name: "prior-org-entity-id" })).toBeInTheDocument();
 
-    mockOrganizationId = "org-2";
-    rerender(
-      <PermissionBoundary>
-        <StatefulRoute />
-      </PermissionBoundary>,
-    );
+      mockOrganizationId = `org-2-${baseCurrency.toLowerCase()}`;
+      rerender(
+        <PermissionBoundary>
+          <StatefulRoute />
+        </PermissionBoundary>,
+      );
 
-    expect(screen.getByRole("button", { name: "Count 0" })).toBeInTheDocument();
-  });
+      expect(screen.getByRole("button", { name: "No selection" })).toBeInTheDocument();
+    },
+  );
 });
 
 function StatefulRoute() {
-  const [count, setCount] = useState(0);
+  const [selectedId, setSelectedId] = useState("");
 
-  return <button onClick={() => setCount((current) => current + 1)}>Count {count}</button>;
+  return (
+    <button onClick={() => setSelectedId("prior-org-entity-id")}>
+      {selectedId || "No selection"}
+    </button>
+  );
 }
