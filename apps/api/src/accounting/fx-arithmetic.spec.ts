@@ -1,4 +1,5 @@
 import { Decimal } from "decimal.js";
+import { Prisma } from "@prisma/client";
 import { AccountingRuleError, convertTransactionToBaseAmount } from "@ledgerbyte/accounting-core";
 
 describe("foreign exchange arithmetic", () => {
@@ -21,15 +22,46 @@ describe("foreign exchange arithmetic", () => {
     expect(convertTransactionToBaseAmount("123.4567", "1.00000000")).toBe("123.4567");
   });
 
-  it.each(["0", "-0.0001"])("rejects a zero or negative transaction amount: %s", (transactionAmount) => {
+  it("converts a zero transaction amount without weakening rate validation", () => {
+    expect(convertTransactionToBaseAmount("0", "3.67250000")).toBe("0.0000");
+  });
+
+  it("accepts plain decimal strings with an optional leading plus and trimmed outer whitespace", () => {
+    expect(convertTransactionToBaseAmount(" +.5 ", " 2 ")).toBe("1.0000");
+    expect(convertTransactionToBaseAmount("+12.25", "+1")).toBe("12.2500");
+  });
+
+  it("accepts Decimal.js and Prisma Decimal values without stringifying through JavaScript numbers", () => {
+    expect(convertTransactionToBaseAmount(new Decimal("1.25"), new Prisma.Decimal("2"))).toBe("2.5000");
+    expect(convertTransactionToBaseAmount(new Prisma.Decimal("1.25"), new Decimal("2"))).toBe("2.5000");
+  });
+
+  it("rejects a negative transaction amount", () => {
     expectAccountingRuleError(
-      () => convertTransactionToBaseAmount(transactionAmount, "1"),
+      () => convertTransactionToBaseAmount("-0.0001", "1"),
       "FX_INVALID_TRANSACTION_AMOUNT",
     );
   });
 
-  it.each(["", "not-a-number", "NaN", "Infinity", "-Infinity"])(
+  it.each(["", "   ", "not-a-number", "NaN", "Infinity", "-Infinity"])(
     "rejects an invalid or non-finite transaction amount: %s",
+    (transactionAmount) => {
+      expectAccountingRuleError(
+        () => convertTransactionToBaseAmount(transactionAmount, "1"),
+        "FX_INVALID_TRANSACTION_AMOUNT",
+      );
+    },
+  );
+
+  it("rejects non-finite Decimal transaction amounts", () => {
+    expectAccountingRuleError(
+      () => convertTransactionToBaseAmount(new Decimal("Infinity"), "1"),
+      "FX_INVALID_TRANSACTION_AMOUNT",
+    );
+  });
+
+  it.each(["0x10", "0b10", "1e3", "1_000", "1 000", "++1", "+", ".", "1."])(
+    "rejects transaction amounts outside the plain base-10 decimal grammar: %s",
     (transactionAmount) => {
       expectAccountingRuleError(
         () => convertTransactionToBaseAmount(transactionAmount, "1"),
@@ -56,8 +88,25 @@ describe("foreign exchange arithmetic", () => {
     );
   });
 
-  it.each(["", "not-a-number", "NaN", "Infinity", "-Infinity"])(
+  it.each(["", "   ", "not-a-number", "NaN", "Infinity", "-Infinity"])(
     "rejects an invalid or non-finite exchange rate: %s",
+    (exchangeRate) => {
+      expectAccountingRuleError(
+        () => convertTransactionToBaseAmount("1", exchangeRate),
+        "FX_INVALID_EXCHANGE_RATE",
+      );
+    },
+  );
+
+  it("rejects non-finite Decimal exchange rates", () => {
+    expectAccountingRuleError(
+      () => convertTransactionToBaseAmount("1", new Prisma.Decimal("Infinity")),
+      "FX_INVALID_EXCHANGE_RATE",
+    );
+  });
+
+  it.each(["0x10", "0b10", "1e3", "1_000", "1 000", "++1", "+", ".", "1."])(
+    "rejects exchange rates outside the plain base-10 decimal grammar: %s",
     (exchangeRate) => {
       expectAccountingRuleError(
         () => convertTransactionToBaseAmount("1", exchangeRate),

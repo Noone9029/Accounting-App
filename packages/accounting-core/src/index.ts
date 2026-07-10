@@ -60,6 +60,9 @@ export class AccountingRuleError extends Error {
 import { Decimal } from "decimal.js";
 
 const ZERO = new Decimal(0);
+const PLAIN_DECIMAL_PATTERN = /^\+?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const INVALID_TRANSACTION_AMOUNT_MESSAGE = "Transaction amount must be a non-negative finite decimal string or Decimal value.";
+const INVALID_EXCHANGE_RATE_MESSAGE = "Exchange rate must be a positive finite decimal string or Decimal value.";
 
 export type ExactDecimalInput = string | Decimal;
 
@@ -67,16 +70,23 @@ export function convertTransactionToBaseAmount(
   transactionAmount: ExactDecimalInput,
   exchangeRate: ExactDecimalInput,
 ): string {
-  const amount = parsePositiveExactDecimal(
+  const amount = parseExactDecimal(
     transactionAmount,
-    "Transaction amount must be a positive finite decimal string or Decimal value.",
+    INVALID_TRANSACTION_AMOUNT_MESSAGE,
     "FX_INVALID_TRANSACTION_AMOUNT",
   );
-  const rate = parsePositiveExactDecimal(
+  if (amount.lt(0)) {
+    throw new AccountingRuleError(INVALID_TRANSACTION_AMOUNT_MESSAGE, "FX_INVALID_TRANSACTION_AMOUNT");
+  }
+
+  const rate = parseExactDecimal(
     exchangeRate,
-    "Exchange rate must be a positive finite decimal string or Decimal value.",
+    INVALID_EXCHANGE_RATE_MESSAGE,
     "FX_INVALID_EXCHANGE_RATE",
   );
+  if (rate.lte(0)) {
+    throw new AccountingRuleError(INVALID_EXCHANGE_RATE_MESSAGE, "FX_INVALID_EXCHANGE_RATE");
+  }
 
   return roundMoney(amount.mul(rate)).toFixed(4);
 }
@@ -283,19 +293,24 @@ function roundMoney(value: Decimal): Decimal {
   return value.toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
 }
 
-function parsePositiveExactDecimal(value: ExactDecimalInput, message: string, code: string): Decimal {
-  if ((typeof value !== "string" && !Decimal.isDecimal(value)) || (typeof value === "string" && value.trim() === "")) {
+function parseExactDecimal(value: ExactDecimalInput, message: string, code: string): Decimal {
+  if (typeof value !== "string" && !Decimal.isDecimal(value)) {
+    throw new AccountingRuleError(message, code);
+  }
+
+  const normalized = typeof value === "string" ? value.trim() : value;
+  if (typeof normalized === "string" && !PLAIN_DECIMAL_PATTERN.test(normalized)) {
     throw new AccountingRuleError(message, code);
   }
 
   let parsed: Decimal;
   try {
-    parsed = new Decimal(value);
+    parsed = new Decimal(normalized);
   } catch {
     throw new AccountingRuleError(message, code);
   }
 
-  if (!parsed.isFinite() || parsed.lte(0)) {
+  if (!parsed.isFinite()) {
     throw new AccountingRuleError(message, code);
   }
   return parsed;
