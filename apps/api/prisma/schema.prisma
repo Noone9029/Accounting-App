@@ -368,6 +368,11 @@ enum WarehouseStatus {
   ARCHIVED
 }
 
+enum DimensionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum InventoryBinLocationType {
   BIN
   SHELF
@@ -1324,6 +1329,8 @@ model Organization {
   branches                                  Branch[]
   contacts                                  Contact[]
   accounts                                  Account[]
+  costCenters                               CostCenter[]
+  projects                                  Project[]
   bankAccountProfiles                       BankAccountProfile[]
   bankTransfers                             BankTransfer[]
   bankStatementImports                      BankStatementImport[]
@@ -2830,6 +2837,38 @@ model Account {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([parentId])
+}
+
+model CostCenter {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  code           String
+  name           String
+  description    String?
+  status         DimensionStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, status])
+}
+
+model Project {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  code           String
+  name           String
+  description    String?
+  status         DimensionStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, status])
 }
 
 model BankAccountProfile {
