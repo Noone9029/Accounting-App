@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { ComplianceReadinessPanel, PanelSection, StatusBadge } from "@/components/ui-ledger";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getLedgerByteEdition } from "@/lib/edition";
 import { formatAppMoney } from "@/lib/app-i18n";
@@ -54,7 +54,11 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
 
 export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: PurchaseBillFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialBill?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const edition = getLedgerByteEdition();
   const { locale, tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
@@ -195,6 +199,14 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this purchase bill."));
+      return;
+    }
+    if (currencyMismatch) {
+      setError(tc("This draft uses {currency}, which does not match the organization base currency {baseCurrency}. It was not changed or saved.", { currency: documentCurrency, baseCurrency: baseCurrency ?? "" }));
+      return;
+    }
 
     const validationError = getValidationError(supplierId, lines, preview.valid);
     if (validationError) {
@@ -209,7 +221,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         branchId: branchId || null,
         billDate: `${billDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
-        currency: edition.defaultCurrency,
+        currency: documentCurrency,
         notes: notes || undefined,
         terms: terms || undefined,
         inventoryPostingMode,
@@ -275,13 +287,13 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
           <label className="block">
             <span className="text-sm font-medium text-slate-700">{tc("Currency")}</span>
             <input
-              value={edition.defaultCurrency}
+              value={documentCurrency ?? ""}
               readOnly
               aria-label={tc("Currency")}
               className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
             />
             <span className="mt-1 block text-xs leading-5 text-steel">
-              {edition.market === "GENERIC" ? tc("Controlled-beta default for purchase bills.") : tc("Controlled-beta {market} default for purchase bills.", { market: edition.market })}
+              {tc("Organization base currency. Foreign-currency bills remain disabled until document-level FX is enabled.")}
             </span>
           </label>
           <label className="block md:col-span-2">
@@ -434,16 +446,17 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         </button>
         <div className="min-w-[260px] space-y-2 text-sm">
           <h2 className="text-base font-semibold text-ink">{tc("Transaction summary")}</h2>
-          <TotalRow label="Subtotal" value={formatAppMoney(preview.subtotal, edition.defaultCurrency, locale)} />
-          <TotalRow label="Discount" value={formatAppMoney(preview.discountTotal, edition.defaultCurrency, locale)} />
-          <TotalRow label="Taxable" value={formatAppMoney(preview.taxableTotal, edition.defaultCurrency, locale)} />
-          <TotalRow label="VAT / Tax" value={formatAppMoney(preview.taxTotal, edition.defaultCurrency, locale)} />
-          <TotalRow label="Total" value={formatAppMoney(preview.total, edition.defaultCurrency, locale)} strong />
+          <TotalRow label="Subtotal" value={documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"} />
+          <TotalRow label="Discount" value={documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label="Taxable" value={documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label="VAT / Tax" value={documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"} />
+          <TotalRow label="Total" value={documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"} strong />
         </div>
       </div>
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to create purchase bills.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This draft uses {currency}, which does not match the organization base currency {baseCurrency}. It will not be rewritten automatically.", { currency: documentCurrency ?? "", baseCurrency: baseCurrency ?? "" })}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading purchase bill setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!preview.valid ? <StatusMessage type="info">{tc("Every bill line needs a positive quantity, non-negative unit price, valid discount, and a posting account.")}</StatusMessage> : null}
@@ -453,7 +466,7 @@ export function PurchaseBillForm({ initialBill, initialSupplierId = "" }: Purcha
         <Link href={returnTo || "/purchases/bills"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           {tc("Cancel")}
         </Link>
-        <button type="submit" disabled={submitting || !organizationId} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={submitting || !organizationId || !documentCurrency || currencyMismatch} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialBill ? tc("Save changes") : tc("Save draft")}
         </button>
       </div>

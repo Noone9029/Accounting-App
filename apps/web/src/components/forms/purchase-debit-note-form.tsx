@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
@@ -57,7 +57,11 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
 
 export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = "", initialBillId = "" }: PurchaseDebitNoteFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialDebitNote?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const { locale, tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [bills, setBills] = useState<PurchaseBill[]>([]);
@@ -98,6 +102,8 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   const activeItems = items.filter((item) => item.status === "ACTIVE");
   const supplierBills = bills.filter((bill) => bill.supplierId === supplierId && bill.status === "FINALIZED");
   const selectedOriginalBill = supplierBills.find((bill) => bill.id === originalBillId);
+  const sourceSelectionMissing = Boolean(originalBillId && !selectedOriginalBill);
+  const sourceCurrencyMismatch = Boolean(selectedOriginalBill && documentCurrency && selectedOriginalBill.currency !== documentCurrency);
   const preview = useMemo(
     () =>
       calculateInvoicePreview(
@@ -210,6 +216,18 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this debit note."));
+      return;
+    }
+    if (sourceSelectionMissing) {
+      setError(tc("The selected original bill does not belong to the active organization."));
+      return;
+    }
+    if (currencyMismatch || sourceCurrencyMismatch) {
+      setError(tc("Debit-note currency must match the organization base currency and any linked bill. The draft was not changed or saved."));
+      return;
+    }
 
     const validationError = getValidationError(supplierId, lines, preview.valid);
     if (validationError) {
@@ -224,7 +242,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
         originalBillId: originalBillId || null,
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
-        currency: "SAR",
+        currency: documentCurrency,
         notes: notes || undefined,
         reason: reason || undefined,
         lines: lines.map((line, index) => ({
@@ -321,6 +339,9 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating debit notes.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This draft currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
+        {sourceSelectionMissing ? <StatusMessage type="error">{tc("The selected original bill is not available in the active organization.")}</StatusMessage> : null}
+        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked bill currency does not match this debit note. Foreign-currency debit notes remain disabled in this phase.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading debit note setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
@@ -369,7 +390,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
                   </option>
                 ))}
               </select>
-              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatAppMoney(previewLine.lineTotalUnits, "SAR", locale) : formatAppMoney("0.0000", "SAR", locale)}</div>
+              <div className="flex items-center font-mono text-xs text-ink">{documentCurrency ? (previewLine ? formatAppMoney(previewLine.lineTotalUnits, documentCurrency, locale) : formatAppMoney("0.0000", documentCurrency, locale)) : "-"}</div>
               <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
                 {tc("Remove")}
               </button>
@@ -382,21 +403,21 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
           </button>
           <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="font-mono">{formatAppMoney(preview.subtotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="font-mono">{formatAppMoney(preview.discountTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxableTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"}</span>
             <span className="font-semibold text-ink">{tc("Total debit")}</span>
-            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, "SAR", locale)}</span>
+            <span className="font-mono font-semibold text-ink">{documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"}</span>
           </div>
         </div>
       </div>
 
       <div className="flex gap-3">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialDebitNote ? tc("Save draft debit note") : tc("Create draft debit note")}
         </button>
         <Link href={returnTo || "/purchases/debit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

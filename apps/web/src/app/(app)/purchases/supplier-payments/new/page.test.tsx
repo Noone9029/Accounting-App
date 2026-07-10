@@ -28,6 +28,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganization: () => ({ id: "org-1", baseCurrency: "SAR" }),
   useActiveOrganizationId: () => "org-1",
 }));
 

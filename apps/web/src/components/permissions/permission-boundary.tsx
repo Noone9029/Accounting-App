@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { Fragment } from "react";
 import { LedgerButton, LedgerErrorState, LedgerLoadingState, LedgerPanel } from "@/components/ui/ledger-system";
 import { getRequiredPermissionsForPathname, hasAnyPermission } from "@/lib/permissions";
 import { usePermissions } from "./permission-provider";
@@ -26,7 +27,7 @@ export function PermissionBoundary({ children }: Readonly<{ children: React.Reac
     return <AccessDeniedPanel detail="Your current role does not include the permission required for this page." />;
   }
 
-  return <>{children}</>;
+  return <Fragment key={activeMembership?.organization.id ?? "no-active-organization"}>{children}</Fragment>;
 }
 
 function AccessDeniedPanel({

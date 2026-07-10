@@ -1,9 +1,12 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
-import { BankAccountWorkflowGuidance } from "./page";
+import { apiRequest } from "@/lib/api";
+import BankAccountDetailPage, { BankAccountWorkflowGuidance } from "./page";
 import type { BankAccountSummary } from "@/lib/types";
+
+let mockOrganizationId = "org-1";
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -19,8 +22,27 @@ jest.mock("next/link", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
+  useParams: () => ({ id: "bank-1" }),
   useRouter: () => ({ refresh: jest.fn() }),
 }));
+
+jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganization: () => ({ id: mockOrganizationId, baseCurrency: "AED" }),
+  useActiveOrganizationId: () => mockOrganizationId,
+}));
+
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({
+    activeMembership: { organization: { id: "org-1", baseCurrency: "AED" } },
+    can: (permission: string) => permission === "bankAccounts.openingBalance.post",
+  }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  apiRequest: jest.fn(),
+}));
+
+const mockApiRequest = apiRequest as jest.MockedFunction<typeof apiRequest>;
 
 describe("bank account workflow guidance", () => {
   it("explains bank ledger movement and links to next actions", () => {
@@ -89,6 +111,63 @@ describe("bank account workflow guidance", () => {
     );
     expect(screen.getByRole("link", { name: "عرض دفتر البنك" })).toHaveAttribute("href", "/reports/general-ledger?accountId=account-1");
     expect(screen.getByRole("link", { name: "لوحة التحكم" })).toHaveAttribute("href", "/dashboard");
+  });
+});
+
+describe("bank account opening balance currency guard", () => {
+  beforeEach(() => {
+    mockOrganizationId = "org-1";
+    mockApiRequest.mockReset();
+  });
+
+  it("blocks posting a foreign-currency opening balance from an AED-base organization", async () => {
+    mockApiRequest.mockResolvedValue(
+      bankAccountFixture({
+        currency: "USD",
+        openingBalanceJournalEntryId: null,
+        openingBalancePostedAt: null,
+        openingBalanceJournalEntry: null,
+        transactionCount: 0,
+      }),
+    );
+
+    render(<BankAccountDetailPage />);
+
+    const postButton = await screen.findByRole("button", { name: "Post opening balance" });
+    expect(postButton).toBeDisabled();
+    expect(screen.getByText(/bank profile uses USD; the organization base currency is AED/i)).toBeInTheDocument();
+
+    fireEvent.click(postButton);
+    await waitFor(() => expect(mockApiRequest).toHaveBeenCalledTimes(1));
+    expect(mockApiRequest).not.toHaveBeenCalledWith("/bank-accounts/bank-1/post-opening-balance", expect.anything());
+  });
+
+  it("blocks a stale same-base profile immediately after the active organization changes", async () => {
+    mockApiRequest
+      .mockResolvedValueOnce(
+        bankAccountFixture({
+          currency: "AED",
+          openingBalanceJournalEntryId: null,
+          openingBalancePostedAt: null,
+          openingBalanceJournalEntry: null,
+          transactionCount: 0,
+        }),
+      )
+      .mockImplementation(() => new Promise(() => undefined));
+
+    const { rerender } = render(<BankAccountDetailPage />);
+    expect(await screen.findByRole("button", { name: "Post opening balance" })).toBeEnabled();
+
+    mockOrganizationId = "org-2";
+    rerender(<BankAccountDetailPage />);
+
+    await waitFor(() => expect(mockApiRequest).toHaveBeenCalledTimes(2));
+    const postButton = screen.queryByRole("button", { name: "Post opening balance" });
+    if (postButton) {
+      expect(postButton).toBeDisabled();
+      fireEvent.click(postButton);
+    }
+    expect(mockApiRequest).not.toHaveBeenCalledWith("/bank-accounts/bank-1/post-opening-balance", expect.anything());
   });
 });
 

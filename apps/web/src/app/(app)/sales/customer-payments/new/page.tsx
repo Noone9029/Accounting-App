@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -25,11 +25,14 @@ function todayInputValue(): string {
 
 export default function NewCustomerPaymentPage() {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
+  const [bankProfilesReady, setBankProfilesReady] = useState(false);
   const [openInvoices, setOpenInvoices] = useState<OpenSalesInvoice[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [prefilledInvoiceId, setPrefilledInvoiceId] = useState("");
@@ -82,6 +85,7 @@ export default function NewCustomerPaymentPage() {
   }, []);
 
   useEffect(() => {
+    setBankProfilesReady(false);
     if (!organizationId) {
       return;
     }
@@ -90,7 +94,7 @@ export default function NewCustomerPaymentPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts")])
       .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
@@ -99,6 +103,7 @@ export default function NewCustomerPaymentPage() {
         setCustomers(contactResult.filter((contact) => contact.isActive && (contact.type === "CUSTOMER" || contact.type === "BOTH")));
         setAccounts(accountResult);
         setBankProfiles(bankProfileResult);
+        setBankProfilesReady(true);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -185,6 +190,48 @@ export default function NewCustomerPaymentPage() {
     setError("");
 
     const allocationsToSubmit = allocations.filter((allocation) => parseDecimalToUnits(allocation.amountApplied) > 0);
+    if (!baseCurrency) {
+      setError(tc("Select an organization with a base currency before recording this payment."));
+      return;
+    }
+    if (!bankProfilesReady) {
+      setError(tc("Bank-profile currencies could not be verified. Reload them before recording this payment."));
+      return;
+    }
+    if (loadingSetup || loadingInvoices || !organizationId) {
+      setError(tc("Wait for payment setup data from the active organization before recording this payment."));
+      return;
+    }
+    const selectedCustomer = customers.find((customer) => customer.id === customerId);
+    if (!selectedCustomer || (selectedCustomer.organizationId && selectedCustomer.organizationId !== organizationId)) {
+      setError(tc("The selected customer does not belong to the active organization."));
+      return;
+    }
+    const selectedAccount = paidThroughAccounts.find((account) => account.id === accountId);
+    if (!selectedAccount || selectedAccount.organizationId !== organizationId) {
+      setError(tc("The paid-through account does not belong to the active organization."));
+      return;
+    }
+    const allocationSourceMismatch = allocationsToSubmit.some((allocation) => {
+      const invoice = openInvoices.find((candidate) => candidate.id === allocation.invoiceId);
+      return !invoice || invoice.customerId !== customerId;
+    });
+    if (allocationSourceMismatch) {
+      setError(tc("One or more payment allocations do not belong to the selected customer in the active organization."));
+      return;
+    }
+    const mismatchedInvoice = allocationsToSubmit
+      .map((allocation) => openInvoices.find((invoice) => invoice.id === allocation.invoiceId))
+      .find((invoice) => invoice && invoice.currency !== baseCurrency);
+    if (mismatchedInvoice) {
+      setError(tc("Invoice {number} uses {currency}. Payments can be allocated only in the organization base currency {baseCurrency} during this phase.", { number: mismatchedInvoice.invoiceNumber, currency: mismatchedInvoice.currency, baseCurrency }));
+      return;
+    }
+    const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === accountId);
+    if (selectedBankProfile && (selectedBankProfile.organizationId !== organizationId || selectedBankProfile.currency !== baseCurrency)) {
+      setError(tc("The received-into account uses {currency}. Payments can post only in the organization base currency {baseCurrency} during this phase.", { currency: selectedBankProfile.currency, baseCurrency }));
+      return;
+    }
     const validationError = getValidationError(customerId, accountId, amountReceived, allocationsToSubmit, openInvoices, tc);
     if (validationError) {
       setError(validationError);
@@ -198,7 +245,7 @@ export default function NewCustomerPaymentPage() {
         body: {
           customerId,
           paymentDate: `${paymentDate}T00:00:00.000Z`,
-          currency: "SAR",
+          currency: baseCurrency,
           amountReceived,
           accountId,
           description: description || undefined,
@@ -353,11 +400,11 @@ export default function NewCustomerPaymentPage() {
 
         <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ms-auto">
           <span className="text-steel">{tc("Amount received")}</span>
-          <span className="text-end font-mono">{formatAppMoney(preview.amountReceived, "SAR", locale)}</span>
+          <span className="text-end font-mono">{baseCurrency ? formatAppMoney(preview.amountReceived, baseCurrency, locale) : "-"}</span>
           <span className="text-steel">{tc("Allocated")}</span>
-          <span className="text-end font-mono">{formatAppMoney(preview.totalAllocated, "SAR", locale)}</span>
+          <span className="text-end font-mono">{baseCurrency ? formatAppMoney(preview.totalAllocated, baseCurrency, locale) : "-"}</span>
           <span className="font-semibold text-ink">{tc("Unapplied")}</span>
-          <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(preview.unappliedAmount, "SAR", locale)}</span>
+          <span className="text-end font-mono font-semibold text-ink">{baseCurrency ? formatAppMoney(preview.unappliedAmount, baseCurrency, locale) : "-"}</span>
           <span className="text-steel">{tc("Allocation state")}</span>
           <span className="text-end">
             <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(previewAllocationState)}`}>
@@ -367,7 +414,7 @@ export default function NewCustomerPaymentPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={!organizationId || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={!organizationId || !baseCurrency || !bankProfilesReady || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Recording...") : tc("Record payment")}
           </button>
           <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -25,10 +25,13 @@ function todayInputValue(): string {
 export default function NewSupplierPaymentPage() {
   const router = useRouter();
   const { locale, tc } = useAppLocale();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
+  const [bankProfilesReady, setBankProfilesReady] = useState(false);
   const [openBills, setOpenBills] = useState<PurchaseBill[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const preferredBillIdRef = useRef("");
@@ -81,6 +84,7 @@ export default function NewSupplierPaymentPage() {
   }, []);
 
   useEffect(() => {
+    setBankProfilesReady(false);
     if (!organizationId) {
       return;
     }
@@ -89,7 +93,7 @@ export default function NewSupplierPaymentPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts")])
       .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
@@ -98,6 +102,7 @@ export default function NewSupplierPaymentPage() {
         setSuppliers(contactResult.filter((contact) => contact.isActive && (contact.type === "SUPPLIER" || contact.type === "BOTH")));
         setAccounts(accountResult);
         setBankProfiles(bankProfileResult);
+        setBankProfilesReady(true);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -184,6 +189,48 @@ export default function NewSupplierPaymentPage() {
     setError("");
 
     const allocationsToSubmit = allocations.filter((allocation) => parseDecimalToUnits(allocation.amountApplied) > 0);
+    if (!baseCurrency) {
+      setError(tc("Select an organization with a base currency before recording this payment."));
+      return;
+    }
+    if (!bankProfilesReady) {
+      setError(tc("Bank-profile currencies could not be verified. Reload them before recording this payment."));
+      return;
+    }
+    if (loadingSetup || loadingBills || !organizationId) {
+      setError(tc("Wait for payment setup data from the active organization before recording this payment."));
+      return;
+    }
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === supplierId);
+    if (!selectedSupplier || (selectedSupplier.organizationId && selectedSupplier.organizationId !== organizationId)) {
+      setError(tc("The selected supplier does not belong to the active organization."));
+      return;
+    }
+    const selectedAccount = paidThroughAccounts.find((account) => account.id === accountId);
+    if (!selectedAccount || selectedAccount.organizationId !== organizationId) {
+      setError(tc("The paid-through account does not belong to the active organization."));
+      return;
+    }
+    const allocationSourceMismatch = allocationsToSubmit.some((allocation) => {
+      const bill = openBills.find((candidate) => candidate.id === allocation.billId);
+      return !bill || bill.supplierId !== supplierId || bill.organizationId !== organizationId;
+    });
+    if (allocationSourceMismatch) {
+      setError(tc("One or more payment allocations do not belong to the selected supplier in the active organization."));
+      return;
+    }
+    const mismatchedBill = allocationsToSubmit
+      .map((allocation) => openBills.find((bill) => bill.id === allocation.billId))
+      .find((bill) => bill && bill.currency !== baseCurrency);
+    if (mismatchedBill) {
+      setError(tc("Bill {number} uses {currency}. Payments can be allocated only in the organization base currency {baseCurrency} during this phase.", { number: mismatchedBill.billNumber, currency: mismatchedBill.currency, baseCurrency }));
+      return;
+    }
+    const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === accountId);
+    if (selectedBankProfile && (selectedBankProfile.organizationId !== organizationId || selectedBankProfile.currency !== baseCurrency)) {
+      setError(tc("The paid-through account uses {currency}. Payments can post only in the organization base currency {baseCurrency} during this phase.", { currency: selectedBankProfile.currency, baseCurrency }));
+      return;
+    }
     const validationError = getValidationError(supplierId, accountId, amountPaid, allocationsToSubmit, openBills);
     if (validationError) {
       setError(tc(validationError));
@@ -197,7 +244,7 @@ export default function NewSupplierPaymentPage() {
         body: {
           supplierId,
           paymentDate: `${paymentDate}T00:00:00.000Z`,
-          currency: "SAR",
+          currency: baseCurrency,
           amountPaid,
           accountId,
           description: description || undefined,
@@ -326,9 +373,9 @@ export default function NewSupplierPaymentPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
           <p className="text-sm text-steel">{tc("Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances.")}</p>
           <div className="min-w-[260px] space-y-2 text-sm">
-            <TotalRow label={tc("Amount paid")} value={formatAppMoney(preview.amountPaid, "SAR", locale)} />
-            <TotalRow label={tc("Allocated")} value={formatAppMoney(preview.totalAllocated, "SAR", locale)} />
-            <TotalRow label={tc("Unapplied")} value={formatAppMoney(preview.unappliedAmount, "SAR", locale)} strong />
+            <TotalRow label={tc("Amount paid")} value={baseCurrency ? formatAppMoney(preview.amountPaid, baseCurrency, locale) : "-"} />
+            <TotalRow label={tc("Allocated")} value={baseCurrency ? formatAppMoney(preview.totalAllocated, baseCurrency, locale) : "-"} />
+            <TotalRow label={tc("Unapplied")} value={baseCurrency ? formatAppMoney(preview.unappliedAmount, baseCurrency, locale) : "-"} strong />
           </div>
         </div>
 
@@ -336,7 +383,7 @@ export default function NewSupplierPaymentPage() {
           <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             {tc("Cancel")}
           </Link>
-          <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={!bankProfilesReady || loadingSetup || loadingBills || submitting || !organizationId || !baseCurrency} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Recording...") : tc("Record payment")}
           </button>
         </div>

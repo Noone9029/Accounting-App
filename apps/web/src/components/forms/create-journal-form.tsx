@@ -12,7 +12,7 @@ import {
   LedgerSelect,
   LedgerTableShell,
 } from "@/components/ui/ledger-system";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { calculateTotals, formatUnits, parseDecimalToUnits } from "@/lib/money";
 import type { Account, JournalEntry, TaxRate } from "@/lib/types";
@@ -42,7 +42,9 @@ function todayInputValue(): string {
 }
 
 export function CreateJournalForm() {
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [lines, setLines] = useState<LineState[]>([makeLine(), makeLine()]);
@@ -114,6 +116,10 @@ export function CreateJournalForm() {
       setError(validationError);
       return;
     }
+    if (!baseCurrency) {
+      setError("Select an organization with a base currency before creating journals.");
+      return;
+    }
 
     const form = event.currentTarget;
     const formData = new FormData(form);
@@ -126,13 +132,13 @@ export function CreateJournalForm() {
           entryDate: `${String(formData.get("entryDate"))}T00:00:00.000Z`,
           description: String(formData.get("description")),
           reference: String(formData.get("reference") || "") || undefined,
-          currency: "SAR",
+          currency: baseCurrency,
           lines: lines.map((line) => ({
             accountId: line.accountId,
             description: line.description || undefined,
             debit: formatUnits(parseDecimalToUnits(line.debit)),
             credit: formatUnits(parseDecimalToUnits(line.credit)),
-            currency: "SAR",
+            currency: baseCurrency,
             exchangeRate: "1.00000000",
             taxRateId: line.taxRateId || undefined,
           })),
@@ -215,7 +221,7 @@ export function CreateJournalForm() {
         </div>
       </LedgerTableShell>
 
-      <LedgerButton type="submit" variant="primary" disabled={!organizationId || loading || submitting || !totals.balanced}>
+      <LedgerButton type="submit" variant="primary" disabled={!organizationId || !baseCurrency || loading || submitting || !totals.balanced}>
         {submitting ? "Saving..." : "Save draft journal"}
       </LedgerButton>
     </form>

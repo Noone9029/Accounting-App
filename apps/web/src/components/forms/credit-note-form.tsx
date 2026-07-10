@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
@@ -56,7 +56,11 @@ function dateInputValue(value?: string | null, fallback = todayInputValue()): st
 
 export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", initialInvoiceId = "" }: CreditNoteFormProps) {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
+  const documentCurrency = initialCreditNote?.currency ?? baseCurrency;
+  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -92,6 +96,8 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   const activeItems = items.filter((item) => item.status === "ACTIVE");
   const customerInvoices = invoices.filter((invoice) => invoice.customerId === customerId && invoice.status === "FINALIZED");
   const selectedOriginalInvoice = customerInvoices.find((invoice) => invoice.id === originalInvoiceId);
+  const sourceSelectionMissing = Boolean(originalInvoiceId && !selectedOriginalInvoice);
+  const sourceCurrencyMismatch = Boolean(selectedOriginalInvoice && documentCurrency && selectedOriginalInvoice.currency !== documentCurrency);
   const preview = useMemo(
     () =>
       calculateInvoicePreview(
@@ -200,6 +206,18 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!documentCurrency) {
+      setError(tc("Select an organization with a base currency before saving this credit note."));
+      return;
+    }
+    if (sourceSelectionMissing) {
+      setError(tc("The selected original invoice does not belong to the active organization."));
+      return;
+    }
+    if (currencyMismatch || sourceCurrencyMismatch) {
+      setError(tc("Credit-note currency must match the organization base currency and any linked invoice. The draft was not changed or saved."));
+      return;
+    }
 
     const validationError = getValidationError(customerId, lines, preview.valid, tc);
     if (validationError) {
@@ -214,7 +232,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
         originalInvoiceId: originalInvoiceId || null,
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
-        currency: "SAR",
+        currency: documentCurrency,
         notes: notes || undefined,
         reason: reason || undefined,
         lines: lines.map((line, index) => ({
@@ -311,6 +329,9 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating credit notes.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("This draft currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
+        {sourceSelectionMissing ? <StatusMessage type="error">{tc("The selected original invoice is not available in the active organization.")}</StatusMessage> : null}
+        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked invoice currency does not match this credit note. Foreign-currency credit notes remain disabled in this phase.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading credit note setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
@@ -359,7 +380,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
                   </option>
                 ))}
               </select>
-              <div className="flex items-center font-mono text-xs text-ink">{previewLine ? formatAppMoney(previewLine.lineTotalUnits, "SAR", locale) : formatAppMoney("0.0000", "SAR", locale)}</div>
+              <div className="flex items-center font-mono text-xs text-ink">{documentCurrency ? (previewLine ? formatAppMoney(previewLine.lineTotalUnits, documentCurrency, locale) : formatAppMoney("0.0000", documentCurrency, locale)) : "-"}</div>
               <button type="button" onClick={() => removeLine(line.id)} disabled={lines.length <= 1} className="rounded-md border border-slate-300 px-2 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">
                 {tc("Remove")}
               </button>
@@ -372,21 +393,21 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
           </button>
           <div className="grid min-w-72 grid-cols-2 gap-2 text-end">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="font-mono">{formatAppMoney(preview.subtotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.subtotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="font-mono">{formatAppMoney(preview.discountTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.discountTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxableTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxableTotal, documentCurrency, locale) : "-"}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="font-mono">{formatAppMoney(preview.taxTotal, "SAR", locale)}</span>
+            <span className="font-mono">{documentCurrency ? formatAppMoney(preview.taxTotal, documentCurrency, locale) : "-"}</span>
             <span className="font-semibold text-ink">{tc("Total credit")}</span>
-            <span className="font-mono font-semibold text-ink">{formatAppMoney(preview.total, "SAR", locale)}</span>
+            <span className="font-mono font-semibold text-ink">{documentCurrency ? formatAppMoney(preview.total, documentCurrency, locale) : "-"}</span>
           </div>
         </div>
       </div>
 
       <div className="flex gap-3">
-        <button type="submit" disabled={!organizationId || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialCreditNote ? tc("Save draft credit note") : tc("Create draft credit note")}
         </button>
         <Link href={returnTo || "/sales/credit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

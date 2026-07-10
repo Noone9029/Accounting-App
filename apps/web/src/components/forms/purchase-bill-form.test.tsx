@@ -6,6 +6,7 @@ import { PurchaseBillForm } from "./purchase-bill-form";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockActiveOrganization = organizationFixture("SAR");
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -27,7 +28,8 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
-  useActiveOrganizationId: () => "org-1",
+  useActiveOrganization: () => mockActiveOrganization,
+  useActiveOrganizationId: () => mockActiveOrganization.id,
 }));
 
 jest.mock("@/lib/api", () => ({
@@ -41,6 +43,7 @@ describe("PurchaseBillForm", () => {
     window.history.pushState({}, "", "/purchases/bills/new");
     apiRequestMock.mockReset();
     pushMock.mockReset();
+    mockActiveOrganization = organizationFixture("SAR");
     apiRequestMock.mockImplementation((path: string, options?: { method?: string; body?: unknown }) => {
       if (path === "/purchase-bills" && options?.method === "POST") {
         return Promise.resolve({
@@ -146,6 +149,7 @@ describe("PurchaseBillForm", () => {
   });
 
   it("submits selected branch, account, and tax IDs instead of visible labels", async () => {
+    mockActiveOrganization = organizationFixture("AED");
     render(<PurchaseBillForm />);
 
     await waitFor(() => expect(screen.getByRole("option", { name: "Beta Supplier" })).toBeInTheDocument());
@@ -171,6 +175,7 @@ describe("PurchaseBillForm", () => {
         expect.objectContaining({
           method: "POST",
           body: expect.objectContaining({
+            currency: "AED",
             supplierId: "00000000-0000-0000-0000-000000000201",
             branchId: "00000000-0000-0000-0000-000000000101",
             lines: [
@@ -294,5 +299,17 @@ function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
     debitNotes: [],
     debitNoteAllocations: [],
     ...overrides,
+  };
+}
+
+function organizationFixture(baseCurrency: string) {
+  return {
+    id: "org-1",
+    name: "Test Organization",
+    legalName: null,
+    taxNumber: null,
+    countryCode: baseCurrency === "AED" ? "AE" : "SA",
+    baseCurrency,
+    timezone: baseCurrency === "AED" ? "Asia/Dubai" : "Asia/Riyadh",
   };
 }

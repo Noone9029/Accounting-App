@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
 import { PurchaseDebitNoteForm } from "./purchase-debit-note-form";
@@ -7,6 +7,7 @@ import type { PurchaseDebitNote } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const pushMock = jest.fn();
+let mockBillsAvailable = true;
 
 jest.mock("next/link", () => ({
   __esModule: true,
@@ -26,6 +27,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-active-organization", () => ({
+  useActiveOrganization: () => ({ id: "org-1", baseCurrency: "SAR" }),
   useActiveOrganizationId: () => "org-1",
 }));
 
@@ -37,12 +39,13 @@ describe("PurchaseDebitNoteForm", () => {
   beforeEach(() => {
     pushMock.mockReset();
     apiRequestMock.mockReset();
+    mockBillsAvailable = true;
     apiRequestMock.mockImplementation((path: string) => {
       switch (path) {
         case "/contacts":
           return Promise.resolve([{ id: "supplier-1", name: "Visual Supplier", displayName: "Visual Supplier", type: "SUPPLIER", isActive: true }]);
         case "/purchase-bills":
-          return Promise.resolve([{ id: "bill-1", billNumber: "BILL-001", supplierId: "supplier-1", status: "FINALIZED", total: "115.0000", currency: "SAR" }]);
+          return Promise.resolve(mockBillsAvailable ? [{ id: "bill-1", billNumber: "BILL-001", supplierId: "supplier-1", status: "FINALIZED", total: "115.0000", currency: "SAR" }] : []);
         case "/items":
           return Promise.resolve([{ id: "item-1", name: "Visual Item", description: "Visual item", status: "ACTIVE", purchaseCost: "100.0000", expenseAccountId: "expense-1", purchaseTaxRateId: "tax-1" }]);
         case "/accounts":
@@ -84,6 +87,24 @@ describe("PurchaseDebitNoteForm", () => {
 
     expect(screen.getByText("يمكن تعديل الإشعارات المدينة المسودة فقط.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "العودة إلى الإشعار المدين" })).toHaveAttribute("href", "/purchases/debit-notes/debit-note-1");
+  });
+
+  it("rejects a query-prefilled original bill when the active organization has no matching bill", async () => {
+    mockBillsAvailable = false;
+    window.history.pushState({}, "", "/purchases/debit-notes/new?supplierId=supplier-1&billId=prior-org-bill");
+    const { container } = render(<PurchaseDebitNoteForm />);
+
+    await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("supplier-1"));
+    const descriptionInput = container.querySelector<HTMLInputElement>('input[required]:not([type])');
+    const amountInputs = container.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]');
+    fireEvent.change(descriptionInput!, { target: { value: "Debit adjustment" } });
+    fireEvent.change(amountInputs[1]!, { target: { value: "100.0000" } });
+    const expenseOption = screen.getByRole("option", { name: "5010 Purchases" });
+    fireEvent.change(expenseOption.parentElement!, { target: { value: "expense-1" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Create draft debit note" }).closest("form")!);
+
+    expect(await screen.findByText(/original bill does not belong to the active organization/i)).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/purchase-debit-notes", expect.objectContaining({ method: "POST" }));
   });
 });
 

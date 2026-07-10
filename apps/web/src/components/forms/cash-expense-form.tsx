@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -43,12 +43,15 @@ function todayInputValue(): string {
 
 export function CashExpenseForm() {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { locale, tc } = useAppLocale();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
+  const [bankProfilesReady, setBankProfilesReady] = useState(false);
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [contactId, setContactId] = useState("");
@@ -100,6 +103,7 @@ export function CashExpenseForm() {
   }, []);
 
   useEffect(() => {
+    setBankProfilesReady(false);
     if (!organizationId) {
       return;
     }
@@ -114,7 +118,7 @@ export function CashExpenseForm() {
       apiRequest<Account[]>("/accounts"),
       apiRequest<TaxRate[]>("/tax-rates"),
       apiRequest<Branch[]>("/branches"),
-      apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => []),
+      apiRequest<BankAccountSummary[]>("/bank-accounts"),
     ])
       .then(([contactResult, itemResult, accountResult, taxRateResult, branchResult, bankProfileResult]) => {
         if (cancelled) {
@@ -127,6 +131,7 @@ export function CashExpenseForm() {
         setTaxRates(taxRateResult);
         setBranches(branchResult);
         setBankProfiles(bankProfileResult);
+        setBankProfilesReady(true);
         setPaidThroughAccountId((current) => current || accountResult.find((account) => account.isActive && account.allowPosting && account.type === "ASSET")?.id || "");
       })
       .catch((loadError: unknown) => {
@@ -173,6 +178,54 @@ export function CashExpenseForm() {
     event.preventDefault();
     setError("");
 
+    if (!baseCurrency) {
+      setError(tc("Select an organization with a base currency before posting this cash expense."));
+      return;
+    }
+    if (!bankProfilesReady) {
+      setError(tc("Bank-profile currencies could not be verified. Reload them before posting this cash expense."));
+      return;
+    }
+    if (loading || !organizationId) {
+      setError(tc("Wait for cash-expense setup data from the active organization before posting."));
+      return;
+    }
+    const selectedContact = contacts.find((contact) => contact.id === contactId);
+    if (contactId && (!selectedContact || (selectedContact.organizationId && selectedContact.organizationId !== organizationId))) {
+      setError(tc("The selected supplier/contact does not belong to the active organization."));
+      return;
+    }
+    const selectedPaidThroughAccount = accounts.find((account) => account.id === paidThroughAccountId);
+    if (!selectedPaidThroughAccount || selectedPaidThroughAccount.organizationId !== organizationId) {
+      setError(tc("The paid-through account does not belong to the active organization."));
+      return;
+    }
+    const selectedBranch = branches.find((branch) => branch.id === branchId);
+    if (branchId && !selectedBranch) {
+      setError(tc("The selected branch does not belong to the active organization."));
+      return;
+    }
+    const lineOwnershipMismatch = lines.some((line) => {
+      const account = accounts.find((candidate) => candidate.id === line.accountId);
+      const item = items.find((candidate) => candidate.id === line.itemId);
+      const taxRate = taxRates.find((candidate) => candidate.id === line.taxRateId);
+      return (
+        !account ||
+        account.organizationId !== organizationId ||
+        Boolean(line.itemId && (!item || item.organizationId !== organizationId)) ||
+        Boolean(line.taxRateId && (!taxRate || taxRate.organizationId !== organizationId))
+      );
+    });
+    if (lineOwnershipMismatch) {
+      setError(tc("One or more cash-expense lines use setup data outside the active organization."));
+      return;
+    }
+    const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === paidThroughAccountId);
+    if (selectedBankProfile && (selectedBankProfile.organizationId !== organizationId || selectedBankProfile.currency !== baseCurrency)) {
+      setError(tc("The paid-through account uses {currency}. Cash expenses can post only in the organization base currency {baseCurrency} during this phase.", { currency: selectedBankProfile.currency, baseCurrency }));
+      return;
+    }
+
     const validationError = getValidationError(paidThroughAccountId, lines, preview.valid);
     if (validationError) {
       setError(tc(validationError));
@@ -187,7 +240,7 @@ export function CashExpenseForm() {
           contactId: contactId || null,
           branchId: branchId || null,
           expenseDate: `${expenseDate}T00:00:00.000Z`,
-          currency: "SAR",
+          currency: baseCurrency,
           paidThroughAccountId,
           description: description || undefined,
           notes: notes || undefined,
@@ -341,11 +394,11 @@ export function CashExpenseForm() {
           {tc("Add line")}
         </button>
         <div className="min-w-[260px] space-y-2 text-sm">
-          <TotalRow label="Subtotal" value={formatAppMoney(preview.subtotal, "SAR", locale)} />
-          <TotalRow label="Discount" value={formatAppMoney(preview.discountTotal, "SAR", locale)} />
-          <TotalRow label="Taxable" value={formatAppMoney(preview.taxableTotal, "SAR", locale)} />
-          <TotalRow label="VAT / Tax" value={formatAppMoney(preview.taxTotal, "SAR", locale)} />
-          <TotalRow label="Total" value={formatAppMoney(preview.total, "SAR", locale)} strong />
+          <TotalRow label="Subtotal" value={baseCurrency ? formatAppMoney(preview.subtotal, baseCurrency, locale) : "-"} />
+          <TotalRow label="Discount" value={baseCurrency ? formatAppMoney(preview.discountTotal, baseCurrency, locale) : "-"} />
+          <TotalRow label="Taxable" value={baseCurrency ? formatAppMoney(preview.taxableTotal, baseCurrency, locale) : "-"} />
+          <TotalRow label="VAT / Tax" value={baseCurrency ? formatAppMoney(preview.taxTotal, baseCurrency, locale) : "-"} />
+          <TotalRow label="Total" value={baseCurrency ? formatAppMoney(preview.total, baseCurrency, locale) : "-"} strong />
         </div>
       </div>
 
@@ -360,7 +413,7 @@ export function CashExpenseForm() {
         <Link href={returnTo || "/purchases/cash-expenses"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
           {tc("Cancel")}
         </Link>
-        <button type="submit" disabled={submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!bankProfilesReady || loading || submitting || !organizationId || !baseCurrency} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Posting...") : tc("Post cash expense")}
         </button>
       </div>

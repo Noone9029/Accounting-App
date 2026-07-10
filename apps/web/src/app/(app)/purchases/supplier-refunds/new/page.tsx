@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
@@ -23,11 +23,14 @@ function todayInputValue(): string {
 
 export default function NewSupplierRefundPage() {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { locale, tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [bankProfiles, setBankProfiles] = useState<BankAccountSummary[]>([]);
+  const [bankProfilesReady, setBankProfilesReady] = useState(false);
   const [sources, setSources] = useState<SupplierRefundableSources | null>(null);
   const [supplierId, setSupplierId] = useState("");
   const [sourceType, setSourceType] = useState<SupplierRefundSourceType>("SUPPLIER_PAYMENT");
@@ -47,6 +50,8 @@ export default function NewSupplierRefundPage() {
   );
   const sourceOptions = sourceType === "SUPPLIER_PAYMENT" ? sources?.payments ?? [] : sources?.debitNotes ?? [];
   const selectedSource = sourceOptions.find((source) => source.id === sourceId);
+  const sourceCurrencyMismatch = Boolean(selectedSource && baseCurrency && selectedSource.currency !== baseCurrency);
+  const displayCurrency = selectedSource?.currency ?? baseCurrency;
   const availableAmount = selectedSource?.unappliedAmount ?? "0.0000";
   const remainingAfterRefund = supplierRefundableAmountAfterRefund(availableAmount, amountRefunded || "0.0000");
 
@@ -65,6 +70,7 @@ export default function NewSupplierRefundPage() {
   }, []);
 
   useEffect(() => {
+    setBankProfilesReady(false);
     if (!organizationId) {
       return;
     }
@@ -73,7 +79,7 @@ export default function NewSupplierRefundPage() {
     setLoadingSetup(true);
     setError("");
 
-    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts").catch(() => [])])
+    Promise.all([apiRequest<Contact[]>("/contacts"), apiRequest<Account[]>("/accounts"), apiRequest<BankAccountSummary[]>("/bank-accounts")])
       .then(([contactResult, accountResult, bankProfileResult]) => {
         if (cancelled) {
           return;
@@ -81,6 +87,7 @@ export default function NewSupplierRefundPage() {
         setSuppliers(contactResult.filter((contact) => contact.isActive && (contact.type === "SUPPLIER" || contact.type === "BOTH")));
         setAccounts(accountResult);
         setBankProfiles(bankProfileResult);
+        setBankProfilesReady(true);
         const defaultAsset =
           accountResult.find((account) => account.code === "112" && account.isActive && account.allowPosting && account.type === "ASSET") ??
           accountResult.find((account) => account.code === "111" && account.isActive && account.allowPosting && account.type === "ASSET");
@@ -156,6 +163,42 @@ export default function NewSupplierRefundPage() {
     event.preventDefault();
     setError("");
 
+    if (!baseCurrency || !selectedSource) {
+      setError(tc("Select an organization base currency and a refundable source before recording this refund."));
+      return;
+    }
+    if (!bankProfilesReady) {
+      setError(tc("Bank-profile currencies could not be verified. Reload them before recording this refund."));
+      return;
+    }
+    if (loadingSetup || loadingSources || !organizationId) {
+      setError(tc("Wait for refund setup data from the active organization before recording this refund."));
+      return;
+    }
+    const selectedSupplier = suppliers.find((supplier) => supplier.id === supplierId);
+    if (
+      !selectedSupplier ||
+      (selectedSupplier.organizationId && selectedSupplier.organizationId !== organizationId) ||
+      sources?.supplier.id !== supplierId
+    ) {
+      setError(tc("The selected supplier or refundable source does not belong to the active organization."));
+      return;
+    }
+    const selectedAccount = receivedIntoAccounts.find((account) => account.id === accountId);
+    if (!selectedAccount || selectedAccount.organizationId !== organizationId) {
+      setError(tc("The received-into account does not belong to the active organization."));
+      return;
+    }
+    if (sourceCurrencyMismatch) {
+      setError(tc("The selected source uses {currency}. Refunds can post only in the organization base currency {baseCurrency} during this phase.", { currency: selectedSource.currency, baseCurrency }));
+      return;
+    }
+    const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === accountId);
+    if (selectedBankProfile && (selectedBankProfile.organizationId !== organizationId || selectedBankProfile.currency !== baseCurrency)) {
+      setError(tc("The received-into account uses {currency}. Refunds can post only in the organization base currency {baseCurrency} during this phase.", { currency: selectedBankProfile.currency, baseCurrency }));
+      return;
+    }
+
     const validationError = getValidationError(supplierId, accountId, sourceId, amountRefunded, availableAmount, tc);
     if (validationError) {
       setError(validationError);
@@ -168,7 +211,7 @@ export default function NewSupplierRefundPage() {
         supplierId,
         sourceType,
         refundDate: `${refundDate}T00:00:00.000Z`,
-        currency: selectedSource?.currency ?? "SAR",
+        currency: selectedSource.currency,
         amountRefunded,
         accountId,
         description: description || undefined,
@@ -204,6 +247,7 @@ export default function NewSupplierRefundPage() {
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to record supplier refunds.")}</StatusMessage> : null}
         {loadingSetup ? <StatusMessage type="loading">{tc("Loading supplier refund setup data...")}</StatusMessage> : null}
         {loadingSources ? <StatusMessage type="loading">{tc("Loading refundable supplier sources...")}</StatusMessage> : null}
+        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The selected refundable source currency does not match the organization base currency. Foreign-currency refunds remain disabled in this phase.")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
 
@@ -267,11 +311,11 @@ export default function NewSupplierRefundPage() {
 
         <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
           <span className="text-steel">{tc("Available source credit")}</span>
-          <span className="text-end font-mono">{formatAppMoney(availableAmount, selectedSource?.currency ?? "SAR", locale)}</span>
+          <span className="text-end font-mono">{displayCurrency ? formatAppMoney(availableAmount, displayCurrency, locale) : "-"}</span>
           <span className="text-steel">{tc("Amount refunded")}</span>
-          <span className="text-end font-mono">{formatAppMoney(amountRefunded || "0.0000", selectedSource?.currency ?? "SAR", locale)}</span>
+          <span className="text-end font-mono">{displayCurrency ? formatAppMoney(amountRefunded || "0.0000", displayCurrency, locale) : "-"}</span>
           <span className="font-semibold text-ink">{tc("Remaining unapplied")}</span>
-          <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(remainingAfterRefund, selectedSource?.currency ?? "SAR", locale)}</span>
+          <span className="text-end font-mono font-semibold text-ink">{displayCurrency ? formatAppMoney(remainingAfterRefund, displayCurrency, locale) : "-"}</span>
         </div>
 
         <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -279,7 +323,7 @@ export default function NewSupplierRefundPage() {
         </div>
 
         <div className="flex gap-3">
-          <button type="submit" disabled={!organizationId || loadingSetup || loadingSources || submitting || !selectedSource} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={!organizationId || !baseCurrency || !bankProfilesReady || loadingSetup || loadingSources || submitting || !selectedSource || sourceCurrencyMismatch} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Recording...") : tc("Record refund")}
           </button>
           <Link href="/purchases/supplier-refunds" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

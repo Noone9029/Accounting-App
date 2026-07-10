@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { useAppLocale } from "@/components/app-locale-provider";
-import { useActiveOrganizationId } from "@/hooks/use-active-organization";
+import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel, validateBankTransferInput } from "@/lib/bank-accounts";
 import type { BankAccountSummary, BankTransfer } from "@/lib/types";
@@ -16,7 +16,9 @@ function todayInputValue(): string {
 
 export default function NewBankTransferPage() {
   const router = useRouter();
-  const organizationId = useActiveOrganizationId();
+  const activeOrganization = useActiveOrganization();
+  const organizationId = activeOrganization?.id ?? null;
+  const baseCurrency = activeOrganization?.baseCurrency ?? null;
   const { tc } = useAppLocale();
   const [profiles, setProfiles] = useState<BankAccountSummary[]>([]);
   const [fromBankAccountProfileId, setFromBankAccountProfileId] = useState("");
@@ -30,9 +32,23 @@ export default function NewBankTransferPage() {
 
   const activeProfiles = useMemo(() => profiles.filter((profile) => profile.status === "ACTIVE"), [profiles]);
   const sourceProfile = activeProfiles.find((profile) => profile.id === fromBankAccountProfileId);
+  const destinationProfile = activeProfiles.find((profile) => profile.id === toBankAccountProfileId);
+  const profileOrganizationMismatch = Boolean(
+    organizationId &&
+      ((sourceProfile && sourceProfile.organizationId !== organizationId) ||
+        (destinationProfile && destinationProfile.organizationId !== organizationId)),
+  );
+  const currencyMismatch = Boolean(
+    baseCurrency &&
+      ((sourceProfile && sourceProfile.currency !== baseCurrency) || (destinationProfile && destinationProfile.currency !== baseCurrency)),
+  );
 
   useEffect(() => {
+    setProfiles([]);
+    setFromBankAccountProfileId("");
+    setToBankAccountProfileId("");
     if (!organizationId) {
+      setLoading(false);
       return;
     }
 
@@ -69,10 +85,22 @@ export default function NewBankTransferPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (loading || !organizationId || !baseCurrency || !sourceProfile || !destinationProfile) {
+      setError(tc("Wait for bank accounts from the active organization and select both accounts before posting this transfer."));
+      return;
+    }
+    if (profileOrganizationMismatch) {
+      setError(tc("The selected bank accounts do not belong to the active organization. Reload the accounts before posting."));
+      return;
+    }
 
     const validationError = validateBankTransferInput({ fromBankAccountProfileId, toBankAccountProfileId, amount });
     if (validationError) {
       setError(tc(validationError));
+      return;
+    }
+    if (currencyMismatch) {
+      setError(tc("Direct bank transfers can post only between accounts in the organization base currency {baseCurrency} during this phase.", { baseCurrency }));
       return;
     }
 
@@ -85,7 +113,7 @@ export default function NewBankTransferPage() {
           toBankAccountProfileId,
           transferDate: `${transferDate}T00:00:00.000Z`,
           amount,
-          currency: sourceProfile?.currency,
+          currency: baseCurrency,
           description: description || undefined,
         },
       });
@@ -113,6 +141,8 @@ export default function NewBankTransferPage() {
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to create bank transfers.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading bank accounts...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
+        {profileOrganizationMismatch ? <StatusMessage type="error">{tc("One or both selected bank accounts do not belong to the active organization. Reload before posting.")}</StatusMessage> : null}
+        {currencyMismatch ? <StatusMessage type="error">{tc("One or both selected bank accounts do not use the organization base currency. This transfer cannot be posted in this phase.")}</StatusMessage> : null}
         {!loading && organizationId && activeProfiles.length < 2 ? <StatusMessage type="empty">{tc("At least two active bank account profiles are required.")}</StatusMessage> : null}
       </div>
 
@@ -164,7 +194,7 @@ export default function NewBankTransferPage() {
           <Link href="/bank-transfers" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             {tc("Cancel")}
           </Link>
-          <button type="submit" disabled={submitting || !organizationId || activeProfiles.length < 2} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={loading || submitting || !organizationId || !baseCurrency || profileOrganizationMismatch || currencyMismatch || activeProfiles.length < 2} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Posting...") : tc("Post transfer")}
           </button>
         </div>
