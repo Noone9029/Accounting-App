@@ -10,6 +10,8 @@ export interface JournalLineInput {
   currency: string;
   exchangeRate?: string | number;
   taxRateId?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
 }
 
 export interface JournalTotals {
@@ -145,6 +147,8 @@ export function createReversalLines(lines: JournalLineInput[]): JournalLineInput
     currency: line.currency,
     exchangeRate: line.exchangeRate ?? "1",
     taxRateId: line.taxRateId ?? null,
+    costCenterId: line.costCenterId ?? null,
+    projectId: line.projectId ?? null,
   }));
 }
 

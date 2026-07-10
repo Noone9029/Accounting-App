@@ -7,7 +7,7 @@ import {
   getJournalTotals,
   JournalLineInput,
 } from "@ledgerbyte/accounting-core";
-import { JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
+import { DimensionStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
@@ -22,6 +22,8 @@ const journalInclude = {
     include: {
       account: { select: { id: true, code: true, name: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+      costCenter: { select: { id: true, code: true, name: true, status: true } },
+      project: { select: { id: true, code: true, name: true, status: true } },
     },
   },
   reversedBy: { select: { id: true, entryNumber: true } },
@@ -49,6 +51,8 @@ export class AccountingService {
             debit: true,
             credit: true,
             currency: true,
+            costCenterId: true,
+            projectId: true,
           },
         },
       },
@@ -77,6 +81,7 @@ export class AccountingService {
   async create(organizationId: string, actorUserId: string, dto: CreateJournalEntryDto) {
     this.assertBalanced(dto.lines);
     await this.validateLineReferences(organizationId, dto.lines);
+    await this.validateLineDimensions(organizationId, dto.lines);
     const totals = getJournalTotals(dto.lines);
 
     const entry = await this.prisma.$transaction(async (tx) => {
@@ -112,6 +117,9 @@ export class AccountingService {
     const nextLines = dto.lines ?? this.toCoreLines(existing.lines);
     this.assertBalanced(nextLines);
     await this.validateLineReferences(organizationId, nextLines);
+    if (dto.lines) {
+      await this.validateLineDimensions(organizationId, dto.lines);
+    }
     const totals = getJournalTotals(nextLines);
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -303,21 +311,53 @@ export class AccountingService {
     }
 
     const taxRateIds = [...new Set(lines.map((line) => line.taxRateId).filter((value): value is string => Boolean(value)))];
-    if (taxRateIds.length === 0) {
-      return;
+    if (taxRateIds.length > 0) {
+      const taxRates = await this.prisma.taxRate.findMany({
+        where: {
+          organizationId,
+          id: { in: taxRateIds },
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      if (taxRates.length !== taxRateIds.length) {
+        throw new BadRequestException("One or more tax rates do not exist in this organization.");
+      }
+    }
+  }
+
+  private async validateLineDimensions(organizationId: string, lines: JournalLineInput[]): Promise<void> {
+    const costCenterIds = [...new Set(lines.map((line) => line.costCenterId).filter((value): value is string => Boolean(value)))];
+    if (costCenterIds.length > 0) {
+      const costCenters = await this.prisma.costCenter.findMany({
+        where: {
+          organizationId,
+          id: { in: costCenterIds },
+          status: DimensionStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
+
+      if (costCenters.length !== costCenterIds.length) {
+        throw new BadRequestException("One or more cost centers do not exist or are archived.");
+      }
     }
 
-    const taxRates = await this.prisma.taxRate.findMany({
-      where: {
-        organizationId,
-        id: { in: taxRateIds },
-        isActive: true,
-      },
-      select: { id: true },
-    });
+    const projectIds = [...new Set(lines.map((line) => line.projectId).filter((value): value is string => Boolean(value)))];
+    if (projectIds.length > 0) {
+      const projects = await this.prisma.project.findMany({
+        where: {
+          organizationId,
+          id: { in: projectIds },
+          status: DimensionStatus.ACTIVE,
+        },
+        select: { id: true },
+      });
 
-    if (taxRates.length !== taxRateIds.length) {
-      throw new BadRequestException("One or more tax rates do not exist in this organization.");
+      if (projects.length !== projectIds.length) {
+        throw new BadRequestException("One or more projects do not exist or are archived.");
+      }
     }
   }
 
@@ -330,6 +370,8 @@ export class AccountingService {
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
       taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
@@ -339,7 +381,21 @@ export class AccountingService {
     }));
   }
 
-  private toCoreLines(lines: Array<JournalLineDto | { accountId: string; debit: unknown; credit: unknown; description: string | null; currency: string; exchangeRate: unknown; taxRateId: string | null }>): JournalLineInput[] {
+  private toCoreLines(
+    lines: Array<
+      JournalLineDto | {
+        accountId: string;
+        debit: unknown;
+        credit: unknown;
+        description: string | null;
+        currency: string;
+        exchangeRate: unknown;
+        taxRateId: string | null;
+        costCenterId: string | null;
+        projectId: string | null;
+      }
+    >,
+  ): JournalLineInput[] {
     return lines.map((line) => ({
       accountId: line.accountId,
       debit: String(line.debit),
@@ -348,6 +404,8 @@ export class AccountingService {
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
       taxRateId: line.taxRateId ?? null,
+      costCenterId: line.costCenterId ?? null,
+      projectId: line.projectId ?? null,
     }));
   }
 }

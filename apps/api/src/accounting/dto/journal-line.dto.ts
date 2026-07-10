@@ -1,4 +1,4 @@
-import { IsDecimal, IsOptional, IsString } from "class-validator";
+import { IsDecimal, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class JournalLineDto {
   @IsString()
@@ -24,4 +24,12 @@ export class JournalLineDto {
   @IsOptional()
   @IsString()
   taxRateId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  costCenterId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
 }

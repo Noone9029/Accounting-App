@@ -2849,6 +2849,7 @@ model CostCenter {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines   JournalLine[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -2865,6 +2866,7 @@ model Project {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalLines   JournalLine[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -5484,6 +5486,8 @@ model JournalLine {
   journalEntryId                   String                     @db.Uuid
   accountId                        String                     @db.Uuid
   taxRateId                        String?                    @db.Uuid
+  costCenterId                     String?                    @db.Uuid
+  projectId                        String?                    @db.Uuid
   lineNumber                       Int
   description                      String?
   debit                            Decimal                    @default(0) @db.Decimal(20, 4)
@@ -5495,11 +5499,15 @@ model JournalLine {
   journalEntry                     JournalEntry               @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account                          Account                    @relation(fields: [accountId], references: [id])
   taxRate                          TaxRate?                   @relation(fields: [taxRateId], references: [id])
+  costCenter                       CostCenter?                @relation(fields: [costCenterId], references: [id])
+  project                          Project?                   @relation(fields: [projectId], references: [id])
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalLine")
 
   @@index([organizationId])
   @@index([journalEntryId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model FiscalPeriod {

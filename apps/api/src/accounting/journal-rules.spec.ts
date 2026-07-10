@@ -34,10 +34,33 @@ describe("journal accounting rules", () => {
   });
 
   it("creates balanced opposite lines for reversal", () => {
-    const reversal = createReversalLines(balancedLines);
+    const reversal = createReversalLines([
+      { ...balancedLines[0]!, costCenterId: "cost-center-1", projectId: "project-1" },
+      { ...balancedLines[1]!, costCenterId: null, projectId: null },
+    ]);
     expect(reversal).toEqual([
-      { accountId: "cash", debit: "0.0000", credit: "100.0000", description: "Reversal", currency: "SAR", exchangeRate: "1", taxRateId: null },
-      { accountId: "sales", debit: "100.0000", credit: "0.0000", description: "Reversal", currency: "SAR", exchangeRate: "1", taxRateId: null },
+      {
+        accountId: "cash",
+        debit: "0.0000",
+        credit: "100.0000",
+        description: "Reversal",
+        currency: "SAR",
+        exchangeRate: "1",
+        taxRateId: null,
+        costCenterId: "cost-center-1",
+        projectId: "project-1",
+      },
+      {
+        accountId: "sales",
+        debit: "100.0000",
+        credit: "0.0000",
+        description: "Reversal",
+        currency: "SAR",
+        exchangeRate: "1",
+        taxRateId: null,
+        costCenterId: null,
+        projectId: null,
+      },
     ]);
     expect(() => assertBalancedJournal(reversal)).not.toThrow();
   });
