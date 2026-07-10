@@ -373,6 +373,12 @@ enum DimensionStatus {
   ARCHIVED
 }
 
+enum CurrencyRateSource {
+  MANUAL
+  IMPORT
+  SYSTEM_BACKFILL
+}
+
 enum InventoryBinLocationType {
   BIN
   SHELF
@@ -1331,6 +1337,8 @@ model Organization {
   accounts                                  Account[]
   costCenters                               CostCenter[]
   projects                                  Project[]
+  currencyRateSnapshots                     CurrencyRateSnapshot[]
+  fxAccountConfiguration                    FxAccountConfiguration?
   bankAccountProfiles                       BankAccountProfile[]
   bankTransfers                             BankTransfer[]
   bankStatementImports                      BankStatementImport[]
@@ -2833,8 +2841,13 @@ model Account {
   bankingPrepaidCardAssetConfigs       BankingClearingAccountConfig[] @relation("BankingClearingPrepaidCardAssetAccount")
   categorizedBankStatementTransactions BankStatementTransaction[]  @relation("BankStatementTransactionCategorizedAccount")
   bankRules                            BankRule[]                  @relation("BankRuleCategorizeAccount")
+  fxRealizedGainAccountConfigurations  FxAccountConfiguration[]   @relation("FxAccountConfigurationRealizedGainAccount")
+  fxRealizedLossAccountConfigurations  FxAccountConfiguration[]   @relation("FxAccountConfigurationRealizedLossAccount")
+  fxUnrealizedGainAccountConfigurations FxAccountConfiguration[]  @relation("FxAccountConfigurationUnrealizedGainAccount")
+  fxUnrealizedLossAccountConfigurations FxAccountConfiguration[]  @relation("FxAccountConfigurationUnrealizedLossAccount")
 
   @@unique([organizationId, code])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([parentId])
 }
@@ -2871,6 +2884,43 @@ model Project {
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([organizationId, status])
+}
+
+model CurrencyRateSnapshot {
+  id                  String             @id @default(uuid()) @db.Uuid
+  organizationId      String             @db.Uuid
+  transactionCurrency String
+  baseCurrency        String
+  rate                Decimal            @db.Decimal(18, 8)
+  rateDate            DateTime           @db.Date
+  source              CurrencyRateSource
+  sourceReference     String?
+  createdAt           DateTime           @default(now()) @db.Timestamptz(3)
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, transactionCurrency, baseCurrency, rateDate])
+  @@index([organizationId, createdAt])
+}
+
+model FxAccountConfiguration {
+  id                      String       @id @default(uuid()) @db.Uuid
+  organizationId          String       @unique @db.Uuid
+  realizedGainAccountId   String?      @db.Uuid
+  realizedLossAccountId   String?      @db.Uuid
+  unrealizedGainAccountId String?      @db.Uuid
+  unrealizedLossAccountId String?      @db.Uuid
+  createdAt               DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime     @updatedAt @db.Timestamptz(3)
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  realizedGainAccount     Account?     @relation("FxAccountConfigurationRealizedGainAccount", fields: [organizationId, realizedGainAccountId], references: [organizationId, id], onDelete: NoAction)
+  realizedLossAccount     Account?     @relation("FxAccountConfigurationRealizedLossAccount", fields: [organizationId, realizedLossAccountId], references: [organizationId, id], onDelete: NoAction)
+  unrealizedGainAccount   Account?     @relation("FxAccountConfigurationUnrealizedGainAccount", fields: [organizationId, unrealizedGainAccountId], references: [organizationId, id], onDelete: NoAction)
+  unrealizedLossAccount   Account?     @relation("FxAccountConfigurationUnrealizedLossAccount", fields: [organizationId, unrealizedLossAccountId], references: [organizationId, id], onDelete: NoAction)
+
+  @@index([organizationId, realizedGainAccountId])
+  @@index([organizationId, realizedLossAccountId])
+  @@index([organizationId, unrealizedGainAccountId])
+  @@index([organizationId, unrealizedLossAccountId])
 }
 
 model BankAccountProfile {
