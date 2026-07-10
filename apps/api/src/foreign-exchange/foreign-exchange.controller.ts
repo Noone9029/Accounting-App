@@ -18,19 +18,19 @@ export class ForeignExchangeController {
   constructor(private readonly foreignExchangeService: ForeignExchangeService) {}
 
   @Get("currencies")
-  @RequirePermissions(PERMISSIONS.accounts.view)
+  @RequirePermissions(PERMISSIONS.currencies.read)
   currencies(@CurrentOrganizationId() organizationId: string) {
     return this.foreignExchangeService.currencies(organizationId);
   }
 
   @Get("rates")
-  @RequirePermissions(PERMISSIONS.accounts.view)
+  @RequirePermissions(PERMISSIONS.fxRates.read)
   listRates(@CurrentOrganizationId() organizationId: string, @Query() query: CurrencyRateQueryDto) {
     return this.foreignExchangeService.listRates(organizationId, query);
   }
 
   @Post("rates")
-  @RequirePermissions(PERMISSIONS.accounts.manage)
+  @RequirePermissions(PERMISSIONS.fxRates.manage)
   createRate(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -40,13 +40,13 @@ export class ForeignExchangeController {
   }
 
   @Get("account-configuration")
-  @RequirePermissions(PERMISSIONS.accounts.view)
+  @RequirePermissions(PERMISSIONS.currencies.read)
   getAccountConfiguration(@CurrentOrganizationId() organizationId: string) {
     return this.foreignExchangeService.getAccountConfiguration(organizationId);
   }
 
   @Put("account-configuration")
-  @RequirePermissions(PERMISSIONS.accounts.manage)
+  @RequirePermissions(PERMISSIONS.currencies.manage)
   updateAccountConfiguration(
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -56,7 +56,7 @@ export class ForeignExchangeController {
   }
 
   @Get("readiness")
-  @RequirePermissions(PERMISSIONS.accounts.view)
+  @RequirePermissions(PERMISSIONS.currencies.read)
   readiness(@CurrentOrganizationId() organizationId: string) {
     return this.foreignExchangeService.readiness(organizationId);
   }

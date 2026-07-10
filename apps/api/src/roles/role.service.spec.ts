@@ -46,6 +46,9 @@ describe("RoleService", () => {
       PERMISSIONS.customerPayments.applyUnapplied,
       PERMISSIONS.customerPayments.reverseUnappliedAllocation,
       PERMISSIONS.customerPayments.receiptPdfGenerate,
+      PERMISSIONS.currencies.manage,
+      PERMISSIONS.fxRates.manage,
+      PERMISSIONS.fxRevaluation.run,
       PERMISSIONS.zatca.submit,
       PERMISSIONS.zatca.signingDryRun,
       PERMISSIONS.reports.view,
@@ -64,13 +67,20 @@ describe("RoleService", () => {
     );
   });
 
-  it("keeps default roles explicit for payment matching, outputs, reports, and ZATCA actions", () => {
+  it("keeps default roles explicit for payments, FX, reports, and compliance actions", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.Accountant).toEqual(
       expect.arrayContaining([
         PERMISSIONS.customerPayments.applyUnapplied,
         PERMISSIONS.customerPayments.reverseUnappliedAllocation,
         PERMISSIONS.customerPayments.void,
         PERMISSIONS.customerPayments.receiptPdfGenerate,
+        PERMISSIONS.currencies.read,
+        PERMISSIONS.currencies.manage,
+        PERMISSIONS.fxRates.read,
+        PERMISSIONS.fxRates.manage,
+        PERMISSIONS.fxRevaluation.read,
+        PERMISSIONS.fxRevaluation.run,
+        PERMISSIONS.fxRevaluation.reverse,
         PERMISSIONS.reports.view,
         PERMISSIONS.reports.export,
         PERMISSIONS.zatca.generateXml,
@@ -78,14 +88,33 @@ describe("RoleService", () => {
       ]),
     );
     expect(DEFAULT_ROLE_PERMISSIONS.Sales).toEqual(
-      expect.arrayContaining([PERMISSIONS.customerPayments.applyUnapplied, PERMISSIONS.customerPayments.receiptPdfGenerate]),
+      expect.arrayContaining([
+        PERMISSIONS.customerPayments.applyUnapplied,
+        PERMISSIONS.customerPayments.receiptPdfGenerate,
+        PERMISSIONS.currencies.read,
+        PERMISSIONS.fxRates.read,
+      ]),
+    );
+    expect(DEFAULT_ROLE_PERMISSIONS.Purchases).toEqual(
+      expect.arrayContaining([PERMISSIONS.currencies.read, PERMISSIONS.fxRates.read]),
     );
     expect(DEFAULT_ROLE_PERMISSIONS.Sales).not.toContain(PERMISSIONS.customerPayments.reverseUnappliedAllocation);
     expect(DEFAULT_ROLE_PERMISSIONS.Sales).not.toContain(PERMISSIONS.customerPayments.void);
-    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).toEqual(expect.arrayContaining([PERMISSIONS.reports.view]));
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).toEqual(
+      expect.arrayContaining([
+        PERMISSIONS.reports.view,
+        PERMISSIONS.currencies.read,
+        PERMISSIONS.fxRates.read,
+        PERMISSIONS.fxRevaluation.read,
+      ]),
+    );
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.reports.export);
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.customerPayments.receiptPdfGenerate);
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.zatca.submit);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.currencies.manage);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRates.manage);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRevaluation.run);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRevaluation.reverse);
   });
 
   it("rejects unknown permissions on update", async () => {

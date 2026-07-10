@@ -16,18 +16,29 @@ describe("ForeignExchangeController", () => {
     ]);
   });
 
-  it.each(["currencies", "listRates", "getAccountConfiguration", "readiness"] as const)(
-    "requires accounts.view for %s",
-    (method) => {
-      expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype[method])).toEqual([
-        PERMISSIONS.accounts.view,
-      ]);
-    },
-  );
-
-  it.each(["createRate", "updateAccountConfiguration"] as const)("requires accounts.manage for %s", (method) => {
+  it.each(["currencies", "getAccountConfiguration", "readiness"] as const)("requires currencies.read for %s", (method) => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype[method])).toEqual([
-      PERMISSIONS.accounts.manage,
+      PERMISSIONS.currencies.read,
+    ]);
+  });
+
+  it("requires fxRates.read for rate listing", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.listRates)).toEqual([
+      PERMISSIONS.fxRates.read,
+    ]);
+  });
+
+  it("requires fxRates.manage for manual rate capture", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.createRate)).toEqual([
+      PERMISSIONS.fxRates.manage,
+    ]);
+  });
+
+  it("requires currencies.manage for FX account configuration", () => {
+    expect(
+      Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.updateAccountConfiguration),
+    ).toEqual([
+      PERMISSIONS.currencies.manage,
     ]);
   });
 });
