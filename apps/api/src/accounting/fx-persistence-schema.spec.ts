@@ -31,18 +31,26 @@ describe("FX persistence schema", () => {
     expect(rateSnapshot).toMatch(/rateDate\s+DateTime\s+@db\.Date/);
     expect(rateSnapshot).toMatch(/source\s+CurrencyRateSource/);
     expect(rateSnapshot).toMatch(/sourceReference\s+String\?/);
+    expect(rateSnapshot).toMatch(/createdByUserId\s+String\?\s+@db\.Uuid/);
     expect(rateSnapshot).toMatch(/createdAt\s+DateTime\s+@default\(now\(\)\) @db\.Timestamptz\(3\)/);
     expect(rateSnapshot).not.toMatch(/updatedAt/);
     expect(rateSnapshot).toMatch(
       /organization\s+Organization\s+@relation\(fields: \[organizationId\], references: \[id\], onDelete: Cascade\)/,
     );
+    expect(rateSnapshot).toMatch(
+      /createdBy\s+User\?\s+@relation\("CurrencyRateSnapshotCreatedBy", fields: \[createdByUserId\], references: \[id\], onDelete: SetNull\)/,
+    );
     expect(rateSnapshot).toContain(
       "@@index([organizationId, transactionCurrency, baseCurrency, rateDate])",
     );
     expect(rateSnapshot).toContain("@@index([organizationId, createdAt])");
+    expect(rateSnapshot).toContain("@@index([createdByUserId])");
 
     const organization = modelBlock(schema, "Organization");
     expect(organization).toMatch(/currencyRateSnapshots\s+CurrencyRateSnapshot\[\]/);
+    expect(modelBlock(schema, "User")).toMatch(
+      /createdCurrencyRateSnapshots\s+CurrencyRateSnapshot\[\]\s+@relation\("CurrencyRateSnapshotCreatedBy"\)/,
+    );
   });
 
   it("keeps every configured FX account inside the owning tenant through composite foreign keys", () => {
@@ -86,6 +94,7 @@ describe("FX persistence schema", () => {
     expect(migration).toContain('CREATE TABLE "CurrencyRateSnapshot"');
     expect(migration).toContain('"rate" DECIMAL(18,8) NOT NULL');
     expect(migration).toContain('"rateDate" DATE NOT NULL');
+    expect(migration).toContain('"createdByUserId" UUID');
     expect(migration).toContain('"createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP');
     expect(migration).toContain('CONSTRAINT "CurrencyRateSnapshot_rate_positive" CHECK ("rate" > 0)');
     expect(migration).toContain(
@@ -104,6 +113,12 @@ describe("FX persistence schema", () => {
     );
     expect(migration).toContain(
       'CREATE INDEX "CurrencyRateSnapshot_organizationId_createdAt_idx" ON "CurrencyRateSnapshot"("organizationId", "createdAt")',
+    );
+    expect(migration).toContain(
+      'CREATE INDEX "CurrencyRateSnapshot_createdByUserId_idx" ON "CurrencyRateSnapshot"("createdByUserId")',
+    );
+    expect(migration).toContain(
+      'ALTER TABLE "CurrencyRateSnapshot" ADD CONSTRAINT "CurrencyRateSnapshot_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE',
     );
 
     expect(migration).toContain('CREATE TABLE "FxAccountConfiguration"');

@@ -18,6 +18,7 @@ export interface CurrencyRateSnapshot {
   rateDate: string;
   source: "MANUAL" | "IMPORT" | "SYSTEM_RATE_1" | "FUTURE_PROVIDER_DISABLED";
   sourceReference: string | null;
+  createdByUserId: string | null;
   createdAt: string;
 }
 

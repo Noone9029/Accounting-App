@@ -112,6 +112,7 @@ export class ForeignExchangeService {
             rateDate: this.dateOnly(dto.rateDate),
             source: CurrencyRateSource.MANUAL,
             sourceReference: this.optionalText(dto.sourceReference),
+            createdByUserId: actorUserId,
           },
         });
 

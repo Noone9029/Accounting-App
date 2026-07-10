@@ -1195,6 +1195,7 @@ model User {
   createdCashExpenses                               CashExpense[]                               @relation("CashExpenseCreatedBy")
   createdCustomerPayments                           CustomerPayment[]                           @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments                           SupplierPayment[]                           @relation("SupplierPaymentCreatedBy")
+  createdCurrencyRateSnapshots                      CurrencyRateSnapshot[]                      @relation("CurrencyRateSnapshotCreatedBy")
   createdCustomerRefunds                            CustomerRefund[]                            @relation("CustomerRefundCreatedBy")
   createdSupplierRefunds                            SupplierRefund[]                            @relation("SupplierRefundCreatedBy")
   createdBankTransfers                              BankTransfer[]                              @relation("BankTransferCreatedBy")
@@ -2896,11 +2897,14 @@ model CurrencyRateSnapshot {
   rateDate            DateTime           @db.Date
   source              CurrencyRateSource
   sourceReference     String?
+  createdByUserId     String?            @db.Uuid
   createdAt           DateTime           @default(now()) @db.Timestamptz(3)
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy           User?              @relation("CurrencyRateSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, transactionCurrency, baseCurrency, rateDate])
   @@index([organizationId, createdAt])
+  @@index([createdByUserId])
 }
 
 model FxAccountConfiguration {

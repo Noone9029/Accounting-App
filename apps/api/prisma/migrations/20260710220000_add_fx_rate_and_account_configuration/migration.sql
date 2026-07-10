@@ -9,6 +9,7 @@ CREATE TABLE "CurrencyRateSnapshot" (
     "rateDate" DATE NOT NULL,
     "source" "CurrencyRateSource" NOT NULL,
     "sourceReference" TEXT,
+    "createdByUserId" UUID,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "CurrencyRateSnapshot_pkey" PRIMARY KEY ("id"),
@@ -33,6 +34,7 @@ CREATE TABLE "FxAccountConfiguration" (
 
 CREATE INDEX "CurrencyRateSnapshot_organizationId_transactionCurrency_baseCurrency_rateDate_idx" ON "CurrencyRateSnapshot"("organizationId", "transactionCurrency", "baseCurrency", "rateDate");
 CREATE INDEX "CurrencyRateSnapshot_organizationId_createdAt_idx" ON "CurrencyRateSnapshot"("organizationId", "createdAt");
+CREATE INDEX "CurrencyRateSnapshot_createdByUserId_idx" ON "CurrencyRateSnapshot"("createdByUserId");
 
 CREATE UNIQUE INDEX "Account_organizationId_id_key" ON "Account"("organizationId", "id");
 CREATE UNIQUE INDEX "FxAccountConfiguration_organizationId_key" ON "FxAccountConfiguration"("organizationId");
@@ -42,6 +44,7 @@ CREATE INDEX "FxAccountConfiguration_organizationId_unrealizedGainAccountId_idx"
 CREATE INDEX "FxAccountConfiguration_organizationId_unrealizedLossAccountId_idx" ON "FxAccountConfiguration"("organizationId", "unrealizedLossAccountId");
 
 ALTER TABLE "CurrencyRateSnapshot" ADD CONSTRAINT "CurrencyRateSnapshot_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CurrencyRateSnapshot" ADD CONSTRAINT "CurrencyRateSnapshot_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_realizedGainAccount_fkey" FOREIGN KEY ("organizationId", "realizedGainAccountId") REFERENCES "Account"("organizationId", "id") ON DELETE NO ACTION ON UPDATE CASCADE;
 ALTER TABLE "FxAccountConfiguration" ADD CONSTRAINT "FxAccountConfiguration_realizedLossAccount_fkey" FOREIGN KEY ("organizationId", "realizedLossAccountId") REFERENCES "Account"("organizationId", "id") ON DELETE NO ACTION ON UPDATE CASCADE;

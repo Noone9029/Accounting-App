@@ -36,6 +36,7 @@ describe("ForeignExchangeService", () => {
         rateDate: new Date("2026-07-10T00:00:00.000Z"),
         source: CurrencyRateSource.MANUAL,
         sourceReference: "Treasury sheet",
+        createdByUserId: "user-1",
       },
     });
     expect(audit.log).toHaveBeenCalledWith(
