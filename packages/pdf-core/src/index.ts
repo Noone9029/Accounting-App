@@ -663,6 +663,7 @@ export interface ReportPdfAccountBalance {
 export interface GeneralLedgerReportPdfData {
   organization: PdfOrganization;
   currency: string;
+  filters?: ReportDimensionFiltersPdfData;
   from: string | null;
   to: string | null;
   accounts: Array<
@@ -684,6 +685,7 @@ export interface GeneralLedgerReportPdfData {
 export interface TrialBalanceReportPdfData {
   organization: PdfOrganization;
   currency: string;
+  filters?: ReportDimensionFiltersPdfData;
   from: string | null;
   to: string | null;
   accounts: ReportPdfAccountBalance[];
@@ -694,6 +696,7 @@ export interface TrialBalanceReportPdfData {
 export interface ProfitAndLossReportPdfData {
   organization: PdfOrganization;
   currency: string;
+  filters?: ReportDimensionFiltersPdfData;
   from: string | null;
   to: string | null;
   revenue: string;
@@ -712,6 +715,7 @@ export interface ProfitAndLossReportPdfData {
 export interface BalanceSheetReportPdfData {
   organization: PdfOrganization;
   currency: string;
+  filters?: ReportDimensionFiltersPdfData;
   asOf: string | null;
   assets: ReportAmountSectionPdfData;
   liabilities: ReportAmountSectionPdfData;
@@ -732,6 +736,7 @@ export interface ReportAmountSectionPdfData {
 export interface VatSummaryReportPdfData {
   organization: PdfOrganization;
   currency: string;
+  filters?: ReportDimensionFiltersPdfData;
   from: string | null;
   to: string | null;
   salesVat: string;
@@ -740,6 +745,11 @@ export interface VatSummaryReportPdfData {
   sections: Array<{ category: string; accountCode: string; amount: string; taxAmount: string }>;
   notes: string[];
   generatedAt: string | Date;
+}
+
+export interface ReportDimensionFiltersPdfData {
+  costCenter?: { id: string; code: string; name: string; status: string } | null;
+  project?: { id: string; code: string; name: string; status: string } | null;
 }
 
 export interface AgingReportPdfData {
@@ -1698,7 +1708,7 @@ export async function renderGeneralLedgerReportPdf(data: GeneralLedgerReportPdfD
   const renderSettings = resolveSettings(settings, "General Ledger");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters)], data.generatedAt, renderSettings);
 
     if (data.accounts.length === 0) {
       writeMuted(doc, "No posted journal activity found for this period.");
@@ -1760,7 +1770,7 @@ export async function renderTrialBalanceReportPdf(data: TrialBalanceReportPdfDat
   const renderSettings = resolveSettings(settings, "Trial Balance");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ["Status", data.totals.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters), ["Status", data.totals.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
     drawAccountBalanceTable(doc, data.accounts, data.totals, data.currency, renderSettings);
   }, renderSettings);
 }
@@ -1769,7 +1779,7 @@ export async function renderProfitAndLossReportPdf(data: ProfitAndLossReportPdfD
   const renderSettings = resolveSettings(settings, "Profit & Loss");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters)], data.generatedAt, renderSettings);
     writeTotals(doc, data.currency, [
       ["Revenue", data.revenue],
       ["Cost of sales", data.costOfSales],
@@ -1787,7 +1797,7 @@ export async function renderBalanceSheetReportPdf(data: BalanceSheetReportPdfDat
   const renderSettings = resolveSettings(settings, "Balance Sheet");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ["Status", data.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ...reportDimensionRows(data.filters), ["Status", data.balanced ? "Balanced" : "Out of balance"]], data.generatedAt, renderSettings);
     writeAmountSection(doc, "Assets", data.assets.accounts, data.assets.total, data.currency, renderSettings);
     writeAmountSection(doc, "Liabilities", data.liabilities.accounts, data.liabilities.total, data.currency, renderSettings);
     writeAmountSection(doc, "Equity", data.equity.accounts, data.equity.total, data.currency, renderSettings);
@@ -1804,7 +1814,7 @@ export async function renderVatSummaryReportPdf(data: VatSummaryReportPdfData, s
   const renderSettings = resolveSettings(settings, "VAT Summary");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters)], data.generatedAt, renderSettings);
     writeMuted(doc, "VAT Summary is not an official VAT return filing.");
     writeTotals(doc, data.currency, [
       ["Sales VAT", data.salesVat],
@@ -1959,6 +1969,17 @@ function writeReportMeta(
     ],
     settings,
   );
+}
+
+function reportDimensionRows(filters: ReportDimensionFiltersPdfData | undefined): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+  if (filters?.costCenter) {
+    rows.push(["Cost Center", `${filters.costCenter.code} - ${filters.costCenter.name}`]);
+  }
+  if (filters?.project) {
+    rows.push(["Project", `${filters.project.code} - ${filters.project.name}`]);
+  }
+  return rows;
 }
 
 function drawAccountBalanceTable(

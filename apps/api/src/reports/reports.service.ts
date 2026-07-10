@@ -1212,7 +1212,7 @@ function reportDocumentType(kind: CoreReportKind): DocumentType {
 
 function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
   const params = new URLSearchParams();
-  for (const key of ["from", "to", "asOf", "accountId", "branchId", "includeZero"] as const) {
+  for (const key of ["from", "to", "asOf", "accountId", "branchId", "costCenterId", "projectId", "includeZero"] as const) {
     const value = query[key];
     if (value !== undefined && value !== null && value !== "") {
       const normalizedValue = String(value).trim();

@@ -63,8 +63,6 @@ describe("AccountingService journal dimensions", () => {
     const prisma = {
       account: { findMany: jest.fn() },
       taxRate: { findMany: jest.fn() },
-      costCenter: { findMany: jest.fn() },
-      project: { findMany: jest.fn() },
       journalLine: { deleteMany: jest.fn() },
       journalEntry: {
         findMany: jest.fn(),
@@ -72,6 +70,7 @@ describe("AccountingService journal dimensions", () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      $queryRaw: jest.fn(),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma));
@@ -98,28 +97,16 @@ describe("AccountingService journal dimensions", () => {
   it("creates a journal with same-tenant active dimension connections", async () => {
     const { service, prisma } = makeService();
     allowAccounts(prisma);
-    prisma.costCenter.findMany.mockResolvedValue([{ id: "cost-center-1" }]);
-    prisma.project.findMany.mockResolvedValue([{ id: "project-1" }]);
+    prisma.$queryRaw
+      .mockResolvedValueOnce([{ id: "cost-center-1" }])
+      .mockResolvedValueOnce([{ id: "project-1" }]);
     prisma.journalEntry.create.mockResolvedValue(journal);
 
     await expect(service.create("org-1", "user-1", createDto() as never)).resolves.toEqual(journal);
 
-    expect(prisma.costCenter.findMany).toHaveBeenCalledWith({
-      where: {
-        organizationId: "org-1",
-        id: { in: ["cost-center-1"] },
-        status: DimensionStatus.ACTIVE,
-      },
-      select: { id: true },
-    });
-    expect(prisma.project.findMany).toHaveBeenCalledWith({
-      where: {
-        organizationId: "org-1",
-        id: { in: ["project-1"] },
-        status: DimensionStatus.ACTIVE,
-      },
-      select: { id: true },
-    });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[0]![0])).toContain('FROM "CostCenter"');
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[1]![0])).toContain('FROM "Project"');
     expect(prisma.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -137,6 +124,38 @@ describe("AccountingService journal dimensions", () => {
     );
   });
 
+  it("waits for tenant-scoped active dimension row locks inside the create transaction before writing", async () => {
+    const { service, prisma } = makeService();
+    allowAccounts(prisma);
+    prisma.journalEntry.create.mockResolvedValue(journal);
+    let releaseCostCenterLock!: (rows: Array<{ id: string }>) => void;
+    const costCenterLock = new Promise<Array<{ id: string }>>((resolve) => {
+      releaseCostCenterLock = resolve;
+    });
+    prisma.$queryRaw
+      .mockImplementationOnce(() => costCenterLock)
+      .mockResolvedValueOnce([{ id: "project-1" }]);
+
+    const pending = service.create("org-1", "user-1", createDto() as never);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+
+    releaseCostCenterLock([{ id: "cost-center-1" }]);
+    await expect(pending).resolves.toEqual(journal);
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    for (const [query] of prisma.$queryRaw.mock.calls) {
+      const sql = rawSqlText(query);
+      expect(sql).toContain('"organizationId"');
+      expect(sql).toContain('"status"');
+      expect(sql).toContain("FOR UPDATE");
+    }
+    expect(prisma.$queryRaw.mock.invocationCallOrder[1]!).toBeLessThan(prisma.journalEntry.create.mock.invocationCallOrder[0]!);
+  });
+
   it.each([
     ["missing cost center", "costCenter", "missing-cost-center", "One or more cost centers do not exist or are archived."],
     ["cross-tenant cost center", "costCenter", "other-tenant-cost-center", "One or more cost centers do not exist or are archived."],
@@ -152,21 +171,18 @@ describe("AccountingService journal dimensions", () => {
       costCenterId: dimension === "costCenter" ? dimensionId : null,
       projectId: dimension === "project" ? dimensionId : null,
     }));
-    prisma.costCenter.findMany.mockResolvedValue([]);
-    prisma.project.findMany.mockResolvedValue([]);
+    prisma.$queryRaw.mockResolvedValue([]);
     prisma.journalEntry.create.mockResolvedValue(journal);
 
     await expect(service.create("org-1", "user-1", createDto(lines) as never)).rejects.toEqual(new BadRequestException(message));
-    const catalog = dimension === "costCenter" ? prisma.costCenter : prisma.project;
-    expect(catalog.findMany).toHaveBeenCalledWith({
-      where: {
-        organizationId: "org-1",
-        id: { in: [dimensionId] },
-        status: DimensionStatus.ACTIVE,
-      },
-      select: { id: true },
-    });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    const sql = rawSqlText(prisma.$queryRaw.mock.calls[0]![0]);
+    expect(sql).toContain(dimension === "costCenter" ? 'FROM "CostCenter"' : 'FROM "Project"');
+    expect(sql).toContain('"organizationId"');
+    expect(sql).toContain('"status"');
+    expect(sql).toContain("FOR UPDATE");
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
   });
 
   it("does not query either dimension catalog when assignments are absent", async () => {
@@ -177,8 +193,7 @@ describe("AccountingService journal dimensions", () => {
 
     await service.create("org-1", "user-1", createDto(lines as never) as never);
 
-    expect(prisma.costCenter.findMany).not.toHaveBeenCalled();
-    expect(prisma.project.findMany).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("retains an archived assignment on a header-only update without active-dimension revalidation", async () => {
@@ -189,8 +204,7 @@ describe("AccountingService journal dimensions", () => {
 
     await service.update("org-1", "user-1", "journal-1", { description: "Updated header" });
 
-    expect(prisma.costCenter.findMany).not.toHaveBeenCalled();
-    expect(prisma.project.findMany).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prisma.journalLine.deleteMany).not.toHaveBeenCalled();
     expect(prisma.journalEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -205,13 +219,43 @@ describe("AccountingService journal dimensions", () => {
     const { service, prisma } = makeService();
     allowAccounts(prisma);
     prisma.journalEntry.findFirst.mockResolvedValue(journal);
-    prisma.costCenter.findMany.mockResolvedValue([]);
-    prisma.project.findMany.mockResolvedValue([{ id: "project-1" }]);
+    prisma.$queryRaw.mockResolvedValue([]);
 
     await expect(service.update("org-1", "user-1", "journal-1", { lines: dimensionedLines } as never)).rejects.toEqual(
       new BadRequestException("One or more cost centers do not exist or are archived."),
     );
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.journalLine.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.journalEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("locks replacement dimensions before deleting or recreating journal lines", async () => {
+    const { service, prisma } = makeService();
+    allowAccounts(prisma);
+    prisma.journalEntry.findFirst.mockResolvedValue(journal);
+    prisma.journalLine.deleteMany.mockResolvedValue({ count: 2 });
+    prisma.journalEntry.update.mockResolvedValue(journal);
+    let releaseCostCenterLock!: (rows: Array<{ id: string }>) => void;
+    const costCenterLock = new Promise<Array<{ id: string }>>((resolve) => {
+      releaseCostCenterLock = resolve;
+    });
+    prisma.$queryRaw
+      .mockImplementationOnce(() => costCenterLock)
+      .mockResolvedValueOnce([{ id: "project-1" }]);
+
+    const pending = service.update("org-1", "user-1", "journal-1", { lines: dimensionedLines } as never);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.journalLine.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.journalEntry.update).not.toHaveBeenCalled();
+
+    releaseCostCenterLock([{ id: "cost-center-1" }]);
+    await expect(pending).resolves.toEqual(journal);
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(prisma.$queryRaw.mock.invocationCallOrder[1]!).toBeLessThan(prisma.journalLine.deleteMany.mock.invocationCallOrder[0]!);
   });
 
   it("selects assignment IDs in list summaries", async () => {
@@ -264,8 +308,7 @@ describe("AccountingService journal dimensions", () => {
 
     await service.reverse("org-1", "user-1", "journal-1");
 
-    expect(prisma.costCenter.findMany).not.toHaveBeenCalled();
-    expect(prisma.project.findMany).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prisma.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -284,3 +327,10 @@ describe("AccountingService journal dimensions", () => {
     );
   });
 });
+
+function rawSqlText(query: unknown): string {
+  if (typeof query === "object" && query !== null && "strings" in query) {
+    return Array.from((query as { strings: Iterable<string> }).strings).join("?");
+  }
+  return String(query);
+}

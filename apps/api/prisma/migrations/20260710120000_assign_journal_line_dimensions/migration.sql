@@ -7,8 +7,8 @@ CREATE INDEX "JournalLine_organizationId_projectId_idx" ON "JournalLine"("organi
 
 ALTER TABLE "JournalLine"
 ADD CONSTRAINT "JournalLine_costCenterId_fkey"
-FOREIGN KEY ("costCenterId") REFERENCES "CostCenter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+FOREIGN KEY ("costCenterId") REFERENCES "CostCenter"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 ALTER TABLE "JournalLine"
 ADD CONSTRAINT "JournalLine_projectId_fkey"
-FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE NO ACTION ON UPDATE CASCADE;

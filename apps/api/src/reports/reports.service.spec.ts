@@ -1280,6 +1280,36 @@ describe("reports service builders", () => {
       }),
     );
   });
+
+  it("includes dimension identifiers in the archived source identity for filtered PDFs", async () => {
+    const prisma = {
+      ...dimensionReportPrisma(),
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "org-1",
+          name: "LedgerByte Demo",
+          legalName: null,
+          taxNumber: null,
+          countryCode: "SA",
+          baseCurrency: "SAR",
+        }),
+      },
+    };
+    const documentSettings = { statementRenderSettings: jest.fn().mockResolvedValue({}) };
+    const generatedDocuments = { archivePdf: jest.fn().mockResolvedValue({ id: "doc-1" }) };
+    const service = new ReportsService(prisma as never, documentSettings as never, generatedDocuments as never);
+
+    await service.coreReportPdf("org-1", "user-1", "trial-balance", {
+      costCenterId: "cost-center-1",
+      projectId: "project-1",
+    });
+
+    expect(generatedDocuments.archivePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceId: "trial-balance?costCenterId=cost-center-1&projectId=project-1",
+      }),
+    );
+  });
 });
 
 function line(accountId: string, date: string, debit: string, credit: string, description = "Line") {

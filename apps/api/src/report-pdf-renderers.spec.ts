@@ -1,4 +1,12 @@
-import { renderBankReconciliationReportPdf, renderTrialBalanceReportPdf } from "@ledgerbyte/pdf-core";
+import {
+  renderBalanceSheetReportPdf,
+  renderBankReconciliationReportPdf,
+  renderGeneralLedgerReportPdf,
+  renderProfitAndLossReportPdf,
+  renderTrialBalanceReportPdf,
+  renderVatSummaryReportPdf,
+} from "@ledgerbyte/pdf-core";
+import PDFDocument from "pdfkit";
 
 const organization = {
   name: "LedgerByte Demo",
@@ -92,4 +100,113 @@ describe("report PDF renderers", () => {
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.byteLength).toBeGreaterThan(500);
   });
+
+  it.each([
+    [
+      "general ledger",
+      renderGeneralLedgerReportPdf,
+      {
+        organization,
+        currency: "SAR",
+        from: "2026-05-01",
+        to: "2026-05-31",
+        accounts: [],
+        generatedAt: "2026-05-13T10:00:00.000Z",
+      },
+    ],
+    [
+      "trial balance",
+      renderTrialBalanceReportPdf,
+      {
+        organization,
+        currency: "SAR",
+        from: "2026-05-01",
+        to: "2026-05-31",
+        accounts: [],
+        totals: emptyAccountTotals({ balanced: true }),
+        generatedAt: "2026-05-13T10:00:00.000Z",
+      },
+    ],
+    [
+      "profit and loss",
+      renderProfitAndLossReportPdf,
+      {
+        organization,
+        currency: "SAR",
+        from: "2026-05-01",
+        to: "2026-05-31",
+        revenue: "0.0000",
+        costOfSales: "0.0000",
+        grossProfit: "0.0000",
+        expenses: "0.0000",
+        netProfit: "0.0000",
+        sections: [],
+        generatedAt: "2026-05-13T10:00:00.000Z",
+      },
+    ],
+    [
+      "balance sheet",
+      renderBalanceSheetReportPdf,
+      {
+        organization,
+        currency: "SAR",
+        asOf: "2026-05-31",
+        assets: { total: "0.0000", accounts: [] },
+        liabilities: { total: "0.0000", accounts: [] },
+        equity: { total: "0.0000", accounts: [] },
+        retainedEarnings: "0.0000",
+        totalAssets: "0.0000",
+        totalLiabilitiesAndEquity: "0.0000",
+        difference: "0.0000",
+        balanced: true,
+        generatedAt: "2026-05-13T10:00:00.000Z",
+      },
+    ],
+    [
+      "VAT summary",
+      renderVatSummaryReportPdf,
+      {
+        organization,
+        currency: "SAR",
+        from: "2026-05-01",
+        to: "2026-05-31",
+        salesVat: "0.0000",
+        purchaseVat: "0.0000",
+        netVatPayable: "0.0000",
+        sections: [],
+        notes: [],
+        generatedAt: "2026-05-13T10:00:00.000Z",
+      },
+    ],
+  ])("prints readable dimension labels in the %s PDF", async (_name, render, baseData) => {
+    const textSpy = jest.spyOn(PDFDocument.prototype, "text");
+
+    try {
+      await render({
+        ...baseData,
+        filters: {
+          costCenter: { id: "cost-center-1", code: "CC-OPS", name: "Operations", status: "ACTIVE" },
+          project: { id: "project-1", code: "PRJ-ALPHA", name: "Alpha", status: "ARCHIVED" },
+        },
+      } as never);
+
+      const renderedText = textSpy.mock.calls.map(([value]) => String(value)).join("\n");
+      expect(renderedText).toContain("Cost Center: CC-OPS - Operations");
+      expect(renderedText).toContain("Project: PRJ-ALPHA - Alpha");
+    } finally {
+      textSpy.mockRestore();
+    }
+  });
 });
+
+function emptyAccountTotals(extra: { balanced: boolean }) {
+  return {
+    openingDebit: "0.0000",
+    openingCredit: "0.0000",
+    periodDebit: "0.0000",
+    periodCredit: "0.0000",
+    closingDebit: "0.0000",
+    closingCredit: "0.0000",
+    ...extra,
+  };
+}

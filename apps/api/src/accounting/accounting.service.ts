@@ -81,10 +81,10 @@ export class AccountingService {
   async create(organizationId: string, actorUserId: string, dto: CreateJournalEntryDto) {
     this.assertBalanced(dto.lines);
     await this.validateLineReferences(organizationId, dto.lines);
-    await this.validateLineDimensions(organizationId, dto.lines);
     const totals = getJournalTotals(dto.lines);
 
     const entry = await this.prisma.$transaction(async (tx) => {
+      await this.lockActiveLineDimensions(tx, organizationId, dto.lines);
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
 
       return tx.journalEntry.create({
@@ -117,13 +117,11 @@ export class AccountingService {
     const nextLines = dto.lines ?? this.toCoreLines(existing.lines);
     this.assertBalanced(nextLines);
     await this.validateLineReferences(organizationId, nextLines);
-    if (dto.lines) {
-      await this.validateLineDimensions(organizationId, dto.lines);
-    }
     const totals = getJournalTotals(nextLines);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.lines) {
+        await this.lockActiveLineDimensions(tx, organizationId, dto.lines);
         await tx.journalLine.deleteMany({ where: { journalEntryId: id, organizationId } });
       }
 
@@ -327,17 +325,22 @@ export class AccountingService {
     }
   }
 
-  private async validateLineDimensions(organizationId: string, lines: JournalLineInput[]): Promise<void> {
+  private async lockActiveLineDimensions(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    lines: JournalLineInput[],
+  ): Promise<void> {
     const costCenterIds = [...new Set(lines.map((line) => line.costCenterId).filter((value): value is string => Boolean(value)))];
     if (costCenterIds.length > 0) {
-      const costCenters = await this.prisma.costCenter.findMany({
-        where: {
-          organizationId,
-          id: { in: costCenterIds },
-          status: DimensionStatus.ACTIVE,
-        },
-        select: { id: true },
-      });
+      const costCenters = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "CostCenter"
+        WHERE "organizationId" = ${organizationId}::uuid
+          AND "id" IN (${Prisma.join(costCenterIds.map((id) => Prisma.sql`${id}::uuid`))})
+          AND "status" = ${DimensionStatus.ACTIVE}::"DimensionStatus"
+        ORDER BY "id"
+        FOR UPDATE
+      `);
 
       if (costCenters.length !== costCenterIds.length) {
         throw new BadRequestException("One or more cost centers do not exist or are archived.");
@@ -346,14 +349,15 @@ export class AccountingService {
 
     const projectIds = [...new Set(lines.map((line) => line.projectId).filter((value): value is string => Boolean(value)))];
     if (projectIds.length > 0) {
-      const projects = await this.prisma.project.findMany({
-        where: {
-          organizationId,
-          id: { in: projectIds },
-          status: DimensionStatus.ACTIVE,
-        },
-        select: { id: true },
-      });
+      const projects = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "Project"
+        WHERE "organizationId" = ${organizationId}::uuid
+          AND "id" IN (${Prisma.join(projectIds.map((id) => Prisma.sql`${id}::uuid`))})
+          AND "status" = ${DimensionStatus.ACTIVE}::"DimensionStatus"
+        ORDER BY "id"
+        FOR UPDATE
+      `);
 
       if (projects.length !== projectIds.length) {
         throw new BadRequestException("One or more projects do not exist or are archived.");

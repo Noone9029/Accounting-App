@@ -5499,8 +5499,8 @@ model JournalLine {
   journalEntry                     JournalEntry               @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
   account                          Account                    @relation(fields: [accountId], references: [id])
   taxRate                          TaxRate?                   @relation(fields: [taxRateId], references: [id])
-  costCenter                       CostCenter?                @relation(fields: [costCenterId], references: [id])
-  project                          Project?                   @relation(fields: [projectId], references: [id])
+  costCenter                       CostCenter?                @relation(fields: [costCenterId], references: [id], onDelete: NoAction)
+  project                          Project?                   @relation(fields: [projectId], references: [id], onDelete: NoAction)
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalLine")
 
   @@index([organizationId])
