@@ -17,6 +17,30 @@ export class BaseCurrencyPostingGuardService {
     currency: string,
     executor: OrganizationExecutor = this.prisma,
   ): Promise<void> {
+    const baseCurrency = await this.baseCurrency(organizationId, executor);
+    if (!this.matchesBaseCurrency(currency, baseCurrency)) {
+      throw new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE);
+    }
+  }
+
+  async assertJournalPostingAllowed(
+    organizationId: string,
+    currency: string,
+    lines: ReadonlyArray<{ currency: string; exchangeRate: unknown }>,
+    executor: OrganizationExecutor = this.prisma,
+  ): Promise<void> {
+    const baseCurrency = await this.baseCurrency(organizationId, executor);
+    const invalid =
+      !this.matchesBaseCurrency(currency, baseCurrency) ||
+      lines.some(
+        (line) => !this.matchesBaseCurrency(line.currency, baseCurrency) || !this.isRateOne(line.exchangeRate),
+      );
+    if (invalid) {
+      throw new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE);
+    }
+  }
+
+  private async baseCurrency(organizationId: string, executor: OrganizationExecutor): Promise<string> {
     const organization = await executor.organization.findUnique({
       where: { id: organizationId },
       select: { baseCurrency: true },
@@ -24,11 +48,22 @@ export class BaseCurrencyPostingGuardService {
     if (!organization) {
       throw new NotFoundException("Organization not found.");
     }
-
     const baseCurrency = normalizeSupportedCurrencyCode(organization.baseCurrency);
-    const postingCurrency = normalizeSupportedCurrencyCode(currency);
-    if (!baseCurrency || !postingCurrency || postingCurrency !== baseCurrency) {
+    if (!baseCurrency) {
       throw new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE);
+    }
+    return baseCurrency;
+  }
+
+  private matchesBaseCurrency(currency: string, baseCurrency: string): boolean {
+    return normalizeSupportedCurrencyCode(currency) === baseCurrency;
+  }
+
+  private isRateOne(exchangeRate: unknown): boolean {
+    try {
+      return new Prisma.Decimal(String(exchangeRate)).eq(1);
+    } catch {
+      return false;
     }
   }
 }

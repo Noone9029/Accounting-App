@@ -189,9 +189,17 @@ describe("FX persistence schema", () => {
     expect(migration).toContain('NEW."status" = \'POSTED\'');
     expect(migration).toContain('NEW."reversalOfId" IS NULL');
     expect(migration).toContain('UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization_base_currency))');
+    expect(migration).toContain('FROM "JournalLine" AS line');
+    expect(migration).toContain('line."exchangeRate" <> 1');
     expect(migration).toContain("ERRCODE = 'check_violation'");
     expect(migration).toContain(
       'CREATE TRIGGER "JournalEntry_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "status", "currency", "organizationId", "reversalOfId" ON "JournalEntry"',
+    );
+    expect(migration).toContain('CREATE FUNCTION "enforce_journal_line_base_currency_posting"()');
+    expect(migration).toContain('journal_entry."status" = \'POSTED\'');
+    expect(migration).toContain('journal_entry."reversalOfId" IS NULL');
+    expect(migration).toContain(
+      'CREATE TRIGGER "JournalLine_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "currency", "exchangeRate", "journalEntryId" ON "JournalLine"',
     );
   });
 });

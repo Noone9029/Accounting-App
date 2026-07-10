@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertBalancedJournal,
@@ -10,6 +10,7 @@ import {
 import { DimensionStatus, JournalEntryStatus, NumberSequenceScope, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateJournalEntryDto } from "./dto/create-journal-entry.dto";
@@ -37,6 +38,7 @@ export class AccountingService {
     private readonly auditLogService: AuditLogService,
     private readonly numberSequenceService: NumberSequenceService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -162,6 +164,11 @@ export class AccountingService {
     const lines = this.toCoreLines(existing.lines);
     this.assertBalanced(lines);
     const totals = getJournalTotals(lines);
+    await this.baseCurrencyPostingGuardService?.assertJournalPostingAllowed(
+      organizationId,
+      existing.currency,
+      existing.lines,
+    );
     await this.assertPostingDateAllowed(organizationId, existing.entryDate);
 
     const posted = await this.prisma.journalEntry.update({

@@ -114,6 +114,42 @@ describe("journal accounting rules", () => {
     expect(guard.assertPostingDateAllowed).toHaveBeenCalledWith("org-1", new Date("2026-01-15T00:00:00.000Z"), undefined);
     expect(prisma.journalEntry.update).not.toHaveBeenCalled();
   });
+
+  it("blocks draft journals with foreign lines or non-one rates before status changes", async () => {
+    const prisma = { journalEntry: { update: jest.fn() } };
+    const postingGuard = {
+      assertJournalPostingAllowed: jest.fn().mockRejectedValue(new Error("Foreign-currency posting is disabled.")),
+    };
+    const service = new AccountingService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      undefined,
+      postingGuard as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({
+      ...makePostedJournal(),
+      status: JournalEntryStatus.DRAFT,
+      currency: "AED",
+      lines: [
+        { ...makePostedJournal().lines[0], currency: "USD" },
+        { ...makePostedJournal().lines[1], currency: "AED", exchangeRate: "1.10000000" },
+      ],
+    } as never);
+
+    await expect(service.post("org-1", "user-1", "journal-1")).rejects.toThrow(
+      "Foreign-currency posting is disabled.",
+    );
+    expect(postingGuard.assertJournalPostingAllowed).toHaveBeenCalledWith(
+      "org-1",
+      "AED",
+      [
+        expect.objectContaining({ currency: "USD", exchangeRate: "1.00000000" }),
+        expect.objectContaining({ currency: "AED", exchangeRate: "1.10000000" }),
+      ],
+    );
+    expect(prisma.journalEntry.update).not.toHaveBeenCalled();
+  });
 });
 
 function makePostedJournal() {

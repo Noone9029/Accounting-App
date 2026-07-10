@@ -78,7 +78,16 @@ BEGIN
         WHERE "id" = NEW."organizationId";
 
         IF organization_base_currency IS NULL
-           OR UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization_base_currency)) THEN
+           OR UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization_base_currency))
+           OR EXISTS (
+               SELECT 1
+               FROM "JournalLine" AS line
+               WHERE line."journalEntryId" = NEW."id"
+                 AND (
+                   UPPER(BTRIM(line."currency")) <> UPPER(BTRIM(organization_base_currency))
+                   OR line."exchangeRate" <> 1
+                 )
+           ) THEN
             RAISE EXCEPTION 'Foreign-currency posting is disabled until FX accounting controls are complete.'
               USING ERRCODE = 'check_violation';
         END IF;
@@ -90,6 +99,34 @@ $$;
 
 CREATE TRIGGER "JournalEntry_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "status", "currency", "organizationId", "reversalOfId" ON "JournalEntry"
 FOR EACH ROW EXECUTE FUNCTION "enforce_base_currency_posting"();
+
+CREATE FUNCTION "enforce_journal_line_base_currency_posting"()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM "JournalEntry" AS journal_entry
+        JOIN "Organization" AS organization ON organization."id" = journal_entry."organizationId"
+        WHERE journal_entry."id" = NEW."journalEntryId"
+          AND journal_entry."status" = 'POSTED'
+          AND journal_entry."reversalOfId" IS NULL
+          AND (
+            UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization."baseCurrency"))
+            OR NEW."exchangeRate" <> 1
+          )
+    ) THEN
+        RAISE EXCEPTION 'Foreign-currency posting is disabled until FX accounting controls are complete.'
+          USING ERRCODE = 'check_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER "JournalLine_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "currency", "exchangeRate", "journalEntryId" ON "JournalLine"
+FOR EACH ROW EXECUTE FUNCTION "enforce_journal_line_base_currency_posting"();
 
 REVOKE ALL PRIVILEGES ON TABLE "CurrencyRateSnapshot" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE "FxAccountConfiguration" FROM PUBLIC;

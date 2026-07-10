@@ -46,6 +46,23 @@ describe("BaseCurrencyPostingGuardService", () => {
     });
     expect(prisma.organization.findUnique).not.toHaveBeenCalled();
   });
+
+  it("requires every forward journal line to use base currency at rate one", async () => {
+    const { service } = makeService("AED");
+
+    await expect(
+      service.assertJournalPostingAllowed("org-1", "AED", [
+        { currency: "AED", exchangeRate: "1.00000000" },
+        { currency: " aed ", exchangeRate: "1" },
+      ]),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.assertJournalPostingAllowed("org-1", "AED", [{ currency: "USD", exchangeRate: "1" }]),
+    ).rejects.toEqual(new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE));
+    await expect(
+      service.assertJournalPostingAllowed("org-1", "AED", [{ currency: "AED", exchangeRate: "1.1" }]),
+    ).rejects.toEqual(new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE));
+  });
 });
 
 describe("base-currency posting guard coverage", () => {
@@ -59,8 +76,9 @@ describe("base-currency posting guard coverage", () => {
     "customer-refunds/customer-refund.service.ts",
     "supplier-refunds/supplier-refund.service.ts",
     "cash-expenses/cash-expense.service.ts",
+    "accounting/accounting.service.ts",
   ])("wires the application guard into %s", (relativePath) => {
     const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
-    expect(source).toContain("baseCurrencyPostingGuardService?.assertPostingAllowed");
+    expect(source).toContain("baseCurrencyPostingGuardService?.assert");
   });
 });
