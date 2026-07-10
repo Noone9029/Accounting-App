@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
 import { SupplierRefundPdfData, renderSupplierRefundPdf } from "@ledgerbyte/pdf-core";
 import {
@@ -17,6 +17,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateSupplierRefundDto } from "./dto/create-supplier-refund.dto";
@@ -71,6 +72,7 @@ export class SupplierRefundService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -152,6 +154,7 @@ export class SupplierRefundService {
       const receivedIntoAccount = await this.findReceivedIntoAccount(organizationId, dto.accountId, tx);
       const source = await this.claimRefundSource(organizationId, dto, amountRefunded.toFixed(4), tx);
       const currency = this.resolveCurrency(dto.currency, source.currency);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, currency, tx);
       const refundNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.SUPPLIER_REFUND, tx);
       const accountsPayableAccount = await this.findPostingAccountByCode(organizationId, "210", tx);
       const journalLines = buildSupplierRefundJournalLines({

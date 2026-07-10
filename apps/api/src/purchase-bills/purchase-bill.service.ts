@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -29,6 +29,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
@@ -173,6 +174,7 @@ export class PurchaseBillService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -657,6 +659,7 @@ export class PurchaseBillService {
         throw new BadRequestException("Only draft purchase bills can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, bill.billDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, bill.currency, tx);
 
       this.assertFinalizablePurchaseBill({
         subtotal: String(bill.subtotal),

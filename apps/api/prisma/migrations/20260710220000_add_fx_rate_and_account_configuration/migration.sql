@@ -64,6 +64,33 @@ END
 WHERE "isSystem" = true
   AND "name" IN ('Owner', 'Admin', 'Accountant', 'Sales', 'Purchases', 'Viewer');
 
+CREATE FUNCTION "enforce_base_currency_posting"()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    organization_base_currency TEXT;
+BEGIN
+    IF NEW."status" = 'POSTED' AND NEW."reversalOfId" IS NULL THEN
+        SELECT "baseCurrency"
+        INTO organization_base_currency
+        FROM "Organization"
+        WHERE "id" = NEW."organizationId";
+
+        IF organization_base_currency IS NULL
+           OR UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization_base_currency)) THEN
+            RAISE EXCEPTION 'Foreign-currency posting is disabled until FX accounting controls are complete.'
+              USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER "JournalEntry_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "status", "currency", "organizationId", "reversalOfId" ON "JournalEntry"
+FOR EACH ROW EXECUTE FUNCTION "enforce_base_currency_posting"();
+
 REVOKE ALL PRIVILEGES ON TABLE "CurrencyRateSnapshot" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE "FxAccountConfiguration" FROM PUBLIC;
 

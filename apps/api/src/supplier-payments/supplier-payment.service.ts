@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
 import { SupplierPaymentReceiptPdfData, renderSupplierPaymentReceiptPdf } from "@ledgerbyte/pdf-core";
 import {
@@ -16,6 +16,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
@@ -84,6 +85,7 @@ export class SupplierPaymentService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -447,6 +449,7 @@ export class SupplierPaymentService {
     const payment = await this.prisma.$transaction(async (tx) => {
       const paymentDate = new Date(dto.paymentDate);
       await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, currency, tx);
       const supplier = await tx.contact.findFirst({
         where: {
           id: dto.supplierId,

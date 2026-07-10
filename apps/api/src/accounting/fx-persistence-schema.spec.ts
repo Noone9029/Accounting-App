@@ -183,4 +183,15 @@ describe("FX persistence schema", () => {
       'AND "name" IN (\'Owner\', \'Admin\', \'Accountant\', \'Sales\', \'Purchases\', \'Viewer\')',
     );
   });
+
+  it("enforces base-currency posting at the database boundary while preserving reversals", () => {
+    expect(migration).toContain('CREATE FUNCTION "enforce_base_currency_posting"()');
+    expect(migration).toContain('NEW."status" = \'POSTED\'');
+    expect(migration).toContain('NEW."reversalOfId" IS NULL');
+    expect(migration).toContain('UPPER(BTRIM(NEW."currency")) <> UPPER(BTRIM(organization_base_currency))');
+    expect(migration).toContain("ERRCODE = 'check_violation'");
+    expect(migration).toContain(
+      'CREATE TRIGGER "JournalEntry_base_currency_posting_guard" BEFORE INSERT OR UPDATE OF "status", "currency", "organizationId", "reversalOfId" ON "JournalEntry"',
+    );
+  });
 });

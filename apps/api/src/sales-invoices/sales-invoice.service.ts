@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertDraftInvoiceEditable,
@@ -29,6 +29,7 @@ import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetadataInput } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -154,6 +155,7 @@ export class SalesInvoiceService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -566,6 +568,7 @@ export class SalesInvoiceService {
         throw new BadRequestException("Only draft invoices can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, invoice.issueDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, invoice.currency, tx);
 
       this.assertFinalizableInvoice({
         subtotal: String(invoice.subtotal),

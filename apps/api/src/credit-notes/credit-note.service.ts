@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -25,6 +25,7 @@ import {
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
+import { BaseCurrencyPostingGuardService } from "../foreign-exchange/base-currency-posting-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -113,6 +114,7 @@ export class CreditNoteService {
     private readonly documentSettingsService?: OrganizationDocumentSettingsService,
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
+    @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
   ) {}
 
   list(organizationId: string) {
@@ -724,6 +726,7 @@ export class CreditNoteService {
         throw new BadRequestException("Only draft credit notes can be finalized.");
       }
       await this.assertPostingDateAllowed(organizationId, creditNote.issueDate, tx);
+      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, creditNote.currency, tx);
 
       this.assertFinalizableCreditNote({
         subtotal: String(creditNote.subtotal),
