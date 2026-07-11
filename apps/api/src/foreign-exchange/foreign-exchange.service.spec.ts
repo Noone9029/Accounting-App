@@ -6,7 +6,7 @@ describe("ForeignExchangeService", () => {
   function makeService() {
     const prisma: any = {
       organization: { findUnique: jest.fn() },
-      currencyRateSnapshot: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
+      currencyRateSnapshot: { findMany: jest.fn(), count: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
       fxAccountConfiguration: { findUnique: jest.fn(), upsert: jest.fn() },
       account: { findMany: jest.fn() },
     };
@@ -74,8 +74,11 @@ describe("ForeignExchangeService", () => {
     const { service, prisma } = makeService();
     prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "SAR" });
     prisma.currencyRateSnapshot.findMany.mockResolvedValue([]);
+    prisma.currencyRateSnapshot.count.mockResolvedValue(17);
 
-    await service.listRates("org-2", { transactionCurrency: "USD", rateDate: "2026-07-10" });
+    await expect(service.listRates("org-2", { transactionCurrency: "USD", rateDate: "2026-07-10" })).resolves.toMatchObject({
+      pagination: { page: 1, limit: 50, hasMore: false, totalItems: 17 },
+    });
 
     expect(prisma.currencyRateSnapshot.findMany).toHaveBeenCalledWith({
       where: {
@@ -87,6 +90,14 @@ describe("ForeignExchangeService", () => {
       orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       skip: 0,
       take: 51,
+    });
+    expect(prisma.currencyRateSnapshot.count).toHaveBeenCalledWith({
+      where: {
+        organizationId: "org-2",
+        baseCurrency: "SAR",
+        transactionCurrency: "USD",
+        rateDate: new Date("2026-07-10T00:00:00.000Z"),
+      },
     });
   });
 

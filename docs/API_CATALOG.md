@@ -44,6 +44,16 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/system/backup-evidence/:id/verify` | Verify backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; marks reviewed metadata as verified; can contribute to backup readiness only for the relevant evidence type and does not run backup/restore. |
 | POST | `/system/backup-evidence/:id/revoke` | Revoke backup/restore evidence | Yes | Yes | Implemented | Requires `auditLogs.manageRetention`; revokes metadata evidence without backup execution, restore execution, customer export, or secret exposure. |
 
+## Public API v1
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/public-api/v1/readiness` | Read public API convention readiness | Yes | Yes | Groundwork | Requires `auditLogs.manageRetention`; no public unauthenticated access, production API keys, or OAuth clients are enabled. |
+| GET | `/public-api/v1/currencies` | Read supported currencies and active base currency | Yes | Yes | Implemented | Requires `currencies.read`; tenant-scoped explicit response with code/name/decimals/base marker and `liveRateProviderEnabled=false`. No provider call or financial mutation. |
+| GET | `/public-api/v1/fx-rates` | Read captured FX-rate snapshots | Yes | Yes | Implemented | Requires `fxRates.read`; tenant/base scoped, supports `page`, `pageSize` (maximum 100), `transactionCurrency`, and `rateDate`; explicitly maps decimal/date strings and excludes persistence-only organization/actor/request/idempotency fields. Read-only; no live provider behavior or money movement. |
+| GET | `/public-api/v1/pagination-proof` | Read pagination convention proof | Yes | Yes | Groundwork | Requires `auditLogs.manageRetention`; safe static proof only. |
+| POST | `/public-api/v1/idempotency-proof` | Exercise hashed idempotency convention | Yes | Yes | Groundwork | Requires `auditLogs.manageRetention`; records safe proof metadata only and performs no business or financial mutation. |
+
 ## Migration Toolkit
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

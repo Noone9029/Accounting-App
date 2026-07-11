@@ -13,10 +13,20 @@ LedgerByte public API v1 is readiness groundwork only. It does not enable public
 
 - Base path: `/public-api/v1`
 - Readiness route: `GET /public-api/v1/readiness`
+- Authenticated currency route: `GET /public-api/v1/currencies`
+- Authenticated FX-rate route: `GET /public-api/v1/fx-rates`
 - Proof pagination route: `GET /public-api/v1/pagination-proof`
 - Proof idempotency route: `POST /public-api/v1/idempotency-proof`
 
-All current v1 routes remain authenticated and admin-gated. They are not public unauthenticated endpoints.
+All current v1 routes remain authenticated and permission-gated. The readiness and proof routes remain admin-gated. They are not public unauthenticated endpoints.
+
+## Authenticated Read-Only FX Scope
+
+- `GET /public-api/v1/currencies` requires `currencies.read` and returns the active organization's base currency plus the supported code, name, decimal precision, and base-currency marker. `liveRateProviderEnabled` is always `false`.
+- `GET /public-api/v1/fx-rates` requires `fxRates.read`, the active organization context, optional `transactionCurrency` and `rateDate` filters, and `page`/`pageSize` pagination with a maximum `pageSize` of 100.
+- Rate responses are explicitly mapped to `id`, `transactionCurrency`, `baseCurrency`, `rate`, `rateDate`, `source`, `sourceReference`, and `capturedAt`. Decimal rates and dates are returned as strings. Persistence-only organization/actor identifiers, request hashes, and idempotency keys are never returned.
+
+These endpoints delegate to the tenant-scoped foreign-exchange read service. They do not add a rate create/update/delete endpoint, financial mutation surface, live rate-provider call, API key or OAuth authentication, hosted provider behavior, compliance behavior, or money movement.
 
 ## Pagination Standard
 

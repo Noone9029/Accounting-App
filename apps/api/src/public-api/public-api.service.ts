@@ -4,6 +4,14 @@ import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { ForeignExchangeService } from "../foreign-exchange/foreign-exchange.service";
+import {
+  mapPublicCurrencyList,
+  mapPublicFxRate,
+  PublicCurrencyListDto,
+  PublicFxRateListDto,
+  PublicFxRateQueryDto,
+} from "./dto/public-fx-read.dto";
 
 export interface PublicApiReadiness {
   version: "v1";
@@ -65,7 +73,38 @@ export class PublicApiService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly observabilityContext: ObservabilityContextService,
+    private readonly foreignExchangeService: ForeignExchangeService,
   ) {}
+
+  async currencies(organizationId: string): Promise<PublicCurrencyListDto> {
+    const catalog = await this.foreignExchangeService.currencies(organizationId);
+    return mapPublicCurrencyList(catalog);
+  }
+
+  async fxRates(organizationId: string, query: PublicFxRateQueryDto): Promise<PublicFxRateListDto> {
+    const page = clampInteger(query.page, 1, Number.MAX_SAFE_INTEGER, 1);
+    const pageSize = clampInteger(query.pageSize, 1, 100, 25);
+    const result = await this.foreignExchangeService.listRates(organizationId, {
+      page,
+      limit: pageSize,
+      transactionCurrency: query.transactionCurrency,
+      rateDate: query.rateDate,
+    });
+    const totalItems = result.pagination.totalItems;
+    const totalPages = Math.max(1, Math.ceil(totalItems / result.pagination.limit));
+
+    return {
+      items: result.data.map(mapPublicFxRate),
+      meta: {
+        page: result.pagination.page,
+        pageSize: result.pagination.limit,
+        totalItems,
+        totalPages,
+        hasNextPage: result.pagination.page < totalPages,
+        hasPreviousPage: result.pagination.page > 1,
+      },
+    };
+  }
 
   readiness(): PublicApiReadiness {
     const enabled = readBoolean(this.config.get<string>("LEDGERBYTE_PUBLIC_API_ENABLED")) === true;

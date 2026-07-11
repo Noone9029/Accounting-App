@@ -46,6 +46,8 @@ import { FxCloseReadinessService } from "./foreign-exchange/fx-close-readiness.s
 import { FxReportingService } from "./reports/fx-reporting.service";
 import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
+import { PublicApiController } from "./public-api/public-api.controller";
+import { PublicApiService } from "./public-api/public-api.service";
 
 const ids = {
   userA: "00000000-0000-4000-8000-0000000000a1",
@@ -54,6 +56,9 @@ const ids = {
   orgB: "20000000-0000-4000-8000-000000000001",
   roleA: "10000000-0000-4000-8000-0000000000aa",
   roleB: "20000000-0000-4000-8000-0000000000bb",
+  userDenied: "00000000-0000-4000-8000-0000000000d1",
+  roleDenied: "10000000-0000-4000-8000-0000000000dd",
+  memberDenied: "10000000-0000-4000-8000-0000000000de",
   memberA: "10000000-0000-4000-8000-0000000000ab",
   memberB: "20000000-0000-4000-8000-0000000000ba",
   customerA: "10000000-0000-4000-8000-000000000101",
@@ -98,6 +103,7 @@ describe("tenant isolation HTTP integration", () => {
   let tenantStore: TenantStore;
   let sessionA: SessionCookies;
   let sessionB: SessionCookies;
+  let sessionDenied: SessionCookies;
 
   beforeAll(async () => {
     tenantStore = makeTenantStore();
@@ -121,6 +127,7 @@ describe("tenant isolation HTTP integration", () => {
         AuditLogController,
         SearchController,
         ForeignExchangeController,
+        PublicApiController,
       ],
       providers: [
         JwtAuthGuard,
@@ -150,6 +157,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: AuditLogService, useValue: makeAuditLogService(tenantStore) },
         { provide: SearchService, useValue: makeSearchService(tenantStore) },
         { provide: ForeignExchangeService, useValue: makeForeignExchangeService(tenantStore) },
+        PublicApiService,
         { provide: FxRevaluationService, useValue: makeFxRevaluationService(tenantStore) },
         { provide: FxCloseReadinessService, useValue: makeFxCloseReadinessService() },
       ],
@@ -163,6 +171,7 @@ describe("tenant isolation HTTP integration", () => {
 
     sessionA = await login("tenant-a@example.test");
     sessionB = await login("tenant-b@example.test");
+    sessionDenied = await login("tenant-denied@example.test");
   });
 
   afterAll(async () => {
@@ -223,6 +232,25 @@ describe("tenant isolation HTTP integration", () => {
     });
     expect(foreignAccount.status).toBe(400);
     expect(tenantStore.fxConfigUpdates).toBe(0);
+  });
+
+  it("keeps public v1 FX rates tenant-scoped and permission-guarded", async () => {
+    const ratesA = await request("/public-api/v1/fx-rates", { session: sessionA, organizationId: ids.orgA });
+    const bodyA = await ratesA.text();
+    expect(ratesA.status).toBe(200);
+    expect(bodyA).toContain(markerA);
+    expect(bodyA).not.toContain(markerB);
+    expect(bodyA).not.toContain("organizationId");
+
+    const ratesB = await request("/public-api/v1/fx-rates", { session: sessionB, organizationId: ids.orgB });
+    const bodyB = await ratesB.text();
+    expect(ratesB.status).toBe(200);
+    expect(bodyB).toContain(markerB);
+    expect(bodyB).not.toContain(markerA);
+
+    const denied = await request("/public-api/v1/fx-rates", { session: sessionDenied, organizationId: ids.orgA });
+    expect(denied.status).toBe(403);
+    expect(await denied.text()).not.toContain(markerA);
   });
 
   it("keeps FX revaluation workspace reads inside the active tenant", async () => {
@@ -531,10 +559,12 @@ function makeTenantStore() {
     users: new Map([
       ["tenant-a@example.test", { id: ids.userA, email: "tenant-a@example.test", marker: markerA }],
       ["tenant-b@example.test", { id: ids.userB, email: "tenant-b@example.test", marker: markerB }],
+      ["tenant-denied@example.test", { id: ids.userDenied, email: "tenant-denied@example.test", marker: "DENIED" }],
     ]),
     memberships: new Map([
       [ids.memberA, { id: ids.memberA, userId: ids.userA, organizationId: ids.orgA, roleId: ids.roleA, marker: markerA }],
       [ids.memberB, { id: ids.memberB, userId: ids.userB, organizationId: ids.orgB, roleId: ids.roleB, marker: markerB }],
+      [ids.memberDenied, { id: ids.memberDenied, userId: ids.userDenied, organizationId: ids.orgA, roleId: ids.roleDenied, marker: "DENIED" }],
     ]),
     organizations: new Map([
       [ids.orgA, { id: ids.orgA, organizationId: ids.orgA, name: `${markerA} Organization` }],
@@ -543,6 +573,7 @@ function makeTenantStore() {
     roles: new Map([
       [ids.roleA, { id: ids.roleA, organizationId: ids.orgA, name: `${markerA} Owner` }],
       [ids.roleB, { id: ids.roleB, organizationId: ids.orgB, name: `${markerB} Owner` }],
+      [ids.roleDenied, { id: ids.roleDenied, organizationId: ids.orgA, name: "Denied Reader" }],
     ]),
     contacts: new Map([
       [ids.customerA, { id: ids.customerA, organizationId: ids.orgA, name: `${markerA} Customer`, type: "CUSTOMER" }],
@@ -587,8 +618,28 @@ function makeTenantStore() {
       [ids.auditB, { id: ids.auditB, organizationId: ids.orgB, action: `${markerB} ACTION` }],
     ]),
     currencyRates: new Map([
-      [ids.rateA, { id: ids.rateA, organizationId: ids.orgA, transactionCurrency: "USD", baseCurrency: "AED", marker: markerA }],
-      [ids.rateB, { id: ids.rateB, organizationId: ids.orgB, transactionCurrency: "USD", baseCurrency: "SAR", marker: markerB }],
+      [ids.rateA, {
+        id: ids.rateA,
+        organizationId: ids.orgA,
+        transactionCurrency: "USD",
+        baseCurrency: "AED",
+        rate: "3.67250000",
+        rateDate: new Date("2026-07-10T00:00:00.000Z"),
+        source: "MANUAL",
+        sourceReference: markerA,
+        createdAt: new Date("2026-07-10T08:00:00.000Z"),
+      }],
+      [ids.rateB, {
+        id: ids.rateB,
+        organizationId: ids.orgB,
+        transactionCurrency: "USD",
+        baseCurrency: "SAR",
+        rate: "3.75000000",
+        rateDate: new Date("2026-07-10T00:00:00.000Z"),
+        source: "MANUAL",
+        sourceReference: markerB,
+        createdAt: new Date("2026-07-10T09:00:00.000Z"),
+      }],
     ]),
     fxRevaluations: new Map([
       [ids.revaluationA, { id: ids.revaluationA, organizationId: ids.orgA, reference: `${markerA}-FXR` }],
@@ -637,7 +688,7 @@ function makeAuthSessionService() {
 function makeAuthService(jwtService: JwtService, config: ReturnType<typeof makeConfig>, authSessionService: ReturnType<typeof makeAuthSessionService>) {
   return {
     login: jest.fn(async ({ email }: { email: string }) => {
-      const userId = email === "tenant-a@example.test" ? ids.userA : ids.userB;
+      const userId = email === "tenant-a@example.test" ? ids.userA : email === "tenant-b@example.test" ? ids.userB : ids.userDenied;
       const jti = `${userId}-session`;
       authSessionService.sessions.set(`${userId}:${jti}`, { id: `${userId}-session-row`, userId });
       return {
@@ -675,7 +726,7 @@ function makePrismaService(store: TenantStore) {
           role: {
             id: membership.roleId,
             name: "Owner",
-            permissions: [PERMISSIONS.admin.fullAccess],
+            permissions: membership.roleId === ids.roleDenied ? [] : [PERMISSIONS.admin.fullAccess],
           },
         };
       }),
@@ -915,10 +966,23 @@ function makeSearchService(store: TenantStore) {
 
 function makeForeignExchangeService(store: TenantStore) {
   return {
-    currencies: jest.fn((organizationId: string) => ({ baseCurrency: organizationId === ids.orgA ? "AED" : "SAR" })),
+    currencies: jest.fn((organizationId: string) => ({
+      baseCurrency: organizationId === ids.orgA ? "AED" : "SAR",
+      supportedCurrencies: [
+        { code: "AED", name: "UAE Dirham" },
+        { code: "SAR", name: "Saudi Riyal" },
+        { code: "USD", name: "US Dollar" },
+      ],
+      liveRateProviderEnabled: false,
+    })),
     listRates: jest.fn((organizationId: string) => ({
       data: Array.from(store.currencyRates.values()).filter((rate) => rate.organizationId === organizationId),
-      pagination: { page: 1, limit: 50, hasMore: false },
+      pagination: {
+        page: 1,
+        limit: 25,
+        hasMore: false,
+        totalItems: Array.from(store.currencyRates.values()).filter((rate) => rate.organizationId === organizationId).length,
+      },
     })),
     getRate: jest.fn((organizationId: string, id: string) => scopedGet(store.currencyRates, id, organizationId)),
     createRate: jest.fn(),

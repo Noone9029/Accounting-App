@@ -42,20 +42,24 @@ export class ForeignExchangeService {
       : undefined;
     const page = this.boundedInteger(query.page, 1, 1_000_000, 1);
     const limit = this.boundedInteger(query.limit, 1, 100, 50);
-    const rows = await this.prisma.currencyRateSnapshot.findMany({
-      where: {
-        organizationId,
-        baseCurrency,
-        transactionCurrency,
-        rateDate: query.rateDate ? this.dateOnly(query.rateDate) : undefined,
-      },
-      orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
-      skip: (page - 1) * limit,
-      take: limit + 1,
-    });
+    const where = {
+      organizationId,
+      baseCurrency,
+      transactionCurrency,
+      rateDate: query.rateDate ? this.dateOnly(query.rateDate) : undefined,
+    };
+    const [rows, totalItems] = await Promise.all([
+      this.prisma.currencyRateSnapshot.findMany({
+        where,
+        orderBy: [{ rateDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit + 1,
+      }),
+      this.prisma.currencyRateSnapshot.count({ where }),
+    ]);
     return {
       data: rows.slice(0, limit),
-      pagination: { page, limit, hasMore: rows.length > limit },
+      pagination: { page, limit, hasMore: rows.length > limit, totalItems },
     };
   }
 
