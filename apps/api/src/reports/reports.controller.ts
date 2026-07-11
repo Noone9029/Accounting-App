@@ -8,14 +8,16 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
-import type { AdvancedReportKind, CoreReportKind } from "./report-csv";
+import { fxReportCsv, type AdvancedReportKind, type CoreReportKind, type FxReportKind } from "./report-csv";
+import { FxReportingService, type FxReportQuery } from "./fx-reporting.service";
+import { FxReportQueryDto } from "./dto/fx-report-query.dto";
 import { ReportDateQuery, ReportPackCreateInput, ReportPackListQuery, ReportPackManifestPreviewQuery, ReportsService } from "./reports.service";
 
 @Controller("reports")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 @RequirePermissions(PERMISSIONS.reports.view)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(private readonly reportsService: ReportsService, private readonly fxReportingService: FxReportingService) {}
 
   @Get("general-ledger")
   generalLedger(
@@ -265,6 +267,46 @@ export class ReportsController {
     return this.pdfResponse(organizationId, user.id, "aged-payables", query, request, response);
   }
 
+  @Get("fx/realized-activity")
+  realizedFxActivity(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: FxReportQueryDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.fxReportResponse(organizationId, "realized-activity", query, request, response, () => this.fxReportingService.realizedActivity(organizationId, query));
+  }
+
+  @Get("fx/unrealized-activity")
+  unrealizedFxActivity(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: FxReportQueryDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.fxReportResponse(organizationId, "unrealized-activity", query, request, response, () => this.fxReportingService.unrealizedActivity(organizationId, query));
+  }
+
+  @Get("fx/rate-snapshots")
+  fxRateSnapshots(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: FxReportQueryDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.fxReportResponse(organizationId, "rate-snapshots", query, request, response, () => this.fxReportingService.rateSnapshots(organizationId, query));
+  }
+
+  @Get("fx/open-exposure")
+  openFxExposure(
+    @CurrentOrganizationId() organizationId: string,
+    @Query() query: FxReportQueryDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.fxReportResponse(organizationId, "open-exposure", query, request, response, () => this.fxReportingService.openExposure(organizationId, query));
+  }
+
   private async reportResponse(
     organizationId: string,
     kind: CoreReportKind,
@@ -296,6 +338,23 @@ export class ReportsController {
     }
     assertJsonOrUnsupportedAdvancedReportFormat(title, requestedFormat);
     return this.reportsService.advancedReport(organizationId, kind, query);
+  }
+
+  private async fxReportResponse(
+    _organizationId: string,
+    kind: FxReportKind,
+    query: FxReportQuery,
+    request: AuthenticatedRequest,
+    response: Response,
+    load: () => Promise<any>,
+  ) {
+    if (query.format?.trim().toLowerCase() === "csv") {
+      assertExportPermission(request);
+      const report = await load();
+      const file = fxReportCsv(kind, report);
+      return csvResponse(response, file.filename, file.content);
+    }
+    return load();
   }
 
   private async pdfResponse(

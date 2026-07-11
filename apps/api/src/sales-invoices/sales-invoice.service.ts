@@ -48,6 +48,9 @@ const salesInvoiceInclude = {
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
   journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true, reversedBy: { select: { id: true, entryNumber: true } } } },
   reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+  fxMonetaryBalance: {
+    select: { carryingBaseAmount: true, carryingRate: true, rateSnapshotId: true, lastRevaluationLineId: true },
+  },
   lines: {
     orderBy: { sortOrder: "asc" as const },
     include: {

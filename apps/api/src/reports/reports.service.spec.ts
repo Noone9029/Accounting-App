@@ -22,6 +22,7 @@ import {
   buildVatReturnReport,
   buildVatSummaryReport,
   ReportsService,
+  reportSourceId,
 } from "./reports.service";
 import { REPORT_PACK_EXECUTION_BOUNDARY, REPORT_PACK_SUPPORTED_REPORTS } from "./report-pack-manifest";
 
@@ -171,7 +172,7 @@ describe("report pack generation groundwork", () => {
     expect(manifest.items.map((item) => item.reportKind)).toEqual(["cash-flow", "profit-and-loss"]);
     expect(manifest.items[0]!.exports.csv.href).toBe("/reports/cash-flow?from=2026-06-01&to=2026-06-30&branchId=branch-1&format=csv");
     expect(manifest.items[0]!.exports.pdf).toMatchObject({ supported: false, href: null });
-    expect(manifest.items[1]!.exports.pdf).toMatchObject({ supported: true, href: "/reports/profit-and-loss/pdf" });
+    expect(manifest.items[1]!.exports.pdf).toMatchObject({ supported: true, href: "/reports/profit-and-loss/pdf?from=2026-06-01&to=2026-06-30&branchId=branch-1" });
     expect(prisma.reportPack.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -601,6 +602,7 @@ describe("reports service builders", () => {
       },
     }));
     const prisma = {
+      organization: { findFirst: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
     };
     const service = new ReportsService(prisma as never);
@@ -747,6 +749,7 @@ describe("reports service builders", () => {
       purchaseBillFixture({ id: "bill-other-org", organizationId: "org-2", status: PurchaseBillStatus.FINALIZED, billDate: new Date("2026-01-15T00:00:00.000Z"), taxTotal: "33.0000" }),
     ];
     const prisma = {
+      organization: { findFirst: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
       purchaseBill: { findMany: jest.fn(async (args: any) => purchaseBills.filter((bill) => matchesVatWhere(bill, args.where, "billDate"))) },
     };
@@ -794,6 +797,7 @@ describe("reports service builders", () => {
       purchaseBillFixture({ id: "bill-branch-2", branchId: "branch-2", taxTotal: "44.0000" }),
     ];
     const prisma = {
+      organization: { findFirst: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       salesInvoice: { findMany: jest.fn(async (args: any) => salesInvoices.filter((invoice) => matchesVatWhere(invoice, args.where, "issueDate"))) },
       purchaseBill: { findMany: jest.fn(async (args: any) => purchaseBills.filter((bill) => matchesVatWhere(bill, args.where, "billDate"))) },
     };
@@ -1129,6 +1133,107 @@ describe("reports service builders", () => {
     expect(report.grandTotal).toBe("50.0000");
   });
 
+  it("uses current carrying value for foreign aging while preserving source and transaction residuals", () => {
+    const report = buildAgingReport(
+      [
+        {
+          id: "invoice-usd",
+          number: "INV-USD",
+          contact: { id: "customer", name: "Customer" },
+          issueDate: "2026-07-01T00:00:00.000Z",
+          dueDate: "2026-07-31T00:00:00.000Z",
+          currency: "USD",
+          baseCurrency: "AED",
+          exchangeRate: "3.67250000",
+          transactionTotal: "100.0000",
+          transactionBalanceDue: "40.0000",
+          total: "367.2500",
+          balanceDue: "146.9000",
+          fxMonetaryBalance: {
+            openTransactionAmount: "40.0000",
+            sourceBaseOpenAmount: "146.9000",
+            carryingBaseAmount: "150.0000",
+            carryingRate: "3.75000000",
+            rateSnapshot: { id: "closing-rate", rateDate: "2026-07-31", source: "MANUAL", sourceReference: "Reviewed close" },
+            lastRevaluationLine: { id: "reval-line", revaluationRunId: "reval-run" },
+          },
+        },
+      ],
+      { asOf: "2026-07-31", kind: "receivables" },
+    );
+
+    expect(report.rows[0]).toMatchObject({
+      currency: "USD",
+      transactionTotal: "100.0000",
+      openTransactionAmount: "40.0000",
+      sourceBaseOpenAmount: "146.9000",
+      carryingBaseAmount: "150.0000",
+      carryingRate: "3.75000000",
+      balanceDue: "150.0000",
+      revaluation: {
+        rateSnapshotId: "closing-rate",
+        revaluationRunId: "reval-run",
+        revaluationLineId: "reval-line",
+      },
+    });
+    expect(report.bucketTotals.CURRENT).toBe("150.0000");
+    expect(report.grandTotal).toBe("150.0000");
+    expect(report.transactionTotalsByCurrency).toEqual({ USD: "40.0000" });
+  });
+
+  it("normalizes and tenant-scopes foreign-currency aging queries", async () => {
+    const prisma = historicalAgingPrisma();
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.agedReceivables("org-1", { asOf: "2026-07-31", transactionCurrency: " usd " });
+
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ organizationId: "org-1", currency: "USD" }),
+        include: expect.objectContaining({ fxMonetaryBalance: expect.any(Object) }),
+      }),
+    );
+    expect(report).toMatchObject({ fxFilters: { transactionCurrency: "USD" } });
+  });
+
+  it.each([
+    ["post-as-of settlement", "customerPaymentAllocation"],
+    ["post-as-of allocation reversal", "customerPaymentUnappliedAllocation"],
+    ["post-as-of credit allocation", "creditNoteAllocation"],
+    ["post-as-of source void", "salesInvoice"],
+    ["post-as-of revaluation", "fxRevaluationLine"],
+  ] as const)("rejects historical receivable aging after %s changes current residual/carrying truth", async (_label, model) => {
+    const prisma = historicalAgingPrisma();
+    prisma[model].count.mockResolvedValue(1);
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.agedReceivables("org-1", { asOf: "2026-07-31", transactionCurrency: "USD" })).rejects.toThrow(/historical aged receivables/i);
+  });
+
+  it("rejects historical payable aging after a later debit-note allocation", async () => {
+    const prisma = historicalAgingPrisma();
+    prisma.purchaseDebitNoteAllocation.count.mockResolvedValue(1);
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.agedPayables("org-1", { asOf: "2026-07-31", transactionCurrency: "USD" })).rejects.toThrow(/historical aged payables/i);
+  });
+
+  it("checks base-currency sources too when historical aging has no currency filter", async () => {
+    const prisma = historicalAgingPrisma();
+    prisma.customerPaymentAllocation.count.mockImplementation(({ where }: any) => Promise.resolve(where.invoice.currency === undefined ? 1 : 0));
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.agedReceivables("org-1", { asOf: "2026-07-31" })).rejects.toThrow(/historical aged receivables/i);
+  });
+
+  it("rejects a backdated receivable finalized after the historical as-of date", async () => {
+    const prisma = historicalAgingPrisma();
+    prisma.salesInvoice.count.mockImplementation(({ where }: any) => Promise.resolve(where.finalizedAt?.gte ? 1 : 0));
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.agedReceivables("org-1", { asOf: "2026-07-31" })).rejects.toThrow(/historical aged receivables/i);
+  });
+
   it("scopes report database reads to the active tenant", async () => {
     const prisma = {
       account: { findMany: jest.fn().mockResolvedValue([]) },
@@ -1142,6 +1247,54 @@ describe("reports service builders", () => {
     expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1" }) }),
     );
+  });
+
+  it("keeps transaction-currency evidence on general-ledger detail while totals remain base amounts", () => {
+    const foreignLine = {
+      ...line("ar", "2026-07-10", "367.2500", "0.0000", "USD invoice"),
+      currency: "USD",
+      transactionDebit: "100.0000",
+      transactionCredit: "0.0000",
+      exchangeRate: "3.67250000",
+      rateSnapshotId: "rate-1",
+      rateSnapshot: { id: "rate-1", rateDate: new Date("2026-07-10T00:00:00.000Z"), source: "MANUAL", sourceReference: "Close pack" },
+    };
+
+    const report = buildGeneralLedgerReport(accounts, [], [foreignLine], { from: "2026-07-01", to: "2026-07-31" });
+
+    expect(report.accounts.find((account) => account.accountId === "ar")?.lines[0]).toMatchObject({
+      debit: "367.2500",
+      currency: "USD",
+      transactionDebit: "100.0000",
+      transactionCredit: "0.0000",
+      exchangeRate: "3.67250000",
+      rateSnapshot: { id: "rate-1", source: "MANUAL", sourceReference: "Close pack" },
+    });
+  });
+
+  it("adds the tenant base currency and official amount basis to report responses", async () => {
+    const prisma = {
+      organization: {
+        findFirst: jest.fn().mockResolvedValue({ baseCurrency: "AED" }),
+      },
+      account: { findMany: jest.fn().mockResolvedValue([]) },
+      journalLine: { findMany: jest.fn().mockResolvedValue([]) },
+      costCenter: { findFirst: jest.fn() },
+      project: { findFirst: jest.fn() },
+    };
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.coreReport("org-uae", "trial-balance", {});
+
+    expect(report).toEqual(
+      expect.objectContaining({
+        accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+      }),
+    );
+    expect(prisma.organization.findFirst).toHaveBeenCalledWith({
+      where: { id: "org-uae" },
+      select: { baseCurrency: true },
+    });
   });
 
   it("resolves active and archived dimensions once and applies both to general ledger opening and period reads", async () => {
@@ -1210,6 +1363,43 @@ describe("reports service builders", () => {
           }),
         }),
       }),
+    );
+  });
+
+  it("normalizes and composes transaction currency with dimension filters on general ledger reads", async () => {
+    const prisma = dimensionReportPrisma();
+    const service = new ReportsService(prisma as never);
+
+    const report = await service.generalLedger("org-1", {
+      transactionCurrency: " usd ",
+      costCenterId: "cost-center-1",
+      projectId: "project-1",
+    } as never);
+
+    expect(report).toEqual(expect.objectContaining({ fxFilters: { transactionCurrency: "USD" } }));
+    expect(prisma.journalLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          currency: "USD",
+          costCenterId: "cost-center-1",
+          projectId: "project-1",
+        }),
+      }),
+    );
+  });
+
+  it.each([
+    ["trial balance", (service: ReportsService, query: any) => service.trialBalance("org-1", query)],
+    ["profit and loss", (service: ReportsService, query: any) => service.profitAndLoss("org-1", query)],
+    ["balance sheet", (service: ReportsService, query: any) => service.balanceSheet("org-1", query)],
+    ["VAT summary", (service: ReportsService, query: any) => service.vatSummary("org-1", query)],
+    ["cash flow", (service: ReportsService, query: any) => service.cashFlow("org-1", query)],
+  ])("rejects a transaction-currency slice for aggregate %s reports", async (_name, run) => {
+    const service = new ReportsService({} as never);
+
+    await expect(run(service, { transactionCurrency: "USD" })).rejects.toEqual(
+      new BadRequestException("Transaction-currency filtering is not available for this aggregate report. Official totals remain in base currency."),
     );
   });
 
@@ -1341,9 +1531,46 @@ describe("reports service builders", () => {
 
     expect(generatedDocuments.archivePdf).toHaveBeenCalledWith(
       expect.objectContaining({
-        sourceId: "trial-balance?costCenterId=cost-center-1&projectId=project-1",
+        sourceId: "trial-balance?baseCurrency=SAR&costCenterId=cost-center-1&projectId=project-1",
       }),
     );
+  });
+
+  it("archives canonical currency, rate-snapshot, revaluation, and dimension identity for FX-aware PDFs", async () => {
+    const prisma = {
+      ...dimensionReportPrisma(),
+      organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "UAE Org", legalName: null, taxNumber: null, countryCode: "AE", baseCurrency: "AED" }) },
+    };
+    prisma.account.findMany.mockResolvedValue([{ id: "ar", code: "120", name: "Accounts Receivable", type: AccountType.ASSET }]);
+    prisma.journalLine.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...line("ar", "2026-07-10", "367.2500", "0.0000", "USD invoice"), currency: "USD", transactionDebit: "100.0000", transactionCredit: "0.0000", exchangeRate: "3.67250000", rateSnapshotId: "rate-1", rateSnapshot: { id: "rate-1", rateDate: new Date("2026-07-10"), source: "MANUAL", sourceReference: "Reviewed" } }]);
+    const generatedDocuments = { archivePdf: jest.fn().mockResolvedValue({ id: "doc-1" }) };
+    const service = new ReportsService(prisma as never, { statementRenderSettings: jest.fn().mockResolvedValue({}) } as never, generatedDocuments as never);
+
+    await service.coreReportPdf("org-1", "user-1", "general-ledger", { projectId: "project-1", from: "2026-07-01", transactionCurrency: " usd ", costCenterId: "cost-center-1", to: "2026-07-31" });
+
+    expect(generatedDocuments.archivePdf).toHaveBeenCalledWith(expect.objectContaining({
+      sourceId: "general-ledger?baseCurrency=AED&from=2026-07-01&to=2026-07-31&costCenterId=cost-center-1&projectId=project-1&transactionCurrency=USD&rateSnapshotIds=rate-1",
+      accountingContext: expect.objectContaining({
+        reportKind: "general-ledger", baseCurrency: "AED", amountBasis: "BASE_CURRENCY", transactionCurrency: "USD",
+        dimensions: expect.objectContaining({ costCenter: expect.objectContaining({ code: "CC-OPS" }), project: expect.objectContaining({ code: "PRJ-ALPHA" }) }),
+        rateScope: { snapshotIds: ["rate-1"], sources: ["MANUAL"] },
+        revaluationScope: { runIds: [], lineIds: [], statuses: [] },
+      }),
+    }));
+  });
+
+  it("keeps report source identity byte-stable when query insertion order changes", () => {
+    const context = {
+      identityVersion: 1, reportKind: "general-ledger" as const, baseCurrency: "AED", amountBasis: "BASE_CURRENCY" as const,
+      transactionCurrency: "USD", dates: { from: "2026-07-01", to: "2026-07-31", asOf: null },
+      dimensions: { costCenter: null, project: null }, rateScope: { snapshotIds: ["rate-1"], sources: ["MANUAL"] },
+      revaluationScope: { runIds: [], lineIds: [], statuses: [] },
+    };
+    const first = reportSourceId("general-ledger", { from: "2026-07-01", to: "2026-07-31", transactionCurrency: "USD" }, context);
+    const second = reportSourceId("general-ledger", { transactionCurrency: " usd ", to: "2026-07-31", from: "2026-07-01" }, context);
+    expect(first).toBe(second);
   });
 });
 
@@ -1689,4 +1916,19 @@ function matchesInvoiceLineWhere(
     (!invoice?.issueDate?.gte || issueDate >= invoice.issueDate.gte) &&
     (!invoice?.issueDate?.lte || issueDate <= invoice.issueDate.lte)
   );
+}
+
+function historicalAgingPrisma() {
+  return {
+    organization: { findFirst: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
+    salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    purchaseBill: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    customerPaymentAllocation: { count: jest.fn().mockResolvedValue(0) },
+    customerPaymentUnappliedAllocation: { count: jest.fn().mockResolvedValue(0) },
+    creditNoteAllocation: { count: jest.fn().mockResolvedValue(0) },
+    supplierPaymentAllocation: { count: jest.fn().mockResolvedValue(0) },
+    supplierPaymentUnappliedAllocation: { count: jest.fn().mockResolvedValue(0) },
+    purchaseDebitNoteAllocation: { count: jest.fn().mockResolvedValue(0) },
+    fxRevaluationLine: { count: jest.fn().mockResolvedValue(0) },
+  };
 }

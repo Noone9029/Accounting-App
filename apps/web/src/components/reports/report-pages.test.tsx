@@ -7,6 +7,7 @@ import {
   AgingReportGuide,
   AgingTable,
   CashFlowReportPage,
+  GeneralLedgerReportPage,
   ReportsIndexPage,
   RevenueTrendReportPage,
   TopCustomersReportPage,
@@ -63,6 +64,9 @@ describe("reports index first-workflow guidance", () => {
     downloadAuthenticatedFileMock.mockReset();
     downloadAuthenticatedFileMock.mockResolvedValue(undefined);
     apiRequestMock.mockImplementation((path: string) => {
+      if (path.startsWith("/reports/general-ledger")) {
+        return Promise.resolve(generalLedgerReport());
+      }
       if (path.startsWith("/reports/vat-return")) {
         return Promise.resolve(vatReturnReport());
       }
@@ -82,6 +86,7 @@ describe("reports index first-workflow guidance", () => {
         return Promise.resolve(topProductsServicesReport());
       }
       return Promise.resolve({
+        accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
         rows: [],
         bucketTotals: {
           CURRENT: "0.0000",
@@ -139,6 +144,31 @@ describe("reports index first-workflow guidance", () => {
     expect(apiRequestMock).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\/cash-flow\?from=.*&to=.*/));
   });
 
+  it("renders official report amounts in the tenant base currency", async () => {
+    render(<GeneralLedgerReportPage />);
+
+    expect((await screen.findAllByText(/AED\s+100\.00/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/SAR\s+100\.00/)).not.toBeInTheDocument();
+  });
+
+  it("filters general-ledger transaction evidence without changing the base-currency amount basis", async () => {
+    render(<GeneralLedgerReportPage />);
+
+    const currencyFilter = await screen.findByRole("textbox", { name: "Transaction currency" });
+    fireEvent.change(currencyFilter, { target: { value: "usd" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
+
+    await waitFor(() =>
+      expect(apiRequestMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/reports\/general-ledger\?from=.*&to=.*&transactionCurrency=USD$/),
+      ),
+    );
+    expect(screen.getByText("Official totals and running balances remain in AED.")).toBeInTheDocument();
+    expect(screen.getByText("$25.00")).toBeInTheDocument();
+    expect(screen.getByText("Rate 4.00000000")).toBeInTheDocument();
+    expect(screen.getByText("MANUAL · 2026-07-10")).toBeInTheDocument();
+  });
+
   it("downloads advanced reports as CSV using current filters", async () => {
     render(<RevenueTrendReportPage />);
 
@@ -190,7 +220,7 @@ describe("reports index first-workflow guidance", () => {
   });
 
   it("links aged receivables rows back to the customer and invoice", () => {
-    render(<AgingTable rows={[agingRow()]} kind="receivables" />);
+    render(<AgingTable rows={[agingRow()]} kind="receivables" currency="SAR" />);
 
     expect(screen.getByRole("link", { name: "Beta Customer" })).toHaveAttribute("href", "/customers/customer-1");
     expect(screen.getByRole("link", { name: "INV-001" })).toHaveAttribute("href", "/sales/invoices/invoice-1");
@@ -201,7 +231,7 @@ describe("reports index first-workflow guidance", () => {
   it("renders aging table headers and actions in Arabic while preserving record links", () => {
     render(
       <AppLocaleProvider initialLocale="ar">
-        <AgingTable rows={[agingRow()]} kind="receivables" />
+        <AgingTable rows={[agingRow()]} kind="receivables" currency="SAR" />
       </AppLocaleProvider>,
     );
 
@@ -226,6 +256,7 @@ describe("reports index first-workflow guidance", () => {
       <AgingTable
         rows={[agingRow({ id: "bill-1", number: "BILL-001", contact: { id: "supplier-1", name: "Beta Supplier", displayName: "Beta Supplier" } })]}
         kind="payables"
+        currency="SAR"
       />,
     );
 
@@ -249,6 +280,43 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Back to workspace" })).toHaveAttribute("href", "/customers/customer-1");
   });
 
+  it("shows foreign aging carrying evidence and applies a normalized currency filter", async () => {
+    apiRequestMock.mockResolvedValue({
+      accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+      asOf: "2026-07-31",
+      kind: "receivables",
+      rows: [agingRow({
+        currency: "USD",
+        transactionTotal: "100.0000",
+        openTransactionAmount: "40.0000",
+        sourceBaseOpenAmount: "146.9000",
+        carryingBaseAmount: "150.0000",
+        carryingRate: "3.75000000",
+        balanceDue: "150.0000",
+        revaluation: {
+          rateSnapshotId: "rate-1", rateDate: "2026-07-31", rateSource: "MANUAL", rateSourceReference: "Reviewed close",
+          revaluationRunId: "run-1", revaluationLineId: "line-1",
+        },
+      })],
+      bucketTotals: { CURRENT: "150.0000", "1_30": "0.0000", "31_60": "0.0000", "61_90": "0.0000", "90_PLUS": "0.0000" },
+      grandTotal: "150.0000",
+      transactionTotalsByCurrency: { USD: "40.0000" },
+      fxFilters: {},
+    });
+
+    render(<AgedReceivablesReportPage />);
+
+    const currencyFilter = await screen.findByRole("textbox", { name: "Transaction currency" });
+    fireEvent.change(currencyFilter, { target: { value: "usd" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
+
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(expect.stringMatching(/transactionCurrency=USD$/)));
+    expect(screen.getAllByText("$40.00 open")).toHaveLength(2);
+    expect(screen.getByText(/AED\s+150\.00 carrying/)).toBeInTheDocument();
+    expect(screen.getByText(/AED\s+146\.90 source/)).toBeInTheDocument();
+    expect(screen.getByText("Rate 3.75000000 · MANUAL 2026-07-31")).toBeInTheDocument();
+  });
+
   it("preserves dedicated statement return context through aging action links", () => {
     render(<AgingReportGuide kind="receivables" returnToHref="/reports/aged-receivables?asOf=2026-06-12&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1" />);
 
@@ -267,6 +335,7 @@ describe("reports index first-workflow guidance", () => {
       <AgingTable
         rows={[agingRow()]}
         kind="receivables"
+        currency="SAR"
         returnToHref="/reports/aged-receivables?asOf=2026-06-12&returnTo=%2Fcustomers%2Fcustomer-1%2Fstatement%3FreturnTo%3D%252Fcustomers%252Fcustomer-1"
       />,
     );
@@ -353,8 +422,55 @@ function agingRow(overrides: Partial<AgingReportRow> = {}): AgingReportRow {
   };
 }
 
+function generalLedgerReport() {
+  return {
+    from: "2026-07-01",
+    to: "2026-07-31",
+    accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+    filters: { costCenter: null, project: null },
+    accounts: [
+      {
+        accountId: "cash",
+        code: "111",
+        name: "Cash",
+        type: "ASSET",
+        openingDebit: "0.0000",
+        openingCredit: "0.0000",
+        periodDebit: "100.0000",
+        periodCredit: "0.0000",
+        closingDebit: "100.0000",
+        closingCredit: "0.0000",
+        lines: [
+          {
+            date: "2026-07-10T00:00:00.000Z",
+            journalEntryId: "journal-1",
+            entryNumber: "JE-001",
+            description: "USD receipt",
+            reference: "INV-USD-1",
+            debit: "100.0000",
+            credit: "0.0000",
+            runningBalance: "100.0000",
+            currency: "USD",
+            transactionDebit: "25.0000",
+            transactionCredit: "0.0000",
+            exchangeRate: "4.00000000",
+            rateSnapshot: {
+              id: "rate-1",
+              rateDate: "2026-07-10",
+              source: "MANUAL",
+              sourceReference: "accountant-reviewed",
+            },
+          },
+        ],
+      },
+    ],
+    fxFilters: {},
+  };
+}
+
 function cashFlowReport() {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-30",
     basis: "POSTED_AND_REVERSED_CASH_AND_BANK_JOURNAL_LINES",
@@ -378,6 +494,7 @@ function cashFlowReport() {
 
 function revenueTrendReport() {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-30",
     basis: "POSTED_AND_REVERSED_REVENUE_JOURNAL_LINES",
@@ -393,6 +510,7 @@ function revenueTrendReport() {
 
 function topCustomersReport() {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-30",
     basis: "FINALIZED_SALES_INVOICES",
@@ -417,6 +535,7 @@ function topCustomersReport() {
 
 function topProductsServicesReport() {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-30",
     basis: "FINALIZED_SALES_INVOICE_LINES",
@@ -452,6 +571,7 @@ function topProductsServicesReport() {
 
 function vatReturnReport(overrides: Record<string, unknown> = {}) {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-12",
     basis: "FINALIZED_SOURCE_DOCUMENTS",
@@ -484,6 +604,7 @@ function vatReturnReport(overrides: Record<string, unknown> = {}) {
 
 function vatSummaryReport(overrides: Record<string, unknown> = {}) {
   return {
+    accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" },
     from: "2026-06-01",
     to: "2026-06-12",
     salesVat: "15.0000",

@@ -58,6 +58,7 @@ import { PurchaseBillController } from "./purchase-bills/purchase-bill.controlle
 import { PurchaseBillService } from "./purchase-bills/purchase-bill.service";
 import { ReportsController } from "./reports/reports.controller";
 import { ReportsService } from "./reports/reports.service";
+import { FxReportingService } from "./reports/fx-reporting.service";
 import { SalesInvoiceController } from "./sales-invoices/sales-invoice.controller";
 import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
 
@@ -218,6 +219,7 @@ describeReportExportDb("accountant report/export proof: guarded HTTP routes agai
         AuthService,
         AuditLogService,
         ReportsService,
+        FxReportingService,
         ContactService,
         ContactLedgerService,
         SalesInvoiceService,

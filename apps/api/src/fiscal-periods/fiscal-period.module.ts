@@ -4,11 +4,12 @@ import { PrismaModule } from "../prisma/prisma.module";
 import { FiscalPeriodController } from "./fiscal-period.controller";
 import { FiscalPeriodGuardService } from "./fiscal-period-guard.service";
 import { FiscalPeriodService } from "./fiscal-period.service";
+import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 
 @Module({
   imports: [PrismaModule, AuditLogModule],
   controllers: [FiscalPeriodController],
-  providers: [FiscalPeriodService, FiscalPeriodGuardService],
-  exports: [FiscalPeriodService, FiscalPeriodGuardService],
+  providers: [FiscalPeriodService, FiscalPeriodGuardService, FxCloseReadinessService],
+  exports: [FiscalPeriodService, FiscalPeriodGuardService, FxCloseReadinessService],
 })
 export class FiscalPeriodModule {}

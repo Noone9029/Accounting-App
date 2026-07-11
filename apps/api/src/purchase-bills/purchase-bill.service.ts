@@ -66,6 +66,9 @@ const purchaseBillInclude = {
     },
   },
   reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
+  fxMonetaryBalance: {
+    select: { carryingBaseAmount: true, carryingRate: true, rateSnapshotId: true, lastRevaluationLineId: true },
+  },
   lines: {
     orderBy: { sortOrder: "asc" as const },
     include: {

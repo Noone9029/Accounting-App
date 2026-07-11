@@ -296,7 +296,7 @@ export default function PurchaseBillDetailPage() {
                 href={bill.purchaseOrder && canViewPurchaseOrders ? `/purchases/purchase-orders/${bill.purchaseOrder.id}` : undefined}
               />
               <Summary label="Total" value={formatAppMoney(billDisplayTotals?.total ?? bill.total, bill.currency, locale)} />
-              <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : bill.balanceDue, bill.currency, locale)} />
+              <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : (bill.transactionBalanceDue ?? bill.balanceDue), bill.currency, locale)} />
               {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(bill.total, bill.baseCurrency ?? bill.currency, locale)} /> : null}
               {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
               {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={bill.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
@@ -355,7 +355,7 @@ export default function PurchaseBillDetailPage() {
                 <TotalRow label="Taxable" value={formatAppMoney(billDisplayTotals?.taxableTotal ?? bill.taxableTotal, bill.currency, locale)} />
                 <TotalRow label="VAT / Tax" value={formatAppMoney(billDisplayTotals?.taxTotal ?? bill.taxTotal, bill.currency, locale)} />
                 <TotalRow label="Total" value={formatAppMoney(billDisplayTotals?.total ?? bill.total, bill.currency, locale)} strong />
-                <TotalRow label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : bill.balanceDue, bill.currency, locale)} strong />
+                <TotalRow label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : (bill.transactionBalanceDue ?? bill.balanceDue), bill.currency, locale)} strong />
               </div>
             </div>
 
@@ -533,6 +533,9 @@ export function PurchaseBillWorkflowGuidance({
   const billDetailHref = purchaseBillDetailHref(bill.id, returnTo);
   const fxPostingReady = documentFxPostingIsReady(bill);
   const fxRateEvidence = documentFxRateEvidence(bill);
+  const isForeignCurrency = Boolean(bill.baseCurrency && bill.currency !== bill.baseCurrency);
+  const transactionBalanceDue = bill.transactionBalanceDue ?? bill.balanceDue;
+  const carryingBaseAmount = bill.fxMonetaryBalance?.carryingBaseAmount ?? bill.balanceDue;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -556,7 +559,10 @@ export function PurchaseBillWorkflowGuidance({
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <Summary label="Supplier" value={supplierName} />
           <Summary label="Paid or credited" value={formatAppMoney(formatUnits(paidUnits), bill.currency, locale)} />
-          <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? displayTotals.total : bill.balanceDue, bill.currency, locale)} />
+          <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? displayTotals.total : transactionBalanceDue, bill.currency, locale)} />
+          {bill.status !== "DRAFT" && isForeignCurrency ? (
+            <Summary label="Current carrying value" value={formatAppMoney(carryingBaseAmount, bill.baseCurrency ?? bill.currency, locale)} />
+          ) : null}
         </div>
       </div>
 

@@ -93,6 +93,28 @@ describe("generated document rules", () => {
     expect(prisma.generatedDocument.create).not.toHaveBeenCalled();
   });
 
+  it("persists redacted accounting identity for archived report evidence", async () => {
+    const prisma = {
+      generatedDocument: { create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: "doc-report", ...data })) },
+    };
+    const service = new GeneratedDocumentService(prisma as never);
+    const accountingContext = {
+      reportKind: "general-ledger", baseCurrency: "AED", amountBasis: "BASE_CURRENCY", transactionCurrency: "USD",
+      rateScope: { snapshotIds: ["rate-1"], sources: ["MANUAL"] }, revaluationScope: { runIds: [], lineIds: [], statuses: [] },
+    };
+
+    await service.archivePdf({
+      organizationId: "org-1", documentType: DocumentType.REPORT_GENERAL_LEDGER, sourceType: "AccountingReport",
+      sourceId: "general-ledger?baseCurrency=AED&transactionCurrency=USD", documentNumber: "general-ledger-2026-07-31",
+      filename: "general-ledger-2026-07-31.pdf", buffer: Buffer.from("%PDF report"), accountingContext,
+    });
+
+    expect(prisma.generatedDocument.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ accountingContextJson: accountingContext }),
+    }));
+    expect(JSON.stringify(prisma.generatedDocument.create.mock.calls[0]![0].data.accountingContextJson)).not.toMatch(/token|secret|authorization|cookie/i);
+  });
+
   it("archives and downloads generated PDFs through the local object adapter with tenant-scoped keys", async () => {
     let storedDocument: Record<string, unknown> | null = null;
     const prisma = {

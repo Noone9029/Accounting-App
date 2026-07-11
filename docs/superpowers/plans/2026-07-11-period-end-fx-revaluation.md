@@ -47,4 +47,4 @@
 
 - [x] Run Prisma generation/validation, focused suites, full API/web suites, workspace typecheck, production build, diff gate, and secret scan.
 - [x] Obtain independent accounting/security review with zero Critical or Important findings.
-- [ ] Commit, push, open a ready PR, wait for green CI, merge, prove origin/main reachability, and clean the Phase 5 branch/worktree safely.
+- [x] Commit, push, open a ready PR, wait for green CI, merge, prove origin/main reachability, and clean the Phase 5 branch/worktree safely.

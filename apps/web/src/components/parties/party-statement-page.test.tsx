@@ -119,6 +119,30 @@ describe("party statement routes", () => {
     );
   });
 
+  it("labels statement balances in base currency and shows foreign document evidence separately", async () => {
+    getCustomerMock.mockResolvedValue(customerDetail());
+    apiRequestMock.mockResolvedValue({
+      ...customerStatement(),
+      baseCurrency: "AED",
+      rows: [{
+        id: "invoice-fx:invoice", type: "INVOICE", date: "2026-07-01T00:00:00.000Z", number: "INV-FX",
+        description: "Invoice INV-FX", debit: "367.2500", credit: "0.0000", balance: "367.2500",
+        sourceType: "SalesInvoice", sourceId: "invoice-fx", status: "FINALIZED",
+        metadata: { currency: "USD", transactionTotal: "100.0000", transactionBalanceDue: "40.0000", sourceBaseBalanceDue: "146.9000", carryingBaseAmount: "150.0000", carryingRate: "3.75000000" },
+      }],
+    });
+
+    render(<PartyStatementPage kind="customer" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Load customer statement" }));
+
+    expect(await screen.findByText(/AED 10\.00 Dr/)).toBeInTheDocument();
+    expect(screen.queryByText(/SAR 10\.00 Dr/)).not.toBeInTheDocument();
+    expect(screen.getByText("INV-FX · USD")).toBeInTheDocument();
+    expect(screen.getByText("$40.00 open · $100.00 original")).toBeInTheDocument();
+    expect(screen.getByText(/AED\s+150\.00 carrying · AED\s+146\.90 source/)).toBeInTheDocument();
+    expect(screen.getByText("Rate 3.75000000")).toBeInTheDocument();
+  });
+
   it("renders Arabic customer statement copy while preserving workspace return links", async () => {
     getCustomerMock.mockResolvedValue(customerDetail());
 

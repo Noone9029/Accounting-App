@@ -93,6 +93,24 @@ Permissions:
 - `fxRevaluation.run` for preview, review, and post; and
 - `fxRevaluation.reverse` for reversal.
 
+## Reporting and close integration
+
+Read-only reporting is available through:
+
+- `GET /reports/fx/realized-activity`
+- `GET /reports/fx/unrealized-activity`
+- `GET /reports/fx/rate-snapshots`
+- `GET /reports/fx/open-exposure`
+- `GET /fx/close-readiness`
+
+The four report endpoints support JSON and CSV. PDF is explicitly unsupported. JSON is bounded and paginated; realized/unrealized JSON totals cover the returned page, while CSV totals cover the filtered export and fail closed above 10,000 rows. Current open exposure rejects date filters. General Ledger and aging accept a single transaction-currency filter while keeping official totals in base currency; Trial Balance, Profit & Loss, Balance Sheet, VAT, and Cash Flow reject that filter instead of producing misleading aggregates.
+
+Realized activity dates original and reversal events separately, checks both journals, orders the complete bounded event window before pagination, and exposes previous/next navigation. Unposted revaluation runs remain preview evidence with zero recognized net effect. Fiscal-period close and lock call the same FX readiness guard inside their serializable state-transition transaction. Base-only organizations return `NOT_APPLICABLE`. Organizations with foreign activity fail closed for missing dated closing rates, invalid active/posting/type-correct FX or AR/AP account configuration, draft manual-rate documents, any current open source not counted against the exact close-date posted revaluation, later settlement/correction/void/revaluation activity without an exact posted close-date run, or original/reversal realized FX evidence without its journal.
+
+Historical AR/AP aging also follows the conservative current-ledger boundary: if settlement, allocation reversal, credit/debit-note activity, source voiding, a later posted/reversed revaluation, or backdated finalization occurred after `asOf`, LedgerByte rejects the historical view rather than substituting current residuals or carrying values. Source queries also require `finalizedAt` before the next day boundary.
+
+Generated report archives retain canonical base currency, transaction-currency filter, dates, dimensions, rate snapshots/sources, and revaluation run/line/status scope in their accounting context. Report packs remain metadata-only and keep pack download, storage mutation, scheduling, email, providers, and compliance submission disabled.
+
 ## Migration compatibility
 
 The migration is additive. It creates run, line, and monetary-carrying models plus carrying evidence on allocation records. Existing allocation source basis is backfilled from its existing document base amount and its carrying rate from the existing recognition rate. It does not rewrite historical invoices, bills, posted journals, or open balances.

@@ -59,4 +59,10 @@ describe("ForeignExchangeController", () => {
       PERMISSIONS.fxRevaluation.reverse,
     ]);
   });
+
+  it("requires reports.view for FX close readiness", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.closeReadiness)).toEqual([
+      PERMISSIONS.reports.view,
+    ]);
+  });
 });

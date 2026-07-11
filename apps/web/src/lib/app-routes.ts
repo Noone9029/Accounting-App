@@ -191,6 +191,9 @@ export const APP_ROUTES = [
     "Preview, review, post, and reverse period-end foreign monetary balance revaluations.",
     [PERMISSIONS.fxRevaluation.read],
   ),
+  route("accounting.fxClose", "FX close readiness", "/fx-close", "accounting", "Review FX blockers before fiscal period close or lock.", [PERMISSIONS.reports.view], {
+    sidebarGroup: "Accounting",
+  }),
 
   route("inventory.items", "Products & services", "/items", "inventory", "Products and services item catalog.", [PERMISSIONS.items.view]),
   route("inventory.warehouses", "Warehouses", "/inventory/warehouses", "inventory", "Warehouse list and stock location setup.", [PERMISSIONS.warehouses.view]),
@@ -282,6 +285,9 @@ export const APP_ROUTES = [
     sidebarGroup: "Management reports",
   }),
   route("reports.revenueTrend", "Revenue Trend", "/reports/revenue-trend", "reports", "Revenue trend report from posted revenue journal lines.", [PERMISSIONS.reports.view], {
+    sidebarGroup: "Management reports",
+  }),
+  route("reports.fxActivity", "FX Activity & Exposure", "/reports/fx-activity", "reports", "Read-only realized, unrealized, rate snapshot, and open foreign exposure reports.", [PERMISSIONS.reports.view], {
     sidebarGroup: "Management reports",
   }),
   route("reports.topCustomers", "Top Customers", "/reports/top-customers", "reports", "Top customers report from finalized sales invoices.", [PERMISSIONS.reports.view], {
