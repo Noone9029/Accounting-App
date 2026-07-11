@@ -55,8 +55,9 @@ describe("supplier payment rules", () => {
       currency: "USD", baseCurrency: "SAR", exchangeRate: "3.65000000",
       rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
     }) };
+    const auditLog = { log: jest.fn() };
     const service = new SupplierPaymentService(
-      prisma as never, { log: jest.fn() } as never,
+      prisma as never, auditLog as never,
       { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
       undefined, undefined, undefined, undefined, fxContext as never,
     );
@@ -86,6 +87,13 @@ describe("supplier payment rules", () => {
       settlementBaseAmountApplied: "365.0000", realizedGainAmount: "10.0000", realizedLossAmount: "0.0000",
       realizedFxJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "journal-1" } } },
     }) });
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "POST", entityType: "RealizedFxSettlement", entityId: "allocation-1",
+        after: expect.objectContaining({ paymentId: "payment-1", documentId: "bill-1", journalEntryId: "journal-1" }),
+      }),
+      tx,
+    );
   });
 
   it("settles a revalued payable against adjusted carrying basis and preserves source basis", async () => {
@@ -189,8 +197,9 @@ describe("supplier payment rules", () => {
   it("applies and reverses foreign supplier unapplied credit with a linked FX journal", async () => {
     const applyTx = makeForeignApplyUnappliedTransactionMock();
     const applyPrisma = { $transaction: jest.fn((callback: (client: typeof applyTx) => Promise<unknown>) => callback(applyTx)) };
+    const applyAuditLog = { log: jest.fn() };
     const applyService = new SupplierPaymentService(
-      applyPrisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-FX-1") } as never,
+      applyPrisma as never, applyAuditLog as never, { next: jest.fn().mockResolvedValue("JE-FX-1") } as never,
     );
     jest.spyOn(applyService, "get").mockResolvedValue({ id: "payment-1", status: SupplierPaymentStatus.POSTED } as never);
     await expect(applyService.applyUnapplied("org-1", "user-1", "payment-1", {
@@ -209,11 +218,16 @@ describe("supplier payment rules", () => {
       documentBaseAmountApplied: "375.0000", settlementBaseAmountApplied: "365.0000", transactionAmountApplied: "100.0000",
       realizedGainAmount: "10.0000", realizedFxJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "fx-journal-1" } } },
     }) });
+    expect(applyAuditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "POST", entityType: "RealizedFxSettlement", entityId: "allocation-1" }),
+      applyTx,
+    );
 
     const reverseTx = makeForeignReverseUnappliedTransactionMock();
     const reversePrisma = { $transaction: jest.fn((callback: (client: typeof reverseTx) => Promise<unknown>) => callback(reverseTx)) };
+    const reverseAuditLog = { log: jest.fn() };
     const reverseService = new SupplierPaymentService(
-      reversePrisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-FX-REV-1") } as never,
+      reversePrisma as never, reverseAuditLog as never, { next: jest.fn().mockResolvedValue("JE-FX-REV-1") } as never,
     );
     await expect(reverseService.reverseUnappliedAllocation(
       "org-1", "user-1", "payment-1", "allocation-1", { reason: "Correction" },
@@ -225,6 +239,10 @@ describe("supplier payment rules", () => {
       balanceDue: { increment: "375.0000" }, transactionBalanceDue: { increment: "100.0000" },
     } }));
     expect(reverseTx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reversalOfId: "fx-journal-1" }) }));
+    expect(reverseAuditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "REVERSE", entityType: "RealizedFxSettlement", entityId: "allocation-1" }),
+      reverseTx,
+    );
   });
 
   it("consumes the exact final supplier unapplied settlement residual", async () => {
@@ -374,10 +392,29 @@ describe("supplier payment rules", () => {
     expect(tx.journalEntry.create).toHaveBeenCalledTimes(1);
   });
 
+  it("reverses direct realized FX evidence through the supplier payment void transaction", async () => {
+    const tx = makeVoidTransactionMock({ realizedFx: true });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const service = new SupplierPaymentService(prisma as never, auditLog as never, { next: jest.fn().mockResolvedValue("JE-000002") } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: SupplierPaymentStatus.POSTED, journalEntryId: "journal-1" } as never);
+
+    await service.void("org-1", "user-1", "payment-1");
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "REVERSE", entityType: "RealizedFxSettlement", entityId: "allocation-1",
+        after: expect.objectContaining({ journalEntryId: "reversal-1", reversedJournalEntryId: "journal-1" }),
+      }),
+      tx,
+    );
+  });
+
   it("applies unapplied supplier payment amount to a finalized bill without creating a journal", async () => {
     const tx = makeApplyUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-    const service = new SupplierPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    const auditLog = { log: jest.fn() };
+    const service = new SupplierPaymentService(prisma as never, auditLog as never, { next: jest.fn() } as never);
     jest.spyOn(service, "get").mockResolvedValue({
       id: "payment-1",
       status: SupplierPaymentStatus.POSTED,
@@ -411,6 +448,10 @@ describe("supplier payment rules", () => {
       data: { balanceDue: { decrement: "25.0000" }, transactionBalanceDue: { decrement: "25.0000" } },
     });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      expect.anything(),
+    );
   });
 
   it("rejects applying unapplied supplier payment credit across currencies until realized FX accounting exists", async () => {
@@ -589,7 +630,7 @@ function makeForeignReverseUnappliedTransactionMock() {
   };
 }
 
-function makeVoidTransactionMock() {
+function makeVoidTransactionMock(options: { realizedFx?: boolean } = {}) {
   return {
     supplierPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -599,8 +640,12 @@ function makeVoidTransactionMock() {
         journalEntryId: "journal-1",
         allocations: [
           {
+            id: "allocation-1",
             billId: "bill-1",
             amountApplied: "60.0000",
+            realizedGainAmount: options.realizedFx ? "10.0000" : "0.0000",
+            realizedLossAmount: "0.0000",
+            realizedFxJournalEntryId: options.realizedFx ? "journal-1" : null,
             bill: { id: "bill-1", status: PurchaseBillStatus.FINALIZED, total: "100.0000", balanceDue: "40.0000" },
           },
         ],

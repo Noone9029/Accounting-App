@@ -52,8 +52,9 @@ describe("customer payment rules", () => {
       currency: "USD", baseCurrency: "AED", exchangeRate: "3.75000000",
       rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
     }) };
+    const auditLog = { log: jest.fn() };
     const service = new CustomerPaymentService(
-      prisma as never, { log: jest.fn() } as never,
+      prisma as never, auditLog as never,
       { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
       undefined, undefined, undefined, undefined, fxContext as never,
     );
@@ -101,6 +102,16 @@ describe("customer payment rules", () => {
         })] },
       }),
     }));
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "POST", entityType: "RealizedFxSettlement", entityId: "allocation-1",
+        after: expect.objectContaining({
+          paymentId: "payment-1", documentId: "invoice-1", realizedGainAmount: "10.0000",
+          realizedLossAmount: "0.0000", journalEntryId: "journal-1",
+        }),
+      }),
+      tx,
+    );
   });
 
   it("settles a revalued receivable against adjusted carrying basis and preserves source basis", async () => {
@@ -204,8 +215,9 @@ describe("customer payment rules", () => {
   it("applies foreign unapplied credit with one frozen realized-FX adjustment journal", async () => {
     const tx = makeForeignApplyUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const service = new CustomerPaymentService(
-      prisma as never, { log: jest.fn() } as never,
+      prisma as never, auditLog as never,
       { next: jest.fn().mockResolvedValue("JE-FX-1") } as never,
     );
     jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
@@ -234,6 +246,13 @@ describe("customer payment rules", () => {
       documentBaseAmountApplied: "365.0000", settlementBaseAmountApplied: "375.0000",
       realizedGainAmount: "10.0000", realizedFxJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "fx-journal-1" } } },
     }) });
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "POST", entityType: "RealizedFxSettlement", entityId: "unapplied-allocation-1",
+        after: expect.objectContaining({ paymentId: "payment-1", documentId: "invoice-1", journalEntryId: "fx-journal-1" }),
+      }),
+      tx,
+    );
   });
 
   it("consumes the exact final unapplied settlement residual", async () => {
@@ -282,8 +301,9 @@ describe("customer payment rules", () => {
   it("reverses a foreign unapplied allocation, its FX journal, and both open-balance currencies once", async () => {
     const tx = makeForeignReverseUnappliedTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const service = new CustomerPaymentService(
-      prisma as never, { log: jest.fn() } as never,
+      prisma as never, auditLog as never,
       { next: jest.fn().mockResolvedValue("JE-FX-REV-1") } as never,
     );
     await expect(service.reverseUnappliedAllocation(
@@ -304,6 +324,13 @@ describe("customer payment rules", () => {
       where: { id: "unapplied-allocation-1" },
       data: { realizedFxReversalJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "fx-reversal-1" } } } },
     });
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "REVERSE", entityType: "RealizedFxSettlement", entityId: "unapplied-allocation-1",
+        after: expect.objectContaining({ journalEntryId: "fx-reversal-1", reversedJournalEntryId: "fx-journal-1" }),
+      }),
+      tx,
+    );
   });
 
   it("builds a reproducible foreign customer settlement with realized gain", () => {
@@ -803,6 +830,30 @@ describe("customer payment rules", () => {
         entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
         entityId: "payment-1",
       }),
+    );
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      expect.anything(),
+    );
+  });
+
+  it("reverses direct realized FX evidence through the payment void transaction", async () => {
+    const tx = makeVoidTransactionMock({ realizedFx: true });
+    const prisma = {
+      customerPayment: { findFirst: jest.fn().mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const service = new CustomerPaymentService(prisma as never, auditLog as never, { next: jest.fn().mockResolvedValue("JE-000002") } as never);
+
+    await service.void("org-1", "user-1", "payment-1");
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "REVERSE", entityType: "RealizedFxSettlement", entityId: "allocation-1",
+        after: expect.objectContaining({ journalEntryId: "reversal-1", reversedJournalEntryId: "journal-1" }),
+      }),
+      tx,
     );
   });
 
@@ -1654,7 +1705,13 @@ function makeForeignCreateTransactionMock() {
     },
     journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
     customerPayment: {
-      create: jest.fn().mockResolvedValue({ id: "payment-1", paymentNumber: "PAY-000001", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+      create: jest.fn().mockResolvedValue({
+        id: "payment-1", paymentNumber: "PAY-000001", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1",
+        allocations: [{
+          id: "allocation-1", invoiceId: "invoice-1", realizedGainAmount: "10.0000", realizedLossAmount: "0.0000",
+          realizedFxJournalEntryId: "journal-1",
+        }],
+      }),
     },
   };
 }
@@ -2159,7 +2216,7 @@ function makeReverseUnappliedTransactionMock(
   };
 }
 
-function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number; refundCount?: number; unappliedAllocationCount?: number } = {}) {
+function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCount?: number; refundCount?: number; unappliedAllocationCount?: number; realizedFx?: boolean } = {}) {
   return {
     customerPayment: {
       findFirst: jest.fn().mockResolvedValue({
@@ -2168,7 +2225,11 @@ function makeVoidTransactionMock(options: { reversedById?: string; voidClaimCoun
         paymentDate: new Date("2026-05-06T00:00:00.000Z"),
         currency: "SAR",
         status: CustomerPaymentStatus.POSTED,
-        allocations: [{ invoiceId: "invoice-1", amountApplied: "60.0000" }],
+        allocations: [{
+          id: "allocation-1", invoiceId: "invoice-1", amountApplied: "60.0000",
+          realizedGainAmount: options.realizedFx ? "10.0000" : "0.0000",
+          realizedLossAmount: "0.0000", realizedFxJournalEntryId: options.realizedFx ? "journal-1" : null,
+        }],
         journalEntry: {
           id: "journal-1",
           entryNumber: "JE-000001",

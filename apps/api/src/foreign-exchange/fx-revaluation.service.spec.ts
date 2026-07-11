@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { AccountType, CurrencyRateSource, FxRevaluationStatus, Prisma, SalesInvoiceStatus } from "@prisma/client";
+import { AuditLogService } from "../audit-log/audit-log.service";
 import { FxRevaluationService } from "./fx-revaluation.service";
 
 const rate = {
@@ -37,9 +38,11 @@ function makeService() {
     supplierPaymentUnappliedAllocation: { count: jest.fn().mockResolvedValue(0) },
     creditNoteAllocation: { count: jest.fn().mockResolvedValue(0) },
     purchaseDebitNoteAllocation: { count: jest.fn().mockResolvedValue(0) },
+    auditLog: { create: jest.fn().mockResolvedValue({ id: "audit-1" }) },
   };
   prisma.$transaction = jest.fn(async (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma));
-  const audit = { log: jest.fn() };
+  const realAudit = new AuditLogService(prisma as never);
+  const audit = { log: jest.fn((input, executor) => realAudit.log(input, executor)) };
   const periods = { assertPostingDateAllowed: jest.fn() };
   const numbers = { next: jest.fn().mockResolvedValue("JOURNAL_ENTRY-000001") };
   return {
@@ -53,7 +56,7 @@ function makeService() {
 
 describe("FxRevaluationService", () => {
   it("previews all eligible foreign AR/AP with manually selected immutable rate evidence", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma, audit } = makeService();
     prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "AED" });
     prisma.currencyRateSnapshot.findMany.mockResolvedValue([rate, eurRate]);
     prisma.salesInvoice.findMany.mockResolvedValue([{
@@ -113,6 +116,10 @@ describe("FxRevaluationService", () => {
         finalizedAt: { lt: new Date("2026-07-01T00:00:00.000Z") },
       }),
     }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "FxRevaluationRun", entityId: "run-1" }), prisma);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "FX_REVALUATION_PREVIEWED", entityType: "FxRevaluationRun", entityId: "run-1" }),
+    }));
   });
 
   it("supersedes a stale unposted run only after a replacement preview validates", async () => {
@@ -142,10 +149,13 @@ describe("FxRevaluationService", () => {
       data: { status: FxRevaluationStatus.FAILED, activeScopeKey: null },
     });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "SUPERSEDE", entityId: "stale-run" }), prisma);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ action: "FX_REVALUATION_SUPERSEDED", entityId: "stale-run" }),
+    }));
   });
 
   it("rejects a revaluation date older than the active carrying layer", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma, audit } = makeService();
     prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "AED" });
     prisma.currencyRateSnapshot.findMany.mockResolvedValue([rate]);
     prisma.salesInvoice.findMany.mockResolvedValue([{
@@ -229,7 +239,7 @@ describe("FxRevaluationService", () => {
   });
 
   it("reviews a draft once and replays the same idempotency key safely", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma, audit } = makeService();
     const draft = { id: "run-1", organizationId: "org-1", status: FxRevaluationStatus.DRAFT, reviewIdempotencyKey: null };
     const reviewed = { ...draft, status: FxRevaluationStatus.REVIEWED, reviewIdempotencyKey: "review-1" };
     prisma.fxRevaluationRun.findFirst.mockResolvedValueOnce(draft).mockResolvedValueOnce(reviewed).mockResolvedValueOnce(reviewed);
@@ -238,10 +248,13 @@ describe("FxRevaluationService", () => {
     await expect(service.review("org-1", "user-1", "run-1", { idempotencyKey: "review-1" })).resolves.toMatchObject({ status: FxRevaluationStatus.REVIEWED });
     await expect(service.review("org-1", "user-1", "run-1", { idempotencyKey: "review-1" })).resolves.toMatchObject({ status: FxRevaluationStatus.REVIEWED });
     expect(prisma.fxRevaluationRun.updateMany).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVIEW", entityType: "FxRevaluationRun", entityId: "run-1" }), prisma);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "FX_REVALUATION_REVIEWED" }) }));
   });
 
   it("posts a reviewed run into a balanced journal and establishes adjusted carrying state", async () => {
-    const { service, prisma, periods } = makeService();
+    const { service, prisma, audit, periods } = makeService();
     const line = {
       id: "line-1", organizationId: "org-1", sourceType: "CUSTOMER_RECEIVABLE",
       salesInvoiceId: "inv-1", purchaseBillId: null, priorRevaluationLineId: null,
@@ -290,6 +303,8 @@ describe("FxRevaluationService", () => {
       salesInvoiceId: "inv-1", carryingBaseAmount: new Prisma.Decimal("375"), carryingRate: new Prisma.Decimal("3.75"),
       lastRevaluationLineId: "line-1",
     }) });
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST", entityType: "FxRevaluationRun", entityId: "run-1" }), prisma);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "FX_REVALUATION_POSTED" }) }));
   });
 
   it("blocks posting when a newly eligible foreign balance was added after preview", async () => {
@@ -407,7 +422,7 @@ describe("FxRevaluationService", () => {
   });
 
   it("reverses an untouched posted run and removes its first carrying layer", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma, audit } = makeService();
     const line = {
       id: "line-1", salesInvoiceId: "inv-1", purchaseBillId: null,
       openTransactionAmount: new Prisma.Decimal("100"), sourceBaseOpenAmount: new Prisma.Decimal("365"),
@@ -447,5 +462,7 @@ describe("FxRevaluationService", () => {
     expect(prisma.fxRevaluationRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
       status: FxRevaluationStatus.REVERSED, reversalJournalEntryId: "reversal-journal", activeScopeKey: null,
     }) }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVERSE", entityType: "FxRevaluationRun", entityId: "run-1" }), prisma);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: "FX_REVALUATION_REVERSED" }) }));
   });
 });

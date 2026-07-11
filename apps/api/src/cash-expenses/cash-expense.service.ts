@@ -21,6 +21,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { documentFxAuditEvidence, isForeignDocumentFxContext } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -186,7 +187,7 @@ export class CashExpenseService {
         },
       });
 
-      return tx.cashExpense.create({
+      const createdExpense = await tx.cashExpense.create({
         data: {
           organizationId,
           expenseNumber,
@@ -220,6 +221,17 @@ export class CashExpenseService {
         },
         include: cashExpenseInclude,
       });
+      if (isForeignDocumentFxContext(fx)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: "CashExpense",
+          entityId: createdExpense.id,
+          after: documentFxAuditEvidence(fx),
+        }, tx);
+      }
+      return createdExpense;
     });
 
     await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "CashExpense", entityId: expense.id, after: expense });

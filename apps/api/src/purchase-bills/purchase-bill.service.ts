@@ -27,6 +27,7 @@ import {
   InventoryValuationMethod,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -647,7 +648,7 @@ export class PurchaseBillService {
         await tx.purchaseBillLine.deleteMany({ where: { organizationId, billId: id } });
       }
 
-      return tx.purchaseBill.update({
+      const updatedBill = await tx.purchaseBill.update({
         where: { id },
         data: {
           supplierId: dto.supplierId,
@@ -679,6 +680,18 @@ export class PurchaseBillService {
         },
         include: purchaseBillInclude,
       });
+      if (shouldAuditDocumentFxContextChange(existing, updatedBill)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "CHANGE_FX_CONTEXT",
+          entityType: "PurchaseBill",
+          entityId: id,
+          before: documentFxAuditEvidence(existing),
+          after: documentFxAuditEvidence(updatedBill),
+        }, tx);
+      }
+      return updatedBill;
     });
 
     await this.auditLogService.log({
@@ -827,11 +840,22 @@ export class PurchaseBillService {
         },
       });
 
-      return tx.purchaseBill.update({
+      const finalizedBill = await tx.purchaseBill.update({
         where: { id },
         data: { journalEntryId: journalEntry.id },
         include: purchaseBillInclude,
       });
+      if (isForeignDocumentFxContext(bill)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: "PurchaseBill",
+          entityId: id,
+          after: documentFxAuditEvidence(bill),
+        }, tx);
+      }
+      return finalizedBill;
     });
 
     await this.auditLogService.log({

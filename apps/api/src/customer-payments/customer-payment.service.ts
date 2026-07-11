@@ -390,7 +390,7 @@ export class CustomerPaymentService {
         adjustmentDate,
       }, tx);
 
-      await tx.customerPaymentUnappliedAllocation.create({
+      const createdAllocation = await tx.customerPaymentUnappliedAllocation.create({
         data: {
           organization: { connect: { id: organizationId } },
           payment: { connect: { organizationId_id: { organizationId, id } } },
@@ -417,6 +417,22 @@ export class CustomerPaymentService {
           idempotencyKey,
         },
       });
+      if (realizedFxJournalEntryId) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "POST",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: createdAllocation.id,
+          after: {
+            paymentId: id,
+            documentId: dto.invoiceId,
+            realizedGainAmount: calculated.realizedGainAmount,
+            realizedLossAmount: calculated.realizedLossAmount,
+            journalEntryId: realizedFxJournalEntryId,
+          },
+        }, tx);
+      }
 
       return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
     });
@@ -590,6 +606,19 @@ export class CustomerPaymentService {
             },
           },
         });
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "REVERSE",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocationId,
+          after: {
+            paymentId: id,
+            documentId: allocation.invoiceId,
+            journalEntryId: realizedFxReversalJournalEntryId,
+            reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+          },
+        }, tx);
       }
       return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
     });
@@ -1053,6 +1082,25 @@ export class CustomerPaymentService {
         include: customerPaymentInclude,
       });
 
+      for (const allocation of created.allocations ?? []) {
+        const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
+        if (!hasRealizedFx || !allocation.realizedFxJournalEntryId) continue;
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "POST",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocation.id,
+          after: {
+            paymentId: created.id,
+            documentId: allocation.invoiceId,
+            realizedGainAmount: moneyString(allocation.realizedGainAmount),
+            realizedLossAmount: moneyString(allocation.realizedLossAmount),
+            journalEntryId: allocation.realizedFxJournalEntryId,
+          },
+        }, tx);
+      }
+
       return created;
     });
 
@@ -1184,6 +1232,24 @@ export class CustomerPaymentService {
           carryingBaseAmount: String(allocation.documentBaseAmountApplied ?? allocation.amountApplied),
           sourceBaseAmount,
         }, tx);
+        const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
+        if (hasRealizedFx && allocation.realizedFxJournalEntryId) {
+          await this.auditLogService.log({
+            organizationId,
+            actorUserId,
+            action: "REVERSE",
+            entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+            entityId: allocation.id,
+            after: {
+              paymentId: id,
+              documentId: allocation.invoiceId,
+              journalEntryId: reversalJournalEntryId,
+              reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+              realizedGainAmount: moneyString(allocation.realizedGainAmount),
+              realizedLossAmount: moneyString(allocation.realizedLossAmount),
+            },
+          }, tx);
+        }
       }
 
       return tx.customerPayment.update({

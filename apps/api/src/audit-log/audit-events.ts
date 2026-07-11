@@ -260,6 +260,15 @@ export const AUDIT_EVENTS = {
   BACKUP_RESTORE_EVIDENCE_CREATED: "BACKUP_RESTORE_EVIDENCE_CREATED",
   BACKUP_RESTORE_EVIDENCE_VERIFIED: "BACKUP_RESTORE_EVIDENCE_VERIFIED",
   BACKUP_RESTORE_EVIDENCE_REVOKED: "BACKUP_RESTORE_EVIDENCE_REVOKED",
+  DOCUMENT_FX_CONTEXT_CHANGED: "DOCUMENT_FX_CONTEXT_CHANGED",
+  DOCUMENT_FX_RATE_FROZEN: "DOCUMENT_FX_RATE_FROZEN",
+  REALIZED_FX_POSTED: "REALIZED_FX_POSTED",
+  REALIZED_FX_REVERSED: "REALIZED_FX_REVERSED",
+  FX_REVALUATION_PREVIEWED: "FX_REVALUATION_PREVIEWED",
+  FX_REVALUATION_REVIEWED: "FX_REVALUATION_REVIEWED",
+  FX_REVALUATION_POSTED: "FX_REVALUATION_POSTED",
+  FX_REVALUATION_REVERSED: "FX_REVALUATION_REVERSED",
+  FX_REVALUATION_SUPERSEDED: "FX_REVALUATION_SUPERSEDED",
   CURRENCY_RATE_SNAPSHOT_CREATED: "CURRENCY_RATE_SNAPSHOT_CREATED",
   FX_ACCOUNT_CONFIGURATION_CREATED: "FX_ACCOUNT_CONFIGURATION_CREATED",
   FX_ACCOUNT_CONFIGURATION_UPDATED: "FX_ACCOUNT_CONFIGURATION_UPDATED",
@@ -342,11 +351,29 @@ export const AUDIT_ENTITY_TYPES = {
   EMAIL_SUPPRESSION: "EmailSuppression",
   EMAIL_DELIVERY_MONITORING_EVIDENCE: "EmailDeliveryMonitoringEvidence",
   BACKUP_RESTORE_EVIDENCE: "BackupRestoreEvidence",
+  FX_REVALUATION_RUN: "FxRevaluationRun",
+  REALIZED_FX_SETTLEMENT: "RealizedFxSettlement",
   CURRENCY_RATE_SNAPSHOT: "CurrencyRateSnapshot",
   FX_ACCOUNT_CONFIGURATION: "FxAccountConfiguration",
 } as const;
 
 const EVENT_BY_ENTITY_AND_ACTION: Record<string, string> = {
+  "SalesInvoice:CHANGE_FX_CONTEXT": AUDIT_EVENTS.DOCUMENT_FX_CONTEXT_CHANGED,
+  "SalesInvoice:FREEZE_FX_RATE": AUDIT_EVENTS.DOCUMENT_FX_RATE_FROZEN,
+  "CreditNote:CHANGE_FX_CONTEXT": AUDIT_EVENTS.DOCUMENT_FX_CONTEXT_CHANGED,
+  "CreditNote:FREEZE_FX_RATE": AUDIT_EVENTS.DOCUMENT_FX_RATE_FROZEN,
+  "PurchaseBill:CHANGE_FX_CONTEXT": AUDIT_EVENTS.DOCUMENT_FX_CONTEXT_CHANGED,
+  "PurchaseBill:FREEZE_FX_RATE": AUDIT_EVENTS.DOCUMENT_FX_RATE_FROZEN,
+  "PurchaseDebitNote:CHANGE_FX_CONTEXT": AUDIT_EVENTS.DOCUMENT_FX_CONTEXT_CHANGED,
+  "PurchaseDebitNote:FREEZE_FX_RATE": AUDIT_EVENTS.DOCUMENT_FX_RATE_FROZEN,
+  "CashExpense:FREEZE_FX_RATE": AUDIT_EVENTS.DOCUMENT_FX_RATE_FROZEN,
+  "RealizedFxSettlement:POST": AUDIT_EVENTS.REALIZED_FX_POSTED,
+  "RealizedFxSettlement:REVERSE": AUDIT_EVENTS.REALIZED_FX_REVERSED,
+  "FxRevaluationRun:CREATE": AUDIT_EVENTS.FX_REVALUATION_PREVIEWED,
+  "FxRevaluationRun:REVIEW": AUDIT_EVENTS.FX_REVALUATION_REVIEWED,
+  "FxRevaluationRun:POST": AUDIT_EVENTS.FX_REVALUATION_POSTED,
+  "FxRevaluationRun:REVERSE": AUDIT_EVENTS.FX_REVALUATION_REVERSED,
+  "FxRevaluationRun:SUPERSEDE": AUDIT_EVENTS.FX_REVALUATION_SUPERSEDED,
   "CurrencyRateSnapshot:CREATE": AUDIT_EVENTS.CURRENCY_RATE_SNAPSHOT_CREATED,
   "FxAccountConfiguration:CREATE": AUDIT_EVENTS.FX_ACCOUNT_CONFIGURATION_CREATED,
   "FxAccountConfiguration:UPDATE": AUDIT_EVENTS.FX_ACCOUNT_CONFIGURATION_UPDATED,
@@ -566,4 +593,58 @@ const EVENT_BY_ENTITY_AND_ACTION: Record<string, string> = {
 
 export function standardizeAuditAction(action: string, entityType: string): string {
   return EVENT_BY_ENTITY_AND_ACTION[`${entityType}:${action}`] ?? action;
+}
+
+export interface DocumentFxAuditContext {
+  currency?: unknown;
+  baseCurrency?: unknown;
+  exchangeRate?: unknown;
+  rateDate?: unknown;
+  rateSource?: unknown;
+  rateSnapshotId?: unknown;
+}
+
+export function isForeignDocumentFxContext(context: DocumentFxAuditContext): boolean {
+  const currency = normalizedAuditCode(context.currency);
+  const baseCurrency = normalizedAuditCode(context.baseCurrency);
+  return Boolean(currency && baseCurrency && currency !== baseCurrency);
+}
+
+export function shouldAuditDocumentFxContextChange(
+  before: DocumentFxAuditContext,
+  after: DocumentFxAuditContext,
+): boolean {
+  if (!isForeignDocumentFxContext(before) && !isForeignDocumentFxContext(after)) return false;
+  return normalizedAuditCode(before.currency) !== normalizedAuditCode(after.currency)
+    || normalizedAuditCode(before.baseCurrency) !== normalizedAuditCode(after.baseCurrency)
+    || normalizedAuditRate(before.exchangeRate) !== normalizedAuditRate(after.exchangeRate);
+}
+
+export function documentFxAuditEvidence(context: DocumentFxAuditContext) {
+  return {
+    currency: normalizedAuditCode(context.currency),
+    baseCurrency: normalizedAuditCode(context.baseCurrency),
+    exchangeRate: normalizedAuditRate(context.exchangeRate),
+    rateDate: normalizedAuditDate(context.rateDate),
+    rateSource: context.rateSource == null ? null : String(context.rateSource),
+    rateSnapshotId: context.rateSnapshotId == null ? null : String(context.rateSnapshotId),
+  };
+}
+
+function normalizedAuditCode(value: unknown): string {
+  return value == null ? "" : String(value).trim().toUpperCase();
+}
+
+function normalizedAuditRate(value: unknown): string {
+  if (value && typeof value === "object" && "toFixed" in value && typeof value.toFixed === "function") {
+    return value.toFixed(8);
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(8) : "";
+}
+
+function normalizedAuditDate(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const date = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
 }

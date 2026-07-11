@@ -1,4 +1,4 @@
-import { CurrencyRateSource, Prisma } from "@prisma/client";
+import { CurrencyRateSource, Prisma, PurchaseBillInventoryPostingMode, PurchaseBillStatus } from "@prisma/client";
 import { DocumentFxContextService } from "../foreign-exchange/document-fx-context.service";
 import { PurchaseBillService } from "./purchase-bill.service";
 
@@ -85,4 +85,86 @@ describe("PurchaseBillService document FX drafts", () => {
       include: expect.any(Object),
     });
   });
+
+  it("writes a focused FX context-change event through the draft update transaction only when the currency/rate tuple changes", async () => {
+    const existing = foreignDraftBill();
+    const updated = { ...existing, exchangeRate: new Prisma.Decimal("3.80000000") };
+    const tx: any = {
+      purchaseBillLine: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      purchaseBill: { update: jest.fn().mockResolvedValue(updated) },
+    };
+    const prisma: any = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "expense-1", type: "EXPENSE" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const fxContext = {
+      resolve: jest.fn().mockResolvedValue({
+        currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.80000000"),
+        rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
+      }),
+    };
+    const service = new PurchaseBillService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue(existing as never);
+
+    await service.update("org-1", "user-1", "bill-1", { exchangeRate: "3.80000000", rateSnapshotId: null });
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CHANGE_FX_CONTEXT", entityType: "PurchaseBill", entityId: "bill-1",
+        before: expect.objectContaining({ currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" }),
+        after: expect.objectContaining({ currency: "USD", baseCurrency: "SAR", exchangeRate: "3.80000000" }),
+      }),
+      tx,
+    );
+  });
+
+  it("keeps unchanged and same-currency draft tuples silent", async () => {
+    const auditLog = { log: jest.fn() };
+    const tx: any = { purchaseBill: { update: jest.fn() } };
+    const prisma: any = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn() };
+    const service = new PurchaseBillService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    for (const existing of [foreignDraftBill(), foreignDraftBill({
+      currency: "SAR", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("1.00000000"),
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1, rateSnapshotId: null,
+    })]) {
+      tx.purchaseBill.update.mockResolvedValueOnce(existing);
+      fxContext.resolve.mockResolvedValueOnce({
+        currency: existing.currency, baseCurrency: existing.baseCurrency, exchangeRate: existing.exchangeRate,
+        rateDate: existing.rateDate, rateSource: existing.rateSource, rateSnapshotId: existing.rateSnapshotId,
+      });
+      jest.spyOn(service, "get").mockResolvedValueOnce(existing as never);
+      await service.update("org-1", "user-1", "bill-1", { notes: "No FX tuple change" });
+    }
+
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CHANGE_FX_CONTEXT" }),
+      expect.anything(),
+    );
+  });
 });
+
+function foreignDraftBill(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "bill-1", status: PurchaseBillStatus.DRAFT, supplierId: "supplier-1", branchId: null,
+    billDate: new Date("2026-07-11T00:00:00.000Z"), dueDate: null,
+    currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.75000000"),
+    rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
+    inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
+    lines: [{
+      itemId: null, item: null, description: "Services", accountId: "expense-1", quantity: new Prisma.Decimal("1"),
+      unitPrice: new Prisma.Decimal("100"), discountRate: new Prisma.Decimal("0"), taxRateId: null, sortOrder: 0,
+    }],
+    ...overrides,
+  };
+}

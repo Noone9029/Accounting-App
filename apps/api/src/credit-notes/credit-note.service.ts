@@ -24,6 +24,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import {
@@ -685,7 +686,7 @@ export class CreditNoteService {
         await tx.creditNoteLine.deleteMany({ where: { organizationId, creditNoteId: id } });
       }
 
-      return tx.creditNote.update({
+      const updatedCreditNote = await tx.creditNote.update({
         where: { id },
         data: {
           customerId: dto.customerId,
@@ -715,6 +716,18 @@ export class CreditNoteService {
         },
         include: creditNoteInclude,
       });
+      if (shouldAuditDocumentFxContextChange(existing, updatedCreditNote)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "CHANGE_FX_CONTEXT",
+          entityType: "CreditNote",
+          entityId: id,
+          before: documentFxAuditEvidence(existing),
+          after: documentFxAuditEvidence(updatedCreditNote),
+        }, tx);
+      }
+      return updatedCreditNote;
     });
 
     await this.auditLogService.log({
@@ -854,13 +867,24 @@ export class CreditNoteService {
         },
       });
 
-      return tx.creditNote.update({
+      const finalizedCreditNote = await tx.creditNote.update({
         where: { id },
         data: {
           journalEntryId: journalEntry.id,
         },
         include: creditNoteInclude,
       });
+      if (isForeignDocumentFxContext(creditNote)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: "CreditNote",
+          entityId: id,
+          after: documentFxAuditEvidence(creditNote),
+        }, tx);
+      }
+      return finalizedCreditNote;
     });
 
     await this.auditLogService.log({

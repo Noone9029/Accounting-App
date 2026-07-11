@@ -24,6 +24,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -335,7 +336,7 @@ export class PurchaseDebitNoteService {
         await tx.purchaseDebitNoteLine.deleteMany({ where: { organizationId, debitNoteId: id } });
       }
 
-      return tx.purchaseDebitNote.update({
+      const updatedDebitNote = await tx.purchaseDebitNote.update({
         where: { id },
         data: {
           supplierId: dto.supplierId,
@@ -365,6 +366,18 @@ export class PurchaseDebitNoteService {
         },
         include: purchaseDebitNoteInclude,
       });
+      if (shouldAuditDocumentFxContextChange(existing, updatedDebitNote)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "CHANGE_FX_CONTEXT",
+          entityType: "PurchaseDebitNote",
+          entityId: id,
+          before: documentFxAuditEvidence(existing),
+          after: documentFxAuditEvidence(updatedDebitNote),
+        }, tx);
+      }
+      return updatedDebitNote;
     });
 
     await this.auditLogService.log({
@@ -504,11 +517,22 @@ export class PurchaseDebitNoteService {
         },
       });
 
-      return tx.purchaseDebitNote.update({
+      const finalizedDebitNote = await tx.purchaseDebitNote.update({
         where: { id },
         data: { journalEntryId: journalEntry.id },
         include: purchaseDebitNoteInclude,
       });
+      if (isForeignDocumentFxContext(debitNote)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: "PurchaseDebitNote",
+          entityId: id,
+          after: documentFxAuditEvidence(debitNote),
+        }, tx);
+      }
+      return finalizedDebitNote;
     });
 
     await this.auditLogService.log({

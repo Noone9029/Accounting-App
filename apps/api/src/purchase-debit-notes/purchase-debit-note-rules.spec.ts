@@ -1,6 +1,6 @@
 import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import { NotFoundException } from "@nestjs/common";
-import { JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus } from "@prisma/client";
+import { CurrencyRateSource, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus } from "@prisma/client";
 import { buildSupplierLedgerRows } from "../contacts/contact-ledger.service";
 import { buildPurchaseDebitNoteJournalLines } from "./purchase-debit-note-accounting";
 import { PurchaseDebitNoteService } from "./purchase-debit-note.service";
@@ -72,6 +72,38 @@ describe("purchase debit note rules", () => {
     await expect(service.update("org-1", "user-1", "debit-note-1", {})).rejects.toThrow("Only draft purchase debit notes can be edited.");
   });
 
+  it("audits a changed foreign draft rate through the debit-note update transaction", async () => {
+    const existing = foreignDraftDebitNote();
+    const updated = { ...existing, exchangeRate: new Prisma.Decimal("3.80000000") };
+    const tx: any = {
+      purchaseDebitNoteLine: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      purchaseDebitNote: { update: jest.fn().mockResolvedValue(updated) },
+    };
+    const prisma: any = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "expense" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.80000000"),
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
+    }) };
+    const service = new PurchaseDebitNoteService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue(existing as never);
+
+    await service.update("org-1", "user-1", "debit-note-1", { exchangeRate: "3.80000000", rateSnapshotId: null });
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CHANGE_FX_CONTEXT", entityType: "PurchaseDebitNote", entityId: "debit-note-1" }),
+      tx,
+    );
+  });
+
   it("returns not found when a debit note is outside the organization scope", async () => {
     const prisma = { purchaseDebitNote: { findFirst: jest.fn().mockResolvedValue(null) } };
     const service = new PurchaseDebitNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -85,9 +117,10 @@ describe("purchase debit note rules", () => {
   it("finalization creates a balanced posted AP reversal journal", async () => {
     const tx = makeFinalizeTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const service = new PurchaseDebitNoteService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn().mockResolvedValue("JE-000001") } as never,
     );
     jest.spyOn(service, "get").mockResolvedValue({ id: "debit-note-1", status: PurchaseDebitNoteStatus.DRAFT, journalEntryId: null } as never);
@@ -111,6 +144,25 @@ describe("purchase debit note rules", () => {
           },
         }),
       }),
+    );
+    expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "FREEZE_FX_RATE" }), expect.anything());
+  });
+
+  it("freezes foreign purchase debit-note rate evidence through the finalization transaction", async () => {
+    const tx = makeFinalizeTransactionMock({ foreign: true });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const service = new PurchaseDebitNoteService(prisma as never, auditLog as never, { next: jest.fn().mockResolvedValue("JE-000001") } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "debit-note-1", status: PurchaseDebitNoteStatus.DRAFT, journalEntryId: null } as never);
+
+    await service.finalize("org-1", "user-1", "debit-note-1");
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE", entityType: "PurchaseDebitNote", entityId: "debit-note-1",
+        after: expect.objectContaining({ currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" }),
+      }),
+      tx,
     );
   });
 
@@ -356,7 +408,21 @@ describe("purchase debit note rules", () => {
   });
 });
 
-function makeFinalizeTransactionMock() {
+function foreignDraftDebitNote() {
+  return {
+    id: "debit-note-1", status: PurchaseDebitNoteStatus.DRAFT, supplierId: "supplier-1", originalBillId: null, branchId: null,
+    issueDate: new Date("2026-07-11T00:00:00.000Z"), currency: "USD", baseCurrency: "SAR",
+    exchangeRate: new Prisma.Decimal("3.75000000"), rateDate: new Date("2026-07-11T00:00:00.000Z"),
+    rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null, transactionTotal: new Prisma.Decimal("100.0000"),
+    lines: [{
+      itemId: null, description: "Services", accountId: "expense", quantity: new Prisma.Decimal("1"),
+      unitPrice: new Prisma.Decimal("100"), discountRate: new Prisma.Decimal("0"), taxRateId: null, sortOrder: 0,
+    }],
+  };
+}
+
+function makeFinalizeTransactionMock(options: { foreign?: boolean } = {}) {
+  const foreign = options.foreign ?? false;
   const debitNote = {
     id: "debit-note-1",
     debitNoteNumber: "PDN-000001",
@@ -364,18 +430,18 @@ function makeFinalizeTransactionMock() {
     originalBillId: "bill-1",
     status: PurchaseDebitNoteStatus.DRAFT,
     issueDate: new Date("2026-05-12T00:00:00.000Z"),
-    currency: "SAR",
+    currency: foreign ? "USD" : "SAR",
     baseCurrency: "SAR",
-    exchangeRate: "1.00000000",
+    exchangeRate: foreign ? "3.75000000" : "1.00000000",
     rateDate: new Date("2026-05-12T00:00:00.000Z"),
-    rateSource: "SYSTEM_RATE_1",
-    rateSnapshotId: null,
-    subtotal: "100.0000",
+    rateSource: foreign ? "MANUAL" : "SYSTEM_RATE_1",
+    rateSnapshotId: foreign ? "rate-1" : null,
+    subtotal: foreign ? "375.0000" : "100.0000",
     discountTotal: "0.0000",
-    taxableTotal: "100.0000",
-    taxTotal: "15.0000",
-    total: "115.0000",
-    transactionTaxTotal: "15.0000",
+    taxableTotal: foreign ? "375.0000" : "100.0000",
+    taxTotal: foreign ? "56.2500" : "15.0000",
+    total: foreign ? "431.2500" : "115.0000",
+    transactionTaxTotal: foreign ? "15.0000" : "15.0000",
     transactionTotal: "115.0000",
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
@@ -386,11 +452,11 @@ function makeFinalizeTransactionMock() {
         quantity: "1.0000",
         unitPrice: "100.0000",
         discountRate: "0.0000",
-        lineGrossAmount: "100.0000",
+        lineGrossAmount: foreign ? "375.0000" : "100.0000",
         discountAmount: "0.0000",
-        taxableAmount: "100.0000",
-        taxAmount: "15.0000",
-        lineTotal: "115.0000",
+        taxableAmount: foreign ? "375.0000" : "100.0000",
+        taxAmount: foreign ? "56.2500" : "15.0000",
+        lineTotal: foreign ? "431.2500" : "115.0000",
         transactionTaxableAmount: "100.0000",
         account: { id: "expense" },
       },
@@ -406,7 +472,7 @@ function makeFinalizeTransactionMock() {
       update: jest.fn().mockResolvedValue({ ...debitNote, status: PurchaseDebitNoteStatus.FINALIZED, journalEntryId: "journal-1" }),
     },
     purchaseBill: {
-      findFirst: jest.fn().mockResolvedValue({ id: "bill-1", supplierId: "supplier-1", status: PurchaseBillStatus.FINALIZED, currency: "SAR", transactionTotal: "115.0000" }),
+      findFirst: jest.fn().mockResolvedValue({ id: "bill-1", supplierId: "supplier-1", status: PurchaseBillStatus.FINALIZED, currency: foreign ? "USD" : "SAR", transactionTotal: "115.0000" }),
     },
     account: {
       findFirst: jest.fn(({ where }: { where: { code: string } }) => Promise.resolve({ id: where.code === "210" ? "ap" : "vat-receivable" })),
