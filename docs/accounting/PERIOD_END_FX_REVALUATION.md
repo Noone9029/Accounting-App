@@ -4,6 +4,8 @@
 
 This control is intended for LedgerByte user testing. It revalues open foreign-currency customer receivables and supplier payables at an accountant-selected closing rate. It does not include bank balances, cash, inventory, fixed assets, tax filing, provider integrations, or automatic rate retrieval.
 
+This control does not establish tax, regulatory, or accounting-standards compliance. An organization remains responsible for its accounting policy, review, and external reporting obligations.
+
 Every rate is existing immutable `MANUAL` or `IMPORT` evidence. A live rate provider remains disabled. Revaluation never runs on a schedule and never posts silently.
 
 ## Accounting decision
@@ -70,6 +72,27 @@ Payment reversal restores both residuals only if no later revaluation changed th
 
 Revaluation post and every settlement/correction/void path take the same tenant-scoped source-row lock. This prevents a correction or settlement from racing between source validation and carrying-layer creation. Conditional carrying mutations and serializable revaluation transactions provide the second concurrency boundary.
 
+### Revaluation then partial settlement example
+
+An AED-base customer invoice has `USD 100.0000` open, original source basis `AED 365.0000`, and recognition rate `3.65000000`. A posted period-end revaluation at `3.75000000` changes its carrying basis to `AED 375.0000` and recognizes an `AED 10.0000` unrealized gain. The source basis remains `AED 365.0000`.
+
+The customer later settles `USD 40.0000` at `3.80000000`:
+
+| Evidence | Calculation | Amount |
+| --- | --- | ---: |
+| Settlement proceeds | `USD 40.0000 × 3.80000000` | `AED 152.0000` |
+| Carrying basis allocated | `40 / 100 × AED 375.0000` | `AED 150.0000` |
+| Source basis allocated | `40 / 100 × AED 365.0000` | `AED 146.0000` |
+| Realized customer gain | `AED 152.0000 - AED 150.0000` | `AED 2.0000` |
+
+```text
+Dr Bank                         AED 152.0000
+  Cr Accounts receivable                     AED 150.0000
+  Cr Realized FX gain                         AED   2.0000
+```
+
+After the allocation, the transaction residual is `USD 60.0000`, carrying residual is `AED 225.0000`, and source residual is `AED 219.0000`. Realized FX uses the adjusted `AED 150.0000` carrying allocation, not the `AED 146.0000` source allocation, so the earlier unrealized difference is not recognized twice. The final settlement consumes the exact remaining carrying and source residuals.
+
 ## Reversal limitation
 
 A posted revaluation can be reversed only while every affected carrying record still matches the run exactly. A later settlement or later revaluation blocks reversal. Non-payment corrections, credit/debit-note applications, and source voiding are also blocked while an active revalued carrying layer exists. The accountant must reverse later dependent activity first.
@@ -122,3 +145,5 @@ The migration is additive. It creates run, line, and monetary-carrying models pl
 - Realized and unrealized FX accounts must be active posting accounts of the correct revenue/expense type; active AR `120` and AP `210` control accounts are also part of readiness.
 - Closing rates are manual/import evidence; there is no provider, scheduling, or automatic posting.
 - No ZATCA, UAE FTA, banking, payment collection, OCR, email, webhook delivery, external storage, or money-movement behavior is introduced by this control.
+
+See [Multi-currency and FX accounting](./MULTI_CURRENCY_AND_FX_ACCOUNTING.md), [FX rate direction and rounding](./FX_RATE_DIRECTION_AND_ROUNDING.md), and [Realized FX settlements](./REALIZED_FX_SETTLEMENTS.md) for the surrounding amount, rounding, settlement, and limitation contracts.
