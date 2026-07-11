@@ -142,6 +142,6 @@
 - Modify this plan's checkboxes as evidence becomes true.
 
 - [x] Run Prisma generate/validate, full API/web/package tests, API/web/workspace typechecks, full build, focused browser import review, diff check, and high-risk secret scan.
-- [ ] Request an independent whole-Phase-7 accounting/security/API review and resolve every Critical or Important finding test-first.
+- [x] Request an independent whole-Phase-7 accounting/security/API review and resolve every Critical or Important finding test-first.
 - [ ] Push `codex/multi-currency-fx-import-api-audit`, open a ready PR, wait for all CI, merge only while green and mergeable, fetch `origin/main`, and prove the Phase 7 head reachable.
 - [ ] Preserve the clean worktree until hosted rollout evidence is complete; remove only merged worktrees/branches with proven reachability.
