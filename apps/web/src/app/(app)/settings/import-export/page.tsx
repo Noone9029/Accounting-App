@@ -131,7 +131,7 @@ export default function ImportExportSettingsPage() {
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.7fr)]">
-          <LedgerPanel>
+          <LedgerPanel className="min-w-0">
             <div className="flex items-start gap-3">
               <FileSpreadsheet className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
               <div>
@@ -205,7 +205,7 @@ export default function ImportExportSettingsPage() {
             ) : null}
           </LedgerPanel>
 
-          <LedgerPanel>
+          <LedgerPanel className="min-w-0">
             <h2 className="text-base font-semibold text-ink">Safety boundaries</h2>
             <div className="mt-4">
               <LedgerMetadataRow
