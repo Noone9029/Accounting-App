@@ -35,8 +35,10 @@ const accounts = [
   { id: "inventory-clearing", code: "240", name: "Inventory Clearing", type: AccountType.LIABILITY },
   { id: "equity", code: "310", name: "Owner Equity", type: AccountType.EQUITY },
   { id: "revenue", code: "411", name: "Sales Revenue", type: AccountType.REVENUE },
+  { id: "unrealized-gain", code: "419", name: "Unrealized FX Gain", type: AccountType.REVENUE },
   { id: "cogs", code: "510", name: "Cost of Sales", type: AccountType.COST_OF_SALES },
   { id: "expense", code: "511", name: "General Expenses", type: AccountType.EXPENSE },
+  { id: "unrealized-loss", code: "519", name: "Unrealized FX Loss", type: AccountType.EXPENSE },
 ];
 
 describe("report pack manifest preview", () => {
@@ -308,6 +310,39 @@ describe("reports service builders", () => {
     expect(report.totals.closingDebit).toBe("115.0000");
     expect(report.totals.closingCredit).toBe("115.0000");
     expect(report.totals.balanced).toBe(true);
+  });
+
+  it("flows posted and reversed FX revaluation journals through GL, TB, P&L, and balance sheet", () => {
+    const posted = [
+      line("ar", "2026-06-30", "10.0000", "0.0000", "FX revaluation carrying adjustment INV-1"),
+      line("unrealized-gain", "2026-06-30", "0.0000", "10.0000", "Unrealized FX gain INV-1"),
+    ];
+    const reversal = [
+      line("ar", "2026-07-01", "0.0000", "10.0000", "Reversal of FX revaluation INV-1"),
+      line("unrealized-gain", "2026-07-01", "10.0000", "0.0000", "Reversal of unrealized FX gain INV-1"),
+    ];
+
+    const postedGl = buildGeneralLedgerReport(accounts, [], posted, { from: "2026-06-01", to: "2026-06-30" });
+    const postedTb = buildTrialBalanceReport(accounts, [], posted, { from: "2026-06-01", to: "2026-06-30" });
+    const postedPl = buildProfitAndLossReport(accounts, posted, { from: "2026-06-01", to: "2026-06-30" });
+    const postedBs = buildBalanceSheetReport(accounts, posted, { asOf: "2026-06-30" });
+
+    expect(postedGl.accounts.find((account) => account.accountId === "ar")).toMatchObject({ periodDebit: "10.0000", closingDebit: "10.0000" });
+    expect(postedGl.accounts.find((account) => account.accountId === "unrealized-gain")).toMatchObject({ periodCredit: "10.0000", closingCredit: "10.0000" });
+    expect(postedTb.totals).toMatchObject({ closingDebit: "10.0000", closingCredit: "10.0000", balanced: true });
+    expect(postedPl).toMatchObject({ revenue: "10.0000", netProfit: "10.0000" });
+    expect(postedBs).toMatchObject({ totalAssets: "10.0000", retainedEarnings: "10.0000", balanced: true });
+
+    const reversedLines = [...posted, ...reversal];
+    const reversedGl = buildGeneralLedgerReport(accounts, [], reversedLines, { from: "2026-06-01", to: "2026-07-31", includeZero: true });
+    const reversedTb = buildTrialBalanceReport(accounts, [], reversedLines, { from: "2026-06-01", to: "2026-07-31", includeZero: true });
+    const reversedPl = buildProfitAndLossReport(accounts, reversedLines, { from: "2026-06-01", to: "2026-07-31" });
+    const reversedBs = buildBalanceSheetReport(accounts, reversedLines, { asOf: "2026-07-31" });
+
+    expect(reversedGl.accounts.find((account) => account.accountId === "ar")).toMatchObject({ periodDebit: "10.0000", periodCredit: "10.0000", closingDebit: "0.0000" });
+    expect(reversedTb.totals).toMatchObject({ closingDebit: "0.0000", closingCredit: "0.0000", balanced: true });
+    expect(reversedPl).toMatchObject({ revenue: "0.0000", netProfit: "0.0000" });
+    expect(reversedBs).toMatchObject({ totalAssets: "0.0000", retainedEarnings: "0.0000", balanced: true });
   });
 
   it("handles P&L signs for revenue, COGS, and expenses", () => {

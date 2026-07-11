@@ -6,8 +6,15 @@ import {
   getFxAccountConfiguration,
   getFxCurrencies,
   getFxReadiness,
+  getFxRevaluationContext,
+  getFxRevaluation,
+  listFxRevaluations,
   listCurrencyRates,
+  postFxRevaluation,
+  previewFxRevaluation,
   ratePairLabel,
+  reviewFxRevaluation,
+  reverseFxRevaluation,
   saveFxAccountConfiguration,
 } from "./foreign-exchange";
 
@@ -75,6 +82,32 @@ describe("foreign exchange API helpers", () => {
         unrealizedLossAccountId: "expense-2",
       },
     });
+  });
+
+  it("uses guarded revaluation list, detail, preview, review, post, and reverse endpoints", async () => {
+    await listFxRevaluations({ status: "REVIEWED", page: 2, limit: 10 });
+    await getFxRevaluationContext();
+    await getFxRevaluation("run-1");
+    await previewFxRevaluation({
+      revaluationDate: "2026-06-30",
+      rateDate: "2026-06-30",
+      rates: [{ currencyCode: "USD", rateSnapshotId: "rate-1" }],
+      idempotencyKey: "preview-1",
+    });
+    await reviewFxRevaluation("run-1", "review-1");
+    await postFxRevaluation("run-1", "post-001");
+    await reverseFxRevaluation("run-1", "reverse-1");
+
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations?status=REVIEWED&page=2&limit=10");
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/context");
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1");
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/preview", {
+      method: "POST",
+      body: expect.objectContaining({ idempotencyKey: "preview-1" }),
+    });
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1/review", { method: "POST", body: { idempotencyKey: "review-1" } });
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1/post", { method: "POST", body: { idempotencyKey: "post-001" } });
+    expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1/reverse", { method: "POST", body: { idempotencyKey: "reverse-1" } });
   });
 });
 

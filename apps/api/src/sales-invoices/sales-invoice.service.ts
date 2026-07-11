@@ -34,6 +34,7 @@ import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
 import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { FxCarryingBalanceService } from "../foreign-exchange/fx-carrying-balance.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -161,6 +162,7 @@ export class SalesInvoiceService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
     @Optional() private readonly documentFxContextService?: DocumentFxContextService,
+    @Optional() private readonly fxCarryingBalanceService?: FxCarryingBalanceService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -785,6 +787,7 @@ export class SalesInvoiceService {
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException("Only draft or finalized invoices can be voided.");
       }
+      await this.fxCarryingBalanceService?.assertCustomerMutationAllowed(organizationId, id, tx);
       if (!invoice.journalEntryId) {
         throw new BadRequestException("Finalized invoice is missing its journal entry.");
       }

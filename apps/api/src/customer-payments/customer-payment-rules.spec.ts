@@ -103,6 +103,52 @@ describe("customer payment rules", () => {
     }));
   });
 
+  it("settles a revalued receivable against adjusted carrying basis and preserves source basis", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "AED", exchangeRate: "3.80000000",
+      rateDate: new Date("2026-07-12T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    }) };
+    const carrying = {
+      resolveCustomerBasis: jest.fn().mockResolvedValue({
+        monetaryBalanceId: "balance-1", carryingBaseOpenAmount: "375.0000", sourceBaseOpenAmount: "365.0000",
+        carryingRate: "3.75000000", carryingRateSnapshotId: "closing-rate", carryingRevaluationLineId: "revaluation-line-1",
+        useProportionalCarryingBasis: true,
+      }),
+      applySettlement: jest.fn(),
+    };
+    const service = new CustomerPaymentService(
+      prisma as never, { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never, carrying as never,
+    );
+
+    await service.create("org-1", "user-1", {
+      ...basePaymentDto, currency: "USD", amountReceived: "40.0000", allocations: [{ invoiceId: "invoice-1", amountApplied: "40.0000" }],
+      exchangeRate: "3.80000000", rateDate: "2026-07-12", rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    });
+
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ balanceDue: { gte: "146.0000" }, transactionBalanceDue: { gte: "40.0000" } }),
+      data: { balanceDue: { decrement: "146.0000" }, transactionBalanceDue: { decrement: "40.0000" } },
+    }));
+    expect(carrying.applySettlement).toHaveBeenCalledWith("org-1", expect.objectContaining({ carryingRevaluationLineId: "revaluation-line-1" }), {
+      transactionAmount: "40.0000", carryingBaseAmount: "150.0000", sourceBaseAmount: "146.0000",
+    }, tx);
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      totalDebit: "152.0000", totalCredit: "152.0000",
+      lines: { create: expect.arrayContaining([
+        expect.objectContaining({ credit: "150.0000", transactionCredit: "40.0000", exchangeRate: "3.75000000", rateSnapshot: { connect: { organizationId_id: { organizationId: "org-1", id: "closing-rate" } } } }),
+        expect.objectContaining({ account: { connect: { id: "fx-gain" } }, credit: "2.0000" }),
+      ]) },
+    }) }));
+    expect(tx.customerPayment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ allocations: { create: [expect.objectContaining({
+      documentBaseAmountApplied: "150.0000", sourceBaseAmountApplied: "146.0000", carryingRate: "3.75000000",
+      carryingRevaluationLine: { connect: { organizationId_id: { organizationId: "org-1", id: "revaluation-line-1" } } },
+    })] } }) }));
+  });
+
   it("reconciles direct multi-allocation settlement rounding to the exact payment base total", async () => {
     const tx = makeForeignCreateTransactionMock();
     tx.salesInvoice.findMany.mockResolvedValue([

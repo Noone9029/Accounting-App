@@ -1,9 +1,9 @@
-import { LedgerPanel, LedgerStatusBadge, LedgerSummaryBand } from "@/components/ui/ledger-system";
+import { LedgerButton, LedgerPanel, LedgerStatusBadge, LedgerSummaryBand } from "@/components/ui/ledger-system";
 import type { FxCurrencyCatalog, FxReadiness } from "@/lib/foreign-exchange";
 
 export function FxSummary({ catalog, readiness }: Readonly<{ catalog: FxCurrencyCatalog; readiness: FxReadiness }>) {
   return (
-    <LedgerSummaryBand tone="warning">
+    <LedgerSummaryBand tone={readiness.fxRevaluationEnabled ? "success" : "warning"}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="font-semibold text-ink">Controlled FX foundation</h2>
@@ -12,12 +12,14 @@ export function FxSummary({ catalog, readiness }: Readonly<{ catalog: FxCurrency
         </div>
         <div className="flex flex-wrap gap-2">
           <LedgerStatusBadge tone="warning">Live rate provider is disabled</LedgerStatusBadge>
-          <LedgerStatusBadge tone="warning">Foreign document posting disabled</LedgerStatusBadge>
+          <LedgerStatusBadge tone={readiness.foreignDocumentPostingEnabled ? "success" : "warning"}>
+            {readiness.foreignDocumentPostingEnabled ? "Foreign document posting is enabled" : "Foreign document posting is blocked"}
+          </LedgerStatusBadge>
         </div>
       </div>
-      {!readiness.foreignDocumentPostingEnabled ? (
+      {!readiness.fxRevaluationEnabled ? (
         <p className="mt-3 border-t border-amber-200 pt-3">
-          Foreign-currency document posting remains disabled until document, posting, settlement, and report controls are complete.
+          Period-end revaluation remains blocked until all realized and unrealized FX posting accounts are configured.
         </p>
       ) : null}
     </LedgerSummaryBand>
@@ -30,11 +32,16 @@ export function FxReadinessPanel({ readiness }: Readonly<{ readiness: FxReadines
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">Posting readiness</h2>
-          <p className="mt-1 text-sm leading-6 text-steel">Configuration status is evidence only; it does not enable foreign document posting.</p>
+          <p className="mt-1 text-sm leading-6 text-steel">Configuration gates controlled settlement and period-end gain/loss journals.</p>
         </div>
-        <LedgerStatusBadge tone={readiness.accountConfigurationComplete ? "success" : "warning"}>
-          {readiness.accountConfigurationComplete ? "Account configuration complete" : "Account configuration incomplete"}
-        </LedgerStatusBadge>
+        <div className="flex flex-wrap gap-2">
+          <LedgerStatusBadge tone={readiness.accountConfigurationComplete ? "success" : "warning"}>
+            {readiness.accountConfigurationComplete ? "Account configuration complete" : "Account configuration incomplete"}
+          </LedgerStatusBadge>
+          <LedgerStatusBadge tone={readiness.controlAccountsComplete ? "success" : "warning"}>
+            {readiness.controlAccountsComplete ? "AR/AP controls available" : "AR/AP controls unavailable"}
+          </LedgerStatusBadge>
+        </div>
       </div>
       <ul className="mt-4 space-y-2 text-sm leading-6 text-steel" aria-label="FX readiness blockers">
         {readiness.blockers.map((blocker) => (
@@ -43,6 +50,9 @@ export function FxReadinessPanel({ readiness }: Readonly<{ readiness: FxReadines
           </li>
         ))}
       </ul>
+      <div className="mt-4 border-t border-line pt-4">
+        <LedgerButton href="/fx-revaluations" size="sm">Open FX revaluation workspace</LedgerButton>
+      </div>
     </LedgerPanel>
   );
 }

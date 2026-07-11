@@ -128,20 +128,91 @@ export interface ForeignSettlementAllocationInput {
   transactionAmount: ExactDecimalInput;
   transactionOpenAmount: ExactDecimalInput;
   baseOpenAmount: ExactDecimalInput;
+  sourceBaseOpenAmount?: ExactDecimalInput;
   recognitionRate: ExactDecimalInput;
   settlementRate: ExactDecimalInput;
   settlementTransactionOpenAmount?: ExactDecimalInput;
   settlementBaseOpenAmount?: ExactDecimalInput;
+  useProportionalCarryingBasis?: boolean;
 }
 
 export interface ForeignSettlementAllocation {
   transactionAmount: string;
   documentBaseAmount: string;
+  sourceBaseAmount?: string;
   settlementBaseAmount: string;
   realizedGainAmount: string;
   realizedLossAmount: string;
   remainingTransactionAmount: string;
   remainingBaseAmount: string;
+  remainingSourceBaseAmount?: string;
+}
+
+export interface MonetaryBalanceRevaluationInput {
+  direction: ForeignSettlementDirection;
+  transactionOpenAmount: ExactDecimalInput;
+  carryingBaseAmount: ExactDecimalInput;
+  closingRate: ExactDecimalInput;
+}
+
+export interface MonetaryBalanceRevaluation {
+  transactionOpenAmount: string;
+  carryingBaseAmount: string;
+  closingRate: string;
+  revaluedBaseAmount: string;
+  unrealizedGainAmount: string;
+  unrealizedLossAmount: string;
+}
+
+export function revalueMonetaryBalance(input: MonetaryBalanceRevaluationInput): MonetaryBalanceRevaluation {
+  const transactionOpen = parseExactDecimal(
+    input.transactionOpenAmount,
+    "Transaction open amount must be a positive finite decimal string or Decimal value.",
+    "FX_INVALID_TRANSACTION_OPEN_AMOUNT",
+  );
+  const carryingBase = parseExactDecimal(
+    input.carryingBaseAmount,
+    "Carrying base amount must be a non-negative finite decimal string or Decimal value.",
+    "FX_INVALID_CARRYING_BASE_AMOUNT",
+  );
+  const closingRate = parseExactDecimal(
+    input.closingRate,
+    INVALID_EXCHANGE_RATE_MESSAGE,
+    "FX_INVALID_EXCHANGE_RATE",
+  );
+  if (transactionOpen.lte(0)) {
+    throw new AccountingRuleError(
+      "Transaction open amount must be greater than zero.",
+      "FX_TRANSACTION_OPEN_AMOUNT_MUST_BE_POSITIVE",
+    );
+  }
+  if (carryingBase.lt(0)) {
+    throw new AccountingRuleError(
+      "Carrying base amount cannot be negative.",
+      "FX_CARRYING_BASE_AMOUNT_NEGATIVE",
+    );
+  }
+  if (closingRate.lte(0)) {
+    throw new AccountingRuleError(INVALID_EXCHANGE_RATE_MESSAGE, "FX_INVALID_EXCHANGE_RATE");
+  }
+
+  const roundedTransactionOpen = roundMoney(transactionOpen);
+  const roundedCarryingBase = roundMoney(carryingBase);
+  const revaluedBase = roundMoney(roundedTransactionOpen.mul(closingRate));
+  const difference = revaluedBase.minus(roundedCarryingBase);
+  const customerGain = input.direction === "CUSTOMER" && difference.gt(0);
+  const customerLoss = input.direction === "CUSTOMER" && difference.lt(0);
+  const supplierGain = input.direction === "SUPPLIER" && difference.lt(0);
+  const supplierLoss = input.direction === "SUPPLIER" && difference.gt(0);
+
+  return {
+    transactionOpenAmount: roundedTransactionOpen.toFixed(4),
+    carryingBaseAmount: roundedCarryingBase.toFixed(4),
+    closingRate: closingRate.toFixed(8),
+    revaluedBaseAmount: revaluedBase.toFixed(4),
+    unrealizedGainAmount: roundMoney(customerGain || supplierGain ? difference.abs() : ZERO).toFixed(4),
+    unrealizedLossAmount: roundMoney(customerLoss || supplierLoss ? difference.abs() : ZERO).toFixed(4),
+  };
 }
 
 /**
@@ -167,6 +238,14 @@ export function allocateForeignSettlement(
     "Base open amount must be a non-negative finite decimal string or Decimal value.",
     "FX_INVALID_BASE_OPEN_AMOUNT",
   );
+  const hasSourceBasis = input.sourceBaseOpenAmount !== undefined;
+  const sourceBaseOpen = hasSourceBasis
+    ? parseExactDecimal(
+        input.sourceBaseOpenAmount!,
+        "Source base open amount must be a non-negative finite decimal string or Decimal value.",
+        "FX_INVALID_SOURCE_BASE_OPEN_AMOUNT",
+      )
+    : baseOpen;
   const recognitionRate = parseExactDecimal(
     input.recognitionRate,
     INVALID_EXCHANGE_RATE_MESSAGE,
@@ -196,7 +275,7 @@ export function allocateForeignSettlement(
       "FX_SETTLEMENT_AMOUNT_MUST_BE_POSITIVE",
     );
   }
-  if (transactionOpen.lt(0) || baseOpen.lt(0) || settlementTransactionOpen.lt(0) || settlementBaseOpen.lt(0)) {
+  if (transactionOpen.lt(0) || baseOpen.lt(0) || sourceBaseOpen.lt(0) || settlementTransactionOpen.lt(0) || settlementBaseOpen.lt(0)) {
     throw new AccountingRuleError(
       "Settlement open balances cannot be negative.",
       "FX_SETTLEMENT_OPEN_BALANCE_NEGATIVE",
@@ -221,16 +300,30 @@ export function allocateForeignSettlement(
   const transactionAmount = roundMoney(amount);
   const roundedTransactionOpen = roundMoney(transactionOpen);
   const roundedBaseOpen = roundMoney(baseOpen);
+  const roundedSourceBaseOpen = roundMoney(sourceBaseOpen);
   const isFinalAllocation = transactionAmount.eq(roundedTransactionOpen);
   const isFinalSettlementAllocation = transactionAmount.eq(roundMoney(settlementTransactionOpen));
   const documentBaseAmount = isFinalAllocation
     ? roundedBaseOpen
-    : roundMoney(transactionAmount.mul(recognitionRate));
+    : input.useProportionalCarryingBasis
+      ? roundMoney(transactionAmount.div(roundedTransactionOpen).mul(roundedBaseOpen))
+      : roundMoney(transactionAmount.mul(recognitionRate));
+  const sourceBaseAmount = isFinalAllocation
+    ? roundedSourceBaseOpen
+    : input.useProportionalCarryingBasis
+      ? roundMoney(transactionAmount.div(roundedTransactionOpen).mul(roundedSourceBaseOpen))
+      : roundMoney(transactionAmount.mul(recognitionRate));
 
   if (documentBaseAmount.gt(roundedBaseOpen)) {
     throw new AccountingRuleError(
       "Settlement carrying amount cannot exceed the base open amount.",
       "FX_SETTLEMENT_EXCEEDS_BASE_OPEN_AMOUNT",
+    );
+  }
+  if (sourceBaseAmount.gt(roundedSourceBaseOpen)) {
+    throw new AccountingRuleError(
+      "Settlement source amount cannot exceed the source base open amount.",
+      "FX_SETTLEMENT_EXCEEDS_SOURCE_BASE_OPEN_AMOUNT",
     );
   }
 
@@ -245,7 +338,7 @@ export function allocateForeignSettlement(
   const supplierGain = input.direction === "SUPPLIER" && difference.lt(0);
   const supplierLoss = input.direction === "SUPPLIER" && difference.gt(0);
 
-  return {
+  const result: ForeignSettlementAllocation = {
     transactionAmount: transactionAmount.toFixed(4),
     documentBaseAmount: documentBaseAmount.toFixed(4),
     settlementBaseAmount: settlementBaseAmount.toFixed(4),
@@ -256,6 +349,13 @@ export function allocateForeignSettlement(
       ? "0.0000"
       : roundMoney(roundedBaseOpen.minus(documentBaseAmount)).toFixed(4),
   };
+  if (hasSourceBasis) {
+    result.sourceBaseAmount = sourceBaseAmount.toFixed(4);
+    result.remainingSourceBaseAmount = isFinalAllocation
+      ? "0.0000"
+      : roundMoney(roundedSourceBaseOpen.minus(sourceBaseAmount)).toFixed(4);
+  }
+  return result;
 }
 
 export function convertTransactionDocumentAmounts(

@@ -30,6 +30,7 @@ import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
 import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { FxCarryingBalanceService } from "../foreign-exchange/fx-carrying-balance.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -120,6 +121,7 @@ export class CreditNoteService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
     @Optional() private readonly documentFxContextService?: DocumentFxContextService,
+    @Optional() private readonly fxCarryingBalanceService?: FxCarryingBalanceService,
   ) {}
 
   list(organizationId: string) {
@@ -279,6 +281,7 @@ export class CreditNoteService {
       if (amountApplied.gt(invoice.balanceDue)) {
         throw new BadRequestException("Amount applied cannot exceed invoice balance due.");
       }
+      await this.fxCarryingBalanceService?.assertCustomerMutationAllowed(organizationId, invoice.id, tx);
 
       const amount = amountApplied.toFixed(4);
       const creditClaim = await tx.creditNote.updateMany({
@@ -377,6 +380,7 @@ export class CreditNoteService {
       if (allocation.invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException("Only finalized, non-voided invoices can have credit allocations reversed.");
       }
+      await this.fxCarryingBalanceService?.assertCustomerMutationAllowed(organizationId, allocation.invoice.id, tx);
 
       const amount = toMoney(allocation.amountApplied).toFixed(4);
       const creditNoteUnappliedLimit = toMoney(allocation.creditNote.total).minus(amount).toFixed(4);

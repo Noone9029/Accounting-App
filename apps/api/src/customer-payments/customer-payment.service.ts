@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
   allocateForeignSettlement,
@@ -34,6 +34,7 @@ import {
   DocumentFxContextService,
   ResolvedDocumentFxContext,
 } from "../foreign-exchange/document-fx-context.service";
+import { FxCarryingBalanceService, FxCarryingSettlementBasis } from "../foreign-exchange/fx-carrying-balance.service";
 import { buildRealizedFxAdjustmentJournalLines } from "../foreign-exchange/realized-fx-adjustment";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
@@ -69,6 +70,8 @@ const customerPaymentInclude = {
           transactionTotal: true,
           transactionBalanceDue: true,
           currency: true,
+          exchangeRate: true,
+          rateSnapshotId: true,
           status: true,
         },
       },
@@ -87,6 +90,8 @@ const customerPaymentInclude = {
           transactionTotal: true,
           transactionBalanceDue: true,
           currency: true,
+          exchangeRate: true,
+          rateSnapshotId: true,
           status: true,
         },
       },
@@ -121,6 +126,7 @@ export class CustomerPaymentService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
     @Optional() private readonly documentFxContextService?: DocumentFxContextService,
+    @Optional() private readonly fxCarryingBalanceService?: FxCarryingBalanceService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -306,15 +312,18 @@ export class CustomerPaymentService {
 
       const recognitionRate = String(invoice.exchangeRate ?? "1");
       const settlementRate = String(payment.exchangeRate ?? "1");
+      const carryingBasis = await this.resolveCarryingBasis(organizationId, invoice, tx);
       const calculated = allocateForeignSettlement({
         direction: "CUSTOMER",
         transactionAmount: amountApplied.toFixed(4),
         transactionOpenAmount: String(invoice.transactionBalanceDue ?? invoice.balanceDue),
-        baseOpenAmount: String(invoice.balanceDue),
+        baseOpenAmount: carryingBasis.carryingBaseOpenAmount,
+        sourceBaseOpenAmount: carryingBasis.sourceBaseOpenAmount,
         recognitionRate,
         settlementRate,
         settlementTransactionOpenAmount: String(payment.transactionUnappliedAmount ?? payment.unappliedAmount),
         settlementBaseOpenAmount: String(payment.unappliedAmount),
+        useProportionalCarryingBasis: carryingBasis.useProportionalCarryingBasis,
       });
       const fxAccounts = await this.resolveRealizedFxAccounts(
         organizationId, calculated.realizedGainAmount, calculated.realizedLossAmount, tx,
@@ -351,17 +360,22 @@ export class CustomerPaymentService {
           organizationId,
           customerId: payment.customerId,
           status: SalesInvoiceStatus.FINALIZED,
-          balanceDue: { gte: calculated.documentBaseAmount },
+          balanceDue: { gte: calculated.sourceBaseAmount! },
           transactionBalanceDue: { gte: calculated.transactionAmount },
         },
         data: {
-          balanceDue: { decrement: calculated.documentBaseAmount },
+          balanceDue: { decrement: calculated.sourceBaseAmount! },
           transactionBalanceDue: { decrement: calculated.transactionAmount },
         },
       });
       if (invoiceClaim.count !== 1) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_INVOICE_BALANCE);
       }
+      await this.fxCarryingBalanceService?.applySettlement(organizationId, carryingBasis, {
+        transactionAmount: calculated.transactionAmount,
+        carryingBaseAmount: calculated.documentBaseAmount,
+        sourceBaseAmount: calculated.sourceBaseAmount!,
+      }, tx);
 
       const realizedFxJournalEntryId = await this.createRealizedFxAdjustmentJournal({
         organizationId,
@@ -384,8 +398,16 @@ export class CustomerPaymentService {
           amountApplied: calculated.documentBaseAmount,
           transactionAmountApplied: calculated.transactionAmount,
           documentBaseAmountApplied: calculated.documentBaseAmount,
+          sourceBaseAmountApplied: calculated.sourceBaseAmount!,
           settlementBaseAmountApplied: calculated.settlementBaseAmount,
           recognitionRate,
+          carryingRate: carryingBasis.carryingRate,
+          carryingRateSnapshot: carryingBasis.carryingRateSnapshotId
+            ? { connect: { organizationId_id: { organizationId, id: carryingBasis.carryingRateSnapshotId } } }
+            : undefined,
+          carryingRevaluationLine: carryingBasis.carryingRevaluationLineId
+            ? { connect: { organizationId_id: { organizationId, id: carryingBasis.carryingRevaluationLineId } } }
+            : undefined,
           settlementRate,
           realizedGainAmount: calculated.realizedGainAmount,
           realizedLossAmount: calculated.realizedLossAmount,
@@ -442,6 +464,8 @@ export class CustomerPaymentService {
               balanceDue: true,
               transactionTotal: true,
               transactionBalanceDue: true,
+              exchangeRate: true,
+              rateSnapshotId: true,
             },
           },
         },
@@ -470,12 +494,13 @@ export class CustomerPaymentService {
       }
 
       const documentBaseAmount = toMoney(allocation.documentBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const sourceBaseAmount = toMoney(allocation.sourceBaseAmountApplied ?? allocation.documentBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
       const settlementBaseAmount = toMoney(allocation.settlementBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
       const transactionAmount = toMoney(allocation.transactionAmountApplied ?? allocation.amountApplied).toFixed(4);
       const paymentUnappliedLimit = toMoney(allocation.payment.amountReceived).minus(settlementBaseAmount).toFixed(4);
       const paymentTransactionUnappliedLimit = toMoney(allocation.payment.transactionAmountReceived ?? allocation.payment.amountReceived)
         .minus(transactionAmount).toFixed(4);
-      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(documentBaseAmount).toFixed(4);
+      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(sourceBaseAmount).toFixed(4);
       const invoiceTransactionBalanceLimit = toMoney(allocation.invoice.transactionTotal ?? allocation.invoice.total)
         .minus(transactionAmount).toFixed(4);
 
@@ -493,6 +518,8 @@ export class CustomerPaymentService {
       }
 
       const now = new Date();
+      const carryingBasis = await this.resolveCarryingBasis(organizationId, allocation.invoice, tx);
+      this.assertAllocationCarryingLine(allocation.carryingRevaluationLineId, carryingBasis);
       const claim = await tx.customerPaymentUnappliedAllocation.updateMany({
         where: { id: allocationId, paymentId: id, organizationId, reversedAt: null },
         data: {
@@ -541,13 +568,18 @@ export class CustomerPaymentService {
           transactionBalanceDue: { lte: invoiceTransactionBalanceLimit },
         },
         data: {
-          balanceDue: { increment: documentBaseAmount },
+          balanceDue: { increment: sourceBaseAmount },
           transactionBalanceDue: { increment: transactionAmount },
         },
       });
       if (invoiceRestore.count !== 1) {
         throw new BadRequestException("Invoice balance due could not be restored without exceeding invoice total.");
       }
+      await this.fxCarryingBalanceService?.restoreSettlement(organizationId, carryingBasis, {
+        transactionAmount,
+        carryingBaseAmount: documentBaseAmount,
+        sourceBaseAmount,
+      }, tx);
 
       if (realizedFxReversalJournalEntryId) {
         await tx.customerPaymentUnappliedAllocation.update({
@@ -849,7 +881,14 @@ export class CustomerPaymentService {
       const settlementBaseAmountReceived = convertTransactionToBaseAmount(transactionAmountReceived.toFixed(4), String(fx.exchangeRate));
       let settlementTransactionOpen = transactionAmountReceived;
       let settlementBaseOpen = toMoney(settlementBaseAmountReceived);
-      const allocationPlans = dto.allocations.map((allocation) => {
+      const allocationPlans: Array<{
+        allocation: CreateCustomerPaymentDto["allocations"][number];
+        invoice: (typeof invoices)[number];
+        recognitionRate: string;
+        carryingBasis: FxCarryingSettlementBasis;
+        calculated: ReturnType<typeof allocateForeignSettlement>;
+      }> = [];
+      for (const allocation of dto.allocations) {
         const invoice = invoiceById.get(allocation.invoiceId)!;
         const recognitionRate = String(invoice.exchangeRate ?? "1");
         assertStoredDocumentFxPostingContext({
@@ -859,20 +898,23 @@ export class CustomerPaymentService {
           rateDate: invoice.rateDate ?? paymentDate,
           rateSource: invoice.rateSource ?? CurrencyRateSource.SYSTEM_RATE_1,
         });
+        const carryingBasis = await this.resolveCarryingBasis(organizationId, invoice, tx);
         const calculated = allocateForeignSettlement({
           direction: "CUSTOMER",
           transactionAmount: allocation.amountApplied,
           transactionOpenAmount: String(invoice.transactionBalanceDue ?? invoice.balanceDue),
-          baseOpenAmount: String(invoice.balanceDue),
+          baseOpenAmount: carryingBasis.carryingBaseOpenAmount,
+          sourceBaseOpenAmount: carryingBasis.sourceBaseOpenAmount,
           recognitionRate,
           settlementRate: String(fx.exchangeRate),
           settlementTransactionOpenAmount: settlementTransactionOpen.toFixed(4),
           settlementBaseOpenAmount: settlementBaseOpen.toFixed(4),
+          useProportionalCarryingBasis: carryingBasis.useProportionalCarryingBasis,
         });
         settlementTransactionOpen = settlementTransactionOpen.minus(calculated.transactionAmount);
         settlementBaseOpen = settlementBaseOpen.minus(calculated.settlementBaseAmount);
-        return { allocation, invoice, recognitionRate, calculated };
-      });
+        allocationPlans.push({ allocation, invoice, recognitionRate, carryingBasis, calculated });
+      }
 
       const realizedGainAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedGainAmount), toMoney(0)).toFixed(4);
       const realizedLossAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedLossAmount), toMoney(0)).toFixed(4);
@@ -891,17 +933,22 @@ export class CustomerPaymentService {
             organizationId,
             customerId: dto.customerId,
             status: SalesInvoiceStatus.FINALIZED,
-            balanceDue: { gte: plan.calculated.documentBaseAmount },
+            balanceDue: { gte: plan.calculated.sourceBaseAmount! },
             transactionBalanceDue: { gte: plan.calculated.transactionAmount },
           },
           data: {
-            balanceDue: { decrement: plan.calculated.documentBaseAmount },
+            balanceDue: { decrement: plan.calculated.sourceBaseAmount! },
             transactionBalanceDue: { decrement: plan.calculated.transactionAmount },
           },
         });
         if (updatedInvoice.count !== 1) {
           throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
         }
+        await this.fxCarryingBalanceService?.applySettlement(organizationId, plan.carryingBasis, {
+          transactionAmount: plan.calculated.transactionAmount,
+          carryingBaseAmount: plan.calculated.documentBaseAmount,
+          sourceBaseAmount: plan.calculated.sourceBaseAmount!,
+        }, tx);
       }
 
       const paymentNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PAYMENT, tx);
@@ -922,6 +969,8 @@ export class CustomerPaymentService {
           documentBaseAmountApplied: plan.calculated.documentBaseAmount,
           recognitionRate: plan.recognitionRate,
           rateSnapshotId: plan.invoice.rateSnapshotId ?? null,
+          carryingRate: plan.carryingBasis.carryingRate,
+          carryingRateSnapshotId: plan.carryingBasis.carryingRateSnapshotId,
         })),
         transactionUnappliedAmount,
         unappliedBaseAmount: unappliedAmount,
@@ -981,8 +1030,16 @@ export class CustomerPaymentService {
               amountApplied: plan.calculated.documentBaseAmount,
               transactionAmountApplied: plan.calculated.transactionAmount,
               documentBaseAmountApplied: plan.calculated.documentBaseAmount,
+              sourceBaseAmountApplied: plan.calculated.sourceBaseAmount!,
               settlementBaseAmountApplied: plan.calculated.settlementBaseAmount,
               recognitionRate: plan.recognitionRate,
+              carryingRate: plan.carryingBasis.carryingRate,
+              carryingRateSnapshot: plan.carryingBasis.carryingRateSnapshotId
+                ? { connect: { organizationId_id: { organizationId, id: plan.carryingBasis.carryingRateSnapshotId } } }
+                : undefined,
+              carryingRevaluationLine: plan.carryingBasis.carryingRevaluationLineId
+                ? { connect: { organizationId_id: { organizationId, id: plan.carryingBasis.carryingRevaluationLineId } } }
+                : undefined,
               settlementRate: String(fx.exchangeRate),
               realizedGainAmount: plan.calculated.realizedGainAmount,
               realizedLossAmount: plan.calculated.realizedLossAmount,
@@ -1025,7 +1082,19 @@ export class CustomerPaymentService {
       const payment = await tx.customerPayment.findFirst({
         where: { id, organizationId },
         include: {
-          allocations: true,
+          allocations: {
+            include: {
+              invoice: {
+                select: {
+                  id: true,
+                  transactionBalanceDue: true,
+                  balanceDue: true,
+                  exchangeRate: true,
+                  rateSnapshotId: true,
+                },
+              },
+            },
+          },
           journalEntry: {
             include: {
               lines: { orderBy: { lineNumber: "asc" } },
@@ -1095,13 +1164,26 @@ export class CustomerPaymentService {
         ));
 
       for (const allocation of payment.allocations) {
-        await tx.salesInvoice.updateMany({
+        const carryingBasis = this.fxCarryingBalanceService
+          ? await this.resolveCarryingBasis(organizationId, allocation.invoice, tx)
+          : this.legacyAllocationCarryingBasis(allocation);
+        this.assertAllocationCarryingLine(allocation.carryingRevaluationLineId, carryingBasis);
+        const sourceBaseAmount = String(allocation.sourceBaseAmountApplied ?? allocation.documentBaseAmountApplied ?? allocation.amountApplied);
+        const restored = await tx.salesInvoice.updateMany({
           where: { id: allocation.invoiceId, organizationId, status: SalesInvoiceStatus.FINALIZED },
           data: {
-            balanceDue: { increment: allocation.documentBaseAmountApplied ?? allocation.amountApplied },
+            balanceDue: { increment: sourceBaseAmount },
             transactionBalanceDue: { increment: allocation.transactionAmountApplied ?? allocation.amountApplied },
           },
         });
+        if (restored?.count !== undefined && restored.count !== 1) {
+          throw new ConflictException("Invoice balance changed while voiding the payment.");
+        }
+        await this.fxCarryingBalanceService?.restoreSettlement(organizationId, carryingBasis, {
+          transactionAmount: String(allocation.transactionAmountApplied ?? allocation.amountApplied),
+          carryingBaseAmount: String(allocation.documentBaseAmountApplied ?? allocation.amountApplied),
+          sourceBaseAmount,
+        }, tx);
       }
 
       return tx.customerPayment.update({
@@ -1248,6 +1330,57 @@ export class CustomerPaymentService {
       throw new BadRequestException(`${label} must be greater than zero.`);
     }
     return amount;
+  }
+
+  private async resolveCarryingBasis(
+    organizationId: string,
+    invoice: {
+      id: string;
+      transactionBalanceDue: Prisma.Decimal | string;
+      balanceDue: Prisma.Decimal | string;
+      exchangeRate: Prisma.Decimal | string | null;
+      rateSnapshotId: string | null;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<FxCarryingSettlementBasis> {
+    if (this.fxCarryingBalanceService) {
+      return this.fxCarryingBalanceService.resolveCustomerBasis(organizationId, invoice, tx);
+    }
+    return {
+      monetaryBalanceId: null,
+      carryingBaseOpenAmount: toMoney(invoice.balanceDue).toFixed(4),
+      sourceBaseOpenAmount: toMoney(invoice.balanceDue).toFixed(4),
+      carryingRate: new Prisma.Decimal(String(invoice.exchangeRate ?? "1")).toFixed(8),
+      carryingRateSnapshotId: invoice.rateSnapshotId,
+      carryingRevaluationLineId: null,
+      useProportionalCarryingBasis: false,
+    };
+  }
+
+  private assertAllocationCarryingLine(expectedLineId: string | null | undefined, basis: FxCarryingSettlementBasis) {
+    if ((expectedLineId ?? null) !== basis.carryingRevaluationLineId) {
+      throw new BadRequestException("FX carrying basis changed after this allocation. Reverse the later revaluation first.");
+    }
+  }
+
+  private legacyAllocationCarryingBasis(allocation: {
+    documentBaseAmountApplied?: Prisma.Decimal | string;
+    amountApplied: Prisma.Decimal | string;
+    recognitionRate?: Prisma.Decimal | string;
+    carryingRate?: Prisma.Decimal | string;
+    carryingRateSnapshotId?: string | null;
+    carryingRevaluationLineId?: string | null;
+  }): FxCarryingSettlementBasis {
+    const carryingBase = String(allocation.documentBaseAmountApplied ?? allocation.amountApplied);
+    return {
+      monetaryBalanceId: null,
+      carryingBaseOpenAmount: toMoney(carryingBase).toFixed(4),
+      sourceBaseOpenAmount: toMoney(carryingBase).toFixed(4),
+      carryingRate: new Prisma.Decimal(String(allocation.carryingRate ?? allocation.recognitionRate ?? "1")).toFixed(8),
+      carryingRateSnapshotId: allocation.carryingRateSnapshotId ?? null,
+      carryingRevaluationLineId: allocation.carryingRevaluationLineId ?? null,
+      useProportionalCarryingBasis: false,
+    };
   }
 
   private async findPostingAccountByCode(organizationId: string, code: string, executor: PrismaExecutor) {
