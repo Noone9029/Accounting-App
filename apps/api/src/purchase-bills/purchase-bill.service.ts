@@ -567,6 +567,7 @@ export class PurchaseBillService {
           taxTotal: converted.totals.taxTotal,
           total: converted.totals.total,
           balanceDue: converted.totals.total,
+          transactionBalanceDue: prepared.total,
           transactionSubtotal: prepared.subtotal,
           transactionDiscountTotal: prepared.discountTotal,
           transactionTaxableTotal: prepared.taxableTotal,
@@ -661,6 +662,7 @@ export class PurchaseBillService {
           taxTotal: converted?.totals.taxTotal,
           total: converted?.totals.total,
           balanceDue: converted?.totals.total,
+          transactionBalanceDue: prepared?.total,
           transactionSubtotal: prepared?.subtotal,
           transactionDiscountTotal: prepared?.discountTotal,
           transactionTaxableTotal: prepared?.taxableTotal,
@@ -774,6 +776,7 @@ export class PurchaseBillService {
           status: PurchaseBillStatus.FINALIZED,
           finalizedAt: new Date(),
           balanceDue: bill.total,
+          transactionBalanceDue: bill.transactionTotal ?? bill.total,
         },
       });
       if (claim.count !== 1) {
@@ -855,7 +858,7 @@ export class PurchaseBillService {
       if (bill.status === PurchaseBillStatus.DRAFT) {
         await tx.purchaseBill.updateMany({
           where: { id, organizationId, status: PurchaseBillStatus.DRAFT },
-          data: { status: PurchaseBillStatus.VOIDED, balanceDue: "0.0000" },
+          data: { status: PurchaseBillStatus.VOIDED, balanceDue: "0.0000", transactionBalanceDue: "0.0000" },
         });
         return tx.purchaseBill.findUniqueOrThrow({ where: { id }, include: purchaseBillInclude });
       }
@@ -905,7 +908,7 @@ export class PurchaseBillService {
 
       const claim = await tx.purchaseBill.updateMany({
         where: { id, organizationId, status: PurchaseBillStatus.FINALIZED },
-        data: { status: PurchaseBillStatus.VOIDED, balanceDue: "0.0000" },
+        data: { status: PurchaseBillStatus.VOIDED, balanceDue: "0.0000", transactionBalanceDue: "0.0000" },
       });
       if (claim.count !== 1) {
         return tx.purchaseBill.findUniqueOrThrow({ where: { id }, include: purchaseBillInclude });

@@ -3863,6 +3863,7 @@ export interface JournalLine {
   exchangeRate?: string;
   rateSnapshotId?: string | null;
   fxRoundingComponentCount?: number;
+  functionalCurrencyOnly?: boolean;
   costCenterId?: string | null;
   projectId?: string | null;
   account?: { id: string; code: string; name: string };
@@ -3921,6 +3922,14 @@ export interface CustomerPaymentAllocation {
   paymentId: string;
   invoiceId: string;
   amountApplied: string;
+  transactionAmountApplied?: string;
+  documentBaseAmountApplied?: string;
+  settlementBaseAmountApplied?: string;
+  recognitionRate?: string;
+  settlementRate?: string;
+  realizedGainAmount?: string;
+  realizedLossAmount?: string;
+  realizedFxJournalEntryId?: string | null;
   invoice?: {
     id: string;
     invoiceNumber: string;
@@ -3945,6 +3954,15 @@ export interface CustomerPaymentUnappliedAllocation {
   paymentId: string;
   invoiceId: string;
   amountApplied: string;
+  transactionAmountApplied?: string;
+  documentBaseAmountApplied?: string;
+  settlementBaseAmountApplied?: string;
+  recognitionRate?: string;
+  settlementRate?: string;
+  realizedGainAmount?: string;
+  realizedLossAmount?: string;
+  realizedFxJournalEntryId?: string | null;
+  realizedFxReversalJournalEntryId?: string | null;
   reversedAt: string | null;
   reversedById: string | null;
   reversalReason: string | null;
@@ -4071,6 +4089,7 @@ export interface CustomerPayment {
   rateSource?: CurrencyRateSource | null;
   rateSnapshotId?: string | null;
   transactionAmountReceived?: string;
+  transactionUnappliedAmount?: string;
   status: CustomerPaymentStatus;
   amountReceived: string;
   unappliedAmount: string;
@@ -4373,6 +4392,14 @@ export interface SupplierPaymentAllocation {
   paymentId: string;
   billId: string;
   amountApplied: string;
+  transactionAmountApplied?: string;
+  documentBaseAmountApplied?: string;
+  settlementBaseAmountApplied?: string;
+  recognitionRate?: string;
+  settlementRate?: string;
+  realizedGainAmount?: string;
+  realizedLossAmount?: string;
+  realizedFxJournalEntryId?: string | null;
   bill?: {
     id: string;
     billNumber: string;
@@ -4398,6 +4425,15 @@ export interface SupplierPaymentUnappliedAllocation {
   paymentId: string;
   billId: string;
   amountApplied: string;
+  transactionAmountApplied?: string;
+  documentBaseAmountApplied?: string;
+  settlementBaseAmountApplied?: string;
+  recognitionRate?: string;
+  settlementRate?: string;
+  realizedGainAmount?: string;
+  realizedLossAmount?: string;
+  realizedFxJournalEntryId?: string | null;
+  realizedFxReversalJournalEntryId?: string | null;
   reversedAt: string | null;
   reversedById: string | null;
   reversalReason: string | null;
@@ -4441,6 +4477,7 @@ export interface PurchaseBill extends DocumentFxFields, TransactionDocumentTotal
   taxTotal: string;
   total: string;
   balanceDue: string;
+  transactionBalanceDue?: string;
   notes: string | null;
   terms: string | null;
   finalizedAt: string | null;
@@ -4531,6 +4568,7 @@ export interface SupplierPayment {
   rateSource?: CurrencyRateSource | null;
   rateSnapshotId?: string | null;
   transactionAmountPaid?: string;
+  transactionUnappliedAmount?: string;
   status: SupplierPaymentStatus;
   amountPaid: string;
   unappliedAmount: string;
@@ -5601,6 +5639,13 @@ export interface OpenSalesInvoice {
   currency: string;
   total: string;
   balanceDue: string;
+  transactionBalanceDue?: string;
+  transactionTotal?: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
   customerId: string;
   status?: SalesInvoiceStatus;
 }
@@ -5613,6 +5658,13 @@ export interface OpenPurchaseBill {
   currency: string;
   total: string;
   balanceDue: string;
+  transactionTotal?: string;
+  transactionBalanceDue?: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
   supplierId: string;
 }
 
@@ -5651,6 +5703,7 @@ export interface SalesInvoice extends DocumentFxFields, TransactionDocumentTotal
   taxTotal: string;
   total: string;
   balanceDue: string;
+  transactionBalanceDue?: string;
   notes: string | null;
   terms: string | null;
   finalizedAt: string | null;

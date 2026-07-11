@@ -11,6 +11,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { documentFxRateEvidence } from "@/lib/document-fx";
 import { formatUnits, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import { downloadPdf, supplierPaymentReceiptPdfPath } from "@/lib/pdf-download";
@@ -22,7 +23,7 @@ import {
   supplierPaymentUnappliedAllocationStatusLabel,
   validateSupplierPaymentUnappliedAllocation,
 } from "@/lib/supplier-payments";
-import type { OpenPurchaseBill, SupplierPayment, SupplierPaymentReceiptData } from "@/lib/types";
+import type { OpenPurchaseBill, SupplierPayment, SupplierPaymentAllocation, SupplierPaymentReceiptData, SupplierPaymentUnappliedAllocation } from "@/lib/types";
 
 export default function SupplierPaymentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -130,8 +131,8 @@ export default function SupplierPaymentDetailPage() {
     const targetBill = openBills.find((bill) => bill.id === applyBillId);
     const validationError = validateSupplierPaymentUnappliedAllocation(
       applyAmount,
-      payment.unappliedAmount,
-      targetBill?.balanceDue ?? "0.0000",
+      payment.transactionUnappliedAmount ?? payment.unappliedAmount,
+      targetBill?.transactionBalanceDue ?? targetBill?.balanceDue ?? "0.0000",
     );
     if (validationError) {
       setError(tc(validationError));
@@ -232,7 +233,7 @@ export default function SupplierPaymentDetailPage() {
   const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.supplierPayments.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
-  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
+  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0 && canCreatePayment;
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const paymentDetailHref =
     payment ? `/purchases/supplier-payments/${payment.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
@@ -258,7 +259,7 @@ export default function SupplierPaymentDetailPage() {
               {tc("Download payment PDF")}
             </button>
           ) : null}
-          {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
+          {payment?.status === "POSTED" && Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0 ? (
             <Link
               href={`/purchases/supplier-refunds/new?supplierId=${encodeURIComponent(payment.supplierId)}&sourceType=SUPPLIER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
@@ -301,8 +302,11 @@ export default function SupplierPaymentDetailPage() {
               <Summary label={tc("Status")} value={tc(supplierPaymentStatusLabel(payment.status))} />
               <Summary label={tc("Payment date")} value={formatAppDate(payment.paymentDate, locale, "-")} />
               <Summary label={tc("Currency")} value={payment.currency} bidi />
-              <Summary label={tc("Amount paid")} value={formatAppMoney(payment.amountPaid, payment.currency, locale)} />
-              <Summary label={tc("Unapplied")} value={formatAppMoney(payment.unappliedAmount, payment.currency, locale)} />
+              <Summary label={tc("Transaction amount paid")} value={formatAppMoney(payment.transactionAmountPaid ?? payment.amountPaid, payment.currency, locale)} />
+              <Summary label={tc("Transaction unapplied")} value={formatAppMoney(payment.transactionUnappliedAmount ?? payment.unappliedAmount, payment.currency, locale)} />
+              <Summary label={tc("Base amount paid")} value={formatAppMoney(payment.amountPaid, payment.baseCurrency ?? payment.currency, locale)} />
+              <Summary label={tc("Base unapplied")} value={formatAppMoney(payment.unappliedAmount, payment.baseCurrency ?? payment.currency, locale)} />
+              {documentFxRateEvidence(payment) ? <Summary label={tc("Frozen rate evidence")} value={documentFxRateEvidence(payment)!} /> : null}
               <Summary label={tc("Applied from unapplied")} value={formatAppMoney(unappliedAppliedAmount, payment.currency, locale)} />
               <Summary label={tc("Paid-through account")} value={payment.account ? `${payment.account.code} ${payment.account.name}` : "-"} bidi={Boolean(payment.account)} />
               <Summary label={tc("Journal entry")} value={payment.journalEntry ? `${payment.journalEntry.entryNumber} (${payment.journalEntry.id})` : "-"} bidi={Boolean(payment.journalEntry)} />
@@ -336,8 +340,11 @@ export default function SupplierPaymentDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-steel">{formatAppDate(allocation.bill?.billDate, locale, "-")}</td>
                       <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.bill?.total ?? "0.0000", payment.currency, locale)}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.bill?.balanceDue ?? "0.0000", payment.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        <div>{formatAppMoney(allocation.transactionAmountApplied ?? allocation.amountApplied, payment.currency, locale)}</div>
+                        <AllocationFxEvidence allocation={allocation} baseCurrency={payment.baseCurrency ?? payment.currency} locale={locale} />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.bill?.balanceDue ?? "0.0000", payment.baseCurrency ?? payment.currency, locale)}</td>
                       <td className="px-4 py-3 text-steel">{tc(billStatusLabel(allocation.bill?.status))}</td>
                     </tr>
                   ))
@@ -355,7 +362,7 @@ export default function SupplierPaymentDetailPage() {
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
             <div className="border-b border-slate-200 px-5 py-4">
               <h2 className="text-base font-semibold text-ink">{tc("Unapplied supplier payment applications")}</h2>
-              <p className="mt-1 text-sm text-steel">{tc("Matching unapplied supplier payment credit to later bills updates balances only. No new journal entry is created.")}</p>
+              <p className="mt-1 text-sm text-steel">{tc("Matching unapplied foreign-currency credit can create a separate realized FX adjustment journal; every result remains reversible.")}</p>
             </div>
             {payment.unappliedAllocations && payment.unappliedAllocations.length > 0 ? (
               <div className="overflow-x-auto">
@@ -379,8 +386,11 @@ export default function SupplierPaymentDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.bill?.billNumber ?? allocation.billId}</bdi></td>
                         <td className="px-4 py-3 text-steel">{formatAppDate(allocation.bill?.billDate, locale, "-")}</td>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.total, payment.currency, locale) : "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.balanceDue, payment.currency, locale) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">
+                          <div>{formatAppMoney(allocation.transactionAmountApplied ?? allocation.amountApplied, payment.currency, locale)}</div>
+                          <AllocationFxEvidence allocation={allocation} baseCurrency={payment.baseCurrency ?? payment.currency} locale={locale} />
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.bill ? formatAppMoney(allocation.bill.balanceDue, payment.baseCurrency ?? payment.currency, locale) : "-"}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${supplierPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
                             {tc(supplierPaymentUnappliedAllocationStatusLabel(allocation))}
@@ -443,7 +453,7 @@ export default function SupplierPaymentDetailPage() {
                   <div className="text-xs text-steel md:col-span-3">
                     {tc("Selected bill balance: {amount}.", { amount: selectedOpenBill ? formatAppMoney(selectedOpenBill.balanceDue, selectedOpenBill.currency, locale) : "-" })}
                     {" "}
-                    {tc("Supplier payment credit available: {amount}.", { amount: formatAppMoney(payment.unappliedAmount, payment.currency, locale) })}
+                    {tc("Supplier payment credit available: {amount}.", { amount: formatAppMoney(payment.transactionUnappliedAmount ?? payment.unappliedAmount, payment.currency, locale) })}
                   </div>
                 </form>
               ) : (
@@ -510,8 +520,8 @@ export function SupplierPaymentWorkflowGuidance({
 }) {
   const { locale, tc } = useAppLocale();
   const firstAllocatedBill = payment.allocations?.find((allocation) => allocation.bill)?.bill ?? null;
-  const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0) ?? 0;
-  const hasUnapplied = Number(payment.unappliedAmount) > 0;
+  const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.transactionAmountApplied ?? allocation.amountApplied), 0) ?? 0;
+  const hasUnapplied = Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0;
 
   return (
     <div className="space-y-4">
@@ -537,7 +547,8 @@ export function SupplierPaymentWorkflowGuidance({
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-            <Summary label={tc("Amount paid")} value={formatAppMoney(payment.amountPaid, payment.currency, locale)} />
+            <Summary label={tc("Transaction amount paid")} value={formatAppMoney(payment.transactionAmountPaid ?? payment.amountPaid, payment.currency, locale)} />
+            <Summary label={tc("Base amount paid")} value={formatAppMoney(payment.amountPaid, payment.baseCurrency ?? payment.currency, locale)} />
             <Summary label={tc("Applied to bills")} value={formatAppMoney(formatUnits(appliedTotalUnits), payment.currency, locale)} />
             <Summary label={tc("Payment number")} value={receiptData?.receiptNumber ?? payment.paymentNumber} bidi />
           </div>
@@ -647,6 +658,23 @@ function Summary({ label, value, bidi = false }: { label: string; value: string;
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{bidi ? <bdi dir="ltr">{value}</bdi> : value}</div>
+    </div>
+  );
+}
+
+function AllocationFxEvidence({ allocation, baseCurrency, locale }: {
+  allocation: SupplierPaymentAllocation | SupplierPaymentUnappliedAllocation;
+  baseCurrency: string;
+  locale: "en" | "ar";
+}) {
+  if (!allocation.documentBaseAmountApplied || !allocation.settlementBaseAmountApplied) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-[11px] font-normal text-steel">
+      <div>Carrying {formatAppMoney(allocation.documentBaseAmountApplied, baseCurrency, locale)} · settlement {formatAppMoney(allocation.settlementBaseAmountApplied, baseCurrency, locale)}</div>
+      <div>Rates {allocation.recognitionRate ?? "-"} → {allocation.settlementRate ?? "-"}</div>
+      <div>Gain {formatAppMoney(allocation.realizedGainAmount ?? "0", baseCurrency, locale)} · loss {formatAppMoney(allocation.realizedLossAmount ?? "0", baseCurrency, locale)}</div>
+      {allocation.realizedFxJournalEntryId ? <div><bdi dir="ltr">FX journal {allocation.realizedFxJournalEntryId}</bdi></div> : null}
+      {"realizedFxReversalJournalEntryId" in allocation && allocation.realizedFxReversalJournalEntryId ? <div><bdi dir="ltr">Reversal {allocation.realizedFxReversalJournalEntryId}</bdi></div> : null}
     </div>
   );
 }

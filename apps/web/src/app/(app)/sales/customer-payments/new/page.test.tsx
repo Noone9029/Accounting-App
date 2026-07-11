@@ -72,9 +72,15 @@ describe("NewCustomerPaymentPage", () => {
             issueDate: "2026-05-21T00:00:00.000Z",
             dueDate: null,
             currency: mockInvoiceCurrency,
+            baseCurrency: mockBaseCurrency,
+            exchangeRate: mockInvoiceCurrency === mockBaseCurrency ? "1.00000000" : "3.65000000",
+            rateDate: "2026-05-21",
+            rateSource: mockInvoiceCurrency === mockBaseCurrency ? "SYSTEM_RATE_1" : "MANUAL",
             status: "FINALIZED",
-            total: "115.0000",
-            balanceDue: "115.0000",
+            total: mockInvoiceCurrency === mockBaseCurrency ? "115.0000" : "419.7500",
+            balanceDue: mockInvoiceCurrency === mockBaseCurrency ? "115.0000" : "419.7500",
+            transactionTotal: "115.0000",
+            transactionBalanceDue: "115.0000",
             customerId: "customer-1",
           },
         ]);
@@ -178,7 +184,7 @@ describe("NewCustomerPaymentPage", () => {
     );
   });
 
-  it("blocks allocating an AED-base payment to a historical SAR invoice", async () => {
+  it("shows captured payment-rate controls for an AED-base SAR invoice", async () => {
     mockBaseCurrency = "AED";
     mockInvoiceCurrency = "SAR";
     window.history.pushState({}, "", "/sales/customer-payments/new?customerId=customer-1&invoiceId=invoice-1");
@@ -186,10 +192,14 @@ describe("NewCustomerPaymentPage", () => {
     render(<NewCustomerPaymentPage />);
 
     await waitFor(() => expect(screen.getByLabelText("Amount received")).toHaveValue("115.0000"));
-    fireEvent.click(screen.getByRole("button", { name: "Record payment" }));
-
-    expect(await screen.findByText(/Invoice INV-001 uses SAR.*base currency AED/i)).toBeInTheDocument();
-    expect(apiRequestMock).not.toHaveBeenCalledWith("/customer-payments", expect.objectContaining({ method: "POST" }));
+    expect(screen.getByLabelText("Transaction currency")).toHaveValue("SAR");
+    expect(screen.getByLabelText("Exchange rate")).toBeInTheDocument();
+    expect(screen.getByLabelText("Rate date")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record payment" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Exchange rate"), { target: { value: "3.75000000" } });
+    expect(screen.getByRole("button", { name: "Record payment" })).toBeEnabled();
+    expect(screen.getByText("The captured payment rate will freeze when this payment is recorded.")).toBeInTheDocument();
+    expect(screen.getByText("Estimated realized FX gain").nextElementSibling).toHaveTextContent(/AED.*11\.50|11\.50.*AED/);
   });
 
   it("rejects a query-prefilled customer that is absent from active-organization contacts", async () => {

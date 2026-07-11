@@ -808,7 +808,6 @@ async function seedTenantRecords(prisma: PrismaClient, tenant: ReportExportTenan
       allocations: {
         create: [
           {
-            organizationId: tenant.organizationId,
             invoiceId: tenant.invoiceId,
             amountApplied: tenant.amounts.customerPayment,
           },
@@ -893,7 +892,6 @@ async function seedTenantRecords(prisma: PrismaClient, tenant: ReportExportTenan
       allocations: {
         create: [
           {
-            organizationId: tenant.organizationId,
             billId: tenant.billId,
             amountApplied: tenant.amounts.supplierPayment,
           },

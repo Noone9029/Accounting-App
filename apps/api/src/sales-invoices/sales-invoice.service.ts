@@ -197,8 +197,15 @@ export class SalesInvoiceService {
         issueDate: true,
         dueDate: true,
         currency: true,
+        baseCurrency: true,
+        exchangeRate: true,
+        rateDate: true,
+        rateSource: true,
+        rateSnapshotId: true,
         total: true,
         balanceDue: true,
+        transactionTotal: true,
+        transactionBalanceDue: true,
         customerId: true,
         status: true,
       },
@@ -474,6 +481,7 @@ export class SalesInvoiceService {
           taxTotal: converted.totals.taxTotal,
           total: converted.totals.total,
           balanceDue: converted.totals.total,
+          transactionBalanceDue: prepared.total,
           transactionSubtotal: prepared.subtotal,
           transactionDiscountTotal: prepared.discountTotal,
           transactionTaxableTotal: prepared.taxableTotal,
@@ -559,6 +567,7 @@ export class SalesInvoiceService {
           taxTotal: converted?.totals.taxTotal,
           total: converted?.totals.total,
           balanceDue: converted?.totals.total,
+          transactionBalanceDue: prepared?.total,
           transactionSubtotal: prepared?.subtotal,
           transactionDiscountTotal: prepared?.discountTotal,
           transactionTaxableTotal: prepared?.taxableTotal,
@@ -660,6 +669,7 @@ export class SalesInvoiceService {
           status: SalesInvoiceStatus.FINALIZED,
           finalizedAt: new Date(),
           balanceDue: invoice.total,
+          transactionBalanceDue: invoice.transactionTotal ?? invoice.total,
         },
       });
       if (claim.count !== 1) {
@@ -764,6 +774,7 @@ export class SalesInvoiceService {
           data: {
             status: SalesInvoiceStatus.VOIDED,
             balanceDue: "0.0000",
+            transactionBalanceDue: "0.0000",
           },
         });
         if (claim.count !== 1) {
@@ -787,6 +798,7 @@ export class SalesInvoiceService {
         data: {
           status: SalesInvoiceStatus.VOIDED,
           balanceDue: "0.0000",
+          transactionBalanceDue: "0.0000",
         },
       });
       if (claim.count !== 1) {

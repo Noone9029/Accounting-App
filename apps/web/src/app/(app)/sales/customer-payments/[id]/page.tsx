@@ -12,6 +12,7 @@ import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { documentFxRateEvidence } from "@/lib/document-fx";
 import {
   canReverseCustomerPaymentUnappliedAllocation,
   applyCustomerPaymentUnappliedAllocation,
@@ -40,7 +41,9 @@ import type {
   AuditLogEntry,
   AuditLogListResponse,
   CustomerPayment,
+  CustomerPaymentAllocation,
   CustomerPaymentReceiptData,
+  CustomerPaymentUnappliedAllocation,
   GeneratedDocument,
   OpenSalesInvoice,
 } from "@/lib/types";
@@ -191,7 +194,7 @@ export default function CustomerPaymentDetailPage() {
   }, [canViewAuditLogs, organizationId, payment, tc]);
 
   useEffect(() => {
-    if (!organizationId || !payment || payment.status !== "POSTED" || parseDecimalToUnits(payment.unappliedAmount) <= 0 || !canCreatePayment) {
+    if (!organizationId || !payment || payment.status !== "POSTED" || parseDecimalToUnits(payment.transactionUnappliedAmount ?? payment.unappliedAmount) <= 0 || !canCreatePayment) {
       setOpenInvoices([]);
       setApplyInvoiceId("");
       return;
@@ -242,7 +245,7 @@ export default function CustomerPaymentDetailPage() {
     }
 
     const amountToApply = applyAmount;
-    const validationError = validateCustomerPaymentUnappliedAllocation(amountToApply, payment.unappliedAmount, targetInvoice.balanceDue);
+    const validationError = validateCustomerPaymentUnappliedAllocation(amountToApply, payment.transactionUnappliedAmount ?? payment.unappliedAmount, targetInvoice.transactionBalanceDue ?? targetInvoice.balanceDue);
     if (validationError) {
       setError(tc(validationError));
       setSuccess("");
@@ -383,11 +386,11 @@ export default function CustomerPaymentDetailPage() {
   }
 
   const selectedOpenInvoice = openInvoices.find((invoice) => invoice.id === applyInvoiceId);
-  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 && canCreatePayment;
-  const maxApplyAmount = payment ? customerPaymentApplyMaximumAmount(payment.unappliedAmount, selectedOpenInvoice?.balanceDue) : "0.0000";
+  const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0 && canCreatePayment;
+  const maxApplyAmount = payment ? customerPaymentApplyMaximumAmount(payment.transactionUnappliedAmount ?? payment.unappliedAmount, selectedOpenInvoice?.transactionBalanceDue ?? selectedOpenInvoice?.balanceDue) : "0.0000";
   const applyValidationError =
     payment && applyAmount
-      ? validateCustomerPaymentUnappliedAllocation(applyAmount, payment.unappliedAmount, selectedOpenInvoice?.balanceDue ?? "0.0000")
+      ? validateCustomerPaymentUnappliedAllocation(applyAmount, payment.transactionUnappliedAmount ?? payment.unappliedAmount, selectedOpenInvoice?.transactionBalanceDue ?? selectedOpenInvoice?.balanceDue ?? "0.0000")
       : null;
   const paymentDetailHref =
     payment ? `/sales/customer-payments/${payment.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
@@ -408,7 +411,7 @@ export default function CustomerPaymentDetailPage() {
               {tc("Void")}
             </button>
           ) : null}
-          {payment?.status === "POSTED" && Number(payment.unappliedAmount) > 0 ? (
+          {payment?.status === "POSTED" && Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0 ? (
             <Link
               href={`/sales/customer-refunds/new?customerId=${encodeURIComponent(payment.customerId)}&sourceType=CUSTOMER_PAYMENT&sourcePaymentId=${encodeURIComponent(payment.id)}`}
               className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800"
@@ -462,7 +465,7 @@ export default function CustomerPaymentDetailPage() {
             <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-ink">{tc("Direct invoice allocations")}</h2>
-                <p className="mt-1 text-sm text-steel">{tc("Amounts applied when this payment was posted.")}</p>
+                <p className="mt-1 text-sm text-steel">{tc("Frozen transaction, carrying, settlement, rate, and realized FX evidence from posting.")}</p>
               </div>
               <span className="self-start rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
                 {tc("{count} direct", { count: formatCount(payment.allocations?.length ?? 0, locale) })}
@@ -486,8 +489,11 @@ export default function CustomerPaymentDetailPage() {
                     <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</bdi></td>
                     <td className="px-4 py-3 text-steel">{allocation.invoice ? formatAppDate(allocation.invoice.issueDate, locale, "-") : "-"}</td>
                     <td className="px-4 py-3 text-steel">{allocation.invoice?.status ? tc(invoiceStatusDisplayLabel(allocation.invoice.status)) : "-"}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.balanceDue, payment.currency, locale) : "-"}</td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <div>{formatAppMoney(allocation.transactionAmountApplied ?? allocation.amountApplied, payment.currency, locale)}</div>
+                      <AllocationFxEvidence allocation={allocation} baseCurrency={payment.baseCurrency ?? payment.currency} locale={locale} />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.balanceDue, payment.baseCurrency ?? payment.currency, locale) : "-"}</td>
                     <td className="px-4 py-3">
                       {allocation.invoice ? (
                         <Link href={`/sales/invoices/${allocation.invoice.id}${paymentDetailHref ? `?returnTo=${encodeURIComponent(paymentDetailHref)}` : ""}`} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
@@ -543,8 +549,11 @@ export default function CustomerPaymentDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{allocation.invoice?.invoiceNumber ?? allocation.invoiceId}</bdi></td>
                         <td className="px-4 py-3 text-steel">{allocation.invoice ? formatAppDate(allocation.invoice.issueDate, locale, "-") : "-"}</td>
                         <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.total, payment.currency, locale) : "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(allocation.amountApplied, payment.currency, locale)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.balanceDue, payment.currency, locale) : "-"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">
+                          <div>{formatAppMoney(allocation.transactionAmountApplied ?? allocation.amountApplied, payment.currency, locale)}</div>
+                          <AllocationFxEvidence allocation={allocation} baseCurrency={payment.baseCurrency ?? payment.currency} locale={locale} />
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{allocation.invoice ? formatAppMoney(allocation.invoice.balanceDue, payment.baseCurrency ?? payment.currency, locale) : "-"}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentUnappliedAllocationStatusBadgeClass(allocation)}`}>
                             {tc(customerPaymentUnappliedAllocationStatusLabel(allocation))}
@@ -684,7 +693,7 @@ export default function CustomerPaymentDetailPage() {
                   </button>
                   <div id="apply-unapplied-limits" className="text-xs text-steel md:col-span-3">
                     {tc("Selected invoice balance: {amount}.", { amount: selectedOpenInvoice ? formatAppMoney(selectedOpenInvoice.balanceDue, selectedOpenInvoice.currency, locale) : "-" })}{" "}
-                    {tc("Payment credit available: {amount}.", { amount: formatAppMoney(payment.unappliedAmount, payment.currency, locale) })}{" "}
+                    {tc("Payment credit available: {amount}.", { amount: formatAppMoney(payment.transactionUnappliedAmount ?? payment.unappliedAmount, payment.currency, locale) })}{" "}
                     {tc("Maximum application: {amount}.", { amount: formatAppMoney(maxApplyAmount, payment.currency, locale) })}
                   </div>
                   {applyValidationError ? <div className="text-xs text-rosewood md:col-span-3">{tc(applyValidationError)}</div> : null}
@@ -736,8 +745,10 @@ export function CustomerPaymentStateDisplay({ payment }: { payment: CustomerPaym
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <StateMetric label={tc("Amount received")} value={formatAppMoney(payment.amountReceived, payment.currency, locale)} />
-          <StateMetric label={tc("Unapplied amount")} value={formatAppMoney(payment.unappliedAmount, payment.currency, locale)} detail={tc(customerPaymentAllocationStateLabel(allocationState))} />
+          <StateMetric label={tc("Transaction amount received")} value={formatAppMoney(payment.transactionAmountReceived ?? payment.amountReceived, payment.currency, locale)} />
+          <StateMetric label={tc("Transaction unapplied")} value={formatAppMoney(payment.transactionUnappliedAmount ?? payment.unappliedAmount, payment.currency, locale)} detail={tc(customerPaymentAllocationStateLabel(allocationState))} />
+          <StateMetric label={tc("Base amount received")} value={formatAppMoney(payment.amountReceived, payment.baseCurrency ?? payment.currency, locale)} detail={documentFxRateEvidence(payment) ?? undefined} />
+          <StateMetric label={tc("Base unapplied")} value={formatAppMoney(payment.unappliedAmount, payment.baseCurrency ?? payment.currency, locale)} />
           <StateMetric label={tc("Directly allocated")} value={formatAppMoney(directAllocatedAmount, payment.currency, locale)} detail={tc("{count} invoices", { count: formatCount(directAllocationCount, locale) })} />
           <StateMetric
             label={tc("Applied from unapplied")}
@@ -937,8 +948,8 @@ export function CustomerPaymentWorkflowGuidance({
 }) {
   const { locale, tc } = useAppLocale();
   const firstAllocatedInvoice = payment.allocations?.find((allocation) => allocation.invoice)?.invoice ?? null;
-  const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.amountApplied), 0) ?? 0;
-  const hasUnapplied = Number(payment.unappliedAmount) > 0;
+  const appliedTotalUnits = payment.allocations?.reduce((sum, allocation) => sum + parseDecimalToUnits(allocation.transactionAmountApplied ?? allocation.amountApplied), 0) ?? 0;
+  const hasUnapplied = Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0;
 
   return (
     <div className="space-y-4">
@@ -964,7 +975,8 @@ export function CustomerPaymentWorkflowGuidance({
             </div>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-            <Summary label={tc("Amount received")} value={formatAppMoney(payment.amountReceived, payment.currency, locale)} />
+            <Summary label={tc("Transaction amount received")} value={formatAppMoney(payment.transactionAmountReceived ?? payment.amountReceived, payment.currency, locale)} />
+            <Summary label={tc("Base amount received")} value={formatAppMoney(payment.amountReceived, payment.baseCurrency ?? payment.currency, locale)} />
             <Summary label={tc("Applied to invoices")} value={formatAppMoney(formatUnits(appliedTotalUnits), payment.currency, locale)} />
             <Summary label={tc("Payment number")} value={receiptData?.receiptNumber ?? payment.paymentNumber} bidi />
           </div>
@@ -1208,6 +1220,23 @@ function Summary({ label, value, bidi = false }: { label: string; value: string;
     <div>
       <div className="text-xs uppercase tracking-wide text-steel">{label}</div>
       <div className="mt-1 break-words font-medium text-ink">{bidi ? <bdi dir="ltr">{value}</bdi> : value}</div>
+    </div>
+  );
+}
+
+function AllocationFxEvidence({ allocation, baseCurrency, locale }: {
+  allocation: CustomerPaymentAllocation | CustomerPaymentUnappliedAllocation;
+  baseCurrency: string;
+  locale: "en" | "ar";
+}) {
+  if (!allocation.documentBaseAmountApplied || !allocation.settlementBaseAmountApplied) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-[11px] font-normal text-steel">
+      <div>Carrying {formatAppMoney(allocation.documentBaseAmountApplied, baseCurrency, locale)} · settlement {formatAppMoney(allocation.settlementBaseAmountApplied, baseCurrency, locale)}</div>
+      <div>Rates {allocation.recognitionRate ?? "-"} → {allocation.settlementRate ?? "-"}</div>
+      <div>Gain {formatAppMoney(allocation.realizedGainAmount ?? "0", baseCurrency, locale)} · loss {formatAppMoney(allocation.realizedLossAmount ?? "0", baseCurrency, locale)}</div>
+      {allocation.realizedFxJournalEntryId ? <div><bdi dir="ltr">FX journal {allocation.realizedFxJournalEntryId}</bdi></div> : null}
+      {"realizedFxReversalJournalEntryId" in allocation && allocation.realizedFxReversalJournalEntryId ? <div><bdi dir="ltr">Reversal {allocation.realizedFxReversalJournalEntryId}</bdi></div> : null}
     </div>
   );
 }

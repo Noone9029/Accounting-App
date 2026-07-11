@@ -1,10 +1,11 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { assertBalancedJournal } from "@ledgerbyte/accounting-core";
+import { assertBalancedJournal, assertJournalFxContext } from "@ledgerbyte/accounting-core";
 import { plainToInstance } from "class-transformer";
 import { validateSync, type ValidationError } from "class-validator";
 import {
   CustomerPaymentStatus,
   CustomerRefundStatus,
+  CurrencyRateSource,
   DocumentType,
   JournalEntryStatus,
   NumberSequenceScope,
@@ -42,6 +43,286 @@ describe("customer payment rules", () => {
       expect.objectContaining({ accountId: "ar", debit: "0.0000", credit: "575.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("posts a direct foreign customer allocation with frozen realized-gain evidence", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "AED", exchangeRate: "3.75000000",
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    }) };
+    const service = new CustomerPaymentService(
+      prisma as never, { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await expect(service.create("org-1", "user-1", {
+      ...basePaymentDto,
+      currency: "USD",
+      exchangeRate: "3.75000000",
+      rateDate: "2026-07-11",
+      rateSource: CurrencyRateSource.MANUAL,
+      rateSnapshotId: "payment-rate",
+    })).resolves.toMatchObject({ id: "payment-1" });
+
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: "invoice-1", organizationId: "org-1",
+        balanceDue: { gte: "365.0000" }, transactionBalanceDue: { gte: "100.0000" },
+      }),
+      data: {
+        balanceDue: { decrement: "365.0000" },
+        transactionBalanceDue: { decrement: "100.0000" },
+      },
+    });
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        currency: "AED", totalDebit: "375.0000", totalCredit: "375.0000",
+        lines: { create: expect.arrayContaining([
+          expect.objectContaining({ account: { connect: { id: "bank-1" } }, debit: "375.0000", transactionDebit: "100.0000", currency: "USD" }),
+          expect.objectContaining({ account: { connect: { id: "ar-1" } }, credit: "365.0000", transactionCredit: "100.0000", exchangeRate: "3.65000000" }),
+          expect.objectContaining({ account: { connect: { id: "fx-gain" } }, credit: "10.0000", functionalCurrencyOnly: true }),
+        ]) },
+      }),
+    }));
+    expect(tx.customerPayment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.75000000",
+        amountReceived: "375.0000", transactionAmountReceived: "100.0000",
+        unappliedAmount: "0.0000", transactionUnappliedAmount: "0.0000",
+        allocations: { create: [expect.objectContaining({
+          amountApplied: "365.0000", transactionAmountApplied: "100.0000",
+          documentBaseAmountApplied: "365.0000", settlementBaseAmountApplied: "375.0000",
+          recognitionRate: "3.65000000", settlementRate: "3.75000000",
+          realizedGainAmount: "10.0000", realizedLossAmount: "0.0000",
+          realizedFxJournalEntryId: "journal-1",
+        })] },
+      }),
+    }));
+  });
+
+  it("reconciles direct multi-allocation settlement rounding to the exact payment base total", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    tx.salesInvoice.findMany.mockResolvedValue([
+      { id: "invoice-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateDate: new Date("2026-07-01"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "rate-1", balanceDue: "0.0735", transactionBalanceDue: "0.0200" },
+      { id: "invoice-2", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateDate: new Date("2026-07-01"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "rate-2", balanceDue: "3.5991", transactionBalanceDue: "0.9800" },
+    ]);
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({ currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate" }) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValueOnce("PAY-1").mockResolvedValueOnce("JE-1") } as never, undefined, undefined, undefined, undefined, fxContext as never);
+
+    await service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD", exchangeRate: "3.67250000", rateDate: "2026-07-11", rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate", amountReceived: "1.0000", allocations: [{ invoiceId: "invoice-1", amountApplied: "0.0200" }, { invoiceId: "invoice-2", amountApplied: "0.9800" }] });
+
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalDebit: "3.6726", totalCredit: "3.6726" }) }));
+    expect(tx.customerPayment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      amountReceived: "3.6725",
+      allocations: { create: [
+        expect.objectContaining({ settlementBaseAmountApplied: "0.0735", realizedLossAmount: "0.0000" }),
+        expect.objectContaining({ settlementBaseAmountApplied: "3.5990", realizedLossAmount: "0.0001" }),
+      ] },
+    }) }));
+  });
+
+  it("posts four tiny customer allocations after the settlement base residual is exhausted", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    tx.salesInvoice.findMany.mockResolvedValue(Array.from({ length: 4 }, (_, index) => ({ id: `invoice-${index + 1}`, customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateDate: new Date("2026-07-01"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: `rate-${index + 1}`, balanceDue: "0.0001", transactionBalanceDue: "0.0001" })));
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({ currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate" }) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValueOnce("PAY-1").mockResolvedValueOnce("JE-1") } as never, undefined, undefined, undefined, undefined, fxContext as never);
+
+    await service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD", exchangeRate: "0.50000000", rateDate: "2026-07-11", rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate", amountReceived: "0.0004", allocations: Array.from({ length: 4 }, (_, index) => ({ invoiceId: `invoice-${index + 1}`, amountApplied: "0.0001" })) });
+
+    const createdAllocations = tx.customerPayment.create.mock.calls[0]?.[0].data.allocations.create;
+    expect(createdAllocations.map((allocation: { settlementBaseAmountApplied: string }) => allocation.settlementBaseAmountApplied)).toEqual(["0.0001", "0.0001", "0.0000", "0.0000"]);
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalDebit: "0.0004", totalCredit: "0.0004" }) }));
+  });
+
+  it("posts zero-base unapplied customer transaction evidence after direct allocations consume the base residual", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    tx.salesInvoice.findMany.mockResolvedValue(Array.from({ length: 2 }, (_, index) => ({ id: `invoice-${index + 1}`, customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateDate: new Date("2026-07-01"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: `rate-${index + 1}`, balanceDue: "0.0001", transactionBalanceDue: "0.0001" })));
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({ currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate" }) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValueOnce("PAY-1").mockResolvedValueOnce("JE-1") } as never, undefined, undefined, undefined, undefined, fxContext as never);
+
+    await service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD", exchangeRate: "0.50000000", rateDate: "2026-07-11", rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate", amountReceived: "0.0004", allocations: [{ invoiceId: "invoice-1", amountApplied: "0.0001" }, { invoiceId: "invoice-2", amountApplied: "0.0001" }] });
+
+    expect(tx.customerPayment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ unappliedAmount: "0.0000", transactionUnappliedAmount: "0.0002" }) }));
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      totalDebit: "0.0002", totalCredit: "0.0002",
+      lines: { create: expect.arrayContaining([expect.objectContaining({ debit: "0.0000", credit: "0.0000", transactionCredit: "0.0002", currency: "USD" })]) },
+    }) }));
+  });
+
+  it("applies foreign unapplied credit with one frozen realized-FX adjustment journal", async () => {
+    const tx = makeForeignApplyUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(
+      prisma as never, { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-FX-1") } as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", {
+      invoiceId: "invoice-1", amountApplied: "100.0000",
+    })).resolves.toMatchObject({ id: "payment-1" });
+
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ unappliedAmount: { gte: "375.0000" }, transactionUnappliedAmount: { gte: "100.0000" } }),
+      data: { unappliedAmount: { decrement: "375.0000" }, transactionUnappliedAmount: { decrement: "100.0000" } },
+    }));
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ balanceDue: { gte: "365.0000" }, transactionBalanceDue: { gte: "100.0000" } }),
+      data: { balanceDue: { decrement: "365.0000" }, transactionBalanceDue: { decrement: "100.0000" } },
+    }));
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      entryNumber: "JE-FX-1", currency: "AED", totalDebit: "10.0000", totalCredit: "10.0000",
+      lines: { create: expect.arrayContaining([
+        expect.objectContaining({ account: { connect: { id: "ar-1" } }, debit: "10.0000", functionalCurrencyOnly: true }),
+        expect.objectContaining({ account: { connect: { id: "fx-gain" } }, credit: "10.0000", functionalCurrencyOnly: true }),
+      ]) },
+    }) }));
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      amountApplied: "365.0000", transactionAmountApplied: "100.0000",
+      documentBaseAmountApplied: "365.0000", settlementBaseAmountApplied: "375.0000",
+      realizedGainAmount: "10.0000", realizedFxJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "fx-journal-1" } } },
+    }) });
+  });
+
+  it("consumes the exact final unapplied settlement residual", async () => {
+    const tx = makeForeignApplyUnappliedTransactionMock();
+    tx.customerPayment.findFirst.mockResolvedValue({ id: "payment-1", paymentNumber: "PAY-1", customerId: "customer-1", status: CustomerPaymentStatus.POSTED, currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateSnapshotId: "payment-rate", amountReceived: "3.6725", unappliedAmount: "3.5990", transactionAmountReceived: "1.0000", transactionUnappliedAmount: "0.9800", voidReversalJournalEntryId: null });
+    tx.salesInvoice.findFirst.mockResolvedValue({ id: "invoice-1", invoiceNumber: "INV-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateSnapshotId: "invoice-rate", balanceDue: "3.5991", transactionBalanceDue: "0.9800" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-FX-1") } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "0.9800" });
+
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { unappliedAmount: { decrement: "3.5990" }, transactionUnappliedAmount: { decrement: "0.9800" } } }));
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith({ data: expect.objectContaining({ settlementBaseAmountApplied: "3.5990", documentBaseAmountApplied: "3.5991", realizedLossAmount: "0.0001" }) });
+  });
+
+  it("applies customer transaction credit after its settlement base residual reaches zero", async () => {
+    const tx = makeForeignApplyUnappliedTransactionMock();
+    tx.customerPayment.findFirst.mockResolvedValue({ id: "payment-1", paymentNumber: "PAY-1", customerId: "customer-1", status: CustomerPaymentStatus.POSTED, currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateSnapshotId: "payment-rate", amountReceived: "0.0002", unappliedAmount: "0.0000", transactionAmountReceived: "0.0004", transactionUnappliedAmount: "0.0002", voidReversalJournalEntryId: null });
+    tx.salesInvoice.findFirst.mockResolvedValue({ id: "invoice-1", invoiceNumber: "INV-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED, currency: "USD", baseCurrency: "AED", exchangeRate: "0.50000000", rateSnapshotId: "invoice-rate", balanceDue: "0.0001", transactionBalanceDue: "0.0001" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("JE-FX-1") } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+
+    await service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "0.0001" });
+
+    expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith({ data: expect.objectContaining({ settlementBaseAmountApplied: "0.0000", documentBaseAmountApplied: "0.0001", realizedLossAmount: "0.0001" }) });
+  });
+
+  it("replays an idempotent unapplied allocation without changing balances or creating another journal", async () => {
+    const tx = makeForeignApplyUnappliedTransactionMock();
+    tx.customerPaymentUnappliedAllocation.findUnique.mockResolvedValue({
+      paymentId: "payment-1", invoiceId: "invoice-1", transactionAmountApplied: "100.0000", reversedAt: null,
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "payment-1", status: CustomerPaymentStatus.POSTED } as never);
+    await expect(service.applyUnapplied("org-1", "user-1", "payment-1", {
+      invoiceId: "invoice-1", amountApplied: "100.0000", idempotencyKey: "apply-1",
+    })).resolves.toMatchObject({ id: "payment-1" });
+    expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
+    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("reverses a foreign unapplied allocation, its FX journal, and both open-balance currencies once", async () => {
+    const tx = makeForeignReverseUnappliedTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new CustomerPaymentService(
+      prisma as never, { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("JE-FX-REV-1") } as never,
+    );
+    await expect(service.reverseUnappliedAllocation(
+      "org-1", "user-1", "payment-1", "unapplied-allocation-1", { reason: "Correction" },
+    )).resolves.toMatchObject({ id: "payment-1" });
+
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      entryNumber: "JE-FX-REV-1", reversalOfId: "fx-journal-1", currency: "AED",
+      totalDebit: "10.0000", totalCredit: "10.0000",
+    }) }));
+    expect(tx.customerPayment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: { unappliedAmount: { increment: "375.0000" }, transactionUnappliedAmount: { increment: "100.0000" } },
+    }));
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: { balanceDue: { increment: "365.0000" }, transactionBalanceDue: { increment: "100.0000" } },
+    }));
+    expect(tx.customerPaymentUnappliedAllocation.update).toHaveBeenCalledWith({
+      where: { id: "unapplied-allocation-1" },
+      data: { realizedFxReversalJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "fx-reversal-1" } } } },
+    });
+  });
+
+  it("builds a reproducible foreign customer settlement with realized gain", () => {
+    const lines = buildCustomerPaymentJournalLines({
+      paidThroughAccountId: "bank",
+      accountsReceivableAccountId: "ar",
+      realizedGainAccountId: "fx-gain",
+      realizedLossAccountId: "fx-loss",
+      paymentNumber: "PAY-USD-1",
+      customerName: "Customer",
+      currency: "USD",
+      baseCurrency: "AED",
+      exchangeRate: "3.75000000",
+      rateSnapshotId: "payment-rate",
+      transactionAmountReceived: "100.0000",
+      settlementBaseAmountReceived: "375.0000",
+      allocations: [{
+        transactionAmountApplied: "100.0000",
+        documentBaseAmountApplied: "365.0000",
+        recognitionRate: "3.65000000",
+        rateSnapshotId: "invoice-rate",
+      }],
+      transactionUnappliedAmount: "0.0000",
+      unappliedBaseAmount: "0.0000",
+      realizedGainAmount: "10.0000",
+      realizedLossAmount: "0.0000",
+    });
+
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "bank", debit: "375.0000", transactionDebit: "100.0000", currency: "USD", exchangeRate: "3.75000000" }),
+      expect.objectContaining({ accountId: "ar", credit: "365.0000", transactionCredit: "100.0000", currency: "USD", exchangeRate: "3.65000000" }),
+      expect.objectContaining({ accountId: "fx-gain", credit: "10.0000", currency: "AED", exchangeRate: "1" }),
+    ]);
+    expect(() => assertBalancedJournal(lines)).not.toThrow();
+    expect(() => assertJournalFxContext(lines, "AED")).not.toThrow();
+  });
+
+  it("posts foreign unapplied customer credit at the payment rate and requires configured FX accounts", () => {
+    const lines = buildCustomerPaymentJournalLines({
+      paidThroughAccountId: "bank",
+      accountsReceivableAccountId: "ar",
+      paymentNumber: "PAY-USD-2",
+      customerName: "Customer",
+      currency: "USD",
+      baseCurrency: "AED",
+      exchangeRate: "3.75000000",
+      transactionAmountReceived: "100.0000",
+      settlementBaseAmountReceived: "375.0000",
+      allocations: [],
+      transactionUnappliedAmount: "100.0000",
+      unappliedBaseAmount: "375.0000",
+      realizedGainAmount: "0.0000",
+      realizedLossAmount: "0.0000",
+    });
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "bank", debit: "375.0000", transactionDebit: "100.0000" }),
+      expect.objectContaining({ accountId: "ar", credit: "375.0000", transactionCredit: "100.0000", exchangeRate: "3.75000000" }),
+    ]);
+
+    expect(() => buildCustomerPaymentJournalLines({
+      paidThroughAccountId: "bank", accountsReceivableAccountId: "ar", paymentNumber: "PAY-USD-3", customerName: "Customer",
+      currency: "USD", baseCurrency: "AED", exchangeRate: "3.75000000", transactionAmountReceived: "100.0000",
+      settlementBaseAmountReceived: "375.0000", allocations: [{ transactionAmountApplied: "100.0000", documentBaseAmountApplied: "365.0000", recognitionRate: "3.65000000" }],
+      transactionUnappliedAmount: "0.0000", unappliedBaseAmount: "0.0000", realizedGainAmount: "10.0000", realizedLossAmount: "0.0000",
+    })).toThrow("Realized FX gain account is required");
   });
 
   it("rejects non-positive payment and allocation amounts", async () => {
@@ -104,7 +385,7 @@ describe("customer payment rules", () => {
     const service = new CustomerPaymentService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
     await expect(service.create("org-1", "user-1", { ...basePaymentDto, currency: "USD" })).rejects.toThrow(
-      "Customer payment and invoice currencies must match",
+      "Customer payment and invoice transaction/base currencies must match",
     );
     expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
@@ -288,8 +569,9 @@ describe("customer payment rules", () => {
         customerId: "customer-1",
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { gte: "100.0000" },
+        transactionBalanceDue: { gte: "100.0000" },
       },
-      data: { balanceDue: { decrement: "100.0000" } },
+      data: { balanceDue: { decrement: "100.0000" }, transactionBalanceDue: { decrement: "100.0000" } },
     });
   });
 
@@ -363,8 +645,9 @@ describe("customer payment rules", () => {
         customerId: "customer-1",
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { gte: "60.0000" },
+        transactionBalanceDue: { gte: "60.0000" },
       },
-      data: { balanceDue: { decrement: "60.0000" } },
+      data: { balanceDue: { decrement: "60.0000" }, transactionBalanceDue: { decrement: "60.0000" } },
     });
   });
 
@@ -434,8 +717,9 @@ describe("customer payment rules", () => {
         status: CustomerPaymentStatus.POSTED,
         voidReversalJournalEntryId: null,
         unappliedAmount: { gte: "40.0000" },
+        transactionUnappliedAmount: { gte: "40.0000" },
       },
-      data: { unappliedAmount: { decrement: "40.0000" } },
+      data: { unappliedAmount: { decrement: "40.0000" }, transactionUnappliedAmount: { decrement: "40.0000" } },
     });
     expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
       where: {
@@ -444,17 +728,21 @@ describe("customer payment rules", () => {
         customerId: "customer-1",
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { gte: "40.0000" },
+        transactionBalanceDue: { gte: "40.0000" },
       },
-      data: { balanceDue: { decrement: "40.0000" } },
+      data: { balanceDue: { decrement: "40.0000" }, transactionBalanceDue: { decrement: "40.0000" } },
     });
     expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledWith(
       {
-        data: {
+        data: expect.objectContaining({
           organization: { connect: { id: "org-1" } },
-          payment: { connect: { id: "payment-1" } },
-          invoice: { connect: { id: "invoice-1" } },
+          payment: { connect: { organizationId_id: { organizationId: "org-1", id: "payment-1" } } },
+          invoice: { connect: { organizationId_id: { organizationId: "org-1", id: "invoice-1" } } },
           amountApplied: "40.0000",
-        },
+          transactionAmountApplied: "40.0000",
+          documentBaseAmountApplied: "40.0000",
+          settlementBaseAmountApplied: "40.0000",
+        }),
       },
     );
     expect(tx.customerPaymentUnappliedAllocation.create).toHaveBeenCalledTimes(1);
@@ -480,7 +768,7 @@ describe("customer payment rules", () => {
 
     await expect(
       service.applyUnapplied("org-1", "user-1", "payment-1", { invoiceId: "invoice-1", amountApplied: "40.0000" }),
-    ).rejects.toThrow("Customer payment and invoice currencies must match");
+    ).rejects.toThrow("Customer payment and invoice transaction/base currencies must match");
 
     expect(tx.customerPayment.updateMany).not.toHaveBeenCalled();
     expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
@@ -671,8 +959,9 @@ describe("customer payment rules", () => {
         status: CustomerPaymentStatus.POSTED,
         voidReversalJournalEntryId: null,
         unappliedAmount: { lte: "60.0000" },
+        transactionUnappliedAmount: { lte: "60.0000" },
       },
-      data: { unappliedAmount: { increment: "40.0000" } },
+      data: { unappliedAmount: { increment: "40.0000" }, transactionUnappliedAmount: { increment: "40.0000" } },
     });
     expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
       where: {
@@ -680,8 +969,9 @@ describe("customer payment rules", () => {
         organizationId: "org-1",
         status: SalesInvoiceStatus.FINALIZED,
         balanceDue: { lte: "60.0000" },
+        transactionBalanceDue: { lte: "60.0000" },
       },
-      data: { balanceDue: { increment: "40.0000" } },
+      data: { balanceDue: { increment: "40.0000" }, transactionBalanceDue: { increment: "40.0000" } },
     });
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(tx.journalEntry.update).not.toHaveBeenCalled();
@@ -857,7 +1147,10 @@ describe("customer payment rules", () => {
     });
     expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith({
       where: { id: "invoice-1", organizationId: "org-1", status: SalesInvoiceStatus.FINALIZED },
-      data: { balanceDue: { increment: "60.0000" } },
+      data: {
+        balanceDue: { increment: "60.0000" },
+        transactionBalanceDue: { increment: "60.0000" },
+      },
     });
     expect(auditLog.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1000,21 +1293,26 @@ describe("customer payment rules", () => {
           paymentDate: new Date("2026-05-06T00:00:00.000Z"),
           customer: { id: "customer-1", name: "Customer", displayName: "Customer", email: null, phone: null, taxNumber: null },
           organization: { id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA", baseCurrency: "SAR", timezone: "Asia/Riyadh" },
-          amountReceived: "115.0000",
+          amountReceived: "375.0000",
           unappliedAmount: "0.0000",
-          currency: "SAR",
+          transactionAmountReceived: "100.0000",
+          transactionUnappliedAmount: "0.0000",
+          currency: "USD",
           account: { id: "bank-1", code: "112", name: "Bank Account", type: "ASSET" },
           journalEntry: { id: "journal-1", entryNumber: "JE-000001", status: JournalEntryStatus.POSTED, totalDebit: "115.0000", totalCredit: "115.0000" },
           allocations: [
             {
               invoiceId: "invoice-1",
-              amountApplied: "115.0000",
+              amountApplied: "365.0000",
+              transactionAmountApplied: "100.0000",
               invoice: {
                 id: "invoice-1",
                 invoiceNumber: "INV-000001",
                 issueDate: new Date("2026-05-06T00:00:00.000Z"),
-                total: "115.0000",
+                total: "365.0000",
                 balanceDue: "0.0000",
+                transactionTotal: "100.0000",
+                transactionBalanceDue: "0.0000",
               },
             },
           ],
@@ -1027,8 +1325,8 @@ describe("customer payment rules", () => {
 
     await expect(service.receiptData("org-1", "payment-1")).resolves.toMatchObject({
       receiptNumber: "PAY-000001",
-      amountReceived: "115.0000",
-      allocations: [{ invoiceId: "invoice-1", invoiceNumber: "INV-000001", amountApplied: "115.0000" }],
+      amountReceived: "100.0000",
+      allocations: [{ invoiceId: "invoice-1", invoiceNumber: "INV-000001", amountApplied: "100.0000", invoiceTotal: "100.0000" }],
     });
     expect(prisma.customerPayment.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "payment-1", organizationId: "org-1" } }));
   });
@@ -1281,6 +1579,112 @@ function makeCreatePrismaMock(options: { tx?: ReturnType<typeof makeCreateTransa
       create: jest.fn().mockRejectedValue(new Error("Customer payment lifecycle mutations must not create generated documents.")),
     },
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+  };
+}
+
+function makeForeignCreateTransactionMock() {
+  return {
+    contact: { findFirst: jest.fn().mockResolvedValue({ id: "customer-1", name: "Customer", displayName: null }) },
+    account: {
+      findFirst: jest.fn(({ where }: { where: { id?: string; code?: string } }) => {
+        if (where.id === "bank-1") return { id: "bank-1" };
+        if (where.code === "120") return { id: "ar-1" };
+        if (where.id === "fx-gain") return { id: "fx-gain" };
+        if (where.id === "fx-loss") return { id: "fx-loss" };
+        return null;
+      }),
+    },
+    fxAccountConfiguration: {
+      findUnique: jest.fn().mockResolvedValue({ realizedGainAccountId: "fx-gain", realizedLossAccountId: "fx-loss" }),
+    },
+    salesInvoice: {
+      findMany: jest.fn().mockResolvedValue([{
+        id: "invoice-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED,
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.65000000",
+        rateDate: new Date("2026-07-01T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL,
+        rateSnapshotId: "invoice-rate", balanceDue: "365.0000", transactionBalanceDue: "100.0000",
+      }]),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    journalEntry: { create: jest.fn().mockResolvedValue({ id: "journal-1" }) },
+    customerPayment: {
+      create: jest.fn().mockResolvedValue({ id: "payment-1", paymentNumber: "PAY-000001", status: CustomerPaymentStatus.POSTED, journalEntryId: "journal-1" }),
+    },
+  };
+}
+
+function makeForeignApplyUnappliedTransactionMock() {
+  return {
+    customerPayment: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "payment-1", paymentNumber: "PAY-1", customerId: "customer-1", status: CustomerPaymentStatus.POSTED,
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.75000000", rateSnapshotId: "payment-rate",
+        amountReceived: "375.0000", unappliedAmount: "375.0000", transactionAmountReceived: "100.0000",
+        transactionUnappliedAmount: "100.0000", voidReversalJournalEntryId: null,
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "payment-1", unappliedAmount: "0.0000", transactionUnappliedAmount: "0.0000" }),
+    },
+    salesInvoice: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "invoice-1", invoiceNumber: "INV-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED,
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.65000000", rateSnapshotId: "invoice-rate",
+        balanceDue: "365.0000", transactionBalanceDue: "100.0000",
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    fxAccountConfiguration: { findUnique: jest.fn().mockResolvedValue({ realizedGainAccountId: "fx-gain", realizedLossAccountId: "fx-loss" }) },
+    account: { findFirst: jest.fn(({ where }: { where: { id?: string; code?: string } }) => {
+      if (where.code === "120") return { id: "ar-1" };
+      if (where.id === "fx-gain") return { id: "fx-gain" };
+      if (where.id === "fx-loss") return { id: "fx-loss" };
+      return null;
+    }) },
+    journalEntry: { create: jest.fn().mockResolvedValue({ id: "fx-journal-1" }) },
+    customerPaymentUnappliedAllocation: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: "unapplied-allocation-1" }),
+    },
+  };
+}
+
+function makeForeignReverseUnappliedTransactionMock() {
+  return {
+    customerPaymentUnappliedAllocation: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "unapplied-allocation-1", organizationId: "org-1", paymentId: "payment-1", invoiceId: "invoice-1",
+        amountApplied: "365.0000", transactionAmountApplied: "100.0000", documentBaseAmountApplied: "365.0000",
+        settlementBaseAmountApplied: "375.0000", realizedFxJournalEntryId: "fx-journal-1",
+        realizedFxReversalJournalEntryId: null, reversedAt: null,
+        payment: {
+          id: "payment-1", status: CustomerPaymentStatus.POSTED, amountReceived: "375.0000", unappliedAmount: "0.0000",
+          transactionAmountReceived: "100.0000", transactionUnappliedAmount: "0.0000", voidReversalJournalEntryId: null,
+        },
+        invoice: {
+          id: "invoice-1", status: SalesInvoiceStatus.FINALIZED, total: "365.0000", balanceDue: "0.0000",
+          transactionTotal: "100.0000", transactionBalanceDue: "0.0000",
+        },
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    customerPayment: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ id: "payment-1", unappliedAmount: "375.0000", transactionUnappliedAmount: "100.0000" }),
+    },
+    salesInvoice: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    journalEntry: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: "fx-journal-1", entryNumber: "JE-FX-1", reference: "PAY-1/INV-1", currency: "AED",
+        description: "Realized FX adjustment", reversedBy: null,
+        lines: [
+          { accountId: "ar-1", debit: "10.0000", credit: "0.0000", description: "FX clear", currency: "AED", exchangeRate: "1", transactionDebit: null, transactionCredit: null, rateSnapshotId: null, fxRoundingComponentCount: 1, functionalCurrencyOnly: true, taxRateId: null },
+          { accountId: "fx-gain", debit: "0.0000", credit: "10.0000", description: "FX gain", currency: "AED", exchangeRate: "1", transactionDebit: null, transactionCredit: null, rateSnapshotId: null, fxRoundingComponentCount: 1, functionalCurrencyOnly: true, taxRateId: null },
+        ],
+      }),
+      create: jest.fn().mockResolvedValue({ id: "fx-reversal-1" }),
+      update: jest.fn().mockResolvedValue({}),
+    },
   };
 }
 

@@ -156,7 +156,7 @@ export default function SupplierPaymentsPage() {
                   <td className="px-4 py-3 font-medium text-ink">{payment.supplier?.displayName ?? payment.supplier?.name ?? "-"}</td>
                   <td className="px-4 py-3 text-steel">{formatAppDate(payment.paymentDate, locale, "-")}</td>
                   <td className="px-4 py-3 text-steel">{tc(supplierPaymentStatusLabel(payment.status))}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.amountPaid, payment.currency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.transactionAmountPaid ?? payment.amountPaid, payment.currency, locale)}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.unappliedAmount, payment.currency, locale)}</td>
                   <td className="px-4 py-3 text-steel">{payment.account ? <bdi dir="ltr">{`${payment.account.code} ${payment.account.name}`}</bdi> : "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">{payment.journalEntry ? <bdi dir="ltr">{`${payment.journalEntry.entryNumber} (${payment.journalEntry.id})`}</bdi> : "-"}</td>

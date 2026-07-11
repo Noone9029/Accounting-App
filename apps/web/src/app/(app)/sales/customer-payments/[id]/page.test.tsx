@@ -374,8 +374,8 @@ describe("customer payment workflow guidance", () => {
     expect(screen.getAllByText("Posted").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partially unapplied").length).toBeGreaterThan(0);
     expect(screen.getByText("Posted with payment accounting returned.")).toBeInTheDocument();
-    expect(screen.getByText(/200\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/25\.00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/200\.00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/25\.00/).length).toBeGreaterThan(0);
     expect(screen.getByText(/100\.00/)).toBeInTheDocument();
     expect(screen.getByText("2 invoices")).toBeInTheDocument();
     expect(screen.getByText("1 active, 1 reversed")).toBeInTheDocument();

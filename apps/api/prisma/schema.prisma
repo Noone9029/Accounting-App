@@ -3941,6 +3941,7 @@ model SalesInvoice {
   taxTotal                    Decimal                              @default(0) @db.Decimal(20, 4)
   total                       Decimal                              @default(0) @db.Decimal(20, 4)
   balanceDue                  Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionBalanceDue       Decimal                              @default(0) @db.Decimal(20, 4)
   transactionSubtotal         Decimal                              @default(0) @db.Decimal(20, 4)
   transactionDiscountTotal    Decimal                              @default(0) @db.Decimal(20, 4)
   transactionTaxableTotal     Decimal                              @default(0) @db.Decimal(20, 4)
@@ -3980,6 +3981,7 @@ model SalesInvoice {
   paymentLinks                InvoicePaymentLink[]
 
   @@unique([organizationId, invoiceNumber])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([customerId])
   @@index([recurringInvoiceTemplateId])
@@ -4651,6 +4653,7 @@ model PurchaseBill {
   taxTotal                            Decimal                              @default(0) @db.Decimal(20, 4)
   total                               Decimal                              @default(0) @db.Decimal(20, 4)
   balanceDue                          Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionBalanceDue               Decimal                              @default(0) @db.Decimal(20, 4)
   transactionSubtotal                 Decimal                              @default(0) @db.Decimal(20, 4)
   transactionDiscountTotal            Decimal                              @default(0) @db.Decimal(20, 4)
   transactionTaxableTotal             Decimal                              @default(0) @db.Decimal(20, 4)
@@ -4684,6 +4687,7 @@ model PurchaseBill {
   bankPaymentRequests                 BankPaymentRequest[]
 
   @@unique([organizationId, billNumber])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([supplierId])
   @@index([purchaseOrderId])
@@ -5360,6 +5364,9 @@ model CustomerPayment {
   amountReceived             Decimal                              @db.Decimal(20, 4)
   unappliedAmount            Decimal                              @default(0) @db.Decimal(20, 4)
   transactionAmountReceived  Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionUnappliedAmount Decimal                              @default(0) @db.Decimal(20, 4)
+  idempotencyKey             String?
+  requestHash                String?
   description                String?
   accountId                  String                               @db.Uuid
   journalEntryId             String?                              @unique @db.Uuid
@@ -5381,6 +5388,8 @@ model CustomerPayment {
   refunds                    CustomerRefund[]                     @relation("CustomerRefundPayment")
 
   @@unique([organizationId, paymentNumber])
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId])
   @@index([customerId])
   @@index([status])
@@ -5388,16 +5397,25 @@ model CustomerPayment {
 }
 
 model CustomerPaymentAllocation {
-  id             String          @id @default(uuid()) @db.Uuid
-  organizationId String          @db.Uuid
-  paymentId      String          @db.Uuid
-  invoiceId      String          @db.Uuid
-  amountApplied  Decimal         @db.Decimal(20, 4)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment        CustomerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoice        SalesInvoice    @relation(fields: [invoiceId], references: [id])
+  id                          String          @id @default(uuid()) @db.Uuid
+  organizationId              String          @db.Uuid
+  paymentId                   String          @db.Uuid
+  invoiceId                   String          @db.Uuid
+  amountApplied               Decimal         @db.Decimal(20, 4)
+  transactionAmountApplied    Decimal         @default(0) @db.Decimal(20, 4)
+  documentBaseAmountApplied   Decimal         @default(0) @db.Decimal(20, 4)
+  settlementBaseAmountApplied Decimal         @default(0) @db.Decimal(20, 4)
+  recognitionRate             Decimal         @default(1) @db.Decimal(18, 8)
+  settlementRate              Decimal         @default(1) @db.Decimal(18, 8)
+  realizedGainAmount          Decimal         @default(0) @db.Decimal(20, 4)
+  realizedLossAmount          Decimal         @default(0) @db.Decimal(20, 4)
+  realizedFxJournalEntryId    String?         @db.Uuid
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+  organization                Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment                     CustomerPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_payment_fkey")
+  invoice                     SalesInvoice    @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_invoice_fkey")
+  realizedFxJournalEntry      JournalEntry?   @relation("CustomerPaymentAllocationRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_realized_fx_journal_fkey")
 
   @@index([organizationId])
   @@index([paymentId])
@@ -5405,21 +5423,36 @@ model CustomerPaymentAllocation {
 }
 
 model CustomerPaymentUnappliedAllocation {
-  id             String          @id @default(uuid()) @db.Uuid
-  organizationId String          @db.Uuid
-  paymentId      String          @db.Uuid
-  invoiceId      String          @db.Uuid
-  amountApplied  Decimal         @db.Decimal(20, 4)
-  reversedAt     DateTime?
-  reversedById   String?         @db.Uuid
-  reversalReason String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment        CustomerPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoice        SalesInvoice    @relation(fields: [invoiceId], references: [id])
-  reversedBy     User?           @relation("CustomerPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  id                               String          @id @default(uuid()) @db.Uuid
+  organizationId                   String          @db.Uuid
+  paymentId                        String          @db.Uuid
+  invoiceId                        String          @db.Uuid
+  amountApplied                    Decimal         @db.Decimal(20, 4)
+  transactionAmountApplied         Decimal         @default(0) @db.Decimal(20, 4)
+  documentBaseAmountApplied        Decimal         @default(0) @db.Decimal(20, 4)
+  settlementBaseAmountApplied      Decimal         @default(0) @db.Decimal(20, 4)
+  recognitionRate                  Decimal         @default(1) @db.Decimal(18, 8)
+  settlementRate                   Decimal         @default(1) @db.Decimal(18, 8)
+  realizedGainAmount               Decimal         @default(0) @db.Decimal(20, 4)
+  realizedLossAmount               Decimal         @default(0) @db.Decimal(20, 4)
+  realizedFxJournalEntryId         String?         @db.Uuid
+  realizedFxReversalJournalEntryId String?         @db.Uuid
+  idempotencyKey                   String?
+  reversalIdempotencyKey           String?
+  reversedAt                       DateTime?
+  reversedById                     String?         @db.Uuid
+  reversalReason                   String?
+  createdAt                        DateTime        @default(now())
+  updatedAt                        DateTime        @updatedAt
+  organization                     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment                          CustomerPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_payment_fkey")
+  invoice                          SalesInvoice    @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_invoice_fkey")
+  realizedFxJournalEntry           JournalEntry?   @relation("CustomerPaymentUnappliedRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_realized_fx_journal_fkey")
+  realizedFxReversalJournalEntry   JournalEntry?   @relation("CustomerPaymentUnappliedRealizedFxReversalJournal", fields: [organizationId, realizedFxReversalJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_realized_fx_reversal_fkey")
+  reversedBy                       User?           @relation("CustomerPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
 
+  @@unique([organizationId, idempotencyKey], map: "CustomerPaymentUnappliedAllocation_org_idempotency_key")
+  @@unique([organizationId, reversalIdempotencyKey], map: "CustomerPaymentUnappliedAllocation_org_reversal_key")
   @@index([organizationId])
   @@index([paymentId])
   @@index([invoiceId])
@@ -5443,6 +5476,9 @@ model SupplierPayment {
   amountPaid                 Decimal                              @db.Decimal(20, 4)
   unappliedAmount            Decimal                              @default(0) @db.Decimal(20, 4)
   transactionAmountPaid      Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionUnappliedAmount Decimal                              @default(0) @db.Decimal(20, 4)
+  idempotencyKey             String?
+  requestHash                String?
   description                String?
   accountId                  String                               @db.Uuid
   journalEntryId             String?                              @unique @db.Uuid
@@ -5464,6 +5500,8 @@ model SupplierPayment {
   refunds                    SupplierRefund[]                     @relation("SupplierRefundPayment")
 
   @@unique([organizationId, paymentNumber])
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId])
   @@index([supplierId])
   @@index([status])
@@ -5471,16 +5509,25 @@ model SupplierPayment {
 }
 
 model SupplierPaymentAllocation {
-  id             String          @id @default(uuid()) @db.Uuid
-  organizationId String          @db.Uuid
-  paymentId      String          @db.Uuid
-  billId         String          @db.Uuid
-  amountApplied  Decimal         @db.Decimal(20, 4)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment        SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  bill           PurchaseBill    @relation(fields: [billId], references: [id])
+  id                          String          @id @default(uuid()) @db.Uuid
+  organizationId              String          @db.Uuid
+  paymentId                   String          @db.Uuid
+  billId                      String          @db.Uuid
+  amountApplied               Decimal         @db.Decimal(20, 4)
+  transactionAmountApplied    Decimal         @default(0) @db.Decimal(20, 4)
+  documentBaseAmountApplied   Decimal         @default(0) @db.Decimal(20, 4)
+  settlementBaseAmountApplied Decimal         @default(0) @db.Decimal(20, 4)
+  recognitionRate             Decimal         @default(1) @db.Decimal(18, 8)
+  settlementRate              Decimal         @default(1) @db.Decimal(18, 8)
+  realizedGainAmount          Decimal         @default(0) @db.Decimal(20, 4)
+  realizedLossAmount          Decimal         @default(0) @db.Decimal(20, 4)
+  realizedFxJournalEntryId    String?         @db.Uuid
+  createdAt                   DateTime        @default(now())
+  updatedAt                   DateTime        @updatedAt
+  organization                Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment                     SupplierPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_payment_fkey")
+  bill                        PurchaseBill    @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_bill_fkey")
+  realizedFxJournalEntry      JournalEntry?   @relation("SupplierPaymentAllocationRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_realized_fx_journal_fkey")
 
   @@index([organizationId])
   @@index([paymentId])
@@ -5488,21 +5535,36 @@ model SupplierPaymentAllocation {
 }
 
 model SupplierPaymentUnappliedAllocation {
-  id             String          @id @default(uuid()) @db.Uuid
-  organizationId String          @db.Uuid
-  paymentId      String          @db.Uuid
-  billId         String          @db.Uuid
-  amountApplied  Decimal         @db.Decimal(20, 4)
-  reversedAt     DateTime?
-  reversedById   String?         @db.Uuid
-  reversalReason String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment        SupplierPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  bill           PurchaseBill    @relation(fields: [billId], references: [id])
-  reversedBy     User?           @relation("SupplierPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  id                               String          @id @default(uuid()) @db.Uuid
+  organizationId                   String          @db.Uuid
+  paymentId                        String          @db.Uuid
+  billId                           String          @db.Uuid
+  amountApplied                    Decimal         @db.Decimal(20, 4)
+  transactionAmountApplied         Decimal         @default(0) @db.Decimal(20, 4)
+  documentBaseAmountApplied        Decimal         @default(0) @db.Decimal(20, 4)
+  settlementBaseAmountApplied      Decimal         @default(0) @db.Decimal(20, 4)
+  recognitionRate                  Decimal         @default(1) @db.Decimal(18, 8)
+  settlementRate                   Decimal         @default(1) @db.Decimal(18, 8)
+  realizedGainAmount               Decimal         @default(0) @db.Decimal(20, 4)
+  realizedLossAmount               Decimal         @default(0) @db.Decimal(20, 4)
+  realizedFxJournalEntryId         String?         @db.Uuid
+  realizedFxReversalJournalEntryId String?         @db.Uuid
+  idempotencyKey                   String?
+  reversalIdempotencyKey           String?
+  reversedAt                       DateTime?
+  reversedById                     String?         @db.Uuid
+  reversalReason                   String?
+  createdAt                        DateTime        @default(now())
+  updatedAt                        DateTime        @updatedAt
+  organization                     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payment                          SupplierPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_payment_fkey")
+  bill                             PurchaseBill    @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_bill_fkey")
+  realizedFxJournalEntry           JournalEntry?   @relation("SupplierPaymentUnappliedRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_realized_fx_journal_fkey")
+  realizedFxReversalJournalEntry   JournalEntry?   @relation("SupplierPaymentUnappliedRealizedFxReversalJournal", fields: [organizationId, realizedFxReversalJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_realized_fx_reversal_fkey")
+  reversedBy                       User?           @relation("SupplierPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
 
+  @@unique([organizationId, idempotencyKey], map: "SupplierPaymentUnappliedAllocation_org_idempotency_key")
+  @@unique([organizationId, reversalIdempotencyKey], map: "SupplierPaymentUnappliedAllocation_org_reversal_key")
   @@index([organizationId])
   @@index([paymentId])
   @@index([billId])
@@ -5658,9 +5720,16 @@ model JournalEntry {
   inventoryVarianceReversalProposal     InventoryVarianceProposal? @relation("InventoryVarianceProposalReversalJournal")
   matchedBankStatementTransactions      BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalEntry")
   createdBankStatementTransactions      BankStatementTransaction[] @relation("BankStatementTransactionCreatedJournalEntry")
+  customerPaymentAllocationRealizedFx   CustomerPaymentAllocation[]          @relation("CustomerPaymentAllocationRealizedFxJournal")
+  customerUnappliedRealizedFx           CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedRealizedFxJournal")
+  customerUnappliedRealizedFxReversals  CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedRealizedFxReversalJournal")
+  supplierPaymentAllocationRealizedFx   SupplierPaymentAllocation[]          @relation("SupplierPaymentAllocationRealizedFxJournal")
+  supplierUnappliedRealizedFx           SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedRealizedFxJournal")
+  supplierUnappliedRealizedFxReversals  SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedRealizedFxReversalJournal")
   lines                                 JournalLine[]
 
   @@unique([organizationId, entryNumber])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([status])
 }
@@ -5683,6 +5752,7 @@ model JournalLine {
   exchangeRate                     Decimal                    @default(1) @db.Decimal(18, 8)
   rateSnapshotId                   String?                    @db.Uuid
   fxRoundingComponentCount         Int                        @default(1)
+  functionalCurrencyOnly           Boolean                    @default(false)
   createdAt                        DateTime                   @default(now())
   organization                     Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   journalEntry                     JournalEntry               @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)

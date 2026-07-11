@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { DocumentCurrencyFields } from "@/components/forms/document-currency-fields";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { customerPaymentAllocationStateBadgeClass, customerPaymentAllocationStateLabel, type CustomerPaymentAllocationState } from "@/lib/customer-payments";
+import { documentFxIsComplete, realizedFxSettlementPreview, type DocumentFxFormValue } from "@/lib/document-fx";
 import { calculatePaymentAllocationPreview, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, CustomerPayment, OpenSalesInvoice } from "@/lib/types";
@@ -39,6 +41,7 @@ export default function NewCustomerPaymentPage() {
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
   const [accountId, setAccountId] = useState("");
   const [amountReceived, setAmountReceived] = useState("0.0000");
+  const [fx, setFx] = useState<DocumentFxFormValue>({ currency: "", exchangeRate: "", rateDate: todayInputValue(), rateSource: "MANUAL", rateSnapshotId: null });
   const [description, setDescription] = useState("");
   const [allocations, setAllocations] = useState<AllocationState[]>([]);
   const [loadingSetup, setLoadingSetup] = useState(false);
@@ -46,6 +49,7 @@ export default function NewCustomerPaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
+  const idempotencyKey = useRef(clientIdempotencyKey("customer-payment"));
 
   const paidThroughAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET"),
@@ -57,7 +61,7 @@ export default function NewCustomerPaymentPage() {
         amountReceived,
         allocations.map((allocation) => ({
           amountApplied: allocation.amountApplied,
-          balanceDue: openInvoices.find((invoice) => invoice.id === allocation.invoiceId)?.balanceDue ?? "0.0000",
+          balanceDue: openInvoices.find((invoice) => invoice.id === allocation.invoiceId)?.transactionBalanceDue ?? openInvoices.find((invoice) => invoice.id === allocation.invoiceId)?.balanceDue ?? "0.0000",
         })),
       ),
     [allocations, amountReceived, openInvoices],
@@ -66,10 +70,25 @@ export default function NewCustomerPaymentPage() {
     () => paymentAllocationPreviewState(preview.totalAllocated, preview.unappliedAmount),
     [preview.totalAllocated, preview.unappliedAmount],
   );
+  const realizedFxPreview = useMemo(() => realizedFxSettlementPreview("customer", fx.exchangeRate, allocations.map((allocation) => {
+    const invoice = openInvoices.find((candidate) => candidate.id === allocation.invoiceId);
+    return {
+      transactionAmountApplied: allocation.amountApplied,
+      transactionBalanceDue: invoice?.transactionBalanceDue ?? invoice?.balanceDue ?? "0.0000",
+      baseBalanceDue: invoice?.balanceDue ?? "0.0000",
+      recognitionRate: invoice?.exchangeRate ?? "1",
+    };
+  }), amountReceived), [allocations, amountReceived, fx.exchangeRate, openInvoices]);
   const customerContextReturnTo = customerId ? returnTo || partyDetailHref("customer", customerId) : returnTo;
   const createInvoiceHref = customerId
     ? `/sales/invoices/new?customerId=${encodeURIComponent(customerId)}&returnTo=${encodeURIComponent(customerContextReturnTo)}`
     : "/sales/invoices/new";
+
+  useEffect(() => {
+    if (baseCurrency && !fx.currency) {
+      setFx({ currency: baseCurrency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null });
+    }
+  }, [baseCurrency, fx.currency]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -148,13 +167,16 @@ export default function NewCustomerPaymentPage() {
         setAllocations(
           result.map((invoice) => ({
             invoiceId: invoice.id,
-            amountApplied: invoice.id === prefilledInvoiceId ? invoice.balanceDue : "0.0000",
+            amountApplied: invoice.id === prefilledInvoiceId ? (invoice.transactionBalanceDue ?? invoice.balanceDue) : "0.0000",
           })),
         );
         if (prefilledInvoiceId) {
           const invoice = result.find((candidate) => candidate.id === prefilledInvoiceId);
           if (invoice) {
-            setAmountReceived(invoice.balanceDue);
+            setAmountReceived(invoice.transactionBalanceDue ?? invoice.balanceDue);
+            setFx(invoice.currency === baseCurrency
+              ? { currency: invoice.currency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null }
+              : { currency: invoice.currency, exchangeRate: "", rateDate: todayInputValue(), rateSource: "MANUAL", rateSnapshotId: null });
           }
         }
       })
@@ -172,16 +194,16 @@ export default function NewCustomerPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [customerId, organizationId, prefilledInvoiceId, tc]);
+  }, [baseCurrency, customerId, organizationId, prefilledInvoiceId, tc]);
 
   function updateAllocation(invoiceId: string, amountApplied: string) {
     setAllocations((current) => current.map((allocation) => (allocation.invoiceId === invoiceId ? { ...allocation, amountApplied } : allocation)));
   }
 
   function applyFullBalance(invoice: OpenSalesInvoice) {
-    updateAllocation(invoice.id, invoice.balanceDue);
+    updateAllocation(invoice.id, invoice.transactionBalanceDue ?? invoice.balanceDue);
     if (parseDecimalToUnits(amountReceived) <= 0) {
-      setAmountReceived(invoice.balanceDue);
+      setAmountReceived(invoice.transactionBalanceDue ?? invoice.balanceDue);
     }
   }
 
@@ -222,9 +244,13 @@ export default function NewCustomerPaymentPage() {
     }
     const mismatchedInvoice = allocationsToSubmit
       .map((allocation) => openInvoices.find((invoice) => invoice.id === allocation.invoiceId))
-      .find((invoice) => invoice && invoice.currency !== baseCurrency);
+      .find((invoice) => invoice && (invoice.currency !== fx.currency || (invoice.baseCurrency ?? baseCurrency) !== baseCurrency));
     if (mismatchedInvoice) {
-      setError(tc("Invoice {number} uses {currency}. Payments can be allocated only in the organization base currency {baseCurrency} during this phase.", { number: mismatchedInvoice.invoiceNumber, currency: mismatchedInvoice.currency, baseCurrency }));
+      setError(tc("Invoice {number} uses {currency}. Every allocation on this payment must use transaction currency {paymentCurrency} and base currency {baseCurrency}.", { number: mismatchedInvoice.invoiceNumber, currency: mismatchedInvoice.currency, paymentCurrency: fx.currency, baseCurrency }));
+      return;
+    }
+    if (!documentFxIsComplete(fx, baseCurrency)) {
+      setError(tc("Complete the payment exchange rate, rate date, and source before recording this payment."));
       return;
     }
     const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === accountId);
@@ -244,8 +270,13 @@ export default function NewCustomerPaymentPage() {
         method: "POST",
         body: {
           customerId,
+          idempotencyKey: idempotencyKey.current,
           paymentDate: `${paymentDate}T00:00:00.000Z`,
-          currency: baseCurrency,
+          currency: fx.currency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           amountReceived,
           accountId,
           description: description || undefined,
@@ -341,6 +372,7 @@ export default function NewCustomerPaymentPage() {
               <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
               <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             </label>
+            {baseCurrency ? <DocumentCurrencyFields baseCurrency={baseCurrency} value={fx} transactionTotal={amountReceived} onChange={setFx} disabled={submitting} postingContext="payment" /> : null}
           </div>
         </div>
 
@@ -365,8 +397,8 @@ export default function NewCustomerPaymentPage() {
                     <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{invoice.invoiceNumber}</bdi></td>
                     <td className="px-4 py-3 text-steel">{formatAppDate(invoice.issueDate, locale, "-")}</td>
                     <td className="px-4 py-3 text-steel">{formatAppDate(invoice.dueDate, locale, "-")}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.total, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.balanceDue, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.transactionTotal ?? invoice.total, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(invoice.transactionBalanceDue ?? invoice.balanceDue, invoice.currency, locale)}</td>
                     <td className="px-4 py-3">
                       <input
                         inputMode="decimal"
@@ -400,11 +432,15 @@ export default function NewCustomerPaymentPage() {
 
         <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ms-auto">
           <span className="text-steel">{tc("Amount received")}</span>
-          <span className="text-end font-mono">{baseCurrency ? formatAppMoney(preview.amountReceived, baseCurrency, locale) : "-"}</span>
+          <span className="text-end font-mono">{fx.currency ? formatAppMoney(preview.amountReceived, fx.currency, locale) : "-"}</span>
           <span className="text-steel">{tc("Allocated")}</span>
-          <span className="text-end font-mono">{baseCurrency ? formatAppMoney(preview.totalAllocated, baseCurrency, locale) : "-"}</span>
+          <span className="text-end font-mono">{fx.currency ? formatAppMoney(preview.totalAllocated, fx.currency, locale) : "-"}</span>
           <span className="font-semibold text-ink">{tc("Unapplied")}</span>
-          <span className="text-end font-mono font-semibold text-ink">{baseCurrency ? formatAppMoney(preview.unappliedAmount, baseCurrency, locale) : "-"}</span>
+          <span className="text-end font-mono font-semibold text-ink">{fx.currency ? formatAppMoney(preview.unappliedAmount, fx.currency, locale) : "-"}</span>
+          <span className="text-steel">{tc("Estimated realized FX gain")}</span>
+          <span className="text-end font-mono">{baseCurrency && realizedFxPreview ? formatAppMoney(realizedFxPreview.gain, baseCurrency, locale) : "-"}</span>
+          <span className="text-steel">{tc("Estimated realized FX loss")}</span>
+          <span className="text-end font-mono">{baseCurrency && realizedFxPreview ? formatAppMoney(realizedFxPreview.loss, baseCurrency, locale) : "-"}</span>
           <span className="text-steel">{tc("Allocation state")}</span>
           <span className="text-end">
             <span className={`rounded-md px-2 py-1 text-xs font-medium ${customerPaymentAllocationStateBadgeClass(previewAllocationState)}`}>
@@ -414,7 +450,7 @@ export default function NewCustomerPaymentPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" disabled={!organizationId || !baseCurrency || !bankProfilesReady || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={!organizationId || !baseCurrency || !bankProfilesReady || !documentFxIsComplete(fx, baseCurrency) || loadingSetup || loadingInvoices || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Recording...") : tc("Record payment")}
           </button>
           <Link href={returnTo || "/sales/customer-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -468,10 +504,14 @@ function getValidationError(
     if (amountApplied <= 0) {
       return tc("Allocation amounts must be greater than zero.");
     }
-    if (!invoice || amountApplied > parseDecimalToUnits(invoice.balanceDue)) {
+    if (!invoice || amountApplied > parseDecimalToUnits(invoice.transactionBalanceDue ?? invoice.balanceDue)) {
       return tc("Allocation amount cannot exceed invoice balance due.");
     }
   }
 
   return "";
+}
+
+function clientIdempotencyKey(prefix: string): string {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }
