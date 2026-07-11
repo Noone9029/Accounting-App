@@ -276,12 +276,18 @@ export class MigrationToolkitService {
         throw new BadRequestException("Import commit requires all rows to remain valid and committable. Create a new preview.");
       }
 
+      const currentRows = claimedJob.rows.map((row) => ({
+        rowNumber: row.rowNumber,
+        raw: importRawJson(row.rawJson),
+      }));
+      const currentContext = await this.validationContext(
+        organizationId,
+        claimedJob.entityType,
+        currentRows,
+        tx,
+      );
       if (claimedJob.entityType === ImportEntityType.PRODUCTS_SERVICES) {
-        const organization = await tx.organization.findUnique({
-          where: { id: organizationId },
-          select: { baseCurrency: true },
-        });
-        const currentBaseCurrency = normalizeSupportedCurrencyCode(organization?.baseCurrency);
+        const currentBaseCurrency = currentContext.baseCurrency;
         const previewMatchesCurrentBase = Boolean(currentBaseCurrency) && claimedJob.rows.every((row) => {
           const normalized = row.normalizedJson as Record<string, string | boolean | null>;
           return normalizeSupportedCurrencyCode(optionalString(normalized.baseCurrency)) === currentBaseCurrency;
@@ -291,9 +297,26 @@ export class MigrationToolkitService {
         }
       }
 
+      const authoritativeRows = currentRows.map((row) => this.normalizeRow(claimedJob.entityType, row, currentContext));
+      const currentValidationFailed = authoritativeRows.some((row) =>
+        row.duplicate ||
+        row.status !== ImportJobRowStatus.VALID ||
+        row.issues.some((issue) => issue.severity === ImportValidationIssueSeverity.ERROR),
+      );
+      const normalizedEvidenceChanged = authoritativeRows.some((row, index) =>
+        !matchesStoredNormalizedEvidence(claimedJob.rows[index]?.normalizedJson, row.normalized),
+      );
+      if (currentValidationFailed || normalizedEvidenceChanged) {
+        throw new ConflictException("Import data or tenant references changed after review. Create a new preview before committing.");
+      }
+
       const createdIds: string[] = [];
-      for (const row of claimedJob.rows) {
-        const normalized = row.normalizedJson as Record<string, string | boolean | null>;
+      for (const [index, row] of claimedJob.rows.entries()) {
+        const authoritativeRow = authoritativeRows[index];
+        if (!authoritativeRow) {
+          throw new ConflictException("Import validation evidence changed after review. Create a new preview before committing.");
+        }
+        const normalized = authoritativeRow.normalized;
         const created = await this.createRecord(organizationId, actorUserId, claimedJob.entityType, normalized, tx);
         createdIds.push(created.id);
         const updatedRow = await tx.importJobRow.updateMany({
@@ -385,23 +408,28 @@ export class MigrationToolkitService {
     return normalizeAccountRow(row, context);
   }
 
-  private async validationContext(organizationId: string, entityType: ImportEntityType, rows: ParsedImportRow[]): Promise<ValidationContext> {
+  private async validationContext(
+    organizationId: string,
+    entityType: ImportEntityType,
+    rows: ParsedImportRow[],
+    executor: ValidationExecutor = this.prisma,
+  ): Promise<ValidationContext> {
     const rateSnapshotIds = entityType === ImportEntityType.PRODUCTS_SERVICES
-      ? [...new Set(rows.map((row) => cleanCell(row.raw.rateSnapshotId)).filter(Boolean))]
+      ? [...new Set(rows.map((row) => normalizeUuid(row.raw.rateSnapshotId)).filter((id): id is string => Boolean(id)))]
       : [];
     const [contacts, items, accounts, organization, rateSnapshots] = await Promise.all([
       entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS
-        ? this.prisma.contact.findMany({ where: { organizationId }, select: { name: true, type: true } })
+        ? executor.contact.findMany({ where: { organizationId }, select: { name: true, type: true } })
         : Promise.resolve([]),
       entityType === ImportEntityType.PRODUCTS_SERVICES
-        ? this.prisma.item.findMany({ where: { organizationId }, select: { sku: true, name: true } })
+        ? executor.item.findMany({ where: { organizationId }, select: { sku: true, name: true } })
         : Promise.resolve([]),
-      this.prisma.account.findMany({ where: { organizationId }, select: { id: true, code: true, type: true, isActive: true, allowPosting: true } }),
+      executor.account.findMany({ where: { organizationId }, select: { id: true, code: true, type: true, isActive: true, allowPosting: true } }),
       entityType === ImportEntityType.PRODUCTS_SERVICES
-        ? this.prisma.organization.findUnique({ where: { id: organizationId }, select: { baseCurrency: true } })
+        ? executor.organization.findUnique({ where: { id: organizationId }, select: { baseCurrency: true } })
         : Promise.resolve(null),
       rateSnapshotIds.length > 0
-        ? this.prisma.currencyRateSnapshot.findMany({ where: { organizationId, id: { in: rateSnapshotIds } } })
+        ? executor.currencyRateSnapshot.findMany({ where: { organizationId, id: { in: rateSnapshotIds } } })
         : Promise.resolve([]),
     ]);
     const baseCurrency = entityType === ImportEntityType.PRODUCTS_SERVICES
@@ -417,7 +445,7 @@ export class MigrationToolkitService {
       itemNames: new Set(items.map((item) => normalizeKey(item.name))),
       accountsByCode: new Map(accounts.map((account) => [normalizeKey(account.code), account])),
       baseCurrency,
-      rateSnapshotsById: new Map(rateSnapshots.map((snapshot) => [snapshot.id, snapshot])),
+      rateSnapshotsById: new Map(rateSnapshots.map((snapshot) => [normalizeUuid(snapshot.id) ?? snapshot.id, snapshot])),
     };
   }
 
@@ -512,6 +540,11 @@ interface ValidationContext {
   }>;
 }
 
+type ValidationExecutor = Pick<
+  Prisma.TransactionClient,
+  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot"
+>;
+
 function normalizeContactRow(entityType: ImportEntityType, row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
   const type = entityType === ImportEntityType.CUSTOMERS ? ContactType.CUSTOMER : ContactType.SUPPLIER;
   const name = cleanCell(row.raw.name);
@@ -587,7 +620,8 @@ function normalizeItemMonetaryFields(
   const rawExchangeRate = cleanCell(row.raw.exchangeRate);
   const rawRateDate = cleanCell(row.raw.rateDate);
   const rawRateSource = cleanCell(row.raw.rateSource).toUpperCase();
-  const rateSnapshotId = cleanOptionalCell(row.raw.rateSnapshotId);
+  const rawRateSnapshotId = cleanOptionalCell(row.raw.rateSnapshotId);
+  const rateSnapshotId = rawRateSnapshotId ? normalizeUuid(rawRateSnapshotId) ?? rawRateSnapshotId : null;
   const hasFxContext = Boolean(rawCurrency || rawExchangeRate || rawRateDate || rawRateSource || rateSnapshotId);
 
   if (!hasFxContext) {
@@ -648,7 +682,7 @@ function normalizeItemMonetaryFields(
 
   let rateSource: CurrencyRateSource = CurrencyRateSource.IMPORT;
   if (rateSnapshotId) {
-    const snapshot = context.rateSnapshotsById.get(rateSnapshotId);
+    const snapshot = isUuid(rateSnapshotId) ? context.rateSnapshotsById.get(rateSnapshotId) : undefined;
     const matches = Boolean(
       snapshot &&
       currency &&
@@ -662,7 +696,14 @@ function normalizeItemMonetaryFields(
       snapshot.rateDate.toISOString().slice(0, 10) === rawRateDate,
     );
     if (!matches) {
-      issues.push(error(row.rowNumber, "rateSnapshotId", "INVALID_RATE_SNAPSHOT", "Rate snapshot must belong to this tenant and exactly match the imported FX tuple."));
+      issues.push(error(
+        row.rowNumber,
+        "rateSnapshotId",
+        "INVALID_RATE_SNAPSHOT",
+        isUuid(rateSnapshotId)
+          ? "Rate snapshot must belong to this tenant and exactly match the imported FX tuple."
+          : "Rate snapshot ID must be a valid UUID.",
+      ));
     } else {
       rateSource = snapshot!.source;
       if (rawRateSource && rawRateSource !== snapshot!.source) {
@@ -866,6 +907,37 @@ function isValidDateOnly(value: unknown): boolean {
   }
   const date = new Date(`${normalized}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === normalized;
+}
+
+function normalizeUuid(value: unknown): string | null {
+  const normalized = cleanCell(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized.toLowerCase()
+    : null;
+}
+
+function isUuid(value: unknown): boolean {
+  return normalizeUuid(value) !== null;
+}
+
+function importRawJson(value: Prisma.JsonValue): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ConflictException("Stored import row data is invalid. Create a new preview before committing.");
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, cell]) => [key, cleanCell(cell)]));
+}
+
+function matchesStoredNormalizedEvidence(
+  stored: Prisma.JsonValue | undefined,
+  current: Record<string, string | boolean | null>,
+): boolean {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+    return false;
+  }
+  const storedEntries = Object.entries(stored);
+  const currentEntries = Object.entries(current);
+  return storedEntries.length === currentEntries.length
+    && currentEntries.every(([key, value]) => Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === value);
 }
 
 function cleanFilename(value: string): string {

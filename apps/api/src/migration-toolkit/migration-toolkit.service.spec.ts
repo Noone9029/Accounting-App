@@ -3,6 +3,9 @@ import { AccountType, ContactType, CurrencyRateSource, ImportEntityType, ImportJ
 import { MigrationToolkitService } from "./migration-toolkit.service";
 
 describe("MigrationToolkitService", () => {
+  const matchingRateId = "11111111-1111-4111-8111-111111111111";
+  const otherTenantRateId = "22222222-2222-4222-8222-222222222222";
+
   it("provides safe local templates and CSV template downloads", () => {
     const { service } = makeService();
 
@@ -97,7 +100,15 @@ describe("MigrationToolkitService", () => {
           organizationId: "org-1",
           importJobId: "job-1",
           rowNumber: 2,
-          normalizedJson: { name: "Safe Customer", email: "billing@example.test", countryCode: "AE", isActive: true },
+          normalizedJson: {
+            name: "Safe Customer",
+            displayName: null,
+            email: "billing@example.test",
+            phone: null,
+            taxNumber: null,
+            countryCode: "AE",
+            isActive: true,
+          },
         },
       ],
     });
@@ -136,8 +147,20 @@ describe("MigrationToolkitService", () => {
         organizationId: "org-1",
         importJobId: "job-1",
         rowNumber: 2,
+        rawJson: {
+          name: "Imported service",
+          type: "SERVICE",
+          sellingPrice: "100.0000",
+          revenueAccountCode: "400",
+          currency: "USD",
+          exchangeRate: "3.67250000",
+          rateDate: "2026-07-10",
+          rateSource: CurrencyRateSource.IMPORT,
+          rateSnapshotId: "",
+        },
         normalizedJson: {
           name: "Imported service",
+          sku: null,
           type: "SERVICE",
           sellingPrice: "367.2500",
           transactionSellingPrice: "100.0000",
@@ -218,6 +241,42 @@ describe("MigrationToolkitService", () => {
     expect(prisma.contact.create).not.toHaveBeenCalled();
   });
 
+  it("rejects a contact that becomes a tenant duplicate after preview without creating anything", async () => {
+    const contacts: Array<Record<string, unknown>> = [];
+    const { service, prisma, transactionState } = makeService({ contacts });
+    await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.CUSTOMERS,
+      filename: "customers.csv",
+      csvContent: "name,email\nLate Duplicate,billing@example.test",
+    });
+    contacts.push({ name: "Late Duplicate", type: ContactType.CUSTOMER });
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("Create a new preview");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+    expect(prisma.__getJob().status).toBe(ImportJobStatus.READY_FOR_REVIEW);
+  });
+
+  it("rejects a product when its reviewed revenue account becomes inactive before commit", async () => {
+    const accounts = [{ id: "revenue-1", code: "400", type: AccountType.REVENUE, isActive: true, allowPosting: true }];
+    const { service, prisma, transactionState } = makeService({ accounts });
+    await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.PRODUCTS_SERVICES,
+      filename: "items.csv",
+      csvContent: "name,type,sellingPrice,revenueAccountCode\nReviewed service,SERVICE,10.0000,400",
+    });
+    accounts[0]!.isActive = false;
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("Create a new preview");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.item.create).not.toHaveBeenCalled();
+    expect(prisma.__getJob().status).toBe(ImportJobStatus.READY_FOR_REVIEW);
+  });
+
   it("requires a new product preview when the organization base currency changed before commit", async () => {
     const { service, prisma, transactionState } = makeService({ baseCurrency: "SAR" });
     prisma.__setJob(makeJob({
@@ -257,7 +316,7 @@ describe("MigrationToolkitService", () => {
           importJobId: "job-1",
           rowNumber: 2,
           status: ImportJobRowStatus.VALID,
-          normalizedJson: { name: "First item", type: "SERVICE", sellingPrice: "10.0000", baseCurrency: "SAR", revenueAccountCode: "400", status: "ACTIVE" },
+          ...sameCurrencyProductEvidence("First item", "10.0000"),
         },
         {
           id: "row-2",
@@ -265,7 +324,7 @@ describe("MigrationToolkitService", () => {
           importJobId: "job-1",
           rowNumber: 3,
           status: ImportJobRowStatus.VALID,
-          normalizedJson: { name: "Broken item", type: "SERVICE", sellingPrice: "20.0000", baseCurrency: "SAR", revenueAccountCode: "400", status: "ACTIVE" },
+          ...sameCurrencyProductEvidence("Broken item", "20.0000"),
         },
       ],
     }));
@@ -291,7 +350,15 @@ describe("MigrationToolkitService", () => {
         organizationId: "org-1",
         importJobId: "job-1",
         rowNumber: 2,
-        normalizedJson: { name: "Safe Customer", countryCode: "AE", isActive: true },
+        normalizedJson: {
+          name: "Safe Customer",
+          displayName: null,
+          email: null,
+          phone: null,
+          taxNumber: null,
+          countryCode: "AE",
+          isActive: true,
+        },
       }],
     }));
 
@@ -498,7 +565,7 @@ describe("MigrationToolkitService", () => {
 
   it("accepts only tenant-owned rate snapshots whose FX tuple matches exactly", async () => {
     const matchingRate = {
-      id: "rate-1",
+      id: matchingRateId,
       organizationId: "org-1",
       transactionCurrency: "USD",
       baseCurrency: "AED",
@@ -513,19 +580,19 @@ describe("MigrationToolkitService", () => {
       filename: "items.csv",
       csvContent: [
         "name,sku,type,sellingPrice,revenueAccountCode,currency,exchangeRate,rateDate,rateSnapshotId",
-        "Matched,FX-1,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,rate-1",
-        "Mismatched rate,FX-2,SERVICE,100.0000,400,USD,3.70000000,2026-07-10,rate-1",
-        "Cross tenant,FX-3,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,rate-other-tenant",
+        `Matched,FX-1,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,${matchingRateId}`,
+        `Mismatched rate,FX-2,SERVICE,100.0000,400,USD,3.70000000,2026-07-10,${matchingRateId}`,
+        `Cross tenant,FX-3,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,${otherTenantRateId}`,
       ].join("\n"),
     });
 
     expect(prisma.currencyRateSnapshot.findMany).toHaveBeenCalledWith({
-      where: { organizationId: "org-1", id: { in: ["rate-1", "rate-other-tenant"] } },
+      where: { organizationId: "org-1", id: { in: [matchingRateId, otherTenantRateId] } },
     });
     expect(prisma.importJob.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         rows: { create: expect.arrayContaining([
-          expect.objectContaining({ rowNumber: 2, status: ImportJobRowStatus.VALID, normalizedJson: expect.objectContaining({ rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "rate-1" }) }),
+          expect.objectContaining({ rowNumber: 2, status: ImportJobRowStatus.VALID, normalizedJson: expect.objectContaining({ rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: matchingRateId }) }),
           expect.objectContaining({ rowNumber: 3, status: ImportJobRowStatus.INVALID }),
           expect.objectContaining({ rowNumber: 4, status: ImportJobRowStatus.INVALID }),
         ]) },
@@ -537,6 +604,84 @@ describe("MigrationToolkitService", () => {
         expect.objectContaining({ rowNumber: 4, field: "rateSnapshotId", code: "INVALID_RATE_SNAPSHOT" }),
       ]),
     }));
+  });
+
+  it("keeps a malformed rate snapshot id out of the UUID query and reports a row issue", async () => {
+    const { service, prisma } = makeService({ baseCurrency: "AED" });
+
+    await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.PRODUCTS_SERVICES,
+      filename: "items.csv",
+      csvContent: [
+        "name,type,sellingPrice,revenueAccountCode,currency,exchangeRate,rateDate,rateSnapshotId",
+        "Malformed snapshot,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,not-a-uuid",
+      ].join("\n"),
+    });
+
+    expect(prisma.currencyRateSnapshot.findMany).not.toHaveBeenCalled();
+    expect(prisma.importValidationIssue.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.arrayContaining([
+        expect.objectContaining({ rowNumber: 2, field: "rateSnapshotId", code: "INVALID_RATE_SNAPSHOT" }),
+      ]),
+    }));
+  });
+
+  it("canonicalizes an uppercase UUID snapshot id before query and lookup", async () => {
+    const canonicalRateId = "abcdef12-abcd-4abc-8abc-abcdefabcdef";
+    const matchingRate = {
+      id: canonicalRateId,
+      organizationId: "org-1",
+      transactionCurrency: "USD",
+      baseCurrency: "AED",
+      rate: new Prisma.Decimal("3.67250000"),
+      rateDate: new Date("2026-07-10T00:00:00.000Z"),
+      source: CurrencyRateSource.MANUAL,
+    };
+    const { service, prisma } = makeService({ baseCurrency: "AED", rates: [matchingRate] });
+
+    await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.PRODUCTS_SERVICES,
+      filename: "items.csv",
+      csvContent: [
+        "name,type,sellingPrice,revenueAccountCode,currency,exchangeRate,rateDate,rateSnapshotId",
+        `Uppercase snapshot,SERVICE,100.0000,400,USD,3.67250000,2026-07-10,${canonicalRateId.toUpperCase()}`,
+      ].join("\n"),
+    });
+
+    expect(prisma.currencyRateSnapshot.findMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", id: { in: [canonicalRateId] } },
+    });
+    expect(prisma.importJob.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        rows: { create: [expect.objectContaining({
+          status: ImportJobRowStatus.VALID,
+          normalizedJson: expect.objectContaining({ rateSnapshotId: canonicalRateId }),
+        })] },
+      }),
+    }));
+  });
+
+  it("rejects stored normalized evidence that omits a current material field", async () => {
+    const { service, prisma, transactionState } = makeService();
+    prisma.__setJob(makeJob({
+      entityType: ImportEntityType.CUSTOMERS,
+      rows: [{
+        id: "row-1",
+        organizationId: "org-1",
+        importJobId: "job-1",
+        rowNumber: 2,
+        status: ImportJobRowStatus.VALID,
+        rawJson: { name: "Reviewed customer", email: "reviewed@example.test" },
+        normalizedJson: { name: "Reviewed customer", countryCode: "SA", isActive: true },
+      }],
+    }));
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("Create a new preview");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+    expect(prisma.__getJob().status).toBe(ImportJobStatus.READY_FOR_REVIEW);
   });
 });
 
@@ -661,7 +806,11 @@ function makeService(seed: {
 }
 
 function makeJob(overrides: Record<string, any> = {}) {
-  const rows = (overrides.rows ?? []).map((row: Record<string, unknown>) => ({ status: ImportJobRowStatus.VALID, ...row }));
+  const rows = (overrides.rows ?? []).map((row: Record<string, any>) => ({
+    status: ImportJobRowStatus.VALID,
+    ...row,
+    rawJson: row.rawJson ?? row.normalizedJson ?? {},
+  }));
   return {
     id: "job-1",
     organizationId: "org-1",
@@ -680,5 +829,27 @@ function makeJob(overrides: Record<string, any> = {}) {
     validationIssues: [],
     ...overrides,
     rows,
+  };
+}
+
+function sameCurrencyProductEvidence(name: string, sellingPrice: string) {
+  return {
+    rawJson: { name, type: "SERVICE", sellingPrice, revenueAccountCode: "400" },
+    normalizedJson: {
+      name,
+      sku: null,
+      type: "SERVICE",
+      sellingPrice,
+      transactionSellingPrice: sellingPrice,
+      baseSellingPrice: sellingPrice,
+      currency: "SAR",
+      baseCurrency: "SAR",
+      exchangeRate: "1",
+      rateDate: null,
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+      rateSnapshotId: null,
+      revenueAccountCode: "400",
+      status: "ACTIVE",
+    },
   };
 }
