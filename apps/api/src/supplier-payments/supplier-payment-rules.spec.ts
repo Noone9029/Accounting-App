@@ -245,6 +245,31 @@ describe("supplier payment rules", () => {
     );
   });
 
+  it("keeps a direct foreign supplier allocation with zero realized FX silent", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000",
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    }) };
+    const service = new SupplierPaymentService(
+      prisma as never, auditLog as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await service.create("org-1", "user-1", {
+      ...basePaymentDto, currency: "USD", exchangeRate: "3.75000000", rateDate: "2026-07-11",
+      rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    });
+
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      tx,
+    );
+  });
+
   it("consumes the exact final supplier unapplied settlement residual", async () => {
     const tx = makeForeignApplyUnappliedTransactionMock();
     tx.supplierPayment.findFirst.mockResolvedValue({ id: "payment-1", paymentNumber: "PAY-1", supplierId: "supplier-1", status: SupplierPaymentStatus.POSTED, currency: "USD", baseCurrency: "SAR", exchangeRate: "3.67250000", amountPaid: "3.6725", unappliedAmount: "3.5990", transactionAmountPaid: "1.0000", transactionUnappliedAmount: "0.9800" });

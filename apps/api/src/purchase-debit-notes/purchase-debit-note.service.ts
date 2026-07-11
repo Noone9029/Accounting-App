@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -327,6 +327,18 @@ export class PurchaseDebitNoteService {
         rateSource: dto.rateSource ?? existing.rateSource ?? undefined,
         rateSnapshotId: dto.rateSnapshotId === undefined ? existing.rateSnapshotId : dto.rateSnapshotId,
       }, tx);
+      const updateClaim = await tx.purchaseDebitNote.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: PurchaseDebitNoteStatus.DRAFT,
+          updatedAt: existing.updatedAt,
+        },
+        data: { updatedAt: existing.updatedAt },
+      });
+      if (updateClaim.count !== 1) {
+        throw new ConflictException("Purchase debit note changed while updating. Reload and retry.");
+      }
       await this.validateOriginalBillReference(
         organizationId, nextSupplierId, nextOriginalBillId,
         prepared?.total ?? moneyString(existing.transactionTotal), fx.currency, id, tx,

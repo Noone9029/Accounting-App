@@ -1,4 +1,5 @@
 import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
+import { ConflictException } from "@nestjs/common";
 import { CreditNoteStatus, CurrencyRateSource, CustomerRefundStatus, DocumentType, Prisma } from "@prisma/client";
 import { buildCreditNoteJournalLines } from "./credit-note-accounting";
 import { CreditNoteService } from "./credit-note.service";
@@ -75,7 +76,7 @@ describe("credit note rules", () => {
     const updated = { ...existing, exchangeRate: new Prisma.Decimal("3.80000000") };
     const tx: any = {
       creditNoteLine: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      creditNote: { update: jest.fn().mockResolvedValue(updated) },
+      creditNote: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), update: jest.fn().mockResolvedValue(updated) },
     };
     const prisma: any = {
       item: { findMany: jest.fn().mockResolvedValue([]) },
@@ -100,6 +101,75 @@ describe("credit note rules", () => {
       expect.objectContaining({ action: "CHANGE_FX_CONTEXT", entityType: "CreditNote", entityId: "credit-note-1" }),
       tx,
     );
+  });
+
+  it("keeps unchanged and same-currency credit-note draft tuples silent", async () => {
+    const auditLog = { log: jest.fn() };
+    const tx: any = {
+      creditNote: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), update: jest.fn() },
+    };
+    const prisma: any = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const fxContext = { resolve: jest.fn() };
+    const service = new CreditNoteService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    for (const existing of [foreignDraftCreditNote(), {
+      ...foreignDraftCreditNote(), currency: "AED", baseCurrency: "AED", exchangeRate: new Prisma.Decimal("1.00000000"),
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1, rateSnapshotId: null,
+    }]) {
+      tx.creditNote.update.mockResolvedValueOnce(existing);
+      fxContext.resolve.mockResolvedValueOnce({
+        currency: existing.currency, baseCurrency: existing.baseCurrency, exchangeRate: existing.exchangeRate,
+        rateDate: existing.rateDate, rateSource: existing.rateSource, rateSnapshotId: existing.rateSnapshotId,
+      });
+      jest.spyOn(service, "get").mockResolvedValueOnce(existing as never);
+      await service.update("org-1", "user-1", "credit-note-1", { notes: "No FX tuple change" });
+    }
+
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "CHANGE_FX_CONTEXT" }),
+      expect.anything(),
+    );
+  });
+
+  it("rejects a stale draft snapshot before credit-note line deletion or FX audit emission", async () => {
+    const existing = foreignDraftCreditNote();
+    const tx: any = {
+      creditNote: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        update: jest.fn().mockResolvedValue({ ...existing, exchangeRate: new Prisma.Decimal("3.80000000") }),
+      },
+      creditNoteLine: { deleteMany: jest.fn() },
+    };
+    const prisma: any = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "sales" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "AED", exchangeRate: new Prisma.Decimal("3.80000000"),
+      rateDate: existing.rateDate, rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
+    }) };
+    const service = new CreditNoteService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue(existing as never);
+
+    await expect(service.update("org-1", "user-1", "credit-note-1", {
+      exchangeRate: "3.80000000", rateSnapshotId: null,
+    })).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.creditNote.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "credit-note-1", organizationId: "org-1", updatedAt: existing.updatedAt }),
+    }));
+    expect(tx.creditNoteLine.deleteMany).not.toHaveBeenCalled();
+    expect(tx.creditNote.update).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalled();
   });
 
   it("deletes draft credit notes only", async () => {
@@ -514,6 +584,7 @@ describe("credit note rules", () => {
 function foreignDraftCreditNote() {
   return {
     id: "credit-note-1", status: CreditNoteStatus.DRAFT, customerId: "customer-1", originalInvoiceId: null, branchId: null,
+    updatedAt: new Date("2026-07-11T08:00:00.000Z"),
     issueDate: new Date("2026-07-11T00:00:00.000Z"), currency: "USD", baseCurrency: "AED",
     exchangeRate: new Prisma.Decimal("3.67250000"), rateDate: new Date("2026-07-11T00:00:00.000Z"),
     rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null, transactionTotal: new Prisma.Decimal("100.0000"),

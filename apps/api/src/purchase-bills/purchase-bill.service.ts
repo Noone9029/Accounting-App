@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
@@ -643,6 +643,18 @@ export class PurchaseBillService {
         },
         tx,
       );
+      const updateClaim = await tx.purchaseBill.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: PurchaseBillStatus.DRAFT,
+          updatedAt: existing.updatedAt,
+        },
+        data: { updatedAt: existing.updatedAt },
+      });
+      if (updateClaim.count !== 1) {
+        throw new ConflictException("Purchase bill changed while updating. Reload and retry.");
+      }
       const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
         await tx.purchaseBillLine.deleteMany({ where: { organizationId, billId: id } });

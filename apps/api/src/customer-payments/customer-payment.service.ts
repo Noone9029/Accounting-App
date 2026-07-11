@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
   allocateForeignSettlement,
@@ -1082,7 +1082,10 @@ export class CustomerPaymentService {
         include: customerPaymentInclude,
       });
 
-      for (const allocation of created.allocations ?? []) {
+      if (!Array.isArray(created.allocations) || created.allocations.length !== allocationPlans.length) {
+        throw new InternalServerErrorException("Created customer payment is missing allocation evidence required for FX audit.");
+      }
+      for (const allocation of created.allocations) {
         const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
         if (!hasRealizedFx || !allocation.realizedFxJournalEntryId) continue;
         await this.auditLogService.log({

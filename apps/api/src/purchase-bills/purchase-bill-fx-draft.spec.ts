@@ -1,3 +1,4 @@
+import { ConflictException } from "@nestjs/common";
 import { CurrencyRateSource, Prisma, PurchaseBillInventoryPostingMode, PurchaseBillStatus } from "@prisma/client";
 import { DocumentFxContextService } from "../foreign-exchange/document-fx-context.service";
 import { PurchaseBillService } from "./purchase-bill.service";
@@ -91,7 +92,7 @@ describe("PurchaseBillService document FX drafts", () => {
     const updated = { ...existing, exchangeRate: new Prisma.Decimal("3.80000000") };
     const tx: any = {
       purchaseBillLine: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      purchaseBill: { update: jest.fn().mockResolvedValue(updated) },
+      purchaseBill: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), update: jest.fn().mockResolvedValue(updated) },
     };
     const prisma: any = {
       item: { findMany: jest.fn().mockResolvedValue([]) },
@@ -126,7 +127,7 @@ describe("PurchaseBillService document FX drafts", () => {
 
   it("keeps unchanged and same-currency draft tuples silent", async () => {
     const auditLog = { log: jest.fn() };
-    const tx: any = { purchaseBill: { update: jest.fn() } };
+    const tx: any = { purchaseBill: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), update: jest.fn() } };
     const prisma: any = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const fxContext = { resolve: jest.fn() };
     const service = new PurchaseBillService(
@@ -152,11 +153,50 @@ describe("PurchaseBillService document FX drafts", () => {
       expect.anything(),
     );
   });
+
+  it("rejects a stale draft snapshot before line deletion or FX audit emission", async () => {
+    const existing = foreignDraftBill();
+    const tx: any = {
+      purchaseBill: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        update: jest.fn().mockResolvedValue({ ...existing, exchangeRate: new Prisma.Decimal("3.80000000") }),
+      },
+      purchaseBillLine: { deleteMany: jest.fn() },
+    };
+    const prisma: any = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "expense-1", type: "EXPENSE" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.80000000"),
+      rateDate: existing.rateDate, rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
+    }) };
+    const service = new PurchaseBillService(
+      prisma, auditLog as never, { next: jest.fn() } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+    jest.spyOn(service, "get").mockResolvedValue(existing as never);
+
+    await expect(service.update("org-1", "user-1", "bill-1", {
+      exchangeRate: "3.80000000", rateSnapshotId: null,
+    })).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.purchaseBill.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "bill-1", organizationId: "org-1", updatedAt: existing.updatedAt }),
+    }));
+    expect(tx.purchaseBillLine.deleteMany).not.toHaveBeenCalled();
+    expect(tx.purchaseBill.update).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalled();
+  });
 });
 
 function foreignDraftBill(overrides: Record<string, unknown> = {}) {
   return {
     id: "bill-1", status: PurchaseBillStatus.DRAFT, supplierId: "supplier-1", branchId: null,
+    updatedAt: new Date("2026-07-11T08:00:00.000Z"),
     billDate: new Date("2026-07-11T00:00:00.000Z"), dueDate: null,
     currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.75000000"),
     rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: null,
