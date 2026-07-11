@@ -79,10 +79,27 @@ describe("invoice workflow guidance", () => {
     expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
   });
 
-  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+  it("allows a complete foreign-currency draft to finalize into the FX-aware journal", () => {
     render(
       <InvoiceWorkflowGuidance
-        invoice={invoiceFixture({ status: "DRAFT", currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000" })}
+        invoice={invoiceFixture({ status: "DRAFT", currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateDate: "2026-07-11", rateSource: "MANUAL" })}
+        actionLoading={false}
+        canFinalizeInvoice
+        canCreateCustomerPayment
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeEnabled();
+    expect(screen.getByText(/1 USD = 3.67250000 AED/)).toBeInTheDocument();
+    expect(screen.queryByText(/foreign-currency posting is not enabled yet/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps an incomplete foreign draft fail-closed", () => {
+    render(
+      <InvoiceWorkflowGuidance
+        invoice={invoiceFixture({ status: "DRAFT", currency: "USD", baseCurrency: "AED", exchangeRate: null, rateDate: null, rateSource: null })}
         actionLoading={false}
         canFinalizeInvoice
         canCreateCustomerPayment
@@ -92,7 +109,7 @@ describe("invoice workflow guidance", () => {
     );
 
     expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
-    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the exchange rate/i)).toBeInTheDocument();
   });
 
   it("shows payment, ledger, report, and safe ZATCA guidance after posting", () => {
@@ -324,6 +341,11 @@ function invoiceFixture(overrides: Partial<SalesInvoice> = {}): SalesInvoice {
     issueDate: "2026-05-21T00:00:00.000Z",
     dueDate: null,
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: "2026-05-21",
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     status: "DRAFT",
     taxMode: "TAX_EXCLUSIVE",
     subtotal: "100.0000",

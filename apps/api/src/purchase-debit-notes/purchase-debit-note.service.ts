@@ -30,7 +30,7 @@ import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.
 import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
-import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
@@ -413,9 +413,8 @@ export class PurchaseDebitNoteService {
       if (debitNote.status !== PurchaseDebitNoteStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase debit notes can be finalized.");
       }
+      assertStoredDocumentFxPostingContext(debitNote);
       await this.assertPostingDateAllowed(organizationId, debitNote.issueDate, tx);
-      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, debitNote.currency, tx);
-
       this.assertFinalizablePurchaseDebitNote({
         subtotal: String(debitNote.subtotal),
         discountTotal: String(debitNote.discountTotal),
@@ -469,12 +468,18 @@ export class PurchaseDebitNoteService {
         debitNoteNumber: debitNote.debitNoteNumber,
         supplierName: debitNote.supplier.displayName ?? debitNote.supplier.name,
         currency: debitNote.currency,
+        baseCurrency: debitNote.baseCurrency ?? debitNote.currency,
+        exchangeRate: String(debitNote.exchangeRate ?? "1"),
+        rateSnapshotId: debitNote.rateSnapshotId,
         total: String(debitNote.total),
+        transactionTotal: String(debitNote.transactionTotal ?? debitNote.total),
         taxTotal: String(debitNote.taxTotal),
+        transactionTaxTotal: String(debitNote.transactionTaxTotal ?? debitNote.taxTotal),
         lines: debitNote.lines.map((line) => ({
           accountId: line.accountId,
           description: line.description,
           taxableAmount: String(line.taxableAmount),
+          transactionTaxableAmount: String(line.transactionTaxableAmount ?? line.taxableAmount),
         })),
       });
       const totals = getJournalTotals(journalLines);
@@ -487,7 +492,7 @@ export class PurchaseDebitNoteService {
           entryDate: debitNote.issueDate,
           description: `Purchase debit note ${debitNote.debitNoteNumber} - ${debitNote.supplier.displayName ?? debitNote.supplier.name}`,
           reference: debitNote.debitNoteNumber,
-          currency: debitNote.currency,
+          currency: debitNote.baseCurrency ?? debitNote.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt: new Date(),
@@ -1246,10 +1251,16 @@ export class PurchaseDebitNoteService {
         accountId: line.accountId,
         debit: String(line.debit),
         credit: String(line.credit),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
         description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        rateSnapshotId: line.rateSnapshotId,
+        fxRoundingComponentCount: line.fxRoundingComponentCount,
         taxRateId: line.taxRateId,
+        costCenterId: line.costCenterId,
+        projectId: line.projectId,
       })),
     );
     const totals = getJournalTotals(reversalLines);
@@ -1315,12 +1326,21 @@ export class PurchaseDebitNoteService {
     return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
     }));
   }
 

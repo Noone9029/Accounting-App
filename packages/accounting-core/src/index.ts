@@ -6,9 +6,13 @@ export interface JournalLineInput {
   accountId: string;
   debit: string | number;
   credit: string | number;
+  transactionDebit?: string | number;
+  transactionCredit?: string | number;
   description?: string;
   currency: string;
   exchangeRate?: string | number;
+  rateSnapshotId?: string | null;
+  fxRoundingComponentCount?: number;
   taxRateId?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
@@ -236,6 +240,108 @@ export function assertBalancedJournal(lines: JournalLineInput[]): void {
   }
 }
 
+export function assertJournalFxContext(lines: JournalLineInput[], baseCurrency: string): void {
+  const normalizedBaseCurrency = baseCurrency.trim().toUpperCase();
+  const totalsByCurrency = new Map<string, { debit: Decimal; credit: Decimal }>();
+  const totalsByCurrencyAndRate = new Map<string, {
+    currency: string;
+    rate: Decimal;
+    baseDebit: Decimal;
+    baseCredit: Decimal;
+    transactionDebit: Decimal;
+    transactionCredit: Decimal;
+    debitComponentCount: number;
+    creditComponentCount: number;
+  }>();
+
+  for (const [index, line] of lines.entries()) {
+    const currency = line.currency.trim().toUpperCase();
+    const rate = toMoney(line.exchangeRate ?? "1");
+    const baseDebit = toMoney(line.debit);
+    const baseCredit = toMoney(line.credit);
+    const transactionDebit = line.transactionDebit === undefined ? baseDebit : toMoney(line.transactionDebit);
+    const transactionCredit = line.transactionCredit === undefined ? baseCredit : toMoney(line.transactionCredit);
+
+    if (!currency || rate.lte(0) || transactionDebit.lt(0) || transactionCredit.lt(0)) {
+      throw new AccountingRuleError(`Line ${index + 1} has invalid FX context.`, "JOURNAL_FX_CONTEXT_INVALID");
+    }
+    const componentCount = line.fxRoundingComponentCount ?? 1;
+    if (!Number.isInteger(componentCount) || componentCount < 1 || componentCount > 10_000) {
+      throw new AccountingRuleError(`Line ${index + 1} has invalid FX rounding evidence.`, "JOURNAL_FX_CONTEXT_INVALID");
+    }
+    if (
+      (transactionDebit.gt(0) && transactionCredit.gt(0)) ||
+      (transactionDebit.eq(0) && transactionCredit.eq(0)) ||
+      baseDebit.gt(0) !== transactionDebit.gt(0) ||
+      baseCredit.gt(0) !== transactionCredit.gt(0)
+    ) {
+      throw new AccountingRuleError(`Line ${index + 1} has inconsistent transaction and base sides.`, "JOURNAL_FX_CONTEXT_INVALID");
+    }
+    if (
+      currency === normalizedBaseCurrency &&
+      (!rate.eq(1) || !transactionDebit.eq(baseDebit) || !transactionCredit.eq(baseCredit) || Boolean(line.rateSnapshotId))
+    ) {
+      throw new AccountingRuleError(`Line ${index + 1} base-currency context must use rate one.`, "JOURNAL_FX_CONTEXT_INVALID");
+    }
+    if (currency !== normalizedBaseCurrency && (line.transactionDebit === undefined || line.transactionCredit === undefined)) {
+      throw new AccountingRuleError(`Line ${index + 1} requires explicit foreign transaction amounts.`, "JOURNAL_FX_CONTEXT_INVALID");
+    }
+
+    const totals = totalsByCurrency.get(currency) ?? { debit: ZERO, credit: ZERO };
+    totals.debit = totals.debit.plus(transactionDebit);
+    totals.credit = totals.credit.plus(transactionCredit);
+    totalsByCurrency.set(currency, totals);
+
+    const rateKey = `${currency}\u0000${rate.toString()}`;
+    const rateTotals = totalsByCurrencyAndRate.get(rateKey) ?? {
+      currency,
+      rate,
+      baseDebit: ZERO,
+      baseCredit: ZERO,
+      transactionDebit: ZERO,
+      transactionCredit: ZERO,
+      debitComponentCount: 0,
+      creditComponentCount: 0,
+    };
+    rateTotals.baseDebit = rateTotals.baseDebit.plus(baseDebit);
+    rateTotals.baseCredit = rateTotals.baseCredit.plus(baseCredit);
+    rateTotals.transactionDebit = rateTotals.transactionDebit.plus(transactionDebit);
+    rateTotals.transactionCredit = rateTotals.transactionCredit.plus(transactionCredit);
+    if (baseDebit.gt(0)) rateTotals.debitComponentCount += componentCount;
+    if (baseCredit.gt(0)) rateTotals.creditComponentCount += componentCount;
+    totalsByCurrencyAndRate.set(rateKey, rateTotals);
+  }
+
+  for (const [currency, totals] of totalsByCurrency) {
+    if (!totals.debit.eq(totals.credit)) {
+      throw new AccountingRuleError(
+        `Journal transaction amounts are not balanced in ${currency}.`,
+        "JOURNAL_TRANSACTION_NOT_BALANCED",
+      );
+    }
+  }
+
+  // Four-place document component allocation may leave one unit in the last
+  // decimal place on an aggregated journal side. Anything larger is not a
+  // rounding residual and must fail before persistence.
+  for (const totals of totalsByCurrencyAndRate.values()) {
+    if (totals.currency === normalizedBaseCurrency) continue;
+    const expectedDebit = new Decimal(convertTransactionToBaseAmount(totals.transactionDebit.toString(), totals.rate.toString()));
+    const expectedCredit = new Decimal(convertTransactionToBaseAmount(totals.transactionCredit.toString(), totals.rate.toString()));
+    const allowedDebitResidual = new Decimal(totals.debitComponentCount).times("0.0001");
+    const allowedCreditResidual = new Decimal(totals.creditComponentCount).times("0.0001");
+    if (
+      totals.baseDebit.minus(expectedDebit).abs().gt(allowedDebitResidual) ||
+      totals.baseCredit.minus(expectedCredit).abs().gt(allowedCreditResidual)
+    ) {
+      throw new AccountingRuleError(
+        `Journal base amounts do not match transaction amounts at the captured rate for ${totals.currency}.`,
+        "JOURNAL_FX_RATE_MISMATCH",
+      );
+    }
+  }
+}
+
 export function assertDraftEditable(status: JournalStatus): void {
   if (status !== "DRAFT") {
     throw new AccountingRuleError("Only draft journal entries can be edited.", "JOURNAL_NOT_EDITABLE");
@@ -247,9 +353,13 @@ export function createReversalLines(lines: JournalLineInput[]): JournalLineInput
     accountId: line.accountId,
     debit: toMoney(line.credit).toFixed(4),
     credit: toMoney(line.debit).toFixed(4),
+    transactionDebit: toMoney(line.transactionCredit ?? line.credit).toFixed(4),
+    transactionCredit: toMoney(line.transactionDebit ?? line.debit).toFixed(4),
     description: line.description ? `Reversal: ${line.description}` : "Reversal",
     currency: line.currency,
     exchangeRate: line.exchangeRate ?? "1",
+    rateSnapshotId: line.rateSnapshotId ?? null,
+    fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
     taxRateId: line.taxRateId ?? null,
     costCenterId: line.costCenterId ?? null,
     projectId: line.projectId ?? null,

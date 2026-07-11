@@ -1,6 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { CurrencyRateSource, Prisma } from "@prisma/client";
-import { DocumentFxContextService } from "./document-fx-context.service";
+import { assertStoredDocumentFxPostingContext, DocumentFxContextService } from "./document-fx-context.service";
 
 describe("DocumentFxContextService", () => {
   function makeService() {
@@ -119,5 +119,24 @@ describe("DocumentFxContextService", () => {
         rateSnapshotId: "11111111-1111-4111-8111-111111111111",
       }),
     ).rejects.toEqual(new BadRequestException("The selected FX rate is not valid for this document."));
+  });
+});
+
+describe("stored document FX posting context", () => {
+  it("accepts complete foreign context and identity-rate base context", () => {
+    expect(() => assertStoredDocumentFxPostingContext({
+      currency: "USD", baseCurrency: "AED", exchangeRate: "3.6725", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.MANUAL,
+    })).not.toThrow();
+    expect(() => assertStoredDocumentFxPostingContext({
+      currency: "AED", baseCurrency: "AED", exchangeRate: "1", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+    })).not.toThrow();
+  });
+
+  it.each([
+    { currency: "USD", baseCurrency: "AED", exchangeRate: null, rateDate: null, rateSource: null },
+    { currency: "USD", baseCurrency: "AED", exchangeRate: "3.6725", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.FUTURE_PROVIDER_DISABLED },
+    { currency: "AED", baseCurrency: "AED", exchangeRate: "1.1", rateDate: new Date("2026-07-11"), rateSource: CurrencyRateSource.SYSTEM_RATE_1 },
+  ])("rejects incomplete or inconsistent stored posting context", (context) => {
+    expect(() => assertStoredDocumentFxPostingContext(context)).toThrow(BadRequestException);
   });
 });

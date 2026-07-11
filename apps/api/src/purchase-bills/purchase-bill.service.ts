@@ -33,7 +33,7 @@ import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.
 import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
-import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
@@ -728,9 +728,8 @@ export class PurchaseBillService {
       if (bill.status !== PurchaseBillStatus.DRAFT) {
         throw new BadRequestException("Only draft purchase bills can be finalized.");
       }
+      assertStoredDocumentFxPostingContext(bill);
       await this.assertPostingDateAllowed(organizationId, bill.billDate, tx);
-      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, bill.currency, tx);
-
       this.assertFinalizablePurchaseBill({
         subtotal: String(bill.subtotal),
         discountTotal: String(bill.discountTotal),
@@ -791,8 +790,13 @@ export class PurchaseBillService {
         billNumber: bill.billNumber,
         supplierName: bill.supplier.displayName ?? bill.supplier.name,
         currency: bill.currency,
+        baseCurrency: bill.baseCurrency ?? bill.currency,
+        exchangeRate: String(bill.exchangeRate ?? "1"),
+        rateSnapshotId: bill.rateSnapshotId,
         total: String(bill.total),
+        transactionTotal: String(bill.transactionTotal ?? bill.total),
         taxTotal: String(bill.taxTotal),
+        transactionTaxTotal: String(bill.transactionTaxTotal ?? bill.taxTotal),
         lines: this.purchaseBillPostingLinesForMode(bill.inventoryPostingMode, bill.lines, clearingReadiness.clearingAccount?.id ?? null),
       });
 
@@ -805,7 +809,7 @@ export class PurchaseBillService {
           entryDate: bill.billDate,
           description: `Purchase bill ${bill.billNumber} - ${bill.supplier.displayName ?? bill.supplier.name}`,
           reference: bill.billNumber,
-          currency: bill.currency,
+          currency: bill.baseCurrency ?? bill.currency,
           totalDebit: bill.total,
           totalCredit: bill.total,
           postedAt: new Date(),
@@ -1036,6 +1040,7 @@ export class PurchaseBillService {
       description: string;
       accountId: string;
       taxableAmount: Prisma.Decimal | string;
+      transactionTaxableAmount?: Prisma.Decimal | string;
       item?: { inventoryTracking: boolean } | null;
     }>,
     clearingAccountId: string | null,
@@ -1046,6 +1051,7 @@ export class PurchaseBillService {
         accountId: useClearing ? clearingAccountId : line.accountId,
         description: line.description,
         taxableAmount: String(line.taxableAmount),
+        transactionTaxableAmount: String(line.transactionTaxableAmount ?? line.taxableAmount),
       };
     });
   }
@@ -1342,10 +1348,16 @@ export class PurchaseBillService {
         accountId: line.accountId,
         debit: String(line.debit),
         credit: String(line.credit),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
         description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        rateSnapshotId: line.rateSnapshotId,
+        fxRoundingComponentCount: line.fxRoundingComponentCount,
         taxRateId: line.taxRateId,
+        costCenterId: line.costCenterId,
+        projectId: line.projectId,
       })),
     );
     const totals = getJournalTotals(reversalLines);
@@ -1415,12 +1427,21 @@ export class PurchaseBillService {
     return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
     }));
   }
 

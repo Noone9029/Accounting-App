@@ -2911,6 +2911,7 @@ model CurrencyRateSnapshot {
   supplierPayments    SupplierPayment[]   @relation("SupplierPaymentRateSnapshot")
   customerRefunds     CustomerRefund[]    @relation("CustomerRefundRateSnapshot")
   supplierRefunds     SupplierRefund[]    @relation("SupplierRefundRateSnapshot")
+  journalLines        JournalLine[]        @relation("JournalLineRateSnapshot")
 
   @@unique([organizationId, id])
   @@index([organizationId, transactionCurrency, baseCurrency, rateDate])
@@ -5617,6 +5618,7 @@ model JournalEntry {
   postedById                            String?                    @db.Uuid
   createdById                           String?                    @db.Uuid
   reversalOfId                          String?                    @unique @db.Uuid
+  creationTransactionId                 String                     @default(dbgenerated("pg_current_xact_id()::text"))
   createdAt                             DateTime                   @default(now())
   updatedAt                             DateTime                   @updatedAt
   organization                          Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -5675,8 +5677,12 @@ model JournalLine {
   description                      String?
   debit                            Decimal                    @default(0) @db.Decimal(20, 4)
   credit                           Decimal                    @default(0) @db.Decimal(20, 4)
+  transactionDebit                 Decimal?                   @db.Decimal(20, 4)
+  transactionCredit                Decimal?                   @db.Decimal(20, 4)
   currency                         String                     @default("SAR")
   exchangeRate                     Decimal                    @default(1) @db.Decimal(18, 8)
+  rateSnapshotId                   String?                    @db.Uuid
+  fxRoundingComponentCount         Int                        @default(1)
   createdAt                        DateTime                   @default(now())
   organization                     Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   journalEntry                     JournalEntry               @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
@@ -5684,6 +5690,7 @@ model JournalLine {
   taxRate                          TaxRate?                   @relation(fields: [taxRateId], references: [id])
   costCenter                       CostCenter?                @relation(fields: [costCenterId], references: [id], onDelete: NoAction)
   project                          Project?                   @relation(fields: [projectId], references: [id], onDelete: NoAction)
+  rateSnapshot                     CurrencyRateSnapshot?      @relation("JournalLineRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   matchedBankStatementTransactions BankStatementTransaction[] @relation("BankStatementTransactionMatchedJournalLine")
 
   @@index([organizationId])
@@ -5691,6 +5698,7 @@ model JournalLine {
   @@index([accountId])
   @@index([organizationId, costCenterId])
   @@index([organizationId, projectId])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model FiscalPeriod {

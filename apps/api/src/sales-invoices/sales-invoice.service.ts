@@ -33,7 +33,7 @@ import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.
 import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
-import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -626,9 +626,8 @@ export class SalesInvoiceService {
       if (invoice.status !== SalesInvoiceStatus.DRAFT) {
         throw new BadRequestException("Only draft invoices can be finalized.");
       }
+      assertStoredDocumentFxPostingContext(invoice);
       await this.assertPostingDateAllowed(organizationId, invoice.issueDate, tx);
-      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, invoice.currency, tx);
-
       this.assertFinalizableInvoice({
         subtotal: String(invoice.subtotal),
         discountTotal: String(invoice.discountTotal),
@@ -675,12 +674,18 @@ export class SalesInvoiceService {
         invoiceNumber: invoice.invoiceNumber,
         customerName: invoice.customer.displayName ?? invoice.customer.name,
         currency: invoice.currency,
+        baseCurrency: invoice.baseCurrency ?? invoice.currency,
+        exchangeRate: String(invoice.exchangeRate ?? "1"),
+        rateSnapshotId: invoice.rateSnapshotId,
         total: String(invoice.total),
+        transactionTotal: String(invoice.transactionTotal ?? invoice.total),
         taxTotal: String(invoice.taxTotal),
+        transactionTaxTotal: String(invoice.transactionTaxTotal ?? invoice.taxTotal),
         lines: invoice.lines.map((line) => ({
           accountId: line.accountId,
           description: line.description,
           taxableAmount: String(line.taxableAmount),
+          transactionTaxableAmount: String(line.transactionTaxableAmount ?? line.taxableAmount),
         })),
       });
 
@@ -693,7 +698,7 @@ export class SalesInvoiceService {
           entryDate: invoice.issueDate,
           description: `Sales invoice ${invoice.invoiceNumber} - ${invoice.customer.displayName ?? invoice.customer.name}`,
           reference: invoice.invoiceNumber,
-          currency: invoice.currency,
+          currency: invoice.baseCurrency ?? invoice.currency,
           totalDebit: invoice.total,
           totalCredit: invoice.total,
           postedAt: new Date(),
@@ -876,10 +881,16 @@ export class SalesInvoiceService {
         accountId: line.accountId,
         debit: String(line.debit),
         credit: String(line.credit),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
         description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        rateSnapshotId: line.rateSnapshotId,
+        fxRoundingComponentCount: line.fxRoundingComponentCount,
         taxRateId: line.taxRateId,
+        costCenterId: line.costCenterId,
+        projectId: line.projectId,
       })),
     );
     const totals = getJournalTotals(reversalLines);
@@ -1165,12 +1176,21 @@ export class SalesInvoiceService {
     return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
     }));
   }
 

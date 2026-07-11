@@ -46,6 +46,36 @@ type DocumentFxExecutor = Pick<Prisma.TransactionClient, "organization" | "curre
 const INVALID_CONTEXT_MESSAGE = "A complete valid exchange-rate context is required for a foreign-currency document.";
 const INVALID_SNAPSHOT_MESSAGE = "The selected FX rate is not valid for this document.";
 
+export function assertStoredDocumentFxPostingContext(input: {
+  currency: string;
+  baseCurrency: string;
+  exchangeRate: unknown;
+  rateDate: string | Date | null;
+  rateSource: CurrencyRateSource | null;
+}): void {
+  const currency = normalizeSupportedCurrencyCode(input.currency);
+  const baseCurrency = normalizeSupportedCurrencyCode(input.baseCurrency);
+  let rate: Prisma.Decimal;
+  try {
+    rate = new Prisma.Decimal(String(input.exchangeRate));
+  } catch {
+    throw new BadRequestException(INVALID_CONTEXT_MESSAGE);
+  }
+  const date = input.rateDate instanceof Date ? input.rateDate : input.rateDate ? new Date(input.rateDate) : null;
+  if (!currency || !baseCurrency || !rate.isFinite() || rate.lte(0) || !date || Number.isNaN(date.getTime()) || !input.rateSource) {
+    throw new BadRequestException(INVALID_CONTEXT_MESSAGE);
+  }
+  if (currency === baseCurrency) {
+    if (!rate.eq(1) || input.rateSource !== CurrencyRateSource.SYSTEM_RATE_1) {
+      throw new BadRequestException(INVALID_CONTEXT_MESSAGE);
+    }
+    return;
+  }
+  if (input.rateSource !== CurrencyRateSource.MANUAL && input.rateSource !== CurrencyRateSource.IMPORT) {
+    throw new BadRequestException(INVALID_CONTEXT_MESSAGE);
+  }
+}
+
 @Injectable()
 export class DocumentFxContextService {
   constructor(private readonly prisma: PrismaService) {}

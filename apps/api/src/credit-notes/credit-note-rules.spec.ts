@@ -1,4 +1,4 @@
-import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
+import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import { CreditNoteStatus, CustomerRefundStatus, DocumentType } from "@prisma/client";
 import { buildCreditNoteJournalLines } from "./credit-note-accounting";
 import { CreditNoteService } from "./credit-note.service";
@@ -36,6 +36,21 @@ describe("credit note rules", () => {
       expect.objectContaining({ accountId: "ar", debit: "0.0000", credit: "115.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("preserves foreign transaction amounts in the credit-note reversal journal", () => {
+    const lines = buildCreditNoteJournalLines({
+      accountsReceivableAccountId: "ar", vatPayableAccountId: "vat", creditNoteNumber: "CN-USD-1", customerName: "Customer",
+      currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateSnapshotId: null,
+      total: "385.6125", transactionTotal: "105.0000", taxTotal: "18.3625", transactionTaxTotal: "5.0000",
+      lines: [{ accountId: "sales", description: "Services", taxableAmount: "367.2500", transactionTaxableAmount: "100.0000" }],
+    });
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "sales", debit: "367.2500", transactionDebit: "100.0000" }),
+      expect.objectContaining({ accountId: "vat", debit: "18.3625", transactionDebit: "5.0000" }),
+      expect.objectContaining({ accountId: "ar", credit: "385.6125", transactionCredit: "105.0000" }),
+    ]);
+    expect(() => assertJournalFxContext(lines, "AED")).not.toThrow();
   });
 
   it("does not post again when finalizing an already finalized credit note", async () => {
@@ -453,11 +468,18 @@ function makeFinalizeTransactionMock() {
     status: CreditNoteStatus.DRAFT,
     issueDate: new Date("2026-05-12T00:00:00.000Z"),
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: new Date("2026-05-12T00:00:00.000Z"),
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     subtotal: "100.0000",
     discountTotal: "0.0000",
     taxableTotal: "100.0000",
     taxTotal: "15.0000",
     total: "115.0000",
+    transactionTaxTotal: "15.0000",
+    transactionTotal: "115.0000",
     journalEntryId: null,
     customer: { id: "customer-1", name: "Customer", displayName: "Customer" },
     lines: [
@@ -472,6 +494,7 @@ function makeFinalizeTransactionMock() {
         taxableAmount: "100.0000",
         taxAmount: "15.0000",
         lineTotal: "115.0000",
+        transactionTaxableAmount: "100.0000",
         account: { id: "sales" },
       },
     ],

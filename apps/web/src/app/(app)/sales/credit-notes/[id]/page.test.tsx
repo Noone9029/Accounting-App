@@ -108,7 +108,7 @@ describe("CreditNoteDetailPage UAE readiness", () => {
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
 
-  it("keeps a foreign-currency draft visibly fail-closed until FX journal posting is available", async () => {
+  it("allows a complete foreign-currency draft to finalize into the FX-aware journal", async () => {
     mockAllowedPermissions = new Set(["creditNotes.view", "creditNotes.finalize"]);
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/credit-notes/credit-1") {
@@ -120,6 +120,8 @@ describe("CreditNoteDetailPage UAE readiness", () => {
           currency: "USD",
           baseCurrency: "AED",
           exchangeRate: "3.67250000",
+          rateDate: "2026-07-11",
+          rateSource: "MANUAL",
         }));
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -127,8 +129,24 @@ describe("CreditNoteDetailPage UAE readiness", () => {
 
     render(<CreditNoteDetailPage />);
 
+    expect(await screen.findByRole("button", { name: "Finalize" })).toBeEnabled();
+    expect(screen.getByText(/1 USD = 3.67250000 AED/)).toBeInTheDocument();
+    expect(screen.queryByText(/foreign-currency posting is not enabled yet/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps an incomplete foreign credit note fail-closed", async () => {
+    mockAllowedPermissions = new Set(["creditNotes.view", "creditNotes.finalize"]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/credit-notes/credit-1") {
+        return Promise.resolve(creditNoteFixture({ status: "DRAFT", finalizedAt: null, journalEntryId: null, journalEntry: null, currency: "USD", baseCurrency: "AED", exchangeRate: null, rateDate: null, rateSource: null }));
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CreditNoteDetailPage />);
+
     expect(await screen.findByRole("button", { name: "Finalize" })).toBeDisabled();
-    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the exchange rate/i)).toBeInTheDocument();
   });
 });
 
@@ -142,6 +160,11 @@ function creditNoteFixture(overrides: Partial<CreditNote> = {}): CreditNote {
     branchId: null,
     issueDate: "2026-06-05T00:00:00.000Z",
     currency: "AED",
+    baseCurrency: "AED",
+    exchangeRate: "1.00000000",
+    rateDate: "2026-06-05",
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     status: "FINALIZED",
     subtotal: "100.0000",
     discountTotal: "0.0000",

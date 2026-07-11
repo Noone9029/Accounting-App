@@ -3857,8 +3857,14 @@ export interface JournalLine {
   description?: string | null;
   debit: string;
   credit: string;
+  transactionDebit?: string | null;
+  transactionCredit?: string | null;
   currency: string;
   exchangeRate?: string;
+  rateSnapshotId?: string | null;
+  fxRoundingComponentCount?: number;
+  costCenterId?: string | null;
+  projectId?: string | null;
   account?: { id: string; code: string; name: string };
   taxRate?: { id: string; name: string; rate: string } | null;
 }

@@ -1,4 +1,4 @@
-import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
+import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import { NotFoundException } from "@nestjs/common";
 import { JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus } from "@prisma/client";
 import { buildSupplierLedgerRows } from "../contacts/contact-ledger.service";
@@ -38,6 +38,21 @@ describe("purchase debit note rules", () => {
       expect.objectContaining({ accountId: "vat-receivable", debit: "0.0000", credit: "15.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("preserves foreign transaction amounts in the purchase debit-note journal", () => {
+    const lines = buildPurchaseDebitNoteJournalLines({
+      accountsPayableAccountId: "ap", vatReceivableAccountId: "vat-receivable", debitNoteNumber: "PDN-USD-1", supplierName: "Supplier",
+      currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000", rateSnapshotId: null,
+      total: "431.2500", transactionTotal: "115.0000", taxTotal: "56.2500", transactionTaxTotal: "15.0000",
+      lines: [{ accountId: "expense", description: "Returned services", taxableAmount: "375.0000", transactionTaxableAmount: "100.0000" }],
+    });
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "ap", debit: "431.2500", transactionDebit: "115.0000" }),
+      expect.objectContaining({ accountId: "expense", credit: "375.0000", transactionCredit: "100.0000" }),
+      expect.objectContaining({ accountId: "vat-receivable", credit: "56.2500", transactionCredit: "15.0000" }),
+    ]);
+    expect(() => assertJournalFxContext(lines, "SAR")).not.toThrow();
   });
 
   it("does not post again when finalizing an already finalized debit note", async () => {
@@ -350,11 +365,17 @@ function makeFinalizeTransactionMock() {
     status: PurchaseDebitNoteStatus.DRAFT,
     issueDate: new Date("2026-05-12T00:00:00.000Z"),
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: new Date("2026-05-12T00:00:00.000Z"),
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     subtotal: "100.0000",
     discountTotal: "0.0000",
     taxableTotal: "100.0000",
     taxTotal: "15.0000",
     total: "115.0000",
+    transactionTaxTotal: "15.0000",
     transactionTotal: "115.0000",
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
@@ -370,6 +391,7 @@ function makeFinalizeTransactionMock() {
         taxableAmount: "100.0000",
         taxAmount: "15.0000",
         lineTotal: "115.0000",
+        transactionTaxableAmount: "100.0000",
         account: { id: "expense" },
       },
     ],

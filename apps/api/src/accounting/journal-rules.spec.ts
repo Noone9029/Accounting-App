@@ -1,6 +1,7 @@
 import {
   AccountingRuleError,
   assertBalancedJournal,
+  assertJournalFxContext,
   assertDraftEditable,
   createReversalLines,
   getJournalTotals,
@@ -46,6 +47,10 @@ describe("journal accounting rules", () => {
         description: "Reversal",
         currency: "SAR",
         exchangeRate: "1",
+        transactionDebit: "0.0000",
+        transactionCredit: "100.0000",
+        fxRoundingComponentCount: 1,
+        rateSnapshotId: null,
         taxRateId: null,
         costCenterId: "cost-center-1",
         projectId: "project-1",
@@ -57,12 +62,108 @@ describe("journal accounting rules", () => {
         description: "Reversal",
         currency: "SAR",
         exchangeRate: "1",
+        transactionDebit: "100.0000",
+        transactionCredit: "0.0000",
+        fxRoundingComponentCount: 1,
+        rateSnapshotId: null,
         taxRateId: null,
         costCenterId: null,
         projectId: null,
       },
     ]);
     expect(() => assertBalancedJournal(reversal)).not.toThrow();
+  });
+
+  it("preserves transaction/base FX evidence and dimensions in reversal lines", () => {
+    const reversal = createReversalLines([
+      {
+        accountId: "ar",
+        debit: "367.2500",
+        credit: "0.0000",
+        transactionDebit: "100.0000",
+        transactionCredit: "0.0000",
+        currency: "USD",
+        exchangeRate: "3.67250000",
+        rateSnapshotId: "11111111-1111-4111-8111-111111111111",
+        fxRoundingComponentCount: 4,
+        costCenterId: "cost-center-1",
+        projectId: "project-1",
+      },
+      {
+        accountId: "revenue",
+        debit: "0.0000",
+        credit: "367.2500",
+        transactionDebit: "0.0000",
+        transactionCredit: "100.0000",
+        currency: "USD",
+        exchangeRate: "3.67250000",
+        rateSnapshotId: "11111111-1111-4111-8111-111111111111",
+      },
+    ]);
+
+    expect(reversal[0]).toMatchObject({
+      debit: "0.0000",
+      credit: "367.2500",
+      transactionDebit: "0.0000",
+      transactionCredit: "100.0000",
+      currency: "USD",
+      exchangeRate: "3.67250000",
+      rateSnapshotId: "11111111-1111-4111-8111-111111111111",
+      fxRoundingComponentCount: 4,
+      costCenterId: "cost-center-1",
+      projectId: "project-1",
+    });
+    expect(reversal[1]).toMatchObject({
+      debit: "367.2500",
+      credit: "0.0000",
+      transactionDebit: "100.0000",
+      transactionCredit: "0.0000",
+    });
+  });
+
+  it("requires balanced transaction amounts by currency and identity rates for base lines", () => {
+    expect(() => assertJournalFxContext([
+      { accountId: "ar", debit: "367.2500", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+      { accountId: "sales", debit: "0", credit: "367.2500", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+    ], "AED")).not.toThrow();
+
+    expect(() => assertJournalFxContext([
+      { accountId: "cash", debit: "100", credit: "0", transactionDebit: "99", transactionCredit: "0", currency: "AED", exchangeRate: "1" },
+      { accountId: "sales", debit: "0", credit: "100", transactionDebit: "0", transactionCredit: "99", currency: "AED", exchangeRate: "1" },
+    ], "AED")).toThrow(AccountingRuleError);
+
+    expect(() => assertJournalFxContext([
+      { accountId: "ar", debit: "367.2500", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+      { accountId: "sales", debit: "0", credit: "367.2500", transactionDebit: "0", transactionCredit: "99.9999", currency: "USD", exchangeRate: "3.6725" },
+    ], "AED")).toThrow(AccountingRuleError);
+  });
+
+  it("rejects foreign base amounts that do not match the captured rate while allowing one 4dp residual unit", () => {
+    expect(() => assertJournalFxContext([
+      { accountId: "ar", debit: "100.0000", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+      { accountId: "sales", debit: "0", credit: "100.0000", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+    ], "AED")).toThrow(expect.objectContaining({ code: "JOURNAL_FX_RATE_MISMATCH" }));
+
+    expect(() => assertJournalFxContext([
+      { accountId: "ar", debit: "367.2501", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+      { accountId: "sales", debit: "0", credit: "367.2501", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+    ], "AED")).not.toThrow();
+
+    expect(() => assertJournalFxContext([
+      { accountId: "ar", debit: "367.2502", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+      { accountId: "sales", debit: "0", credit: "367.2502", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+    ], "AED")).toThrow(expect.objectContaining({ code: "JOURNAL_FX_RATE_MISMATCH" }));
+  });
+
+  it("bounds aggregate rounding residuals by persisted source-component evidence", () => {
+    const lines = [
+      { accountId: "ar", debit: "0.0004", credit: "0", transactionDebit: "0.0004", transactionCredit: "0", currency: "USD", exchangeRate: "0.5", fxRoundingComponentCount: 4 },
+      { accountId: "sales", debit: "0", credit: "0.0004", transactionDebit: "0", transactionCredit: "0.0004", currency: "USD", exchangeRate: "0.5", fxRoundingComponentCount: 4 },
+    ];
+    expect(() => assertJournalFxContext(lines, "AED")).not.toThrow();
+    expect(() => assertJournalFxContext(lines.map((line) => ({ ...line, fxRoundingComponentCount: 1 })), "AED")).toThrow(
+      expect.objectContaining({ code: "JOURNAL_FX_RATE_MISMATCH" }),
+    );
   });
 
   it("rejects duplicate service reversals cleanly when the reversal unique key is already claimed", async () => {

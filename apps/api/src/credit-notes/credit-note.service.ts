@@ -29,7 +29,7 @@ import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.
 import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
-import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -761,9 +761,8 @@ export class CreditNoteService {
       if (creditNote.status !== CreditNoteStatus.DRAFT) {
         throw new BadRequestException("Only draft credit notes can be finalized.");
       }
+      assertStoredDocumentFxPostingContext(creditNote);
       await this.assertPostingDateAllowed(organizationId, creditNote.issueDate, tx);
-      await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, creditNote.currency, tx);
-
       this.assertFinalizableCreditNote({
         subtotal: String(creditNote.subtotal),
         discountTotal: String(creditNote.discountTotal),
@@ -817,12 +816,18 @@ export class CreditNoteService {
         creditNoteNumber: creditNote.creditNoteNumber,
         customerName: creditNote.customer.displayName ?? creditNote.customer.name,
         currency: creditNote.currency,
+        baseCurrency: creditNote.baseCurrency ?? creditNote.currency,
+        exchangeRate: String(creditNote.exchangeRate ?? "1"),
+        rateSnapshotId: creditNote.rateSnapshotId,
         total: String(creditNote.total),
+        transactionTotal: String(creditNote.transactionTotal ?? creditNote.total),
         taxTotal: String(creditNote.taxTotal),
+        transactionTaxTotal: String(creditNote.transactionTaxTotal ?? creditNote.taxTotal),
         lines: creditNote.lines.map((line) => ({
           accountId: line.accountId,
           description: line.description,
           taxableAmount: String(line.taxableAmount),
+          transactionTaxableAmount: String(line.transactionTaxableAmount ?? line.taxableAmount),
         })),
       });
 
@@ -835,7 +840,7 @@ export class CreditNoteService {
           entryDate: creditNote.issueDate,
           description: `Sales credit note ${creditNote.creditNoteNumber} - ${creditNote.customer.displayName ?? creditNote.customer.name}`,
           reference: creditNote.creditNoteNumber,
-          currency: creditNote.currency,
+          currency: creditNote.baseCurrency ?? creditNote.currency,
           totalDebit: creditNote.total,
           totalCredit: creditNote.total,
           postedAt: new Date(),
@@ -1235,10 +1240,16 @@ export class CreditNoteService {
         accountId: line.accountId,
         debit: String(line.debit),
         credit: String(line.credit),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
         description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        rateSnapshotId: line.rateSnapshotId,
+        fxRoundingComponentCount: line.fxRoundingComponentCount,
         taxRateId: line.taxRateId,
+        costCenterId: line.costCenterId,
+        projectId: line.projectId,
       })),
     );
     const totals = getJournalTotals(reversalLines);
@@ -1304,12 +1315,21 @@ export class CreditNoteService {
     return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
     }));
   }
 

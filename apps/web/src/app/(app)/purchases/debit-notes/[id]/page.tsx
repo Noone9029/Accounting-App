@@ -11,7 +11,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
-import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
+import { documentFxPostingIsReady, documentFxRateEvidence, INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE, isForeignCurrencyDocument, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -106,8 +106,8 @@ export default function PurchaseDebitNoteDetailPage() {
       return;
     }
 
-    if (action === "finalize" && foreignDocumentPostingIsBlocked(debitNote)) {
-      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
+    if (action === "finalize" && !documentFxPostingIsReady(debitNote)) {
+      setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
       return;
     }
 
@@ -237,7 +237,9 @@ export default function PurchaseDebitNoteDetailPage() {
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
   const canFinalizeDebitNote = can(PERMISSIONS.purchaseDebitNotes.finalize);
-  const foreignPostingBlocked = debitNote ? foreignDocumentPostingIsBlocked(debitNote) : false;
+  const foreignCurrencyDocument = debitNote ? isForeignCurrencyDocument(debitNote) : false;
+  const fxPostingReady = debitNote ? documentFxPostingIsReady(debitNote) : false;
+  const fxRateEvidence = debitNote ? documentFxRateEvidence(debitNote) : null;
   const debitDisplayTotals = debitNote ? transactionDocumentDisplayTotals(debitNote) : null;
   const debitDisplayUnapplied = debitNote?.status === "DRAFT" ? (debitDisplayTotals?.total ?? debitNote.total) : (debitNote?.unappliedAmount ?? "0");
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
@@ -280,7 +282,7 @@ export default function PurchaseDebitNoteDetailPage() {
             </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || !fxPostingReady} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -297,15 +299,13 @@ export default function PurchaseDebitNoteDetailPage() {
         </div>
       </div>
 
-      {debitNote?.status === "DRAFT" && foreignPostingBlocked ? (
-        <p className="mb-4 text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
-      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load debit notes.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading debit note...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {debitNote?.status === "DRAFT" && !fxPostingReady ? <StatusMessage type="info">{tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE)}</StatusMessage> : null}
       </div>
 
       {debitNote ? (
@@ -334,7 +334,9 @@ export default function PurchaseDebitNoteDetailPage() {
               <Summary label={tc("Total debit")} value={formatAppMoney(debitDisplayTotals?.total ?? debitNote.total, debitNote.currency, locale)} />
               <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, debitNote.currency, locale)} />
               <Summary label={tc("Unapplied amount")} value={formatAppMoney(debitDisplayUnapplied, debitNote.currency, locale)} />
-              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(debitNote.total, debitNote.baseCurrency ?? debitNote.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(debitNote.total, debitNote.baseCurrency ?? debitNote.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={debitNote.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
               <Summary label={tc("Journal entry")} value={debitNote.journalEntry ? <bdi dir="ltr">{`${debitNote.journalEntry.entryNumber} (${debitNote.journalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Reversal journal")} value={debitNote.reversalJournalEntry ? <bdi dir="ltr">{`${debitNote.reversalJournalEntry.entryNumber} (${debitNote.reversalJournalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(debitNote.finalizedAt, locale, "-")} />
@@ -529,9 +531,10 @@ export function PurchaseDebitNoteWorkflowGuidance({
 }) {
   const hasUnapplied = Number(debitNote.unappliedAmount) > 0;
   const { locale, tc } = useAppLocale();
-  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(debitNote);
   const displayTotals = transactionDocumentDisplayTotals(debitNote);
   const displayUnapplied = debitNote.status === "DRAFT" ? displayTotals.total : debitNote.unappliedAmount;
+  const fxPostingReady = documentFxPostingIsReady(debitNote);
+  const fxRateEvidence = documentFxRateEvidence(debitNote);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -565,15 +568,16 @@ export function PurchaseDebitNoteWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading || foreignPostingBlocked}
+              disabled={actionLoading || !fxPostingReady}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize debit note")}
             </button>
           ) : null}
-          {debitNote.status === "DRAFT" && foreignPostingBlocked ? (
-            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
+          {debitNote.status === "DRAFT" && !fxPostingReady ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE)}</p>
           ) : null}
+          {fxRateEvidence ? <p className="text-xs leading-5 text-steel"><bdi dir="ltr">{fxRateEvidence}</bdi> · {tc(debitNote.status === "DRAFT" ? "Freezes on finalization" : "Frozen; reverse to correct")}</p> : null}
           {debitNote.originalBillId ? (
             <Link href={`/purchases/bills/${debitNote.originalBillId}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">
               {tc("View original bill")}

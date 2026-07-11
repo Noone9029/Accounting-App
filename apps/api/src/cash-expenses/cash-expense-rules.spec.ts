@@ -1,4 +1,4 @@
-import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
+import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import { CashExpenseStatus, ContactType, JournalEntryStatus } from "@prisma/client";
 import { buildSupplierLedgerRows } from "../contacts/contact-ledger.service";
 import { buildCashExpenseJournalLines } from "./cash-expense-accounting";
@@ -36,6 +36,21 @@ describe("cash expense rules", () => {
       expect.objectContaining({ accountId: "bank", debit: "0.0000", credit: "115.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("builds a foreign cash-expense journal without losing transaction evidence", () => {
+    const lines = buildCashExpenseJournalLines({
+      paidThroughAccountId: "bank", vatReceivableAccountId: "vat-receivable", expenseNumber: "EXP-USD-1",
+      currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000", rateSnapshotId: null,
+      total: "431.2500", transactionTotal: "115.0000", taxTotal: "56.2500", transactionTaxTotal: "15.0000",
+      lines: [{ accountId: "expense", description: "Office supplies", taxableAmount: "375.0000", transactionTaxableAmount: "100.0000" }],
+    });
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "expense", debit: "375.0000", transactionDebit: "100.0000" }),
+      expect.objectContaining({ accountId: "vat-receivable", debit: "56.2500", transactionDebit: "15.0000" }),
+      expect.objectContaining({ accountId: "bank", credit: "431.2500", transactionCredit: "115.0000" }),
+    ]);
+    expect(() => assertJournalFxContext(lines, "SAR")).not.toThrow();
   });
 
   it("creates posted cash expenses with a balanced journal and PDF archive support", async () => {
