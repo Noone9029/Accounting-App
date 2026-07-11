@@ -103,9 +103,13 @@ describe("ImportExportSettingsPage", () => {
     ]);
     render(<ImportExportSettingsPage />);
 
-    expect(await screen.findByRole("table", { name: "Normalized product and service import rows" })).toBeInTheDocument();
+    const table = await screen.findByRole("table", { name: "Normalized product and service import rows" });
+    expect(table).toBeInTheDocument();
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(8);
+    within(table).getAllByRole("columnheader").forEach((header) => expect(header).toHaveAttribute("scope", "col"));
     const foreignRow = screen.getByText("Cloud hosting").closest("tr");
     expect(foreignRow).not.toBeNull();
+    expect(within(foreignRow!).getByRole("rowheader", { name: "Cloud hosting" })).toHaveAttribute("scope", "row");
     expect(within(foreignRow!).getByText("100.0000 USD")).toBeInTheDocument();
     expect(within(foreignRow!).getByText("3.67250000")).toBeInTheDocument();
     expect(within(foreignRow!).getByText("2026-07-10")).toBeInTheDocument();
@@ -185,12 +189,44 @@ describe("ImportExportSettingsPage", () => {
     render(<ImportExportSettingsPage />);
 
     const commitButton = await screen.findByRole("button", { name: "Commit reviewed local import" });
-    expect(screen.getByText(/reviewed base-equivalent catalog import/i)).toBeInTheDocument();
+    expect(screen.getByText(/base amount that will be committed after approval/i)).toBeInTheDocument();
     expect(commitButton).toBeDisabled();
 
     fireEvent.click(screen.getByLabelText(/I reviewed the preview rows/i));
 
     expect(commitButton).toBeEnabled();
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("binds review approval to the currently selected preview job", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        id: "job-a",
+        filename: "products-a.csv",
+        requestId: "req-a",
+        rows: [makeProductImportRow({ id: "row-a" })],
+      }),
+      makeProductImportJob({
+        id: "job-b",
+        filename: "products-b.csv",
+        requestId: "req-b",
+        rows: [makeProductImportRow({ id: "row-b" })],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const commitButton = await screen.findByRole("button", { name: "Commit reviewed local import" });
+    const reviewCheckbox = screen.getByLabelText(/I reviewed the preview rows/i);
+    expect(screen.getByText("req-a")).toBeInTheDocument();
+    fireEvent.click(reviewCheckbox);
+    expect(reviewCheckbox).toBeChecked();
+    expect(commitButton).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /products-b\.csv/i }));
+
+    expect(screen.getByText("req-b")).toBeInTheDocument();
+    expect(reviewCheckbox).not.toBeChecked();
+    expect(commitButton).toBeDisabled();
     expect(apiRequest).toHaveBeenCalledTimes(2);
   });
 });

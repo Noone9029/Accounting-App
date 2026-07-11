@@ -34,7 +34,7 @@ export default function ImportExportSettingsPage() {
   const [selectedEntity, setSelectedEntity] = useState<ImportEntityType>("CUSTOMERS");
   const [csvContent, setCsvContent] = useState("name,displayName,email,phone,taxNumber,countryCode,isActive\nAcme Trading,Acme,accounts@example.test,+971500000000,,AE,true");
   const [preview, setPreview] = useState<ImportJob | null>(null);
-  const [reviewed, setReviewed] = useState(false);
+  const [reviewedJobId, setReviewedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,6 +47,7 @@ export default function ImportExportSettingsPage() {
 
   const selectedTemplate = useMemo(() => templates?.supportedImports.find((template) => template.entityType === selectedEntity), [selectedEntity, templates]);
   const previewErrorCount = preview?.validationIssues.filter((issue) => issue.severity === "ERROR").length ?? 0;
+  const reviewed = Boolean(preview && reviewedJobId === preview.id);
   const canCommit = Boolean(preview && preview.status === "READY_FOR_REVIEW" && previewErrorCount === 0 && reviewed);
 
   async function loadToolkit() {
@@ -70,7 +71,7 @@ export default function ImportExportSettingsPage() {
   async function createPreview() {
     setLoading(true);
     setError("");
-    setReviewed(false);
+    setReviewedJobId(null);
     try {
       const result = await apiRequest<ImportJob>("/migration-toolkit/import-jobs", {
         method: "POST",
@@ -194,7 +195,7 @@ export default function ImportExportSettingsPage() {
                 {preview.entityType === "PRODUCTS_SERVICES" ? <ProductImportReviewTable preview={preview} /> : null}
 
                 <label className="flex items-center gap-2 text-sm font-medium text-ink">
-                  <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />
+                  <input type="checkbox" checked={reviewed} onChange={(event) => setReviewedJobId(event.target.checked ? preview.id : null)} />
                   {preview.entityType === "PRODUCTS_SERVICES"
                     ? "I reviewed the preview rows, transaction prices, FX evidence, and base-equivalent catalog values. This is a local catalog commit only."
                     : "I reviewed the preview rows and understand this is a local master-data commit only."}
@@ -250,30 +251,41 @@ export default function ImportExportSettingsPage() {
 }
 
 function ProductImportReviewTable({ preview }: { preview: ImportJob }) {
+  const issuesByRow = useMemo(() => {
+    const groupedIssues = new Map<number, ImportJob["validationIssues"]>();
+    preview.validationIssues.forEach((issue) => {
+      if (issue.rowNumber === null) return;
+      const rowIssues = groupedIssues.get(issue.rowNumber) ?? [];
+      rowIssues.push(issue);
+      groupedIssues.set(issue.rowNumber, rowIssues);
+    });
+    return groupedIssues;
+  }, [preview.validationIssues]);
+
   return (
     <section aria-labelledby="normalized-product-rows-title">
       <h3 id="normalized-product-rows-title" className="text-sm font-semibold text-ink">Normalized product and service rows</h3>
       <p className="mt-1 text-xs leading-5 text-steel">
-        Check transaction pricing, rate evidence, and the committed base amount for this reviewed base-equivalent catalog import.
+        Check transaction pricing, rate evidence, and the base amount that will be committed after approval for this reviewed base-equivalent catalog import.
       </p>
       <div className="mt-3 overflow-x-auto rounded-md border border-slate-200 bg-white">
         <table aria-label="Normalized product and service import rows" className="w-full min-w-[1080px] text-start text-xs">
           <thead className="bg-slate-50 uppercase tracking-wide text-steel">
             <tr>
-              <th className="px-3 py-2">Row</th>
-              <th className="px-3 py-2">Item</th>
-              <th className="px-3 py-2">Review</th>
-              <th className="px-3 py-2 text-end">Transaction price</th>
-              <th className="px-3 py-2 text-end">Rate</th>
-              <th className="px-3 py-2">Rate date</th>
-              <th className="px-3 py-2">Rate source</th>
-              <th className="px-3 py-2 text-end">Base equivalent</th>
+              <th scope="col" className="px-3 py-2">Row</th>
+              <th scope="col" className="px-3 py-2">Item</th>
+              <th scope="col" className="px-3 py-2">Review</th>
+              <th scope="col" className="px-3 py-2 text-end">Transaction price</th>
+              <th scope="col" className="px-3 py-2 text-end">Rate</th>
+              <th scope="col" className="px-3 py-2">Rate date</th>
+              <th scope="col" className="px-3 py-2">Rate source</th>
+              <th scope="col" className="px-3 py-2 text-end">Base equivalent</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {preview.rows.map((row) => {
               const normalized = row.normalizedJson;
-              const rowIssues = preview.validationIssues.filter((issue) => issue.rowNumber === row.rowNumber);
+              const rowIssues = issuesByRow.get(row.rowNumber) ?? [];
               const exchangeRate = normalizedText(normalized.exchangeRate);
               const rateDate = normalizedText(normalized.rateDate, exchangeRate === "1" ? "Not required" : "Not provided");
               const rateSource = normalizedText(normalized.rateSource).replace(/_/g, " ");
@@ -281,7 +293,7 @@ function ProductImportReviewTable({ preview }: { preview: ImportJob }) {
               return (
                 <tr key={row.id}>
                   <td className="px-3 py-2 align-top font-mono">{row.rowNumber}</td>
-                  <td className="px-3 py-2 align-top font-medium text-ink">{normalizedText(normalized.name, normalizedText(normalized.sku))}</td>
+                  <th scope="row" className="px-3 py-2 text-start align-top font-medium text-ink">{normalizedText(normalized.name, normalizedText(normalized.sku))}</th>
                   <td className="px-3 py-2 align-top">
                     <LedgerStatusBadge tone={importRowStatusTone(row.status)}>{row.status.replace(/_/g, " ")}</LedgerStatusBadge>
                     {rowIssues.length > 0 ? (
