@@ -1,6 +1,11 @@
-import { IsDecimal, IsUUID, Matches } from "class-validator";
+import { IsDecimal, IsOptional, IsString, IsUUID, Length, Matches } from "class-validator";
 
 export class ApplyUnappliedPaymentDto {
+  @IsOptional()
+  @IsString()
+  @Length(1, 128)
+  idempotencyKey?: string;
+
   @IsUUID()
   invoiceId!: string;
 

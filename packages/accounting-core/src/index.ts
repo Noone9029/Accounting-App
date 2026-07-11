@@ -13,6 +13,7 @@ export interface JournalLineInput {
   exchangeRate?: string | number;
   rateSnapshotId?: string | null;
   fxRoundingComponentCount?: number;
+  functionalCurrencyOnly?: boolean;
   taxRateId?: string | null;
   costCenterId?: string | null;
   projectId?: string | null;
@@ -120,6 +121,143 @@ export function convertTransactionToBaseAmount(
   return roundMoney(amount.mul(rate)).toFixed(4);
 }
 
+export type ForeignSettlementDirection = "CUSTOMER" | "SUPPLIER";
+
+export interface ForeignSettlementAllocationInput {
+  direction: ForeignSettlementDirection;
+  transactionAmount: ExactDecimalInput;
+  transactionOpenAmount: ExactDecimalInput;
+  baseOpenAmount: ExactDecimalInput;
+  recognitionRate: ExactDecimalInput;
+  settlementRate: ExactDecimalInput;
+  settlementTransactionOpenAmount?: ExactDecimalInput;
+  settlementBaseOpenAmount?: ExactDecimalInput;
+}
+
+export interface ForeignSettlementAllocation {
+  transactionAmount: string;
+  documentBaseAmount: string;
+  settlementBaseAmount: string;
+  realizedGainAmount: string;
+  realizedLossAmount: string;
+  remainingTransactionAmount: string;
+  remainingBaseAmount: string;
+}
+
+/**
+ * Allocates a transaction-currency settlement without losing the document's
+ * base-currency carrying value. A final allocation consumes the exact stored
+ * base residual so repeated partial settlements cannot strand rounding dust.
+ */
+export function allocateForeignSettlement(
+  input: ForeignSettlementAllocationInput,
+): ForeignSettlementAllocation {
+  const amount = parseExactDecimal(
+    input.transactionAmount,
+    "Settlement amount must be a positive finite decimal string or Decimal value.",
+    "FX_INVALID_SETTLEMENT_AMOUNT",
+  );
+  const transactionOpen = parseExactDecimal(
+    input.transactionOpenAmount,
+    "Transaction open amount must be a non-negative finite decimal string or Decimal value.",
+    "FX_INVALID_TRANSACTION_OPEN_AMOUNT",
+  );
+  const baseOpen = parseExactDecimal(
+    input.baseOpenAmount,
+    "Base open amount must be a non-negative finite decimal string or Decimal value.",
+    "FX_INVALID_BASE_OPEN_AMOUNT",
+  );
+  const recognitionRate = parseExactDecimal(
+    input.recognitionRate,
+    INVALID_EXCHANGE_RATE_MESSAGE,
+    "FX_INVALID_EXCHANGE_RATE",
+  );
+  const settlementRate = parseExactDecimal(
+    input.settlementRate,
+    INVALID_EXCHANGE_RATE_MESSAGE,
+    "FX_INVALID_EXCHANGE_RATE",
+  );
+  const settlementTransactionOpen = parseExactDecimal(
+    input.settlementTransactionOpenAmount ?? input.transactionOpenAmount,
+    "Settlement transaction open amount must be a non-negative finite decimal string or Decimal value.",
+    "FX_INVALID_SETTLEMENT_TRANSACTION_OPEN_AMOUNT",
+  );
+  const settlementBaseOpen = input.settlementBaseOpenAmount === undefined
+    ? roundMoney(settlementTransactionOpen.mul(settlementRate))
+    : parseExactDecimal(
+        input.settlementBaseOpenAmount,
+        "Settlement base open amount must be a non-negative finite decimal string or Decimal value.",
+        "FX_INVALID_SETTLEMENT_BASE_OPEN_AMOUNT",
+      );
+
+  if (amount.lte(0)) {
+    throw new AccountingRuleError(
+      "Settlement amount must be greater than zero.",
+      "FX_SETTLEMENT_AMOUNT_MUST_BE_POSITIVE",
+    );
+  }
+  if (transactionOpen.lt(0) || baseOpen.lt(0) || settlementTransactionOpen.lt(0) || settlementBaseOpen.lt(0)) {
+    throw new AccountingRuleError(
+      "Settlement open balances cannot be negative.",
+      "FX_SETTLEMENT_OPEN_BALANCE_NEGATIVE",
+    );
+  }
+  if (recognitionRate.lte(0) || settlementRate.lte(0)) {
+    throw new AccountingRuleError(INVALID_EXCHANGE_RATE_MESSAGE, "FX_INVALID_EXCHANGE_RATE");
+  }
+  if (amount.gt(transactionOpen)) {
+    throw new AccountingRuleError(
+      "Settlement amount cannot exceed the transaction open amount.",
+      "FX_SETTLEMENT_EXCEEDS_OPEN_AMOUNT",
+    );
+  }
+  if (amount.gt(settlementTransactionOpen)) {
+    throw new AccountingRuleError(
+      "Settlement amount cannot exceed the payment transaction open amount.",
+      "FX_SETTLEMENT_EXCEEDS_PAYMENT_OPEN_AMOUNT",
+    );
+  }
+
+  const transactionAmount = roundMoney(amount);
+  const roundedTransactionOpen = roundMoney(transactionOpen);
+  const roundedBaseOpen = roundMoney(baseOpen);
+  const isFinalAllocation = transactionAmount.eq(roundedTransactionOpen);
+  const isFinalSettlementAllocation = transactionAmount.eq(roundMoney(settlementTransactionOpen));
+  const documentBaseAmount = isFinalAllocation
+    ? roundedBaseOpen
+    : roundMoney(transactionAmount.mul(recognitionRate));
+
+  if (documentBaseAmount.gt(roundedBaseOpen)) {
+    throw new AccountingRuleError(
+      "Settlement carrying amount cannot exceed the base open amount.",
+      "FX_SETTLEMENT_EXCEEDS_BASE_OPEN_AMOUNT",
+    );
+  }
+
+  const roundedSettlementBaseOpen = roundMoney(settlementBaseOpen);
+  const proportionalSettlementBaseAmount = roundMoney(transactionAmount.mul(settlementRate));
+  const settlementBaseAmount = isFinalSettlementAllocation
+    ? roundedSettlementBaseOpen
+    : Decimal.min(proportionalSettlementBaseAmount, roundedSettlementBaseOpen);
+  const difference = settlementBaseAmount.minus(documentBaseAmount);
+  const customerGain = input.direction === "CUSTOMER" && difference.gt(0);
+  const customerLoss = input.direction === "CUSTOMER" && difference.lt(0);
+  const supplierGain = input.direction === "SUPPLIER" && difference.lt(0);
+  const supplierLoss = input.direction === "SUPPLIER" && difference.gt(0);
+
+  return {
+    transactionAmount: transactionAmount.toFixed(4),
+    documentBaseAmount: documentBaseAmount.toFixed(4),
+    settlementBaseAmount: settlementBaseAmount.toFixed(4),
+    realizedGainAmount: roundMoney(customerGain || supplierGain ? difference.abs() : ZERO).toFixed(4),
+    realizedLossAmount: roundMoney(customerLoss || supplierLoss ? difference.abs() : ZERO).toFixed(4),
+    remainingTransactionAmount: roundMoney(roundedTransactionOpen.minus(transactionAmount)).toFixed(4),
+    remainingBaseAmount: isFinalAllocation
+      ? "0.0000"
+      : roundMoney(roundedBaseOpen.minus(documentBaseAmount)).toFixed(4),
+  };
+}
+
 export function convertTransactionDocumentAmounts(
   lines: readonly TransactionDocumentLineAmounts[],
   exchangeRate: ExactDecimalInput,
@@ -218,7 +356,9 @@ export function assertValidJournalLines(lines: JournalLineInput[]): void {
       throw new AccountingRuleError(`Line ${index + 1} cannot contain both debit and credit.`, "JOURNAL_LINE_BOTH_SIDES");
     }
 
-    if (debit.eq(0) && credit.eq(0)) {
+    const transactionDebit = toMoney(line.transactionDebit);
+    const transactionCredit = toMoney(line.transactionCredit);
+    if (debit.eq(0) && credit.eq(0) && transactionDebit.eq(0) && transactionCredit.eq(0)) {
       throw new AccountingRuleError(`Line ${index + 1} must contain a debit or credit amount.`, "JOURNAL_LINE_ZERO_AMOUNT");
     }
 
@@ -265,6 +405,21 @@ export function assertJournalFxContext(lines: JournalLineInput[], baseCurrency: 
     if (!currency || rate.lte(0) || transactionDebit.lt(0) || transactionCredit.lt(0)) {
       throw new AccountingRuleError(`Line ${index + 1} has invalid FX context.`, "JOURNAL_FX_CONTEXT_INVALID");
     }
+    if (line.functionalCurrencyOnly) {
+      if (
+        currency !== normalizedBaseCurrency ||
+        !rate.eq(1) ||
+        Boolean(line.rateSnapshotId) ||
+        line.transactionDebit !== undefined ||
+        line.transactionCredit !== undefined
+      ) {
+        throw new AccountingRuleError(
+          `Line ${index + 1} has invalid functional-currency-only context.`,
+          "JOURNAL_FX_CONTEXT_INVALID",
+        );
+      }
+      continue;
+    }
     const componentCount = line.fxRoundingComponentCount ?? 1;
     if (!Number.isInteger(componentCount) || componentCount < 1 || componentCount > 10_000) {
       throw new AccountingRuleError(`Line ${index + 1} has invalid FX rounding evidence.`, "JOURNAL_FX_CONTEXT_INVALID");
@@ -272,8 +427,10 @@ export function assertJournalFxContext(lines: JournalLineInput[], baseCurrency: 
     if (
       (transactionDebit.gt(0) && transactionCredit.gt(0)) ||
       (transactionDebit.eq(0) && transactionCredit.eq(0)) ||
-      baseDebit.gt(0) !== transactionDebit.gt(0) ||
-      baseCredit.gt(0) !== transactionCredit.gt(0)
+      (baseDebit.gt(0) && !transactionDebit.gt(0)) ||
+      (baseCredit.gt(0) && !transactionCredit.gt(0)) ||
+      (transactionDebit.gt(0) && baseCredit.gt(0)) ||
+      (transactionCredit.gt(0) && baseDebit.gt(0))
     ) {
       throw new AccountingRuleError(`Line ${index + 1} has inconsistent transaction and base sides.`, "JOURNAL_FX_CONTEXT_INVALID");
     }
@@ -307,8 +464,8 @@ export function assertJournalFxContext(lines: JournalLineInput[], baseCurrency: 
     rateTotals.baseCredit = rateTotals.baseCredit.plus(baseCredit);
     rateTotals.transactionDebit = rateTotals.transactionDebit.plus(transactionDebit);
     rateTotals.transactionCredit = rateTotals.transactionCredit.plus(transactionCredit);
-    if (baseDebit.gt(0)) rateTotals.debitComponentCount += componentCount;
-    if (baseCredit.gt(0)) rateTotals.creditComponentCount += componentCount;
+    if (transactionDebit.gt(0)) rateTotals.debitComponentCount += componentCount;
+    if (transactionCredit.gt(0)) rateTotals.creditComponentCount += componentCount;
     totalsByCurrencyAndRate.set(rateKey, rateTotals);
   }
 
@@ -353,8 +510,12 @@ export function createReversalLines(lines: JournalLineInput[]): JournalLineInput
     accountId: line.accountId,
     debit: toMoney(line.credit).toFixed(4),
     credit: toMoney(line.debit).toFixed(4),
-    transactionDebit: toMoney(line.transactionCredit ?? line.credit).toFixed(4),
-    transactionCredit: toMoney(line.transactionDebit ?? line.debit).toFixed(4),
+    ...(line.functionalCurrencyOnly
+      ? { functionalCurrencyOnly: true as const }
+      : {
+          transactionDebit: toMoney(line.transactionCredit ?? line.credit).toFixed(4),
+          transactionCredit: toMoney(line.transactionDebit ?? line.debit).toFixed(4),
+        }),
     description: line.description ? `Reversal: ${line.description}` : "Reversal",
     currency: line.currency,
     exchangeRate: line.exchangeRate ?? "1",

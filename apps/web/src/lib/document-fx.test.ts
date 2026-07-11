@@ -3,6 +3,7 @@ import {
   documentFxPostingIsReady,
   documentFxRateEvidence,
   documentFxIsComplete,
+  realizedFxSettlementPreview,
   selectableDocumentRateSnapshots,
   transactionDocumentDisplayTotals,
   transactionLineDisplayAmounts,
@@ -12,6 +13,43 @@ describe("document FX form arithmetic", () => {
   it("converts with exact integer arithmetic and half-up rounding", () => {
     expect(convertTransactionToBasePreview("105.0000", "3.67250000")).toBe("385.6125");
     expect(convertTransactionToBasePreview("1.00005", "1")).toBeNull();
+  });
+
+  it("previews customer and supplier realized FX without floating-point arithmetic", () => {
+    const allocation = {
+      transactionAmountApplied: "100.0000",
+      transactionBalanceDue: "100.0000",
+      baseBalanceDue: "365.0000",
+      recognitionRate: "3.65000000",
+    };
+    expect(realizedFxSettlementPreview("customer", "3.75000000", [allocation])).toEqual({
+      gain: "10.0000", loss: "0.0000", net: "10.0000",
+    });
+    expect(realizedFxSettlementPreview("supplier", "3.75000000", [allocation])).toEqual({
+      gain: "0.0000", loss: "10.0000", net: "-10.0000",
+    });
+  });
+
+  it("uses the exact remaining base residual for a final partial settlement", () => {
+    expect(realizedFxSettlementPreview("customer", "3.75000000", [{
+      transactionAmountApplied: "40.0000",
+      transactionBalanceDue: "40.0000",
+      baseBalanceDue: "145.9999",
+      recognitionRate: "3.65000000",
+    }])).toEqual({ gain: "4.0001", loss: "0.0000", net: "4.0001" });
+  });
+
+  it("shows mixed realized gains and losses gross instead of netting them", () => {
+    expect(realizedFxSettlementPreview("customer", "3.75000000", [
+      { transactionAmountApplied: "100", transactionBalanceDue: "100", baseBalanceDue: "365", recognitionRate: "3.65" },
+      { transactionAmountApplied: "100", transactionBalanceDue: "100", baseBalanceDue: "382", recognitionRate: "3.82" },
+    ], "200.0000")).toEqual({ gain: "10.0000", loss: "7.0000", net: "3.0000" });
+  });
+
+  it("keeps preview parity when tiny components exhaust the payment base residual", () => {
+    expect(realizedFxSettlementPreview("customer", "0.5", Array.from({ length: 4 }, () => ({
+      transactionAmountApplied: "0.0001", transactionBalanceDue: "0.0001", baseBalanceDue: "0.0001", recognitionRate: "0.5",
+    })), "0.0004")).toEqual({ gain: "0.0000", loss: "0.0002", net: "-0.0002" });
   });
 
   it("requires a complete foreign rate context while accepting identity-rate base documents", () => {

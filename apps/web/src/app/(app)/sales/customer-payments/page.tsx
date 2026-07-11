@@ -167,7 +167,7 @@ export default function CustomerPaymentsPage() {
                     <td className="px-4 py-3">
                       <PaymentStatusPill status={payment.status} />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.amountReceived, payment.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(payment.transactionAmountReceived ?? payment.amountReceived, payment.currency, locale)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-start gap-1">
                         <span className="font-mono text-xs">{formatAppMoney(payment.unappliedAmount, payment.currency, locale)}</span>

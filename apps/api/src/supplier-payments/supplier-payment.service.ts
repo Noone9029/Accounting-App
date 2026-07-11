@@ -1,5 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
+import { createHash } from "node:crypto";
+import {
+  allocateForeignSettlement,
+  convertTransactionToBaseAmount,
+  createReversalLines,
+  getJournalTotals,
+  JournalLineInput,
+  toMoney,
+} from "@ledgerbyte/accounting-core";
 import { SupplierPaymentReceiptPdfData, renderSupplierPaymentReceiptPdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
@@ -21,6 +29,12 @@ import {
   BaseCurrencyPostingGuardService,
   resolveOrganizationBaseCurrency,
 } from "../foreign-exchange/base-currency-posting-guard.service";
+import {
+  assertStoredDocumentFxPostingContext,
+  DocumentFxContextService,
+  ResolvedDocumentFxContext,
+} from "../foreign-exchange/document-fx-context.service";
+import { buildRealizedFxAdjustmentJournalLines } from "../foreign-exchange/realized-fx-adjustment";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
@@ -53,6 +67,9 @@ const supplierPaymentInclude = {
           dueDate: true,
           total: true,
           balanceDue: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          currency: true,
           status: true,
         },
       },
@@ -69,6 +86,9 @@ const supplierPaymentInclude = {
           dueDate: true,
           total: true,
           balanceDue: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          currency: true,
           status: true,
         },
       },
@@ -90,6 +110,7 @@ export class SupplierPaymentService {
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
+    @Optional() private readonly documentFxContextService?: DocumentFxContextService,
   ) {}
 
   list(organizationId: string) {
@@ -242,6 +263,8 @@ export class SupplierPaymentService {
                 dueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -257,6 +280,8 @@ export class SupplierPaymentService {
                 dueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -273,8 +298,8 @@ export class SupplierPaymentService {
       paymentDate: payment.paymentDate,
       supplier: payment.supplier,
       organization: payment.organization,
-      amountPaid: payment.amountPaid,
-      unappliedAmount: payment.unappliedAmount,
+      amountPaid: payment.transactionAmountPaid ?? payment.amountPaid,
+      unappliedAmount: payment.transactionUnappliedAmount ?? payment.unappliedAmount,
       currency: payment.currency,
       paidThroughAccount: payment.account,
       allocations: payment.allocations.map((allocation) => ({
@@ -282,18 +307,18 @@ export class SupplierPaymentService {
         billNumber: allocation.bill.billNumber,
         billDate: allocation.bill.billDate,
         billDueDate: allocation.bill.dueDate,
-        billTotal: allocation.bill.total,
-        amountApplied: allocation.amountApplied,
-        billBalanceDue: allocation.bill.balanceDue,
+        billTotal: allocation.bill.transactionTotal ?? allocation.bill.total,
+        amountApplied: allocation.transactionAmountApplied ?? allocation.amountApplied,
+        billBalanceDue: allocation.bill.transactionBalanceDue ?? allocation.bill.balanceDue,
       })),
       unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
         billId: allocation.billId,
         billNumber: allocation.bill.billNumber,
         billDate: allocation.bill.billDate,
         billDueDate: allocation.bill.dueDate,
-        billTotal: allocation.bill.total,
-        amountApplied: allocation.amountApplied,
-        billBalanceDue: allocation.bill.balanceDue,
+        billTotal: allocation.bill.transactionTotal ?? allocation.bill.total,
+        amountApplied: allocation.transactionAmountApplied ?? allocation.amountApplied,
+        billBalanceDue: allocation.bill.transactionBalanceDue ?? allocation.bill.balanceDue,
         status: allocation.reversedAt ? "Reversed" : "Active",
         reversedAt: allocation.reversedAt,
         reversalReason: allocation.reversalReason,
@@ -344,6 +369,8 @@ export class SupplierPaymentService {
                 dueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -359,6 +386,8 @@ export class SupplierPaymentService {
                 dueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -379,8 +408,8 @@ export class SupplierPaymentService {
         paymentDate: payment.paymentDate,
         status: payment.status,
         currency: payment.currency,
-        amountPaid: moneyString(payment.amountPaid),
-        unappliedAmount: moneyString(payment.unappliedAmount),
+        amountPaid: moneyString(payment.transactionAmountPaid ?? payment.amountPaid),
+        unappliedAmount: moneyString(payment.transactionUnappliedAmount ?? payment.unappliedAmount),
         description: payment.description,
       },
       paidThroughAccount: payment.account,
@@ -389,18 +418,18 @@ export class SupplierPaymentService {
         billNumber: allocation.bill.billNumber,
         billDate: allocation.bill.billDate,
         billDueDate: allocation.bill.dueDate,
-        billTotal: moneyString(allocation.bill.total),
-        amountApplied: moneyString(allocation.amountApplied),
-        billBalanceDue: moneyString(allocation.bill.balanceDue),
+        billTotal: moneyString(allocation.bill.transactionTotal ?? allocation.bill.total),
+        amountApplied: moneyString(allocation.transactionAmountApplied ?? allocation.amountApplied),
+        billBalanceDue: moneyString(allocation.bill.transactionBalanceDue ?? allocation.bill.balanceDue),
       })),
       unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
         billId: allocation.billId,
         billNumber: allocation.bill.billNumber,
         billDate: allocation.bill.billDate,
         billDueDate: allocation.bill.dueDate,
-        billTotal: moneyString(allocation.bill.total),
-        amountApplied: moneyString(allocation.amountApplied),
-        billBalanceDue: moneyString(allocation.bill.balanceDue),
+        billTotal: moneyString(allocation.bill.transactionTotal ?? allocation.bill.total),
+        amountApplied: moneyString(allocation.transactionAmountApplied ?? allocation.amountApplied),
+        billBalanceDue: moneyString(allocation.bill.transactionBalanceDue ?? allocation.bill.balanceDue),
         status: allocation.reversedAt ? "Reversed" : "Active",
         reversedAt: allocation.reversedAt,
         reversalReason: allocation.reversalReason,
@@ -438,30 +467,34 @@ export class SupplierPaymentService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSupplierPaymentDto) {
-    const amountPaid = this.assertPositiveMoney(dto.amountPaid, "Amount paid");
+    const transactionAmountPaid = this.assertPositiveMoney(dto.amountPaid, "Amount paid");
     const allocations = dto.allocations ?? [];
     this.assertAllocations(allocations);
 
     const totalAllocated = allocations.reduce((sum, allocation) => sum.plus(allocation.amountApplied), toMoney(0));
-    if (totalAllocated.gt(amountPaid)) {
+    if (totalAllocated.gt(transactionAmountPaid)) {
       throw new BadRequestException("Total allocations cannot exceed amount paid.");
     }
 
-    const unappliedAmount = amountPaid.minus(totalAllocated).toFixed(4);
+    const transactionUnappliedAmount = transactionAmountPaid.minus(totalAllocated).toFixed(4);
+    const idempotencyKey = this.cleanOptional(dto.idempotencyKey);
+    const requestHash = idempotencyKey ? this.requestFingerprint(dto) : null;
+    if (idempotencyKey) {
+      const prior = await this.prisma.supplierPayment.findUnique({
+        where: { organizationId_idempotencyKey: { organizationId, idempotencyKey } },
+      });
+      if (prior) {
+        if (prior.requestHash !== requestHash) {
+          throw new BadRequestException("Idempotency key was already used for a different supplier payment request.");
+        }
+        return this.get(organizationId, prior.id);
+      }
+    }
 
     const payment = await this.prisma.$transaction(async (tx) => {
       const paymentDate = new Date(dto.paymentDate);
       await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
-      const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(
-        organizationId,
-        dto.currency,
-        tx,
-      );
-      const currency =
-        guardedCurrency ??
-        (dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency.toUpperCase());
+      const fx = await this.resolvePaymentFxContext(organizationId, dto, tx);
       const supplier = await tx.contact.findFirst({
         where: {
           id: dto.supplierId,
@@ -489,7 +522,42 @@ export class SupplierPaymentService {
         throw new BadRequestException("Paid-through account must be an active posting asset account in this organization.");
       }
 
-      await this.validateBillsForAllocation(organizationId, supplier.id, currency, allocations, tx);
+      const bills = await this.validateBillsForAllocation(organizationId, supplier.id, fx.currency, fx.baseCurrency, allocations, tx);
+      const billById = new Map(bills.map((bill) => [bill.id, bill]));
+      const settlementBaseAmountPaid = convertTransactionToBaseAmount(transactionAmountPaid.toFixed(4), String(fx.exchangeRate));
+      let settlementTransactionOpen = transactionAmountPaid;
+      let settlementBaseOpen = toMoney(settlementBaseAmountPaid);
+      const allocationPlans = allocations.map((allocation) => {
+        const bill = billById.get(allocation.billId)!;
+        const recognitionRate = String(bill.exchangeRate ?? "1");
+        assertStoredDocumentFxPostingContext({
+          currency: bill.currency,
+          baseCurrency: bill.baseCurrency ?? fx.baseCurrency,
+          exchangeRate: recognitionRate,
+          rateDate: bill.rateDate ?? paymentDate,
+          rateSource: bill.rateSource ?? CurrencyRateSource.SYSTEM_RATE_1,
+        });
+        const calculated = allocateForeignSettlement({
+          direction: "SUPPLIER",
+          transactionAmount: allocation.amountApplied,
+          transactionOpenAmount: String(bill.transactionBalanceDue ?? bill.balanceDue),
+          baseOpenAmount: String(bill.balanceDue),
+          recognitionRate,
+          settlementRate: String(fx.exchangeRate),
+          settlementTransactionOpenAmount: settlementTransactionOpen.toFixed(4),
+          settlementBaseOpenAmount: settlementBaseOpen.toFixed(4),
+        });
+        settlementTransactionOpen = settlementTransactionOpen.minus(calculated.transactionAmount);
+        settlementBaseOpen = settlementBaseOpen.minus(calculated.settlementBaseAmount);
+        return { allocation, bill, recognitionRate, calculated };
+      });
+      const realizedGainAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedGainAmount), toMoney(0)).toFixed(4);
+      const realizedLossAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedLossAmount), toMoney(0)).toFixed(4);
+      if (!settlementTransactionOpen.eq(transactionUnappliedAmount) || settlementBaseOpen.lt(0)) {
+        throw new BadRequestException("Supplier payment allocation components do not reconcile to the payment total.");
+      }
+      const fxAccounts = await this.resolveRealizedFxAccounts(organizationId, realizedGainAmount, realizedLossAmount, tx);
+      const unappliedAmount = settlementBaseOpen.toFixed(4);
       const accountsPayableAccount = await this.findPostingAccountByCode(organizationId, "210", tx);
       const paymentNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PAYMENT, tx);
       const journalLines = buildSupplierPaymentJournalLines({
@@ -497,8 +565,24 @@ export class SupplierPaymentService {
         accountsPayableAccountId: accountsPayableAccount.id,
         paymentNumber,
         supplierName: supplier.displayName ?? supplier.name,
-        currency,
-        amountPaid: amountPaid.toFixed(4),
+        currency: fx.currency,
+        baseCurrency: fx.baseCurrency,
+        exchangeRate: String(fx.exchangeRate),
+        rateSnapshotId: fx.rateSnapshotId,
+        transactionAmountPaid: transactionAmountPaid.toFixed(4),
+        settlementBaseAmountPaid,
+        allocations: allocationPlans.map((plan) => ({
+          transactionAmountApplied: plan.calculated.transactionAmount,
+          documentBaseAmountApplied: plan.calculated.documentBaseAmount,
+          recognitionRate: plan.recognitionRate,
+          rateSnapshotId: plan.bill.rateSnapshotId ?? null,
+        })),
+        transactionUnappliedAmount,
+        unappliedBaseAmount: unappliedAmount,
+        realizedGainAmount,
+        realizedLossAmount,
+        realizedGainAccountId: fxAccounts.realizedGainAccountId,
+        realizedLossAccountId: fxAccounts.realizedLossAccountId,
       });
       const totals = getJournalTotals(journalLines);
       const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
@@ -510,7 +594,7 @@ export class SupplierPaymentService {
           entryDate: paymentDate,
           description: `Supplier payment ${paymentNumber} - ${supplier.displayName ?? supplier.name}`,
           reference: paymentNumber,
-          currency,
+          currency: fx.baseCurrency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt: new Date(),
@@ -526,14 +610,18 @@ export class SupplierPaymentService {
           paymentNumber,
           supplierId: supplier.id,
           paymentDate,
-          currency,
-          baseCurrency: currency,
-          exchangeRate: "1",
-          rateDate: paymentDate,
-          rateSource: CurrencyRateSource.SYSTEM_RATE_1,
-          amountPaid: amountPaid.toFixed(4),
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
+          amountPaid: settlementBaseAmountPaid,
           unappliedAmount,
-          transactionAmountPaid: amountPaid.toFixed(4),
+          transactionAmountPaid: transactionAmountPaid.toFixed(4),
+          transactionUnappliedAmount,
+          idempotencyKey,
+          requestHash,
           accountId: paidThroughAccount.id,
           description: this.cleanOptional(dto.description),
           journalEntryId: journalEntry.id,
@@ -543,17 +631,20 @@ export class SupplierPaymentService {
         select: { id: true },
       });
 
-      for (const allocation of allocations) {
-        const amount = toMoney(allocation.amountApplied).toFixed(4);
+      for (const plan of allocationPlans) {
         const billClaim = await tx.purchaseBill.updateMany({
           where: {
-            id: allocation.billId,
+            id: plan.allocation.billId,
             organizationId,
             supplierId: supplier.id,
             status: PurchaseBillStatus.FINALIZED,
-            balanceDue: { gte: amount },
+            balanceDue: { gte: plan.calculated.documentBaseAmount },
+            transactionBalanceDue: { gte: plan.calculated.transactionAmount },
           },
-          data: { balanceDue: { decrement: amount } },
+          data: {
+            balanceDue: { decrement: plan.calculated.documentBaseAmount },
+            transactionBalanceDue: { decrement: plan.calculated.transactionAmount },
+          },
         });
         if (billClaim.count !== 1) {
           throw new BadRequestException("Bill balance due is no longer sufficient for this supplier payment.");
@@ -562,9 +653,20 @@ export class SupplierPaymentService {
         await tx.supplierPaymentAllocation.create({
           data: {
             organization: { connect: { id: organizationId } },
-            payment: { connect: { id: created.id } },
-            bill: { connect: { id: allocation.billId } },
-            amountApplied: amount,
+            payment: { connect: { organizationId_id: { organizationId, id: created.id } } },
+            bill: { connect: { organizationId_id: { organizationId, id: plan.allocation.billId } } },
+            amountApplied: plan.calculated.documentBaseAmount,
+            transactionAmountApplied: plan.calculated.transactionAmount,
+            documentBaseAmountApplied: plan.calculated.documentBaseAmount,
+            settlementBaseAmountApplied: plan.calculated.settlementBaseAmount,
+            recognitionRate: plan.recognitionRate,
+            settlementRate: String(fx.exchangeRate),
+            realizedGainAmount: plan.calculated.realizedGainAmount,
+            realizedLossAmount: plan.calculated.realizedLossAmount,
+            realizedFxJournalEntry:
+              toMoney(plan.calculated.realizedGainAmount).gt(0) || toMoney(plan.calculated.realizedLossAmount).gt(0)
+                ? { connect: { organizationId_id: { organizationId, id: journalEntry.id } } }
+                : undefined,
           },
         });
       }
@@ -581,15 +683,35 @@ export class SupplierPaymentService {
     const existing = await this.get(organizationId, id);
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const idempotencyKey = this.cleanOptional(dto.idempotencyKey);
+      if (idempotencyKey) {
+        const prior = await tx.supplierPaymentUnappliedAllocation.findUnique({
+          where: { organizationId_idempotencyKey: { organizationId, idempotencyKey } },
+        });
+        if (prior) {
+          if (
+            prior.paymentId !== id || prior.billId !== dto.billId || prior.reversedAt ||
+            !toMoney(prior.transactionAmountApplied).eq(amountApplied)
+          ) {
+            throw new BadRequestException("Idempotency key was already used for a different supplier payment allocation.");
+          }
+          return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
+        }
+      }
       const payment = await tx.supplierPayment.findFirst({
         where: { id, organizationId },
         select: {
           id: true,
           supplierId: true,
           currency: true,
+          baseCurrency: true,
+          exchangeRate: true,
+          paymentNumber: true,
           status: true,
           amountPaid: true,
           unappliedAmount: true,
+          transactionAmountPaid: true,
+          transactionUnappliedAmount: true,
         },
       });
       if (!payment) {
@@ -598,13 +720,16 @@ export class SupplierPaymentService {
       if (payment.status !== SupplierPaymentStatus.POSTED) {
         throw new BadRequestException("Only posted supplier payments can have unapplied amounts allocated.");
       }
-      if (amountApplied.gt(payment.unappliedAmount)) {
+      if (amountApplied.gt(payment.transactionUnappliedAmount ?? payment.unappliedAmount)) {
         throw new BadRequestException("Amount applied cannot exceed the supplier payment unapplied amount.");
       }
 
       const bill = await tx.purchaseBill.findFirst({
         where: { id: dto.billId, organizationId },
-        select: { id: true, supplierId: true, currency: true, status: true, total: true, balanceDue: true },
+        select: {
+          id: true, billNumber: true, supplierId: true, currency: true, baseCurrency: true, exchangeRate: true,
+          status: true, total: true, balanceDue: true, transactionTotal: true, transactionBalanceDue: true,
+        },
       });
       if (!bill) {
         throw new BadRequestException("Purchase bill must belong to this organization.");
@@ -612,27 +737,44 @@ export class SupplierPaymentService {
       if (bill.supplierId !== payment.supplierId) {
         throw new BadRequestException("Supplier payment and bill must belong to the same supplier.");
       }
-      if (bill.currency !== payment.currency) {
-        throw new BadRequestException(
-          "Supplier payment and bill currencies must match until realized FX accounting is available.",
-        );
+      if (bill.currency !== payment.currency || (bill.baseCurrency ?? bill.currency) !== (payment.baseCurrency ?? payment.currency)) {
+        throw new BadRequestException("Supplier payment and bill transaction/base currencies must match.");
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Supplier payment unapplied amounts can only be applied to finalized, non-voided bills.");
       }
-      if (amountApplied.gt(bill.balanceDue)) {
+      if (amountApplied.gt(bill.transactionBalanceDue ?? bill.balanceDue)) {
         throw new BadRequestException("Amount applied cannot exceed bill balance due.");
       }
 
-      const amount = amountApplied.toFixed(4);
+      const recognitionRate = String(bill.exchangeRate ?? "1");
+      const settlementRate = String(payment.exchangeRate ?? "1");
+      const calculated = allocateForeignSettlement({
+        direction: "SUPPLIER", transactionAmount: amountApplied.toFixed(4),
+        transactionOpenAmount: String(bill.transactionBalanceDue ?? bill.balanceDue), baseOpenAmount: String(bill.balanceDue),
+        recognitionRate, settlementRate,
+        settlementTransactionOpenAmount: String(payment.transactionUnappliedAmount ?? payment.unappliedAmount),
+        settlementBaseOpenAmount: String(payment.unappliedAmount),
+      });
+      const fxAccounts = await this.resolveRealizedFxAccounts(
+        organizationId, calculated.realizedGainAmount, calculated.realizedLossAmount, tx,
+      );
+      const hasRealizedFx = toMoney(calculated.realizedGainAmount).gt(0) || toMoney(calculated.realizedLossAmount).gt(0);
+      const accountsPayableAccount = hasRealizedFx ? await this.findPostingAccountByCode(organizationId, "210", tx) : { id: "" };
+      const adjustmentDate = new Date();
+      if (hasRealizedFx) await this.assertPostingDateAllowed(organizationId, adjustmentDate, tx);
       const paymentClaim = await tx.supplierPayment.updateMany({
         where: {
           id,
           organizationId,
           status: SupplierPaymentStatus.POSTED,
-          unappliedAmount: { gte: amount },
+          unappliedAmount: { gte: calculated.settlementBaseAmount },
+          transactionUnappliedAmount: { gte: calculated.transactionAmount },
         },
-        data: { unappliedAmount: { decrement: amount } },
+        data: {
+          unappliedAmount: { decrement: calculated.settlementBaseAmount },
+          transactionUnappliedAmount: { decrement: calculated.transactionAmount },
+        },
       });
       if (paymentClaim.count !== 1) {
         throw new BadRequestException("Supplier payment unapplied amount is no longer sufficient.");
@@ -644,25 +786,48 @@ export class SupplierPaymentService {
           organizationId,
           supplierId: payment.supplierId,
           status: PurchaseBillStatus.FINALIZED,
-          balanceDue: { gte: amount },
+          balanceDue: { gte: calculated.documentBaseAmount },
+          transactionBalanceDue: { gte: calculated.transactionAmount },
         },
-        data: { balanceDue: { decrement: amount } },
+        data: {
+          balanceDue: { decrement: calculated.documentBaseAmount },
+          transactionBalanceDue: { decrement: calculated.transactionAmount },
+        },
       });
       if (billClaim.count !== 1) {
         throw new BadRequestException("Bill balance due is no longer sufficient.");
       }
 
+      const realizedFxJournalEntryId = await this.createRealizedFxAdjustmentJournal({
+        organizationId, actorUserId,
+        reference: `${payment.paymentNumber ?? id}/${bill.billNumber ?? dto.billId}`,
+        baseCurrency: payment.baseCurrency ?? payment.currency,
+        clearingAccountId: accountsPayableAccount.id,
+        realizedGainAccountId: fxAccounts.realizedGainAccountId,
+        realizedLossAccountId: fxAccounts.realizedLossAccountId,
+        realizedGainAmount: calculated.realizedGainAmount,
+        realizedLossAmount: calculated.realizedLossAmount,
+        adjustmentDate,
+      }, tx);
       await tx.supplierPaymentUnappliedAllocation.create({
         data: {
           organization: { connect: { id: organizationId } },
-          payment: { connect: { id } },
-          bill: { connect: { id: dto.billId } },
-          amountApplied: amount,
+          payment: { connect: { organizationId_id: { organizationId, id } } },
+          bill: { connect: { organizationId_id: { organizationId, id: dto.billId } } },
+          amountApplied: calculated.documentBaseAmount,
+          transactionAmountApplied: calculated.transactionAmount,
+          documentBaseAmountApplied: calculated.documentBaseAmount,
+          settlementBaseAmountApplied: calculated.settlementBaseAmount,
+          recognitionRate,
+          settlementRate,
+          realizedGainAmount: calculated.realizedGainAmount,
+          realizedLossAmount: calculated.realizedLossAmount,
+          realizedFxJournalEntry: realizedFxJournalEntryId
+            ? { connect: { organizationId_id: { organizationId, id: realizedFxJournalEntryId } } }
+            : undefined,
+          idempotencyKey,
         },
       });
-
-      // Applying unapplied supplier payment credit is matching only. The
-      // original supplier payment already posted Dr AP / Cr cash-bank.
       return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
     });
 
@@ -689,14 +854,17 @@ export class SupplierPaymentService {
       const allocation = await tx.supplierPaymentUnappliedAllocation.findFirst({
         where: { id: allocationId, organizationId, paymentId: id },
         include: {
-          payment: { select: { id: true, status: true, amountPaid: true, unappliedAmount: true } },
-          bill: { select: { id: true, status: true, total: true, balanceDue: true } },
+          payment: { select: { id: true, status: true, amountPaid: true, unappliedAmount: true, transactionAmountPaid: true, transactionUnappliedAmount: true } },
+          bill: { select: { id: true, status: true, total: true, balanceDue: true, transactionTotal: true, transactionBalanceDue: true } },
         },
       });
       if (!allocation) {
         throw new NotFoundException("Supplier payment unapplied allocation not found.");
       }
       if (allocation.reversedAt) {
+        if (dto.idempotencyKey && allocation.reversalIdempotencyKey === this.cleanOptional(dto.idempotencyKey)) {
+          return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
+        }
         throw new BadRequestException("Supplier payment unapplied allocation has already been reversed.");
       }
       if (allocation.payment.status !== SupplierPaymentStatus.POSTED) {
@@ -706,15 +874,27 @@ export class SupplierPaymentService {
         throw new BadRequestException("Only finalized, non-voided bills can have supplier payment unapplied allocations reversed.");
       }
 
-      const amount = toMoney(allocation.amountApplied).toFixed(4);
-      const paymentUnappliedLimit = toMoney(allocation.payment.amountPaid).minus(amount).toFixed(4);
-      const billBalanceLimit = toMoney(allocation.bill.total).minus(amount).toFixed(4);
+      const documentBaseAmount = toMoney(allocation.documentBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const settlementBaseAmount = toMoney(allocation.settlementBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const transactionAmount = toMoney(allocation.transactionAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const paymentUnappliedLimit = toMoney(allocation.payment.amountPaid).minus(settlementBaseAmount).toFixed(4);
+      const paymentTransactionUnappliedLimit = toMoney(allocation.payment.transactionAmountPaid ?? allocation.payment.amountPaid)
+        .minus(transactionAmount).toFixed(4);
+      const billBalanceLimit = toMoney(allocation.bill.total).minus(documentBaseAmount).toFixed(4);
+      const billTransactionBalanceLimit = toMoney(allocation.bill.transactionTotal ?? allocation.bill.total)
+        .minus(transactionAmount).toFixed(4);
 
       if (toMoney(allocation.payment.unappliedAmount).gt(paymentUnappliedLimit)) {
         throw new BadRequestException("Supplier payment unapplied amount cannot exceed amount paid after reversal.");
       }
       if (toMoney(allocation.bill.balanceDue).gt(billBalanceLimit)) {
         throw new BadRequestException("Bill balance due cannot exceed bill total after reversal.");
+      }
+      if (toMoney(allocation.payment.transactionUnappliedAmount ?? allocation.payment.unappliedAmount).gt(paymentTransactionUnappliedLimit)) {
+        throw new BadRequestException("Supplier payment transaction unapplied amount cannot exceed transaction amount paid after reversal.");
+      }
+      if (toMoney(allocation.bill.transactionBalanceDue ?? allocation.bill.balanceDue).gt(billTransactionBalanceLimit)) {
+        throw new BadRequestException("Bill transaction balance due cannot exceed transaction total after reversal.");
       }
 
       const now = new Date();
@@ -724,10 +904,19 @@ export class SupplierPaymentService {
           reversedAt: now,
           reversedById: actorUserId,
           reversalReason: this.cleanOptional(dto.reason) ?? null,
+          reversalIdempotencyKey: this.cleanOptional(dto.idempotencyKey) ?? null,
         },
       });
       if (claim.count !== 1) {
         throw new BadRequestException("Supplier payment unapplied allocation has already been reversed.");
+      }
+
+      let realizedFxReversalJournalEntryId: string | null = null;
+      if (allocation.realizedFxJournalEntryId) {
+        await this.assertPostingDateAllowed(organizationId, now, tx);
+        realizedFxReversalJournalEntryId = await this.reverseRealizedFxAdjustmentJournal(
+          organizationId, actorUserId, allocation.realizedFxJournalEntryId, now, tx,
+        );
       }
 
       const paymentRestore = await tx.supplierPayment.updateMany({
@@ -736,8 +925,12 @@ export class SupplierPaymentService {
           organizationId,
           status: SupplierPaymentStatus.POSTED,
           unappliedAmount: { lte: paymentUnappliedLimit },
+          transactionUnappliedAmount: { lte: paymentTransactionUnappliedLimit },
         },
-        data: { unappliedAmount: { increment: amount } },
+        data: {
+          unappliedAmount: { increment: settlementBaseAmount },
+          transactionUnappliedAmount: { increment: transactionAmount },
+        },
       });
       if (paymentRestore.count !== 1) {
         throw new BadRequestException("Supplier payment unapplied amount could not be restored without exceeding amount paid.");
@@ -749,15 +942,27 @@ export class SupplierPaymentService {
           organizationId,
           status: PurchaseBillStatus.FINALIZED,
           balanceDue: { lte: billBalanceLimit },
+          transactionBalanceDue: { lte: billTransactionBalanceLimit },
         },
-        data: { balanceDue: { increment: amount } },
+        data: {
+          balanceDue: { increment: documentBaseAmount },
+          transactionBalanceDue: { increment: transactionAmount },
+        },
       });
       if (billRestore.count !== 1) {
         throw new BadRequestException("Bill balance due could not be restored without exceeding bill total.");
       }
 
-      // Reversal is matching-state restoration only. No journal entry is
-      // created because the original supplier payment journal remains valid.
+      if (realizedFxReversalJournalEntryId) {
+        await tx.supplierPaymentUnappliedAllocation.update({
+          where: { id: allocationId },
+          data: {
+            realizedFxReversalJournalEntry: {
+              connect: { organizationId_id: { organizationId, id: realizedFxReversalJournalEntryId } },
+            },
+          },
+        });
+      }
       return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
     });
 
@@ -785,7 +990,7 @@ export class SupplierPaymentService {
         include: {
           allocations: {
             include: {
-              bill: { select: { id: true, status: true, total: true, balanceDue: true } },
+              bill: { select: { id: true, status: true, total: true, balanceDue: true, transactionTotal: true, transactionBalanceDue: true } },
             },
           },
         },
@@ -831,16 +1036,22 @@ export class SupplierPaymentService {
         if (allocation.bill.status !== PurchaseBillStatus.FINALIZED) {
           throw new BadRequestException("Supplier payment can only be voided while allocated bills are finalized.");
         }
-        const amount = toMoney(allocation.amountApplied).toFixed(4);
+        const amount = toMoney(allocation.documentBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+        const transactionAmount = toMoney(allocation.transactionAmountApplied ?? allocation.amountApplied).toFixed(4);
         const balanceLimit = toMoney(allocation.bill.total).minus(amount).toFixed(4);
+        const transactionBalanceLimit = toMoney(allocation.bill.transactionTotal ?? allocation.bill.total).minus(transactionAmount).toFixed(4);
         const restore = await tx.purchaseBill.updateMany({
           where: {
             id: allocation.billId,
             organizationId,
             status: PurchaseBillStatus.FINALIZED,
             balanceDue: { lte: balanceLimit },
+            transactionBalanceDue: { lte: transactionBalanceLimit },
           },
-          data: { balanceDue: { increment: amount } },
+          data: {
+            balanceDue: { increment: amount },
+            transactionBalanceDue: { increment: transactionAmount },
+          },
         });
         if (restore.count !== 1) {
           throw new BadRequestException("Bill balance due could not be restored without exceeding bill total.");
@@ -882,11 +1093,12 @@ export class SupplierPaymentService {
     organizationId: string,
     supplierId: string,
     paymentCurrency: string,
+    paymentBaseCurrency: string,
     allocations: SupplierPaymentAllocationDto[],
     tx: Prisma.TransactionClient,
-  ): Promise<void> {
+  ) {
     if (allocations.length === 0) {
-      return;
+      return [];
     }
 
     const billIds = allocations.map((allocation) => allocation.billId);
@@ -896,7 +1108,11 @@ export class SupplierPaymentService {
 
     const bills = await tx.purchaseBill.findMany({
       where: { organizationId, id: { in: billIds } },
-      select: { id: true, supplierId: true, currency: true, status: true, balanceDue: true },
+      select: {
+        id: true, supplierId: true, currency: true, baseCurrency: true, status: true,
+        balanceDue: true, transactionBalanceDue: true, exchangeRate: true,
+        rateDate: true, rateSource: true, rateSnapshotId: true,
+      },
     });
     if (bills.length !== billIds.length) {
       throw new BadRequestException("Supplier payment bills must belong to this organization.");
@@ -915,18 +1131,19 @@ export class SupplierPaymentService {
       if (bill.supplierId !== supplierId) {
         throw new BadRequestException("Supplier payment bills must belong to the same supplier.");
       }
-      if (bill.currency !== paymentCurrency) {
+      if (bill.currency !== paymentCurrency || (bill.baseCurrency ?? bill.currency) !== paymentBaseCurrency) {
         throw new BadRequestException(
-          "Supplier payment and bill currencies must match until realized FX accounting is available.",
+          "Supplier payment and bill transaction/base currencies must match.",
         );
       }
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Supplier payments can only be allocated to finalized, non-voided bills.");
       }
-      if (amount.gt(bill.balanceDue)) {
+      if (amount.gt(bill.transactionBalanceDue ?? bill.balanceDue)) {
         throw new BadRequestException("Supplier payment allocation cannot exceed bill balance due.");
       }
     }
+    return bills;
   }
 
   private assertAllocations(allocations: SupplierPaymentAllocationDto[]): void {
@@ -952,6 +1169,109 @@ export class SupplierPaymentService {
       throw new BadRequestException(`Required posting account ${code} was not found.`);
     }
     return account;
+  }
+
+  private async resolvePaymentFxContext(
+    organizationId: string,
+    dto: CreateSupplierPaymentDto,
+    tx: Prisma.TransactionClient,
+  ): Promise<ResolvedDocumentFxContext> {
+    if (this.documentFxContextService) {
+      return this.documentFxContextService.resolve(organizationId, {
+        currency: dto.currency, documentDate: dto.paymentDate, exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate, rateSource: dto.rateSource, rateSnapshotId: dto.rateSnapshotId,
+      }, tx);
+    }
+    const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, dto.currency, tx);
+    const currency = guardedCurrency ?? (dto.currency === undefined
+      ? await resolveOrganizationBaseCurrency(organizationId, tx)
+      : dto.currency.toUpperCase());
+    return {
+      currency, baseCurrency: currency, exchangeRate: new Prisma.Decimal(1),
+      rateDate: new Date(dto.paymentDate), rateSource: CurrencyRateSource.SYSTEM_RATE_1, rateSnapshotId: null,
+    };
+  }
+
+  private async resolveRealizedFxAccounts(
+    organizationId: string,
+    realizedGainAmount: string,
+    realizedLossAmount: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ realizedGainAccountId: string | null; realizedLossAccountId: string | null }> {
+    if (toMoney(realizedGainAmount).eq(0) && toMoney(realizedLossAmount).eq(0)) {
+      return { realizedGainAccountId: null, realizedLossAccountId: null };
+    }
+    const configuration = await tx.fxAccountConfiguration.findUnique({
+      where: { organizationId }, select: { realizedGainAccountId: true, realizedLossAccountId: true },
+    });
+    const required = [
+      ...(toMoney(realizedGainAmount).gt(0) ? [{ id: configuration?.realizedGainAccountId, type: AccountType.REVENUE, label: "gain" }] : []),
+      ...(toMoney(realizedLossAmount).gt(0) ? [{ id: configuration?.realizedLossAccountId, type: AccountType.EXPENSE, label: "loss" }] : []),
+    ];
+    for (const account of required) {
+      if (!account.id || !(await tx.account.findFirst({
+        where: { id: account.id, organizationId, type: account.type, isActive: true, allowPosting: true }, select: { id: true },
+      }))) {
+        throw new BadRequestException(`Configure an active posting account for realized FX ${account.label} before posting this payment.`);
+      }
+    }
+    return {
+      realizedGainAccountId: configuration?.realizedGainAccountId ?? null,
+      realizedLossAccountId: configuration?.realizedLossAccountId ?? null,
+    };
+  }
+
+  private async createRealizedFxAdjustmentJournal(
+    input: {
+      organizationId: string; actorUserId: string; reference: string; baseCurrency: string; clearingAccountId: string;
+      realizedGainAccountId: string | null; realizedLossAccountId: string | null;
+      realizedGainAmount: string; realizedLossAmount: string; adjustmentDate: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    if (toMoney(input.realizedGainAmount).eq(0) && toMoney(input.realizedLossAmount).eq(0)) return null;
+    const lines = buildRealizedFxAdjustmentJournalLines(input);
+    const totals = getJournalTotals(lines);
+    const journal = await tx.journalEntry.create({ data: {
+      organizationId: input.organizationId,
+      entryNumber: await this.numberSequenceService.next(input.organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
+      status: JournalEntryStatus.POSTED, entryDate: input.adjustmentDate,
+      description: `Realized FX adjustment ${input.reference}`, reference: input.reference,
+      currency: input.baseCurrency, totalDebit: totals.debit, totalCredit: totals.credit,
+      postedAt: input.adjustmentDate, postedById: input.actorUserId, createdById: input.actorUserId,
+      lines: { create: this.toJournalLineCreateMany(input.organizationId, lines) },
+    } });
+    return journal.id;
+  }
+
+  private async reverseRealizedFxAdjustmentJournal(
+    organizationId: string, actorUserId: string, journalEntryId: string, reversalDate: Date, tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    const journalEntry = await tx.journalEntry.findFirst({
+      where: { id: journalEntryId, organizationId },
+      include: { lines: { orderBy: { lineNumber: "asc" } }, reversedBy: { select: { id: true } } },
+    });
+    if (!journalEntry) throw new NotFoundException("Realized FX adjustment journal not found.");
+    if (journalEntry.reversedBy) return journalEntry.reversedBy.id;
+    const reversalLines = createReversalLines(journalEntry.lines.map((line) => ({
+      accountId: line.accountId, debit: String(line.debit), credit: String(line.credit),
+      transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
+      description: line.description ?? undefined, currency: line.currency, exchangeRate: String(line.exchangeRate),
+      rateSnapshotId: line.rateSnapshotId, fxRoundingComponentCount: line.fxRoundingComponentCount,
+      functionalCurrencyOnly: line.functionalCurrencyOnly, taxRateId: line.taxRateId,
+    })));
+    const totals = getJournalTotals(reversalLines);
+    const reversal = await tx.journalEntry.create({ data: {
+      organizationId, entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
+      status: JournalEntryStatus.POSTED, entryDate: reversalDate,
+      description: `Reversal of realized FX adjustment ${journalEntry.entryNumber}`, reference: journalEntry.reference,
+      currency: journalEntry.currency, totalDebit: totals.debit, totalCredit: totals.credit,
+      postedAt: reversalDate, postedById: actorUserId, createdById: actorUserId, reversalOfId: journalEntry.id,
+      lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+    } });
+    await tx.journalEntry.update({ where: { id: journalEntry.id }, data: { status: JournalEntryStatus.REVERSED } });
+    return reversal.id;
   }
 
   private async createOrReuseReversalJournal(
@@ -983,6 +1303,11 @@ export class SupplierPaymentService {
         description: `Reversal: ${line.description ?? journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
+        rateSnapshotId: line.rateSnapshotId ?? null,
+        fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+        functionalCurrencyOnly: line.functionalCurrencyOnly ?? false,
         taxRateId: line.taxRateId,
       })),
     );
@@ -1031,12 +1356,21 @@ export class SupplierPaymentService {
       credit: String(line.credit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
+      rateSnapshot: line.rateSnapshotId ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } } : undefined,
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      functionalCurrencyOnly: line.functionalCurrencyOnly ?? false,
     }));
   }
 
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private requestFingerprint(value: unknown): string {
+    return createHash("sha256").update(stableJson(value)).digest("hex");
   }
 
   private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
@@ -1055,4 +1389,15 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function moneyString(value: unknown): string {
   return String(value ?? "0");
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }

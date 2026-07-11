@@ -12,9 +12,10 @@ interface DocumentCurrencyFieldsProps {
   transactionTotal: string;
   onChange: (value: DocumentFxFormValue) => void;
   disabled?: boolean;
+  postingContext?: "document" | "payment";
 }
 
-export function DocumentCurrencyFields({ baseCurrency, value, transactionTotal, onChange, disabled = false }: DocumentCurrencyFieldsProps) {
+export function DocumentCurrencyFields({ baseCurrency, value, transactionTotal, onChange, disabled = false, postingContext = "document" }: DocumentCurrencyFieldsProps) {
   const { tc } = useAppLocale();
   const [catalog, setCatalog] = useState<FxCurrencyCatalog | null>(null);
   const [rates, setRates] = useState<CurrencyRateSnapshot[]>([]);
@@ -105,8 +106,12 @@ export function DocumentCurrencyFields({ baseCurrency, value, transactionTotal, 
         <div className="mt-3 space-y-2">
           <StatusMessage type={documentFxIsComplete(value, baseCurrency) ? "info" : "error"}>
             {documentFxIsComplete(value, baseCurrency)
-              ? tc("Captured rate will remain editable while this document is a draft and will freeze when posted.")
-              : tc("Select a saved rate or enter a positive manual rate and rate date before saving.")}
+              ? postingContext === "payment"
+                ? tc("The captured payment rate will freeze when this payment is recorded.")
+                : tc("Captured rate will remain editable while this document is a draft and will freeze when posted.")
+              : postingContext === "payment"
+                ? tc("Select a saved rate or enter a positive manual rate and rate date before recording the payment.")
+                : tc("Select a saved rate or enter a positive manual rate and rate date before saving.")}
           </StatusMessage>
           <p className="text-xs text-steel">{tc("Transaction total")}: {transactionTotal} {value.currency} · {tc("Base equivalent")}: {baseEquivalent ?? "—"} {baseCurrency}</p>
         </div>

@@ -1,5 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { createReversalLines, getJournalTotals, JournalLineInput, toMoney } from "@ledgerbyte/accounting-core";
+import { createHash } from "node:crypto";
+import {
+  allocateForeignSettlement,
+  convertTransactionToBaseAmount,
+  createReversalLines,
+  getJournalTotals,
+  JournalLineInput,
+  toMoney,
+} from "@ledgerbyte/accounting-core";
 import { PaymentReceiptPdfData, renderPaymentReceiptPdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
@@ -21,6 +29,12 @@ import {
   BaseCurrencyPostingGuardService,
   resolveOrganizationBaseCurrency,
 } from "../foreign-exchange/base-currency-posting-guard.service";
+import {
+  assertStoredDocumentFxPostingContext,
+  DocumentFxContextService,
+  ResolvedDocumentFxContext,
+} from "../foreign-exchange/document-fx-context.service";
+import { buildRealizedFxAdjustmentJournalLines } from "../foreign-exchange/realized-fx-adjustment";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -52,6 +66,9 @@ const customerPaymentInclude = {
           issueDate: true,
           total: true,
           balanceDue: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          currency: true,
           status: true,
         },
       },
@@ -67,6 +84,9 @@ const customerPaymentInclude = {
           issueDate: true,
           total: true,
           balanceDue: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          currency: true,
           status: true,
         },
       },
@@ -100,6 +120,7 @@ export class CustomerPaymentService {
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
+    @Optional() private readonly documentFxContextService?: DocumentFxContextService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -201,15 +222,36 @@ export class CustomerPaymentService {
     const existing = await this.get(organizationId, id);
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const idempotencyKey = this.cleanOptional(dto.idempotencyKey);
+      if (idempotencyKey) {
+        const prior = await tx.customerPaymentUnappliedAllocation.findUnique({
+          where: { organizationId_idempotencyKey: { organizationId, idempotencyKey } },
+        });
+        if (prior) {
+          if (
+            prior.paymentId !== id || prior.invoiceId !== dto.invoiceId || prior.reversedAt ||
+            !toMoney(prior.transactionAmountApplied).eq(amountApplied)
+          ) {
+            throw new BadRequestException("Idempotency key was already used for a different customer payment allocation.");
+          }
+          return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
+        }
+      }
       const payment = await tx.customerPayment.findFirst({
         where: { id, organizationId },
         select: {
           id: true,
           customerId: true,
           currency: true,
+          baseCurrency: true,
+          exchangeRate: true,
+          rateSnapshotId: true,
+          paymentNumber: true,
           status: true,
           amountReceived: true,
           unappliedAmount: true,
+          transactionAmountReceived: true,
+          transactionUnappliedAmount: true,
           voidReversalJournalEntryId: true,
         },
       });
@@ -227,7 +269,7 @@ export class CustomerPaymentService {
           `Only posted customer payments can have unapplied amounts applied to invoices. Current payment status: ${payment.status}.`,
         );
       }
-      if (amountApplied.gt(payment.unappliedAmount)) {
+      if (amountApplied.gt(payment.transactionUnappliedAmount ?? payment.unappliedAmount)) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_UNAPPLIED);
       }
 
@@ -237,8 +279,13 @@ export class CustomerPaymentService {
           id: true,
           customerId: true,
           currency: true,
+          baseCurrency: true,
+          exchangeRate: true,
+          rateSnapshotId: true,
+          invoiceNumber: true,
           status: true,
           balanceDue: true,
+          transactionBalanceDue: true,
         },
       });
       if (!invoice) {
@@ -247,28 +294,52 @@ export class CustomerPaymentService {
       if (invoice.customerId !== payment.customerId) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.CUSTOMER_MISMATCH);
       }
-      if (invoice.currency !== payment.currency) {
-        throw new BadRequestException(
-          "Customer payment and invoice currencies must match until realized FX accounting is available.",
-        );
+      if (invoice.currency !== payment.currency || (invoice.baseCurrency ?? invoice.currency) !== (payment.baseCurrency ?? payment.currency)) {
+        throw new BadRequestException("Customer payment and invoice transaction/base currencies must match.");
       }
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.INVOICE_NOT_FINALIZED);
       }
-      if (amountApplied.gt(invoice.balanceDue)) {
+      if (amountApplied.gt(invoice.transactionBalanceDue ?? invoice.balanceDue)) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_INVOICE_BALANCE);
       }
 
-      const amount = amountApplied.toFixed(4);
+      const recognitionRate = String(invoice.exchangeRate ?? "1");
+      const settlementRate = String(payment.exchangeRate ?? "1");
+      const calculated = allocateForeignSettlement({
+        direction: "CUSTOMER",
+        transactionAmount: amountApplied.toFixed(4),
+        transactionOpenAmount: String(invoice.transactionBalanceDue ?? invoice.balanceDue),
+        baseOpenAmount: String(invoice.balanceDue),
+        recognitionRate,
+        settlementRate,
+        settlementTransactionOpenAmount: String(payment.transactionUnappliedAmount ?? payment.unappliedAmount),
+        settlementBaseOpenAmount: String(payment.unappliedAmount),
+      });
+      const fxAccounts = await this.resolveRealizedFxAccounts(
+        organizationId, calculated.realizedGainAmount, calculated.realizedLossAmount, tx,
+      );
+      const hasRealizedFx = toMoney(calculated.realizedGainAmount).gt(0) || toMoney(calculated.realizedLossAmount).gt(0);
+      const accountsReceivableAccount = hasRealizedFx
+        ? await this.findPostingAccountByCode(organizationId, "120", tx)
+        : { id: "" };
+      const adjustmentDate = new Date();
+      if (hasRealizedFx) {
+        await this.assertPostingDateAllowed(organizationId, adjustmentDate, tx);
+      }
       const paymentClaim = await tx.customerPayment.updateMany({
         where: {
           id,
           organizationId,
           status: CustomerPaymentStatus.POSTED,
           voidReversalJournalEntryId: null,
-          unappliedAmount: { gte: amount },
+          unappliedAmount: { gte: calculated.settlementBaseAmount },
+          transactionUnappliedAmount: { gte: calculated.transactionAmount },
         },
-        data: { unappliedAmount: { decrement: amount } },
+        data: {
+          unappliedAmount: { decrement: calculated.settlementBaseAmount },
+          transactionUnappliedAmount: { decrement: calculated.transactionAmount },
+        },
       });
       if (paymentClaim.count !== 1) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_UNAPPLIED);
@@ -280,22 +351,48 @@ export class CustomerPaymentService {
           organizationId,
           customerId: payment.customerId,
           status: SalesInvoiceStatus.FINALIZED,
-          balanceDue: { gte: amount },
+          balanceDue: { gte: calculated.documentBaseAmount },
+          transactionBalanceDue: { gte: calculated.transactionAmount },
         },
-        data: { balanceDue: { decrement: amount } },
+        data: {
+          balanceDue: { decrement: calculated.documentBaseAmount },
+          transactionBalanceDue: { decrement: calculated.transactionAmount },
+        },
       });
       if (invoiceClaim.count !== 1) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.AMOUNT_EXCEEDS_INVOICE_BALANCE);
       }
 
-      // Applying unapplied payment credit is matching only. The original payment
-      // journal already posted Dr Bank/Cash and Cr Accounts Receivable.
+      const realizedFxJournalEntryId = await this.createRealizedFxAdjustmentJournal({
+        organizationId,
+        actorUserId,
+        reference: `${payment.paymentNumber ?? id}/${invoice.invoiceNumber ?? dto.invoiceId}`,
+        baseCurrency: payment.baseCurrency ?? payment.currency,
+        clearingAccountId: accountsReceivableAccount.id,
+        realizedGainAccountId: fxAccounts.realizedGainAccountId,
+        realizedLossAccountId: fxAccounts.realizedLossAccountId,
+        realizedGainAmount: calculated.realizedGainAmount,
+        realizedLossAmount: calculated.realizedLossAmount,
+        adjustmentDate,
+      }, tx);
+
       await tx.customerPaymentUnappliedAllocation.create({
         data: {
           organization: { connect: { id: organizationId } },
-          payment: { connect: { id } },
-          invoice: { connect: { id: dto.invoiceId } },
-          amountApplied: amount,
+          payment: { connect: { organizationId_id: { organizationId, id } } },
+          invoice: { connect: { organizationId_id: { organizationId, id: dto.invoiceId } } },
+          amountApplied: calculated.documentBaseAmount,
+          transactionAmountApplied: calculated.transactionAmount,
+          documentBaseAmountApplied: calculated.documentBaseAmount,
+          settlementBaseAmountApplied: calculated.settlementBaseAmount,
+          recognitionRate,
+          settlementRate,
+          realizedGainAmount: calculated.realizedGainAmount,
+          realizedLossAmount: calculated.realizedLossAmount,
+          realizedFxJournalEntry: realizedFxJournalEntryId
+            ? { connect: { organizationId_id: { organizationId, id: realizedFxJournalEntryId } } }
+            : undefined,
+          idempotencyKey,
         },
       });
 
@@ -332,6 +429,8 @@ export class CustomerPaymentService {
               status: true,
               amountReceived: true,
               unappliedAmount: true,
+              transactionAmountReceived: true,
+              transactionUnappliedAmount: true,
               voidReversalJournalEntryId: true,
             },
           },
@@ -341,6 +440,8 @@ export class CustomerPaymentService {
               status: true,
               total: true,
               balanceDue: true,
+              transactionTotal: true,
+              transactionBalanceDue: true,
             },
           },
         },
@@ -350,6 +451,9 @@ export class CustomerPaymentService {
         throw new NotFoundException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_NOT_FOUND);
       }
       if (allocation.reversedAt) {
+        if (dto.idempotencyKey && allocation.reversalIdempotencyKey === this.cleanOptional(dto.idempotencyKey)) {
+          return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
+        }
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_ALREADY_REVERSED);
       }
       if (allocation.payment.status === CustomerPaymentStatus.VOIDED) {
@@ -365,15 +469,27 @@ export class CustomerPaymentService {
         throw new BadRequestException("Only finalized, non-voided invoices can have unapplied payment allocations reversed.");
       }
 
-      const amount = toMoney(allocation.amountApplied).toFixed(4);
-      const paymentUnappliedLimit = toMoney(allocation.payment.amountReceived).minus(amount).toFixed(4);
-      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(amount).toFixed(4);
+      const documentBaseAmount = toMoney(allocation.documentBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const settlementBaseAmount = toMoney(allocation.settlementBaseAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const transactionAmount = toMoney(allocation.transactionAmountApplied ?? allocation.amountApplied).toFixed(4);
+      const paymentUnappliedLimit = toMoney(allocation.payment.amountReceived).minus(settlementBaseAmount).toFixed(4);
+      const paymentTransactionUnappliedLimit = toMoney(allocation.payment.transactionAmountReceived ?? allocation.payment.amountReceived)
+        .minus(transactionAmount).toFixed(4);
+      const invoiceBalanceLimit = toMoney(allocation.invoice.total).minus(documentBaseAmount).toFixed(4);
+      const invoiceTransactionBalanceLimit = toMoney(allocation.invoice.transactionTotal ?? allocation.invoice.total)
+        .minus(transactionAmount).toFixed(4);
 
       if (toMoney(allocation.payment.unappliedAmount).gt(paymentUnappliedLimit)) {
         throw new BadRequestException("Payment unapplied amount cannot exceed amount received after reversal.");
       }
       if (toMoney(allocation.invoice.balanceDue).gt(invoiceBalanceLimit)) {
         throw new BadRequestException("Invoice balance due cannot exceed invoice total after reversal.");
+      }
+      if (toMoney(allocation.payment.transactionUnappliedAmount ?? allocation.payment.unappliedAmount).gt(paymentTransactionUnappliedLimit)) {
+        throw new BadRequestException("Payment transaction unapplied amount cannot exceed transaction amount received after reversal.");
+      }
+      if (toMoney(allocation.invoice.transactionBalanceDue ?? allocation.invoice.balanceDue).gt(invoiceTransactionBalanceLimit)) {
+        throw new BadRequestException("Invoice transaction balance due cannot exceed transaction total after reversal.");
       }
 
       const now = new Date();
@@ -383,10 +499,19 @@ export class CustomerPaymentService {
           reversedAt: now,
           reversedById: actorUserId,
           reversalReason: this.cleanOptional(dto.reason) ?? null,
+          reversalIdempotencyKey: this.cleanOptional(dto.idempotencyKey) ?? null,
         },
       });
       if (claim.count !== 1) {
         throw new BadRequestException(CUSTOMER_PAYMENT_MUTATION_ERRORS.ALLOCATION_ALREADY_REVERSED);
+      }
+
+      let realizedFxReversalJournalEntryId: string | null = null;
+      if (allocation.realizedFxJournalEntryId) {
+        await this.assertPostingDateAllowed(organizationId, now, tx);
+        realizedFxReversalJournalEntryId = await this.reverseRealizedFxAdjustmentJournal(
+          organizationId, actorUserId, allocation.realizedFxJournalEntryId, now, tx,
+        );
       }
 
       const paymentRestore = await tx.customerPayment.updateMany({
@@ -396,8 +521,12 @@ export class CustomerPaymentService {
           status: CustomerPaymentStatus.POSTED,
           voidReversalJournalEntryId: null,
           unappliedAmount: { lte: paymentUnappliedLimit },
+          transactionUnappliedAmount: { lte: paymentTransactionUnappliedLimit },
         },
-        data: { unappliedAmount: { increment: amount } },
+        data: {
+          unappliedAmount: { increment: settlementBaseAmount },
+          transactionUnappliedAmount: { increment: transactionAmount },
+        },
       });
       if (paymentRestore.count !== 1) {
         throw new BadRequestException("Payment unapplied amount could not be restored without exceeding amount received.");
@@ -409,15 +538,27 @@ export class CustomerPaymentService {
           organizationId,
           status: SalesInvoiceStatus.FINALIZED,
           balanceDue: { lte: invoiceBalanceLimit },
+          transactionBalanceDue: { lte: invoiceTransactionBalanceLimit },
         },
-        data: { balanceDue: { increment: amount } },
+        data: {
+          balanceDue: { increment: documentBaseAmount },
+          transactionBalanceDue: { increment: transactionAmount },
+        },
       });
       if (invoiceRestore.count !== 1) {
         throw new BadRequestException("Invoice balance due could not be restored without exceeding invoice total.");
       }
 
-      // Reversal restores matching state only. It does not create another
-      // journal entry because the original payment journal remains valid.
+      if (realizedFxReversalJournalEntryId) {
+        await tx.customerPaymentUnappliedAllocation.update({
+          where: { id: allocationId },
+          data: {
+            realizedFxReversalJournalEntry: {
+              connect: { organizationId_id: { organizationId, id: realizedFxReversalJournalEntryId } },
+            },
+          },
+        });
+      }
       return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
     });
 
@@ -470,6 +611,8 @@ export class CustomerPaymentService {
                 issueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -484,6 +627,8 @@ export class CustomerPaymentService {
                 issueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
                 status: true,
               },
             },
@@ -502,26 +647,26 @@ export class CustomerPaymentService {
       paymentDate: payment.paymentDate,
       customer: payment.customer,
       organization: payment.organization,
-      amountReceived: payment.amountReceived,
-      unappliedAmount: payment.unappliedAmount,
+      amountReceived: payment.transactionAmountReceived ?? payment.amountReceived,
+      unappliedAmount: payment.transactionUnappliedAmount ?? payment.unappliedAmount,
       currency: payment.currency,
       paidThroughAccount: payment.account,
       allocations: payment.allocations.map((allocation) => ({
         invoiceId: allocation.invoiceId,
         invoiceNumber: allocation.invoice.invoiceNumber,
         invoiceDate: allocation.invoice.issueDate,
-        invoiceTotal: allocation.invoice.total,
-        amountApplied: allocation.amountApplied,
-        invoiceBalanceDue: allocation.invoice.balanceDue,
+        invoiceTotal: allocation.invoice.transactionTotal ?? allocation.invoice.total,
+        amountApplied: allocation.transactionAmountApplied ?? allocation.amountApplied,
+        invoiceBalanceDue: allocation.invoice.transactionBalanceDue ?? allocation.invoice.balanceDue,
       })),
       unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
         id: allocation.id,
         invoiceId: allocation.invoiceId,
         invoiceNumber: allocation.invoice.invoiceNumber,
         invoiceDate: allocation.invoice.issueDate,
-        invoiceTotal: allocation.invoice.total,
-        amountApplied: allocation.amountApplied,
-        invoiceBalanceDue: allocation.invoice.balanceDue,
+        invoiceTotal: allocation.invoice.transactionTotal ?? allocation.invoice.total,
+        amountApplied: allocation.transactionAmountApplied ?? allocation.amountApplied,
+        invoiceBalanceDue: allocation.invoice.transactionBalanceDue ?? allocation.invoice.balanceDue,
         status: allocation.reversedAt ? "Reversed" : "Active",
         reversedAt: allocation.reversedAt,
         reversalReason: allocation.reversalReason,
@@ -571,6 +716,8 @@ export class CustomerPaymentService {
                 issueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
               },
             },
           },
@@ -585,6 +732,8 @@ export class CustomerPaymentService {
                 issueDate: true,
                 total: true,
                 balanceDue: true,
+                transactionTotal: true,
+                transactionBalanceDue: true,
                 status: true,
               },
             },
@@ -607,8 +756,8 @@ export class CustomerPaymentService {
         paymentDate: payment.paymentDate,
         status: payment.status,
         currency: payment.currency,
-        amountReceived: moneyString(payment.amountReceived),
-        unappliedAmount: moneyString(payment.unappliedAmount),
+        amountReceived: moneyString(payment.transactionAmountReceived ?? payment.amountReceived),
+        unappliedAmount: moneyString(payment.transactionUnappliedAmount ?? payment.unappliedAmount),
         description: payment.description,
       },
       paidThroughAccount: payment.account,
@@ -616,17 +765,17 @@ export class CustomerPaymentService {
         invoiceId: allocation.invoiceId,
         invoiceNumber: allocation.invoice.invoiceNumber,
         invoiceDate: allocation.invoice.issueDate,
-        invoiceTotal: moneyString(allocation.invoice.total),
-        amountApplied: moneyString(allocation.amountApplied),
-        invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+        invoiceTotal: moneyString(allocation.invoice.transactionTotal ?? allocation.invoice.total),
+        amountApplied: moneyString(allocation.transactionAmountApplied ?? allocation.amountApplied),
+        invoiceBalanceDue: moneyString(allocation.invoice.transactionBalanceDue ?? allocation.invoice.balanceDue),
       })),
       unappliedAllocations: payment.unappliedAllocations.map((allocation) => ({
         invoiceId: allocation.invoiceId,
         invoiceNumber: allocation.invoice.invoiceNumber,
         invoiceDate: allocation.invoice.issueDate,
-        invoiceTotal: moneyString(allocation.invoice.total),
-        amountApplied: moneyString(allocation.amountApplied),
-        invoiceBalanceDue: moneyString(allocation.invoice.balanceDue),
+        invoiceTotal: moneyString(allocation.invoice.transactionTotal ?? allocation.invoice.total),
+        amountApplied: moneyString(allocation.transactionAmountApplied ?? allocation.amountApplied),
+        invoiceBalanceDue: moneyString(allocation.invoice.transactionBalanceDue ?? allocation.invoice.balanceDue),
         status: allocation.reversedAt ? "Reversed" : "Active",
         reversedAt: allocation.reversedAt,
         reversalReason: allocation.reversalReason,
@@ -664,48 +813,91 @@ export class CustomerPaymentService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateCustomerPaymentDto) {
-    const amountReceived = this.assertPositiveMoney(dto.amountReceived, "Amount received");
+    const transactionAmountReceived = this.assertPositiveMoney(dto.amountReceived, "Amount received");
     this.assertAllocations(dto.allocations);
 
     const totalAllocated = dto.allocations.reduce((sum, allocation) => sum.plus(allocation.amountApplied), toMoney(0));
 
-    if (totalAllocated.gt(amountReceived)) {
+    if (totalAllocated.gt(transactionAmountReceived)) {
       throw new BadRequestException("Total allocations cannot exceed amount received.");
     }
 
-    const unappliedAmount = amountReceived.minus(totalAllocated).toFixed(4);
+    const transactionUnappliedAmount = transactionAmountReceived.minus(totalAllocated).toFixed(4);
+    const idempotencyKey = this.cleanOptional(dto.idempotencyKey);
+    const requestHash = idempotencyKey ? this.requestFingerprint(dto) : null;
+    if (idempotencyKey) {
+      const prior = await this.prisma.customerPayment.findUnique({
+        where: { organizationId_idempotencyKey: { organizationId, idempotencyKey } },
+      });
+      if (prior) {
+        if (prior.requestHash !== requestHash) {
+          throw new BadRequestException("Idempotency key was already used for a different customer payment request.");
+        }
+        return this.get(organizationId, prior.id);
+      }
+    }
     const payment = await this.prisma.$transaction(async (tx) => {
       const paymentDate = new Date(dto.paymentDate);
       await this.assertPostingDateAllowed(organizationId, paymentDate, tx);
-      const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(
-        organizationId,
-        dto.currency,
-        tx,
-      );
-      const currency =
-        guardedCurrency ??
-        (dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency.toUpperCase());
+      const fx = await this.resolvePaymentFxContext(organizationId, dto, tx);
       const [customer, paidThroughAccount] = await Promise.all([
         this.findCustomer(organizationId, dto.customerId, tx),
         this.findPaidThroughAccount(organizationId, dto.accountId, tx),
       ]);
-      await this.findAndValidateInvoices(organizationId, dto.customerId, currency, dto.allocations, tx);
+      const invoices = await this.findAndValidateInvoices(organizationId, dto.customerId, fx.currency, fx.baseCurrency, dto.allocations, tx);
+      const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+      const settlementBaseAmountReceived = convertTransactionToBaseAmount(transactionAmountReceived.toFixed(4), String(fx.exchangeRate));
+      let settlementTransactionOpen = transactionAmountReceived;
+      let settlementBaseOpen = toMoney(settlementBaseAmountReceived);
+      const allocationPlans = dto.allocations.map((allocation) => {
+        const invoice = invoiceById.get(allocation.invoiceId)!;
+        const recognitionRate = String(invoice.exchangeRate ?? "1");
+        assertStoredDocumentFxPostingContext({
+          currency: invoice.currency,
+          baseCurrency: invoice.baseCurrency ?? fx.baseCurrency,
+          exchangeRate: recognitionRate,
+          rateDate: invoice.rateDate ?? paymentDate,
+          rateSource: invoice.rateSource ?? CurrencyRateSource.SYSTEM_RATE_1,
+        });
+        const calculated = allocateForeignSettlement({
+          direction: "CUSTOMER",
+          transactionAmount: allocation.amountApplied,
+          transactionOpenAmount: String(invoice.transactionBalanceDue ?? invoice.balanceDue),
+          baseOpenAmount: String(invoice.balanceDue),
+          recognitionRate,
+          settlementRate: String(fx.exchangeRate),
+          settlementTransactionOpenAmount: settlementTransactionOpen.toFixed(4),
+          settlementBaseOpenAmount: settlementBaseOpen.toFixed(4),
+        });
+        settlementTransactionOpen = settlementTransactionOpen.minus(calculated.transactionAmount);
+        settlementBaseOpen = settlementBaseOpen.minus(calculated.settlementBaseAmount);
+        return { allocation, invoice, recognitionRate, calculated };
+      });
+
+      const realizedGainAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedGainAmount), toMoney(0)).toFixed(4);
+      const realizedLossAmount = allocationPlans.reduce((sum, plan) => sum.plus(plan.calculated.realizedLossAmount), toMoney(0)).toFixed(4);
+      if (!settlementTransactionOpen.eq(transactionUnappliedAmount) || settlementBaseOpen.lt(0)) {
+        throw new BadRequestException("Payment allocation components do not reconcile to the payment total.");
+      }
+      const fxAccounts = await this.resolveRealizedFxAccounts(organizationId, realizedGainAmount, realizedLossAmount, tx);
+      const unappliedAmount = settlementBaseOpen.toFixed(4);
 
       // Conditional balance updates are the allocation concurrency boundary.
-      // The row update locks each invoice and only succeeds while balanceDue
-      // can still cover the allocation, preventing negative balances.
-      for (const allocation of dto.allocations) {
+      // Both stored open balances must still cover the frozen allocation.
+      for (const plan of allocationPlans) {
         const updatedInvoice = await tx.salesInvoice.updateMany({
           where: {
-            id: allocation.invoiceId,
+            id: plan.allocation.invoiceId,
             organizationId,
             customerId: dto.customerId,
             status: SalesInvoiceStatus.FINALIZED,
-            balanceDue: { gte: allocation.amountApplied },
+            balanceDue: { gte: plan.calculated.documentBaseAmount },
+            transactionBalanceDue: { gte: plan.calculated.transactionAmount },
           },
-          data: { balanceDue: { decrement: allocation.amountApplied } },
+          data: {
+            balanceDue: { decrement: plan.calculated.documentBaseAmount },
+            transactionBalanceDue: { decrement: plan.calculated.transactionAmount },
+          },
         });
         if (updatedInvoice.count !== 1) {
           throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
@@ -719,9 +911,26 @@ export class CustomerPaymentService {
         accountsReceivableAccountId: accountsReceivableAccount.id,
         paymentNumber,
         customerName: customer.displayName ?? customer.name,
-        currency,
-        amountReceived: amountReceived.toFixed(4),
+        currency: fx.currency,
+        baseCurrency: fx.baseCurrency,
+        exchangeRate: String(fx.exchangeRate),
+        rateSnapshotId: fx.rateSnapshotId,
+        transactionAmountReceived: transactionAmountReceived.toFixed(4),
+        settlementBaseAmountReceived,
+        allocations: allocationPlans.map((plan) => ({
+          transactionAmountApplied: plan.calculated.transactionAmount,
+          documentBaseAmountApplied: plan.calculated.documentBaseAmount,
+          recognitionRate: plan.recognitionRate,
+          rateSnapshotId: plan.invoice.rateSnapshotId ?? null,
+        })),
+        transactionUnappliedAmount,
+        unappliedBaseAmount: unappliedAmount,
+        realizedGainAmount,
+        realizedLossAmount,
+        realizedGainAccountId: fxAccounts.realizedGainAccountId,
+        realizedLossAccountId: fxAccounts.realizedLossAccountId,
       });
+      const journalTotals = getJournalTotals(journalLines);
 
       const journalEntry = await tx.journalEntry.create({
         data: {
@@ -731,9 +940,9 @@ export class CustomerPaymentService {
           entryDate: paymentDate,
           description: `Customer payment ${paymentNumber} - ${customer.displayName ?? customer.name}`,
           reference: paymentNumber,
-          currency,
-          totalDebit: amountReceived.toFixed(4),
-          totalCredit: amountReceived.toFixed(4),
+          currency: fx.baseCurrency,
+          totalDebit: journalTotals.debit,
+          totalCredit: journalTotals.credit,
           postedAt: new Date(),
           postedById: actorUserId,
           createdById: actorUserId,
@@ -747,25 +956,40 @@ export class CustomerPaymentService {
           paymentNumber,
           customerId: dto.customerId,
           paymentDate,
-          currency,
-          baseCurrency: currency,
-          exchangeRate: "1",
-          rateDate: paymentDate,
-          rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           status: CustomerPaymentStatus.POSTED,
-          amountReceived: amountReceived.toFixed(4),
+          amountReceived: settlementBaseAmountReceived,
           unappliedAmount,
-          transactionAmountReceived: amountReceived.toFixed(4),
+          transactionAmountReceived: transactionAmountReceived.toFixed(4),
+          transactionUnappliedAmount,
+          idempotencyKey,
+          requestHash,
           description: this.cleanOptional(dto.description),
           accountId: dto.accountId,
           journalEntryId: journalEntry.id,
           createdById: actorUserId,
           postedAt: new Date(),
           allocations: {
-            create: dto.allocations.map((allocation) => ({
+            create: allocationPlans.map((plan) => ({
               organization: { connect: { id: organizationId } },
-              invoice: { connect: { id: allocation.invoiceId } },
-              amountApplied: allocation.amountApplied,
+              invoice: { connect: { organizationId_id: { organizationId, id: plan.allocation.invoiceId } } },
+              amountApplied: plan.calculated.documentBaseAmount,
+              transactionAmountApplied: plan.calculated.transactionAmount,
+              documentBaseAmountApplied: plan.calculated.documentBaseAmount,
+              settlementBaseAmountApplied: plan.calculated.settlementBaseAmount,
+              recognitionRate: plan.recognitionRate,
+              settlementRate: String(fx.exchangeRate),
+              realizedGainAmount: plan.calculated.realizedGainAmount,
+              realizedLossAmount: plan.calculated.realizedLossAmount,
+              realizedFxJournalEntryId:
+                toMoney(plan.calculated.realizedGainAmount).gt(0) || toMoney(plan.calculated.realizedLossAmount).gt(0)
+                  ? journalEntry.id
+                  : null,
             })),
           },
         },
@@ -863,7 +1087,7 @@ export class CustomerPaymentService {
           {
             paymentNumber: payment.paymentNumber,
             paymentDate: payment.paymentDate,
-            currency: payment.currency,
+            currency: payment.baseCurrency ?? payment.currency,
             reversalDate,
             journalEntry,
           },
@@ -873,7 +1097,10 @@ export class CustomerPaymentService {
       for (const allocation of payment.allocations) {
         await tx.salesInvoice.updateMany({
           where: { id: allocation.invoiceId, organizationId, status: SalesInvoiceStatus.FINALIZED },
-          data: { balanceDue: { increment: allocation.amountApplied } },
+          data: {
+            balanceDue: { increment: allocation.documentBaseAmountApplied ?? allocation.amountApplied },
+            transactionBalanceDue: { increment: allocation.transactionAmountApplied ?? allocation.amountApplied },
+          },
         });
       }
 
@@ -951,6 +1178,7 @@ export class CustomerPaymentService {
     organizationId: string,
     customerId: string,
     paymentCurrency: string,
+    paymentBaseCurrency: string,
     allocations: CreateCustomerPaymentDto["allocations"],
     executor: PrismaExecutor = this.prisma,
   ) {
@@ -966,7 +1194,17 @@ export class CustomerPaymentService {
         customerId,
         status: SalesInvoiceStatus.FINALIZED,
       },
-      select: { id: true, balanceDue: true, currency: true },
+      select: {
+        id: true,
+        balanceDue: true,
+        transactionBalanceDue: true,
+        currency: true,
+        baseCurrency: true,
+        exchangeRate: true,
+        rateDate: true,
+        rateSource: true,
+        rateSnapshotId: true,
+      },
     });
 
     if (invoices.length !== invoiceIds.length) {
@@ -977,12 +1215,16 @@ export class CustomerPaymentService {
     for (const allocation of allocations) {
       const invoice = invoicesById.get(allocation.invoiceId);
       const amountApplied = this.assertPositiveMoney(allocation.amountApplied, "Allocation amount");
-      if (invoice && invoice.currency !== paymentCurrency) {
+      if (invoice && (invoice.currency !== paymentCurrency || (invoice.baseCurrency ?? invoice.currency) !== paymentBaseCurrency)) {
         throw new BadRequestException(
-          "Customer payment and invoice currencies must match until realized FX accounting is available.",
+          "Customer payment and invoice transaction/base currencies must match.",
         );
       }
-      if (!invoice || amountApplied.gt(invoice.balanceDue)) {
+      if (!invoice) {
+        throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
+      }
+      const transactionBalanceDue = invoice.transactionBalanceDue ?? invoice.balanceDue;
+      if (amountApplied.gt(transactionBalanceDue)) {
         throw new BadRequestException("Allocation amount cannot exceed invoice balance due.");
       }
     }
@@ -1019,6 +1261,158 @@ export class CustomerPaymentService {
     return account;
   }
 
+  private async resolvePaymentFxContext(
+    organizationId: string,
+    dto: CreateCustomerPaymentDto,
+    tx: Prisma.TransactionClient,
+  ): Promise<ResolvedDocumentFxContext> {
+    if (this.documentFxContextService) {
+      return this.documentFxContextService.resolve(organizationId, {
+        currency: dto.currency,
+        documentDate: dto.paymentDate,
+        exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate,
+        rateSource: dto.rateSource,
+        rateSnapshotId: dto.rateSnapshotId,
+      }, tx);
+    }
+
+    // Compatibility for isolated unit construction. The application module
+    // always injects DocumentFxContextService before foreign posting is allowed.
+    const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, dto.currency, tx);
+    const currency = guardedCurrency ?? (dto.currency === undefined
+      ? await resolveOrganizationBaseCurrency(organizationId, tx)
+      : dto.currency.toUpperCase());
+    const paymentDate = new Date(dto.paymentDate);
+    return {
+      currency,
+      baseCurrency: currency,
+      exchangeRate: new Prisma.Decimal(1),
+      rateDate: paymentDate,
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+      rateSnapshotId: null,
+    };
+  }
+
+  private async resolveRealizedFxAccounts(
+    organizationId: string,
+    realizedGainAmount: string,
+    realizedLossAmount: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ realizedGainAccountId: string | null; realizedLossAccountId: string | null }> {
+    if (toMoney(realizedGainAmount).eq(0) && toMoney(realizedLossAmount).eq(0)) {
+      return { realizedGainAccountId: null, realizedLossAccountId: null };
+    }
+    const configuration = await tx.fxAccountConfiguration.findUnique({
+      where: { organizationId },
+      select: { realizedGainAccountId: true, realizedLossAccountId: true },
+    });
+    const required = [
+      ...(toMoney(realizedGainAmount).gt(0) ? [{ id: configuration?.realizedGainAccountId, type: AccountType.REVENUE, label: "gain" }] : []),
+      ...(toMoney(realizedLossAmount).gt(0) ? [{ id: configuration?.realizedLossAccountId, type: AccountType.EXPENSE, label: "loss" }] : []),
+    ];
+    for (const account of required) {
+      if (!account.id || !(await tx.account.findFirst({
+        where: { id: account.id, organizationId, type: account.type, isActive: true, allowPosting: true },
+        select: { id: true },
+      }))) {
+        throw new BadRequestException(`Configure an active posting account for realized FX ${account.label} before posting this payment.`);
+      }
+    }
+    return {
+      realizedGainAccountId: configuration?.realizedGainAccountId ?? null,
+      realizedLossAccountId: configuration?.realizedLossAccountId ?? null,
+    };
+  }
+
+  private async createRealizedFxAdjustmentJournal(
+    input: {
+      organizationId: string;
+      actorUserId: string;
+      reference: string;
+      baseCurrency: string;
+      clearingAccountId: string;
+      realizedGainAccountId: string | null;
+      realizedLossAccountId: string | null;
+      realizedGainAmount: string;
+      realizedLossAmount: string;
+      adjustmentDate: Date;
+    },
+    tx: Prisma.TransactionClient,
+  ): Promise<string | null> {
+    if (toMoney(input.realizedGainAmount).eq(0) && toMoney(input.realizedLossAmount).eq(0)) return null;
+    const lines = buildRealizedFxAdjustmentJournalLines(input);
+    const totals = getJournalTotals(lines);
+    const journal = await tx.journalEntry.create({
+      data: {
+        organizationId: input.organizationId,
+        entryNumber: await this.numberSequenceService.next(input.organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
+        status: JournalEntryStatus.POSTED,
+        entryDate: input.adjustmentDate,
+        description: `Realized FX adjustment ${input.reference}`,
+        reference: input.reference,
+        currency: input.baseCurrency,
+        totalDebit: totals.debit,
+        totalCredit: totals.credit,
+        postedAt: input.adjustmentDate,
+        postedById: input.actorUserId,
+        createdById: input.actorUserId,
+        lines: { create: this.toJournalLineCreateMany(input.organizationId, lines) },
+      },
+    });
+    return journal.id;
+  }
+
+  private async reverseRealizedFxAdjustmentJournal(
+    organizationId: string,
+    actorUserId: string,
+    journalEntryId: string,
+    reversalDate: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    const journalEntry = await tx.journalEntry.findFirst({
+      where: { id: journalEntryId, organizationId },
+      include: { lines: { orderBy: { lineNumber: "asc" } }, reversedBy: { select: { id: true } } },
+    });
+    if (!journalEntry) throw new NotFoundException("Realized FX adjustment journal not found.");
+    if (journalEntry.reversedBy) return journalEntry.reversedBy.id;
+    const reversalLines = createReversalLines(journalEntry.lines.map((line) => ({
+      accountId: line.accountId,
+      debit: String(line.debit),
+      credit: String(line.credit),
+      transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
+      description: line.description ?? undefined,
+      currency: line.currency,
+      exchangeRate: String(line.exchangeRate),
+      rateSnapshotId: line.rateSnapshotId,
+      fxRoundingComponentCount: line.fxRoundingComponentCount,
+      functionalCurrencyOnly: line.functionalCurrencyOnly,
+      taxRateId: line.taxRateId,
+    })));
+    const totals = getJournalTotals(reversalLines);
+    const reversal = await tx.journalEntry.create({
+      data: {
+        organizationId,
+        entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
+        status: JournalEntryStatus.POSTED,
+        entryDate: reversalDate,
+        description: `Reversal of realized FX adjustment ${journalEntry.entryNumber}`,
+        reference: journalEntry.reference,
+        currency: journalEntry.currency,
+        totalDebit: totals.debit,
+        totalCredit: totals.credit,
+        postedAt: reversalDate,
+        postedById: actorUserId,
+        createdById: actorUserId,
+        reversalOfId: journalEntry.id,
+        lines: { create: this.toJournalLineCreateMany(organizationId, reversalLines) },
+      },
+    });
+    await tx.journalEntry.update({ where: { id: journalEntry.id }, data: { status: JournalEntryStatus.REVERSED } });
+    return reversal.id;
+  }
+
   private async createReversalJournal(
     organizationId: string,
     actorUserId: string,
@@ -1038,6 +1432,11 @@ export class CustomerPaymentService {
           description: string | null;
           currency: string;
           exchangeRate: Prisma.Decimal;
+          transactionDebit: Prisma.Decimal | null;
+          transactionCredit: Prisma.Decimal | null;
+          rateSnapshotId: string | null;
+          fxRoundingComponentCount: number;
+          functionalCurrencyOnly: boolean;
           taxRateId: string | null;
         }>;
       };
@@ -1052,6 +1451,11 @@ export class CustomerPaymentService {
         description: line.description ?? undefined,
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
+        rateSnapshotId: line.rateSnapshotId ?? null,
+        fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+        functionalCurrencyOnly: line.functionalCurrencyOnly ?? false,
         taxRateId: line.taxRateId,
       })),
     );
@@ -1102,12 +1506,21 @@ export class CustomerPaymentService {
       credit: String(line.credit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
+      rateSnapshot: line.rateSnapshotId ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } } : undefined,
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      functionalCurrencyOnly: line.functionalCurrencyOnly ?? false,
     }));
   }
 
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private requestFingerprint(value: unknown): string {
+    return createHash("sha256").update(stableJson(value)).digest("hex");
   }
 
   private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
@@ -1131,4 +1544,15 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function moneyString(value: unknown): string {
   return String(value ?? "0");
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }

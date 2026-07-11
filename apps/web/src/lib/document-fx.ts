@@ -116,6 +116,87 @@ export function convertTransactionToBasePreview(amount: string, rate: string): s
   return `${padded.slice(0, -4)}.${padded.slice(-4)}`;
 }
 
+export interface RealizedFxPreviewAllocation {
+  transactionAmountApplied: string;
+  transactionBalanceDue: string;
+  baseBalanceDue: string;
+  recognitionRate: string;
+}
+
+export interface RealizedFxSettlementPreview {
+  gain: string;
+  loss: string;
+  net: string;
+}
+
+export function realizedFxSettlementPreview(
+  party: "customer" | "supplier",
+  settlementRate: string,
+  allocations: RealizedFxPreviewAllocation[],
+  settlementTransactionTotal?: string,
+): RealizedFxSettlementPreview | null {
+  const allocatedTransactionUnits = allocations.reduce((sum, allocation) => sum + (moneyUnits(allocation.transactionAmountApplied) ?? 0), 0);
+  let settlementTransactionRemaining = settlementTransactionTotal === undefined
+    ? allocatedTransactionUnits
+    : moneyUnits(settlementTransactionTotal);
+  if (settlementTransactionRemaining === null || settlementTransactionRemaining < allocatedTransactionUnits) return null;
+  const settlementBaseTotal = convertTransactionToBasePreview(formatMoneyUnits(settlementTransactionRemaining), settlementRate);
+  let settlementBaseRemaining = settlementBaseTotal ? moneyUnits(settlementBaseTotal) : null;
+  if (settlementBaseRemaining === null) return null;
+  let gainUnits = 0;
+  let lossUnits = 0;
+  for (const allocation of allocations) {
+    const transactionUnits = moneyUnits(allocation.transactionAmountApplied);
+    const openTransactionUnits = moneyUnits(allocation.transactionBalanceDue);
+    if (transactionUnits === null || openTransactionUnits === null || transactionUnits < 0 || transactionUnits > openTransactionUnits) return null;
+    if (transactionUnits === 0) continue;
+    if (transactionUnits > settlementTransactionRemaining) return null;
+    const proportionalSettlementBase = convertTransactionToBasePreview(allocation.transactionAmountApplied, settlementRate);
+    const proportionalSettlementUnits = proportionalSettlementBase ? moneyUnits(proportionalSettlementBase) : null;
+    if (proportionalSettlementUnits === null) return null;
+    const settlementUnits = transactionUnits === settlementTransactionRemaining
+      ? settlementBaseRemaining
+      : Math.min(proportionalSettlementUnits, settlementBaseRemaining);
+    const carryingBase = transactionUnits === openTransactionUnits
+      ? normalizeMoney(allocation.baseBalanceDue)
+      : convertTransactionToBasePreview(allocation.transactionAmountApplied, allocation.recognitionRate);
+    const carryingUnits = carryingBase ? moneyUnits(carryingBase) : null;
+    if (carryingUnits === null) return null;
+    settlementTransactionRemaining -= transactionUnits;
+    settlementBaseRemaining -= settlementUnits;
+    if (settlementBaseRemaining < 0) return null;
+    const difference = party === "customer" ? settlementUnits - carryingUnits : carryingUnits - settlementUnits;
+    if (difference > 0) gainUnits += difference;
+    if (difference < 0) lossUnits += -difference;
+  }
+  return {
+    gain: formatMoneyUnits(gainUnits),
+    loss: formatMoneyUnits(lossUnits),
+    net: formatMoneyUnits(gainUnits - lossUnits),
+  };
+}
+
+function normalizeMoney(value: string): string | null {
+  const units = moneyUnits(value);
+  return units === null ? null : formatMoneyUnits(units);
+}
+
+function moneyUnits(value: string): number | null {
+  const match = value.trim().match(/^([+-]?)(\d+)(?:\.(\d{1,4}))?$/);
+  if (!match) return null;
+  const sign = match[1] === "-" ? -1 : 1;
+  const whole = Number.parseInt(match[2] ?? "0", 10);
+  const fraction = Number.parseInt((match[3] ?? "").padEnd(4, "0") || "0", 10);
+  if (!Number.isSafeInteger(whole) || whole > Math.floor(Number.MAX_SAFE_INTEGER / 10_000)) return null;
+  return sign * (whole * 10_000 + fraction);
+}
+
+function formatMoneyUnits(units: number): string {
+  const sign = units < 0 ? "-" : "";
+  const absolute = Math.abs(units);
+  return `${sign}${Math.floor(absolute / 10_000)}.${String(absolute % 10_000).padStart(4, "0")}`;
+}
+
 function decimalParts(value: string, scale: number): { units: string } | null {
   const match = value.trim().match(/^\+?(\d+)(?:\.(\d+))?$/);
   if (!match || (match[2]?.length ?? 0) > scale) return null;

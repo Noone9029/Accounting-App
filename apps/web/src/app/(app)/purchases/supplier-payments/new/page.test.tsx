@@ -141,7 +141,7 @@ describe("NewSupplierPaymentPage", () => {
     expect(screen.getByText("الفاتورة المستلمة")).toBeInTheDocument();
     expect(screen.getByText("الرصيد المستحق")).toBeInTheDocument();
     expect(screen.getByText("الرصيد الكامل")).toBeInTheDocument();
-    expect(screen.getByText("ينشئ ترحيل دفعة المورد قيد دائنين واحدا. تخصيص الفاتورة يحدث أرصدة الفواتير فقط.")).toBeInTheDocument();
+    expect(screen.getByText("ينشئ ترحيل دفعة المورد قيدا متوازنا للذمم الدائنة ويثبت أدلة القيمة الدفترية والتسوية وفروق العملة المحققة لكل تخصيص.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "إلغاء" })).toHaveAttribute("href", "/suppliers/supplier-1");
     expect(screen.getByRole("button", { name: "تسجيل دفعة" })).toBeInTheDocument();
   });

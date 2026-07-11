@@ -305,7 +305,6 @@ describe("sales invoice rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
 
     await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "FINALIZED" });
-
     expect(generatedDocuments.archivePdf).not.toHaveBeenCalled();
     expect(generatedDocuments.archiveInvoicePdf).not.toHaveBeenCalled();
   });
@@ -349,6 +348,9 @@ describe("sales invoice rules", () => {
     jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
 
     await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "FINALIZED" });
+    expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ balanceDue: "385.6125", transactionBalanceDue: "105.0000" }),
+    }));
     expect(postingGuard.assertPostingAllowed).not.toHaveBeenCalled();
     expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -407,7 +409,7 @@ describe("sales invoice rules", () => {
     expect(tx.salesInvoice.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "invoice-1", organizationId: "org-1", status: "FINALIZED" },
-        data: expect.objectContaining({ status: "VOIDED", balanceDue: "0.0000" }),
+        data: expect.objectContaining({ status: "VOIDED", balanceDue: "0.0000", transactionBalanceDue: "0.0000" }),
       }),
     );
     expect(tx.salesInvoice.update).toHaveBeenCalledWith(expect.objectContaining({ data: { reversalJournalEntryId: "rev-1" } }));
@@ -817,8 +819,15 @@ describe("sales invoice rules", () => {
         issueDate: true,
         dueDate: true,
         currency: true,
+        baseCurrency: true,
+        exchangeRate: true,
+        rateDate: true,
+        rateSource: true,
+        rateSnapshotId: true,
         total: true,
         balanceDue: true,
+        transactionTotal: true,
+        transactionBalanceDue: true,
         customerId: true,
         status: true,
       },

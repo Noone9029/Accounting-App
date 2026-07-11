@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { DocumentCurrencyFields } from "@/components/forms/document-currency-fields";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { bankAccountOptionLabel } from "@/lib/bank-accounts";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { documentFxIsComplete, realizedFxSettlementPreview, type DocumentFxFormValue } from "@/lib/document-fx";
 import { calculateSupplierPaymentAllocationPreview, parseDecimalToUnits } from "@/lib/money";
 import { partyDetailHref, safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, BankAccountSummary, Contact, PurchaseBill, SupplierPayment } from "@/lib/types";
@@ -38,6 +40,7 @@ export default function NewSupplierPaymentPage() {
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
   const [accountId, setAccountId] = useState("");
   const [amountPaid, setAmountPaid] = useState("0.0000");
+  const [fx, setFx] = useState<DocumentFxFormValue>({ currency: "", exchangeRate: "", rateDate: todayInputValue(), rateSource: "MANUAL", rateSnapshotId: null });
   const [description, setDescription] = useState("");
   const [allocations, setAllocations] = useState<AllocationState[]>([]);
   const [loadingSetup, setLoadingSetup] = useState(false);
@@ -45,6 +48,7 @@ export default function NewSupplierPaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
+  const idempotencyKey = useRef(clientIdempotencyKey("supplier-payment"));
 
   const paidThroughAccounts = useMemo(
     () => accounts.filter((account) => account.isActive && account.allowPosting && account.type === "ASSET"),
@@ -56,15 +60,30 @@ export default function NewSupplierPaymentPage() {
         amountPaid,
         allocations.map((allocation) => ({
           amountApplied: allocation.amountApplied,
-          balanceDue: openBills.find((bill) => bill.id === allocation.billId)?.balanceDue ?? "0.0000",
+          balanceDue: openBills.find((bill) => bill.id === allocation.billId)?.transactionBalanceDue ?? openBills.find((bill) => bill.id === allocation.billId)?.balanceDue ?? "0.0000",
         })),
       ),
     [allocations, amountPaid, openBills],
   );
+  const realizedFxPreview = useMemo(() => realizedFxSettlementPreview("supplier", fx.exchangeRate, allocations.map((allocation) => {
+    const bill = openBills.find((candidate) => candidate.id === allocation.billId);
+    return {
+      transactionAmountApplied: allocation.amountApplied,
+      transactionBalanceDue: bill?.transactionBalanceDue ?? bill?.balanceDue ?? "0.0000",
+      baseBalanceDue: bill?.balanceDue ?? "0.0000",
+      recognitionRate: bill?.exchangeRate ?? "1",
+    };
+  }), amountPaid), [allocations, amountPaid, fx.exchangeRate, openBills]);
   const supplierContextReturnTo = supplierId ? returnTo || partyDetailHref("supplier", supplierId) : returnTo;
   const createBillHref = supplierId
     ? `/purchases/bills/new?supplierId=${encodeURIComponent(supplierId)}&returnTo=${encodeURIComponent(supplierContextReturnTo)}`
     : "/purchases/bills/new";
+
+  useEffect(() => {
+    if (baseCurrency && !fx.currency) {
+      setFx({ currency: baseCurrency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null });
+    }
+  }, [baseCurrency, fx.currency]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -149,11 +168,14 @@ export default function NewSupplierPaymentPage() {
         setAllocations(
           result.map((bill) => ({
             billId: bill.id,
-            amountApplied: preferredBill?.id === bill.id ? bill.balanceDue : "0.0000",
+            amountApplied: preferredBill?.id === bill.id ? (bill.transactionBalanceDue ?? bill.balanceDue) : "0.0000",
           })),
         );
         if (preferredBill) {
-          setAmountPaid((current) => (parseDecimalToUnits(current) <= 0 ? preferredBill.balanceDue : current));
+          setAmountPaid((current) => (parseDecimalToUnits(current) <= 0 ? (preferredBill.transactionBalanceDue ?? preferredBill.balanceDue) : current));
+          setFx(preferredBill.currency === baseCurrency
+            ? { currency: preferredBill.currency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null }
+            : { currency: preferredBill.currency, exchangeRate: "", rateDate: todayInputValue(), rateSource: "MANUAL", rateSnapshotId: null });
           preferredBillIdRef.current = "";
         }
       })
@@ -171,16 +193,16 @@ export default function NewSupplierPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, supplierId]);
+  }, [baseCurrency, organizationId, supplierId]);
 
   function updateAllocation(billId: string, amountApplied: string) {
     setAllocations((current) => current.map((allocation) => (allocation.billId === billId ? { ...allocation, amountApplied } : allocation)));
   }
 
   function applyFullBalance(bill: PurchaseBill) {
-    updateAllocation(bill.id, bill.balanceDue);
+    updateAllocation(bill.id, bill.transactionBalanceDue ?? bill.balanceDue);
     if (parseDecimalToUnits(amountPaid) <= 0) {
-      setAmountPaid(bill.balanceDue);
+      setAmountPaid(bill.transactionBalanceDue ?? bill.balanceDue);
     }
   }
 
@@ -221,9 +243,13 @@ export default function NewSupplierPaymentPage() {
     }
     const mismatchedBill = allocationsToSubmit
       .map((allocation) => openBills.find((bill) => bill.id === allocation.billId))
-      .find((bill) => bill && bill.currency !== baseCurrency);
+      .find((bill) => bill && (bill.currency !== fx.currency || (bill.baseCurrency ?? baseCurrency) !== baseCurrency));
     if (mismatchedBill) {
-      setError(tc("Bill {number} uses {currency}. Payments can be allocated only in the organization base currency {baseCurrency} during this phase.", { number: mismatchedBill.billNumber, currency: mismatchedBill.currency, baseCurrency }));
+      setError(tc("Bill {number} uses {currency}. Every allocation on this payment must use transaction currency {paymentCurrency} and base currency {baseCurrency}.", { number: mismatchedBill.billNumber, currency: mismatchedBill.currency, paymentCurrency: fx.currency, baseCurrency }));
+      return;
+    }
+    if (!documentFxIsComplete(fx, baseCurrency)) {
+      setError(tc("Complete the payment exchange rate, rate date, and source before recording this payment."));
       return;
     }
     const selectedBankProfile = bankProfiles.find((profile) => profile.accountId === accountId);
@@ -243,8 +269,13 @@ export default function NewSupplierPaymentPage() {
         method: "POST",
         body: {
           supplierId,
+          idempotencyKey: idempotencyKey.current,
           paymentDate: `${paymentDate}T00:00:00.000Z`,
-          currency: baseCurrency,
+          currency: fx.currency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           amountPaid,
           accountId,
           description: description || undefined,
@@ -315,6 +346,7 @@ export default function NewSupplierPaymentPage() {
               <span className="text-sm font-medium text-slate-700">{tc("Description")}</span>
               <input value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
             </label>
+            {baseCurrency ? <DocumentCurrencyFields baseCurrency={baseCurrency} value={fx} transactionTotal={amountPaid} onChange={setFx} disabled={submitting} postingContext="payment" /> : null}
           </div>
         </div>
 
@@ -352,8 +384,8 @@ export default function NewSupplierPaymentPage() {
                     <tr key={bill.id}>
                       <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{bill.billNumber}</bdi></td>
                       <td className="px-4 py-3 text-steel">{formatAppDate(bill.billDate, locale, "-")}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.total, bill.currency, locale)}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.balanceDue, bill.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.transactionTotal ?? bill.total, bill.currency, locale)}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(bill.transactionBalanceDue ?? bill.balanceDue, bill.currency, locale)}</td>
                       <td className="px-4 py-3">
                         <input inputMode="decimal" value={allocation?.amountApplied ?? "0.0000"} onChange={(event) => updateAllocation(bill.id, event.target.value)} className="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-palm" />
                       </td>
@@ -371,11 +403,13 @@ export default function NewSupplierPaymentPage() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-panel">
-          <p className="text-sm text-steel">{tc("Supplier payment posting creates one AP payment journal. Bill allocation only updates bill balances.")}</p>
+          <p className="text-sm text-steel">{tc("Supplier payment posting creates a balanced AP journal and freezes carrying, settlement, and realized FX evidence for each allocation.")}</p>
           <div className="min-w-[260px] space-y-2 text-sm">
-            <TotalRow label={tc("Amount paid")} value={baseCurrency ? formatAppMoney(preview.amountPaid, baseCurrency, locale) : "-"} />
-            <TotalRow label={tc("Allocated")} value={baseCurrency ? formatAppMoney(preview.totalAllocated, baseCurrency, locale) : "-"} />
-            <TotalRow label={tc("Unapplied")} value={baseCurrency ? formatAppMoney(preview.unappliedAmount, baseCurrency, locale) : "-"} strong />
+            <TotalRow label={tc("Amount paid")} value={fx.currency ? formatAppMoney(preview.amountPaid, fx.currency, locale) : "-"} />
+            <TotalRow label={tc("Allocated")} value={fx.currency ? formatAppMoney(preview.totalAllocated, fx.currency, locale) : "-"} />
+            <TotalRow label={tc("Unapplied")} value={fx.currency ? formatAppMoney(preview.unappliedAmount, fx.currency, locale) : "-"} strong />
+            <TotalRow label={tc("Estimated realized FX gain")} value={baseCurrency && realizedFxPreview ? formatAppMoney(realizedFxPreview.gain, baseCurrency, locale) : "-"} />
+            <TotalRow label={tc("Estimated realized FX loss")} value={baseCurrency && realizedFxPreview ? formatAppMoney(realizedFxPreview.loss, baseCurrency, locale) : "-"} />
           </div>
         </div>
 
@@ -383,7 +417,7 @@ export default function NewSupplierPaymentPage() {
           <Link href={returnTo || "/purchases/supplier-payments"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             {tc("Cancel")}
           </Link>
-          <button type="submit" disabled={!bankProfilesReady || loadingSetup || loadingBills || submitting || !organizationId || !baseCurrency} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+          <button type="submit" disabled={!bankProfilesReady || !baseCurrency || !documentFxIsComplete(fx, baseCurrency) || loadingSetup || loadingBills || submitting || !organizationId} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
             {submitting ? tc("Recording...") : tc("Record payment")}
           </button>
         </div>
@@ -422,7 +456,7 @@ function getValidationError(
     if (!bill) {
       return "Each allocation must reference an open bill.";
     }
-    if (parseDecimalToUnits(allocation.amountApplied) > parseDecimalToUnits(bill.balanceDue)) {
+    if (parseDecimalToUnits(allocation.amountApplied) > parseDecimalToUnits(bill.transactionBalanceDue ?? bill.balanceDue)) {
       return "Allocation cannot exceed bill balance due.";
     }
   }
@@ -431,4 +465,8 @@ function getValidationError(
     return "Total allocations cannot exceed amount paid.";
   }
   return "";
+}
+
+function clientIdempotencyKey(prefix: string): string {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }

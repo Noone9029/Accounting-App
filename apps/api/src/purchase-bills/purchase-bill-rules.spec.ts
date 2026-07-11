@@ -178,6 +178,7 @@ describe("purchase bill rules", () => {
           taxTotal: "15.0000",
           total: "115.0000",
           balanceDue: "115.0000",
+          transactionBalanceDue: "115.0000",
           notes: "OCR source: inbox upload 42",
           terms: "Net 30",
           lines: {
@@ -215,6 +216,9 @@ describe("purchase bill rules", () => {
       status: PurchaseBillStatus.FINALIZED,
       journalEntryId: "journal-1",
     });
+    expect(tx.purchaseBill.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ balanceDue: "115.0000", transactionBalanceDue: "115.0000" }),
+    }));
     expect(tx.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -447,6 +451,9 @@ describe("purchase bill rules", () => {
       status: PurchaseBillStatus.VOIDED,
       reversalJournalEntryId: "reversal-1",
     });
+    expect(tx.purchaseBill.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ balanceDue: "0.0000", transactionBalanceDue: "0.0000" }),
+    }));
 
     expect(tx.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
