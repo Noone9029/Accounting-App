@@ -3,6 +3,7 @@ import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
+  convertTransactionDocumentAmounts,
   createReversalLines,
   getJournalTotals,
   JournalLineInput,
@@ -27,8 +28,8 @@ import { GeneratedDocumentService, sanitizeFilename } from "../generated-documen
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import {
   BaseCurrencyPostingGuardService,
-  resolveOrganizationBaseCurrency,
 } from "../foreign-exchange/base-currency-posting-guard.service";
+import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -118,6 +119,7 @@ export class CreditNoteService {
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
+    @Optional() private readonly documentFxContextService?: DocumentFxContextService,
   ) {}
 
   list(organizationId: string) {
@@ -443,7 +445,7 @@ export class CreditNoteService {
     return updated;
   }
 
-  async pdfData(organizationId: string, id: string): Promise<CreditNotePdfData> {
+  async pdfData(organizationId: string, id: string): Promise<CreditNotePdfData & { accountingContext?: Prisma.InputJsonObject }> {
     const creditNote = await this.prisma.creditNote.findFirst({
       where: { id, organizationId },
       include: {
@@ -521,23 +523,23 @@ export class CreditNoteService {
         currency: creditNote.currency,
         notes: creditNote.notes,
         reason: creditNote.reason,
-        subtotal: moneyString(creditNote.subtotal),
-        discountTotal: moneyString(creditNote.discountTotal),
-        taxableTotal: moneyString(creditNote.taxableTotal),
-        taxTotal: moneyString(creditNote.taxTotal),
-        total: moneyString(creditNote.total),
-        unappliedAmount: moneyString(creditNote.unappliedAmount),
+        subtotal: moneyString(creditNote.transactionSubtotal ?? creditNote.subtotal),
+        discountTotal: moneyString(creditNote.transactionDiscountTotal ?? creditNote.discountTotal),
+        taxableTotal: moneyString(creditNote.transactionTaxableTotal ?? creditNote.taxableTotal),
+        taxTotal: moneyString(creditNote.transactionTaxTotal ?? creditNote.taxTotal),
+        total: moneyString(creditNote.transactionTotal ?? creditNote.total),
+        unappliedAmount: creditNote.status === CreditNoteStatus.DRAFT ? moneyString(creditNote.transactionTotal ?? creditNote.total) : moneyString(creditNote.unappliedAmount),
       },
       lines: creditNote.lines.map((line) => ({
         description: line.description,
         quantity: moneyString(line.quantity),
         unitPrice: moneyString(line.unitPrice),
         discountRate: moneyString(line.discountRate),
-        lineGrossAmount: moneyString(line.lineGrossAmount),
-        discountAmount: moneyString(line.discountAmount),
-        taxableAmount: moneyString(line.taxableAmount),
-        taxAmount: moneyString(line.taxAmount),
-        lineTotal: moneyString(line.lineTotal),
+        lineGrossAmount: moneyString(line.transactionLineGrossAmount ?? line.lineGrossAmount),
+        discountAmount: moneyString(line.transactionDiscountAmount ?? line.discountAmount),
+        taxableAmount: moneyString(line.transactionTaxableAmount ?? line.taxableAmount),
+        taxAmount: moneyString(line.transactionTaxAmount ?? line.taxAmount),
+        lineTotal: moneyString(line.transactionLineTotal ?? line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
       })),
       allocations: creditNote.allocations.map((allocation) => ({
@@ -552,6 +554,7 @@ export class CreditNoteService {
         reversalReason: allocation.reversalReason,
       })),
       journalEntry: creditNote.journalEntry,
+      accountingContext: documentFxArchiveContext(creditNote),
       generatedAt: new Date(),
     };
   }
@@ -574,6 +577,7 @@ export class CreditNoteService {
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: data.accountingContext,
     });
     return { data, buffer, filename, document: document ?? null };
   }
@@ -586,20 +590,17 @@ export class CreditNoteService {
   async create(organizationId: string, actorUserId: string, dto: CreateCreditNoteDto) {
     const prepared = await this.prepareCreditNote(organizationId, dto.lines);
     await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
-    await this.validateOriginalInvoiceReference(
-      organizationId,
-      dto.customerId,
-      dto.originalInvoiceId ?? undefined,
-      prepared.total,
-      undefined,
-      this.prisma,
-    );
-
     const creditNote = await this.prisma.$transaction(async (tx) => {
-      const currency =
-        dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency.toUpperCase();
+      const fx = await this.documentFxContext().resolve(organizationId, {
+        currency: dto.currency,
+        documentDate: dto.issueDate,
+        exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate,
+        rateSource: dto.rateSource,
+        rateSnapshotId: dto.rateSnapshotId,
+      }, tx);
+      await this.validateOriginalInvoiceReference(organizationId, dto.customerId, dto.originalInvoiceId ?? undefined, prepared.total, fx.currency, undefined, tx);
+      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
       const creditNoteNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CREDIT_NOTE, tx);
 
       return tx.creditNote.create({
@@ -610,17 +611,27 @@ export class CreditNoteService {
           originalInvoiceId: this.cleanOptional(dto.originalInvoiceId ?? undefined),
           branchId: this.cleanOptional(dto.branchId ?? undefined),
           issueDate: new Date(dto.issueDate),
-          currency,
-          subtotal: prepared.subtotal,
-          discountTotal: prepared.discountTotal,
-          taxableTotal: prepared.taxableTotal,
-          taxTotal: prepared.taxTotal,
-          total: prepared.total,
-          unappliedAmount: prepared.total,
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
+          subtotal: converted.totals.subtotal,
+          discountTotal: converted.totals.discountTotal,
+          taxableTotal: converted.totals.taxableTotal,
+          taxTotal: converted.totals.taxTotal,
+          total: converted.totals.total,
+          unappliedAmount: converted.totals.total,
+          transactionSubtotal: prepared.subtotal,
+          transactionDiscountTotal: prepared.discountTotal,
+          transactionTaxableTotal: prepared.taxableTotal,
+          transactionTaxTotal: prepared.taxTotal,
+          transactionTotal: prepared.total,
           notes: this.cleanOptional(dto.notes),
           reason: this.cleanOptional(dto.reason),
           createdById: actorUserId,
-          lines: { create: this.toLineCreateMany(organizationId, prepared.lines) },
+          lines: { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) },
         },
         include: creditNoteInclude,
       });
@@ -646,17 +657,26 @@ export class CreditNoteService {
       await this.validateHeaderReferences(organizationId, nextCustomerId, nextBranchId);
     }
 
-    const prepared = dto.lines ? await this.prepareCreditNote(organizationId, dto.lines) : null;
-    await this.validateOriginalInvoiceReference(
-      organizationId,
-      nextCustomerId,
-      nextOriginalInvoiceId,
-      prepared?.total ?? moneyString(existing.total),
-      id,
-      this.prisma,
-    );
-
+    const shouldRecalculate = Boolean(dto.lines) || dto.currency !== undefined || dto.exchangeRate !== undefined || dto.rateDate !== undefined || dto.rateSource !== undefined || dto.rateSnapshotId !== undefined || dto.issueDate !== undefined;
+    const recalculationLines = dto.lines ?? existing.lines?.map((line) => ({
+      itemId: line.itemId, description: line.description, accountId: line.accountId, quantity: String(line.quantity),
+      unitPrice: String(line.unitPrice), discountRate: String(line.discountRate), taxRateId: line.taxRateId, sortOrder: line.sortOrder,
+    }));
+    const prepared = shouldRecalculate ? await this.prepareCreditNote(organizationId, recalculationLines ?? []) : null;
     const updated = await this.prisma.$transaction(async (tx) => {
+      const fx = await this.documentFxContext().resolve(organizationId, {
+        currency: dto.currency ?? existing.currency,
+        documentDate: dto.issueDate ?? existing.issueDate,
+        exchangeRate: dto.exchangeRate ?? (existing.exchangeRate ? String(existing.exchangeRate) : undefined),
+        rateDate: dto.rateDate ?? existing.rateDate ?? undefined,
+        rateSource: dto.rateSource ?? existing.rateSource ?? undefined,
+        rateSnapshotId: dto.rateSnapshotId === undefined ? existing.rateSnapshotId : dto.rateSnapshotId,
+      }, tx);
+      await this.validateOriginalInvoiceReference(
+        organizationId, nextCustomerId, nextOriginalInvoiceId,
+        prepared?.total ?? moneyString(existing.transactionTotal), fx.currency, id, tx,
+      );
+      const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
         await tx.creditNoteLine.deleteMany({ where: { organizationId, creditNoteId: id } });
       }
@@ -668,16 +688,26 @@ export class CreditNoteService {
           originalInvoiceId: Object.prototype.hasOwnProperty.call(dto, "originalInvoiceId") ? nextOriginalInvoiceId ?? null : undefined,
           branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? nextBranchId ?? null : undefined,
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
-          currency: dto.currency?.toUpperCase(),
-          subtotal: prepared?.subtotal,
-          discountTotal: prepared?.discountTotal,
-          taxableTotal: prepared?.taxableTotal,
-          taxTotal: prepared?.taxTotal,
-          total: prepared?.total,
-          unappliedAmount: prepared?.total,
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
+          subtotal: converted?.totals.subtotal,
+          discountTotal: converted?.totals.discountTotal,
+          taxableTotal: converted?.totals.taxableTotal,
+          taxTotal: converted?.totals.taxTotal,
+          total: converted?.totals.total,
+          unappliedAmount: converted?.totals.total,
+          transactionSubtotal: prepared?.subtotal,
+          transactionDiscountTotal: prepared?.discountTotal,
+          transactionTaxableTotal: prepared?.taxableTotal,
+          transactionTaxTotal: prepared?.taxTotal,
+          transactionTotal: prepared?.total,
           notes: dto.notes === undefined ? undefined : this.cleanOptional(dto.notes),
           reason: dto.reason === undefined ? undefined : this.cleanOptional(dto.reason),
-          lines: prepared ? { create: this.toLineCreateMany(organizationId, prepared.lines) } : undefined,
+          lines: prepared && converted ? { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) } : undefined,
         },
         include: creditNoteInclude,
       });
@@ -756,7 +786,8 @@ export class CreditNoteService {
         organizationId,
         creditNote.customerId,
         creditNote.originalInvoiceId ?? undefined,
-        String(creditNote.total),
+        String(creditNote.transactionTotal),
+        creditNote.currency,
         id,
         tx,
       );
@@ -959,6 +990,7 @@ export class CreditNoteService {
     customerId: string,
     originalInvoiceId: string | undefined,
     creditNoteTotal: string,
+    currency: string,
     excludeCreditNoteId: string | undefined,
     executor: PrismaExecutor,
   ): Promise<void> {
@@ -968,7 +1000,7 @@ export class CreditNoteService {
 
     const invoice = await executor.salesInvoice.findFirst({
       where: { id: originalInvoiceId, organizationId },
-      select: { id: true, customerId: true, status: true, total: true },
+      select: { id: true, customerId: true, status: true, currency: true, transactionTotal: true },
     });
 
     if (!invoice) {
@@ -979,6 +1011,9 @@ export class CreditNoteService {
     }
     if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
       throw new BadRequestException("Original invoice must be finalized and not voided.");
+    }
+    if (invoice.currency !== currency) {
+      throw new BadRequestException("Credit-note currency must match the original invoice currency.");
     }
 
     const where: Prisma.CreditNoteWhereInput = {
@@ -992,10 +1027,10 @@ export class CreditNoteService {
 
     const existing = await executor.creditNote.aggregate({
       where,
-      _sum: { total: true },
+      _sum: { transactionTotal: true },
     });
-    const totalCredits = toMoney(existing._sum.total).plus(creditNoteTotal);
-    if (totalCredits.gt(invoice.total)) {
+    const totalCredits = toMoney(existing._sum.transactionTotal).plus(creditNoteTotal);
+    if (totalCredits.gt(invoice.transactionTotal)) {
       throw new BadRequestException("Total non-voided credit notes cannot exceed the original invoice total.");
     }
   }
@@ -1241,8 +1276,8 @@ export class CreditNoteService {
     }
   }
 
-  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.CreditNoteLineCreateWithoutCreditNoteInput[] {
-    return lines.map((line) => ({
+  private toLineCreateMany(organizationId: string, lines: PreparedLine[], baseLines: ReturnType<typeof convertTransactionDocumentAmounts>["lines"]): Prisma.CreditNoteLineCreateWithoutCreditNoteInput[] {
+    return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
@@ -1251,11 +1286,16 @@ export class CreditNoteService {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discountRate: line.discountRate,
-      lineGrossAmount: line.lineGrossAmount,
-      discountAmount: line.discountAmount,
-      taxableAmount: line.taxableAmount,
-      taxAmount: line.taxAmount,
-      lineTotal: line.lineTotal,
+      lineGrossAmount: baseLines[index]?.lineGrossAmount ?? "0.0000",
+      discountAmount: baseLines[index]?.discountAmount ?? "0.0000",
+      taxableAmount: baseLines[index]?.taxableAmount ?? "0.0000",
+      taxAmount: baseLines[index]?.taxAmount ?? "0.0000",
+      lineTotal: baseLines[index]?.lineTotal ?? "0.0000",
+      transactionLineGrossAmount: line.lineGrossAmount,
+      transactionDiscountAmount: line.discountAmount,
+      transactionTaxableAmount: line.taxableAmount,
+      transactionTaxAmount: line.taxAmount,
+      transactionLineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));
   }
@@ -1276,6 +1316,10 @@ export class CreditNoteService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private documentFxContext(): DocumentFxContextService {
+    return this.documentFxContextService ?? new DocumentFxContextService(this.prisma);
   }
 }
 

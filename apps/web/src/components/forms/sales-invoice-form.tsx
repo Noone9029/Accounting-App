@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { DocumentCurrencyFields } from "@/components/forms/document-currency-fields";
 import { ComplianceReadinessPanel, PanelSection, StatusBadge } from "@/components/ui-ledger";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { getLedgerByteEdition } from "@/lib/edition";
 import { calculateInvoicePreview } from "@/lib/money";
+import { DocumentFxFormValue, documentFxIsComplete } from "@/lib/document-fx";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, AccountType, Branch, Contact, Item, SalesInvoice, SalesInvoiceTaxMode, TaxRate } from "@/lib/types";
 
@@ -71,8 +73,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   const activeOrganization = useActiveOrganization();
   const organizationId = activeOrganization?.id ?? null;
   const baseCurrency = activeOrganization?.baseCurrency ?? null;
-  const documentCurrency = initialInvoice?.currency ?? baseCurrency;
-  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
+  const initialUsesBaseCurrency = Boolean(initialInvoice && baseCurrency && initialInvoice.currency === baseCurrency);
   const edition = getLedgerByteEdition();
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
@@ -104,6 +105,14 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
   const [invoiceNumberPreview, setInvoiceNumberPreview] = useState<InvoiceNumberPreview | null>(null);
+  const [fx, setFx] = useState<DocumentFxFormValue>(() => ({
+    currency: initialInvoice?.currency ?? "",
+    exchangeRate: initialInvoice?.exchangeRate ?? (initialUsesBaseCurrency || !initialInvoice ? "1" : ""),
+    rateDate: initialInvoice?.rateDate ? dateInputValue(initialInvoice.rateDate) : initialUsesBaseCurrency || !initialInvoice ? todayInputValue() : "",
+    rateSource: initialInvoice?.rateSource === "IMPORT" ? "IMPORT" : initialInvoice?.rateSource === "MANUAL" ? "MANUAL" : initialUsesBaseCurrency || !initialInvoice ? "SYSTEM_RATE_1" : "MANUAL",
+    rateSnapshotId: initialInvoice?.rateSnapshotId ?? null,
+  }));
+  const documentCurrency = fx.currency;
 
   const postingRevenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const activeSalesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
@@ -121,6 +130,12 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       ),
     [activeSalesTaxRates, lines, taxMode],
   );
+
+  useEffect(() => {
+    if (!initialInvoice && baseCurrency && !fx.currency) {
+      setFx({ currency: baseCurrency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null });
+    }
+  }, [baseCurrency, fx.currency, initialInvoice]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -221,8 +236,8 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       setError(tc("Select an organization with a base currency before saving this invoice."));
       return;
     }
-    if (currencyMismatch) {
-      setError(tc("This draft uses {currency}, which does not match the organization base currency {baseCurrency}. It was not changed or saved.", { currency: documentCurrency, baseCurrency: baseCurrency ?? "" }));
+    if (!baseCurrency || !documentFxIsComplete(fx, baseCurrency)) {
+      setError(tc("Complete the document currency and exchange-rate context before saving this invoice."));
       return;
     }
 
@@ -240,6 +255,10 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
         issueDate: `${issueDate}T00:00:00.000Z`,
         dueDate: dueDate ? `${dueDate}T00:00:00.000Z` : null,
         currency: documentCurrency,
+        exchangeRate: fx.exchangeRate,
+        rateDate: fx.rateDate,
+        rateSource: fx.rateSource,
+        rateSnapshotId: fx.rateSnapshotId,
         taxMode,
         notes: notes || undefined,
         terms: terms || undefined,
@@ -317,19 +336,10 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
             </span>
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">{tc("Currency")}</span>
-            <input
-              value={documentCurrency ?? ""}
-              readOnly
-              aria-label={tc("Currency")}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
-            />
-            <span className="mt-1 block text-xs leading-5 text-steel">{tc("Organization base currency. Foreign-currency invoices remain disabled until document-level FX is enabled.")}</span>
-          </label>
-          <label className="block">
             <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
             <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
+          {baseCurrency ? <DocumentCurrencyFields baseCurrency={baseCurrency} value={fx} transactionTotal={preview.total} onChange={setFx} disabled={submitting} /> : null}
           <label className="block">
             <span className="text-sm font-medium text-slate-700">{tc("Due date")}</span>
             <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
@@ -358,7 +368,6 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating invoices.")}</StatusMessage> : null}
-        {currencyMismatch ? <StatusMessage type="error">{tc("This draft uses {currency}, which does not match the organization base currency {baseCurrency}. It will not be rewritten automatically.", { currency: documentCurrency ?? "", baseCurrency: baseCurrency ?? "" })}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading invoice setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {!loading && organizationId && customers.length === 0 ? (
@@ -489,7 +498,7 @@ export function SalesInvoiceForm({ initialInvoice, initialCustomerId = "" }: Sal
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || loading || submitting || !preview.valid} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !baseCurrency || !documentFxIsComplete(fx, baseCurrency) || loading || submitting || !preview.valid} className="ledger-focus rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-palm-dark disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialInvoice ? tc("Save changes") : tc("Create draft invoice")}
         </button>
         <Link href={returnTo || "/sales/invoices"} className="rounded-md border border-slate-300 px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">

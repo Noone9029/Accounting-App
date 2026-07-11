@@ -11,6 +11,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { partyDetailHref } from "@/lib/parties";
 import { downloadPdf, purchaseDebitNotePdfPath } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -102,6 +103,11 @@ export default function PurchaseDebitNoteDetailPage() {
 
   async function runAction(action: "finalize" | "void") {
     if (!debitNote) {
+      return;
+    }
+
+    if (action === "finalize" && foreignDocumentPostingIsBlocked(debitNote)) {
+      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
       return;
     }
 
@@ -231,6 +237,9 @@ export default function PurchaseDebitNoteDetailPage() {
   const selectedBill = openBills.find((bill) => bill.id === selectedBillId);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
   const canFinalizeDebitNote = can(PERMISSIONS.purchaseDebitNotes.finalize);
+  const foreignPostingBlocked = debitNote ? foreignDocumentPostingIsBlocked(debitNote) : false;
+  const debitDisplayTotals = debitNote ? transactionDocumentDisplayTotals(debitNote) : null;
+  const debitDisplayUnapplied = debitNote?.status === "DRAFT" ? (debitDisplayTotals?.total ?? debitNote.total) : (debitNote?.unappliedAmount ?? "0");
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
@@ -271,7 +280,7 @@ export default function PurchaseDebitNoteDetailPage() {
             </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canFinalizeDebitNote ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -287,6 +296,10 @@ export default function PurchaseDebitNoteDetailPage() {
           ) : null}
         </div>
       </div>
+
+      {debitNote?.status === "DRAFT" && foreignPostingBlocked ? (
+        <p className="mb-4 text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load debit notes.")}</StatusMessage> : null}
@@ -318,9 +331,10 @@ export default function PurchaseDebitNoteDetailPage() {
               <Summary label={tc("Currency")} value={<bdi dir="ltr">{debitNote.currency}</bdi>} />
               <Summary label={tc("Original bill")} value={debitNote.originalBill ? <bdi dir="ltr">{debitNote.originalBill.billNumber}</bdi> : "-"} />
               <Summary label={tc("Branch")} value={debitNote.branch?.displayName ?? debitNote.branch?.name ?? "-"} />
-              <Summary label={tc("Total debit")} value={formatAppMoney(debitNote.total, debitNote.currency, locale)} />
+              <Summary label={tc("Total debit")} value={formatAppMoney(debitDisplayTotals?.total ?? debitNote.total, debitNote.currency, locale)} />
               <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, debitNote.currency, locale)} />
-              <Summary label={tc("Unapplied amount")} value={formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)} />
+              <Summary label={tc("Unapplied amount")} value={formatAppMoney(debitDisplayUnapplied, debitNote.currency, locale)} />
+              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(debitNote.total, debitNote.baseCurrency ?? debitNote.currency, locale)} /> : null}
               <Summary label={tc("Journal entry")} value={debitNote.journalEntry ? <bdi dir="ltr">{`${debitNote.journalEntry.entryNumber} (${debitNote.journalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Reversal journal")} value={debitNote.reversalJournalEntry ? <bdi dir="ltr">{`${debitNote.reversalJournalEntry.entryNumber} (${debitNote.reversalJournalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(debitNote.finalizedAt, locale, "-")} />
@@ -354,11 +368,11 @@ export default function PurchaseDebitNoteDetailPage() {
                     <td className="px-4 py-3 text-steel">{line.account ? <bdi dir="ltr">{`${line.account.code} ${line.account.name}`}</bdi> : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{line.quantity}</bdi></td>
                     <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, debitNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, debitNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, debitNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, debitNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, debitNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineGrossAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).discountAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxableAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxAmount, debitNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineTotal, debitNote.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -367,19 +381,19 @@ export default function PurchaseDebitNoteDetailPage() {
 
           <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="text-end font-mono">{formatAppMoney(debitNote.subtotal, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitDisplayTotals?.subtotal ?? debitNote.subtotal, debitNote.currency, locale)}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="text-end font-mono">{formatAppMoney(debitNote.discountTotal, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitDisplayTotals?.discountTotal ?? debitNote.discountTotal, debitNote.currency, locale)}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="text-end font-mono">{formatAppMoney(debitNote.taxableTotal, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitDisplayTotals?.taxableTotal ?? debitNote.taxableTotal, debitNote.currency, locale)}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="text-end font-mono">{formatAppMoney(debitNote.taxTotal, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(debitDisplayTotals?.taxTotal ?? debitNote.taxTotal, debitNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Total debit")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitNote.total, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitDisplayTotals?.total ?? debitNote.total, debitNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Applied amount")}</span>
             <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(appliedAmount, debitNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Unapplied amount")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(debitDisplayUnapplied, debitNote.currency, locale)}</span>
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
@@ -515,6 +529,9 @@ export function PurchaseDebitNoteWorkflowGuidance({
 }) {
   const hasUnapplied = Number(debitNote.unappliedAmount) > 0;
   const { locale, tc } = useAppLocale();
+  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(debitNote);
+  const displayTotals = transactionDocumentDisplayTotals(debitNote);
+  const displayUnapplied = debitNote.status === "DRAFT" ? displayTotals.total : debitNote.unappliedAmount;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -534,9 +551,9 @@ export function PurchaseDebitNoteWorkflowGuidance({
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-          <Summary label={tc("Total debit")} value={formatAppMoney(debitNote.total, debitNote.currency, locale)} />
+          <Summary label={tc("Total debit")} value={formatAppMoney(displayTotals.total, debitNote.currency, locale)} />
           <Summary label={tc("Applied to bills")} value={formatAppMoney(appliedAmount, debitNote.currency, locale)} />
-          <Summary label={tc("Unapplied")} value={formatAppMoney(debitNote.unappliedAmount, debitNote.currency, locale)} />
+          <Summary label={tc("Unapplied")} value={formatAppMoney(displayUnapplied, debitNote.currency, locale)} />
         </div>
       </div>
 
@@ -548,11 +565,14 @@ export function PurchaseDebitNoteWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading}
+              disabled={actionLoading || foreignPostingBlocked}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize debit note")}
             </button>
+          ) : null}
+          {debitNote.status === "DRAFT" && foreignPostingBlocked ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
           ) : null}
           {debitNote.originalBillId ? (
             <Link href={`/purchases/bills/${debitNote.originalBillId}`} className="rounded-md bg-palm px-3 py-2 text-center text-sm font-semibold text-white hover:bg-teal-800">

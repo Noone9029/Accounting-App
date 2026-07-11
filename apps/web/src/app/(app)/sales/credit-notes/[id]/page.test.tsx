@@ -107,6 +107,29 @@ describe("CreditNoteDetailPage UAE readiness", () => {
     expect(screen.getByText("XML الإشعار الدائن لزاتكا والتوقيع وتضمين PDF/A-3 والتخليص/الإبلاغ غير منفذة عمدا في هذا الإصدار الأولي.")).toBeInTheDocument();
     expect(screen.queryByText(/production submission is connected/i)).not.toBeInTheDocument();
   });
+
+  it("keeps a foreign-currency draft visibly fail-closed until FX journal posting is available", async () => {
+    mockAllowedPermissions = new Set(["creditNotes.view", "creditNotes.finalize"]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/credit-notes/credit-1") {
+        return Promise.resolve(creditNoteFixture({
+          status: "DRAFT",
+          finalizedAt: null,
+          journalEntryId: null,
+          journalEntry: null,
+          currency: "USD",
+          baseCurrency: "AED",
+          exchangeRate: "3.67250000",
+        }));
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<CreditNoteDetailPage />);
+
+    expect(await screen.findByRole("button", { name: "Finalize" })).toBeDisabled();
+    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+  });
 });
 
 function creditNoteFixture(overrides: Partial<CreditNote> = {}): CreditNote {

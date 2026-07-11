@@ -1,9 +1,10 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
 import { SalesInvoiceTaxMode } from "@prisma/client";
+import { DocumentFxContextDto } from "../../foreign-exchange/dto/document-fx-context.dto";
 import { SalesInvoiceLineDto } from "./sales-invoice-line.dto";
 
-export class CreateSalesInvoiceDto {
+export class CreateSalesInvoiceDto extends DocumentFxContextDto {
   @IsUUID()
   customerId!: string;
 
@@ -17,11 +18,6 @@ export class CreateSalesInvoiceDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  currency?: string;
 
   @IsOptional()
   @IsString()

@@ -3898,6 +3898,11 @@ export interface SalesInvoiceLine {
   taxAmount: string;
   lineSubtotal: string;
   lineTotal: string;
+  transactionLineGrossAmount?: string;
+  transactionDiscountAmount?: string;
+  transactionTaxableAmount?: string;
+  transactionTaxAmount?: string;
+  transactionLineTotal?: string;
   sortOrder: number;
   item?: { id: string; name: string; sku: string | null; inventoryTracking?: boolean } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
@@ -4006,13 +4011,18 @@ export interface CreditNoteLine {
   taxableAmount: string;
   taxAmount: string;
   lineTotal: string;
+  transactionLineGrossAmount?: string;
+  transactionDiscountAmount?: string;
+  transactionTaxableAmount?: string;
+  transactionTaxAmount?: string;
+  transactionLineTotal?: string;
   sortOrder: number;
   item?: { id: string; name: string; sku: string | null } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
-export interface CreditNote {
+export interface CreditNote extends DocumentFxFields, TransactionDocumentTotals {
   id: string;
   organizationId: string;
   creditNoteNumber: string;
@@ -4049,6 +4059,12 @@ export interface CustomerPayment {
   customerId: string;
   paymentDate: string;
   currency: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
+  transactionAmountReceived?: string;
   status: CustomerPaymentStatus;
   amountReceived: string;
   unappliedAmount: string;
@@ -4082,6 +4098,11 @@ export interface PurchaseBillLine {
   taxableAmount: string;
   taxAmount: string;
   lineTotal: string;
+  transactionLineGrossAmount?: string;
+  transactionDiscountAmount?: string;
+  transactionTaxableAmount?: string;
+  transactionTaxAmount?: string;
+  transactionLineTotal?: string;
   sortOrder: number;
   item?: { id: string; name: string; sku: string | null } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
@@ -4188,13 +4209,18 @@ export interface PurchaseDebitNoteLine {
   taxableAmount: string;
   taxAmount: string;
   lineTotal: string;
+  transactionLineGrossAmount?: string;
+  transactionDiscountAmount?: string;
+  transactionTaxableAmount?: string;
+  transactionTaxAmount?: string;
+  transactionLineTotal?: string;
   sortOrder: number;
   item?: { id: string; name: string; sku: string | null } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
-export interface PurchaseDebitNote {
+export interface PurchaseDebitNote extends DocumentFxFields, TransactionDocumentTotals {
   id: string;
   organizationId: string;
   debitNoteNumber: string;
@@ -4392,7 +4418,7 @@ export interface SupplierPaymentUnappliedAllocation {
   reversedBy?: { id: string; name: string; email: string } | null;
 }
 
-export interface PurchaseBill {
+export interface PurchaseBill extends DocumentFxFields, TransactionDocumentTotals {
   id: string;
   organizationId: string;
   billNumber: string;
@@ -4443,13 +4469,18 @@ export interface CashExpenseLine {
   taxableAmount: string;
   taxAmount: string;
   lineTotal: string;
+  transactionLineGrossAmount?: string;
+  transactionDiscountAmount?: string;
+  transactionTaxableAmount?: string;
+  transactionTaxAmount?: string;
+  transactionLineTotal?: string;
   sortOrder: number;
   item?: { id: string; name: string; sku: string | null } | null;
   account?: { id: string; code: string; name: string; type: AccountType };
   taxRate?: { id: string; name: string; rate: string } | null;
 }
 
-export interface CashExpense {
+export interface CashExpense extends DocumentFxFields, TransactionDocumentTotals {
   id: string;
   organizationId: string;
   expenseNumber: string;
@@ -4488,6 +4519,12 @@ export interface SupplierPayment {
   supplierId: string;
   paymentDate: string;
   currency: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
+  transactionAmountPaid?: string;
   status: SupplierPaymentStatus;
   amountPaid: string;
   unappliedAmount: string;
@@ -4515,6 +4552,12 @@ export interface SupplierRefund {
   sourceDebitNoteId: string | null;
   refundDate: string;
   currency: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
+  transactionAmountRefunded?: string;
   status: SupplierRefundStatus;
   amountRefunded: string;
   accountId: string;
@@ -4557,6 +4600,12 @@ export interface CustomerRefund {
   sourceCreditNoteId: string | null;
   refundDate: string;
   currency: string;
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
+  transactionAmountRefunded?: string;
   status: CustomerRefundStatus;
   amountRefunded: string;
   accountId: string;
@@ -5561,7 +5610,25 @@ export interface OpenPurchaseBill {
   supplierId: string;
 }
 
-export interface SalesInvoice {
+export type CurrencyRateSource = "MANUAL" | "IMPORT" | "SYSTEM_RATE_1" | "FUTURE_PROVIDER_DISABLED";
+
+export interface DocumentFxFields {
+  baseCurrency?: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: CurrencyRateSource | null;
+  rateSnapshotId?: string | null;
+}
+
+export interface TransactionDocumentTotals {
+  transactionSubtotal?: string;
+  transactionDiscountTotal?: string;
+  transactionTaxableTotal?: string;
+  transactionTaxTotal?: string;
+  transactionTotal?: string;
+}
+
+export interface SalesInvoice extends DocumentFxFields, TransactionDocumentTotals {
   id: string;
   organizationId: string;
   invoiceNumber: string;
@@ -5628,6 +5695,7 @@ export interface GeneratedDocument {
   contentHash: string;
   sizeBytes: number;
   status: GeneratedDocumentStatus;
+  accountingContextJson?: Record<string, unknown> | null;
   generatedById: string | null;
   generatedAt: string;
   createdAt: string;

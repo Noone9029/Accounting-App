@@ -57,6 +57,7 @@ describe("recurring invoice rules", () => {
         }),
       }),
     );
+    expect(tx.recurringInvoiceTemplate.create.mock.calls[0][0].data.lines.create[0]).not.toHaveProperty("transactionLineTotal");
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(tx.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "RecurringInvoiceTemplate", entityId: "rec-1" }));
@@ -144,7 +145,12 @@ describe("recurring invoice rules", () => {
           status: SalesInvoiceStatus.DRAFT,
           taxMode: SalesInvoiceTaxMode.TAX_EXCLUSIVE,
           balanceDue: decimal("115.0000"),
-          lines: expect.objectContaining({ create: [expect.objectContaining({ account: { connect: { id: "revenue-1" } } })] }),
+          lines: expect.objectContaining({ create: [expect.objectContaining({
+            account: { connect: { id: "revenue-1" } },
+            transactionLineGrossAmount: decimal("100.0000"),
+            transactionTaxAmount: decimal("15.0000"),
+            transactionLineTotal: decimal("115.0000"),
+          })] }),
         }),
       }),
     );
@@ -186,6 +192,23 @@ describe("recurring invoice rules", () => {
     jest.spyOn(service, "get").mockResolvedValue(makeTemplate({ status: RecurringInvoiceTemplateStatus.ACTIVE }) as never);
 
     await expect(service.generateNow("org-1", "user-1", "rec-1")).rejects.toThrow("already been generated");
+    expect(tx.salesInvoice.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps foreign recurring generation fail-closed until a captured document-rate workflow exists", async () => {
+    const tx = makeTransactionClient();
+    tx.recurringInvoiceTemplate.findFirst.mockResolvedValue({ ...makeTemplateForGeneration(), currency: "USD" });
+    const prisma = {
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-15", rate: decimal("15.0000") }]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const { service } = makeService(prisma);
+    jest.spyOn(service, "get").mockResolvedValue(makeTemplate({ status: RecurringInvoiceTemplateStatus.ACTIVE, currency: "USD" }) as never);
+
+    await expect(service.generateNow("org-1", "user-1", "rec-1")).rejects.toThrow(
+      "Foreign recurring invoice generation requires an explicit document rate and is not enabled yet.",
+    );
     expect(tx.salesInvoice.create).not.toHaveBeenCalled();
   });
 
@@ -238,6 +261,7 @@ function makeTransactionClient(overrides: Record<string, any> = {}) {
   const template = makeTemplate();
   const invoice = makeInvoice();
   return {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
     account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
     taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-15", rate: decimal("15.0000") }]) },
     journalEntry: { create: jest.fn() },

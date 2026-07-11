@@ -71,6 +71,24 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.queryByRole("link", { name: "Record supplier payment" })).not.toBeInTheDocument();
   });
 
+  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+    render(
+      <PurchaseBillWorkflowGuidance
+        bill={billFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" })}
+        actionLoading={false}
+        canFinalizeBill
+        canCreateSupplierPayment
+        canCreateDebitNote
+        canDownloadGeneratedDocuments
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize bill" })).toBeDisabled();
+    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+  });
+
   it("shows supplier payment, debit note, ledger, and AP report actions after posting", () => {
     render(
       <PurchaseBillWorkflowGuidance

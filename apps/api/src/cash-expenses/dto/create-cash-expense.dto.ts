@@ -1,8 +1,9 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { DocumentFxContextDto } from "../../foreign-exchange/dto/document-fx-context.dto";
 import { CashExpenseLineDto } from "./cash-expense-line.dto";
 
-export class CreateCashExpenseDto {
+export class CreateCashExpenseDto extends DocumentFxContextDto {
   @IsOptional()
   @IsUUID()
   contactId?: string | null;
@@ -13,11 +14,6 @@ export class CreateCashExpenseDto {
 
   @IsDateString()
   expenseDate!: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  currency?: string;
 
   @IsOptional()
   @IsString()

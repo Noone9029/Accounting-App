@@ -3,6 +3,7 @@ import {
   AccountingRuleError,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
+  convertTransactionDocumentAmounts,
   createReversalLines,
   getJournalTotals,
   JournalLineInput,
@@ -25,8 +26,8 @@ import { GeneratedDocumentService, sanitizeFilename } from "../generated-documen
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import {
   BaseCurrencyPostingGuardService,
-  resolveOrganizationBaseCurrency,
 } from "../foreign-exchange/base-currency-posting-guard.service";
+import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CashExpenseLineDto } from "./dto/cash-expense-line.dto";
@@ -96,6 +97,7 @@ export class CashExpenseService {
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
+    @Optional() private readonly documentFxContextService?: DocumentFxContextService,
   ) {}
 
   list(organizationId: string) {
@@ -138,16 +140,12 @@ export class CashExpenseService {
     const expense = await this.prisma.$transaction(async (tx) => {
       const expenseDate = new Date(dto.expenseDate);
       await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
-      const guardedCurrency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(
-        organizationId,
-        dto.currency,
-        tx,
-      );
-      const currency =
-        guardedCurrency ??
-        (dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency.toUpperCase());
+      const fx = await this.documentFxContext().resolve(organizationId, {
+        currency: dto.currency, documentDate: dto.expenseDate, exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate, rateSource: dto.rateSource, rateSnapshotId: dto.rateSnapshotId,
+      }, tx);
+      const currency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, fx.currency, tx) ?? fx.currency;
+      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
       const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
       const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
       const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
@@ -156,12 +154,12 @@ export class CashExpenseService {
         vatReceivableAccountId: vatReceivableAccount.id,
         expenseNumber,
         currency,
-        total: prepared.total,
-        taxTotal: prepared.taxTotal,
-        lines: prepared.lines.map((line) => ({
+        total: converted.totals.total,
+        taxTotal: converted.totals.taxTotal,
+        lines: prepared.lines.map((line, index) => ({
           accountId: line.accountId,
           description: line.description,
-          taxableAmount: line.taxableAmount,
+          taxableAmount: converted.lines[index]?.taxableAmount ?? "0.0000",
         })),
       });
       const totals = getJournalTotals(journalLines);
@@ -191,19 +189,29 @@ export class CashExpenseService {
           branchId: this.cleanOptional(dto.branchId ?? undefined) ?? null,
           expenseDate,
           currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           status: CashExpenseStatus.POSTED,
-          subtotal: prepared.subtotal,
-          discountTotal: prepared.discountTotal,
-          taxableTotal: prepared.taxableTotal,
-          taxTotal: prepared.taxTotal,
-          total: prepared.total,
+          subtotal: converted.totals.subtotal,
+          discountTotal: converted.totals.discountTotal,
+          taxableTotal: converted.totals.taxableTotal,
+          taxTotal: converted.totals.taxTotal,
+          total: converted.totals.total,
+          transactionSubtotal: prepared.subtotal,
+          transactionDiscountTotal: prepared.discountTotal,
+          transactionTaxableTotal: prepared.taxableTotal,
+          transactionTaxTotal: prepared.taxTotal,
+          transactionTotal: prepared.total,
           description: this.cleanOptional(dto.description),
           notes: this.cleanOptional(dto.notes),
           paidThroughAccountId: dto.paidThroughAccountId,
           createdById: actorUserId,
           postedAt: new Date(),
           journalEntryId: journalEntry.id,
-          lines: { create: this.toLineCreateMany(organizationId, prepared.lines) },
+          lines: { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) },
         },
         include: cashExpenseInclude,
       });
@@ -302,7 +310,7 @@ export class CashExpenseService {
     return { deleted: true };
   }
 
-  async pdfData(organizationId: string, id: string): Promise<CashExpensePdfData> {
+  async pdfData(organizationId: string, id: string): Promise<CashExpensePdfData & { accountingContext?: Prisma.InputJsonObject }> {
     const expense = await this.prisma.cashExpense.findFirst({
       where: { id, organizationId },
       include: {
@@ -357,11 +365,11 @@ export class CashExpenseService {
         currency: expense.currency,
         description: expense.description,
         notes: expense.notes,
-        subtotal: moneyString(expense.subtotal),
-        discountTotal: moneyString(expense.discountTotal),
-        taxableTotal: moneyString(expense.taxableTotal),
-        taxTotal: moneyString(expense.taxTotal),
-        total: moneyString(expense.total),
+        subtotal: moneyString(expense.transactionSubtotal ?? expense.subtotal),
+        discountTotal: moneyString(expense.transactionDiscountTotal ?? expense.discountTotal),
+        taxableTotal: moneyString(expense.transactionTaxableTotal ?? expense.taxableTotal),
+        taxTotal: moneyString(expense.transactionTaxTotal ?? expense.taxTotal),
+        total: moneyString(expense.transactionTotal ?? expense.total),
       },
       paidThroughAccount: expense.paidThroughAccount,
       lines: expense.lines.map((line) => ({
@@ -369,15 +377,16 @@ export class CashExpenseService {
         quantity: moneyString(line.quantity),
         unitPrice: moneyString(line.unitPrice),
         discountRate: moneyString(line.discountRate),
-        lineGrossAmount: moneyString(line.lineGrossAmount),
-        discountAmount: moneyString(line.discountAmount),
-        taxableAmount: moneyString(line.taxableAmount),
-        taxAmount: moneyString(line.taxAmount),
-        lineTotal: moneyString(line.lineTotal),
+        lineGrossAmount: moneyString(line.transactionLineGrossAmount ?? line.lineGrossAmount),
+        discountAmount: moneyString(line.transactionDiscountAmount ?? line.discountAmount),
+        taxableAmount: moneyString(line.transactionTaxableAmount ?? line.taxableAmount),
+        taxAmount: moneyString(line.transactionTaxAmount ?? line.taxAmount),
+        lineTotal: moneyString(line.transactionLineTotal ?? line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
       })),
       journalEntry: expense.journalEntry,
       voidReversalJournalEntry: expense.voidReversalJournalEntry,
+      accountingContext: documentFxArchiveContext(expense),
       generatedAt: new Date(),
     };
   }
@@ -400,6 +409,7 @@ export class CashExpenseService {
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: data.accountingContext,
     });
     return { data, buffer, filename, document: document ?? null };
   }
@@ -683,8 +693,8 @@ export class CashExpenseService {
     }
   }
 
-  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.CashExpenseLineCreateWithoutCashExpenseInput[] {
-    return lines.map((line) => ({
+  private toLineCreateMany(organizationId: string, lines: PreparedLine[], baseLines: ReturnType<typeof convertTransactionDocumentAmounts>["lines"]): Prisma.CashExpenseLineCreateWithoutCashExpenseInput[] {
+    return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
@@ -693,11 +703,16 @@ export class CashExpenseService {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discountRate: line.discountRate,
-      lineGrossAmount: line.lineGrossAmount,
-      discountAmount: line.discountAmount,
-      taxableAmount: line.taxableAmount,
-      taxAmount: line.taxAmount,
-      lineTotal: line.lineTotal,
+      lineGrossAmount: baseLines[index]?.lineGrossAmount ?? "0.0000",
+      discountAmount: baseLines[index]?.discountAmount ?? "0.0000",
+      taxableAmount: baseLines[index]?.taxableAmount ?? "0.0000",
+      taxAmount: baseLines[index]?.taxAmount ?? "0.0000",
+      lineTotal: baseLines[index]?.lineTotal ?? "0.0000",
+      transactionLineGrossAmount: line.lineGrossAmount,
+      transactionDiscountAmount: line.discountAmount,
+      transactionTaxableAmount: line.taxableAmount,
+      transactionTaxAmount: line.taxAmount,
+      transactionLineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));
   }
@@ -722,6 +737,10 @@ export class CashExpenseService {
 
   private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
     await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
+  }
+
+  private documentFxContext(): DocumentFxContextService {
+    return this.documentFxContextService ?? new DocumentFxContextService(this.prisma);
   }
 }
 

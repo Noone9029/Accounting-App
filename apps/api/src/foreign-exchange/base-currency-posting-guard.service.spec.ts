@@ -105,13 +105,29 @@ describe("base-currency posting guard coverage", () => {
     "recurring-invoices/recurring-invoice.service.ts",
   ])("does not hard-code SAR as the omitted currency fallback in %s", (relativePath) => {
     const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
+    const documentFxServices = new Set([
+      "sales-invoices/sales-invoice.service.ts",
+      "purchase-bills/purchase-bill.service.ts",
+      "credit-notes/credit-note.service.ts",
+      "purchase-debit-notes/purchase-debit-note.service.ts",
+      "cash-expenses/cash-expense.service.ts",
+    ]);
     expect(source).not.toMatch(/(?:\?\?|\|\|)\s*["']SAR["']/);
     expect(source).not.toContain("DEFAULT_BASE_CURRENCY");
     if (relativePath.includes("refunds/")) {
       expect(source).toContain("requestedCurrency ?? sourceCurrency");
+    } else if (documentFxServices.has(relativePath)) {
+      expect(source).toContain("DocumentFxContextService");
+      expect(source).toContain("documentFxContext().resolve");
     } else {
       expect(source).toContain("resolveOrganizationBaseCurrency");
     }
+  });
+
+  it("keeps the document FX resolver anchored to the tenant base-currency lookup", () => {
+    const source = readFileSync(resolve(__dirname, "document-fx-context.service.ts"), "utf8");
+    expect(source).toContain("resolveOrganizationBaseCurrency");
+    expect(source).toContain("const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, executor)");
   });
 
   it.each([

@@ -3,6 +3,7 @@ import { AccountingRuleError, calculateSalesInvoiceTotals } from "@ledgerbyte/ac
 import {
   AccountType,
   ContactType,
+  CurrencyRateSource,
   ItemStatus,
   NumberSequenceScope,
   Prisma,
@@ -440,6 +441,10 @@ export class RecurringInvoiceService {
 
       const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
       const invoiceDate = template.nextRunDate;
+      const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, tx);
+      if (template.currency.toUpperCase() !== baseCurrency) {
+        throw new BadRequestException("Foreign recurring invoice generation requires an explicit document rate and is not enabled yet.");
+      }
       const dueDate = addUtcDays(invoiceDate, template.paymentTermsDays);
       const periodCovered = this.periodForRun(invoiceDate, template.frequency, template.interval);
       const nextRunDate = advanceRunDate(template.nextRunDate, template.frequency, template.interval);
@@ -455,6 +460,10 @@ export class RecurringInvoiceService {
           issueDate: invoiceDate,
           dueDate,
           currency: template.currency,
+          baseCurrency,
+          exchangeRate: "1",
+          rateDate: invoiceDate,
+          rateSource: CurrencyRateSource.SYSTEM_RATE_1,
           status: SalesInvoiceStatus.DRAFT,
           taxMode: template.taxMode,
           subtotal: template.subtotal,
@@ -463,6 +472,11 @@ export class RecurringInvoiceService {
           taxTotal: template.taxTotal,
           total: template.total,
           balanceDue: template.total,
+          transactionSubtotal: template.subtotal,
+          transactionDiscountTotal: template.discountTotal,
+          transactionTaxableTotal: template.taxableTotal,
+          transactionTaxTotal: template.taxTotal,
+          transactionTotal: template.total,
           notes: template.notes,
           terms: template.terms,
           createdById: actorUserId,
@@ -888,6 +902,11 @@ export class RecurringInvoiceService {
       taxAmount: line.taxAmount,
       lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal,
+      transactionLineGrossAmount: line.lineGrossAmount,
+      transactionDiscountAmount: line.discountAmount,
+      transactionTaxableAmount: line.taxableAmount,
+      transactionTaxAmount: line.taxAmount,
+      transactionLineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));
   }

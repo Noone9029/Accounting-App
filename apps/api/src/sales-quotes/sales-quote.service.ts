@@ -4,6 +4,7 @@ import { SalesQuotePdfData, renderSalesQuotePdf } from "@ledgerbyte/pdf-core";
 import {
   AccountType,
   ContactType,
+  CurrencyRateSource,
   DocumentType,
   ItemStatus,
   NumberSequenceScope,
@@ -527,15 +528,24 @@ export class SalesQuoteService {
       );
 
       const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
+      const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, tx);
+      if (quote.currency.toUpperCase() !== baseCurrency) {
+        throw new BadRequestException("Foreign quote conversion requires an explicit invoice rate and is not enabled yet.");
+      }
+      const invoiceDate = new Date();
       const invoice = await tx.salesInvoice.create({
         data: {
           organizationId,
           invoiceNumber,
           customerId: quote.customerId,
           branchId: quote.branchId,
-          issueDate: new Date(),
+          issueDate: invoiceDate,
           dueDate: null,
           currency: quote.currency,
+          baseCurrency,
+          exchangeRate: "1",
+          rateDate: invoiceDate,
+          rateSource: CurrencyRateSource.SYSTEM_RATE_1,
           status: SalesInvoiceStatus.DRAFT,
           taxMode: quote.taxMode,
           subtotal: quote.subtotal,
@@ -544,6 +554,11 @@ export class SalesQuoteService {
           taxTotal: quote.taxTotal,
           total: quote.total,
           balanceDue: quote.total,
+          transactionSubtotal: quote.subtotal,
+          transactionDiscountTotal: quote.discountTotal,
+          transactionTaxableTotal: quote.taxableTotal,
+          transactionTaxTotal: quote.taxTotal,
+          transactionTotal: quote.total,
           notes: quote.notes,
           terms: quote.terms,
           createdById: actorUserId,
@@ -846,6 +861,11 @@ export class SalesQuoteService {
       taxAmount: line.taxAmount,
       lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal,
+      transactionLineGrossAmount: line.lineGrossAmount,
+      transactionDiscountAmount: line.discountAmount,
+      transactionTaxableAmount: line.taxableAmount,
+      transactionTaxAmount: line.taxAmount,
+      transactionLineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));
   }

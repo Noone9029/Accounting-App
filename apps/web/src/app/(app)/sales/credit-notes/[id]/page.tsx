@@ -23,6 +23,7 @@ import {
   validateCreditNoteAllocation,
 } from "@/lib/credit-notes";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
+import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { partyDetailHref } from "@/lib/parties";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -109,6 +110,11 @@ export default function CreditNoteDetailPage() {
 
   async function runAction(action: "finalize" | "void") {
     if (!creditNote) {
+      return;
+    }
+
+    if (action === "finalize" && foreignDocumentPostingIsBlocked(creditNote)) {
+      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
       return;
     }
 
@@ -269,6 +275,9 @@ export default function CreditNoteDetailPage() {
   const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
   const canFinalizeCreditNote = can(PERMISSIONS.creditNotes.finalize);
+  const foreignPostingBlocked = creditNote ? foreignDocumentPostingIsBlocked(creditNote) : false;
+  const creditDisplayTotals = creditNote ? transactionDocumentDisplayTotals(creditNote) : null;
+  const creditDisplayUnapplied = creditNote?.status === "DRAFT" ? (creditDisplayTotals?.total ?? creditNote.total) : (creditNote?.unappliedAmount ?? "0");
   const canVoidCreditNote = can(PERMISSIONS.creditNotes.void);
   const canApplyCredit = creditNote?.status === "FINALIZED" && Number(creditNote.unappliedAmount) > 0 && canFinalizeCreditNote;
   const canViewCompliance = can(PERMISSIONS.compliance.view);
@@ -310,7 +319,7 @@ export default function CreditNoteDetailPage() {
             </button>
           ) : null}
           {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -326,6 +335,10 @@ export default function CreditNoteDetailPage() {
           ) : null}
         </div>
       </div>
+
+      {creditNote?.status === "DRAFT" && foreignPostingBlocked ? (
+        <p className="mb-4 text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
+      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load credit notes.")}</StatusMessage> : null}
@@ -346,9 +359,10 @@ export default function CreditNoteDetailPage() {
               <Summary label={tc("Currency")} value={<bdi dir="ltr">{creditNote.currency}</bdi>} />
               <Summary label={tc("Original invoice")} value={creditNote.originalInvoice ? <bdi dir="ltr">{creditNote.originalInvoice.invoiceNumber}</bdi> : "-"} />
               <Summary label={tc("Branch")} value={creditNote.branch?.displayName ?? creditNote.branch?.name ?? "-"} />
-              <Summary label={tc("Total credit")} value={formatAppMoney(creditNote.total, creditNote.currency, locale)} />
+              <Summary label={tc("Total credit")} value={formatAppMoney(creditDisplayTotals?.total ?? creditNote.total, creditNote.currency, locale)} />
               <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, creditNote.currency, locale)} />
-              <Summary label={tc("Unapplied amount")} value={formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale)} />
+              <Summary label={tc("Unapplied amount")} value={formatAppMoney(creditDisplayUnapplied, creditNote.currency, locale)} />
+              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(creditNote.total, creditNote.baseCurrency ?? creditNote.currency, locale)} /> : null}
               <Summary label={tc("Journal entry")} value={creditNote.journalEntry ? <bdi dir="ltr">{`${creditNote.journalEntry.entryNumber} (${creditNote.journalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Reversal journal")} value={creditNote.reversalJournalEntry ? <bdi dir="ltr">{`${creditNote.reversalJournalEntry.entryNumber} (${creditNote.reversalJournalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(creditNote.finalizedAt, locale, "-")} />
@@ -394,11 +408,11 @@ export default function CreditNoteDetailPage() {
                     <td className="px-4 py-3 text-steel">{line.account ? <bdi dir="ltr">{`${line.account.code} ${line.account.name}`}</bdi> : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs"><bdi dir="ltr">{line.quantity}</bdi></td>
                     <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, creditNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, creditNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, creditNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, creditNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, creditNote.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineGrossAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).discountAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxableAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxAmount, creditNote.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineTotal, creditNote.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -407,19 +421,19 @@ export default function CreditNoteDetailPage() {
 
           <div className="ms-auto grid max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="text-end font-mono">{formatAppMoney(creditNote.subtotal, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditDisplayTotals?.subtotal ?? creditNote.subtotal, creditNote.currency, locale)}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="text-end font-mono">{formatAppMoney(creditNote.discountTotal, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditDisplayTotals?.discountTotal ?? creditNote.discountTotal, creditNote.currency, locale)}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="text-end font-mono">{formatAppMoney(creditNote.taxableTotal, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditDisplayTotals?.taxableTotal ?? creditNote.taxableTotal, creditNote.currency, locale)}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="text-end font-mono">{formatAppMoney(creditNote.taxTotal, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(creditDisplayTotals?.taxTotal ?? creditNote.taxTotal, creditNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Total credit")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditNote.total, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditDisplayTotals?.total ?? creditNote.total, creditNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Applied amount")}</span>
             <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(appliedAmount, creditNote.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Unapplied amount")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditNote.unappliedAmount, creditNote.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(creditDisplayUnapplied, creditNote.currency, locale)}</span>
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">

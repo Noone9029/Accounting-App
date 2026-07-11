@@ -355,7 +355,7 @@ describe("credit note rules", () => {
 
   it("rejects linked original invoices for a different customer", async () => {
     const prisma = makeCreateValidationPrisma({
-      originalInvoice: { id: "invoice-1", customerId: "customer-2", status: "FINALIZED", total: "500.0000" },
+      originalInvoice: { id: "invoice-1", customerId: "customer-2", status: "FINALIZED", currency: "SAR", transactionTotal: "500.0000" },
     });
     const service = new CreditNoteService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
 
@@ -367,7 +367,7 @@ describe("credit note rules", () => {
         lines: [{ description: "Adjustment", accountId: "sales", quantity: "1.0000", unitPrice: "100.0000" }],
       }),
     ).rejects.toThrow("Original invoice must belong to the selected customer.");
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.creditNote.create).not.toHaveBeenCalled();
   });
 
   it("tenant-scopes invoice credit note listing", async () => {
@@ -639,15 +639,19 @@ function makeVoidTransactionMock(options: { allocationCount?: number; refundCoun
   };
 }
 
-function makeCreateValidationPrisma(options: { originalInvoice: { id: string; customerId: string; status: string; total: string } }) {
-  return {
+function makeCreateValidationPrisma(options: { originalInvoice: { id: string; customerId: string; status: string; currency: string; transactionTotal: string } }) {
+  const prisma = {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
+    currencyRateSnapshot: { findFirst: jest.fn() },
     item: { findMany: jest.fn().mockResolvedValue([]) },
     account: { findMany: jest.fn().mockResolvedValue([{ id: "sales" }]) },
     taxRate: { findMany: jest.fn().mockResolvedValue([]) },
     contact: { findFirst: jest.fn().mockResolvedValue({ id: "customer-1" }) },
     branch: { findFirst: jest.fn() },
     salesInvoice: { findFirst: jest.fn().mockResolvedValue(options.originalInvoice) },
-    creditNote: { aggregate: jest.fn().mockResolvedValue({ _sum: { total: "0.0000" } }) },
+    creditNote: { aggregate: jest.fn().mockResolvedValue({ _sum: { transactionTotal: "0.0000" } }), create: jest.fn() },
     $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation((callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma));
+  return prisma;
 }

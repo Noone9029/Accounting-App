@@ -117,6 +117,19 @@ describe("purchase order rules", () => {
     expect("journalEntry" in tx).toBe(false);
   });
 
+  it("keeps foreign purchase-order conversion fail-closed until an explicit bill-rate workflow exists", async () => {
+    const tx = makeConvertTransactionMock();
+    tx.purchaseOrder.findFirst.mockResolvedValue({ ...(await tx.purchaseOrder.findFirst()), currency: "USD" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new PurchaseOrderService(prisma as never, { log: jest.fn() } as never, { next: jest.fn().mockResolvedValue("BILL-000001") } as never);
+    jest.spyOn(service, "get").mockResolvedValue(makeOrder(PurchaseOrderStatus.APPROVED) as never);
+
+    await expect(service.convertToBill("org-1", "user-1", "po-1")).rejects.toThrow(
+      "Foreign purchase-order conversion requires an explicit bill rate and is not enabled yet.",
+    );
+    expect(tx.purchaseBill.create).not.toHaveBeenCalled();
+  });
+
   it("rejects conversion for closed or voided purchase orders", async () => {
     const prisma = { $transaction: jest.fn() };
     const service = new PurchaseOrderService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never);
@@ -193,6 +206,7 @@ function makeConvertTransactionMock() {
   };
 
   return {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
     purchaseOrder: {
       findFirst: jest.fn().mockResolvedValue(order),
       update: jest.fn().mockResolvedValue({ ...order, status: PurchaseOrderStatus.BILLED, convertedBillId: "bill-1" }),

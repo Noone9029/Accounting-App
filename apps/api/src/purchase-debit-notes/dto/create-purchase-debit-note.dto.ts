@@ -1,8 +1,9 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { DocumentFxContextDto } from "../../foreign-exchange/dto/document-fx-context.dto";
 import { PurchaseDebitNoteLineDto } from "./purchase-debit-note-line.dto";
 
-export class CreatePurchaseDebitNoteDto {
+export class CreatePurchaseDebitNoteDto extends DocumentFxContextDto {
   @IsUUID()
   supplierId!: string;
 
@@ -16,11 +17,6 @@ export class CreatePurchaseDebitNoteDto {
 
   @IsDateString()
   issueDate!: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  currency?: string;
 
   @IsOptional()
   @IsString()

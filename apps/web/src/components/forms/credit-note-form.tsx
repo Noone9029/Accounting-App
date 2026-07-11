@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { DocumentCurrencyFields } from "@/components/forms/document-currency-fields";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
+import { DocumentFxFormValue, documentFxIsComplete } from "@/lib/document-fx";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, Branch, Contact, CreditNote, Item, SalesInvoice, TaxRate } from "@/lib/types";
 
@@ -59,8 +61,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   const activeOrganization = useActiveOrganization();
   const organizationId = activeOrganization?.id ?? null;
   const baseCurrency = activeOrganization?.baseCurrency ?? null;
-  const documentCurrency = initialCreditNote?.currency ?? baseCurrency;
-  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
+  const initialUsesBaseCurrency = Boolean(initialCreditNote && baseCurrency && initialCreditNote.currency === baseCurrency);
   const { locale, tc } = useAppLocale();
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -90,6 +91,13 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
+  const [fx, setFx] = useState<DocumentFxFormValue>(() => ({
+    currency: initialCreditNote?.currency ?? "", exchangeRate: initialCreditNote?.exchangeRate ?? (initialUsesBaseCurrency || !initialCreditNote ? "1" : ""),
+    rateDate: initialCreditNote?.rateDate ? dateInputValue(initialCreditNote.rateDate) : initialUsesBaseCurrency || !initialCreditNote ? todayInputValue() : "",
+    rateSource: initialCreditNote?.rateSource === "IMPORT" ? "IMPORT" : initialCreditNote?.rateSource === "MANUAL" ? "MANUAL" : initialUsesBaseCurrency || !initialCreditNote ? "SYSTEM_RATE_1" : "MANUAL",
+    rateSnapshotId: initialCreditNote?.rateSnapshotId ?? null,
+  }));
+  const documentCurrency = fx.currency;
 
   const postingRevenueAccounts = accounts.filter((account) => account.isActive && account.allowPosting && account.type === "REVENUE");
   const activeSalesTaxRates = taxRates.filter((taxRate) => taxRate.isActive && (taxRate.scope === "SALES" || taxRate.scope === "BOTH"));
@@ -110,6 +118,10 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
       ),
     [activeSalesTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (!initialCreditNote && baseCurrency && !fx.currency) setFx({ currency: baseCurrency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null });
+  }, [baseCurrency, fx.currency, initialCreditNote]);
 
   useEffect(() => {
     if (initialCreditNote || typeof window === "undefined") {
@@ -214,8 +226,8 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
       setError(tc("The selected original invoice does not belong to the active organization."));
       return;
     }
-    if (currencyMismatch || sourceCurrencyMismatch) {
-      setError(tc("Credit-note currency must match the organization base currency and any linked invoice. The draft was not changed or saved."));
+    if (!baseCurrency || !documentFxIsComplete(fx, baseCurrency) || sourceCurrencyMismatch) {
+      setError(tc("Complete the credit-note exchange-rate context and ensure its currency matches any linked invoice."));
       return;
     }
 
@@ -233,6 +245,10 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
         currency: documentCurrency,
+        exchangeRate: fx.exchangeRate,
+        rateDate: fx.rateDate,
+        rateSource: fx.rateSource,
+        rateSnapshotId: fx.rateSnapshotId,
         notes: notes || undefined,
         reason: reason || undefined,
         lines: lines.map((line, index) => ({
@@ -289,6 +305,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
             <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
             <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
+          {baseCurrency ? <DocumentCurrencyFields baseCurrency={baseCurrency} value={fx} transactionTotal={preview.total} onChange={setFx} disabled={submitting} /> : null}
           <label className="block">
             <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
             <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
@@ -329,9 +346,8 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating credit notes.")}</StatusMessage> : null}
-        {currencyMismatch ? <StatusMessage type="error">{tc("This draft currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
         {sourceSelectionMissing ? <StatusMessage type="error">{tc("The selected original invoice is not available in the active organization.")}</StatusMessage> : null}
-        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked invoice currency does not match this credit note. Foreign-currency credit notes remain disabled in this phase.")}</StatusMessage> : null}
+        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked invoice currency does not match this credit note.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading credit note setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
@@ -407,7 +423,7 @@ export function CreditNoteForm({ initialCreditNote, initialCustomerId = "", init
       </div>
 
       <div className="flex gap-3">
-        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !baseCurrency || !documentFxIsComplete(fx, baseCurrency) || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialCreditNote ? tc("Save draft credit note") : tc("Create draft credit note")}
         </button>
         <Link href={returnTo || "/sales/credit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

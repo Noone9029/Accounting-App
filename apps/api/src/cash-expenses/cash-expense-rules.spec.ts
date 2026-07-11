@@ -240,6 +240,8 @@ describe("cash expense rules", () => {
 
 function makeCreateTransactionMock() {
   return {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
+    currencyRateSnapshot: { findFirst: jest.fn() },
     account: {
       findFirst: jest.fn(({ where }: { where: { id?: string; code?: string } }) => {
         if (where.id === "bank") {
