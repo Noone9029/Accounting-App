@@ -287,7 +287,12 @@ export class MigrationToolkitService {
         entityId: id,
         after: { entityType: claimedJob.entityType, committedRecordCount: createdIds.length, hostedMutation: false },
       }, tx);
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+        throw new ConflictException("Import job is already being committed or is no longer ready for review.");
+      }
+      throw error;
+    });
 
     return this.getImportJob(organizationId, id);
   }

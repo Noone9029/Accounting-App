@@ -227,6 +227,14 @@ describe("MigrationToolkitService", () => {
     expect(prisma.contact.create).not.toHaveBeenCalled();
   });
 
+  it("maps a Prisma serialization conflict to a safe commit conflict", async () => {
+    const { service, prisma } = makeService();
+    prisma.$transaction.mockRejectedValueOnce(Object.assign(new Error("transaction serialization conflict"), { code: "P2034" }));
+
+    await expect(service.commitImportJob("org-1", "user-2", "job-1", { confirmReviewed: true })).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+  });
+
   it("scopes import job lookup by tenant", async () => {
     const { service, prisma } = makeService();
     prisma.importJob.findFirst.mockResolvedValue(null as never);
