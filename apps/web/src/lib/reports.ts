@@ -33,6 +33,7 @@ const REPORT_INDEX_ROUTE_REFS: readonly ReportIndexRouteRef[] = [
   { group: "Financial statements", key: "reports.balanceSheet", description: "Check assets, liabilities, equity, and retained earnings." },
   { group: "Management reports", key: "reports.cashFlow", description: "Review cash movement from posted cash and bank journal lines." },
   { group: "Management reports", key: "reports.revenueTrend", description: "Trend posted revenue-account journal lines by month." },
+  { group: "Management reports", key: "reports.fxActivity", description: "Review realized and unrealized FX, rate snapshots, and open foreign exposure without posting." },
   { group: "Management reports", key: "reports.topCustomers", description: "Rank customers by finalized sales invoice gross totals." },
   { group: "Management reports", key: "reports.topProductsServices", description: "Rank catalog items and uncataloged lines from finalized sales invoice lines." },
   { group: "Tax reports", key: "reports.vatSummary", description: "Account-basis VAT review from posted VAT account movement. It is not an official filing workflow." },

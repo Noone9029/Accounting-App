@@ -704,7 +704,7 @@ export default function SalesInvoiceDetailPage() {
               <Summary label={tc("Branch")} value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
               <Summary label={tc("Payment state")} value={tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue))} />
               <Summary label={tc("Total")} value={formatAppMoney(invoiceDisplayTotals?.total ?? invoice.total, invoice.currency, locale)} />
-              <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : invoice.balanceDue, invoice.currency, locale)} />
+              <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : (invoice.transactionBalanceDue ?? invoice.balanceDue), invoice.currency, locale)} />
               {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(invoice.total, invoice.baseCurrency ?? invoice.currency, locale)} /> : null}
               {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
               {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={invoice.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
@@ -777,14 +777,14 @@ export default function SalesInvoiceDetailPage() {
             <span className="font-semibold text-ink">{tc("Total")}</span>
             <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoiceDisplayTotals?.total ?? invoice.total, invoice.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Balance due")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : invoice.balanceDue, invoice.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : (invoice.transactionBalanceDue ?? invoice.balanceDue), invoice.currency, locale)}</span>
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
             <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-ink">{tc("Payments")}</h2>
-                <p className="mt-1 text-sm text-steel">{tc("{state} with {amount} balance due.", { state: tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue)), amount: formatAppMoney(invoice.balanceDue, invoice.currency, locale) })}</p>
+                <p className="mt-1 text-sm text-steel">{tc("{state} with {amount} balance due.", { state: tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue)), amount: formatAppMoney(invoice.transactionBalanceDue ?? invoice.balanceDue, invoice.currency, locale) })}</p>
               </div>
               {invoice.status === "FINALIZED" && (canCreateCustomerPayment || canCreateCreditNote) ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -1413,6 +1413,9 @@ export function InvoiceWorkflowGuidance({
   const fxPostingReady = documentFxPostingIsReady(invoice);
   const fxRateEvidence = documentFxRateEvidence(invoice);
   const invoiceDetailHref = salesInvoiceDetailHref(invoice.id, returnTo);
+  const isForeignCurrency = Boolean(invoice.baseCurrency && invoice.currency !== invoice.baseCurrency);
+  const transactionBalanceDue = invoice.transactionBalanceDue ?? invoice.balanceDue;
+  const carryingBaseAmount = invoice.fxMonetaryBalance?.carryingBaseAmount ?? invoice.balanceDue;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -1435,7 +1438,10 @@ export function InvoiceWorkflowGuidance({
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <Summary label={tc("Customer")} value={customerName} />
-          <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? displayTotals.total : invoice.balanceDue, invoice.currency, locale)} />
+          <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? displayTotals.total : transactionBalanceDue, invoice.currency, locale)} />
+          {invoice.status !== "DRAFT" && isForeignCurrency ? (
+            <Summary label={tc("Current carrying value")} value={formatAppMoney(carryingBaseAmount, invoice.baseCurrency ?? invoice.currency, locale)} />
+          ) : null}
           <Summary label={tc("Journal")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> {tc("posted")}</> : tc("Not posted yet")} />
         </div>
       </div>

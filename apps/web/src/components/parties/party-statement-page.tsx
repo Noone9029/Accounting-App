@@ -8,6 +8,7 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { defaultStatementFromDate, defaultStatementToDate, formatLedgerBalance } from "@/lib/ledger-display";
 import {
   buildPartyTransactionHref,
@@ -33,7 +34,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
-  const { tc } = useAppLocale();
+  const { locale, tc } = useAppLocale();
   const [detail, setDetail] = useState<PartyDetail | null>(null);
   const [statement, setStatement] = useState<PartyStatement | null>(null);
   const [fromDate, setFromDate] = useState(defaultStatementFromDate());
@@ -236,11 +237,11 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
                   <Summary label={tc("Period to")} value={statement.periodTo ?? "-"} />
                   <Summary
                     label={tc(kind === "customer" ? "Opening customer balance" : "Opening payable")}
-                    value={formatLedgerBalance(statement.openingBalance)}
+                    value={formatLedgerBalance(statement.openingBalance, statement.baseCurrency ?? "SAR")}
                   />
                   <Summary
                     label={tc(kind === "customer" ? "Closing customer balance" : "Closing payable")}
-                    value={formatLedgerBalance(statement.closingBalance)}
+                    value={formatLedgerBalance(statement.closingBalance, statement.baseCurrency ?? "SAR")}
                   />
                 </div>
               </div>
@@ -251,6 +252,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
                 contactId={statement.contact.id}
                 returnToHref={statementReturnHref}
               />
+              <StatementFxEvidence statement={statement} locale={locale} />
             </>
           ) : (
             <StatusMessage type="info">
@@ -261,6 +263,43 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
           )}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function StatementFxEvidence({ statement, locale }: { statement: PartyStatement; locale: "en" | "ar" }) {
+  const { tc } = useAppLocale();
+  const baseCurrency = statement.baseCurrency ?? "SAR";
+  const rows = statement.rows.flatMap((row) => {
+    const metadata = row.metadata;
+    const currency = typeof metadata.currency === "string" ? metadata.currency : null;
+    const transactionTotal = typeof metadata.transactionTotal === "string" ? metadata.transactionTotal : null;
+    const transactionBalanceDue = typeof metadata.transactionBalanceDue === "string" ? metadata.transactionBalanceDue : null;
+    const carryingBaseAmount = typeof metadata.carryingBaseAmount === "string" ? metadata.carryingBaseAmount : null;
+    const sourceBaseBalanceDue = typeof metadata.sourceBaseBalanceDue === "string" ? metadata.sourceBaseBalanceDue : null;
+    const carryingRate = typeof metadata.carryingRate === "string" ? metadata.carryingRate : null;
+    return currency && transactionTotal && transactionBalanceDue && carryingBaseAmount && sourceBaseBalanceDue
+      ? [{ row, currency, transactionTotal, transactionBalanceDue, carryingBaseAmount, sourceBaseBalanceDue, carryingRate }]
+      : [];
+  });
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+      <h2 className="text-sm font-semibold text-ink">{tc("Foreign-currency document evidence")}</h2>
+      <p className="mt-1 text-xs leading-5 text-steel">
+        {tc("Statement debit, credit, and running balances remain in base currency. Transaction amounts and carrying values below are supporting evidence.")}
+      </p>
+      <div className="mt-3 divide-y divide-slate-100">
+        {rows.map(({ row, currency, transactionTotal, transactionBalanceDue, carryingBaseAmount, sourceBaseBalanceDue, carryingRate }) => (
+          <div key={row.id} className="grid gap-1 py-3 text-xs text-steel md:grid-cols-4">
+            <div className="font-medium text-ink">{row.number} · {currency}</div>
+            <div>{formatAppMoney(transactionBalanceDue, currency, "en")} {tc("open")} · {formatAppMoney(transactionTotal, currency, "en")} {tc("original")}</div>
+            <div>{formatAppMoney(carryingBaseAmount, baseCurrency, locale)} {tc("carrying")} · {formatAppMoney(sourceBaseBalanceDue, baseCurrency, locale)} {tc("source")}</div>
+            <div>{tc("Rate")} {carryingRate ?? "-"}</div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

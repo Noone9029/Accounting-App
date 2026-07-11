@@ -56,6 +56,7 @@ describe("report helpers", () => {
       "/reports/balance-sheet",
       "/reports/cash-flow",
       "/reports/revenue-trend",
+      "/reports/fx-activity",
       "/reports/top-customers",
       "/reports/top-products-services",
       "/reports/vat-summary",

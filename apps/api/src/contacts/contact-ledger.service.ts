@@ -16,6 +16,7 @@ import {
   SupplierPaymentStatus,
   SupplierRefundSourceType,
   SupplierRefundStatus,
+  Prisma,
 } from "@prisma/client";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
@@ -78,6 +79,7 @@ export interface CustomerLedgerResponse {
 export interface CustomerStatementResponse extends CustomerLedgerResponse {
   periodFrom: string | null;
   periodTo: string | null;
+  baseCurrency?: string;
 }
 
 export type SupplierLedgerRowType =
@@ -129,6 +131,7 @@ export interface SupplierLedgerResponse {
 export interface SupplierStatementResponse extends SupplierLedgerResponse {
   periodFrom: string | null;
   periodTo: string | null;
+  baseCurrency?: string;
 }
 
 export interface LedgerInvoiceInput {
@@ -142,6 +145,19 @@ export interface LedgerInvoiceInput {
   finalizedAt?: Date | string | null;
   updatedAt: Date | string;
   createdAt: Date | string;
+  currency?: string;
+  baseCurrency?: string;
+  exchangeRate?: unknown | null;
+  transactionTotal?: unknown;
+  balanceDue?: unknown;
+  transactionBalanceDue?: unknown;
+  rateSnapshotId?: string | null;
+  fxMonetaryBalance?: {
+    carryingBaseAmount: unknown;
+    carryingRate: unknown;
+    rateSnapshotId: string;
+    lastRevaluationLineId: string;
+  } | null;
 }
 
 export interface LedgerCreditNoteInput {
@@ -274,6 +290,18 @@ export interface LedgerPurchaseBillInput {
   finalizedAt?: Date | string | null;
   updatedAt: Date | string;
   createdAt: Date | string;
+  currency?: string;
+  baseCurrency?: string;
+  exchangeRate?: unknown | null;
+  transactionTotal?: unknown;
+  transactionBalanceDue?: unknown;
+  rateSnapshotId?: string | null;
+  fxMonetaryBalance?: {
+    carryingBaseAmount: unknown;
+    carryingRate: unknown;
+    rateSnapshotId: string;
+    lastRevaluationLineId: string;
+  } | null;
 }
 
 export interface LedgerSupplierPaymentInput {
@@ -451,6 +479,16 @@ export class ContactLedgerService {
           invoiceNumber: true,
           issueDate: true,
           total: true,
+          balanceDue: true,
+          currency: true,
+          baseCurrency: true,
+          exchangeRate: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          rateSnapshotId: true,
+          fxMonetaryBalance: {
+            select: { carryingBaseAmount: true, carryingRate: true, rateSnapshotId: true, lastRevaluationLineId: true },
+          },
           status: true,
           journalEntryId: true,
           reversalJournalEntryId: true,
@@ -619,11 +657,13 @@ export class ContactLedgerService {
     const openingBalance = calculateStatementOpeningBalance(ledger.rows, fromDate);
     const rowsInPeriod = filterStatementRows(ledger.rows, fromDate, toDate);
     const rows = calculateRunningBalance(rowsInPeriod, openingBalance);
+    const organization = await this.prisma.organization.findFirst({ where: { id: organizationId }, select: { baseCurrency: true } });
 
     return {
       contact: ledger.contact,
       periodFrom: from ?? null,
       periodTo: to ?? null,
+      baseCurrency: organization?.baseCurrency,
       openingBalance,
       closingBalance: rows.at(-1)?.balance ?? openingBalance,
       rows,
@@ -667,6 +707,7 @@ export class ContactLedgerService {
         credit: row.credit,
         balance: row.balance,
         status: row.status,
+        fxEvidence: statementPdfFxEvidence(row.metadata),
       })),
       generatedAt: new Date(),
     };
@@ -683,15 +724,17 @@ export class ContactLedgerService {
     const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
     const buffer = await renderCustomerStatementPdf(data, settings);
     const filename = statementFilename(data, from, to);
+    const accountingContext = statementArchiveAccountingContext("CUSTOMER_STATEMENT", data);
     const document = await this.generatedDocumentService?.archivePdf({
       organizationId,
       documentType: DocumentType.CUSTOMER_STATEMENT,
       sourceType: "CustomerStatement",
-      sourceId: contactId,
+      sourceId: statementSourceId("customer-statement", contactId, data),
       documentNumber: statementDocumentNumber(data, from, to),
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: accountingContext as unknown as Prisma.InputJsonObject,
     });
     return { data, buffer, filename, document: document ?? null };
   }
@@ -718,6 +761,15 @@ export class ContactLedgerService {
           dueDate: true,
           total: true,
           balanceDue: true,
+          currency: true,
+          baseCurrency: true,
+          exchangeRate: true,
+          transactionTotal: true,
+          transactionBalanceDue: true,
+          rateSnapshotId: true,
+          fxMonetaryBalance: {
+            select: { carryingBaseAmount: true, carryingRate: true, rateSnapshotId: true, lastRevaluationLineId: true },
+          },
           status: true,
           journalEntryId: true,
           reversalJournalEntryId: true,
@@ -933,11 +985,13 @@ export class ContactLedgerService {
     const openingBalance = calculateSupplierStatementOpeningBalance(ledger.rows, fromDate);
     const rowsInPeriod = filterSupplierStatementRows(ledger.rows, fromDate, toDate);
     const rows = calculateSupplierRunningBalance(rowsInPeriod, openingBalance);
+    const organization = await this.prisma.organization.findFirst({ where: { id: organizationId }, select: { baseCurrency: true } });
 
     return {
       contact: ledger.contact,
       periodFrom: from ?? null,
       periodTo: to ?? null,
+      baseCurrency: organization?.baseCurrency,
       openingBalance,
       closingBalance: rows.at(-1)?.balance ?? openingBalance,
       rows,
@@ -982,6 +1036,7 @@ export class ContactLedgerService {
         credit: row.credit,
         balance: row.balance,
         status: row.status,
+        fxEvidence: statementPdfFxEvidence(row.metadata),
       })),
       generatedAt: new Date(),
     };
@@ -999,15 +1054,17 @@ export class ContactLedgerService {
     const renderSettings = settings ? { ...settings, title: supplierStatementTitle(settings.title ?? "Supplier Statement") } : { title: "Supplier Statement" };
     const buffer = await renderCustomerStatementPdf(data, renderSettings);
     const filename = supplierStatementFilename(data, from, to);
+    const accountingContext = statementArchiveAccountingContext("SUPPLIER_STATEMENT", data);
     const document = await this.generatedDocumentService?.archivePdf({
       organizationId,
       documentType: DocumentType.SUPPLIER_STATEMENT,
       sourceType: "SupplierStatement",
-      sourceId: contactId,
+      sourceId: statementSourceId("supplier-statement", contactId, data),
       documentNumber: supplierStatementDocumentNumber(data, from, to),
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: accountingContext as unknown as Prisma.InputJsonObject,
     });
     return { data, buffer, filename, document: document ?? null };
   }
@@ -1089,6 +1146,7 @@ export function buildCustomerLedgerRows(input: {
         invoiceId: invoice.id,
         journalEntryId: invoice.journalEntryId,
         finalizedAt: invoice.finalizedAt ? toIsoString(invoice.finalizedAt) : null,
+        ...documentFxLedgerMetadata(invoice),
       },
     });
 
@@ -1416,6 +1474,7 @@ export function buildSupplierLedgerRows(input: {
         balanceDue: moneyString(bill.balanceDue),
         journalEntryId: bill.journalEntryId,
         finalizedAt: bill.finalizedAt ? toIsoString(bill.finalizedAt) : null,
+        ...documentFxLedgerMetadata(bill),
       },
     });
 
@@ -1883,12 +1942,75 @@ function supplierRowPriority(type: SupplierLedgerRowType): number {
   }
 }
 
+function documentFxLedgerMetadata(document: LedgerInvoiceInput | LedgerPurchaseBillInput): Record<string, unknown> {
+  if (!document.currency || !document.baseCurrency) {
+    return {};
+  }
+  const monetaryBalance = document.fxMonetaryBalance;
+  return {
+    currency: document.currency,
+    baseCurrency: document.baseCurrency,
+    exchangeRate: document.exchangeRate == null ? null : String(document.exchangeRate),
+    transactionTotal: moneyString(document.transactionTotal ?? document.total),
+    transactionBalanceDue: moneyString(document.transactionBalanceDue ?? document.balanceDue ?? document.total),
+    sourceBaseBalanceDue: moneyString(document.balanceDue ?? document.total),
+    carryingBaseAmount: moneyString(monetaryBalance?.carryingBaseAmount ?? document.balanceDue ?? document.total),
+    carryingRate: String(monetaryBalance?.carryingRate ?? document.exchangeRate ?? "1"),
+    rateSnapshotId: monetaryBalance?.rateSnapshotId ?? document.rateSnapshotId ?? null,
+    lastRevaluationLineId: monetaryBalance?.lastRevaluationLineId ?? null,
+  };
+}
+
 function moneyString(value: unknown): string {
   return toMoney(value === null || value === undefined ? 0 : String(value)).toFixed(4);
 }
 
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function statementPdfFxEvidence(metadata: Record<string, unknown>): CustomerStatementPdfData["rows"][number]["fxEvidence"] {
+  const transactionCurrency = metadata.currency;
+  const baseCurrency = metadata.baseCurrency;
+  if (typeof transactionCurrency !== "string" || typeof baseCurrency !== "string" || transactionCurrency === baseCurrency) return null;
+  const stringValue = (key: string, fallback: string) => typeof metadata[key] === "string" ? String(metadata[key]) : fallback;
+  return {
+    transactionCurrency,
+    baseCurrency,
+    transactionBalanceDue: stringValue("transactionBalanceDue", "0.0000"),
+    sourceBaseBalanceDue: stringValue("sourceBaseBalanceDue", "0.0000"),
+    carryingBaseAmount: stringValue("carryingBaseAmount", stringValue("sourceBaseBalanceDue", "0.0000")),
+    carryingRate: stringValue("carryingRate", stringValue("exchangeRate", "1")),
+    rateSnapshotId: typeof metadata.rateSnapshotId === "string" ? metadata.rateSnapshotId : null,
+    lastRevaluationLineId: typeof metadata.lastRevaluationLineId === "string" ? metadata.lastRevaluationLineId : null,
+  };
+}
+
+function statementArchiveAccountingContext(kind: "CUSTOMER_STATEMENT" | "SUPPLIER_STATEMENT", data: CustomerStatementPdfData) {
+  const evidence = data.rows.flatMap((row) => row.fxEvidence ? [row.fxEvidence] : []);
+  return {
+    identityVersion: 1,
+    statementKind: kind,
+    baseCurrency: data.currency ?? null,
+    amountBasis: "BASE_CURRENCY",
+    dates: { from: data.periodFrom ?? null, to: data.periodTo ?? null },
+    transactionCurrencies: [...new Set(evidence.map((row) => row.transactionCurrency))].sort(),
+    rateSnapshotIds: [...new Set(evidence.flatMap((row) => row.rateSnapshotId ? [row.rateSnapshotId] : []))].sort(),
+    revaluationLineIds: [...new Set(evidence.flatMap((row) => row.lastRevaluationLineId ? [row.lastRevaluationLineId] : []))].sort(),
+  };
+}
+
+function statementSourceId(kind: "customer-statement" | "supplier-statement", contactId: string, data: CustomerStatementPdfData) {
+  const context = statementArchiveAccountingContext(kind === "customer-statement" ? "CUSTOMER_STATEMENT" : "SUPPLIER_STATEMENT", data);
+  const params = new URLSearchParams();
+  if (context.baseCurrency) params.set("baseCurrency", context.baseCurrency);
+  if (context.dates.from) params.set("from", context.dates.from);
+  if (context.dates.to) params.set("to", context.dates.to);
+  if (context.transactionCurrencies.length) params.set("transactionCurrencies", context.transactionCurrencies.join(","));
+  if (context.rateSnapshotIds.length) params.set("rateSnapshotIds", context.rateSnapshotIds.join(","));
+  if (context.revaluationLineIds.length) params.set("revaluationLineIds", context.revaluationLineIds.join(","));
+  const suffix = params.toString();
+  return suffix ? `${kind}:${contactId}?${suffix}` : `${kind}:${contactId}`;
 }
 
 function statementFilename(data: CustomerStatementPdfData, from?: string, to?: string): string {

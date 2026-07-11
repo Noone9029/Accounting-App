@@ -589,6 +589,16 @@ export interface CustomerStatementPdfData {
     credit: string;
     balance: string;
     status: string;
+    fxEvidence?: {
+      transactionCurrency: string;
+      baseCurrency: string;
+      transactionBalanceDue: string;
+      sourceBaseBalanceDue: string;
+      carryingBaseAmount: string;
+      carryingRate: string;
+      rateSnapshotId?: string | null;
+      lastRevaluationLineId?: string | null;
+    } | null;
   }>;
   generatedAt: string | Date;
 }
@@ -664,6 +674,7 @@ export interface GeneralLedgerReportPdfData {
   organization: PdfOrganization;
   currency: string;
   filters?: ReportDimensionFiltersPdfData;
+  fxFilters?: { transactionCurrency?: string | null };
   from: string | null;
   to: string | null;
   accounts: Array<
@@ -676,6 +687,11 @@ export interface GeneralLedgerReportPdfData {
         debit: string;
         credit: string;
         runningBalance: string;
+        currency?: string | null;
+        transactionDebit?: string | null;
+        transactionCredit?: string | null;
+        exchangeRate?: string | null;
+        rateSnapshot?: { id: string; rateDate: string | Date; source: string; sourceReference?: string | null } | null;
       }>;
     }
   >;
@@ -758,6 +774,7 @@ export interface AgingReportPdfData {
   title: string;
   asOf: string | null;
   kind: string;
+  fxFilters?: { transactionCurrency?: string | null };
   rows: Array<{
     contact: { name: string; displayName?: string | null };
     number: string;
@@ -765,6 +782,13 @@ export interface AgingReportPdfData {
     dueDate?: string | Date | null;
     total: string;
     balanceDue: string;
+    currency?: string | null;
+    baseCurrency?: string | null;
+    openTransactionAmount?: string | null;
+    sourceBaseOpenAmount?: string | null;
+    carryingBaseAmount?: string | null;
+    carryingRate?: string | null;
+    revaluation?: { rateSnapshotId?: string | null; revaluationRunId?: string | null; status?: string | null } | null;
     daysOverdue: number;
     bucket: string;
   }>;
@@ -1699,6 +1723,33 @@ export async function renderCustomerStatementPdf(data: CustomerStatementPdfData,
         ]),
         renderSettings,
       );
+      const fxRows = data.rows.filter((row) => row.fxEvidence);
+      if (fxRows.length) {
+        writeSectionTitle(doc, "Foreign-currency document evidence", renderSettings);
+        writeMuted(doc, "Statement debits, credits, and running balances remain official base-currency ledger amounts. Foreign values below are supporting document and current carrying evidence.");
+        drawTable(
+          doc,
+          [
+            { label: "Reference", width: 70 },
+            { label: "Currency", width: 44 },
+            { label: "Txn balance", width: 70, align: "right" },
+            { label: "Source base", width: 70, align: "right" },
+            { label: "Carrying base", width: 74, align: "right" },
+            { label: "Rate", width: 58, align: "right" },
+            { label: "Evidence", width: 82 },
+          ],
+          fxRows.map((row) => [
+            row.number,
+            row.fxEvidence!.transactionCurrency,
+            money(row.fxEvidence!.transactionBalanceDue, row.fxEvidence!.transactionCurrency),
+            money(row.fxEvidence!.sourceBaseBalanceDue, row.fxEvidence!.baseCurrency),
+            money(row.fxEvidence!.carryingBaseAmount, row.fxEvidence!.baseCurrency),
+            row.fxEvidence!.carryingRate,
+            row.fxEvidence!.lastRevaluationLineId ?? row.fxEvidence!.rateSnapshotId ?? "Source rate",
+          ]),
+          renderSettings,
+        );
+      }
     }
     writeMuted(doc, presentation.generatedNote);
   }, renderSettings);
@@ -1708,7 +1759,11 @@ export async function renderGeneralLedgerReportPdf(data: GeneralLedgerReportPdfD
   const renderSettings = resolveSettings(settings, "General Ledger");
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters)], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["Period from", data.from ?? "-"], ["Period to", data.to ?? "-"], ...reportDimensionRows(data.filters), ...fxSupportingSliceRows(data.fxFilters)], data.generatedAt, renderSettings);
+
+    if (data.fxFilters?.transactionCurrency) {
+      writeMuted(doc, "Supporting transaction-currency slice only. Official totals and running balances remain valued in the organization base currency.");
+    }
 
     if (data.accounts.length === 0) {
       writeMuted(doc, "No posted journal activity found for this period.");
@@ -1761,6 +1816,30 @@ export async function renderGeneralLedgerReportPdf(data: GeneralLedgerReportPdfD
           ]),
           renderSettings,
         );
+        const fxLines = account.lines.filter((line) => line.currency && (line.transactionDebit != null || line.transactionCredit != null));
+        if (fxLines.length) {
+          writeSectionTitle(doc, `${account.code} transaction-currency evidence`, renderSettings);
+          drawTable(
+            doc,
+            [
+              { label: "Entry", width: 62 },
+              { label: "Currency", width: 48 },
+              { label: "Txn debit", width: 68, align: "right" },
+              { label: "Txn credit", width: 68, align: "right" },
+              { label: "Rate", width: 64, align: "right" },
+              { label: "Rate evidence", width: 138 },
+            ],
+            fxLines.map((line) => [
+              line.entryNumber,
+              line.currency ?? "-",
+              line.transactionDebit == null ? "-" : money(line.transactionDebit, line.currency ?? data.currency),
+              line.transactionCredit == null ? "-" : money(line.transactionCredit, line.currency ?? data.currency),
+              line.exchangeRate ?? "-",
+              line.rateSnapshot ? `${line.rateSnapshot.source} ${formatDate(line.rateSnapshot.rateDate)} / ${line.rateSnapshot.id}` : "-",
+            ]),
+            renderSettings,
+          );
+        }
       }
     }
   }, renderSettings);
@@ -1845,7 +1924,10 @@ export async function renderAgingReportPdf(data: AgingReportPdfData, settings?: 
   const renderSettings = resolveSettings(settings, data.title);
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ["Report type", data.kind.replaceAll("_", " ")]], data.generatedAt, renderSettings);
+    writeReportMeta(doc, data.currency, [["As of", data.asOf ?? "-"], ["Report type", data.kind.replaceAll("_", " ")], ...fxSupportingSliceRows(data.fxFilters)], data.generatedAt, renderSettings);
+    if (data.fxFilters?.transactionCurrency) {
+      writeMuted(doc, "Supporting transaction-currency slice only. Aging bucket totals use current carrying amounts in the organization base currency.");
+    }
     drawTable(
       doc,
       [
@@ -1872,6 +1954,32 @@ export async function renderAgingReportPdf(data: AgingReportPdfData, settings?: 
       ...Object.entries(data.bucketTotals).map(([bucket, value]) => [bucket.replaceAll("_", "-"), value] as [string, string]),
       ["Total", data.grandTotal],
     ], renderSettings);
+    const fxRows = data.rows.filter((row) => row.currency && row.openTransactionAmount != null);
+    if (fxRows.length) {
+      writeSectionTitle(doc, "Foreign-currency carrying evidence", renderSettings);
+      drawTable(
+        doc,
+        [
+          { label: "Number", width: 66 },
+          { label: "Currency", width: 44 },
+          { label: "Open txn", width: 68, align: "right" },
+          { label: "Source base", width: 70, align: "right" },
+          { label: "Carrying base", width: 74, align: "right" },
+          { label: "Rate", width: 58, align: "right" },
+          { label: "Revaluation", width: 88 },
+        ],
+        fxRows.map((row) => [
+          row.number,
+          row.currency ?? "-",
+          money(row.openTransactionAmount ?? "0", row.currency ?? data.currency),
+          money(row.sourceBaseOpenAmount ?? row.balanceDue, data.currency),
+          money(row.carryingBaseAmount ?? row.balanceDue, data.currency),
+          row.carryingRate ?? "-",
+          row.revaluation ? `${row.revaluation.status ?? "-"} / ${row.revaluation.revaluationRunId ?? row.revaluation.rateSnapshotId ?? "-"}` : "Source rate",
+        ]),
+        renderSettings,
+      );
+    }
   }, renderSettings);
 }
 
@@ -1980,6 +2088,14 @@ function reportDimensionRows(filters: ReportDimensionFiltersPdfData | undefined)
     rows.push(["Project", `${filters.project.code} - ${filters.project.name}`]);
   }
   return rows;
+}
+
+function fxSupportingSliceRows(filters: { transactionCurrency?: string | null } | undefined): Array<[string, string]> {
+  if (!filters?.transactionCurrency) return [["Amount basis", "Official totals in organization base currency"]];
+  return [
+    ["Amount basis", "Base-valued supporting detail; not a balanced financial statement"],
+    ["Transaction currency filter", filters.transactionCurrency],
+  ];
 }
 
 function drawAccountBalanceTable(
@@ -2162,6 +2278,7 @@ function measureBlockHeight(doc: PdfDocument, width: number, lines: string[]): n
 
 function writeSectionTitle(doc: PdfDocument, title: string, settings: ResolvedDocumentRenderSettings): void {
   ensureSpace(doc, 36);
+  doc.x = pageMargin;
   doc.moveDown(0.4);
   doc.font("Helvetica-Bold").fontSize(12).fillColor(settings.primaryColor).text(title);
   doc.moveDown(0.5);
@@ -2182,6 +2299,7 @@ function writeOptionalTextBlock(
 
 function writeMuted(doc: PdfDocument, value: string): void {
   ensureSpace(doc, 24);
+  doc.x = pageMargin;
   doc.font("Helvetica").fontSize(9).fillColor(mutedColor).text(value, { width: pageWidth(doc) });
 }
 

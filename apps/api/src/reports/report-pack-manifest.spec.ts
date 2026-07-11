@@ -71,7 +71,7 @@ describe("report pack manifest contract", () => {
           source: { type: "ledgerbyte-report-route", href: "/reports/profit-and-loss" },
           exports: {
             csv: { supported: true, href: "/reports/profit-and-loss?from=2026-06-01&to=2026-06-30&format=csv" },
-            pdf: { supported: true, href: "/reports/profit-and-loss/pdf", reason: null },
+            pdf: { supported: true, href: "/reports/profit-and-loss/pdf?from=2026-06-01&to=2026-06-30", reason: null },
           },
           reviewStatus: "NEEDS_REVIEW",
         },
@@ -82,7 +82,7 @@ describe("report pack manifest contract", () => {
           source: { type: "ledgerbyte-report-route", href: "/reports/balance-sheet" },
           exports: {
             csv: { supported: true, href: "/reports/balance-sheet?asOf=2026-06-30&format=csv" },
-            pdf: { supported: true, href: "/reports/balance-sheet/pdf", reason: null },
+            pdf: { supported: true, href: "/reports/balance-sheet/pdf?asOf=2026-06-30", reason: null },
           },
           reviewStatus: "READY_FOR_REVIEW",
         },
@@ -140,6 +140,42 @@ describe("report pack manifest contract", () => {
         },
       },
     ]);
+  });
+
+  it("preserves canonical supported FX and dimension scope and rejects misleading pack filters", () => {
+    const manifest = buildReportPackManifest({
+      id: "pack-fx", organizationId: "org-1", title: "FX review", createdAt: "2026-07-31T00:00:00.000Z", requestedByUserId: "user-1",
+      organization: { id: "org-1", name: "UAE Org", baseCurrency: "AED" },
+      items: [{ id: "gl", reportKind: "general-ledger", query: { projectId: " project-1 ", transactionCurrency: " usd ", from: "2026-07-01", costCenterId: "cost-center-1" } }],
+    });
+
+    expect(manifest.accountingContext).toEqual({ baseCurrency: "AED", amountBasis: "BASE_CURRENCY" });
+    expect(manifest.items[0]).toMatchObject({
+      query: { from: "2026-07-01", costCenterId: "cost-center-1", projectId: "project-1", transactionCurrency: "USD" },
+      scope: { baseCurrency: "AED", transactionCurrency: "USD", costCenterId: "cost-center-1", projectId: "project-1" },
+      exports: {
+        csv: { href: "/reports/general-ledger?from=2026-07-01&costCenterId=cost-center-1&projectId=project-1&transactionCurrency=USD&format=csv" },
+        pdf: { href: "/reports/general-ledger/pdf?from=2026-07-01&costCenterId=cost-center-1&projectId=project-1&transactionCurrency=USD" },
+      },
+    });
+    expect(() => buildReportPackManifest({
+      id: "bad", organizationId: "org-1", title: "Bad", createdAt: "2026-07-31T00:00:00.000Z", requestedByUserId: "user-1",
+      items: [{ id: "pnl", reportKind: "profit-and-loss", query: { transactionCurrency: "USD" } }],
+    })).toThrow("Transaction-currency filtering is not supported for profit-and-loss report-pack items.");
+  });
+
+  it.each([
+    ["aged-receivables", { from: "2026-07-01" }, "from"],
+    ["general-ledger", { asOf: "2026-07-31" }, "asOf"],
+    ["profit-and-loss", { accountId: "account-1" }, "accountId"],
+    ["balance-sheet", { from: "2026-07-01" }, "from"],
+    ["top-customers", { includeZero: "true" }, "includeZero"],
+    ["cash-flow", { unknownFilter: "value" }, "unknownFilter"],
+  ] as const)("rejects %s report-pack filters that the target report does not consume", (reportKind, query, key) => {
+    expect(() => buildReportPackManifest({
+      id: `bad-${reportKind}`, organizationId: "org-1", title: "Bad filters", createdAt: "2026-07-31T00:00:00.000Z", requestedByUserId: "user-1",
+      items: [{ id: "item", reportKind, query }],
+    })).toThrow(`Filter ${key} is not supported for ${reportKind} report-pack items.`);
   });
 
   it("keeps manifest metadata redacted and free of document/provider bodies", () => {

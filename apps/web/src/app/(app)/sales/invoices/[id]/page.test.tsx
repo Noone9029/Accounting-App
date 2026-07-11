@@ -112,6 +112,27 @@ describe("invoice workflow guidance", () => {
     expect(screen.getByText(/complete the exchange rate/i)).toBeInTheDocument();
   });
 
+  it("separates foreign transaction balance from current base carrying value", () => {
+    render(
+      <InvoiceWorkflowGuidance
+        invoice={invoiceFixture({
+          status: "FINALIZED", currency: "USD", baseCurrency: "AED", total: "367.2500", balanceDue: "146.9000",
+          transactionTotal: "100.0000", transactionBalanceDue: "40.0000", exchangeRate: "3.67250000",
+          fxMonetaryBalance: { carryingBaseAmount: "150.0000", carryingRate: "3.75000000", rateSnapshotId: "rate-1", lastRevaluationLineId: "line-1" },
+        })}
+        actionLoading={false}
+        canFinalizeInvoice
+        canCreateCustomerPayment
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("$40.00")).toBeInTheDocument();
+    expect(screen.getByText(/AED\s+150\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/current carrying value/i)).toBeInTheDocument();
+  });
+
   it("shows payment, ledger, report, and safe ZATCA guidance after posting", () => {
     render(
       <InvoiceWorkflowGuidance

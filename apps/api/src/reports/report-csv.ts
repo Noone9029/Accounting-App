@@ -18,6 +18,8 @@ export function vatReturnCsv(report: any, generatedAt = new Date()): CsvFile {
   const rows: unknown[][] = [
     ["Draft VAT Return Review Export"],
     ["Generated At", generatedAt.toISOString()],
+    ["Base Currency", report.accountingContext?.baseCurrency ?? ""],
+    ["Amount Basis", report.accountingContext?.amountBasis === "BASE_CURRENCY" ? "Base currency" : ""],
     ["Period From", report.from ?? ""],
     ["Period To", report.to ?? ""],
     ["Basis", report.basis ?? ""],
@@ -84,9 +86,33 @@ export function coreReportCsv(kind: CoreReportKind, report: any, generatedAt = n
       rows.push([`${account.code} ${account.name}`, account.type]);
       rows.push(["Opening Debit", "Opening Credit", "Period Debit", "Period Credit", "Closing Debit", "Closing Credit"]);
       rows.push([account.openingDebit, account.openingCredit, account.periodDebit, account.periodCredit, account.closingDebit, account.closingCredit]);
-      rows.push(["Date", "Entry", "Description", "Reference", "Debit", "Credit", "Running Balance"]);
+      rows.push([
+        "Date",
+        "Entry",
+        "Description",
+        "Reference",
+        "Base Debit",
+        "Base Credit",
+        "Base Running Balance",
+        "Transaction Currency",
+        "Transaction Debit",
+        "Transaction Credit",
+        "Exchange Rate",
+      ]);
       for (const line of account.lines ?? []) {
-        rows.push([dateOnly(line.date), line.entryNumber, line.description, line.reference ?? "", line.debit, line.credit, line.runningBalance]);
+        rows.push([
+          dateOnly(line.date),
+          line.entryNumber,
+          line.description,
+          line.reference ?? "",
+          line.debit,
+          line.credit,
+          line.runningBalance,
+          line.currency ?? "",
+          line.transactionDebit ?? "",
+          line.transactionCredit ?? "",
+          line.exchangeRate ?? "",
+        ]);
       }
       rows.push([]);
     }
@@ -120,7 +146,11 @@ export function coreReportCsv(kind: CoreReportKind, report: any, generatedAt = n
       rows.push(["Note", note]);
     }
   } else {
-    rows.push([], ["Contact", "Number", "Issue Date", "Due Date", "Total", "Balance Due", "Days Overdue", "Bucket"]);
+    rows.push([], [
+      "Contact", "Number", "Issue Date", "Due Date", "Base Total", "Carrying Balance Due", "Days Overdue", "Bucket",
+      "Currency", "Transaction Total", "Open Transaction Amount", "Source Base Open Amount", "Carrying Base Amount", "Carrying Rate",
+      "Rate Snapshot", "Rate Source", "Rate Date", "Revaluation Run",
+    ]);
     for (const row of report.rows ?? []) {
       rows.push([
         row.contact?.displayName ?? row.contact?.name ?? "",
@@ -131,9 +161,22 @@ export function coreReportCsv(kind: CoreReportKind, report: any, generatedAt = n
         row.balanceDue,
         row.daysOverdue,
         row.bucket,
+        row.currency ?? "",
+        row.transactionTotal ?? "",
+        row.openTransactionAmount ?? "",
+        row.sourceBaseOpenAmount ?? row.balanceDue,
+        row.carryingBaseAmount ?? row.balanceDue,
+        row.carryingRate ?? "",
+        row.revaluation?.rateSnapshotId ?? "",
+        row.revaluation?.rateSource ?? "",
+        row.revaluation?.rateDate ?? "",
+        row.revaluation?.revaluationRunId ?? "",
       ]);
     }
     rows.push([], ["Grand Total", report.grandTotal]);
+    for (const [currency, amount] of Object.entries(report.transactionTotalsByCurrency ?? {}).sort(([left], [right]) => left.localeCompare(right))) {
+      rows.push(["Open Transaction Total", currency, amount]);
+    }
   }
 
   return { filename: `${kind}-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
@@ -228,6 +271,47 @@ export function advancedReportCsv(kind: AdvancedReportKind, report: any, generat
 
   appendReportNotes(rows, report.notes ?? []);
   return { filename: `${kind}-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
+}
+
+export type FxReportKind = "realized-activity" | "unrealized-activity" | "rate-snapshots" | "open-exposure";
+
+export function fxReportCsv(kind: FxReportKind, report: any, generatedAt = new Date()): CsvFile {
+  const titles: Record<FxReportKind, string> = {
+    "realized-activity": "Realized FX Activity",
+    "unrealized-activity": "Unrealized FX Activity",
+    "rate-snapshots": "FX Rate Snapshot Audit",
+    "open-exposure": "Open Foreign Exposure",
+  };
+  const rows = reportHeaderRows(titles[kind], report, generatedAt);
+  if (kind === "realized-activity") {
+    rows.push([], ["Date", "Event", "Allocation Type", "Allocation ID", "Payment", "Document", "Currency", "Transaction Amount", "Source Base Amount", "Carrying Base Amount", "Settlement Base Amount", "Gross Gain", "Gross Loss", "Reversed Gain", "Reversed Loss", "Net Gain", "Net Loss", "Missing Journal"]);
+    for (const row of report.rows ?? []) rows.push([row.date, row.eventType, row.allocationType, row.allocationId, row.paymentNumber, row.documentNumber, row.currency, row.transactionAmount, row.sourceBaseAmount, row.carryingBaseAmount, row.settlementBaseAmount, row.grossGain, row.grossLoss, row.reversedGain, row.reversedLoss, row.netGain, row.netLoss, row.missingJournal ? "Yes" : "No"]);
+  } else if (kind === "unrealized-activity") {
+    rows.push([], ["Revaluation Date", "Run", "Status", "Recognition", "Source Type", "Document", "Currency", "Open Transaction Amount", "Carrying Base Amount", "Revalued Base Amount", "Closing Rate", "Recognized Gross Gain", "Recognized Gross Loss", "Unposted Preview Gain", "Unposted Preview Loss", "Reversed Gain", "Reversed Loss", "Recognized Net Gain", "Recognized Net Loss", "Rate Snapshot"]);
+    for (const row of report.rows ?? []) rows.push([row.revaluationDate, row.revaluationRunId, row.status, row.recognition, row.sourceType, row.documentNumber, row.currency, row.openTransactionAmount, row.carryingBaseAmount, row.revaluedBaseAmount, row.closingRate, row.grossGain, row.grossLoss, row.previewGain, row.previewLoss, row.reversedGain, row.reversedLoss, row.netGain, row.netLoss, row.rateSnapshotId]);
+  } else if (kind === "rate-snapshots") {
+    rows.push([], ["Rate Date", "Transaction Currency", "Base Currency", "Rate", "Source", "Source Reference", "Document Uses", "Journal Line Uses", "Revaluation Uses", "Total Uses"]);
+    for (const row of report.rows ?? []) rows.push([row.rateDate, row.transactionCurrency, row.baseCurrency, row.rate, row.source, row.sourceReference, row.usage?.documents, row.usage?.journalLines, row.usage?.revaluationLines, row.usage?.total]);
+  } else {
+    rows.push([], ["Source Type", "Document", "Currency", "Open Transaction Amount", "Source Base Open Amount", "Carrying Base Amount", "Carrying Rate", "Rate Snapshot", "Last Revaluation Line"]);
+    for (const row of report.rows ?? []) rows.push([row.sourceType, row.documentNumber, row.currency, row.openTransactionAmount, row.sourceBaseOpenAmount, row.carryingBaseAmount, row.carryingRate, row.rateSnapshotId, row.lastRevaluationLineId]);
+    rows.push(
+      [],
+      ["Exposure by transaction currency"],
+      ["Currency", "Receivable Open", "Payable Open", "Gross Open Volume", "Signed Net Open", "Gross Carrying Base", "Signed Net Carrying Base"],
+    );
+    for (const group of report.groups ?? []) rows.push([group.currency, group.receivableOpenTransactionAmount, group.payableOpenTransactionAmount, group.grossOpenTransactionAmount, group.netOpenTransactionAmount, group.grossCarryingBaseAmount, group.netCarryingBaseAmount]);
+    rows.push(
+      [],
+      ["Receivable Carrying Base", report.totals?.receivableCarryingBaseAmount],
+      ["Payable Carrying Base", report.totals?.payableCarryingBaseAmount],
+      ["Gross Carrying Base", report.totals?.grossCarryingBaseAmount],
+      ["Signed Net Carrying Base", report.totals?.netCarryingBaseAmount],
+      ["Document Count", report.totals?.documentCount],
+    );
+  }
+  for (const note of report.notes ?? []) rows.push(["Note", note]);
+  return { filename: `fx-${kind}-${filenameDate(generatedAt)}.csv`, content: toCsv(rows) };
 }
 
 export function bankReconciliationReportCsv(report: any, generatedAt = new Date()): CsvFile {
@@ -349,6 +433,13 @@ export function bankReconciliationReportCsv(report: any, generatedAt = new Date(
 
 function reportHeaderRows(title: string, report: any, generatedAt: Date): unknown[][] {
   const rows: unknown[][] = [[title], ["Generated At", generatedAt.toISOString()]];
+  if (report.accountingContext?.baseCurrency) {
+    rows.push(["Base Currency", report.accountingContext.baseCurrency], ["Amount Basis", "Base currency"]);
+  }
+  const transactionCurrency = report.fxFilters?.transactionCurrency ?? report.filters?.transactionCurrency;
+  if (transactionCurrency) {
+    rows.push(["Transaction Currency Filter", transactionCurrency]);
+  }
   if ("from" in report || "to" in report) {
     rows.push(["Period From", report.from ?? ""], ["Period To", report.to ?? ""]);
   }

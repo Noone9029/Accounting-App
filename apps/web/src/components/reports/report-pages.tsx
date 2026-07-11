@@ -95,7 +95,13 @@ export function GeneralLedgerReportPage() {
   const [report, setReport] = useState<GeneralLedgerReport | null>(null);
   const [from, setFrom] = useState(monthStartDateInput());
   const [to, setTo] = useState(todayDateInput());
+  const [transactionCurrency, setTransactionCurrency] = useState("");
   const { loading, error, load } = useReportLoader<GeneralLedgerReport>((query) => `/reports/general-ledger${query}`, setReport);
+  const reportParams = () => ({
+    from,
+    to,
+    transactionCurrency: transactionCurrency.trim().toUpperCase() || undefined,
+  });
 
   useEffect(() => {
     void load(buildReportQuery({ from, to }));
@@ -103,11 +109,36 @@ export function GeneralLedgerReportPage() {
 
   return (
     <ReportSection title={tc("General Ledger")} description={tc("Opening balances, period activity, and natural running balances by account.")}>
-      <DateRangeForm from={from} to={to} setFrom={setFrom} setTo={setTo} loading={loading} onSubmit={() => load(buildReportQuery({ from, to }))} />
-      <ReportExportButtons endpoint="/reports/general-ledger" slug="general-ledger" params={{ from, to }} />
+      <DateRangeForm
+        from={from}
+        to={to}
+        setFrom={setFrom}
+        setTo={setTo}
+        loading={loading}
+        onSubmit={() => load(buildReportQuery(reportParams()))}
+        additionalControls={
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Transaction currency")}</span>
+            <input
+              aria-label={tc("Transaction currency")}
+              inputMode="text"
+              maxLength={3}
+              placeholder="USD"
+              value={transactionCurrency}
+              onChange={(event) => setTransactionCurrency(event.target.value.toUpperCase())}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm sm:w-28"
+            />
+          </label>
+        }
+      />
+      <ReportExportButtons endpoint="/reports/general-ledger" slug="general-ledger" params={reportParams()} />
       <ReportState loading={loading} error={error} empty={!report || report.accounts.length === 0} emptyText="No posted journal activity found for this period." />
       {report ? (
         <div className="space-y-5">
+          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-steel">
+            {tc("Official totals and running balances remain in")} {report.accountingContext.baseCurrency}.
+            {report.fxFilters.transactionCurrency ? ` ${tc("Supporting transaction evidence is filtered to")} ${report.fxFilters.transactionCurrency}.` : ""}
+          </p>
           {report.accounts.map((account) => (
             <div key={account.accountId} className="rounded-md border border-slate-200 bg-white shadow-panel">
               <div className="border-b border-slate-200 px-5 py-4">
@@ -119,15 +150,15 @@ export function GeneralLedgerReportPage() {
                     <p className="mt-1 text-xs text-steel">{account.type}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-x-5 gap-y-1 text-xs text-steel md:grid-cols-4">
-                    <span>{tc("Opening Dr")} {formatAppMoney(account.openingDebit, "SAR", locale)}</span>
-                    <span>{tc("Opening Cr")} {formatAppMoney(account.openingCredit, "SAR", locale)}</span>
-                    <span>{tc("Closing Dr")} {formatAppMoney(account.closingDebit, "SAR", locale)}</span>
-                    <span>{tc("Closing Cr")} {formatAppMoney(account.closingCredit, "SAR", locale)}</span>
+                    <span>{tc("Opening Dr")} {formatAppMoney(account.openingDebit, report.accountingContext.baseCurrency, locale)}</span>
+                    <span>{tc("Opening Cr")} {formatAppMoney(account.openingCredit, report.accountingContext.baseCurrency, locale)}</span>
+                    <span>{tc("Closing Dr")} {formatAppMoney(account.closingDebit, report.accountingContext.baseCurrency, locale)}</span>
+                    <span>{tc("Closing Cr")} {formatAppMoney(account.closingCredit, report.accountingContext.baseCurrency, locale)}</span>
                   </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] text-start text-sm">
+                <table className="w-full min-w-[1180px] text-start text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
                     <tr>
                       <th className="px-4 py-3">{tc("Date")}</th>
@@ -137,6 +168,7 @@ export function GeneralLedgerReportPage() {
                       <th className="px-4 py-3">{tc("Debit")}</th>
                       <th className="px-4 py-3">{tc("Credit")}</th>
                       <th className="px-4 py-3">{tc("Running balance")}</th>
+                      <th className="px-4 py-3">{tc("Transaction evidence")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -146,14 +178,29 @@ export function GeneralLedgerReportPage() {
                         <td dir="ltr" style={{ unicodeBidi: "isolate" }} className="px-4 py-3 font-mono text-xs">{line.entryNumber}</td>
                         <td className="px-4 py-3 font-medium text-ink">{line.description}</td>
                         <td dir="ltr" style={{ unicodeBidi: "isolate" }} className="px-4 py-3 text-steel">{line.reference ?? "-"}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.debit, "SAR", locale)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.credit, "SAR", locale)}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.runningBalance, "SAR", locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.debit, report.accountingContext.baseCurrency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.credit, report.accountingContext.baseCurrency, locale)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.runningBalance, report.accountingContext.baseCurrency, locale)}</td>
+                        <td className="px-4 py-3 text-xs text-steel">
+                          {line.currency && (line.transactionDebit || line.transactionCredit) ? (
+                            <div className="space-y-1">
+                              <div className="font-mono text-ink">
+                                {formatAppMoney(line.transactionDebit ?? line.transactionCredit ?? "0", line.currency, locale)}
+                              </div>
+                              <div>{line.exchangeRate ? `${tc("Rate")} ${line.exchangeRate}` : tc("No captured rate")}</div>
+                              <div>
+                                {line.rateSnapshot
+                                  ? `${line.rateSnapshot.source} · ${line.rateSnapshot.rateDate}`
+                                  : tc("No rate snapshot")}
+                              </div>
+                            </div>
+                          ) : "-"}
+                        </td>
                       </tr>
                     ))}
                     {account.lines.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-5 text-center text-steel">
+                        <td colSpan={8} className="px-4 py-5 text-center text-steel">
                           {tc("No period lines.")}
                         </td>
                       </tr>
@@ -192,7 +239,7 @@ export function TrialBalanceReportPage() {
               {report.totals.balanced ? tc("Balanced") : tc("Out of balance")}
             </span>
           </div>
-          <AccountBalanceTable accounts={report.accounts} totals={report.totals} />
+          <AccountBalanceTable accounts={report.accounts} totals={report.totals} currency={report.accountingContext.baseCurrency} />
         </div>
       ) : null}
     </ReportSection>
@@ -218,6 +265,7 @@ export function ProfitAndLossReportPage() {
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               ["Revenue", report.revenue],
               ["Cost of sales", report.costOfSales],
@@ -227,7 +275,7 @@ export function ProfitAndLossReportPage() {
             ]}
           />
           {report.sections.map((section) => (
-            <AmountSection key={section.type} title={section.type} total={section.total} accounts={section.accounts} />
+            <AmountSection key={section.type} title={section.type} total={section.total} accounts={section.accounts} currency={report.accountingContext.baseCurrency} />
           ))}
         </div>
       ) : null}
@@ -255,20 +303,20 @@ export function BalanceSheetReportPage() {
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className={`rounded-md px-2 py-1 text-xs font-medium ${balanceSheetStatusClass(report)}`}>
-                {report.balanced ? tc("Balanced") : `${tc("Out of balance by")} ${formatAppMoney(report.difference, "SAR", locale)}`}
+                {report.balanced ? tc("Balanced") : `${tc("Out of balance by")} ${formatAppMoney(report.difference, report.accountingContext.baseCurrency, locale)}`}
               </span>
               <div className="text-sm text-steel">
-                {tc("Total assets")} {formatAppMoney(report.totalAssets, "SAR", locale)} / {tc("Total liabilities and equity")} {formatAppMoney(report.totalLiabilitiesAndEquity, "SAR", locale)}
+                {tc("Total assets")} {formatAppMoney(report.totalAssets, report.accountingContext.baseCurrency, locale)} / {tc("Total liabilities and equity")} {formatAppMoney(report.totalLiabilitiesAndEquity, report.accountingContext.baseCurrency, locale)}
               </div>
             </div>
           </div>
-          <BalanceSheetSectionView title="Assets" section={report.assets} />
-          <BalanceSheetSectionView title="Liabilities" section={report.liabilities} />
-          <BalanceSheetSectionView title="Equity" section={report.equity} />
+          <BalanceSheetSectionView title="Assets" section={report.assets} currency={report.accountingContext.baseCurrency} />
+          <BalanceSheetSectionView title="Liabilities" section={report.liabilities} currency={report.accountingContext.baseCurrency} />
+          <BalanceSheetSectionView title="Equity" section={report.equity} currency={report.accountingContext.baseCurrency} />
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel text-sm">
             <div className="flex justify-between gap-4 font-semibold text-ink">
               <span>{tc("Retained earnings")}</span>
-              <span className="font-mono text-xs">{formatAppMoney(report.retainedEarnings, "SAR", locale)}</span>
+              <span className="font-mono text-xs">{formatAppMoney(report.retainedEarnings, report.accountingContext.baseCurrency, locale)}</span>
             </div>
           </div>
         </div>
@@ -296,6 +344,7 @@ export function CashFlowReportPage() {
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               ["Opening cash", report.totals.openingCash],
               ["Inflows", report.totals.inflows],
@@ -320,9 +369,9 @@ export function CashFlowReportPage() {
                 {report.rows.map((row) => (
                   <tr key={row.period}>
                     <td className="px-4 py-3 font-medium text-ink">{row.period}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.inflows, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.outflows, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.netCashFlow, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.inflows, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.outflows, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.netCashFlow, report.accountingContext.baseCurrency, locale)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
                   </tr>
                 ))}
@@ -354,7 +403,7 @@ export function RevenueTrendReportPage() {
       <ReportState loading={loading} error={error} empty={!report || report.rows.length === 0} emptyText="No posted revenue journal lines found for this period." />
       {report ? (
         <div className="space-y-5">
-          <SummaryGrid items={[["Revenue", report.totals.revenue]]} />
+          <SummaryGrid items={[["Revenue", report.totals.revenue]]} currency={report.accountingContext.baseCurrency} />
           <AdvancedReportBasis basis={report.basis} details={`${tc("Granularity")}: ${report.granularity} / ${tc("Journal lines")}: ${report.totals.lineCount}`} />
           <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
             <table className="w-full min-w-[620px] text-start text-sm">
@@ -369,7 +418,7 @@ export function RevenueTrendReportPage() {
                 {report.rows.map((row) => (
                   <tr key={row.period}>
                     <td className="px-4 py-3 font-medium text-ink">{row.period}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.revenue, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.revenue, report.accountingContext.baseCurrency, locale)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
                   </tr>
                 ))}
@@ -402,6 +451,7 @@ export function TopCustomersReportPage() {
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               ["Taxable amount", report.totals.taxableAmount],
               ["Tax amount", report.totals.taxAmount],
@@ -430,9 +480,9 @@ export function TopCustomersReportPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{row.invoiceCount}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, report.accountingContext.baseCurrency, locale)}</td>
                     <td className="px-4 py-3 text-steel">{formatAppDate(row.latestInvoiceDate, locale, "-")}</td>
                   </tr>
                 ))}
@@ -465,6 +515,7 @@ export function TopProductsServicesReportPage() {
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               ["Quantity", report.totals.quantity],
               ["Taxable amount", report.totals.taxableAmount],
@@ -497,9 +548,9 @@ export function TopProductsServicesReportPage() {
                     <td className="px-4 py-3 text-steel">{tc(reportSectionTitle(row.kind))}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.lineCount}</td>
                     <td className="px-4 py-3 font-mono text-xs">{row.quantity}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxableAmount, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.taxAmount, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.grossAmount, report.accountingContext.baseCurrency, locale)}</td>
                     <td className="px-4 py-3 text-steel">{formatAppDate(row.latestInvoiceDate, locale, "-")}</td>
                   </tr>
                 ))}
@@ -538,6 +589,7 @@ export function VatSummaryReportPage() {
       {report ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               [VAT_REPORT_LABELS.outputVat, report.salesVat],
               [VAT_REPORT_LABELS.inputVat, report.purchaseVat],
@@ -560,8 +612,8 @@ export function VatSummaryReportPage() {
                   <tr key={section.category}>
                     <td className="px-4 py-3 font-medium text-ink">{tc(reportSectionTitle(section.category))}</td>
                     <td dir="ltr" style={{ unicodeBidi: "isolate" }} className="px-4 py-3 text-steel">{section.accountCode}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(section.amount, "SAR", locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(section.taxAmount, "SAR", locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(section.amount, report.accountingContext.baseCurrency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(section.taxAmount, report.accountingContext.baseCurrency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -610,6 +662,7 @@ export function VatReturnReportPage() {
       {report && hasDocuments ? (
         <div className="space-y-5">
           <SummaryGrid
+            currency={report.accountingContext.baseCurrency}
             items={[
               [VAT_REPORT_LABELS.outputVat, report.outputVat],
               [VAT_REPORT_LABELS.inputVat, report.inputVat],
@@ -639,16 +692,16 @@ export function VatReturnReportPage() {
                 <tr>
                   <td className="px-4 py-3 font-medium text-ink">{tc("Finalized sales invoices")}</td>
                   <td className="px-4 py-3 font-mono text-xs">{report.sales.documentCount}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.taxableAmount, "SAR", locale)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.grossAmount, "SAR", locale)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.taxAmount, "SAR", locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.taxableAmount, report.accountingContext.baseCurrency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.grossAmount, report.accountingContext.baseCurrency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.sales.taxAmount, report.accountingContext.baseCurrency, locale)}</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-3 font-medium text-ink">{tc("Finalized purchase bills")}</td>
                   <td className="px-4 py-3 font-mono text-xs">{report.purchases.documentCount}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.taxableAmount, "SAR", locale)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.grossAmount, "SAR", locale)}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.taxAmount, "SAR", locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.taxableAmount, report.accountingContext.baseCurrency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.grossAmount, report.accountingContext.baseCurrency, locale)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(report.purchases.taxAmount, report.accountingContext.baseCurrency, locale)}</td>
                 </tr>
               </tbody>
             </table>
@@ -686,10 +739,12 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
   const searchParams = useSearchParams();
   const [report, setReport] = useState<AgingReport | null>(null);
   const [asOf, setAsOf] = useState(todayDateInput());
+  const [transactionCurrency, setTransactionCurrency] = useState("");
   const { loading, error, load } = useReportLoader<AgingReport>((query) => `${endpoint}${query}`, setReport);
   const slug = endpoint.split("/").at(-1) ?? "aging-report";
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const reportReturnToHref = buildAgingReportHref(endpoint, asOf, returnTo);
+  const reportParams = () => ({ asOf, transactionCurrency: transactionCurrency.trim().toUpperCase() || undefined });
 
   useEffect(() => {
     void load(buildReportQuery({ asOf }));
@@ -705,8 +760,27 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
         </div>
       ) : null}
       <AgingReportGuide kind={kind} returnToHref={reportReturnToHref} />
-      <AsOfForm asOf={asOf} setAsOf={setAsOf} loading={loading} onSubmit={() => load(buildReportQuery({ asOf }))} helpText={tc("Changing the date recalculates which open invoices or bills fall into each aging bucket.")} />
-      <ReportExportButtons endpoint={endpoint} slug={slug} params={{ asOf }} />
+      <AsOfForm
+        asOf={asOf}
+        setAsOf={setAsOf}
+        loading={loading}
+        onSubmit={() => load(buildReportQuery(reportParams()))}
+        helpText={tc("Changing the date recalculates which open invoices or bills fall into each aging bucket.")}
+        additionalControls={
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("Transaction currency")}</span>
+            <input
+              aria-label={tc("Transaction currency")}
+              maxLength={3}
+              placeholder="USD"
+              value={transactionCurrency}
+              onChange={(event) => setTransactionCurrency(event.target.value.toUpperCase())}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-palm sm:w-28"
+            />
+          </label>
+        }
+      />
+      <ReportExportButtons endpoint={endpoint} slug={slug} params={reportParams()} />
       <ReportState
         loading={loading}
         error={error}
@@ -721,8 +795,18 @@ function AgingReportPage({ title, endpoint, description, kind }: { title: string
       />
       {report ? (
         <div className="space-y-5">
-          <SummaryGrid items={[...REPORT_BUCKETS.map((bucket) => [agingBucketLabel(bucket), report.bucketTotals[bucket]] as [string, string]), ["Grand total", report.grandTotal]]} />
-          <AgingTable rows={report.rows} kind={kind} returnToHref={reportReturnToHref} />
+          <SummaryGrid items={[...REPORT_BUCKETS.map((bucket) => [agingBucketLabel(bucket), report.bucketTotals[bucket]] as [string, string]), ["Grand total", report.grandTotal]]} currency={report.accountingContext.baseCurrency} />
+          {Object.keys(report.transactionTotalsByCurrency ?? {}).length > 0 ? (
+            <div className="flex flex-wrap gap-2 rounded-md border border-slate-200 bg-slate-50 p-4 text-xs text-steel">
+              <span className="font-semibold text-ink">{tc("Open transaction totals")}:</span>
+              {Object.entries(report.transactionTotalsByCurrency).map(([currency, amount]) => (
+                <span key={currency} className="rounded border border-slate-200 bg-white px-2 py-1 font-mono">
+                  {formatAppMoney(amount, currency, "en")} {tc("open")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <AgingTable rows={report.rows} kind={kind} returnToHref={reportReturnToHref} currency={report.accountingContext.baseCurrency} />
         </div>
       ) : null}
     </ReportSection>
@@ -949,6 +1033,7 @@ function DateRangeForm({
   setTo,
   loading,
   onSubmit,
+  additionalControls,
 }: {
   from: string;
   to: string;
@@ -956,6 +1041,7 @@ function DateRangeForm({
   setTo: (value: string) => void;
   loading: boolean;
   onSubmit: () => Promise<void>;
+  additionalControls?: ReactNode;
 }) {
   const { tc } = useAppLocale();
   return (
@@ -975,6 +1061,7 @@ function DateRangeForm({
           <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("To")}</span>
           <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
         </label>
+        {additionalControls}
         <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
           {loading ? tc("Loading...") : tc("Run report")}
         </button>
@@ -984,7 +1071,7 @@ function DateRangeForm({
   );
 }
 
-function AsOfForm({ asOf, setAsOf, loading, onSubmit, helpText }: { asOf: string; setAsOf: (value: string) => void; loading: boolean; onSubmit: () => Promise<void>; helpText?: string }) {
+function AsOfForm({ asOf, setAsOf, loading, onSubmit, helpText, additionalControls }: { asOf: string; setAsOf: (value: string) => void; loading: boolean; onSubmit: () => Promise<void>; helpText?: string; additionalControls?: ReactNode }) {
   const { tc } = useAppLocale();
   return (
     <form
@@ -999,6 +1086,7 @@ function AsOfForm({ asOf, setAsOf, loading, onSubmit, helpText }: { asOf: string
           <span className="text-xs font-medium uppercase tracking-wide text-steel">{tc("As of")}</span>
           <input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm sm:w-auto" />
         </label>
+        {additionalControls}
         <button type="submit" disabled={loading} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:self-end">
           {loading ? tc("Loading...") : tc("Run report")}
         </button>
@@ -1043,21 +1131,21 @@ function ReportState({
   );
 }
 
-function SummaryGrid({ items }: { items: Array<[string, string]> }) {
+function SummaryGrid({ items, currency }: { items: Array<[string, string]>; currency: string }) {
   const { locale, tc } = useAppLocale();
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
       {items.map(([label, value]) => (
         <div key={label} className="rounded-md border border-slate-200 bg-white p-4 shadow-panel">
           <div className="text-xs uppercase tracking-wide text-steel">{tc(label)}</div>
-          <div className="mt-2 font-mono text-sm font-semibold text-ink">{formatAppMoney(value, "SAR", locale)}</div>
+          <div className="mt-2 font-mono text-sm font-semibold text-ink">{formatAppMoney(value, currency, locale)}</div>
         </div>
       ))}
     </div>
   );
 }
 
-function AccountBalanceTable({ accounts, totals }: { accounts: TrialBalanceReport["accounts"]; totals: TrialBalanceReport["totals"] }) {
+function AccountBalanceTable({ accounts, totals, currency }: { accounts: TrialBalanceReport["accounts"]; totals: TrialBalanceReport["totals"]; currency: string }) {
   const { tc } = useAppLocale();
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
@@ -1081,13 +1169,13 @@ function AccountBalanceTable({ accounts, totals }: { accounts: TrialBalanceRepor
                 {account.code} {account.name}
               </td>
               <td className="px-4 py-3 text-steel">{tc(reportSectionTitle(account.type))}</td>
-              <MoneyCells values={[account.openingDebit, account.openingCredit, account.periodDebit, account.periodCredit, account.closingDebit, account.closingCredit]} />
+              <MoneyCells values={[account.openingDebit, account.openingCredit, account.periodDebit, account.periodCredit, account.closingDebit, account.closingCredit]} currency={currency} />
             </tr>
           ))}
           <tr className="bg-slate-50 font-semibold text-ink">
             <td className="px-4 py-3">{tc("Totals")}</td>
             <td className="px-4 py-3" />
-            <MoneyCells values={[totals.openingDebit, totals.openingCredit, totals.periodDebit, totals.periodCredit, totals.closingDebit, totals.closingCredit]} />
+            <MoneyCells values={[totals.openingDebit, totals.openingCredit, totals.periodDebit, totals.periodCredit, totals.closingDebit, totals.closingCredit]} currency={currency} />
           </tr>
         </tbody>
       </table>
@@ -1095,20 +1183,20 @@ function AccountBalanceTable({ accounts, totals }: { accounts: TrialBalanceRepor
   );
 }
 
-function MoneyCells({ values }: { values: string[] }) {
+function MoneyCells({ values, currency }: { values: string[]; currency: string }) {
   const { locale } = useAppLocale();
   return (
     <>
       {values.map((value, index) => (
         <td key={`${value}-${index}`} className="px-4 py-3 font-mono text-xs">
-          {formatAppMoney(value, "SAR", locale)}
+          {formatAppMoney(value, currency, locale)}
         </td>
       ))}
     </>
   );
 }
 
-function AmountSection({ title, total, accounts }: { title: string; total: string; accounts: Array<{ accountId: string; code: string; name: string; amount: string }> }) {
+function AmountSection({ title, total, accounts, currency }: { title: string; total: string; accounts: Array<{ accountId: string; code: string; name: string; amount: string }>; currency: string }) {
   const { locale, tc } = useAppLocale();
   const translatedTitle = tc(reportSectionTitle(title));
   return (
@@ -1126,12 +1214,12 @@ function AmountSection({ title, total, accounts }: { title: string; total: strin
               <td className="px-4 py-3 font-medium text-ink">
                 <span dir="ltr" style={{ unicodeBidi: "isolate" }}>{account.code}</span> {account.name}
               </td>
-              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(account.amount, "SAR", locale)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(account.amount, currency, locale)}</td>
             </tr>
           ))}
           <tr className="bg-slate-50 font-semibold text-ink">
             <td className="px-4 py-3">{totalLabel(translatedTitle, locale)}</td>
-            <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(total, "SAR", locale)}</td>
+            <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(total, currency, locale)}</td>
           </tr>
         </tbody>
       </table>
@@ -1139,8 +1227,8 @@ function AmountSection({ title, total, accounts }: { title: string; total: strin
   );
 }
 
-function BalanceSheetSectionView({ title, section }: { title: string; section: BalanceSheetSection }) {
-  return <AmountSection title={title} total={section.total} accounts={section.accounts} />;
+function BalanceSheetSectionView({ title, section, currency }: { title: string; section: BalanceSheetSection; currency: string }) {
+  return <AmountSection title={title} total={section.total} accounts={section.accounts} currency={currency} />;
 }
 
 function reportSectionTitle(value: string): string {
@@ -1236,7 +1324,7 @@ function ReportActionLinks({ kind, returnToHref }: { kind: AgingReportKind; retu
   );
 }
 
-export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[]; kind: AgingReportKind; returnToHref?: string }) {
+export function AgingTable({ rows, kind, returnToHref, currency }: { rows: AgingReportRow[]; kind: AgingReportKind; returnToHref?: string; currency: string }) {
   const { locale, tc } = useAppLocale();
   if (rows.length === 0) {
     return null;
@@ -1245,7 +1333,7 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-panel">
-      <table className="w-full min-w-[1120px] text-start text-sm">
+      <table className="w-full min-w-[1420px] text-start text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel">
           <tr>
             <th className="px-4 py-3">{tc("Contact")}</th>
@@ -1254,6 +1342,7 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
             <th className="px-4 py-3">{tc("Due date")}</th>
             <th className="px-4 py-3">{tc("Total")}</th>
             <th className="px-4 py-3">{tc("Balance due")}</th>
+            <th className="px-4 py-3">{tc("Foreign-currency evidence")}</th>
             <th className="px-4 py-3">{tc("Days overdue")}</th>
             <th className="px-4 py-3">{tc("Bucket")}</th>
             <th className="px-4 py-3">{tc("Action")}</th>
@@ -1274,8 +1363,21 @@ export function AgingTable({ rows, kind, returnToHref }: { rows: AgingReportRow[
               </td>
               <td className="px-4 py-3 text-steel">{formatAppDate(row.issueDate, locale, "-")}</td>
               <td className="px-4 py-3 text-steel">{formatAppDate(row.dueDate, locale, "-")}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.total, "SAR", locale)}</td>
-              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.balanceDue, "SAR", locale)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.total, currency, locale)}</td>
+              <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(row.balanceDue, currency, locale)}</td>
+              <td className="px-4 py-3 text-xs text-steel">
+                {row.currency && row.openTransactionAmount ? (
+                  <div className="space-y-1">
+                    <div className="font-mono text-ink">{formatAppMoney(row.openTransactionAmount, row.currency, "en")} {tc("open")}</div>
+                    <div>{formatAppMoney(row.carryingBaseAmount ?? row.balanceDue, currency, locale)} {tc("carrying")}</div>
+                    <div>{formatAppMoney(row.sourceBaseOpenAmount ?? row.balanceDue, currency, locale)} {tc("source")}</div>
+                    <div>
+                      {tc("Rate")} {row.carryingRate ?? "-"}
+                      {row.revaluation ? ` · ${row.revaluation.rateSource} ${row.revaluation.rateDate}` : ""}
+                    </div>
+                  </div>
+                ) : "-"}
+              </td>
               <td className="px-4 py-3 font-mono text-xs">{row.daysOverdue}</td>
               <td className="px-4 py-3">
                 <span className={`rounded-md px-2 py-1 text-xs font-medium ${agingBucketClass(row.bucket)}`}>{tc(agingBucketLabel(row.bucket))}</span>

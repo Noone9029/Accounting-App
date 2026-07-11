@@ -1,4 +1,4 @@
-import { advancedReportCsv, bankReconciliationReportCsv, coreReportCsv, csvEscape, toCsv, vatReturnCsv } from "./report-csv";
+import { advancedReportCsv, bankReconciliationReportCsv, coreReportCsv, csvEscape, fxReportCsv, toCsv, vatReturnCsv } from "./report-csv";
 
 describe("report CSV helpers", () => {
   it("escapes commas, quotes, and newlines", () => {
@@ -57,6 +57,68 @@ describe("report CSV helpers", () => {
     expect(csv.content).toContain("111,Operating Bank,ASSET");
   });
 
+  it("states the base currency and official amount basis in report headers", () => {
+    const csv = coreReportCsv(
+      "trial-balance",
+      {
+        accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+        from: null,
+        to: null,
+        accounts: [],
+        totals: {},
+      },
+      new Date("2026-07-11T10:00:00.000Z"),
+    );
+
+    expect(csv.content).toContain("Base Currency,AED\r\n");
+    expect(csv.content).toContain("Amount Basis,Base currency\r\n");
+  });
+
+  it("exports general-ledger currency scope and row-level transaction evidence", () => {
+    const csv = coreReportCsv(
+      "general-ledger",
+      {
+        from: "2026-07-01",
+        to: "2026-07-31",
+        accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+        fxFilters: { transactionCurrency: "USD" },
+        accounts: [
+          {
+            code: "120",
+            name: "Accounts Receivable",
+            type: "ASSET",
+            openingDebit: "0.0000",
+            openingCredit: "0.0000",
+            periodDebit: "367.2500",
+            periodCredit: "0.0000",
+            closingDebit: "367.2500",
+            closingCredit: "0.0000",
+            lines: [
+              {
+                date: "2026-07-10",
+                entryNumber: "JE-1",
+                description: "USD invoice",
+                reference: "INV-1",
+                debit: "367.2500",
+                credit: "0.0000",
+                runningBalance: "367.2500",
+                currency: "USD",
+                transactionDebit: "100.0000",
+                transactionCredit: "0.0000",
+                exchangeRate: "3.67250000",
+              },
+            ],
+          },
+        ],
+      },
+      new Date("2026-07-11T10:00:00.000Z"),
+    );
+
+    expect(csv.content).toContain("Transaction Currency Filter,USD\r\n");
+    expect(csv.content).toContain("Base Debit,Base Credit,Base Running Balance,Transaction Currency,Transaction Debit,Transaction Credit,Exchange Rate");
+    expect(csv.content).toContain("367.2500,0.0000,367.2500,USD,100.0000,0.0000,3.67250000");
+  });
+
   it("includes readable dimension filter labels in supported core and advanced CSV exports", () => {
     const filters = {
       costCenter: { id: "cost-center-1", code: "CC-OPS", name: "Operations", status: "ACTIVE" },
@@ -77,6 +139,52 @@ describe("report CSV helpers", () => {
       expect(csv.content).toContain("Cost Center,CC-OPS Operations\r\n");
       expect(csv.content).toContain("Project,PRJ-ALPHA Alpha\r\n");
     }
+  });
+
+  it("exports aging carrying value and transaction residuals without cross-currency aggregation", () => {
+    const csv = coreReportCsv(
+      "aged-receivables",
+      {
+        accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+        asOf: "2026-07-31",
+        fxFilters: { transactionCurrency: "USD" },
+        rows: [
+          {
+            contact: { name: "Customer" }, number: "INV-USD", issueDate: "2026-07-01", dueDate: "2026-07-31",
+            total: "367.2500", balanceDue: "150.0000", currency: "USD", transactionTotal: "100.0000",
+            openTransactionAmount: "40.0000", sourceBaseOpenAmount: "146.9000", carryingBaseAmount: "150.0000",
+            carryingRate: "3.75000000", daysOverdue: 0, bucket: "CURRENT",
+            revaluation: { rateSnapshotId: "rate-1", revaluationRunId: "run-1", rateSource: "MANUAL", rateDate: "2026-07-31" },
+          },
+        ],
+        grandTotal: "150.0000",
+        transactionTotalsByCurrency: { USD: "40.0000" },
+      },
+      new Date("2026-07-31T10:00:00.000Z"),
+    );
+
+    expect(csv.content).toContain("Transaction Currency Filter,USD");
+    expect(csv.content).toContain("Currency,Transaction Total,Open Transaction Amount,Source Base Open Amount,Carrying Base Amount,Carrying Rate");
+    expect(csv.content).toContain("USD,100.0000,40.0000,146.9000,150.0000,3.75000000");
+    expect(csv.content).toContain("Open Transaction Total,USD,40.0000");
+  });
+
+  it("exports FX reports with audit context and spreadsheet-injection protection", () => {
+    const csv = fxReportCsv("open-exposure", {
+      accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
+      filters: { transactionCurrency: "USD" },
+      rows: [{ sourceType: "RECEIVABLE", documentNumber: "=CMD()", currency: "USD", openTransactionAmount: "40.0000", sourceBaseOpenAmount: "146.9000", carryingBaseAmount: "150.0000", carryingRate: "3.75000000" }],
+      groups: [{ currency: "USD", receivableOpenTransactionAmount: "40.0000", payableOpenTransactionAmount: "0.0000", grossOpenTransactionAmount: "40.0000", netOpenTransactionAmount: "40.0000", grossCarryingBaseAmount: "150.0000", netCarryingBaseAmount: "150.0000" }],
+      totals: { receivableCarryingBaseAmount: "150.0000", payableCarryingBaseAmount: "0.0000", grossCarryingBaseAmount: "150.0000", netCarryingBaseAmount: "150.0000", documentCount: 1 },
+      notes: ["Read-only evidence"],
+    }, new Date("2026-07-31T10:00:00.000Z"));
+
+    expect(csv.filename).toBe("fx-open-exposure-2026-07-31.csv");
+    expect(csv.content).toContain("Base Currency,AED");
+    expect(csv.content).toContain("Transaction Currency Filter,USD");
+    expect(csv.content).toContain("'=CMD()");
+    expect(csv.content).toContain("Gross Carrying Base,150.0000");
+    expect(csv.content).toContain("Signed Net Carrying Base,150.0000");
   });
 
   it("exports bank reconciliation report snapshots", () => {
@@ -171,6 +279,7 @@ describe("report CSV helpers", () => {
   it("exports VAT Return as an internal draft review CSV only", () => {
     const csv = vatReturnCsv(
       {
+        accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" },
         from: "2026-05-01",
         to: "2026-05-31",
         basis: "FINALIZED_SOURCE_DOCUMENTS",
@@ -200,10 +309,18 @@ describe("report CSV helpers", () => {
 
     expect(csv.filename).toBe("vat-return-draft-review-2026-05-13.csv");
     expect(csv.content).toContain("Draft VAT Return Review Export");
+    expect(csv.content).toContain("Base Currency,AED");
+    expect(csv.content).toContain("Amount Basis,Base currency");
     expect(csv.content).toContain("Review Status,Internal review only");
     expect(csv.content).toContain("Official Filing Format,Not implemented");
     expect(csv.content).toContain("INV-001,2026-05-03,100.0000,15.0000,115.0000");
     expect(csv.content).toContain("BILL-001,2026-05-04,33.3333,5.0000,38.3333");
+  });
+
+  it("labels SAR VAT return review exports with the same canonical amount basis", () => {
+    const csv = vatReturnCsv({ accountingContext: { baseCurrency: "SAR", amountBasis: "BASE_CURRENCY" }, sales: {}, purchases: {}, notes: [] }, new Date("2026-05-13T10:00:00.000Z"));
+    expect(csv.content).toContain("Base Currency,SAR");
+    expect(csv.content).toContain("Amount Basis,Base currency");
   });
 
   it("exports advanced cash flow CSV without changing report math or implying PDF support", () => {

@@ -31,7 +31,13 @@ describe("ReportsController exports", () => {
     topCustomers: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICES", rows: [] }),
     topProductsServices: jest.fn().mockResolvedValue({ basis: "FINALIZED_SALES_INVOICE_LINES", rows: [] }),
   };
-  const controller = new ReportsController(service as never);
+  const fxService = {
+    realizedActivity: jest.fn().mockResolvedValue({ rows: [], accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" } }),
+    unrealizedActivity: jest.fn().mockResolvedValue({ rows: [], accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" } }),
+    rateSnapshots: jest.fn().mockResolvedValue({ rows: [], accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" } }),
+    openExposure: jest.fn().mockResolvedValue({ rows: [], accountingContext: { baseCurrency: "AED", amountBasis: "BASE_CURRENCY" } }),
+  };
+  const controller = new ReportsController(service as never, fxService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -99,6 +105,23 @@ describe("ReportsController exports", () => {
 
     expect(result).toMatchObject({ receivables: { total: "150.0000" }, revenue: { currentPeriod: "120.0000" } });
     expect(service.dashboardSummary).toHaveBeenCalledWith("org-1", { from: "2026-01-01", to: "2026-01-31" });
+  });
+
+  it.each([
+    ["realized activity", (query: any, req: any, res: any) => controller.realizedFxActivity("org-1", query, req, res), fxService.realizedActivity],
+    ["unrealized activity", (query: any, req: any, res: any) => controller.unrealizedFxActivity("org-1", query, req, res), fxService.unrealizedActivity],
+    ["rate snapshots", (query: any, req: any, res: any) => controller.fxRateSnapshots("org-1", query, req, res), fxService.rateSnapshots],
+    ["open exposure", (query: any, req: any, res: any) => controller.openFxExposure("org-1", query, req, res), fxService.openExposure],
+  ])("serves %s as JSON and permission-gated CSV", async (_label, call, serviceMethod) => {
+    await expect(call({ transactionCurrency: "USD" }, request(), response())).resolves.toMatchObject({ rows: [] });
+    expect(serviceMethod).toHaveBeenCalledWith("org-1", { transactionCurrency: "USD" });
+
+    const res = response();
+    const csv = await call({ transactionCurrency: "USD", format: "csv" }, request(), res);
+    expect(csv).toBeInstanceOf(StreamableFile);
+    expect(res.set).toHaveBeenCalledWith(expect.objectContaining({ "Content-Type": "text/csv; charset=utf-8" }));
+
+    await expect(call({ format: "csv" }, request([]), response())).rejects.toThrow(ForbiddenException);
   });
 
   it("routes report-pack manifest preview requests to the read-only preview service", () => {

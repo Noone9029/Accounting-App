@@ -14,6 +14,6 @@ import { FxRevaluationService } from "./fx-revaluation.service";
   imports: [AuditLogModule, FiscalPeriodModule, NumberSequenceModule],
   controllers: [ForeignExchangeController],
   providers: [ForeignExchangeService, FxRevaluationService, FxCarryingBalanceService, BaseCurrencyPostingGuardService, DocumentFxContextService],
-  exports: [ForeignExchangeService, FxRevaluationService, FxCarryingBalanceService, BaseCurrencyPostingGuardService, DocumentFxContextService],
+  exports: [ForeignExchangeService, FxRevaluationService, FxCarryingBalanceService, BaseCurrencyPostingGuardService, DocumentFxContextService, FiscalPeriodModule],
 })
 export class ForeignExchangeModule {}

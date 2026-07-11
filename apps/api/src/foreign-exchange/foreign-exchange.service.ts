@@ -11,28 +11,11 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateCurrencyRateSnapshotDto } from "./dto/create-currency-rate-snapshot.dto";
 import { CurrencyRateQueryDto } from "./dto/currency-rate-query.dto";
 import { UpdateFxAccountConfigurationDto } from "./dto/update-fx-account-configuration.dto";
-
-const ACCOUNT_SELECT = {
-  id: true,
-  code: true,
-  name: true,
-  type: true,
-  isActive: true,
-  allowPosting: true,
-} as const;
-
-const CONFIG_INCLUDE = {
-  realizedGainAccount: { select: ACCOUNT_SELECT },
-  realizedLossAccount: { select: ACCOUNT_SELECT },
-  unrealizedGainAccount: { select: ACCOUNT_SELECT },
-  unrealizedLossAccount: { select: ACCOUNT_SELECT },
-} as const;
-
-type ConfigAccount = {
-  type: AccountType;
-  isActive: boolean;
-  allowPosting: boolean;
-} | null;
+import {
+  evaluateFxAccountReadiness,
+  FX_ACCOUNT_READINESS_ACCOUNT_SELECT as ACCOUNT_SELECT,
+  FX_ACCOUNT_READINESS_CONFIG_INCLUDE as CONFIG_INCLUDE,
+} from "./fx-account-readiness";
 
 @Injectable()
 export class ForeignExchangeService {
@@ -219,16 +202,7 @@ export class ForeignExchangeService {
         select: { code: true, type: true, isActive: true, allowPosting: true },
       }),
     ]);
-    const accountConfigurationComplete = Boolean(
-      configuration &&
-        this.readyAccount(configuration.realizedGainAccount, AccountType.REVENUE) &&
-        this.readyAccount(configuration.realizedLossAccount, AccountType.EXPENSE) &&
-        this.readyAccount(configuration.unrealizedGainAccount, AccountType.REVENUE) &&
-        this.readyAccount(configuration.unrealizedLossAccount, AccountType.EXPENSE),
-    );
-    const controlAccountsComplete =
-      controlAccounts.some((account) => account.code === "120" && account.type === AccountType.ASSET) &&
-      controlAccounts.some((account) => account.code === "210" && account.type === AccountType.LIABILITY);
+    const { accountConfigurationComplete, controlAccountsComplete } = evaluateFxAccountReadiness({ configuration, controlAccounts });
     const fxRevaluationEnabled = accountConfigurationComplete && controlAccountsComplete;
     const blockers = [
       ...(accountConfigurationComplete ? [] : ["Configure active posting accounts for realized and unrealized FX gains and losses."]),
@@ -296,10 +270,6 @@ export class ForeignExchangeService {
   private optionalText(value: string | undefined): string | null {
     const normalized = value?.trim();
     return normalized || null;
-  }
-
-  private readyAccount(account: ConfigAccount, expectedType: AccountType): boolean {
-    return Boolean(account && account.type === expectedType && account.isActive && account.allowPosting);
   }
 
   private boundedInteger(value: number | undefined, min: number, max: number, fallback: number): number {

@@ -4758,6 +4758,7 @@ export interface CustomerLedger {
 export interface CustomerStatement extends CustomerLedger {
   periodFrom: string | null;
   periodTo: string | null;
+  baseCurrency?: string;
 }
 
 export interface SupplierLedgerRow {
@@ -4793,6 +4794,7 @@ export interface SupplierLedger {
 export interface SupplierStatement extends SupplierLedger {
   periodFrom: string | null;
   periodTo: string | null;
+  baseCurrency?: string;
 }
 
 export interface GeneralLedgerLine {
@@ -4804,6 +4806,25 @@ export interface GeneralLedgerLine {
   debit: string;
   credit: string;
   runningBalance: string;
+  currency: string | null;
+  transactionDebit: string | null;
+  transactionCredit: string | null;
+  exchangeRate: string | null;
+  rateSnapshot: {
+    id: string;
+    rateDate: string;
+    source: string;
+    sourceReference: string | null;
+  } | null;
+}
+
+export interface ReportAccountingContext {
+  baseCurrency: string;
+  amountBasis: "BASE_CURRENCY";
+}
+
+export interface ReportWithAccountingContext {
+  accountingContext: ReportAccountingContext;
 }
 
 export interface ReportAccountBalance {
@@ -4823,13 +4844,14 @@ export interface GeneralLedgerAccount extends ReportAccountBalance {
   lines: GeneralLedgerLine[];
 }
 
-export interface GeneralLedgerReport {
+export interface GeneralLedgerReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   accounts: GeneralLedgerAccount[];
+  fxFilters: { transactionCurrency?: string };
 }
 
-export interface TrialBalanceReport {
+export interface TrialBalanceReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   accounts: ReportAccountBalance[];
@@ -4845,7 +4867,7 @@ export interface ReportAccountBalanceTotals {
   closingCredit: string;
 }
 
-export interface ProfitAndLossReport {
+export interface ProfitAndLossReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   revenue: string;
@@ -4865,7 +4887,7 @@ export interface BalanceSheetSection {
   accounts: Array<{ accountId: string; code: string; name: string; type: AccountType; amount: string }>;
 }
 
-export interface BalanceSheetReport {
+export interface BalanceSheetReport extends ReportWithAccountingContext {
   asOf: string | null;
   assets: BalanceSheetSection;
   liabilities: BalanceSheetSection;
@@ -4877,7 +4899,7 @@ export interface BalanceSheetReport {
   balanced: boolean;
 }
 
-export interface VatSummaryReport {
+export interface VatSummaryReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   salesVat: string;
@@ -4897,19 +4919,37 @@ export interface AgingReportRow {
   dueDate: string | null;
   total: string;
   balanceDue: string;
+  currency?: string | null;
+  baseCurrency?: string | null;
+  transactionTotal?: string;
+  openTransactionAmount?: string;
+  sourceBaseOpenAmount?: string;
+  carryingBaseAmount?: string;
+  carryingRate?: string;
+  revaluation?: {
+    rateSnapshotId: string;
+    rateDate: string;
+    rateSource: string;
+    rateSourceReference: string | null;
+    revaluationRunId: string;
+    revaluationLineId: string;
+    status?: string;
+  } | null;
   daysOverdue: number;
   bucket: AgingBucket;
 }
 
-export interface AgingReport {
+export interface AgingReport extends ReportWithAccountingContext {
   asOf: string | null;
   kind: "receivables" | "payables";
   rows: AgingReportRow[];
   bucketTotals: Record<AgingBucket, string>;
   grandTotal: string;
+  transactionTotalsByCurrency: Record<string, string>;
+  fxFilters: { transactionCurrency?: string };
 }
 
-export interface CashFlowReport {
+export interface CashFlowReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   basis: string;
@@ -4933,7 +4973,7 @@ export interface CashFlowReport {
   notes: string[];
 }
 
-export interface RevenueTrendReport {
+export interface RevenueTrendReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   basis: string;
@@ -4950,7 +4990,7 @@ export interface RevenueTrendReport {
   notes: string[];
 }
 
-export interface TopCustomersReport {
+export interface TopCustomersReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   basis: string;
@@ -4973,7 +5013,7 @@ export interface TopCustomersReport {
   notes: string[];
 }
 
-export interface TopProductsServicesReport {
+export interface TopProductsServicesReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   basis: string;
@@ -5442,7 +5482,7 @@ export interface CollectionSummary {
   safeWording: string;
 }
 
-export interface VatReturnReport {
+export interface VatReturnReport extends ReportWithAccountingContext {
   from: string | null;
   to: string | null;
   basis: "FINALIZED_SOURCE_DOCUMENTS" | string;
@@ -5676,6 +5716,73 @@ export interface DocumentFxFields {
   rateDate?: string | null;
   rateSource?: CurrencyRateSource | null;
   rateSnapshotId?: string | null;
+  fxMonetaryBalance?: {
+    carryingBaseAmount: string;
+    carryingRate: string;
+    rateSnapshotId: string;
+    lastRevaluationLineId: string;
+  } | null;
+}
+
+export interface FxReportBase extends ReportWithAccountingContext {
+  from?: string | null;
+  to?: string | null;
+  filters: { transactionCurrency?: string };
+  notes: string[];
+  pagination?: { page: number; limit: number; hasMore: boolean } | null;
+}
+
+export interface FxRealizedActivityReport extends FxReportBase {
+  totalsScope: "PAGE" | "FILTERED_EXPORT";
+  rows: Array<{
+    id: string; allocationId: string; eventType: "ORIGINAL" | "REVERSAL"; date: string; allocationType: string; paymentNumber: string | null; documentNumber: string | null;
+    currency: string; transactionAmount: string; grossGain: string; grossLoss: string; netGain: string; netLoss: string;
+    reversed: boolean; missingJournal: boolean;
+  }>;
+  totals: { grossGain: string; grossLoss: string; reversedGain: string; reversedLoss: string; netGain: string; netLoss: string; missingJournalCount: number; rowCount: number };
+}
+
+export interface FxUnrealizedActivityReport extends FxReportBase {
+  totalsScope: "PAGE" | "FILTERED_EXPORT";
+  rows: Array<{
+    id: string; revaluationRunId: string; revaluationDate: string; status: string; sourceType: string; documentNumber: string | null;
+    currency: string; openTransactionAmount: string; carryingBaseAmount: string; revaluedBaseAmount: string; closingRate: string;
+    grossGain: string; grossLoss: string; previewGain: string; previewLoss: string; netGain: string; netLoss: string; rateSnapshotId: string;
+    recognition: "POSTED" | "REVERSED" | "UNPOSTED_PREVIEW";
+  }>;
+  totals: { grossGain: string; grossLoss: string; previewGain: string; previewLoss: string; reversedGain: string; reversedLoss: string; netGain: string; netLoss: string; rowCount: number };
+}
+
+export interface FxRateSnapshotReport extends FxReportBase {
+  rows: Array<{ id: string; transactionCurrency: string; baseCurrency: string; rate: string; rateDate: string; source: string; sourceReference: string | null; usage: { documents: number; journalLines: number; revaluationLines: number; total: number } }>;
+}
+
+export interface FxOpenExposureReport extends FxReportBase {
+  rows: Array<{ id: string; sourceType: string; documentNumber: string; currency: string; openTransactionAmount: string; sourceBaseOpenAmount: string; carryingBaseAmount: string; carryingRate: string; rateSnapshotId: string | null; lastRevaluationLineId: string | null }>;
+  groups: Array<{
+    currency: string; receivableOpenTransactionAmount: string; payableOpenTransactionAmount: string; grossOpenTransactionAmount: string; netOpenTransactionAmount: string;
+    receivableSourceBaseOpenAmount: string; payableSourceBaseOpenAmount: string; grossSourceBaseOpenAmount: string; netSourceBaseOpenAmount: string;
+    receivableCarryingBaseAmount: string; payableCarryingBaseAmount: string; grossCarryingBaseAmount: string; netCarryingBaseAmount: string;
+    documentCount: number; receivableCount: number; payableCount: number;
+  }>;
+  totals: {
+    receivableSourceBaseAmount: string; payableSourceBaseAmount: string; grossSourceBaseAmount: string; netSourceBaseAmount: string;
+    receivableCarryingBaseAmount: string; payableCarryingBaseAmount: string; grossCarryingBaseAmount: string; netCarryingBaseAmount: string;
+    documentCount: number;
+  };
+}
+
+export type FxActivityReport = FxRealizedActivityReport | FxUnrealizedActivityReport | FxRateSnapshotReport | FxOpenExposureReport;
+
+export interface FxCloseReadiness {
+  status: "NOT_APPLICABLE" | "READY" | "BLOCKED";
+  asOf: string;
+  blockers: Array<{ code: string; count: number; message: string; actionHref: string }>;
+  counts: {
+    foreignDocuments: number; openForeignDocuments: number; foreignCurrencies: number; missingClosingRates: number;
+    draftManualRateDocuments: number; unpostedRevaluationRuns: number; missingRealizedFxJournals: number; historicalSourceChangesAfterClose: number;
+  };
+  actions: Array<{ code: string; label: string; href: string }>;
 }
 
 export interface TransactionDocumentTotals {

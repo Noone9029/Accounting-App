@@ -42,6 +42,8 @@ import { CreditNoteService } from "./credit-notes/credit-note.service";
 import { ForeignExchangeController } from "./foreign-exchange/foreign-exchange.controller";
 import { ForeignExchangeService } from "./foreign-exchange/foreign-exchange.service";
 import { FxRevaluationService } from "./foreign-exchange/fx-revaluation.service";
+import { FxCloseReadinessService } from "./foreign-exchange/fx-close-readiness.service";
+import { FxReportingService } from "./reports/fx-reporting.service";
 import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
 
@@ -141,6 +143,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: CustomerPaymentService, useValue: makeCustomerPaymentService(tenantStore) },
         { provide: AccountingService, useValue: makeAccountingService(tenantStore) },
         { provide: ReportsService, useValue: makeReportsService() },
+        { provide: FxReportingService, useValue: makeFxReportingService() },
         { provide: GeneratedDocumentService, useValue: makeGeneratedDocumentService(tenantStore) },
         { provide: AttachmentService, useValue: makeAttachmentService(tenantStore) },
         { provide: OrganizationMemberService, useValue: makeOrganizationMemberService(tenantStore) },
@@ -148,6 +151,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: SearchService, useValue: makeSearchService(tenantStore) },
         { provide: ForeignExchangeService, useValue: makeForeignExchangeService(tenantStore) },
         { provide: FxRevaluationService, useValue: makeFxRevaluationService(tenantStore) },
+        { provide: FxCloseReadinessService, useValue: makeFxCloseReadinessService() },
       ],
     }).compile();
 
@@ -378,6 +382,35 @@ describe("tenant isolation HTTP integration", () => {
     expect(pdf.status).toBe(200);
     expect(pdfBody).toContain(markerA);
     expect(pdfBody).not.toContain(markerB);
+  });
+
+  it("keeps every FX report and close-readiness route scoped to the active organization", async () => {
+    for (const path of [
+      "/reports/fx/realized-activity",
+      "/reports/fx/unrealized-activity",
+      "/reports/fx/rate-snapshots",
+      "/reports/fx/open-exposure",
+      "/fx/close-readiness?asOf=2026-07-31",
+    ]) {
+      const owned = await request(path, { session: sessionA, organizationId: ids.orgA });
+      const body = await owned.text();
+      expect({ path, status: owned.status }).toEqual({ path, status: 200 });
+      expect({ path, containsOwnedMarker: body.includes(markerA) }).toEqual({ path, containsOwnedMarker: true });
+      expect({ path, containsForeignMarker: body.includes(markerB) }).toEqual({ path, containsForeignMarker: false });
+
+      const blocked = await request(path, { session: sessionA, organizationId: ids.orgB });
+      expect({ path, status: blocked.status }).toEqual({ path, status: 403 });
+    }
+
+    const csv = await request("/reports/fx/realized-activity?format=csv", { session: sessionA, organizationId: ids.orgA });
+    expect(csv.status).toBe(200);
+    expect(await csv.text()).toContain(markerA);
+
+    const structuredQuery = await request("/reports/fx/realized-activity?transactionCurrency=USD&transactionCurrency=EUR", { session: sessionA, organizationId: ids.orgA });
+    expect(structuredQuery.status).toBe(400);
+
+    const laterPage = await request("/reports/fx/realized-activity?page=21&limit=100", { session: sessionA, organizationId: ids.orgA });
+    expect(laterPage.status).toBe(200);
   });
 
   it("rejects cross-tenant generated document and attachment reads/downloads", async () => {
@@ -789,6 +822,34 @@ function makeReportsService() {
     revenueTrend: jest.fn(),
     topCustomers: jest.fn(),
     topProductsServices: jest.fn(),
+  };
+}
+
+function makeFxReportingService() {
+  const report = (organizationId: string) => ({
+    accountingContext: { baseCurrency: organizationId === ids.orgA ? "AED" : "SAR", amountBasis: "BASE_CURRENCY" },
+    filters: {}, rows: [], groups: [],
+    totals: { grossGain: "0.0000", grossLoss: "0.0000", reversedGain: "0.0000", reversedLoss: "0.0000", netGain: "0.0000", netLoss: "0.0000", missingJournalCount: 0, rowCount: 0 },
+    notes: [organizationId === ids.orgA ? markerA : markerB],
+  });
+  return {
+    realizedActivity: jest.fn((organizationId: string) => report(organizationId)),
+    unrealizedActivity: jest.fn((organizationId: string) => ({ ...report(organizationId), totals: { ...report(organizationId).totals, previewGain: "0.0000", previewLoss: "0.0000" } })),
+    rateSnapshots: jest.fn((organizationId: string) => report(organizationId)),
+    openExposure: jest.fn((organizationId: string) => ({ ...report(organizationId), totals: { documentCount: 0 } })),
+  };
+}
+
+function makeFxCloseReadinessService() {
+  return {
+    readiness: jest.fn((organizationId: string) => ({
+      status: "NOT_APPLICABLE",
+      asOf: "2026-07-31",
+      blockers: [],
+      actions: [],
+      counts: { foreignDocuments: 0, openForeignDocuments: 0, foreignCurrencies: 0, missingClosingRates: 0, draftManualRateDocuments: 0, unpostedRevaluationRuns: 0, missingRealizedFxJournals: 0, historicalSourceChangesAfterClose: 0 },
+      marker: organizationId === ids.orgA ? markerA : markerB,
+    })),
   };
 }
 

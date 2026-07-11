@@ -26,6 +26,7 @@ import { OrganizationDocumentSettingsService } from "../document-settings/organi
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
+import { countFxSourceActivityAfter } from "../foreign-exchange/fx-historical-activity";
 import { advancedReportCsv, AdvancedReportKind, coreReportCsv, CoreReportKind, vatReturnCsv } from "./report-csv";
 import {
   REPORT_PACK_SUPPORTED_REPORTS,
@@ -45,6 +46,7 @@ export interface ReportDateQuery {
   branchId?: string;
   costCenterId?: string;
   projectId?: string;
+  transactionCurrency?: string;
   includeZero?: string | boolean;
   limit?: string | number;
   format?: "json" | "csv" | string;
@@ -62,6 +64,11 @@ export interface ReportDimensionFilters {
   project: ReportDimensionFilterMetadata | null;
 }
 
+export interface ReportAccountingContext {
+  baseCurrency: string;
+  amountBasis: "BASE_CURRENCY";
+}
+
 interface ResolvedReportDimensions {
   filters: ReportDimensionFilters;
   lineFilters: { costCenterId?: string; projectId?: string };
@@ -77,6 +84,9 @@ export interface ReportPackCreateInput extends ReportPackManifestPreviewQuery {
   to?: string;
   asOf?: string;
   branchId?: string;
+  costCenterId?: string;
+  projectId?: string;
+  transactionCurrency?: string;
 }
 
 export interface ReportPackListQuery {
@@ -96,6 +106,17 @@ export interface ReportJournalLineInput {
   accountId: string;
   debit: unknown;
   credit: unknown;
+  transactionDebit?: unknown | null;
+  transactionCredit?: unknown | null;
+  currency?: string;
+  exchangeRate?: unknown;
+  rateSnapshotId?: string | null;
+  rateSnapshot?: {
+    id: string;
+    rateDate: string | Date;
+    source: string;
+    sourceReference?: string | null;
+  } | null;
   description?: string | null;
   lineNumber?: number;
   journalEntry: {
@@ -115,6 +136,24 @@ interface AgingDocumentInput {
   dueDate?: string | Date | null;
   total: unknown;
   balanceDue: unknown;
+  currency?: string | null;
+  baseCurrency?: string | null;
+  exchangeRate?: unknown | null;
+  transactionTotal?: unknown | null;
+  transactionBalanceDue?: unknown | null;
+  fxMonetaryBalance?: {
+    openTransactionAmount: unknown;
+    sourceBaseOpenAmount: unknown;
+    carryingBaseAmount: unknown;
+    carryingRate: unknown;
+    rateSnapshot: {
+      id: string;
+      rateDate: string | Date;
+      source: string;
+      sourceReference?: string | null;
+    };
+    lastRevaluationLine: { id: string; revaluationRunId: string; revaluationRun?: { status: string } };
+  } | null;
 }
 
 interface VatReturnDocumentInput {
@@ -202,7 +241,7 @@ export class ReportsService {
   ): Promise<ReportPackManifest> {
     const organization = await this.prisma.organization.findFirst({
       where: { id: organizationId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, baseCurrency: true },
     });
     if (!organization) {
       throw new NotFoundException("Organization not found.");
@@ -259,7 +298,7 @@ export class ReportsService {
         requestedById: requestedByUserId,
         generatedAt: now,
       },
-      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true, baseCurrency: true } } },
     });
 
     await this.logReportPackAudit({
@@ -281,7 +320,7 @@ export class ReportsService {
       where: { organizationId, ...(status ? { status } : {}) },
       orderBy: { createdAt: "desc" },
       take: limit,
-      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true, baseCurrency: true } } },
     });
 
     return {
@@ -297,7 +336,7 @@ export class ReportsService {
   async getReportPack(organizationId: string, id: string): Promise<ReportPackManifest> {
     const pack = await this.prisma.reportPack.findFirst({
       where: { id, organizationId },
-      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true } } },
+      include: { requestedBy: { select: { id: true, name: true } }, organization: { select: { id: true, name: true, baseCurrency: true } } },
     });
     if (!pack) {
       throw new NotFoundException("Report pack not found.");
@@ -371,7 +410,7 @@ export class ReportsService {
     generatedAt: Date | null;
     createdAt: Date;
     requestedBy?: { id: string; name: string | null } | null;
-    organization?: { id: string; name: string | null } | null;
+    organization?: { id: string; name: string | null; baseCurrency?: string | null } | null;
   }): ReportPackManifest {
     const manifest = isReportPackManifest(record.manifestJson)
       ? (record.manifestJson as unknown as ReportPackManifest)
@@ -408,8 +447,12 @@ export class ReportsService {
         ? { id: record.requestedBy.id, name: record.requestedBy.name ?? null }
         : manifest.requestedBy,
       organization: record.organization
-        ? { id: record.organization.id, name: record.organization.name ?? null }
+        ? { id: record.organization.id, name: record.organization.name ?? null, baseCurrency: record.organization.baseCurrency ?? manifest.accountingContext?.baseCurrency ?? null }
         : manifest.organization,
+      accountingContext: manifest.accountingContext ?? {
+        baseCurrency: record.organization?.baseCurrency ?? null,
+        amountBasis: "BASE_CURRENCY",
+      },
       period: {
         from: record.periodFrom ?? manifest.period.from,
         to: record.periodTo ?? manifest.period.to,
@@ -441,6 +484,7 @@ export class ReportsService {
 
   async generalLedger(organizationId: string, query: ReportDateQuery) {
     const dimensions = await this.resolveReportDimensions(organizationId, query);
+    const transactionCurrency = normalizeTransactionCurrencyFilter(query.transactionCurrency);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
     const accounts = await this.prisma.account.findMany({
@@ -453,6 +497,7 @@ export class ReportsService {
           before: range.from,
           accountId: query.accountId,
           branchId,
+          transactionCurrency,
           ...dimensions.lineFilters,
         })
       : [];
@@ -461,6 +506,7 @@ export class ReportsService {
       to: range.to,
       accountId: query.accountId,
       branchId,
+      transactionCurrency,
       ...dimensions.lineFilters,
     });
 
@@ -471,10 +517,12 @@ export class ReportsService {
         includeZero: boolQuery(query.includeZero),
       }),
       filters: dimensions.filters,
+      fxFilters: { transactionCurrency },
     };
   }
 
   async trialBalance(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -504,6 +552,7 @@ export class ReportsService {
   }
 
   async profitAndLoss(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -525,6 +574,7 @@ export class ReportsService {
   }
 
   async balanceSheet(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
     const asOf = parseEndDate(query.asOf);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -541,6 +591,7 @@ export class ReportsService {
   }
 
   async vatSummary(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -562,6 +613,7 @@ export class ReportsService {
   }
 
   async vatReturn(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     rejectUnsupportedDimensionFilters(query);
     const range = parseRange(query);
     const documentDateFilter = dateRangeFilter(range.from, range.to);
@@ -603,7 +655,7 @@ export class ReportsService {
       }),
     ]);
 
-    return buildVatReturnReport(
+    const report = buildVatReturnReport(
       salesInvoices.map((invoice) => ({
         id: invoice.id,
         number: invoice.invoiceNumber,
@@ -622,9 +674,11 @@ export class ReportsService {
       })),
       { from: range.fromLabel, to: range.toLabel },
     );
+    return { ...report, accountingContext: await this.reportAccountingContext(organizationId) };
   }
 
   async topCustomers(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     rejectUnsupportedDimensionFilters(query);
     const range = parseRange(query);
     const documentDateFilter = dateRangeFilter(range.from, range.to);
@@ -663,6 +717,7 @@ export class ReportsService {
   }
 
   async topProductsServices(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     rejectUnsupportedDimensionFilters(query);
     const range = parseRange(query);
     const documentDateFilter = dateRangeFilter(range.from, range.to);
@@ -700,6 +755,7 @@ export class ReportsService {
   }
 
   async dashboardSummary(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     rejectUnsupportedDimensionFilters(query);
     const asOf = parseEndDate(query.asOf ?? query.to) ?? endOfToday();
     const periodFrom = parseStartDate(query.from) ?? startOfMonth(asOf);
@@ -799,6 +855,7 @@ export class ReportsService {
   }
 
   async cashFlow(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -847,6 +904,7 @@ export class ReportsService {
   }
 
   async revenueTrend(organizationId: string, query: ReportDateQuery) {
+    rejectUnsupportedTransactionCurrencyFilter(query);
     rejectUnsupportedDimensionFilters(query);
     const range = parseRange(query);
     const branchId = cleanOptionalFilterId(query.branchId);
@@ -862,21 +920,33 @@ export class ReportsService {
 
   async agedReceivables(organizationId: string, query: ReportDateQuery) {
     rejectUnsupportedDimensionFilters(query);
+    const transactionCurrency = normalizeTransactionCurrencyFilter(query.transactionCurrency);
     const asOf = parseEndDate(query.asOf) ?? endOfToday();
     const branchId = cleanOptionalFilterId(query.branchId);
+    await this.assertHistoricalAgingTruth(organizationId, asOf, "receivables", transactionCurrency, branchId);
     const invoices = await this.prisma.salesInvoice.findMany({
       where: {
         organizationId,
         status: SalesInvoiceStatus.FINALIZED,
         ...(branchId ? { branchId } : {}),
+        ...(transactionCurrency ? { currency: transactionCurrency } : {}),
         balanceDue: { gt: "0.0000" },
         issueDate: { lte: asOf },
+        finalizedAt: { lt: startOfNextDay(asOf) },
       },
       orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
-      include: { customer: { select: { id: true, name: true, displayName: true } } },
+      include: {
+        customer: { select: { id: true, name: true, displayName: true } },
+        fxMonetaryBalance: {
+          include: {
+            rateSnapshot: { select: { id: true, rateDate: true, source: true, sourceReference: true } },
+            lastRevaluationLine: { select: { id: true, revaluationRunId: true, revaluationRun: { select: { status: true } } } },
+          },
+        },
+      },
     });
 
-    return buildAgingReport(
+    const report = buildAgingReport(
       invoices.map((invoice) => ({
         id: invoice.id,
         number: invoice.invoiceNumber,
@@ -885,28 +955,47 @@ export class ReportsService {
         dueDate: invoice.dueDate,
         total: invoice.total,
         balanceDue: invoice.balanceDue,
+        currency: invoice.currency,
+        baseCurrency: invoice.baseCurrency,
+        exchangeRate: invoice.exchangeRate,
+        transactionTotal: invoice.transactionTotal,
+        transactionBalanceDue: invoice.transactionBalanceDue,
+        fxMonetaryBalance: invoice.fxMonetaryBalance,
       })),
       { asOf: dateLabel(query.asOf, asOf), kind: "receivables" },
     );
+    return { ...report, fxFilters: { transactionCurrency } };
   }
 
   async agedPayables(organizationId: string, query: ReportDateQuery) {
     rejectUnsupportedDimensionFilters(query);
+    const transactionCurrency = normalizeTransactionCurrencyFilter(query.transactionCurrency);
     const asOf = parseEndDate(query.asOf) ?? endOfToday();
     const branchId = cleanOptionalFilterId(query.branchId);
+    await this.assertHistoricalAgingTruth(organizationId, asOf, "payables", transactionCurrency, branchId);
     const bills = await this.prisma.purchaseBill.findMany({
       where: {
         organizationId,
         status: PurchaseBillStatus.FINALIZED,
         ...(branchId ? { branchId } : {}),
+        ...(transactionCurrency ? { currency: transactionCurrency } : {}),
         balanceDue: { gt: "0.0000" },
         billDate: { lte: asOf },
+        finalizedAt: { lt: startOfNextDay(asOf) },
       },
       orderBy: [{ dueDate: "asc" }, { billDate: "asc" }],
-      include: { supplier: { select: { id: true, name: true, displayName: true } } },
+      include: {
+        supplier: { select: { id: true, name: true, displayName: true } },
+        fxMonetaryBalance: {
+          include: {
+            rateSnapshot: { select: { id: true, rateDate: true, source: true, sourceReference: true } },
+            lastRevaluationLine: { select: { id: true, revaluationRunId: true, revaluationRun: { select: { status: true } } } },
+          },
+        },
+      },
     });
 
-    return buildAgingReport(
+    const report = buildAgingReport(
       bills.map((bill) => ({
         id: bill.id,
         number: bill.billNumber,
@@ -915,40 +1004,49 @@ export class ReportsService {
         dueDate: bill.dueDate,
         total: bill.total,
         balanceDue: bill.balanceDue,
+        currency: bill.currency,
+        baseCurrency: bill.baseCurrency,
+        exchangeRate: bill.exchangeRate,
+        transactionTotal: bill.transactionTotal,
+        transactionBalanceDue: bill.transactionBalanceDue,
+        fxMonetaryBalance: bill.fxMonetaryBalance,
       })),
       { asOf: dateLabel(query.asOf, asOf), kind: "payables" },
     );
+    return { ...report, fxFilters: { transactionCurrency } };
   }
 
   async coreReport(organizationId: string, kind: CoreReportKind, query: ReportDateQuery) {
+    const accountingContext = await this.reportAccountingContext(organizationId);
     switch (kind) {
       case "general-ledger":
-        return this.generalLedger(organizationId, query);
+        return { ...(await this.generalLedger(organizationId, query)), accountingContext };
       case "trial-balance":
-        return this.trialBalance(organizationId, query);
+        return { ...(await this.trialBalance(organizationId, query)), accountingContext };
       case "profit-and-loss":
-        return this.profitAndLoss(organizationId, query);
+        return { ...(await this.profitAndLoss(organizationId, query)), accountingContext };
       case "balance-sheet":
-        return this.balanceSheet(organizationId, query);
+        return { ...(await this.balanceSheet(organizationId, query)), accountingContext };
       case "vat-summary":
-        return this.vatSummary(organizationId, query);
+        return { ...(await this.vatSummary(organizationId, query)), accountingContext };
       case "aged-receivables":
-        return this.agedReceivables(organizationId, query);
+        return { ...(await this.agedReceivables(organizationId, query)), accountingContext };
       case "aged-payables":
-        return this.agedPayables(organizationId, query);
+        return { ...(await this.agedPayables(organizationId, query)), accountingContext };
     }
   }
 
   async advancedReport(organizationId: string, kind: AdvancedReportKind, query: ReportDateQuery) {
+    const accountingContext = await this.reportAccountingContext(organizationId);
     switch (kind) {
       case "cash-flow":
-        return this.cashFlow(organizationId, query);
+        return { ...(await this.cashFlow(organizationId, query)), accountingContext };
       case "revenue-trend":
-        return this.revenueTrend(organizationId, query);
+        return { ...(await this.revenueTrend(organizationId, query)), accountingContext };
       case "top-customers":
-        return this.topCustomers(organizationId, query);
+        return { ...(await this.topCustomers(organizationId, query)), accountingContext };
       case "top-products-services":
-        return this.topProductsServices(organizationId, query);
+        return { ...(await this.topProductsServices(organizationId, query)), accountingContext };
     }
   }
 
@@ -986,15 +1084,17 @@ export class ReportsService {
     const data = { organization, currency, ...(report as Record<string, unknown>), generatedAt };
     const buffer = await this.renderCoreReportPdf(kind, data as never, { ...settings, title: reportTitle(kind) });
     const filename = sanitizeFilename(`${kind}-${generatedAt.toISOString().slice(0, 10)}.pdf`);
+    const archiveContext = reportArchiveAccountingContext(kind, query, report as Record<string, any>);
     const document = await this.generatedDocumentService?.archivePdf({
       organizationId,
       documentType: reportDocumentType(kind),
       sourceType: "AccountingReport",
-      sourceId: reportSourceId(kind, query),
+      sourceId: reportSourceId(kind, query, archiveContext),
       documentNumber: filename.replace(/\.pdf$/i, ""),
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: archiveContext as unknown as Prisma.InputJsonObject,
     });
     return { buffer, filename, document: document ?? null };
   }
@@ -1009,6 +1109,7 @@ export class ReportsService {
       branchId?: string;
       costCenterId?: string;
       projectId?: string;
+      transactionCurrency?: string;
     },
   ) {
     const entryDate: { gte?: Date; lte?: Date; lt?: Date } = {};
@@ -1028,6 +1129,7 @@ export class ReportsService {
         ...(filters.accountId ? { accountId: filters.accountId } : {}),
         ...(filters.costCenterId ? { costCenterId: filters.costCenterId } : {}),
         ...(filters.projectId ? { projectId: filters.projectId } : {}),
+        ...(filters.transactionCurrency ? { currency: filters.transactionCurrency } : {}),
         journalEntry: {
           status: { in: POSTED_REPORT_STATUSES },
           ...(Object.keys(entryDate).length ? { entryDate } : {}),
@@ -1036,6 +1138,7 @@ export class ReportsService {
       },
       include: {
         account: { select: { id: true, code: true, name: true, type: true } },
+        rateSnapshot: { select: { id: true, rateDate: true, source: true, sourceReference: true } },
         journalEntry: {
           select: {
             id: true,
@@ -1152,6 +1255,41 @@ export class ReportsService {
     return organization;
   }
 
+  private async reportAccountingContext(organizationId: string): Promise<ReportAccountingContext> {
+    const organization = await this.prisma.organization.findFirst({
+      where: { id: organizationId },
+      select: { baseCurrency: true },
+    });
+    if (!organization) {
+      throw new NotFoundException("Organization not found.");
+    }
+    return { baseCurrency: organization.baseCurrency, amountBasis: "BASE_CURRENCY" };
+  }
+
+  private async assertHistoricalAgingTruth(
+    organizationId: string,
+    asOf: Date,
+    kind: "receivables" | "payables",
+    transactionCurrency?: string,
+    branchId?: string,
+  ) {
+    const organization = await this.prisma.organization.findFirst({ where: { id: organizationId }, select: { baseCurrency: true } });
+    if (!organization) throw new NotFoundException("Organization not found.");
+    const activity = await countFxSourceActivityAfter(this.prisma, organizationId, organization.baseCurrency.trim().toUpperCase(), asOf, {
+      transactionCurrency,
+      branchId,
+      includeReceivables: kind === "receivables",
+      includePayables: kind === "payables",
+      foreignOnly: false,
+    });
+    const count = kind === "receivables" ? activity.receivables : activity.payables;
+    if (count) {
+      throw new BadRequestException(
+        `Historical aged ${kind} cannot be represented honestly because ${count} foreign source change${count === 1 ? "" : "s"} occurred after the selected as-of date. Use a current as-of date or review the source activity.`,
+      );
+    }
+  }
+
   private renderCoreReportPdf(kind: CoreReportKind, data: never, settings: DocumentRenderSettings | undefined): Promise<Buffer> {
     switch (kind) {
       case "general-ledger":
@@ -1210,8 +1348,9 @@ function reportDocumentType(kind: CoreReportKind): DocumentType {
   }
 }
 
-function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
+export function reportSourceId(kind: CoreReportKind, query: ReportDateQuery, context?: ReturnType<typeof reportArchiveAccountingContext>): string {
   const params = new URLSearchParams();
+  if (context?.baseCurrency) params.set("baseCurrency", context.baseCurrency);
   for (const key of ["from", "to", "asOf", "accountId", "branchId", "costCenterId", "projectId", "includeZero"] as const) {
     const value = query[key];
     if (value !== undefined && value !== null && value !== "") {
@@ -1221,8 +1360,52 @@ function reportSourceId(kind: CoreReportKind, query: ReportDateQuery): string {
       }
     }
   }
+  const transactionCurrency = normalizeTransactionCurrencyFilter(query.transactionCurrency);
+  if (transactionCurrency) params.set("transactionCurrency", transactionCurrency);
+  if (context?.rateScope.snapshotIds.length) params.set("rateSnapshotIds", context.rateScope.snapshotIds.join(","));
+  if (context?.revaluationScope.runIds.length) params.set("revaluationRunIds", context.revaluationScope.runIds.join(","));
+  if (context?.revaluationScope.statuses.length) params.set("revaluationStatuses", context.revaluationScope.statuses.join(","));
   const suffix = params.toString();
   return suffix ? `${kind}?${suffix}` : kind;
+}
+
+export function reportArchiveAccountingContext(kind: CoreReportKind, query: ReportDateQuery, report: Record<string, any>) {
+  const snapshotIds = new Set<string>();
+  const rateSources = new Set<string>();
+  const revaluationRunIds = new Set<string>();
+  const revaluationLineIds = new Set<string>();
+  const revaluationStatuses = new Set<string>();
+  for (const account of report.accounts ?? []) {
+    for (const line of account.lines ?? []) {
+      if (line.rateSnapshot?.id) snapshotIds.add(line.rateSnapshot.id);
+      if (line.rateSnapshot?.source) rateSources.add(line.rateSnapshot.source);
+    }
+  }
+  for (const row of report.rows ?? []) {
+    if (row.revaluation?.rateSnapshotId) snapshotIds.add(row.revaluation.rateSnapshotId);
+    if (row.revaluation?.rateSource) rateSources.add(row.revaluation.rateSource);
+    if (row.revaluation?.revaluationRunId) revaluationRunIds.add(row.revaluation.revaluationRunId);
+    if (row.revaluation?.revaluationLineId) revaluationLineIds.add(row.revaluation.revaluationLineId);
+    if (row.revaluation?.status) revaluationStatuses.add(row.revaluation.status);
+  }
+  return {
+    identityVersion: 1,
+    reportKind: kind,
+    baseCurrency: report.accountingContext?.baseCurrency ?? null,
+    amountBasis: report.accountingContext?.amountBasis ?? "BASE_CURRENCY",
+    transactionCurrency: normalizeTransactionCurrencyFilter(query.transactionCurrency) ?? null,
+    dates: { from: query.from?.trim() || null, to: query.to?.trim() || null, asOf: query.asOf?.trim() || null },
+    dimensions: {
+      costCenter: report.filters?.costCenter ?? null,
+      project: report.filters?.project ?? null,
+    },
+    rateScope: { snapshotIds: [...snapshotIds].sort(), sources: [...rateSources].sort() },
+    revaluationScope: {
+      runIds: [...revaluationRunIds].sort(),
+      lineIds: [...revaluationLineIds].sort(),
+      statuses: [...revaluationStatuses].sort(),
+    },
+  };
 }
 
 function cleanReportPackTitle(value?: string): string | undefined {
@@ -1238,12 +1421,15 @@ function reportPackReportQuery(input: {
   to?: string | null;
   asOf?: string | null;
   branchId?: string | null;
+  costCenterId?: string | null;
+  projectId?: string | null;
+  transactionCurrency?: string | null;
 }): Record<string, string | undefined> {
   const query: Record<string, string | undefined> = {};
-  for (const key of ["from", "to", "asOf", "branchId"] as const) {
+  for (const key of ["from", "to", "asOf", "branchId", "costCenterId", "projectId", "transactionCurrency"] as const) {
     const value = cleanOptionalFilterId(input[key] ?? undefined);
     if (value) {
-      query[key] = value;
+      query[key] = key === "transactionCurrency" ? normalizeTransactionCurrencyFilter(value) : value;
     }
   }
   return query;
@@ -1252,6 +1438,25 @@ function reportPackReportQuery(input: {
 function cleanOptionalFilterId(value?: string): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
+}
+
+function normalizeTransactionCurrencyFilter(value?: string): string | undefined {
+  const normalized = value?.trim().toUpperCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (!/^[A-Z]{3}$/.test(normalized)) {
+    throw new BadRequestException("transactionCurrency must be a three-letter ISO currency code.");
+  }
+  return normalized;
+}
+
+function rejectUnsupportedTransactionCurrencyFilter(query: ReportDateQuery): void {
+  if (normalizeTransactionCurrencyFilter(query.transactionCurrency)) {
+    throw new BadRequestException(
+      "Transaction-currency filtering is not available for this aggregate report. Official totals remain in base currency.",
+    );
+  }
 }
 
 function rejectUnsupportedDimensionFilters(query: ReportDateQuery): void {
@@ -1387,6 +1592,18 @@ export function buildGeneralLedgerReport(
               debit: fixed(line.debit),
               credit: fixed(line.credit),
               runningBalance: fixed(naturalBalance(account.type, runningNet)),
+              currency: line.currency ?? null,
+              transactionDebit: line.transactionDebit === null || line.transactionDebit === undefined ? null : fixed(line.transactionDebit),
+              transactionCredit: line.transactionCredit === null || line.transactionCredit === undefined ? null : fixed(line.transactionCredit),
+              exchangeRate: line.exchangeRate === null || line.exchangeRate === undefined ? null : rateString(line.exchangeRate),
+              rateSnapshot: line.rateSnapshot
+                ? {
+                    id: line.rateSnapshot.id,
+                    rateDate: toIso(line.rateSnapshot.rateDate),
+                    source: line.rateSnapshot.source,
+                    sourceReference: line.rateSnapshot.sourceReference ?? null,
+                  }
+                : null,
             };
           });
 
@@ -1977,6 +2194,12 @@ export function buildAgingReport(documents: AgingDocumentInput[], options: { asO
     const dueDate = document.dueDate ?? document.issueDate;
     const daysOverdue = daysBetween(endOfDay(dueDate), asOf);
     const bucket = agingBucket(daysOverdue);
+    const currency = document.currency?.trim().toUpperCase() || null;
+    const sourceBaseOpenAmount = fixed(document.fxMonetaryBalance?.sourceBaseOpenAmount ?? document.balanceDue);
+    const carryingBaseAmount = fixed(document.fxMonetaryBalance?.carryingBaseAmount ?? document.balanceDue);
+    const openTransactionAmount = fixed(
+      document.fxMonetaryBalance?.openTransactionAmount ?? document.transactionBalanceDue ?? document.balanceDue,
+    );
     return {
       id: document.id,
       contact: document.contact,
@@ -1984,7 +2207,25 @@ export function buildAgingReport(documents: AgingDocumentInput[], options: { asO
       issueDate: toIso(document.issueDate),
       dueDate: document.dueDate ? toIso(document.dueDate) : null,
       total: fixed(document.total),
-      balanceDue: fixed(document.balanceDue),
+      balanceDue: carryingBaseAmount,
+      currency,
+      baseCurrency: document.baseCurrency?.trim().toUpperCase() || null,
+      transactionTotal: fixed(document.transactionTotal ?? document.total),
+      openTransactionAmount,
+      sourceBaseOpenAmount,
+      carryingBaseAmount,
+      carryingRate: rateString(document.fxMonetaryBalance?.carryingRate ?? document.exchangeRate ?? "1"),
+      revaluation: document.fxMonetaryBalance
+        ? {
+            rateSnapshotId: document.fxMonetaryBalance.rateSnapshot.id,
+            rateDate: dateLabel(null, new Date(document.fxMonetaryBalance.rateSnapshot.rateDate)),
+            rateSource: document.fxMonetaryBalance.rateSnapshot.source,
+            rateSourceReference: document.fxMonetaryBalance.rateSnapshot.sourceReference ?? null,
+            revaluationRunId: document.fxMonetaryBalance.lastRevaluationLine.revaluationRunId,
+            revaluationLineId: document.fxMonetaryBalance.lastRevaluationLine.id,
+            status: document.fxMonetaryBalance.lastRevaluationLine.revaluationRun?.status ?? "POSTED",
+          }
+        : null,
       daysOverdue,
       bucket,
     };
@@ -1994,7 +2235,14 @@ export function buildAgingReport(documents: AgingDocumentInput[], options: { asO
     bucketTotals[row.bucket] = fixed(money(bucketTotals[row.bucket]).plus(row.balanceDue));
   }
   const grandTotal = rows.reduce((sum, row) => sum.plus(row.balanceDue), ZERO);
-  return { asOf: dateLabel(options.asOf, asOf), kind: options.kind, rows, bucketTotals, grandTotal: fixed(grandTotal) };
+  const transactionTotalsByCurrency: Record<string, string> = {};
+  for (const row of rows) {
+    if (!row.currency) continue;
+    transactionTotalsByCurrency[row.currency] = fixed(
+      money(transactionTotalsByCurrency[row.currency] ?? "0").plus(row.openTransactionAmount),
+    );
+  }
+  return { asOf: dateLabel(options.asOf, asOf), kind: options.kind, rows, bucketTotals, grandTotal: fixed(grandTotal), transactionTotalsByCurrency };
 }
 
 export function agingBucket(daysOverdue: number): "CURRENT" | "1_30" | "31_60" | "61_90" | "90_PLUS" {
@@ -2246,6 +2494,16 @@ function productServiceLabel(line: TopProductsServicesLineInput): string {
 
 function fixed(value: unknown): string {
   return money(value).toFixed(4);
+}
+
+function startOfNextDay(value: Date): Date {
+  const next = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
+function rateString(value: unknown): string {
+  return money(value).toFixed(8);
 }
 
 function money(value: unknown): Decimal {

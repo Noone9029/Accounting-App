@@ -173,6 +173,37 @@ describe("customer ledger rules", () => {
     expect(periodRows[0]).toMatchObject({ type: "PAYMENT", credit: "30.0000" });
   });
 
+  it("preserves foreign document and carrying evidence in statement row metadata", () => {
+    const customerRows = buildCustomerLedgerRows({
+      invoices: [{
+        ...invoice("invoice-fx", "INV-FX", "2026-07-01T00:00:00.000Z", "367.2500", SalesInvoiceStatus.FINALIZED),
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", transactionTotal: "100.0000",
+        transactionBalanceDue: "40.0000", balanceDue: "146.9000", rateSnapshotId: "source-rate",
+        fxMonetaryBalance: { carryingBaseAmount: "150.0000", carryingRate: "3.75000000", rateSnapshotId: "closing-rate", lastRevaluationLineId: "reval-line" },
+      }],
+      payments: [],
+    });
+    const supplierRows = buildSupplierLedgerRows({
+      bills: [{
+        id: "bill-fx", billNumber: "BILL-FX", billDate: "2026-07-02T00:00:00.000Z", dueDate: null,
+        total: "367.2500", balanceDue: "146.9000", status: "FINALIZED", journalEntryId: "journal-bill",
+        createdAt: "2026-07-02T00:00:00.000Z", updatedAt: "2026-07-02T00:00:00.000Z",
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", transactionTotal: "100.0000",
+        transactionBalanceDue: "40.0000", rateSnapshotId: "source-rate",
+        fxMonetaryBalance: { carryingBaseAmount: "150.0000", carryingRate: "3.75000000", rateSnapshotId: "closing-rate", lastRevaluationLineId: "reval-line" },
+      }],
+      payments: [],
+    });
+
+    for (const row of [customerRows[0]!, supplierRows[0]!]) {
+      expect(row.metadata).toMatchObject({
+        currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", transactionTotal: "100.0000",
+        transactionBalanceDue: "40.0000", sourceBaseBalanceDue: "146.9000", carryingBaseAmount: "150.0000",
+        carryingRate: "3.75000000", rateSnapshotId: "closing-rate", lastRevaluationLineId: "reval-line",
+      });
+    }
+  });
+
   it("includes credit allocation reversal rows in statement period filtering", () => {
     const rows = buildCustomerLedgerRows({
       invoices: [invoice("invoice-1", "INV-001", "2026-01-01T00:00:00.000Z", "100.0000", SalesInvoiceStatus.FINALIZED)],
@@ -478,6 +509,7 @@ describe("customer ledger rules", () => {
           credit: "100.0000",
           balance: "0.0000",
           status: "POSTED",
+          fxEvidence: { transactionCurrency: "USD", baseCurrency: "SAR", transactionBalanceDue: "10.0000", sourceBaseBalanceDue: "37.5000", carryingBaseAmount: "38.0000", carryingRate: "3.80000000", rateSnapshotId: "rate-1", lastRevaluationLineId: "line-1" },
         },
       ],
       generatedAt: new Date("2026-05-06T00:00:00.000Z"),
@@ -490,9 +522,32 @@ describe("customer ledger rules", () => {
     expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
       documentType: DocumentType.CUSTOMER_STATEMENT,
       sourceType: "CustomerStatement",
-      sourceId: "contact-1",
+      sourceId: "customer-statement:contact-1?baseCurrency=SAR&from=2026-05-01&to=2026-05-31&transactionCurrencies=USD&rateSnapshotIds=rate-1&revaluationLineIds=line-1",
       generatedById: "user-1",
+      accountingContext: expect.objectContaining({ statementKind: "CUSTOMER_STATEMENT", baseCurrency: "SAR", amountBasis: "BASE_CURRENCY", dates: { from: "2026-05-01", to: "2026-05-31" }, transactionCurrencies: ["USD"], rateSnapshotIds: ["rate-1"], revaluationLineIds: ["line-1"] }),
     }));
+  });
+
+  it("preserves foreign document residual and carrying evidence in statement PDF rows", async () => {
+    const service = new ContactLedgerService({
+      organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "UAE Org", legalName: null, taxNumber: null, countryCode: "AE", baseCurrency: "AED" }) },
+    } as never);
+    jest.spyOn(service, "statement").mockResolvedValue({
+      contact: { id: "contact-1", name: "Customer", displayName: null, type: "CUSTOMER", email: null, phone: null, taxNumber: null },
+      periodFrom: "2026-07-01", periodTo: "2026-07-31", baseCurrency: "AED", openingBalance: "0.0000", closingBalance: "375.0000",
+      rows: [{
+        id: "invoice-row", type: "INVOICE", date: "2026-07-10T00:00:00.000Z", number: "INV-USD", description: "USD invoice",
+        debit: "367.2500", credit: "0.0000", balance: "367.2500", sourceType: "SalesInvoice", sourceId: "invoice-1", status: "FINALIZED",
+        metadata: { currency: "USD", baseCurrency: "AED", transactionBalanceDue: "100.0000", sourceBaseBalanceDue: "367.2500", carryingBaseAmount: "375.0000", carryingRate: "3.75000000", rateSnapshotId: "rate-1", lastRevaluationLineId: "line-1" },
+      }],
+    });
+
+    const data = await service.statementPdfData("org-1", "contact-1", "2026-07-01", "2026-07-31");
+
+    expect(data.rows[0]?.fxEvidence).toEqual({
+      transactionCurrency: "USD", baseCurrency: "AED", transactionBalanceDue: "100.0000", sourceBaseBalanceDue: "367.2500",
+      carryingBaseAmount: "375.0000", carryingRate: "3.75000000", rateSnapshotId: "rate-1", lastRevaluationLineId: "line-1",
+    });
   });
 
   it("archives supplier statement PDFs from supplier statement rows without changing AP math", async () => {
@@ -563,8 +618,9 @@ describe("customer ledger rules", () => {
     expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({
       documentType: DocumentType.SUPPLIER_STATEMENT,
       sourceType: "SupplierStatement",
-      sourceId: "supplier-1",
+      sourceId: "supplier-statement:supplier-1?baseCurrency=SAR&from=2026-05-01&to=2026-05-31",
       generatedById: "user-1",
+      accountingContext: expect.objectContaining({ statementKind: "SUPPLIER_STATEMENT", baseCurrency: "SAR", amountBasis: "BASE_CURRENCY", dates: { from: "2026-05-01", to: "2026-05-31" } }),
     }));
   });
 
@@ -595,7 +651,7 @@ describe("customer ledger rules", () => {
     expect(archivePdf).toHaveBeenNthCalledWith(2, expect.objectContaining({
       documentType: DocumentType.SUPPLIER_STATEMENT,
       sourceType: "SupplierStatement",
-      sourceId: "supplier-1",
+      sourceId: "supplier-statement:supplier-1?baseCurrency=SAR&from=2026-05-01&to=2026-05-31",
     }));
   });
 });

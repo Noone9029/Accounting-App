@@ -15,6 +15,7 @@ import { PreviewFxRevaluationDto } from "./dto/preview-fx-revaluation.dto";
 import { UpdateFxAccountConfigurationDto } from "./dto/update-fx-account-configuration.dto";
 import { ForeignExchangeService } from "./foreign-exchange.service";
 import { FxRevaluationService } from "./fx-revaluation.service";
+import { FxCloseReadinessService } from "./fx-close-readiness.service";
 
 @Controller("fx")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -22,6 +23,7 @@ export class ForeignExchangeController {
   constructor(
     private readonly foreignExchangeService: ForeignExchangeService,
     private readonly fxRevaluationService: FxRevaluationService,
+    private readonly fxCloseReadinessService: FxCloseReadinessService,
   ) {}
 
   @Get("currencies")
@@ -75,6 +77,12 @@ export class ForeignExchangeController {
   @RequirePermissions(PERMISSIONS.currencies.read)
   readiness(@CurrentOrganizationId() organizationId: string) {
     return this.foreignExchangeService.readiness(organizationId);
+  }
+
+  @Get("close-readiness")
+  @RequirePermissions(PERMISSIONS.reports.view)
+  closeReadiness(@CurrentOrganizationId() organizationId: string, @Query() query: { asOf?: string }) {
+    return this.fxCloseReadinessService.readiness(organizationId, query.asOf);
   }
 
   @Get("revaluations")
