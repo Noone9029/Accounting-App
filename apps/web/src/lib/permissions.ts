@@ -403,6 +403,10 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.fiscalPeriods.view];
   }
 
+  if (pathname.startsWith("/fx-revaluations")) {
+    return [PERMISSIONS.fxRevaluation.read];
+  }
+
   if (pathname.startsWith("/branches")) {
     return [PERMISSIONS.organization.view];
   }

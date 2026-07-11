@@ -152,10 +152,11 @@ describe("ForeignExchangeService", () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it("reports manual-only readiness honestly and never enables foreign posting", async () => {
+  it("reports foreign posting as available while keeping revaluation blocked without FX accounts", async () => {
     const { service, prisma } = makeService();
     prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "AED" });
     prisma.fxAccountConfiguration.findUnique.mockResolvedValue(null);
+    prisma.account.findMany.mockResolvedValue([]);
 
     await expect(service.readiness("org-1")).resolves.toMatchObject({
       baseCurrency: "AED",
@@ -163,8 +164,55 @@ describe("ForeignExchangeService", () => {
       liveRateProviderEnabled: false,
       providerState: "DISABLED",
       accountConfigurationComplete: false,
-      foreignDocumentPostingEnabled: false,
+      controlAccountsComplete: false,
+      foreignDocumentPostingEnabled: true,
+      fxRevaluationEnabled: false,
       status: "BLOCKED",
+    });
+  });
+
+  it("reports controlled revaluation ready only with four active posting accounts", async () => {
+    const { service, prisma } = makeService();
+    prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "SAR" });
+    prisma.fxAccountConfiguration.findUnique.mockResolvedValue({
+      realizedGainAccount: { type: AccountType.REVENUE, isActive: true, allowPosting: true },
+      realizedLossAccount: { type: AccountType.EXPENSE, isActive: true, allowPosting: true },
+      unrealizedGainAccount: { type: AccountType.REVENUE, isActive: true, allowPosting: true },
+      unrealizedLossAccount: { type: AccountType.EXPENSE, isActive: true, allowPosting: true },
+    });
+    prisma.account.findMany.mockResolvedValue([
+      { code: "120", type: AccountType.ASSET, isActive: true, allowPosting: true },
+      { code: "210", type: AccountType.LIABILITY, isActive: true, allowPosting: true },
+    ]);
+
+    await expect(service.readiness("org-1")).resolves.toMatchObject({
+      baseCurrency: "SAR",
+      accountConfigurationComplete: true,
+      controlAccountsComplete: true,
+      foreignDocumentPostingEnabled: true,
+      fxRevaluationEnabled: true,
+      status: "READY",
+      blockers: [],
+    });
+  });
+
+  it("keeps revaluation blocked when AR/AP control accounts are unavailable", async () => {
+    const { service, prisma } = makeService();
+    prisma.organization.findUnique.mockResolvedValue({ baseCurrency: "AED" });
+    prisma.fxAccountConfiguration.findUnique.mockResolvedValue({
+      realizedGainAccount: { type: AccountType.REVENUE, isActive: true, allowPosting: true },
+      realizedLossAccount: { type: AccountType.EXPENSE, isActive: true, allowPosting: true },
+      unrealizedGainAccount: { type: AccountType.REVENUE, isActive: true, allowPosting: true },
+      unrealizedLossAccount: { type: AccountType.EXPENSE, isActive: true, allowPosting: true },
+    });
+    prisma.account.findMany.mockResolvedValue([{ code: "120", type: AccountType.ASSET, isActive: true, allowPosting: true }]);
+
+    await expect(service.readiness("org-1")).resolves.toMatchObject({
+      accountConfigurationComplete: true,
+      controlAccountsComplete: false,
+      fxRevaluationEnabled: false,
+      status: "BLOCKED",
+      blockers: ["Active AR (120) and AP (210) control accounts are required for FX revaluation."],
     });
   });
 });

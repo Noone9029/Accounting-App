@@ -5,6 +5,8 @@ export interface CustomerPaymentAllocationPostingInput {
   documentBaseAmountApplied: string;
   recognitionRate: string;
   rateSnapshotId?: string | null;
+  carryingRate?: string;
+  carryingRateSnapshotId?: string | null;
 }
 
 export interface CustomerPaymentPostingInput {
@@ -64,8 +66,8 @@ export function buildCustomerPaymentJournalLines(input: CustomerPaymentPostingIn
       transactionCredit: allocation.transactionAmountApplied,
       description: `Accounts receivable cleared by ${input.paymentNumber} - ${input.customerName}`,
       currency: input.currency,
-      exchangeRate: allocation.recognitionRate,
-      rateSnapshotId: allocation.rateSnapshotId ?? null,
+      exchangeRate: allocation.carryingRate ?? allocation.recognitionRate,
+      rateSnapshotId: allocation.carryingRateSnapshotId ?? allocation.rateSnapshotId ?? null,
     });
   }
 

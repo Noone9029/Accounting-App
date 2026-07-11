@@ -34,6 +34,7 @@ import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
 import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { FxCarryingBalanceService } from "../foreign-exchange/fx-carrying-balance.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
@@ -180,6 +181,7 @@ export class PurchaseBillService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
     @Optional() private readonly documentFxContextService?: DocumentFxContextService,
+    @Optional() private readonly fxCarryingBalanceService?: FxCarryingBalanceService,
   ) {}
 
   list(organizationId: string) {
@@ -865,6 +867,7 @@ export class PurchaseBillService {
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Only draft or finalized purchase bills can be voided.");
       }
+      await this.fxCarryingBalanceService?.assertSupplierMutationAllowed(organizationId, id, tx);
       if (!bill.journalEntryId) {
         throw new BadRequestException("Finalized purchase bill is missing its journal entry.");
       }

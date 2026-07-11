@@ -183,6 +183,14 @@ export const APP_ROUTES = [
   route("accounting.fiscalPeriods", "Fiscal periods", "/fiscal-periods", "accounting", "Fiscal period administration workspace.", [
     PERMISSIONS.fiscalPeriods.view,
   ]),
+  route(
+    "accounting.fxRevaluations",
+    "FX revaluation",
+    "/fx-revaluations",
+    "accounting",
+    "Preview, review, post, and reverse period-end foreign monetary balance revaluations.",
+    [PERMISSIONS.fxRevaluation.read],
+  ),
 
   route("inventory.items", "Products & services", "/items", "inventory", "Products and services item catalog.", [PERMISSIONS.items.view]),
   route("inventory.warehouses", "Warehouses", "/inventory/warehouses", "inventory", "Warehouse list and stock location setup.", [PERMISSIONS.warehouses.view]),

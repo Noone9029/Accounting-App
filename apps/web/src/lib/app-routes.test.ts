@@ -74,6 +74,8 @@ describe("app route registry", () => {
     expect(getAppRouteByKey("settings.bankIntegrations")?.href).toBe("/settings/bank-integrations");
     expect(getAppRouteByKey("settings.currenciesFx")?.href).toBe("/settings/currencies-fx");
     expect(getAppRouteByKey("settings.currenciesFx")?.requiredAny).toEqual([PERMISSIONS.currencies.read]);
+    expect(getAppRouteByKey("accounting.fxRevaluations")?.href).toBe("/fx-revaluations");
+    expect(getAppRouteByKey("accounting.fxRevaluations")?.requiredAny).toEqual([PERMISSIONS.fxRevaluation.read]);
     expect(getAppRouteByKey("settings.apiDocs")?.href).toBe("/settings/api-docs");
     expect(getAppRouteByKey("settings.webhooks")?.href).toBe("/settings/webhooks");
     expect(getAppRouteByKey("settings.importExport")?.href).toBe("/settings/import-export");

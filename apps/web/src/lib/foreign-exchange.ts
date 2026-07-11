@@ -62,15 +62,78 @@ export interface FxAccountConfiguration extends FxAccountConfigurationInput {
 }
 
 export interface FxReadiness {
-  status: "BLOCKED";
+  status: "READY" | "BLOCKED";
   baseCurrency: string;
   supportedCurrencyCodes: string[];
   manualRateEntryEnabled: boolean;
   liveRateProviderEnabled: boolean;
   providerState: "DISABLED";
   accountConfigurationComplete: boolean;
+  controlAccountsComplete: boolean;
   foreignDocumentPostingEnabled: boolean;
+  fxRevaluationEnabled: boolean;
   blockers: string[];
+}
+
+export type FxRevaluationStatus = "DRAFT" | "REVIEWED" | "POSTED" | "REVERSED" | "FAILED";
+export type FxMonetarySourceType = "CUSTOMER_RECEIVABLE" | "SUPPLIER_PAYABLE";
+
+export interface FxRevaluationLine {
+  id: string;
+  sourceType: FxMonetarySourceType;
+  salesInvoiceId: string | null;
+  purchaseBillId: string | null;
+  counterpartyId: string | null;
+  currencyCode: string;
+  baseCurrencyCode: string;
+  openTransactionAmount: string;
+  sourceBaseOpenAmount: string;
+  carryingBaseAmount: string;
+  closingRate: string;
+  revaluedBaseAmount: string;
+  unrealizedGainAmount: string;
+  unrealizedLossAmount: string;
+  rateSnapshotId: string;
+  salesInvoice: { id: string; invoiceNumber: string } | null;
+  purchaseBill: { id: string; billNumber: string } | null;
+  counterparty: { id: string; name: string; displayName: string | null } | null;
+  rateSnapshot: Pick<CurrencyRateSnapshot, "id" | "rate" | "rateDate" | "source" | "sourceReference">;
+}
+
+export interface FxRevaluationRun {
+  id: string;
+  organizationId: string;
+  revaluationDate: string;
+  rateDate: string;
+  status: FxRevaluationStatus;
+  idempotencyKey: string;
+  reviewIdempotencyKey: string | null;
+  postIdempotencyKey: string | null;
+  reversalIdempotencyKey: string | null;
+  reviewedAt: string | null;
+  postedAt: string | null;
+  reversedAt: string | null;
+  postedJournalEntry: { id: string; entryNumber: string; status: string } | null;
+  reversalJournalEntry: { id: string; entryNumber: string; status: string } | null;
+  lines: FxRevaluationLine[];
+  _count?: { lines: number };
+}
+
+export interface FxRevaluationListResponse {
+  data: FxRevaluationRun[];
+  pagination: { page: number; limit: number; hasMore: boolean };
+}
+
+export interface PreviewFxRevaluationInput {
+  revaluationDate: string;
+  rateDate: string;
+  rates: Array<{ currencyCode: string; rateSnapshotId: string }>;
+  idempotencyKey: string;
+}
+
+export interface FxRevaluationContext {
+  catalog: FxCurrencyCatalog;
+  readiness: FxReadiness;
 }
 
 export function getFxCurrencies() {
@@ -105,6 +168,43 @@ export function saveFxAccountConfiguration(body: FxAccountConfigurationInput) {
 
 export function getFxReadiness() {
   return apiRequest<FxReadiness>("/fx/readiness");
+}
+
+export function listFxRevaluations(query: { status?: FxRevaluationStatus; page?: number; limit?: number } = {}) {
+  const search = new URLSearchParams();
+  if (query.status) search.set("status", query.status);
+  if (query.page) search.set("page", String(query.page));
+  if (query.limit) search.set("limit", String(query.limit));
+  const suffix = search.size ? `?${search.toString()}` : "";
+  return apiRequest<FxRevaluationListResponse>(`/fx/revaluations${suffix}`);
+}
+
+export function getFxRevaluationContext() {
+  return apiRequest<FxRevaluationContext>("/fx/revaluations/context");
+}
+
+export function getFxRevaluation(id: string) {
+  return apiRequest<FxRevaluationRun>(`/fx/revaluations/${id}`);
+}
+
+export function previewFxRevaluation(body: PreviewFxRevaluationInput) {
+  return apiRequest<FxRevaluationRun>("/fx/revaluations/preview", { method: "POST", body });
+}
+
+function mutateFxRevaluation(id: string, action: "review" | "post" | "reverse", idempotencyKey: string) {
+  return apiRequest<FxRevaluationRun>(`/fx/revaluations/${id}/${action}`, { method: "POST", body: { idempotencyKey } });
+}
+
+export function reviewFxRevaluation(id: string, idempotencyKey: string) {
+  return mutateFxRevaluation(id, "review", idempotencyKey);
+}
+
+export function postFxRevaluation(id: string, idempotencyKey: string) {
+  return mutateFxRevaluation(id, "post", idempotencyKey);
+}
+
+export function reverseFxRevaluation(id: string, idempotencyKey: string) {
+  return mutateFxRevaluation(id, "reverse", idempotencyKey);
 }
 
 export function ratePairLabel(transactionCurrency: string, baseCurrency: string) {

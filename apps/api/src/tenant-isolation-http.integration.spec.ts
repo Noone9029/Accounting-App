@@ -41,6 +41,7 @@ import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
 import { CreditNoteService } from "./credit-notes/credit-note.service";
 import { ForeignExchangeController } from "./foreign-exchange/foreign-exchange.controller";
 import { ForeignExchangeService } from "./foreign-exchange/foreign-exchange.service";
+import { FxRevaluationService } from "./foreign-exchange/fx-revaluation.service";
 import { SearchController } from "./search/search.controller";
 import { SearchService } from "./search/search.service";
 
@@ -77,6 +78,8 @@ const ids = {
   auditB: "20000000-0000-4000-8000-000000001001",
   rateA: "10000000-0000-4000-8000-000000001101",
   rateB: "20000000-0000-4000-8000-000000001101",
+  revaluationA: "10000000-0000-4000-8000-000000001201",
+  revaluationB: "20000000-0000-4000-8000-000000001201",
 };
 
 const markerA = "TENANT-A-HTTP-PROOF";
@@ -144,6 +147,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: AuditLogService, useValue: makeAuditLogService(tenantStore) },
         { provide: SearchService, useValue: makeSearchService(tenantStore) },
         { provide: ForeignExchangeService, useValue: makeForeignExchangeService(tenantStore) },
+        { provide: FxRevaluationService, useValue: makeFxRevaluationService(tenantStore) },
       ],
     }).compile();
 
@@ -215,6 +219,27 @@ describe("tenant isolation HTTP integration", () => {
     });
     expect(foreignAccount.status).toBe(400);
     expect(tenantStore.fxConfigUpdates).toBe(0);
+  });
+
+  it("keeps FX revaluation workspace reads inside the active tenant", async () => {
+    const revaluations = await request("/fx/revaluations", { session: sessionA, organizationId: ids.orgA });
+    const revaluationsText = await revaluations.text();
+    expect(revaluations.status).toBe(200);
+    expect(revaluationsText).toContain(markerA);
+    expect(revaluationsText).not.toContain(markerB);
+
+    const ownedRevaluation = await request(`/fx/revaluations/${ids.revaluationA}`, {
+      session: sessionA,
+      organizationId: ids.orgA,
+    });
+    expect(ownedRevaluation.status).toBe(200);
+    expect(await ownedRevaluation.text()).toContain(markerA);
+
+    const foreignRevaluation = await request(`/fx/revaluations/${ids.revaluationB}`, {
+      session: sessionA,
+      organizationId: ids.orgA,
+    });
+    expect(foreignRevaluation.status).toBe(404);
   });
 
   it("keeps customer and supplier HTTP reads, writes, and search scoped to the active organization", async () => {
@@ -532,6 +557,10 @@ function makeTenantStore() {
       [ids.rateA, { id: ids.rateA, organizationId: ids.orgA, transactionCurrency: "USD", baseCurrency: "AED", marker: markerA }],
       [ids.rateB, { id: ids.rateB, organizationId: ids.orgB, transactionCurrency: "USD", baseCurrency: "SAR", marker: markerB }],
     ]),
+    fxRevaluations: new Map([
+      [ids.revaluationA, { id: ids.revaluationA, organizationId: ids.orgA, reference: `${markerA}-FXR` }],
+      [ids.revaluationB, { id: ids.revaluationB, organizationId: ids.orgB, reference: `${markerB}-FXR` }],
+    ]),
     createdInvoices: 0,
     createdBills: 0,
     createdPayments: 0,
@@ -843,6 +872,20 @@ function makeForeignExchangeService(store: TenantStore) {
       return { organizationId, ...dto };
     }),
     readiness: jest.fn(() => ({ status: "BLOCKED", foreignDocumentPostingEnabled: false })),
+  };
+}
+
+function makeFxRevaluationService(store: TenantStore) {
+  return {
+    list: jest.fn((organizationId: string) => ({
+      data: Array.from(store.fxRevaluations.values()).filter((run) => run.organizationId === organizationId),
+      pagination: { page: 1, limit: 50, hasMore: false },
+    })),
+    get: jest.fn((organizationId: string, id: string) => scopedGet(store.fxRevaluations, id, organizationId)),
+    preview: jest.fn(),
+    review: jest.fn(),
+    post: jest.fn(),
+    reverse: jest.fn(),
   };
 }
 

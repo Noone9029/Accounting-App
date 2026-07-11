@@ -31,6 +31,7 @@ import {
   BaseCurrencyPostingGuardService,
 } from "../foreign-exchange/base-currency-posting-guard.service";
 import { assertStoredDocumentFxPostingContext, DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
+import { FxCarryingBalanceService } from "../foreign-exchange/fx-carrying-balance.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
@@ -129,6 +130,7 @@ export class PurchaseDebitNoteService {
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
     @Optional() private readonly documentFxContextService?: DocumentFxContextService,
+    @Optional() private readonly fxCarryingBalanceService?: FxCarryingBalanceService,
   ) {}
 
   list(organizationId: string) {
@@ -643,6 +645,7 @@ export class PurchaseDebitNoteService {
       if (amountApplied.gt(bill.balanceDue)) {
         throw new BadRequestException("Amount applied cannot exceed bill balance due.");
       }
+      await this.fxCarryingBalanceService?.assertSupplierMutationAllowed(organizationId, bill.id, tx);
 
       const amount = amountApplied.toFixed(4);
       const debitNoteClaim = await tx.purchaseDebitNote.updateMany({
@@ -741,6 +744,7 @@ export class PurchaseDebitNoteService {
       if (allocation.bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Only finalized, non-voided bills can have purchase debit note allocations reversed.");
       }
+      await this.fxCarryingBalanceService?.assertSupplierMutationAllowed(organizationId, allocation.bill.id, tx);
 
       const amount = toMoney(allocation.amountApplied).toFixed(4);
       const debitNoteUnappliedLimit = toMoney(allocation.debitNote.total).minus(amount).toFixed(4);

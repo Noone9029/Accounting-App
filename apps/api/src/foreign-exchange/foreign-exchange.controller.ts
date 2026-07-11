@@ -9,13 +9,20 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateCurrencyRateSnapshotDto } from "./dto/create-currency-rate-snapshot.dto";
 import { CurrencyRateQueryDto } from "./dto/currency-rate-query.dto";
+import { FxRevaluationMutationDto } from "./dto/fx-revaluation-mutation.dto";
+import { FxRevaluationQueryDto } from "./dto/fx-revaluation-query.dto";
+import { PreviewFxRevaluationDto } from "./dto/preview-fx-revaluation.dto";
 import { UpdateFxAccountConfigurationDto } from "./dto/update-fx-account-configuration.dto";
 import { ForeignExchangeService } from "./foreign-exchange.service";
+import { FxRevaluationService } from "./fx-revaluation.service";
 
 @Controller("fx")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class ForeignExchangeController {
-  constructor(private readonly foreignExchangeService: ForeignExchangeService) {}
+  constructor(
+    private readonly foreignExchangeService: ForeignExchangeService,
+    private readonly fxRevaluationService: FxRevaluationService,
+  ) {}
 
   @Get("currencies")
   @RequirePermissions(PERMISSIONS.currencies.read)
@@ -68,5 +75,73 @@ export class ForeignExchangeController {
   @RequirePermissions(PERMISSIONS.currencies.read)
   readiness(@CurrentOrganizationId() organizationId: string) {
     return this.foreignExchangeService.readiness(organizationId);
+  }
+
+  @Get("revaluations")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.read)
+  listRevaluations(@CurrentOrganizationId() organizationId: string, @Query() query: FxRevaluationQueryDto) {
+    return this.fxRevaluationService.list(organizationId, query);
+  }
+
+  @Get("revaluations/context")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.read)
+  async revaluationContext(@CurrentOrganizationId() organizationId: string) {
+    const [catalog, readiness] = await Promise.all([
+      this.foreignExchangeService.currencies(organizationId),
+      this.foreignExchangeService.readiness(organizationId),
+    ]);
+    return { catalog, readiness };
+  }
+
+  @Get("revaluations/:id")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.read)
+  getRevaluation(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+  ) {
+    return this.fxRevaluationService.get(organizationId, id);
+  }
+
+  @Post("revaluations/preview")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.run)
+  previewRevaluation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: PreviewFxRevaluationDto,
+  ) {
+    return this.fxRevaluationService.preview(organizationId, user.id, dto);
+  }
+
+  @Post("revaluations/:id/review")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.run)
+  reviewRevaluation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() dto: FxRevaluationMutationDto,
+  ) {
+    return this.fxRevaluationService.review(organizationId, user.id, id, dto);
+  }
+
+  @Post("revaluations/:id/post")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.run)
+  postRevaluation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() dto: FxRevaluationMutationDto,
+  ) {
+    return this.fxRevaluationService.post(organizationId, user.id, id, dto);
+  }
+
+  @Post("revaluations/:id/reverse")
+  @RequirePermissions(PERMISSIONS.fxRevaluation.reverse)
+  reverseRevaluation(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() dto: FxRevaluationMutationDto,
+  ) {
+    return this.fxRevaluationService.reverse(organizationId, user.id, id, dto);
   }
 }

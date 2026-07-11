@@ -211,8 +211,14 @@ export class ForeignExchangeService {
   }
 
   async readiness(organizationId: string) {
-    const baseCurrency = await this.baseCurrency(organizationId);
-    const configuration = await this.getAccountConfiguration(organizationId);
+    const [baseCurrency, configuration, controlAccounts] = await Promise.all([
+      this.baseCurrency(organizationId),
+      this.getAccountConfiguration(organizationId),
+      this.prisma.account.findMany({
+        where: { organizationId, code: { in: ["120", "210"] }, isActive: true, allowPosting: true },
+        select: { code: true, type: true, isActive: true, allowPosting: true },
+      }),
+    ]);
     const accountConfigurationComplete = Boolean(
       configuration &&
         this.readyAccount(configuration.realizedGainAccount, AccountType.REVENUE) &&
@@ -220,21 +226,25 @@ export class ForeignExchangeService {
         this.readyAccount(configuration.unrealizedGainAccount, AccountType.REVENUE) &&
         this.readyAccount(configuration.unrealizedLossAccount, AccountType.EXPENSE),
     );
+    const controlAccountsComplete =
+      controlAccounts.some((account) => account.code === "120" && account.type === AccountType.ASSET) &&
+      controlAccounts.some((account) => account.code === "210" && account.type === AccountType.LIABILITY);
+    const fxRevaluationEnabled = accountConfigurationComplete && controlAccountsComplete;
     const blockers = [
-      ...(accountConfigurationComplete
-        ? []
-        : ["Configure active posting accounts for realized and unrealized FX gains and losses."]),
-      "Foreign-currency document posting remains disabled until document, posting, settlement, and report controls are complete.",
+      ...(accountConfigurationComplete ? [] : ["Configure active posting accounts for realized and unrealized FX gains and losses."]),
+      ...(controlAccountsComplete ? [] : ["Active AR (120) and AP (210) control accounts are required for FX revaluation."]),
     ];
     return {
-      status: "BLOCKED" as const,
+      status: fxRevaluationEnabled ? ("READY" as const) : ("BLOCKED" as const),
       baseCurrency,
       supportedCurrencyCodes: SUPPORTED_CURRENCY_CODES,
       manualRateEntryEnabled: true,
       liveRateProviderEnabled: false,
       providerState: "DISABLED" as const,
       accountConfigurationComplete,
-      foreignDocumentPostingEnabled: false,
+      controlAccountsComplete,
+      foreignDocumentPostingEnabled: true,
+      fxRevaluationEnabled,
       blockers,
     };
   }

@@ -35,7 +35,7 @@ describe("CurrenciesAndFxSettingsPage", () => {
     apiRequestMock.mockImplementation(defaultApiResponse);
   });
 
-  it("shows manual-only controls, immutable evidence, and blocked posting readiness", async () => {
+  it("shows manual-only controls, immutable evidence, and controlled revaluation readiness", async () => {
     render(<CurrenciesAndFxSettingsPage />);
 
     expect(await screen.findByRole("heading", { name: "Currencies and FX" })).toBeInTheDocument();
@@ -43,7 +43,9 @@ describe("CurrenciesAndFxSettingsPage", () => {
     expect(screen.getByText(/Base currency is SAR.*fixed for captured-rate evidence/i)).toBeInTheDocument();
     expect(screen.getByText(/Manual rate capture only/i)).toBeInTheDocument();
     expect(screen.getByText(/Live rate provider is disabled/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Foreign-currency document posting remains disabled/i)).toHaveLength(2);
+    expect(screen.getByText(/Foreign document posting is enabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/Period-end revaluation remains blocked/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open FX revaluation workspace" })).toHaveAttribute("href", "/fx-revaluations");
     expect(screen.getByText("3.67250000")).toBeInTheDocument();
     expect(screen.getByText("Treasury worksheet 17")).toBeInTheDocument();
     expect(screen.getByText("Account configuration incomplete")).toBeInTheDocument();
@@ -230,10 +232,11 @@ function readinessResponse() {
     liveRateProviderEnabled: false,
     providerState: "DISABLED",
     accountConfigurationComplete: false,
-    foreignDocumentPostingEnabled: false,
+    controlAccountsComplete: true,
+    foreignDocumentPostingEnabled: true,
+    fxRevaluationEnabled: false,
     blockers: [
       "Configure active posting accounts for realized and unrealized FX gains and losses.",
-      "Foreign-currency document posting remains disabled until document, posting, settlement, and report controls are complete.",
     ],
   };
 }

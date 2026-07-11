@@ -5,6 +5,8 @@ export interface SupplierPaymentAllocationPostingInput {
   documentBaseAmountApplied: string;
   recognitionRate: string;
   rateSnapshotId?: string | null;
+  carryingRate?: string;
+  carryingRateSnapshotId?: string | null;
 }
 
 export interface SupplierPaymentPostingInput {
@@ -43,7 +45,8 @@ export function buildSupplierPaymentJournalLines(input: SupplierPaymentPostingIn
       accountId: input.accountsPayableAccountId, debit: allocation.documentBaseAmountApplied, credit: "0.0000",
       transactionDebit: allocation.transactionAmountApplied, transactionCredit: "0.0000",
       description: `Accounts payable paid by ${input.paymentNumber} - ${input.supplierName}`,
-      currency: input.currency, exchangeRate: allocation.recognitionRate, rateSnapshotId: allocation.rateSnapshotId ?? null,
+      currency: input.currency, exchangeRate: allocation.carryingRate ?? allocation.recognitionRate,
+      rateSnapshotId: allocation.carryingRateSnapshotId ?? allocation.rateSnapshotId ?? null,
     });
   }
   if (toMoney(input.transactionUnappliedAmount).gt(0)) {

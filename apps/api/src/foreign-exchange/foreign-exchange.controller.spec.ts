@@ -41,4 +41,22 @@ describe("ForeignExchangeController", () => {
       PERMISSIONS.currencies.manage,
     ]);
   });
+
+  it.each(["listRevaluations", "revaluationContext", "getRevaluation"] as const)("requires fxRevaluation.read for %s", (method) => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype[method])).toEqual([
+      PERMISSIONS.fxRevaluation.read,
+    ]);
+  });
+
+  it.each(["previewRevaluation", "reviewRevaluation", "postRevaluation"] as const)("requires fxRevaluation.run for %s", (method) => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype[method])).toEqual([
+      PERMISSIONS.fxRevaluation.run,
+    ]);
+  });
+
+  it("requires fxRevaluation.reverse for controlled reversal", () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, ForeignExchangeController.prototype.reverseRevaluation)).toEqual([
+      PERMISSIONS.fxRevaluation.reverse,
+    ]);
+  });
 });

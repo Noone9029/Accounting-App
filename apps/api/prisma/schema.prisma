@@ -380,6 +380,19 @@ enum CurrencyRateSource {
   FUTURE_PROVIDER_DISABLED
 }
 
+enum FxRevaluationStatus {
+  DRAFT
+  REVIEWED
+  POSTED
+  REVERSED
+  FAILED
+}
+
+enum FxMonetarySourceType {
+  CUSTOMER_RECEIVABLE
+  SUPPLIER_PAYABLE
+}
+
 enum InventoryBinLocationType {
   BIN
   SHELF
@@ -1196,6 +1209,10 @@ model User {
   createdCustomerPayments                           CustomerPayment[]                           @relation("CustomerPaymentCreatedBy")
   createdSupplierPayments                           SupplierPayment[]                           @relation("SupplierPaymentCreatedBy")
   createdCurrencyRateSnapshots                      CurrencyRateSnapshot[]                      @relation("CurrencyRateSnapshotCreatedBy")
+  requestedFxRevaluationRuns                        FxRevaluationRun[]                          @relation("FxRevaluationRequestedBy")
+  reviewedFxRevaluationRuns                         FxRevaluationRun[]                          @relation("FxRevaluationReviewedBy")
+  postedFxRevaluationRuns                           FxRevaluationRun[]                          @relation("FxRevaluationPostedBy")
+  reversedFxRevaluationRuns                         FxRevaluationRun[]                          @relation("FxRevaluationReversedBy")
   createdCustomerRefunds                            CustomerRefund[]                            @relation("CustomerRefundCreatedBy")
   createdSupplierRefunds                            SupplierRefund[]                            @relation("SupplierRefundCreatedBy")
   createdBankTransfers                              BankTransfer[]                              @relation("BankTransferCreatedBy")
@@ -1341,6 +1358,9 @@ model Organization {
   projects                                  Project[]
   currencyRateSnapshots                     CurrencyRateSnapshot[]
   fxAccountConfiguration                    FxAccountConfiguration?
+  fxRevaluationRuns                         FxRevaluationRun[]
+  fxRevaluationLines                        FxRevaluationLine[]
+  fxMonetaryBalances                        FxMonetaryBalance[]
   bankAccountProfiles                       BankAccountProfile[]
   bankTransfers                             BankTransfer[]
   bankStatementImports                      BankStatementImport[]
@@ -2789,7 +2809,9 @@ model Contact {
   purchaseMatchingReviews    PurchaseMatchingReview[]    @relation("PurchaseMatchingReviewSupplier")
   bankBeneficiaryMappings     BankBeneficiaryMapping[]     @relation("BankBeneficiaryMappingSupplier")
   bankPaymentRequests         BankPaymentRequest[]         @relation("BankPaymentRequestSupplier")
+  fxRevaluationLines          FxRevaluationLine[]          @relation("FxRevaluationLineCounterparty")
 
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([organizationId, type])
 }
@@ -2912,6 +2934,12 @@ model CurrencyRateSnapshot {
   customerRefunds     CustomerRefund[]    @relation("CustomerRefundRateSnapshot")
   supplierRefunds     SupplierRefund[]    @relation("SupplierRefundRateSnapshot")
   journalLines        JournalLine[]        @relation("JournalLineRateSnapshot")
+  fxRevaluationLines              FxRevaluationLine[]                  @relation("FxRevaluationLineRateSnapshot")
+  fxMonetaryBalances              FxMonetaryBalance[]                  @relation("FxMonetaryBalanceRateSnapshot")
+  customerAllocationCarryingRates CustomerPaymentAllocation[]          @relation("CustomerPaymentAllocationCarryingRateSnapshot")
+  customerUnappliedCarryingRates  CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedCarryingRateSnapshot")
+  supplierAllocationCarryingRates SupplierPaymentAllocation[]          @relation("SupplierPaymentAllocationCarryingRateSnapshot")
+  supplierUnappliedCarryingRates  SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedCarryingRateSnapshot")
 
   @@unique([organizationId, id])
   @@index([organizationId, transactionCurrency, baseCurrency, rateDate])
@@ -2938,6 +2966,129 @@ model FxAccountConfiguration {
   @@index([organizationId, realizedLossAccountId])
   @@index([organizationId, unrealizedGainAccountId])
   @@index([organizationId, unrealizedLossAccountId])
+}
+
+model FxRevaluationRun {
+  id                     String              @id @default(uuid()) @db.Uuid
+  organizationId         String              @db.Uuid
+  revaluationDate        DateTime            @db.Date
+  status                 FxRevaluationStatus @default(DRAFT)
+  rateDate               DateTime            @db.Date
+  requestedByUserId      String              @db.Uuid
+  reviewedByUserId       String?             @db.Uuid
+  postedByUserId         String?             @db.Uuid
+  reversedByUserId       String?             @db.Uuid
+  postedJournalEntryId   String?             @db.Uuid
+  reversalJournalEntryId String?             @db.Uuid
+  idempotencyKey         String
+  requestHash            String
+  activeScopeKey         String?
+  reviewIdempotencyKey   String?
+  postIdempotencyKey     String?
+  reversalIdempotencyKey String?
+  reviewedAt             DateTime?           @db.Timestamptz(3)
+  postedAt               DateTime?           @db.Timestamptz(3)
+  reversedAt             DateTime?           @db.Timestamptz(3)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
+  organization           Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy            User                @relation("FxRevaluationRequestedBy", fields: [requestedByUserId], references: [id], onDelete: NoAction)
+  reviewedBy             User?               @relation("FxRevaluationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: NoAction)
+  postedBy               User?               @relation("FxRevaluationPostedBy", fields: [postedByUserId], references: [id], onDelete: NoAction)
+  reversedBy             User?               @relation("FxRevaluationReversedBy", fields: [reversedByUserId], references: [id], onDelete: NoAction)
+  postedJournalEntry     JournalEntry?       @relation("FxRevaluationPostedJournal", fields: [organizationId, postedJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationRun_org_posted_journal_fkey")
+  reversalJournalEntry   JournalEntry?       @relation("FxRevaluationReversalJournal", fields: [organizationId, reversalJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationRun_org_reversal_journal_fkey")
+  lines                  FxRevaluationLine[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, activeScopeKey])
+  @@unique([organizationId, reviewIdempotencyKey])
+  @@unique([organizationId, postIdempotencyKey])
+  @@unique([organizationId, reversalIdempotencyKey])
+  @@unique([organizationId, postedJournalEntryId])
+  @@unique([organizationId, reversalJournalEntryId])
+  @@index([organizationId, revaluationDate])
+  @@index([organizationId, status])
+  @@index([requestedByUserId])
+  @@index([reviewedByUserId])
+  @@index([postedByUserId])
+  @@index([reversedByUserId])
+}
+
+model FxRevaluationLine {
+  id                           String                               @id @default(uuid()) @db.Uuid
+  organizationId               String                               @db.Uuid
+  revaluationRunId             String                               @db.Uuid
+  sourceType                   FxMonetarySourceType
+  salesInvoiceId               String?                              @db.Uuid
+  purchaseBillId               String?                              @db.Uuid
+  counterpartyId               String?                              @db.Uuid
+  currencyCode                 String
+  baseCurrencyCode             String
+  openTransactionAmount        Decimal                              @db.Decimal(20, 4)
+  sourceBaseOpenAmount         Decimal                              @db.Decimal(20, 4)
+  carryingBaseAmount           Decimal                              @db.Decimal(20, 4)
+  closingRate                  Decimal                              @db.Decimal(18, 8)
+  revaluedBaseAmount           Decimal                              @db.Decimal(20, 4)
+  unrealizedGainAmount         Decimal                              @db.Decimal(20, 4)
+  unrealizedLossAmount         Decimal                              @db.Decimal(20, 4)
+  rateSnapshotId               String                               @db.Uuid
+  priorRevaluationLineId       String?                              @db.Uuid
+  createdAt                    DateTime                             @default(now()) @db.Timestamptz(3)
+  organization                 Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  revaluationRun               FxRevaluationRun                     @relation(fields: [organizationId, revaluationRunId], references: [organizationId, id], onDelete: Cascade, map: "FxRevaluationLine_org_run_fkey")
+  salesInvoice                 SalesInvoice?                        @relation("FxRevaluationLineSalesInvoice", fields: [organizationId, salesInvoiceId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationLine_org_invoice_fkey")
+  purchaseBill                 PurchaseBill?                        @relation("FxRevaluationLinePurchaseBill", fields: [organizationId, purchaseBillId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationLine_org_bill_fkey")
+  counterparty                 Contact?                             @relation("FxRevaluationLineCounterparty", fields: [organizationId, counterpartyId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationLine_org_counterparty_fkey")
+  rateSnapshot                 CurrencyRateSnapshot                 @relation("FxRevaluationLineRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationLine_org_rate_snapshot_fkey")
+  priorRevaluationLine         FxRevaluationLine?                   @relation("FxRevaluationLinePrior", fields: [organizationId, priorRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "FxRevaluationLine_org_prior_line_fkey")
+  supersedingLines             FxRevaluationLine[]                  @relation("FxRevaluationLinePrior")
+  currentMonetaryBalance       FxMonetaryBalance?                   @relation("FxMonetaryBalanceLastRevaluationLine")
+  customerPaymentAllocations   CustomerPaymentAllocation[]          @relation("CustomerPaymentAllocationCarryingRevaluationLine")
+  customerUnappliedAllocations CustomerPaymentUnappliedAllocation[] @relation("CustomerPaymentUnappliedCarryingRevaluationLine")
+  supplierPaymentAllocations   SupplierPaymentAllocation[]          @relation("SupplierPaymentAllocationCarryingRevaluationLine")
+  supplierUnappliedAllocations SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedCarryingRevaluationLine")
+
+  @@unique([organizationId, id])
+  @@unique([revaluationRunId, salesInvoiceId])
+  @@unique([revaluationRunId, purchaseBillId])
+  @@index([organizationId, sourceType])
+  @@index([organizationId, salesInvoiceId])
+  @@index([organizationId, purchaseBillId])
+  @@index([organizationId, counterpartyId])
+  @@index([organizationId, rateSnapshotId])
+  @@index([organizationId, priorRevaluationLineId])
+}
+
+model FxMonetaryBalance {
+  id                    String               @id @default(uuid()) @db.Uuid
+  organizationId        String               @db.Uuid
+  sourceType            FxMonetarySourceType
+  salesInvoiceId        String?              @db.Uuid
+  purchaseBillId        String?              @db.Uuid
+  currencyCode          String
+  baseCurrencyCode      String
+  openTransactionAmount Decimal              @db.Decimal(20, 4)
+  sourceBaseOpenAmount  Decimal              @db.Decimal(20, 4)
+  carryingBaseAmount    Decimal              @db.Decimal(20, 4)
+  carryingRate          Decimal              @db.Decimal(18, 8)
+  rateSnapshotId        String               @db.Uuid
+  lastRevaluationLineId String               @db.Uuid
+  createdAt             DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @db.Timestamptz(3)
+  organization          Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  salesInvoice          SalesInvoice?        @relation("FxMonetaryBalanceSalesInvoice", fields: [organizationId, salesInvoiceId], references: [organizationId, id], onDelete: NoAction, map: "FxMonetaryBalance_org_invoice_fkey")
+  purchaseBill          PurchaseBill?        @relation("FxMonetaryBalancePurchaseBill", fields: [organizationId, purchaseBillId], references: [organizationId, id], onDelete: NoAction, map: "FxMonetaryBalance_org_bill_fkey")
+  rateSnapshot          CurrencyRateSnapshot @relation("FxMonetaryBalanceRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "FxMonetaryBalance_org_rate_snapshot_fkey")
+  lastRevaluationLine   FxRevaluationLine    @relation("FxMonetaryBalanceLastRevaluationLine", fields: [organizationId, lastRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "FxMonetaryBalance_org_last_line_fkey")
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, salesInvoiceId])
+  @@unique([organizationId, purchaseBillId])
+  @@unique([organizationId, lastRevaluationLineId])
+  @@index([organizationId, sourceType])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model BankAccountProfile {
@@ -3979,6 +4130,8 @@ model SalesInvoice {
   collectionActivities        CollectionActivity[]                   @relation("CollectionActivitySalesInvoice")
   salesInventoryReturns       SalesInventoryReturn[]                 @relation("SalesInventoryReturnSourceInvoice")
   paymentLinks                InvoicePaymentLink[]
+  fxRevaluationLines          FxRevaluationLine[]                    @relation("FxRevaluationLineSalesInvoice")
+  fxMonetaryBalance           FxMonetaryBalance?                     @relation("FxMonetaryBalanceSalesInvoice")
 
   @@unique([organizationId, invoiceNumber])
   @@unique([organizationId, id])
@@ -4685,6 +4838,8 @@ model PurchaseBill {
   inventoryVarianceProposals          InventoryVarianceProposal[]
   purchaseReturns                     PurchaseReturn[]
   bankPaymentRequests                 BankPaymentRequest[]
+  fxRevaluationLines                  FxRevaluationLine[]                  @relation("FxRevaluationLinePurchaseBill")
+  fxMonetaryBalance                   FxMonetaryBalance?                   @relation("FxMonetaryBalancePurchaseBill")
 
   @@unique([organizationId, billNumber])
   @@unique([organizationId, id])
@@ -5404,8 +5559,12 @@ model CustomerPaymentAllocation {
   amountApplied               Decimal         @db.Decimal(20, 4)
   transactionAmountApplied    Decimal         @default(0) @db.Decimal(20, 4)
   documentBaseAmountApplied   Decimal         @default(0) @db.Decimal(20, 4)
+  sourceBaseAmountApplied     Decimal         @default(0) @db.Decimal(20, 4)
   settlementBaseAmountApplied Decimal         @default(0) @db.Decimal(20, 4)
   recognitionRate             Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRate                Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRateSnapshotId      String?         @db.Uuid
+  carryingRevaluationLineId   String?         @db.Uuid
   settlementRate              Decimal         @default(1) @db.Decimal(18, 8)
   realizedGainAmount          Decimal         @default(0) @db.Decimal(20, 4)
   realizedLossAmount          Decimal         @default(0) @db.Decimal(20, 4)
@@ -5416,10 +5575,14 @@ model CustomerPaymentAllocation {
   payment                     CustomerPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_payment_fkey")
   invoice                     SalesInvoice    @relation(fields: [organizationId, invoiceId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_invoice_fkey")
   realizedFxJournalEntry      JournalEntry?   @relation("CustomerPaymentAllocationRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_realized_fx_journal_fkey")
+  carryingRateSnapshot        CurrencyRateSnapshot? @relation("CustomerPaymentAllocationCarryingRateSnapshot", fields: [organizationId, carryingRateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_carrying_rate_snapshot_fkey")
+  carryingRevaluationLine     FxRevaluationLine?    @relation("CustomerPaymentAllocationCarryingRevaluationLine", fields: [organizationId, carryingRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "cpa_org_carrying_revaluation_line_fkey")
 
   @@index([organizationId])
   @@index([paymentId])
   @@index([invoiceId])
+  @@index([organizationId, carryingRateSnapshotId], map: "cpa_org_carry_rate_snapshot_idx")
+  @@index([organizationId, carryingRevaluationLineId], map: "cpa_org_carry_reval_line_idx")
 }
 
 model CustomerPaymentUnappliedAllocation {
@@ -5430,8 +5593,12 @@ model CustomerPaymentUnappliedAllocation {
   amountApplied                    Decimal         @db.Decimal(20, 4)
   transactionAmountApplied         Decimal         @default(0) @db.Decimal(20, 4)
   documentBaseAmountApplied        Decimal         @default(0) @db.Decimal(20, 4)
+  sourceBaseAmountApplied          Decimal         @default(0) @db.Decimal(20, 4)
   settlementBaseAmountApplied      Decimal         @default(0) @db.Decimal(20, 4)
   recognitionRate                  Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRate                     Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRateSnapshotId           String?         @db.Uuid
+  carryingRevaluationLineId        String?         @db.Uuid
   settlementRate                   Decimal         @default(1) @db.Decimal(18, 8)
   realizedGainAmount               Decimal         @default(0) @db.Decimal(20, 4)
   realizedLossAmount               Decimal         @default(0) @db.Decimal(20, 4)
@@ -5450,6 +5617,8 @@ model CustomerPaymentUnappliedAllocation {
   realizedFxJournalEntry           JournalEntry?   @relation("CustomerPaymentUnappliedRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_realized_fx_journal_fkey")
   realizedFxReversalJournalEntry   JournalEntry?   @relation("CustomerPaymentUnappliedRealizedFxReversalJournal", fields: [organizationId, realizedFxReversalJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_realized_fx_reversal_fkey")
   reversedBy                       User?           @relation("CustomerPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  carryingRateSnapshot             CurrencyRateSnapshot? @relation("CustomerPaymentUnappliedCarryingRateSnapshot", fields: [organizationId, carryingRateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_carrying_rate_snapshot_fkey")
+  carryingRevaluationLine          FxRevaluationLine?    @relation("CustomerPaymentUnappliedCarryingRevaluationLine", fields: [organizationId, carryingRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "cpua_org_carrying_revaluation_line_fkey")
 
   @@unique([organizationId, idempotencyKey], map: "CustomerPaymentUnappliedAllocation_org_idempotency_key")
   @@unique([organizationId, reversalIdempotencyKey], map: "CustomerPaymentUnappliedAllocation_org_reversal_key")
@@ -5458,6 +5627,8 @@ model CustomerPaymentUnappliedAllocation {
   @@index([invoiceId])
   @@index([reversedAt])
   @@index([reversedById])
+  @@index([organizationId, carryingRateSnapshotId], map: "cpua_org_carry_rate_snapshot_idx")
+  @@index([organizationId, carryingRevaluationLineId], map: "cpua_org_carry_reval_line_idx")
 }
 
 model SupplierPayment {
@@ -5516,8 +5687,12 @@ model SupplierPaymentAllocation {
   amountApplied               Decimal         @db.Decimal(20, 4)
   transactionAmountApplied    Decimal         @default(0) @db.Decimal(20, 4)
   documentBaseAmountApplied   Decimal         @default(0) @db.Decimal(20, 4)
+  sourceBaseAmountApplied     Decimal         @default(0) @db.Decimal(20, 4)
   settlementBaseAmountApplied Decimal         @default(0) @db.Decimal(20, 4)
   recognitionRate             Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRate                Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRateSnapshotId      String?         @db.Uuid
+  carryingRevaluationLineId   String?         @db.Uuid
   settlementRate              Decimal         @default(1) @db.Decimal(18, 8)
   realizedGainAmount          Decimal         @default(0) @db.Decimal(20, 4)
   realizedLossAmount          Decimal         @default(0) @db.Decimal(20, 4)
@@ -5528,10 +5703,14 @@ model SupplierPaymentAllocation {
   payment                     SupplierPayment @relation(fields: [organizationId, paymentId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_payment_fkey")
   bill                        PurchaseBill    @relation(fields: [organizationId, billId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_bill_fkey")
   realizedFxJournalEntry      JournalEntry?   @relation("SupplierPaymentAllocationRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_realized_fx_journal_fkey")
+  carryingRateSnapshot        CurrencyRateSnapshot? @relation("SupplierPaymentAllocationCarryingRateSnapshot", fields: [organizationId, carryingRateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_carrying_rate_snapshot_fkey")
+  carryingRevaluationLine     FxRevaluationLine?    @relation("SupplierPaymentAllocationCarryingRevaluationLine", fields: [organizationId, carryingRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "spa_org_carrying_revaluation_line_fkey")
 
   @@index([organizationId])
   @@index([paymentId])
   @@index([billId])
+  @@index([organizationId, carryingRateSnapshotId], map: "spa_org_carry_rate_snapshot_idx")
+  @@index([organizationId, carryingRevaluationLineId], map: "spa_org_carry_reval_line_idx")
 }
 
 model SupplierPaymentUnappliedAllocation {
@@ -5542,8 +5721,12 @@ model SupplierPaymentUnappliedAllocation {
   amountApplied                    Decimal         @db.Decimal(20, 4)
   transactionAmountApplied         Decimal         @default(0) @db.Decimal(20, 4)
   documentBaseAmountApplied        Decimal         @default(0) @db.Decimal(20, 4)
+  sourceBaseAmountApplied          Decimal         @default(0) @db.Decimal(20, 4)
   settlementBaseAmountApplied      Decimal         @default(0) @db.Decimal(20, 4)
   recognitionRate                  Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRate                     Decimal         @default(1) @db.Decimal(18, 8)
+  carryingRateSnapshotId           String?         @db.Uuid
+  carryingRevaluationLineId        String?         @db.Uuid
   settlementRate                   Decimal         @default(1) @db.Decimal(18, 8)
   realizedGainAmount               Decimal         @default(0) @db.Decimal(20, 4)
   realizedLossAmount               Decimal         @default(0) @db.Decimal(20, 4)
@@ -5562,6 +5745,8 @@ model SupplierPaymentUnappliedAllocation {
   realizedFxJournalEntry           JournalEntry?   @relation("SupplierPaymentUnappliedRealizedFxJournal", fields: [organizationId, realizedFxJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_realized_fx_journal_fkey")
   realizedFxReversalJournalEntry   JournalEntry?   @relation("SupplierPaymentUnappliedRealizedFxReversalJournal", fields: [organizationId, realizedFxReversalJournalEntryId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_realized_fx_reversal_fkey")
   reversedBy                       User?           @relation("SupplierPaymentUnappliedAllocationReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  carryingRateSnapshot             CurrencyRateSnapshot? @relation("SupplierPaymentUnappliedCarryingRateSnapshot", fields: [organizationId, carryingRateSnapshotId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_carrying_rate_snapshot_fkey")
+  carryingRevaluationLine          FxRevaluationLine?    @relation("SupplierPaymentUnappliedCarryingRevaluationLine", fields: [organizationId, carryingRevaluationLineId], references: [organizationId, id], onDelete: NoAction, map: "spua_org_carrying_revaluation_line_fkey")
 
   @@unique([organizationId, idempotencyKey], map: "SupplierPaymentUnappliedAllocation_org_idempotency_key")
   @@unique([organizationId, reversalIdempotencyKey], map: "SupplierPaymentUnappliedAllocation_org_reversal_key")
@@ -5570,6 +5755,8 @@ model SupplierPaymentUnappliedAllocation {
   @@index([billId])
   @@index([reversedAt])
   @@index([reversedById])
+  @@index([organizationId, carryingRateSnapshotId], map: "spua_org_carry_rate_snapshot_idx")
+  @@index([organizationId, carryingRevaluationLineId], map: "spua_org_carry_reval_line_idx")
 }
 
 model CustomerRefund {
@@ -5726,6 +5913,8 @@ model JournalEntry {
   supplierPaymentAllocationRealizedFx   SupplierPaymentAllocation[]          @relation("SupplierPaymentAllocationRealizedFxJournal")
   supplierUnappliedRealizedFx           SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedRealizedFxJournal")
   supplierUnappliedRealizedFxReversals  SupplierPaymentUnappliedAllocation[] @relation("SupplierPaymentUnappliedRealizedFxReversalJournal")
+  fxRevaluationPostedRun                FxRevaluationRun?                    @relation("FxRevaluationPostedJournal")
+  fxRevaluationReversalRun              FxRevaluationRun?                    @relation("FxRevaluationReversalJournal")
   lines                                 JournalLine[]
 
   @@unique([organizationId, entryNumber])

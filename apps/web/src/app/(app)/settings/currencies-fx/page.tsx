@@ -153,8 +153,8 @@ export default function CurrenciesAndFxSettingsPage() {
       <LedgerPageHeader
         eyebrow="Accounting controls"
         title="Currencies and FX"
-        description="Capture auditable manual exchange-rate snapshots and configure future FX posting accounts."
-        badge={<LedgerStatusBadge tone="warning">Foundation only</LedgerStatusBadge>}
+        description="Capture auditable manual exchange-rate snapshots and configure controlled FX posting accounts."
+        badge={<LedgerStatusBadge tone="warning">Manual rates</LedgerStatusBadge>}
       />
 
       {!organizationId ? <StatusMessage type="info">Log in and select an organization to review currency and FX settings.</StatusMessage> : null}
