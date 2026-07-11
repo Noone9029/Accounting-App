@@ -166,6 +166,62 @@ describe("ImportExportSettingsPage", () => {
     expect(within(invalidRow!).getByText("Exchange rate must be positive.")).toBeInTheDocument();
   });
 
+  it("shows a missing rate date for a foreign parity-rate row", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            normalizedJson: {
+              name: "Parity-priced service",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "100.0000",
+              currency: "USD",
+              baseCurrency: "AED",
+              exchangeRate: "1",
+              rateDate: null,
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const parityRow = (await screen.findByText("Parity-priced service")).closest("tr");
+    expect(parityRow).not.toBeNull();
+    expect(within(parityRow!).getByText("Not provided")).toBeInTheDocument();
+    expect(within(parityRow!).queryByText("Not required")).not.toBeInTheDocument();
+  });
+
+  it("does not infer a same-currency rate date when both currency fields are missing", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            normalizedJson: {
+              name: "Incomplete currency evidence",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "100.0000",
+              currency: null,
+              baseCurrency: null,
+              exchangeRate: "1",
+              rateDate: null,
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const incompleteRow = (await screen.findByText("Incomplete currency evidence")).closest("tr");
+    expect(incompleteRow).not.toBeNull();
+    expect(within(incompleteRow!).getAllByText("Not provided").length).toBeGreaterThanOrEqual(1);
+    expect(within(incompleteRow!).queryByText("Not required")).not.toBeInTheDocument();
+  });
+
   it("requires an explicit reviewed action before a base-equivalent catalog commit", async () => {
     mockInitialLoad([
       makeProductImportJob({

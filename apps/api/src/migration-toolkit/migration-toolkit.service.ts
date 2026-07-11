@@ -142,57 +142,74 @@ export class MigrationToolkitService {
       accountingRecordsMutated: false,
     };
 
-    const job = await this.prisma.importJob.create({
-      data: {
-        organizationId,
-        entityType: dto.entityType,
-        status: ImportJobStatus.READY_FOR_REVIEW,
-        filename: cleanFilename(dto.filename),
-        previewOnly: dto.previewOnly ?? true,
-        summaryJson: summary,
-        requestId: this.requestId(),
-        createdById: actorUserId,
-        rows: {
-          create: normalizedRows.map((row) => ({
-            organizationId,
-            rowNumber: row.rowNumber,
-            status: row.status,
-            rawJson: row.raw,
-            normalizedJson: row.normalized,
-            fingerprint: row.fingerprint,
-            duplicate: row.duplicate,
-          })),
-        },
-      },
-      include: { rows: true, validationIssues: true },
-    });
-
-    if (issues.length > 0) {
-      const rowByNumber = new Map(job.rows.map((row) => [row.rowNumber, row.id]));
-      await this.prisma.importValidationIssue.createMany({
-        data: issues.map((issue) => ({
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.importJob.create({
+        data: {
           organizationId,
-          importJobId: job.id,
-          importJobRowId: issue.rowNumber ? rowByNumber.get(issue.rowNumber) : undefined,
-          rowNumber: issue.rowNumber,
-          field: issue.field,
-          code: issue.code,
-          message: issue.message,
-          severity: issue.severity,
-        })),
+          entityType: dto.entityType,
+          status: ImportJobStatus.VALIDATING,
+          filename: cleanFilename(dto.filename),
+          previewOnly: dto.previewOnly ?? true,
+          summaryJson: summary,
+          requestId: this.requestId(),
+          createdById: actorUserId,
+          rows: {
+            create: normalizedRows.map((row) => ({
+              organizationId,
+              rowNumber: row.rowNumber,
+              status: row.status,
+              rawJson: row.raw,
+              normalizedJson: row.normalized,
+              fingerprint: row.fingerprint,
+              duplicate: row.duplicate,
+            })),
+          },
+        },
+        include: { rows: true, validationIssues: true },
       });
-    }
 
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "UPLOAD",
-      entityType: "ImportJob",
-      entityId: job.id,
-      after: summary,
-    });
+      if (issues.length > 0) {
+        const rowByNumber = new Map(job.rows.map((row) => [row.rowNumber, row.id]));
+        await tx.importValidationIssue.createMany({
+          data: issues.map((issue) => ({
+            organizationId,
+            importJobId: job.id,
+            importJobRowId: issue.rowNumber ? rowByNumber.get(issue.rowNumber) : undefined,
+            rowNumber: issue.rowNumber,
+            field: issue.field,
+            code: issue.code,
+            message: issue.message,
+            severity: issue.severity,
+          })),
+        });
+      }
 
-    return this.getImportJob(organizationId, job.id);
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "UPLOAD",
+        entityType: "ImportJob",
+        entityId: job.id,
+        after: summary,
+      }, tx);
+
+      const published = await tx.importJob.updateMany({
+        where: { id: job.id, organizationId, status: ImportJobStatus.VALIDATING },
+        data: { status: ImportJobStatus.READY_FOR_REVIEW },
+      });
+      if (published.count !== 1) {
+        throw new ConflictException("Import preview could not be published for review.");
+      }
+
+      const preview = await tx.importJob.findFirst({
+        where: { id: job.id, organizationId },
+        include: { rows: { orderBy: { rowNumber: "asc" } }, validationIssues: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!preview) {
+        throw new ConflictException("Import preview could not be loaded after validation.");
+      }
+      return preview;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async listImportJobs(organizationId: string) {
@@ -247,6 +264,31 @@ export class MigrationToolkitService {
       });
       if (!claimedJob) {
         throw new ConflictException("Import job claim could not be loaded.");
+      }
+
+      const authoritativeErrors = claimedJob.validationIssues.filter(
+        (issue) => issue.severity === ImportValidationIssueSeverity.ERROR,
+      );
+      if (authoritativeErrors.length > 0) {
+        throw new BadRequestException("Import commit is blocked until validation errors and duplicates are resolved.");
+      }
+      if (claimedJob.rows.some((row) => row.status !== ImportJobRowStatus.VALID)) {
+        throw new BadRequestException("Import commit requires all rows to remain valid and committable. Create a new preview.");
+      }
+
+      if (claimedJob.entityType === ImportEntityType.PRODUCTS_SERVICES) {
+        const organization = await tx.organization.findUnique({
+          where: { id: organizationId },
+          select: { baseCurrency: true },
+        });
+        const currentBaseCurrency = normalizeSupportedCurrencyCode(organization?.baseCurrency);
+        const previewMatchesCurrentBase = Boolean(currentBaseCurrency) && claimedJob.rows.every((row) => {
+          const normalized = row.normalizedJson as Record<string, string | boolean | null>;
+          return normalizeSupportedCurrencyCode(optionalString(normalized.baseCurrency)) === currentBaseCurrency;
+        });
+        if (!previewMatchesCurrentBase) {
+          throw new ConflictException("Organization base currency changed since this preview. Create a new import preview before committing.");
+        }
       }
 
       const createdIds: string[] = [];

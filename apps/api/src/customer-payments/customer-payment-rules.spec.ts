@@ -112,6 +112,7 @@ describe("customer payment rules", () => {
       }),
       tx,
     );
+    expect(auditLog.log.mock.calls.filter(([entry]) => entry.entityType === "RealizedFxSettlement")).toHaveLength(1);
   });
 
   it("fails closed when the created direct payment omits included allocation audit evidence", async () => {
@@ -139,7 +140,7 @@ describe("customer payment rules", () => {
     expect(auditLog.log).not.toHaveBeenCalled();
   });
 
-  it("keeps a direct foreign customer allocation with zero realized FX silent", async () => {
+  it("freezes a direct foreign customer payment with zero realized FX in the payment transaction", async () => {
     const tx = makeForeignCreateTransactionMock();
     tx.salesInvoice.findMany.mockResolvedValueOnce([{
       id: "invoice-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED,
@@ -166,6 +167,52 @@ describe("customer payment rules", () => {
 
     expect(auditLog.log).not.toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      tx,
+    );
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE",
+        entityType: "CustomerPayment",
+        entityId: "payment-1",
+        after: {
+          currency: "USD",
+          baseCurrency: "AED",
+          exchangeRate: "3.75000000",
+          rateDate: "2026-07-11",
+          rateSource: CurrencyRateSource.MANUAL,
+          rateSnapshotId: "payment-rate",
+          journalEntryId: "journal-1",
+          paymentNumber: "PAY-000001",
+        },
+      }),
+      tx,
+    );
+  });
+
+  it("keeps a same-currency customer payment silent for FX freeze evidence", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    tx.salesInvoice.findMany.mockResolvedValueOnce([{
+      id: "invoice-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED,
+      currency: "AED", baseCurrency: "AED", exchangeRate: "1.00000000",
+      rateDate: new Date("2026-07-01T00:00:00.000Z"), rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+      rateSnapshotId: null, balanceDue: "100.0000", transactionBalanceDue: "100.0000",
+    }]);
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "AED", baseCurrency: "AED", exchangeRate: "1.00000000",
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.SYSTEM_RATE_1, rateSnapshotId: null,
+    }) };
+    const service = new CustomerPaymentService(
+      prisma as never, auditLog as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await service.create("org-1", "user-1", { ...basePaymentDto, currency: "AED" });
+
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "FREEZE_FX_RATE", entityType: "CustomerPayment" }),
       tx,
     );
   });

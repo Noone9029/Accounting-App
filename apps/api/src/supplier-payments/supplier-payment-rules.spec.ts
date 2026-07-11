@@ -94,6 +94,7 @@ describe("supplier payment rules", () => {
       }),
       tx,
     );
+    expect(auditLog.log.mock.calls.filter(([entry]) => entry.entityType === "RealizedFxSettlement")).toHaveLength(1);
   });
 
   it("settles a revalued payable against adjusted carrying basis and preserves source basis", async () => {
@@ -245,7 +246,7 @@ describe("supplier payment rules", () => {
     );
   });
 
-  it("keeps a direct foreign supplier allocation with zero realized FX silent", async () => {
+  it("freezes a direct foreign supplier payment with zero realized FX in the payment transaction", async () => {
     const tx = makeForeignCreateTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const auditLog = { log: jest.fn() };
@@ -266,6 +267,75 @@ describe("supplier payment rules", () => {
 
     expect(auditLog.log).not.toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      tx,
+    );
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE",
+        entityType: "SupplierPayment",
+        entityId: "payment-1",
+        after: {
+          currency: "USD",
+          baseCurrency: "SAR",
+          exchangeRate: "3.75000000",
+          rateDate: "2026-07-11",
+          rateSource: CurrencyRateSource.MANUAL,
+          rateSnapshotId: "payment-rate",
+          journalEntryId: "journal-1",
+          paymentNumber: "PAY-000001",
+        },
+      }),
+      tx,
+    );
+  });
+
+  it("freezes a fully unapplied foreign supplier payment without inventing realized FX", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000",
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    }) };
+    const service = new SupplierPaymentService(
+      prisma as never, auditLog as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await service.create("org-1", "user-1", {
+      ...basePaymentDto, allocations: [], currency: "USD", exchangeRate: "3.75000000", rateDate: "2026-07-11",
+      rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "payment-rate",
+    });
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "FREEZE_FX_RATE", entityType: "SupplierPayment", entityId: "payment-1" }),
+      tx,
+    );
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "RealizedFxSettlement" }),
+      tx,
+    );
+  });
+
+  it("keeps a same-currency supplier payment silent for FX freeze evidence", async () => {
+    const tx = makeForeignCreateTransactionMock();
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "SAR", baseCurrency: "SAR", exchangeRate: "1.00000000",
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.SYSTEM_RATE_1, rateSnapshotId: null,
+    }) };
+    const service = new SupplierPaymentService(
+      prisma as never, auditLog as never,
+      { next: jest.fn().mockResolvedValueOnce("PAY-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await service.create("org-1", "user-1", { ...basePaymentDto, allocations: [], currency: "SAR" });
+
+    expect(auditLog.log).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: "FREEZE_FX_RATE", entityType: "SupplierPayment" }),
       tx,
     );
   });

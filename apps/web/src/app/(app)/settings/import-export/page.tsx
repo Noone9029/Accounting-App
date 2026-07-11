@@ -286,8 +286,13 @@ function ProductImportReviewTable({ preview }: { preview: ImportJob }) {
             {preview.rows.map((row) => {
               const normalized = row.normalizedJson;
               const rowIssues = issuesByRow.get(row.rowNumber) ?? [];
+              const currency = normalizedText(normalized.currency);
+              const baseCurrency = normalizedText(normalized.baseCurrency);
               const exchangeRate = normalizedText(normalized.exchangeRate);
-              const rateDate = normalizedText(normalized.rateDate, exchangeRate === "1" ? "Not required" : "Not provided");
+              const sameCurrency = typeof normalized.currency === "string"
+                && normalized.currency.trim().length > 0
+                && normalized.currency === normalized.baseCurrency;
+              const rateDate = normalizedText(normalized.rateDate, sameCurrency ? "Not required" : "Not provided");
               const rateSource = normalizedText(normalized.rateSource).replace(/_/g, " ");
               const rateSnapshotId = normalizedText(normalized.rateSnapshotId, "");
               return (
@@ -304,14 +309,14 @@ function ProductImportReviewTable({ preview }: { preview: ImportJob }) {
                       <p className="mt-2 text-steel">No row issues</p>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.transactionSellingPrice)} {normalizedText(normalized.currency)}</bdi></td>
+                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.transactionSellingPrice)} {currency}</bdi></td>
                   <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{exchangeRate}</bdi></td>
                   <td className="px-3 py-2 align-top font-mono"><bdi dir="ltr">{rateDate}</bdi></td>
                   <td className="px-3 py-2 align-top">
                     <span>{rateSource}</span>
                     {rateSnapshotId ? <span className="mt-1 block font-mono text-steel">Snapshot {rateSnapshotId}</span> : null}
                   </td>
-                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.baseSellingPrice)} {normalizedText(normalized.baseCurrency)}</bdi></td>
+                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.baseSellingPrice)} {baseCurrency}</bdi></td>
                 </tr>
               );
             })}

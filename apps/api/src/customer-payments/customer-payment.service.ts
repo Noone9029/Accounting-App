@@ -21,7 +21,12 @@ import {
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
-import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
+import {
+  AUDIT_ENTITY_TYPES,
+  AUDIT_EVENTS,
+  documentFxAuditEvidence,
+  isForeignDocumentFxContext,
+} from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -1084,6 +1089,20 @@ export class CustomerPaymentService {
 
       if (!Array.isArray(created.allocations) || created.allocations.length !== allocationPlans.length) {
         throw new InternalServerErrorException("Created customer payment is missing allocation evidence required for FX audit.");
+      }
+      if (isForeignDocumentFxContext(fx)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
+          entityId: created.id,
+          after: {
+            ...documentFxAuditEvidence(fx),
+            journalEntryId: journalEntry.id,
+            paymentNumber,
+          },
+        }, tx);
       }
       for (const allocation of created.allocations) {
         const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);

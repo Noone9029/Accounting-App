@@ -40,6 +40,8 @@ describe("FX audit event catalogue", () => {
     ["PurchaseDebitNote", "CHANGE_FX_CONTEXT", "DOCUMENT_FX_CONTEXT_CHANGED"],
     ["PurchaseDebitNote", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
     ["CashExpense", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["CustomerPayment", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["SupplierPayment", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
     ["RealizedFxSettlement", "POST", "REALIZED_FX_POSTED"],
     ["RealizedFxSettlement", "REVERSE", "REALIZED_FX_REVERSED"],
     ["FxRevaluationRun", "CREATE", "FX_REVALUATION_PREVIEWED"],

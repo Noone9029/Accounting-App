@@ -5,6 +5,15 @@ const documentationRoot = resolve(__dirname, "../../../../docs");
 
 const contracts = [
   {
+    path: "AUDIT_LOG_COVERAGE_REVIEW.md",
+    phrases: [
+      "Commit scope: reviewed",
+      "`CustomerPayment` or `SupplierPayment`",
+      "Every foreign direct payment creation",
+      "payment number and linked posting journal ID",
+    ],
+  },
+  {
     path: "accounting/MULTI_CURRENCY_AND_FX_ACCOUNTING.md",
     phrases: [
       "base currency is the accounting truth",

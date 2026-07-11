@@ -35,7 +35,7 @@ describe("MigrationToolkitService", () => {
     expect(prisma.importJob.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         organizationId: "org-1",
-        status: ImportJobStatus.READY_FOR_REVIEW,
+        status: ImportJobStatus.VALIDATING,
         requestId: "req-import-1",
         summaryJson: expect.objectContaining({
           rowCount: 3,
@@ -58,7 +58,18 @@ describe("MigrationToolkitService", () => {
       action: "UPLOAD",
       entityType: "ImportJob",
       after: expect.objectContaining({ accountingRecordsMutated: false }),
+    }), prisma);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+    expect(prisma.importJob.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: ImportJobStatus.VALIDATING }),
     }));
+    expect(prisma.importJob.updateMany).toHaveBeenCalledWith({
+      where: { id: "job-1", organizationId: "org-1", status: ImportJobStatus.VALIDATING },
+      data: { status: ImportJobStatus.READY_FOR_REVIEW },
+    });
+    expect(job.status).toBe(ImportJobStatus.READY_FOR_REVIEW);
   });
 
   it("requires disposable local review commit and blocks jobs with validation errors", async () => {
@@ -117,7 +128,7 @@ describe("MigrationToolkitService", () => {
   });
 
   it("commits the reviewed base selling price inside one serializable transaction", async () => {
-    const { service, prisma } = makeService();
+    const { service, prisma } = makeService({ baseCurrency: "AED" });
     const job = makeJob({
       entityType: ImportEntityType.PRODUCTS_SERVICES,
       rows: [{
@@ -158,6 +169,83 @@ describe("MigrationToolkitService", () => {
     });
   });
 
+  it("rechecks validation errors inside the authoritative commit transaction", async () => {
+    const { service, prisma, transactionState } = makeService();
+    const row = {
+      id: "row-1",
+      organizationId: "org-1",
+      importJobId: "job-1",
+      rowNumber: 2,
+      status: ImportJobRowStatus.VALID,
+      normalizedJson: { name: "Safe Customer", countryCode: "AE", isActive: true },
+    };
+    prisma.importJob.findFirst
+      .mockResolvedValueOnce(makeJob({ rows: [row] }))
+      .mockResolvedValueOnce(makeJob({
+        status: ImportJobStatus.VALIDATING,
+        rows: [row],
+        validationIssues: [{ id: "late-error", severity: ImportValidationIssueSeverity.ERROR, code: "LATE_ERROR" }],
+      }));
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("validation errors");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+  });
+
+  it("rechecks that every row remains valid inside the authoritative commit transaction", async () => {
+    const { service, prisma, transactionState } = makeService();
+    const validRow = {
+      id: "row-1",
+      organizationId: "org-1",
+      importJobId: "job-1",
+      rowNumber: 2,
+      status: ImportJobRowStatus.VALID,
+      normalizedJson: { name: "Safe Customer", countryCode: "AE", isActive: true },
+    };
+    prisma.importJob.findFirst
+      .mockResolvedValueOnce(makeJob({ rows: [validRow] }))
+      .mockResolvedValueOnce(makeJob({
+        status: ImportJobStatus.VALIDATING,
+        rows: [{ ...validRow, status: ImportJobRowStatus.DUPLICATE }],
+      }));
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("remain valid and committable");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.contact.create).not.toHaveBeenCalled();
+  });
+
+  it("requires a new product preview when the organization base currency changed before commit", async () => {
+    const { service, prisma, transactionState } = makeService({ baseCurrency: "SAR" });
+    prisma.__setJob(makeJob({
+      entityType: ImportEntityType.PRODUCTS_SERVICES,
+      rows: [{
+        id: "row-1",
+        organizationId: "org-1",
+        importJobId: "job-1",
+        rowNumber: 2,
+        status: ImportJobRowStatus.VALID,
+        normalizedJson: {
+          name: "Imported service",
+          type: "SERVICE",
+          sellingPrice: "367.2500",
+          baseCurrency: "AED",
+          revenueAccountCode: "400",
+          status: "ACTIVE",
+        },
+      }],
+    }));
+
+    await expect(service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true }))
+      .rejects.toThrow("base currency changed");
+
+    expect(transactionState.rolledBack).toBe(true);
+    expect(prisma.item.create).not.toHaveBeenCalled();
+  });
+
   it("rolls back the commit claim and all mutations when a row creation fails", async () => {
     const { service, prisma, transactionState } = makeService({ failItemCreateAt: 2 });
     prisma.__setJob(makeJob({
@@ -169,7 +257,7 @@ describe("MigrationToolkitService", () => {
           importJobId: "job-1",
           rowNumber: 2,
           status: ImportJobRowStatus.VALID,
-          normalizedJson: { name: "First item", type: "SERVICE", sellingPrice: "10.0000", revenueAccountCode: "400", status: "ACTIVE" },
+          normalizedJson: { name: "First item", type: "SERVICE", sellingPrice: "10.0000", baseCurrency: "SAR", revenueAccountCode: "400", status: "ACTIVE" },
         },
         {
           id: "row-2",
@@ -177,7 +265,7 @@ describe("MigrationToolkitService", () => {
           importJobId: "job-1",
           rowNumber: 3,
           status: ImportJobRowStatus.VALID,
-          normalizedJson: { name: "Broken item", type: "SERVICE", sellingPrice: "20.0000", revenueAccountCode: "400", status: "ACTIVE" },
+          normalizedJson: { name: "Broken item", type: "SERVICE", sellingPrice: "20.0000", baseCurrency: "SAR", revenueAccountCode: "400", status: "ACTIVE" },
         },
       ],
     }));
@@ -472,6 +560,9 @@ function makeService(seed: {
         store.job = makeJob({
           id: "job-1",
           entityType: args.data.entityType,
+          status: args.data.status,
+          filename: args.data.filename,
+          previewOnly: args.data.previewOnly,
           rows: args.data.rows.create.map((row: any, index: number) => ({ id: `row-${index + 1}`, importJobId: "job-1", ...row })),
           validationIssues: [],
           summaryJson: args.data.summaryJson,
@@ -570,6 +661,7 @@ function makeService(seed: {
 }
 
 function makeJob(overrides: Record<string, any> = {}) {
+  const rows = (overrides.rows ?? []).map((row: Record<string, unknown>) => ({ status: ImportJobRowStatus.VALID, ...row }));
   return {
     id: "job-1",
     organizationId: "org-1",
@@ -585,8 +677,8 @@ function makeJob(overrides: Record<string, any> = {}) {
     committedAt: null,
     createdAt: new Date("2026-07-09T00:00:00.000Z"),
     updatedAt: new Date("2026-07-09T00:00:00.000Z"),
-    rows: [],
     validationIssues: [],
     ...overrides,
+    rows,
   };
 }

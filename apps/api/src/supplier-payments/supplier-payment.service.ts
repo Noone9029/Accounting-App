@@ -21,7 +21,11 @@ import {
   SupplierPaymentStatus,
   SupplierRefundStatus,
 } from "@prisma/client";
-import { AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
+import {
+  AUDIT_ENTITY_TYPES,
+  documentFxAuditEvidence,
+  isForeignDocumentFxContext,
+} from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
@@ -718,6 +722,21 @@ export class SupplierPaymentService {
             },
           }, tx);
         }
+      }
+
+      if (isForeignDocumentFxContext(fx)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: AUDIT_ENTITY_TYPES.SUPPLIER_PAYMENT,
+          entityId: created.id,
+          after: {
+            ...documentFxAuditEvidence(fx),
+            journalEntryId: journalEntry.id,
+            paymentNumber,
+          },
+        }, tx);
       }
 
       return tx.supplierPayment.findUniqueOrThrow({ where: { id: created.id }, include: supplierPaymentInclude });
