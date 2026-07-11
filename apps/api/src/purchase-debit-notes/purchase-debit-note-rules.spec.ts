@@ -185,6 +185,7 @@ describe("purchase debit note rules", () => {
           supplierId: string,
           originalBillId: string,
           debitNoteTotal: string,
+          currency: string,
           excludeDebitNoteId: string | undefined,
           executor: unknown,
         ) => Promise<void>;
@@ -196,13 +197,14 @@ describe("purchase debit note rules", () => {
           id: "bill-1",
           supplierId: "supplier-2",
           status: PurchaseBillStatus.FINALIZED,
-          total: "100.0000",
+          currency: "SAR",
+          transactionTotal: "100.0000",
         }),
       },
       purchaseDebitNote: { aggregate: jest.fn() },
     };
 
-    await expect(validateOriginalBillReference("org-1", "supplier-1", "bill-1", "10.0000", undefined, executor)).rejects.toThrow(
+    await expect(validateOriginalBillReference("org-1", "supplier-1", "bill-1", "10.0000", "SAR", undefined, executor)).rejects.toThrow(
       "Original purchase bill must belong to the selected supplier.",
     );
   });
@@ -353,6 +355,7 @@ function makeFinalizeTransactionMock() {
     taxableTotal: "100.0000",
     taxTotal: "15.0000",
     total: "115.0000",
+    transactionTotal: "115.0000",
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
     lines: [
@@ -375,13 +378,13 @@ function makeFinalizeTransactionMock() {
   return {
     purchaseDebitNote: {
       findFirst: jest.fn().mockResolvedValue(debitNote),
-      aggregate: jest.fn().mockResolvedValue({ _sum: { total: "0.0000" } }),
+      aggregate: jest.fn().mockResolvedValue({ _sum: { transactionTotal: "0.0000" } }),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: jest.fn().mockResolvedValue({ ...debitNote, status: PurchaseDebitNoteStatus.FINALIZED, journalEntryId: "journal-existing" }),
       update: jest.fn().mockResolvedValue({ ...debitNote, status: PurchaseDebitNoteStatus.FINALIZED, journalEntryId: "journal-1" }),
     },
     purchaseBill: {
-      findFirst: jest.fn().mockResolvedValue({ id: "bill-1", supplierId: "supplier-1", status: PurchaseBillStatus.FINALIZED, total: "115.0000" }),
+      findFirst: jest.fn().mockResolvedValue({ id: "bill-1", supplierId: "supplier-1", status: PurchaseBillStatus.FINALIZED, currency: "SAR", transactionTotal: "115.0000" }),
     },
     account: {
       findFirst: jest.fn(({ where }: { where: { code: string } }) => Promise.resolve({ id: where.code === "210" ? "ap" : "vat-receivable" })),

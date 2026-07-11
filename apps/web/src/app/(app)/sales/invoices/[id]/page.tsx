@@ -16,6 +16,7 @@ import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStat
 import { getSalesInvoiceComplianceReadiness, prepareSalesInvoiceCompliance, validateComplianceDocument } from "@/lib/compliance";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
+import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { deriveInvoicePaymentState } from "@/lib/invoice-display";
 import { getLedgerByteEdition } from "@/lib/edition";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
@@ -217,6 +218,11 @@ export default function SalesInvoiceDetailPage() {
 
   async function runAction(action: "finalize" | "void") {
     if (!invoice) {
+      return;
+    }
+
+    if (action === "finalize" && foreignDocumentPostingIsBlocked(invoice)) {
+      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
       return;
     }
 
@@ -569,6 +575,8 @@ export default function SalesInvoiceDetailPage() {
   const latestZatcaSubmission = zatca?.submissionLogs?.[0];
   const canUpdateInvoice = can(PERMISSIONS.salesInvoices.update);
   const canFinalizeInvoice = can(PERMISSIONS.salesInvoices.finalize);
+  const foreignPostingBlocked = invoice ? foreignDocumentPostingIsBlocked(invoice) : false;
+  const invoiceDisplayTotals = invoice ? transactionDocumentDisplayTotals(invoice) : null;
   const canVoidInvoice = can(PERMISSIONS.salesInvoices.void);
   const canCreateCollectionCase = can(PERMISSIONS.salesInvoices.create);
   const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
@@ -636,7 +644,7 @@ export default function SalesInvoiceDetailPage() {
             </Link>
           ) : null}
           {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -693,8 +701,9 @@ export default function SalesInvoiceDetailPage() {
               <Summary label={tc("Currency")} value={<bdi dir="ltr">{invoice.currency}</bdi>} />
               <Summary label={tc("Branch")} value={invoice.branch?.displayName ?? invoice.branch?.name ?? "-"} />
               <Summary label={tc("Payment state")} value={tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue))} />
-              <Summary label={tc("Total")} value={formatAppMoney(invoice.total, invoice.currency, locale)} />
-              <Summary label={tc("Balance due")} value={formatAppMoney(invoice.balanceDue, invoice.currency, locale)} />
+              <Summary label={tc("Total")} value={formatAppMoney(invoiceDisplayTotals?.total ?? invoice.total, invoice.currency, locale)} />
+              <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : invoice.balanceDue, invoice.currency, locale)} />
+              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(invoice.total, invoice.baseCurrency ?? invoice.currency, locale)} /> : null}
               <Summary label={tc("Journal entry")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.journalEntry.id}</bdi>)</> : "-"} />
               <Summary label={tc("Reversal journal")} value={invoice.reversalJournalEntry ? <><bdi dir="ltr">{invoice.reversalJournalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.reversalJournalEntry.id}</bdi>)</> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(invoice.finalizedAt, locale, "-")} />
@@ -741,11 +750,11 @@ export default function SalesInvoiceDetailPage() {
                     <td className="px-4 py-3 text-steel">{line.account ? <><bdi dir="ltr">{line.account.code}</bdi> {line.account.name}</> : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineGrossAmount, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxableAmount, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, invoice.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineGrossAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).discountAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxableAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxAmount, invoice.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineTotal, invoice.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -754,17 +763,17 @@ export default function SalesInvoiceDetailPage() {
 
           <div className="grid w-full max-w-sm grid-cols-2 gap-2 rounded-md border border-slate-200 bg-white p-5 text-sm shadow-panel sm:ms-auto">
             <span className="text-steel">{tc("Subtotal")}</span>
-            <span className="text-end font-mono">{formatAppMoney(invoice.subtotal, invoice.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoiceDisplayTotals?.subtotal ?? invoice.subtotal, invoice.currency, locale)}</span>
             <span className="text-steel">{tc("Discount")}</span>
-            <span className="text-end font-mono">{formatAppMoney(invoice.discountTotal, invoice.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoiceDisplayTotals?.discountTotal ?? invoice.discountTotal, invoice.currency, locale)}</span>
             <span className="text-steel">{tc("Taxable")}</span>
-            <span className="text-end font-mono">{formatAppMoney(invoice.taxableTotal, invoice.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoiceDisplayTotals?.taxableTotal ?? invoice.taxableTotal, invoice.currency, locale)}</span>
             <span className="text-steel">{tc("VAT")}</span>
-            <span className="text-end font-mono">{formatAppMoney(invoice.taxTotal, invoice.currency, locale)}</span>
+            <span className="text-end font-mono">{formatAppMoney(invoiceDisplayTotals?.taxTotal ?? invoice.taxTotal, invoice.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Total")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.total, invoice.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoiceDisplayTotals?.total ?? invoice.total, invoice.currency, locale)}</span>
             <span className="font-semibold text-ink">{tc("Balance due")}</span>
-            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.balanceDue, invoice.currency, locale)}</span>
+            <span className="text-end font-mono font-semibold text-ink">{formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : invoice.balanceDue, invoice.currency, locale)}</span>
           </div>
 
           <div className="rounded-md border border-slate-200 bg-white shadow-panel">
@@ -1396,6 +1405,8 @@ export function InvoiceWorkflowGuidance({
   const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? tc("this customer");
   const hasBalanceDue = paymentState !== "Paid";
   const statusLabel = tc(salesInvoiceStatusLabel(invoice.status));
+  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(invoice);
+  const displayTotals = transactionDocumentDisplayTotals(invoice);
   const invoiceDetailHref = salesInvoiceDetailHref(invoice.id, returnTo);
 
   return (
@@ -1419,7 +1430,7 @@ export function InvoiceWorkflowGuidance({
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <Summary label={tc("Customer")} value={customerName} />
-          <Summary label={tc("Balance due")} value={formatAppMoney(invoice.balanceDue, invoice.currency, locale)} />
+          <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? displayTotals.total : invoice.balanceDue, invoice.currency, locale)} />
           <Summary label={tc("Journal")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> {tc("posted")}</> : tc("Not posted yet")} />
         </div>
       </div>
@@ -1432,11 +1443,14 @@ export function InvoiceWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading}
+              disabled={actionLoading || foreignPostingBlocked}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize invoice")}
             </button>
+          ) : null}
+          {invoice.status === "DRAFT" && foreignPostingBlocked ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
           ) : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
             <Link

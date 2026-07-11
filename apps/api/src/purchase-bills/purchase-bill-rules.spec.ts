@@ -475,6 +475,8 @@ describe("purchase bill rules", () => {
 
 function makeCreateTransactionMock() {
   return {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
+    currencyRateSnapshot: { findFirst: jest.fn() },
     purchaseBill: {
       create: jest.fn(
         ({

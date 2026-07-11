@@ -1538,6 +1538,7 @@ model GeneratedDocument {
   sizeBytes       Int
   status          GeneratedDocumentStatus @default(GENERATED)
   requestId       String?
+  accountingContextJson Json?
   generatedById   String?                 @db.Uuid
   generatedAt     DateTime                @default(now())
   createdAt       DateTime                @default(now())
@@ -2901,7 +2902,17 @@ model CurrencyRateSnapshot {
   createdAt           DateTime           @default(now()) @db.Timestamptz(3)
   organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy           User?              @relation("CurrencyRateSnapshotCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  salesInvoices       SalesInvoice[]      @relation("SalesInvoiceRateSnapshot")
+  creditNotes         CreditNote[]        @relation("CreditNoteRateSnapshot")
+  purchaseBills       PurchaseBill[]      @relation("PurchaseBillRateSnapshot")
+  purchaseDebitNotes  PurchaseDebitNote[] @relation("PurchaseDebitNoteRateSnapshot")
+  cashExpenses        CashExpense[]       @relation("CashExpenseRateSnapshot")
+  customerPayments    CustomerPayment[]   @relation("CustomerPaymentRateSnapshot")
+  supplierPayments    SupplierPayment[]   @relation("SupplierPaymentRateSnapshot")
+  customerRefunds     CustomerRefund[]    @relation("CustomerRefundRateSnapshot")
+  supplierRefunds     SupplierRefund[]    @relation("SupplierRefundRateSnapshot")
 
+  @@unique([organizationId, id])
   @@index([organizationId, transactionCurrency, baseCurrency, rateDate])
   @@index([organizationId, createdAt])
   @@index([createdByUserId])
@@ -3916,6 +3927,11 @@ model SalesInvoice {
   issueDate                   DateTime
   dueDate                     DateTime?
   currency                    String                               @default("SAR")
+  baseCurrency                String                               @default("SAR")
+  exchangeRate                Decimal?                             @db.Decimal(18, 8)
+  rateDate                    DateTime?                            @db.Date
+  rateSource                  CurrencyRateSource?
+  rateSnapshotId              String?                              @db.Uuid
   status                      SalesInvoiceStatus                   @default(DRAFT)
   taxMode                     SalesInvoiceTaxMode                  @default(TAX_EXCLUSIVE)
   subtotal                    Decimal                              @default(0) @db.Decimal(20, 4)
@@ -3924,6 +3940,11 @@ model SalesInvoice {
   taxTotal                    Decimal                              @default(0) @db.Decimal(20, 4)
   total                       Decimal                              @default(0) @db.Decimal(20, 4)
   balanceDue                  Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionSubtotal         Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionDiscountTotal    Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTaxableTotal     Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTaxTotal         Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTotal            Decimal                              @default(0) @db.Decimal(20, 4)
   notes                       String?
   terms                       String?
   createdById                 String?                              @db.Uuid
@@ -3934,6 +3955,7 @@ model SalesInvoice {
   createdAt                   DateTime                             @default(now())
   updatedAt                   DateTime                             @updatedAt
   organization                Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot                CurrencyRateSnapshot?                @relation("SalesInvoiceRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   customer                    Contact                              @relation("SalesInvoiceCustomer", fields: [customerId], references: [id])
   branch                      Branch?                              @relation(fields: [branchId], references: [id])
   createdBy                   User?                                @relation("SalesInvoiceCreatedBy", fields: [createdById], references: [id])
@@ -3961,6 +3983,7 @@ model SalesInvoice {
   @@index([customerId])
   @@index([recurringInvoiceTemplateId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model SalesInvoiceLine {
@@ -3980,6 +4003,11 @@ model SalesInvoiceLine {
   taxAmount       Decimal               @default(0) @db.Decimal(20, 4)
   lineSubtotal    Decimal               @default(0) @db.Decimal(20, 4)
   lineTotal       Decimal               @default(0) @db.Decimal(20, 4)
+  transactionLineGrossAmount Decimal    @default(0) @db.Decimal(20, 4)
+  transactionDiscountAmount  Decimal    @default(0) @db.Decimal(20, 4)
+  transactionTaxableAmount   Decimal    @default(0) @db.Decimal(20, 4)
+  transactionTaxAmount       Decimal    @default(0) @db.Decimal(20, 4)
+  transactionLineTotal       Decimal    @default(0) @db.Decimal(20, 4)
   sortOrder       Int                   @default(0)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -4417,6 +4445,11 @@ model CreditNote {
   branchId               String?                @db.Uuid
   issueDate              DateTime
   currency               String                 @default("SAR")
+  baseCurrency           String                 @default("SAR")
+  exchangeRate           Decimal?               @db.Decimal(18, 8)
+  rateDate               DateTime?              @db.Date
+  rateSource             CurrencyRateSource?
+  rateSnapshotId         String?                @db.Uuid
   status                 CreditNoteStatus       @default(DRAFT)
   subtotal               Decimal                @default(0) @db.Decimal(20, 4)
   discountTotal          Decimal                @default(0) @db.Decimal(20, 4)
@@ -4424,6 +4457,11 @@ model CreditNote {
   taxTotal               Decimal                @default(0) @db.Decimal(20, 4)
   total                  Decimal                @default(0) @db.Decimal(20, 4)
   unappliedAmount        Decimal                @default(0) @db.Decimal(20, 4)
+  transactionSubtotal      Decimal                @default(0) @db.Decimal(20, 4)
+  transactionDiscountTotal Decimal                @default(0) @db.Decimal(20, 4)
+  transactionTaxableTotal  Decimal                @default(0) @db.Decimal(20, 4)
+  transactionTaxTotal      Decimal                @default(0) @db.Decimal(20, 4)
+  transactionTotal         Decimal                @default(0) @db.Decimal(20, 4)
   notes                  String?
   reason                 String?
   createdById            String?                @db.Uuid
@@ -4433,6 +4471,7 @@ model CreditNote {
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
   organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot           CurrencyRateSnapshot?  @relation("CreditNoteRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   customer               Contact                @relation("CreditNoteCustomer", fields: [customerId], references: [id])
   originalInvoice        SalesInvoice?          @relation(fields: [originalInvoiceId], references: [id], onDelete: SetNull)
   branch                 Branch?                @relation(fields: [branchId], references: [id])
@@ -4449,6 +4488,7 @@ model CreditNote {
   @@index([customerId])
   @@index([originalInvoiceId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model CreditNoteLine {
@@ -4467,6 +4507,11 @@ model CreditNoteLine {
   taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
   taxAmount       Decimal      @default(0) @db.Decimal(20, 4)
   lineTotal       Decimal      @default(0) @db.Decimal(20, 4)
+  transactionLineGrossAmount Decimal @default(0) @db.Decimal(20, 4)
+  transactionDiscountAmount  Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxableAmount   Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxAmount       Decimal @default(0) @db.Decimal(20, 4)
+  transactionLineTotal       Decimal @default(0) @db.Decimal(20, 4)
   sortOrder       Int          @default(0)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -4592,6 +4637,11 @@ model PurchaseBill {
   billDate                            DateTime
   dueDate                             DateTime?
   currency                            String                               @default("SAR")
+  baseCurrency                        String                               @default("SAR")
+  exchangeRate                        Decimal?                             @db.Decimal(18, 8)
+  rateDate                            DateTime?                            @db.Date
+  rateSource                          CurrencyRateSource?
+  rateSnapshotId                      String?                              @db.Uuid
   status                              PurchaseBillStatus                   @default(DRAFT)
   inventoryPostingMode                PurchaseBillInventoryPostingMode     @default(DIRECT_EXPENSE_OR_ASSET)
   subtotal                            Decimal                              @default(0) @db.Decimal(20, 4)
@@ -4600,6 +4650,11 @@ model PurchaseBill {
   taxTotal                            Decimal                              @default(0) @db.Decimal(20, 4)
   total                               Decimal                              @default(0) @db.Decimal(20, 4)
   balanceDue                          Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionSubtotal                 Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionDiscountTotal            Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTaxableTotal             Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTaxTotal                 Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionTotal                    Decimal                              @default(0) @db.Decimal(20, 4)
   notes                               String?
   terms                               String?
   createdById                         String?                              @db.Uuid
@@ -4609,6 +4664,7 @@ model PurchaseBill {
   createdAt                           DateTime                             @default(now())
   updatedAt                           DateTime                             @updatedAt
   organization                        Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot                        CurrencyRateSnapshot?                @relation("PurchaseBillRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   supplier                            Contact                              @relation("PurchaseBillSupplier", fields: [supplierId], references: [id])
   purchaseOrder                       PurchaseOrder?                       @relation("PurchaseBillSourcePurchaseOrder", fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   branch                              Branch?                              @relation(fields: [branchId], references: [id])
@@ -4632,6 +4688,7 @@ model PurchaseBill {
   @@index([purchaseOrderId])
   @@index([status])
   @@index([inventoryPostingMode])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model BankPaymentRequest {
@@ -4702,6 +4759,11 @@ model PurchaseBillLine {
   taxableAmount        Decimal               @default(0) @db.Decimal(20, 4)
   taxAmount            Decimal               @default(0) @db.Decimal(20, 4)
   lineTotal            Decimal               @default(0) @db.Decimal(20, 4)
+  transactionLineGrossAmount Decimal         @default(0) @db.Decimal(20, 4)
+  transactionDiscountAmount  Decimal         @default(0) @db.Decimal(20, 4)
+  transactionTaxableAmount   Decimal         @default(0) @db.Decimal(20, 4)
+  transactionTaxAmount       Decimal         @default(0) @db.Decimal(20, 4)
+  transactionLineTotal       Decimal         @default(0) @db.Decimal(20, 4)
   sortOrder            Int                   @default(0)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -5003,6 +5065,11 @@ model PurchaseDebitNote {
   branchId               String?                       @db.Uuid
   issueDate              DateTime
   currency               String                        @default("SAR")
+  baseCurrency           String                        @default("SAR")
+  exchangeRate           Decimal?                      @db.Decimal(18, 8)
+  rateDate               DateTime?                     @db.Date
+  rateSource             CurrencyRateSource?
+  rateSnapshotId         String?                       @db.Uuid
   status                 PurchaseDebitNoteStatus       @default(DRAFT)
   subtotal               Decimal                       @default(0) @db.Decimal(20, 4)
   discountTotal          Decimal                       @default(0) @db.Decimal(20, 4)
@@ -5010,6 +5077,11 @@ model PurchaseDebitNote {
   taxTotal               Decimal                       @default(0) @db.Decimal(20, 4)
   total                  Decimal                       @default(0) @db.Decimal(20, 4)
   unappliedAmount        Decimal                       @default(0) @db.Decimal(20, 4)
+  transactionSubtotal      Decimal                       @default(0) @db.Decimal(20, 4)
+  transactionDiscountTotal Decimal                       @default(0) @db.Decimal(20, 4)
+  transactionTaxableTotal  Decimal                       @default(0) @db.Decimal(20, 4)
+  transactionTaxTotal      Decimal                       @default(0) @db.Decimal(20, 4)
+  transactionTotal         Decimal                       @default(0) @db.Decimal(20, 4)
   notes                  String?
   reason                 String?
   createdById            String?                       @db.Uuid
@@ -5019,6 +5091,7 @@ model PurchaseDebitNote {
   createdAt              DateTime                      @default(now())
   updatedAt              DateTime                      @updatedAt
   organization           Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot           CurrencyRateSnapshot?         @relation("PurchaseDebitNoteRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   supplier               Contact                       @relation("PurchaseDebitNoteSupplier", fields: [supplierId], references: [id])
   originalBill           PurchaseBill?                 @relation(fields: [originalBillId], references: [id], onDelete: SetNull)
   branch                 Branch?                       @relation(fields: [branchId], references: [id])
@@ -5035,6 +5108,7 @@ model PurchaseDebitNote {
   @@index([supplierId])
   @@index([originalBillId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model PurchaseReturn {
@@ -5137,6 +5211,11 @@ model PurchaseDebitNoteLine {
   taxableAmount   Decimal           @default(0) @db.Decimal(20, 4)
   taxAmount       Decimal           @default(0) @db.Decimal(20, 4)
   lineTotal       Decimal           @default(0) @db.Decimal(20, 4)
+  transactionLineGrossAmount Decimal @default(0) @db.Decimal(20, 4)
+  transactionDiscountAmount  Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxableAmount   Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxAmount       Decimal @default(0) @db.Decimal(20, 4)
+  transactionLineTotal       Decimal @default(0) @db.Decimal(20, 4)
   sortOrder       Int               @default(0)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -5160,12 +5239,22 @@ model CashExpense {
   branchId                   String?           @db.Uuid
   expenseDate                DateTime
   currency                   String            @default("SAR")
+  baseCurrency               String            @default("SAR")
+  exchangeRate               Decimal?          @db.Decimal(18, 8)
+  rateDate                   DateTime?         @db.Date
+  rateSource                 CurrencyRateSource?
+  rateSnapshotId             String?           @db.Uuid
   status                     CashExpenseStatus @default(POSTED)
   subtotal                   Decimal           @default(0) @db.Decimal(20, 4)
   discountTotal              Decimal           @default(0) @db.Decimal(20, 4)
   taxableTotal               Decimal           @default(0) @db.Decimal(20, 4)
   taxTotal                   Decimal           @default(0) @db.Decimal(20, 4)
   total                      Decimal           @default(0) @db.Decimal(20, 4)
+  transactionSubtotal        Decimal           @default(0) @db.Decimal(20, 4)
+  transactionDiscountTotal   Decimal           @default(0) @db.Decimal(20, 4)
+  transactionTaxableTotal    Decimal           @default(0) @db.Decimal(20, 4)
+  transactionTaxTotal        Decimal           @default(0) @db.Decimal(20, 4)
+  transactionTotal           Decimal           @default(0) @db.Decimal(20, 4)
   description                String?
   notes                      String?
   paidThroughAccountId       String            @db.Uuid
@@ -5177,6 +5266,7 @@ model CashExpense {
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   organization               Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot               CurrencyRateSnapshot? @relation("CashExpenseRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   contact                    Contact?          @relation("CashExpenseContact", fields: [contactId], references: [id], onDelete: SetNull)
   branch                     Branch?           @relation(fields: [branchId], references: [id])
   paidThroughAccount         Account           @relation("CashExpensePaidThroughAccount", fields: [paidThroughAccountId], references: [id])
@@ -5191,6 +5281,7 @@ model CashExpense {
   @@index([branchId])
   @@index([paidThroughAccountId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model CashExpenseLine {
@@ -5209,6 +5300,11 @@ model CashExpenseLine {
   taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
   taxAmount       Decimal      @default(0) @db.Decimal(20, 4)
   lineTotal       Decimal      @default(0) @db.Decimal(20, 4)
+  transactionLineGrossAmount Decimal @default(0) @db.Decimal(20, 4)
+  transactionDiscountAmount  Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxableAmount   Decimal @default(0) @db.Decimal(20, 4)
+  transactionTaxAmount       Decimal @default(0) @db.Decimal(20, 4)
+  transactionLineTotal       Decimal @default(0) @db.Decimal(20, 4)
   sortOrder       Int          @default(0)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -5254,9 +5350,15 @@ model CustomerPayment {
   customerId                 String                               @db.Uuid
   paymentDate                DateTime
   currency                   String                               @default("SAR")
+  baseCurrency               String                               @default("SAR")
+  exchangeRate               Decimal?                             @db.Decimal(18, 8)
+  rateDate                   DateTime?                            @db.Date
+  rateSource                 CurrencyRateSource?
+  rateSnapshotId             String?                              @db.Uuid
   status                     CustomerPaymentStatus                @default(POSTED)
   amountReceived             Decimal                              @db.Decimal(20, 4)
   unappliedAmount            Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionAmountReceived  Decimal                              @default(0) @db.Decimal(20, 4)
   description                String?
   accountId                  String                               @db.Uuid
   journalEntryId             String?                              @unique @db.Uuid
@@ -5267,6 +5369,7 @@ model CustomerPayment {
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
   organization               Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot               CurrencyRateSnapshot?                @relation("CustomerPaymentRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   customer                   Contact                              @relation("CustomerPaymentCustomer", fields: [customerId], references: [id])
   account                    Account                              @relation("CustomerPaymentAccount", fields: [accountId], references: [id])
   journalEntry               JournalEntry?                        @relation("CustomerPaymentJournal", fields: [journalEntryId], references: [id])
@@ -5280,6 +5383,7 @@ model CustomerPayment {
   @@index([organizationId])
   @@index([customerId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model CustomerPaymentAllocation {
@@ -5329,9 +5433,15 @@ model SupplierPayment {
   supplierId                 String                               @db.Uuid
   paymentDate                DateTime
   currency                   String                               @default("SAR")
+  baseCurrency               String                               @default("SAR")
+  exchangeRate               Decimal?                             @db.Decimal(18, 8)
+  rateDate                   DateTime?                            @db.Date
+  rateSource                 CurrencyRateSource?
+  rateSnapshotId             String?                              @db.Uuid
   status                     SupplierPaymentStatus                @default(POSTED)
   amountPaid                 Decimal                              @db.Decimal(20, 4)
   unappliedAmount            Decimal                              @default(0) @db.Decimal(20, 4)
+  transactionAmountPaid      Decimal                              @default(0) @db.Decimal(20, 4)
   description                String?
   accountId                  String                               @db.Uuid
   journalEntryId             String?                              @unique @db.Uuid
@@ -5342,6 +5452,7 @@ model SupplierPayment {
   createdAt                  DateTime                             @default(now())
   updatedAt                  DateTime                             @updatedAt
   organization               Organization                         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot               CurrencyRateSnapshot?                @relation("SupplierPaymentRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   supplier                   Contact                              @relation("SupplierPaymentSupplier", fields: [supplierId], references: [id])
   account                    Account                              @relation("SupplierPaymentAccount", fields: [accountId], references: [id])
   journalEntry               JournalEntry?                        @relation("SupplierPaymentJournal", fields: [journalEntryId], references: [id])
@@ -5355,6 +5466,7 @@ model SupplierPayment {
   @@index([organizationId])
   @@index([supplierId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model SupplierPaymentAllocation {
@@ -5407,8 +5519,14 @@ model CustomerRefund {
   sourceCreditNoteId         String?                  @db.Uuid
   refundDate                 DateTime
   currency                   String                   @default("SAR")
+  baseCurrency               String                   @default("SAR")
+  exchangeRate               Decimal?                 @db.Decimal(18, 8)
+  rateDate                   DateTime?                @db.Date
+  rateSource                 CurrencyRateSource?
+  rateSnapshotId             String?                  @db.Uuid
   status                     CustomerRefundStatus     @default(POSTED)
   amountRefunded             Decimal                  @db.Decimal(20, 4)
+  transactionAmountRefunded  Decimal                  @default(0) @db.Decimal(20, 4)
   accountId                  String                   @db.Uuid
   description                String?
   journalEntryId             String?                  @unique @db.Uuid
@@ -5419,6 +5537,7 @@ model CustomerRefund {
   createdAt                  DateTime                 @default(now())
   updatedAt                  DateTime                 @updatedAt
   organization               Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot               CurrencyRateSnapshot?    @relation("CustomerRefundRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   customer                   Contact                  @relation("CustomerRefundCustomer", fields: [customerId], references: [id])
   sourcePayment              CustomerPayment?         @relation("CustomerRefundPayment", fields: [sourcePaymentId], references: [id])
   sourceCreditNote           CreditNote?              @relation("CustomerRefundCreditNote", fields: [sourceCreditNoteId], references: [id])
@@ -5433,6 +5552,7 @@ model CustomerRefund {
   @@index([sourcePaymentId])
   @@index([sourceCreditNoteId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model SupplierRefund {
@@ -5445,8 +5565,14 @@ model SupplierRefund {
   sourceDebitNoteId          String?                  @db.Uuid
   refundDate                 DateTime
   currency                   String                   @default("SAR")
+  baseCurrency               String                   @default("SAR")
+  exchangeRate               Decimal?                 @db.Decimal(18, 8)
+  rateDate                   DateTime?                @db.Date
+  rateSource                 CurrencyRateSource?
+  rateSnapshotId             String?                  @db.Uuid
   status                     SupplierRefundStatus     @default(POSTED)
   amountRefunded             Decimal                  @db.Decimal(20, 4)
+  transactionAmountRefunded  Decimal                  @default(0) @db.Decimal(20, 4)
   accountId                  String                   @db.Uuid
   description                String?
   journalEntryId             String?                  @unique @db.Uuid
@@ -5457,6 +5583,7 @@ model SupplierRefund {
   createdAt                  DateTime                 @default(now())
   updatedAt                  DateTime                 @updatedAt
   organization               Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot               CurrencyRateSnapshot?    @relation("SupplierRefundRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
   supplier                   Contact                  @relation("SupplierRefundSupplier", fields: [supplierId], references: [id])
   sourcePayment              SupplierPayment?         @relation("SupplierRefundPayment", fields: [sourcePaymentId], references: [id])
   sourceDebitNote            PurchaseDebitNote?       @relation("SupplierRefundPurchaseDebitNote", fields: [sourceDebitNoteId], references: [id])
@@ -5472,6 +5599,7 @@ model SupplierRefund {
   @@index([sourcePaymentId])
   @@index([sourceDebitNoteId])
   @@index([status])
+  @@index([organizationId, rateSnapshotId])
 }
 
 model JournalEntry {

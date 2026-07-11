@@ -14,6 +14,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import {
   formatInventoryQuantity,
   hasRemainingInventoryQuantity,
@@ -59,6 +60,8 @@ export default function PurchaseBillDetailPage() {
   const [success, setSuccess] = useState("");
   const canUpdateBill = can(PERMISSIONS.purchaseBills.update);
   const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
+  const foreignPostingBlocked = bill ? foreignDocumentPostingIsBlocked(bill) : false;
+  const billDisplayTotals = bill ? transactionDocumentDisplayTotals(bill) : null;
   const canVoidBill = can(PERMISSIONS.purchaseBills.void);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
   const canCreateSupplierPayment = can(PERMISSIONS.supplierPayments.create);
@@ -117,6 +120,11 @@ export default function PurchaseBillDetailPage() {
 
   async function runAction(action: "finalize" | "void") {
     if (!bill) {
+      return;
+    }
+
+    if (action === "finalize" && foreignDocumentPostingIsBlocked(bill)) {
+      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
       return;
     }
 
@@ -231,7 +239,7 @@ export default function PurchaseBillDetailPage() {
             <button
               type="button"
               onClick={() => void runAction("finalize")}
-              disabled={actionLoading || (accountingPreview !== null && !accountingPreview.canFinalize)}
+              disabled={actionLoading || foreignPostingBlocked || (accountingPreview !== null && !accountingPreview.canFinalize)}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize")}
@@ -285,8 +293,9 @@ export default function PurchaseBillDetailPage() {
                 value={bill.purchaseOrder ? bill.purchaseOrder.purchaseOrderNumber : "-"}
                 href={bill.purchaseOrder && canViewPurchaseOrders ? `/purchases/purchase-orders/${bill.purchaseOrder.id}` : undefined}
               />
-              <Summary label="Total" value={formatAppMoney(bill.total, bill.currency, locale)} />
-              <Summary label="Balance due" value={formatAppMoney(bill.balanceDue, bill.currency, locale)} />
+              <Summary label="Total" value={formatAppMoney(billDisplayTotals?.total ?? bill.total, bill.currency, locale)} />
+              <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : bill.balanceDue, bill.currency, locale)} />
+              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(bill.total, bill.baseCurrency ?? bill.currency, locale)} /> : null}
               <Summary label="Inventory posting mode" value={tc(purchaseBillInventoryPostingModeLabel(bill.inventoryPostingMode))} />
               <Summary label="Journal entry" value={bill.journalEntry ? `${bill.journalEntry.entryNumber} (${bill.journalEntry.id})` : "-"} bidi />
               <Summary label="Reversal journal" value={bill.reversalJournalEntry ? `${bill.reversalJournalEntry.entryNumber} (${bill.reversalJournalEntry.id})` : "-"} bidi />
@@ -324,9 +333,9 @@ export default function PurchaseBillDetailPage() {
                     <td className="px-4 py-3 text-steel">{line.account ? <bdi dir="ltr">{`${line.account.code} ${line.account.name}`}</bdi> : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{line.quantity}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.unitPrice, bill.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.discountAmount, bill.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.taxAmount, bill.currency, locale)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(line.lineTotal, bill.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).discountAmount, bill.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).taxAmount, bill.currency, locale)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(transactionLineDisplayAmounts(line).lineTotal, bill.currency, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -337,12 +346,12 @@ export default function PurchaseBillDetailPage() {
             <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
               <h2 className="text-base font-semibold text-ink">{tc("Totals")}</h2>
               <div className="mt-4 space-y-2 text-sm">
-                <TotalRow label="Subtotal" value={formatAppMoney(bill.subtotal, bill.currency, locale)} />
-                <TotalRow label="Discount" value={formatAppMoney(bill.discountTotal, bill.currency, locale)} />
-                <TotalRow label="Taxable" value={formatAppMoney(bill.taxableTotal, bill.currency, locale)} />
-                <TotalRow label="VAT / Tax" value={formatAppMoney(bill.taxTotal, bill.currency, locale)} />
-                <TotalRow label="Total" value={formatAppMoney(bill.total, bill.currency, locale)} strong />
-                <TotalRow label="Balance due" value={formatAppMoney(bill.balanceDue, bill.currency, locale)} strong />
+                <TotalRow label="Subtotal" value={formatAppMoney(billDisplayTotals?.subtotal ?? bill.subtotal, bill.currency, locale)} />
+                <TotalRow label="Discount" value={formatAppMoney(billDisplayTotals?.discountTotal ?? bill.discountTotal, bill.currency, locale)} />
+                <TotalRow label="Taxable" value={formatAppMoney(billDisplayTotals?.taxableTotal ?? bill.taxableTotal, bill.currency, locale)} />
+                <TotalRow label="VAT / Tax" value={formatAppMoney(billDisplayTotals?.taxTotal ?? bill.taxTotal, bill.currency, locale)} />
+                <TotalRow label="Total" value={formatAppMoney(billDisplayTotals?.total ?? bill.total, bill.currency, locale)} strong />
+                <TotalRow label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : bill.balanceDue, bill.currency, locale)} strong />
               </div>
             </div>
 
@@ -512,6 +521,8 @@ export function PurchaseBillWorkflowGuidance({
   onDownloadPdf: () => void;
 }) {
   const { locale, tc } = useAppLocale();
+  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(bill);
+  const displayTotals = transactionDocumentDisplayTotals(bill);
   const paymentState = purchaseBillPaymentState(bill);
   const supplierName = bill.supplier?.displayName ?? bill.supplier?.name ?? tc("this supplier");
   const hasBalanceDue = paymentState !== "Paid";
@@ -540,7 +551,7 @@ export function PurchaseBillWorkflowGuidance({
         <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <Summary label="Supplier" value={supplierName} />
           <Summary label="Paid or credited" value={formatAppMoney(formatUnits(paidUnits), bill.currency, locale)} />
-          <Summary label="Balance due" value={formatAppMoney(bill.balanceDue, bill.currency, locale)} />
+          <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? displayTotals.total : bill.balanceDue, bill.currency, locale)} />
         </div>
       </div>
 
@@ -552,11 +563,14 @@ export function PurchaseBillWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading}
+              disabled={actionLoading || foreignPostingBlocked}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize bill")}
             </button>
+          ) : null}
+          {bill.status === "DRAFT" && foreignPostingBlocked ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
           ) : null}
           {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
             <Link

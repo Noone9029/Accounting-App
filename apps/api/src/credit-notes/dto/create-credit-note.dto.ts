@@ -1,8 +1,9 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsDateString, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
+import { DocumentFxContextDto } from "../../foreign-exchange/dto/document-fx-context.dto";
 import { CreditNoteLineDto } from "./credit-note-line.dto";
 
-export class CreateCreditNoteDto {
+export class CreateCreditNoteDto extends DocumentFxContextDto {
   @IsUUID()
   customerId!: string;
 
@@ -16,11 +17,6 @@ export class CreateCreditNoteDto {
 
   @IsDateString()
   issueDate!: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 3)
-  currency?: string;
 
   @IsOptional()
   @IsString()

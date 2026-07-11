@@ -79,6 +79,22 @@ describe("invoice workflow guidance", () => {
     expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
   });
 
+  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+    render(
+      <InvoiceWorkflowGuidance
+        invoice={invoiceFixture({ status: "DRAFT", currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000" })}
+        actionLoading={false}
+        canFinalizeInvoice
+        canCreateCustomerPayment
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize invoice" })).toBeDisabled();
+    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+  });
+
   it("shows payment, ledger, report, and safe ZATCA guidance after posting", () => {
     render(
       <InvoiceWorkflowGuidance

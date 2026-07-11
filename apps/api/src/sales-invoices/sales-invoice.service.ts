@@ -4,6 +4,7 @@ import {
   assertDraftInvoiceEditable,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
+  convertTransactionDocumentAmounts,
   createReversalLines,
   getJournalTotals,
   JournalLineInput,
@@ -31,8 +32,8 @@ import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetad
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import {
   BaseCurrencyPostingGuardService,
-  resolveOrganizationBaseCurrency,
 } from "../foreign-exchange/base-currency-posting-guard.service";
+import { DocumentFxContextService, documentFxArchiveContext } from "../foreign-exchange/document-fx-context.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -159,6 +160,7 @@ export class SalesInvoiceService {
     private readonly generatedDocumentService?: GeneratedDocumentService,
     private readonly fiscalPeriodGuardService?: FiscalPeriodGuardService,
     @Optional() private readonly baseCurrencyPostingGuardService?: BaseCurrencyPostingGuardService,
+    @Optional() private readonly documentFxContextService?: DocumentFxContextService,
   ) {}
 
   list(organizationId: string, branchId?: string) {
@@ -257,7 +259,7 @@ export class SalesInvoiceService {
     });
   }
 
-  async pdfData(organizationId: string, id: string): Promise<InvoicePdfData> {
+  async pdfData(organizationId: string, id: string): Promise<InvoicePdfData & { accountingContext?: Prisma.InputJsonObject }> {
     const invoice = await this.prisma.salesInvoice.findFirst({
       where: { id, organizationId },
       include: {
@@ -346,23 +348,23 @@ export class SalesInvoiceService {
         currency: invoice.currency,
         notes: invoice.notes,
         terms: invoice.terms,
-        subtotal: moneyString(invoice.subtotal),
-        discountTotal: moneyString(invoice.discountTotal),
-        taxableTotal: moneyString(invoice.taxableTotal),
-        taxTotal: moneyString(invoice.taxTotal),
-        total: moneyString(invoice.total),
-        balanceDue: moneyString(invoice.balanceDue),
+        subtotal: moneyString(invoice.transactionSubtotal ?? invoice.subtotal),
+        discountTotal: moneyString(invoice.transactionDiscountTotal ?? invoice.discountTotal),
+        taxableTotal: moneyString(invoice.transactionTaxableTotal ?? invoice.taxableTotal),
+        taxTotal: moneyString(invoice.transactionTaxTotal ?? invoice.taxTotal),
+        total: moneyString(invoice.transactionTotal ?? invoice.total),
+        balanceDue: invoice.status === SalesInvoiceStatus.DRAFT ? moneyString(invoice.transactionTotal ?? invoice.total) : moneyString(invoice.balanceDue),
       },
       lines: invoice.lines.map((line) => ({
         description: line.description,
         quantity: moneyString(line.quantity),
         unitPrice: moneyString(line.unitPrice),
         discountRate: moneyString(line.discountRate),
-        lineGrossAmount: moneyString(line.lineGrossAmount),
-        discountAmount: moneyString(line.discountAmount),
-        taxableAmount: moneyString(line.taxableAmount),
-        taxAmount: moneyString(line.taxAmount),
-        lineTotal: moneyString(line.lineTotal),
+        lineGrossAmount: moneyString(line.transactionLineGrossAmount ?? line.lineGrossAmount),
+        discountAmount: moneyString(line.transactionDiscountAmount ?? line.discountAmount),
+        taxableAmount: moneyString(line.transactionTaxableAmount ?? line.taxableAmount),
+        taxAmount: moneyString(line.transactionTaxAmount ?? line.taxAmount),
+        lineTotal: moneyString(line.transactionLineTotal ?? line.lineTotal),
         taxRateName: line.taxRate?.name ?? null,
       })),
       payments: [
@@ -393,6 +395,7 @@ export class SalesInvoiceService {
             hasQrPayload: Boolean(invoice.zatcaMetadata.qrCodeBase64),
           }
         : null,
+      accountingContext: documentFxArchiveContext(invoice),
       generatedAt: new Date(),
     };
   }
@@ -415,6 +418,7 @@ export class SalesInvoiceService {
       filename,
       buffer,
       generatedById: actorUserId,
+      accountingContext: data.accountingContext,
       zatca: toZatcaPdfA3ArchiveMetadata(data.zatca),
     };
     const archived = this.generatedDocumentService?.archiveInvoicePdf
@@ -434,10 +438,19 @@ export class SalesInvoiceService {
     const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
     const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode);
     const invoice = await this.prisma.$transaction(async (tx) => {
-      const currency =
-        dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency.toUpperCase();
+      const fx = await this.documentFxContext().resolve(
+        organizationId,
+        {
+          currency: dto.currency,
+          documentDate: dto.issueDate,
+          exchangeRate: dto.exchangeRate,
+          rateDate: dto.rateDate,
+          rateSource: dto.rateSource,
+          rateSnapshotId: dto.rateSnapshotId,
+        },
+        tx,
+      );
+      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
       const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
 
       return tx.salesInvoice.create({
@@ -448,18 +461,28 @@ export class SalesInvoiceService {
           branchId: this.cleanOptional(dto.branchId ?? undefined),
           issueDate: new Date(dto.issueDate),
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
-          currency,
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           taxMode: prepared.taxMode,
-          subtotal: prepared.subtotal,
-          discountTotal: prepared.discountTotal,
-          taxableTotal: prepared.taxableTotal,
-          taxTotal: prepared.taxTotal,
-          total: prepared.total,
-          balanceDue: prepared.total,
+          subtotal: converted.totals.subtotal,
+          discountTotal: converted.totals.discountTotal,
+          taxableTotal: converted.totals.taxableTotal,
+          taxTotal: converted.totals.taxTotal,
+          total: converted.totals.total,
+          balanceDue: converted.totals.total,
+          transactionSubtotal: prepared.subtotal,
+          transactionDiscountTotal: prepared.discountTotal,
+          transactionTaxableTotal: prepared.taxableTotal,
+          transactionTaxTotal: prepared.taxTotal,
+          transactionTotal: prepared.total,
           notes: this.cleanOptional(dto.notes),
           terms: this.cleanOptional(dto.terms),
           createdById: actorUserId,
-          lines: { create: this.toLineCreateMany(organizationId, prepared.lines) },
+          lines: { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) },
         },
         include: salesInvoiceInclude,
       });
@@ -478,7 +501,15 @@ export class SalesInvoiceService {
     }
 
     const taxMode = dto.taxMode ?? existing.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
-    const shouldRecalculate = Boolean(dto.lines) || dto.taxMode !== undefined;
+    const shouldRecalculate =
+      Boolean(dto.lines) ||
+      dto.taxMode !== undefined ||
+      dto.currency !== undefined ||
+      dto.exchangeRate !== undefined ||
+      dto.rateDate !== undefined ||
+      dto.rateSource !== undefined ||
+      dto.rateSnapshotId !== undefined ||
+      dto.issueDate !== undefined;
     const recalculationLines = dto.lines ?? existing.lines?.map((line) => ({
       itemId: line.itemId,
       description: line.description,
@@ -491,6 +522,19 @@ export class SalesInvoiceService {
     }));
     const prepared = shouldRecalculate ? await this.prepareInvoice(organizationId, recalculationLines ?? [], taxMode) : null;
     const updated = await this.prisma.$transaction(async (tx) => {
+      const fx = await this.documentFxContext().resolve(
+        organizationId,
+        {
+          currency: dto.currency ?? existing.currency,
+          documentDate: dto.issueDate ?? existing.issueDate,
+          exchangeRate: dto.exchangeRate ?? (existing.exchangeRate ? String(existing.exchangeRate) : undefined),
+          rateDate: dto.rateDate ?? existing.rateDate ?? undefined,
+          rateSource: dto.rateSource ?? existing.rateSource ?? undefined,
+          rateSnapshotId: dto.rateSnapshotId === undefined ? existing.rateSnapshotId : dto.rateSnapshotId,
+        },
+        tx,
+      );
+      const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
         await tx.salesInvoiceLine.deleteMany({ where: { organizationId, invoiceId: id } });
       }
@@ -502,17 +546,27 @@ export class SalesInvoiceService {
           branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? (this.cleanOptional(dto.branchId ?? undefined) ?? null) : undefined,
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
           dueDate: Object.prototype.hasOwnProperty.call(dto, "dueDate") ? (dto.dueDate ? new Date(dto.dueDate) : null) : undefined,
-          currency: dto.currency?.toUpperCase(),
+          currency: fx.currency,
+          baseCurrency: fx.baseCurrency,
+          exchangeRate: fx.exchangeRate,
+          rateDate: fx.rateDate,
+          rateSource: fx.rateSource,
+          rateSnapshotId: fx.rateSnapshotId,
           taxMode: prepared?.taxMode ?? dto.taxMode,
-          subtotal: prepared?.subtotal,
-          discountTotal: prepared?.discountTotal,
-          taxableTotal: prepared?.taxableTotal,
-          taxTotal: prepared?.taxTotal,
-          total: prepared?.total,
-          balanceDue: prepared?.total,
+          subtotal: converted?.totals.subtotal,
+          discountTotal: converted?.totals.discountTotal,
+          taxableTotal: converted?.totals.taxableTotal,
+          taxTotal: converted?.totals.taxTotal,
+          total: converted?.totals.total,
+          balanceDue: converted?.totals.total,
+          transactionSubtotal: prepared?.subtotal,
+          transactionDiscountTotal: prepared?.discountTotal,
+          transactionTaxableTotal: prepared?.taxableTotal,
+          transactionTaxTotal: prepared?.taxTotal,
+          transactionTotal: prepared?.total,
           notes: dto.notes === undefined ? undefined : this.cleanOptional(dto.notes),
           terms: dto.terms === undefined ? undefined : this.cleanOptional(dto.terms),
-          lines: prepared ? { create: this.toLineCreateMany(organizationId, prepared.lines) } : undefined,
+          lines: prepared && converted ? { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) } : undefined,
         },
         include: salesInvoiceInclude,
       });
@@ -1078,8 +1132,12 @@ export class SalesInvoiceService {
     }
   }
 
-  private toLineCreateMany(organizationId: string, lines: PreparedLine[]): Prisma.SalesInvoiceLineCreateWithoutInvoiceInput[] {
-    return lines.map((line) => ({
+  private toLineCreateMany(
+    organizationId: string,
+    lines: PreparedLine[],
+    baseLines: ReturnType<typeof convertTransactionDocumentAmounts>["lines"],
+  ): Prisma.SalesInvoiceLineCreateWithoutInvoiceInput[] {
+    return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
@@ -1088,12 +1146,17 @@ export class SalesInvoiceService {
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       discountRate: line.discountRate,
-      lineGrossAmount: line.lineGrossAmount,
-      discountAmount: line.discountAmount,
-      taxableAmount: line.taxableAmount,
-      taxAmount: line.taxAmount,
-      lineSubtotal: line.lineSubtotal,
-      lineTotal: line.lineTotal,
+      lineGrossAmount: baseLines[index]?.lineGrossAmount ?? "0.0000",
+      discountAmount: baseLines[index]?.discountAmount ?? "0.0000",
+      taxableAmount: baseLines[index]?.taxableAmount ?? "0.0000",
+      taxAmount: baseLines[index]?.taxAmount ?? "0.0000",
+      lineSubtotal: baseLines[index]?.taxableAmount ?? "0.0000",
+      lineTotal: baseLines[index]?.lineTotal ?? "0.0000",
+      transactionLineGrossAmount: line.lineGrossAmount,
+      transactionDiscountAmount: line.discountAmount,
+      transactionTaxableAmount: line.taxableAmount,
+      transactionTaxAmount: line.taxAmount,
+      transactionLineTotal: line.lineTotal,
       sortOrder: line.sortOrder,
     }));
   }
@@ -1114,6 +1177,10 @@ export class SalesInvoiceService {
   private cleanOptional(value: string | undefined): string | undefined {
     const trimmed = value?.trim();
     return trimmed || undefined;
+  }
+
+  private documentFxContext(): DocumentFxContextService {
+    return this.documentFxContextService ?? new DocumentFxContextService(this.prisma);
   }
 }
 

@@ -67,6 +67,30 @@ const INVALID_EXCHANGE_RATE_MESSAGE = "Exchange rate must be a positive finite d
 
 export type ExactDecimalInput = string | Decimal;
 
+export interface TransactionDocumentLineAmounts {
+  lineGrossAmount: ExactDecimalInput;
+  discountAmount: ExactDecimalInput;
+  taxableAmount: ExactDecimalInput;
+  taxAmount: ExactDecimalInput;
+  lineTotal: ExactDecimalInput;
+}
+
+export interface BaseDocumentLineAmounts {
+  lineGrossAmount: string;
+  discountAmount: string;
+  taxableAmount: string;
+  taxAmount: string;
+  lineTotal: string;
+}
+
+export interface BaseDocumentTotals {
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+}
+
 export function convertTransactionToBaseAmount(
   transactionAmount: ExactDecimalInput,
   exchangeRate: ExactDecimalInput,
@@ -90,6 +114,55 @@ export function convertTransactionToBaseAmount(
   }
 
   return roundMoney(amount.mul(rate)).toFixed(4);
+}
+
+export function convertTransactionDocumentAmounts(
+  lines: readonly TransactionDocumentLineAmounts[],
+  exchangeRate: ExactDecimalInput,
+): { lines: BaseDocumentLineAmounts[]; totals: BaseDocumentTotals } {
+  const convertedLines = lines.map((line) => {
+    const transactionGross = parseExactDecimal(line.lineGrossAmount, INVALID_TRANSACTION_AMOUNT_MESSAGE, "FX_INVALID_TRANSACTION_AMOUNT");
+    const transactionDiscount = parseExactDecimal(line.discountAmount, INVALID_TRANSACTION_AMOUNT_MESSAGE, "FX_INVALID_TRANSACTION_AMOUNT");
+    const transactionTotal = parseExactDecimal(line.lineTotal, INVALID_TRANSACTION_AMOUNT_MESSAGE, "FX_INVALID_TRANSACTION_AMOUNT");
+    const taxInclusive = transactionGross.minus(transactionDiscount).eq(transactionTotal);
+
+    const baseGross = new FxDecimal(convertTransactionToBaseAmount(line.lineGrossAmount, exchangeRate));
+    const baseDiscount = new FxDecimal(convertTransactionToBaseAmount(line.discountAmount, exchangeRate));
+    const baseTax = new FxDecimal(convertTransactionToBaseAmount(line.taxAmount, exchangeRate));
+
+    // Preserve both accounting identities after four-place conversion without inventing a
+    // discount. On inclusive-tax lines, gross less discount is the authoritative total and the
+    // deterministic residual is assigned to taxable amount. On exclusive-tax lines, gross less
+    // discount is the authoritative taxable amount and tax is added to produce the total.
+    const baseTotal = taxInclusive
+      ? roundMoney(baseGross.minus(baseDiscount))
+      : roundMoney(baseGross.minus(baseDiscount).plus(baseTax));
+    const baseTaxable = taxInclusive
+      ? roundMoney(baseTotal.minus(baseTax))
+      : roundMoney(baseGross.minus(baseDiscount));
+
+    return {
+      lineGrossAmount: baseGross.toFixed(4),
+      discountAmount: baseDiscount.toFixed(4),
+      taxableAmount: baseTaxable.toFixed(4),
+      taxAmount: baseTax.toFixed(4),
+      lineTotal: baseTotal.toFixed(4),
+    };
+  });
+
+  const sum = (field: keyof BaseDocumentLineAmounts): string =>
+    convertedLines.reduce((total, line) => total.plus(line[field]), ZERO).toFixed(4);
+
+  return {
+    lines: convertedLines,
+    totals: {
+      subtotal: sum("lineGrossAmount"),
+      discountTotal: sum("discountAmount"),
+      taxableTotal: sum("taxableAmount"),
+      taxTotal: sum("taxAmount"),
+      total: sum("lineTotal"),
+    },
+  };
 }
 
 export function toMoney(value: Decimal.Value | null | undefined): Decimal {

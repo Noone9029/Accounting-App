@@ -42,6 +42,24 @@ describe("purchase debit note workflow guidance", () => {
     expect(screen.getByRole("button", { name: "Finalize debit note" })).toBeInTheDocument();
   });
 
+  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+    render(
+      <PurchaseDebitNoteWorkflowGuidance
+        debitNote={debitNoteFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" })}
+        appliedAmount="0.0000"
+        actionLoading={false}
+        canFinalizeDebitNote
+        canApplyDebitNote={false}
+        canDownloadGeneratedDocuments
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize debit note" })).toBeDisabled();
+    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+  });
+
   it("shows bill, supplier ledger, AP report, and safe ZATCA guidance after finalization", () => {
     render(
       <PurchaseDebitNoteWorkflowGuidance

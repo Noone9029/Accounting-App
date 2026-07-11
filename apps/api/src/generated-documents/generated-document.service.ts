@@ -25,6 +25,7 @@ const generatedDocumentSelect = {
   sizeBytes: true,
   status: true,
   requestId: true,
+  accountingContextJson: true,
   generatedById: true,
   generatedAt: true,
   createdAt: true,
@@ -39,6 +40,7 @@ export interface ArchivePdfInput {
   filename: string;
   buffer: Buffer;
   generatedById?: string | null;
+  accountingContext?: Prisma.InputJsonValue;
 }
 
 export interface ZatcaPdfA3ArchiveMetadataInput {
@@ -192,6 +194,7 @@ export class GeneratedDocumentService {
         sizeBytes: storedContent.sizeBytes,
         status: GeneratedDocumentStatus.GENERATED,
         requestId: this.observabilityContext?.getRequestId(),
+        accountingContextJson: input.accountingContext,
         generatedById: input.generatedById ?? null,
       },
       select: generatedDocumentSelect,

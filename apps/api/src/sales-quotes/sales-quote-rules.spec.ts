@@ -69,6 +69,7 @@ describe("sales quote rules", () => {
         }),
       }),
     );
+    expect(tx.salesQuote.create.mock.calls[0][0].data.lines.create[0]).not.toHaveProperty("transactionLineTotal");
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
     expect(tx.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "SalesQuote", entityId: "quote-1" }));
@@ -200,7 +201,12 @@ describe("sales quote rules", () => {
           status: SalesInvoiceStatus.DRAFT,
           taxMode: SalesInvoiceTaxMode.TAX_EXCLUSIVE,
           balanceDue: decimal("115.0000"),
-          lines: expect.objectContaining({ create: [expect.objectContaining({ account: { connect: { id: "revenue-1" } } })] }),
+          lines: expect.objectContaining({ create: [expect.objectContaining({
+            account: { connect: { id: "revenue-1" } },
+            transactionLineGrossAmount: decimal("100.0000"),
+            transactionTaxAmount: decimal("15.0000"),
+            transactionLineTotal: decimal("115.0000"),
+          })] }),
         }),
       }),
     );
@@ -213,6 +219,19 @@ describe("sales quote rules", () => {
     expect(tx.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CONVERT_TO_INVOICE", entityType: "SalesQuote" }));
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "SalesInvoice", entityId: "invoice-1" }));
+  });
+
+  it("keeps foreign quote conversion fail-closed until an explicit invoice-rate workflow exists", async () => {
+    const tx = makeTransactionClient();
+    tx.salesQuote.findFirst.mockResolvedValue({ ...makeQuoteForConversion(), currency: "USD" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const { service } = makeService(prisma);
+    jest.spyOn(service, "get").mockResolvedValue(makeQuote({ status: SalesQuoteStatus.ACCEPTED, currency: "USD" }) as never);
+
+    await expect(service.convertToInvoice("org-1", "user-1", "quote-1")).rejects.toThrow(
+      "Foreign quote conversion requires an explicit invoice rate and is not enabled yet.",
+    );
+    expect(tx.salesInvoice.create).not.toHaveBeenCalled();
   });
 
   it("blocks conversion of cancelled, expired, rejected, draft, sent, and already converted quotes", async () => {
@@ -261,6 +280,7 @@ function makeTransactionClient(overrides: Record<string, any> = {}) {
   const quote = makeQuote();
   const invoice = makeInvoice();
   return {
+    organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
     account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
     taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-15", rate: decimal("15.0000") }]) },
     journalEntry: { create: jest.fn() },

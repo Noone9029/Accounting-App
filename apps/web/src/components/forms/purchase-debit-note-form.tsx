@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { DocumentCurrencyFields } from "@/components/forms/document-currency-fields";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
+import { DocumentFxFormValue, documentFxIsComplete } from "@/lib/document-fx";
 import { safeReturnToFromSearch } from "@/lib/parties";
 import type { Account, Branch, Contact, Item, PurchaseBill, PurchaseDebitNote, TaxRate } from "@/lib/types";
 
@@ -60,8 +62,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   const activeOrganization = useActiveOrganization();
   const organizationId = activeOrganization?.id ?? null;
   const baseCurrency = activeOrganization?.baseCurrency ?? null;
-  const documentCurrency = initialDebitNote?.currency ?? baseCurrency;
-  const currencyMismatch = Boolean(baseCurrency && documentCurrency && documentCurrency !== baseCurrency);
+  const initialUsesBaseCurrency = Boolean(initialDebitNote && baseCurrency && initialDebitNote.currency === baseCurrency);
   const { locale, tc } = useAppLocale();
   const [suppliers, setSuppliers] = useState<Contact[]>([]);
   const [bills, setBills] = useState<PurchaseBill[]>([]);
@@ -91,6 +92,13 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [returnTo, setReturnTo] = useState("");
+  const [fx, setFx] = useState<DocumentFxFormValue>(() => ({
+    currency: initialDebitNote?.currency ?? "", exchangeRate: initialDebitNote?.exchangeRate ?? (initialUsesBaseCurrency || !initialDebitNote ? "1" : ""),
+    rateDate: initialDebitNote?.rateDate ? dateInputValue(initialDebitNote.rateDate) : initialUsesBaseCurrency || !initialDebitNote ? todayInputValue() : "",
+    rateSource: initialDebitNote?.rateSource === "IMPORT" ? "IMPORT" : initialDebitNote?.rateSource === "MANUAL" ? "MANUAL" : initialUsesBaseCurrency || !initialDebitNote ? "SYSTEM_RATE_1" : "MANUAL",
+    rateSnapshotId: initialDebitNote?.rateSnapshotId ?? null,
+  }));
+  const documentCurrency = fx.currency;
 
   const postingPurchaseAccounts = accounts.filter(
     (account) =>
@@ -116,6 +124,10 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
       ),
     [activePurchaseTaxRates, lines],
   );
+
+  useEffect(() => {
+    if (!initialDebitNote && baseCurrency && !fx.currency) setFx({ currency: baseCurrency, exchangeRate: "1", rateDate: todayInputValue(), rateSource: "SYSTEM_RATE_1", rateSnapshotId: null });
+  }, [baseCurrency, fx.currency, initialDebitNote]);
 
   useEffect(() => {
     if (initialDebitNote || typeof window === "undefined") {
@@ -224,8 +236,8 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
       setError(tc("The selected original bill does not belong to the active organization."));
       return;
     }
-    if (currencyMismatch || sourceCurrencyMismatch) {
-      setError(tc("Debit-note currency must match the organization base currency and any linked bill. The draft was not changed or saved."));
+    if (!baseCurrency || !documentFxIsComplete(fx, baseCurrency) || sourceCurrencyMismatch) {
+      setError(tc("Complete the debit-note exchange-rate context and ensure its currency matches any linked bill."));
       return;
     }
 
@@ -243,6 +255,10 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
         branchId: branchId || null,
         issueDate: `${issueDate}T00:00:00.000Z`,
         currency: documentCurrency,
+        exchangeRate: fx.exchangeRate,
+        rateDate: fx.rateDate,
+        rateSource: fx.rateSource,
+        rateSnapshotId: fx.rateSnapshotId,
         notes: notes || undefined,
         reason: reason || undefined,
         lines: lines.map((line, index) => ({
@@ -299,6 +315,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
             <span className="text-sm font-medium text-slate-700">{tc("Issue date")}</span>
             <input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm" />
           </label>
+          {baseCurrency ? <DocumentCurrencyFields baseCurrency={baseCurrency} value={fx} transactionTotal={preview.total} onChange={setFx} disabled={submitting} /> : null}
           <label className="block">
             <span className="text-sm font-medium text-slate-700">{tc("Branch")}</span>
             <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-palm">
@@ -339,9 +356,8 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization before creating debit notes.")}</StatusMessage> : null}
-        {currencyMismatch ? <StatusMessage type="error">{tc("This draft currency does not match the organization base currency. It will not be rewritten automatically.")}</StatusMessage> : null}
         {sourceSelectionMissing ? <StatusMessage type="error">{tc("The selected original bill is not available in the active organization.")}</StatusMessage> : null}
-        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked bill currency does not match this debit note. Foreign-currency debit notes remain disabled in this phase.")}</StatusMessage> : null}
+        {sourceCurrencyMismatch ? <StatusMessage type="error">{tc("The linked bill currency does not match this debit note.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading debit note setup data...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
       </div>
@@ -417,7 +433,7 @@ export function PurchaseDebitNoteForm({ initialDebitNote, initialSupplierId = ""
       </div>
 
       <div className="flex gap-3">
-        <button type="submit" disabled={!organizationId || !documentCurrency || currencyMismatch || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" disabled={!organizationId || !baseCurrency || !documentFxIsComplete(fx, baseCurrency) || sourceSelectionMissing || sourceCurrencyMismatch || loading || submitting || !preview.valid} className="rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
           {submitting ? tc("Saving...") : initialDebitNote ? tc("Save draft debit note") : tc("Create draft debit note")}
         </button>
         <Link href={returnTo || "/purchases/debit-notes"} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">

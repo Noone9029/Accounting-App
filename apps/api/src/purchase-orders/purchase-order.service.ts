@@ -8,6 +8,7 @@ import { PurchaseOrderPdfData, renderPurchaseOrderPdf } from "@ledgerbyte/pdf-co
 import {
   AccountType,
   ContactType,
+  CurrencyRateSource,
   DocumentType,
   ItemStatus,
   NumberSequenceScope,
@@ -476,6 +477,11 @@ export class PurchaseOrderService {
       await this.validateLineAccounts(organizationId, accountIds, tx);
 
       const billNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.BILL, tx);
+      const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, tx);
+      if (order.currency.toUpperCase() !== baseCurrency) {
+        throw new BadRequestException("Foreign purchase-order conversion requires an explicit bill rate and is not enabled yet.");
+      }
+      const billDate = new Date();
       const createdBill = await tx.purchaseBill.create({
         data: {
           organizationId,
@@ -483,9 +489,13 @@ export class PurchaseOrderService {
           purchaseOrderId: order.id,
           supplierId: order.supplierId,
           branchId: order.branchId,
-          billDate: new Date(),
+          billDate,
           dueDate: null,
           currency: order.currency,
+          baseCurrency,
+          exchangeRate: "1",
+          rateDate: billDate,
+          rateSource: CurrencyRateSource.SYSTEM_RATE_1,
           status: PurchaseBillStatus.DRAFT,
           subtotal: order.subtotal,
           discountTotal: order.discountTotal,
@@ -493,6 +503,11 @@ export class PurchaseOrderService {
           taxTotal: order.taxTotal,
           total: order.total,
           balanceDue: order.total,
+          transactionSubtotal: order.subtotal,
+          transactionDiscountTotal: order.discountTotal,
+          transactionTaxableTotal: order.taxableTotal,
+          transactionTaxTotal: order.taxTotal,
+          transactionTotal: order.total,
           notes: order.notes,
           terms: order.terms,
           createdById: actorUserId,
@@ -513,6 +528,11 @@ export class PurchaseOrderService {
                 taxableAmount: line.taxableAmount,
                 taxAmount: line.taxAmount,
                 lineTotal: line.lineTotal,
+                transactionLineGrossAmount: line.lineGrossAmount,
+                transactionDiscountAmount: line.discountAmount,
+                transactionTaxableAmount: line.taxableAmount,
+                transactionTaxAmount: line.taxAmount,
+                transactionLineTotal: line.lineTotal,
                 sortOrder: line.sortOrder,
               };
             }),
