@@ -116,7 +116,7 @@ export default function ImportExportSettingsPage() {
         eyebrow="Migration toolkit"
         title="Import and export"
         badge={<LedgerStatusBadge tone="warning">Local CSV only</LedgerStatusBadge>}
-        description="Local master-data CSV templates, preview validation, guarded import commits, and safe exports for accountants preparing migrations."
+        description="Local CSV templates, normalized catalog pricing reviews, guarded local commits, and safe exports for accountants preparing migrations."
         actions={<LedgerButton icon={RefreshCw} onClick={() => void loadToolkit()} disabled={loading}>Refresh</LedgerButton>}
       />
 
@@ -135,7 +135,7 @@ export default function ImportExportSettingsPage() {
               <FileSpreadsheet className="mt-1 h-5 w-5 text-palm" aria-hidden="true" />
               <div>
                 <h2 className="text-base font-semibold text-ink">Preview import</h2>
-                <p className="mt-1 text-sm leading-6 text-steel">Paste a local CSV, review row validation, then commit only clean master-data rows after explicit approval.</p>
+                <p className="mt-1 text-sm leading-6 text-steel">Paste a local CSV, review row validation and normalized catalog values, then commit only clean rows after explicit approval.</p>
               </div>
             </div>
 
@@ -191,9 +191,13 @@ export default function ImportExportSettingsPage() {
                   <LedgerAlert tone="success" title="Ready for review">No blocking validation issues were returned. Confirm review before local commit.</LedgerAlert>
                 )}
 
+                {preview.entityType === "PRODUCTS_SERVICES" ? <ProductImportReviewTable preview={preview} /> : null}
+
                 <label className="flex items-center gap-2 text-sm font-medium text-ink">
                   <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} />
-                  I reviewed the preview rows and understand this is a local master-data commit only.
+                  {preview.entityType === "PRODUCTS_SERVICES"
+                    ? "I reviewed the preview rows, transaction prices, FX evidence, and base-equivalent catalog values. This is a local catalog commit only."
+                    : "I reviewed the preview rows and understand this is a local master-data commit only."}
                 </label>
                 <LedgerButton onClick={() => void commitPreview()} disabled={!canCommit || loading}>Commit reviewed local import</LedgerButton>
               </div>
@@ -243,4 +247,76 @@ export default function ImportExportSettingsPage() {
       </LedgerPageBody>
     </LedgerPage>
   );
+}
+
+function ProductImportReviewTable({ preview }: { preview: ImportJob }) {
+  return (
+    <section aria-labelledby="normalized-product-rows-title">
+      <h3 id="normalized-product-rows-title" className="text-sm font-semibold text-ink">Normalized product and service rows</h3>
+      <p className="mt-1 text-xs leading-5 text-steel">
+        Check transaction pricing, rate evidence, and the committed base amount for this reviewed base-equivalent catalog import.
+      </p>
+      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200 bg-white">
+        <table aria-label="Normalized product and service import rows" className="w-full min-w-[1080px] text-start text-xs">
+          <thead className="bg-slate-50 uppercase tracking-wide text-steel">
+            <tr>
+              <th className="px-3 py-2">Row</th>
+              <th className="px-3 py-2">Item</th>
+              <th className="px-3 py-2">Review</th>
+              <th className="px-3 py-2 text-end">Transaction price</th>
+              <th className="px-3 py-2 text-end">Rate</th>
+              <th className="px-3 py-2">Rate date</th>
+              <th className="px-3 py-2">Rate source</th>
+              <th className="px-3 py-2 text-end">Base equivalent</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {preview.rows.map((row) => {
+              const normalized = row.normalizedJson;
+              const rowIssues = preview.validationIssues.filter((issue) => issue.rowNumber === row.rowNumber);
+              const exchangeRate = normalizedText(normalized.exchangeRate);
+              const rateDate = normalizedText(normalized.rateDate, exchangeRate === "1" ? "Not required" : "Not provided");
+              const rateSource = normalizedText(normalized.rateSource).replace(/_/g, " ");
+              const rateSnapshotId = normalizedText(normalized.rateSnapshotId, "");
+              return (
+                <tr key={row.id}>
+                  <td className="px-3 py-2 align-top font-mono">{row.rowNumber}</td>
+                  <td className="px-3 py-2 align-top font-medium text-ink">{normalizedText(normalized.name, normalizedText(normalized.sku))}</td>
+                  <td className="px-3 py-2 align-top">
+                    <LedgerStatusBadge tone={importRowStatusTone(row.status)}>{row.status.replace(/_/g, " ")}</LedgerStatusBadge>
+                    {rowIssues.length > 0 ? (
+                      <ul className="mt-2 max-w-[260px] space-y-1 text-xs leading-4 text-rose-700">
+                        {rowIssues.map((issue) => <li key={issue.id}>{issue.message}</li>)}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-steel">No row issues</p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.transactionSellingPrice)} {normalizedText(normalized.currency)}</bdi></td>
+                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{exchangeRate}</bdi></td>
+                  <td className="px-3 py-2 align-top font-mono"><bdi dir="ltr">{rateDate}</bdi></td>
+                  <td className="px-3 py-2 align-top">
+                    <span>{rateSource}</span>
+                    {rateSnapshotId ? <span className="mt-1 block font-mono text-steel">Snapshot {rateSnapshotId}</span> : null}
+                  </td>
+                  <td className="px-3 py-2 text-end align-top font-mono"><bdi dir="ltr">{normalizedText(normalized.baseSellingPrice)} {normalizedText(normalized.baseCurrency)}</bdi></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function normalizedText(value: unknown, fallback = "Not provided") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function importRowStatusTone(status: ImportJob["rows"][number]["status"]): "success" | "warning" | "danger" | "neutral" {
+  if (status === "VALID" || status === "COMMITTED") return "success";
+  if (status === "DUPLICATE") return "warning";
+  if (status === "INVALID" || status === "COMMIT_BLOCKED") return "danger";
+  return "neutral";
 }
