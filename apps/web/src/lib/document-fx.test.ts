@@ -1,5 +1,7 @@
 import {
   convertTransactionToBasePreview,
+  documentFxPostingIsReady,
+  documentFxRateEvidence,
   documentFxIsComplete,
   selectableDocumentRateSnapshots,
   transactionDocumentDisplayTotals,
@@ -16,6 +18,16 @@ describe("document FX form arithmetic", () => {
     expect(documentFxIsComplete({ currency: "AED", exchangeRate: "1", rateDate: "", rateSource: "SYSTEM_RATE_1", rateSnapshotId: null }, "AED")).toBe(true);
     expect(documentFxIsComplete({ currency: "USD", exchangeRate: "3.6725", rateDate: "2026-07-11", rateSource: "MANUAL", rateSnapshotId: null }, "AED")).toBe(true);
     expect(documentFxIsComplete({ currency: "USD", exchangeRate: "0", rateDate: "2026-07-11", rateSource: "MANUAL", rateSnapshotId: null }, "AED")).toBe(false);
+    expect(documentFxIsComplete({ currency: "USD", exchangeRate: "3.6725", rateDate: "2026-07-11", rateSource: "SYSTEM_RATE_1", rateSnapshotId: null }, "AED")).toBe(false);
+  });
+
+  it("fails closed for incomplete stored drafts and exposes complete captured-rate evidence", () => {
+    expect(documentFxPostingIsReady({ currency: "USD", baseCurrency: "AED", exchangeRate: null, rateDate: null, rateSource: null })).toBe(false);
+    expect(documentFxPostingIsReady({ currency: "USD", baseCurrency: "AED", exchangeRate: "3.6725", rateDate: "2026-07-11T00:00:00.000Z", rateSource: "MANUAL" })).toBe(true);
+    expect(documentFxPostingIsReady({ currency: "AED", baseCurrency: "AED", exchangeRate: "1.00000000", rateDate: "2026-07-11", rateSource: "SYSTEM_RATE_1" })).toBe(true);
+    expect(documentFxRateEvidence({ currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000", rateDate: "2026-07-11T00:00:00.000Z", rateSource: "MANUAL" })).toBe(
+      "1 USD = 3.67250000 AED · 2026-07-11 · Manual",
+    );
   });
 
   it("prefers transaction amounts for foreign-document presentation while preserving legacy fallbacks", () => {

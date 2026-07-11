@@ -1,6 +1,7 @@
 import {
   AccountingRuleError,
   assertBalancedJournal,
+  assertJournalFxContext,
   assertDraftInvoiceEditable,
   assertFinalizableSalesInvoice,
   calculateSalesInvoiceTotals,
@@ -121,6 +122,32 @@ describe("sales invoice rules", () => {
       expect.objectContaining({ accountId: "vat", debit: "0.0000", credit: "15.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("builds an AED-base USD journal with immutable transaction amounts and rate evidence", () => {
+    const lines = buildSalesInvoiceJournalLines({
+      accountsReceivableAccountId: "ar",
+      vatPayableAccountId: "vat",
+      invoiceNumber: "INV-USD-1",
+      customerName: "Customer",
+      currency: "USD",
+      baseCurrency: "AED",
+      exchangeRate: "3.67250000",
+      rateSnapshotId: "11111111-1111-4111-8111-111111111111",
+      total: "385.6125",
+      transactionTotal: "105.0000",
+      taxTotal: "18.3625",
+      transactionTaxTotal: "5.0000",
+      lines: [{ accountId: "sales", description: "Services", taxableAmount: "367.2500", transactionTaxableAmount: "100.0000" }],
+    });
+
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "ar", debit: "385.6125", transactionDebit: "105.0000", currency: "USD", exchangeRate: "3.67250000" }),
+      expect.objectContaining({ accountId: "sales", credit: "367.2500", transactionCredit: "100.0000", rateSnapshotId: "11111111-1111-4111-8111-111111111111" }),
+      expect.objectContaining({ accountId: "vat", credit: "18.3625", transactionCredit: "5.0000" }),
+    ]);
+    expect(() => assertBalancedJournal(lines)).not.toThrow();
+    expect(() => assertJournalFxContext(lines, "AED")).not.toThrow();
   });
 
   it("groups finalization revenue credits by selected invoice line account", () => {
@@ -303,11 +330,11 @@ describe("sales invoice rules", () => {
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
   });
 
-  it("blocks foreign-currency finalization before any accounting mutation", async () => {
-    const tx = makeFinalizeTransactionMock();
+  it("finalizes a foreign-currency invoice into a base-balanced journal with transaction evidence", async () => {
+    const tx = makeFinalizeTransactionMock({ foreign: true });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const postingGuard = {
-      assertPostingAllowed: jest.fn().mockRejectedValue(new Error("Foreign-currency posting is disabled.")),
+      assertPostingAllowed: jest.fn().mockRejectedValue(new Error("must not run for supported document posting")),
     };
     const service = new SalesInvoiceService(
       prisma as never,
@@ -321,12 +348,20 @@ describe("sales invoice rules", () => {
     );
     jest.spyOn(service, "get").mockResolvedValue({ id: "invoice-1", status: "DRAFT", journalEntryId: null } as never);
 
-    await expect(service.finalize("org-1", "user-1", "invoice-1")).rejects.toThrow(
-      "Foreign-currency posting is disabled.",
-    );
-    expect(postingGuard.assertPostingAllowed).toHaveBeenCalledWith("org-1", "SAR", tx);
-    expect(tx.salesInvoice.updateMany).not.toHaveBeenCalled();
-    expect(tx.journalEntry.create).not.toHaveBeenCalled();
+    await expect(service.finalize("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ status: "FINALIZED" });
+    expect(postingGuard.assertPostingAllowed).not.toHaveBeenCalled();
+    expect(tx.journalEntry.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        currency: "AED",
+        totalDebit: "385.6125",
+        totalCredit: "385.6125",
+        lines: { create: [
+          expect.objectContaining({ debit: "385.6125", transactionDebit: "105.0000", currency: "USD", exchangeRate: "3.67250000" }),
+          expect.objectContaining({ credit: "367.2500", transactionCredit: "100.0000", currency: "USD" }),
+          expect.objectContaining({ credit: "18.3625", transactionCredit: "5.0000", currency: "USD" }),
+        ] },
+      }),
+    }));
   });
 
   it("does not link a journal when finalization journal creation fails", async () => {
@@ -1044,7 +1079,8 @@ function selectOpenInvoiceFields(invoice: OpenInvoiceFixture, select: Record<key
   );
 }
 
-function makeFinalizeTransactionMock(options: { claimCount?: number; journalCreateError?: Error } = {}) {
+function makeFinalizeTransactionMock(options: { claimCount?: number; journalCreateError?: Error; foreign?: boolean } = {}) {
+  const foreign = options.foreign ?? false;
   return {
     salesInvoice: {
       findFirst: jest.fn().mockResolvedValue({
@@ -1054,12 +1090,22 @@ function makeFinalizeTransactionMock(options: { claimCount?: number; journalCrea
         journalEntryId: null,
         invoiceNumber: "INV-000001",
         issueDate: new Date("2026-05-06T00:00:00.000Z"),
-        currency: "SAR",
-        subtotal: "100.0000",
+        currency: foreign ? "USD" : "SAR",
+        baseCurrency: foreign ? "AED" : "SAR",
+        exchangeRate: foreign ? "3.67250000" : "1.00000000",
+        rateDate: new Date("2026-05-06T00:00:00.000Z"),
+        rateSource: foreign ? "MANUAL" : "SYSTEM_RATE_1",
+        rateSnapshotId: foreign ? "11111111-1111-4111-8111-111111111111" : null,
+        subtotal: foreign ? "367.2500" : "100.0000",
         discountTotal: "0.0000",
-        taxableTotal: "100.0000",
-        taxTotal: "15.0000",
-        total: "115.0000",
+        taxableTotal: foreign ? "367.2500" : "100.0000",
+        taxTotal: foreign ? "18.3625" : "15.0000",
+        total: foreign ? "385.6125" : "115.0000",
+        transactionSubtotal: "100.0000",
+        transactionDiscountTotal: "0.0000",
+        transactionTaxableTotal: "100.0000",
+        transactionTaxTotal: foreign ? "5.0000" : "15.0000",
+        transactionTotal: foreign ? "105.0000" : "115.0000",
         customer: { id: "customer-1", name: "Customer", displayName: null },
         lines: [
           {
@@ -1068,11 +1114,16 @@ function makeFinalizeTransactionMock(options: { claimCount?: number; journalCrea
             quantity: "1.0000",
             unitPrice: "100.0000",
             discountRate: "0.0000",
-            lineGrossAmount: "100.0000",
+            lineGrossAmount: foreign ? "367.2500" : "100.0000",
             discountAmount: "0.0000",
-            taxableAmount: "100.0000",
-            taxAmount: "15.0000",
-            lineTotal: "115.0000",
+            taxableAmount: foreign ? "367.2500" : "100.0000",
+            taxAmount: foreign ? "18.3625" : "15.0000",
+            lineTotal: foreign ? "385.6125" : "115.0000",
+            transactionLineGrossAmount: "100.0000",
+            transactionDiscountAmount: "0.0000",
+            transactionTaxableAmount: "100.0000",
+            transactionTaxAmount: foreign ? "5.0000" : "15.0000",
+            transactionLineTotal: foreign ? "105.0000" : "115.0000",
           },
         ],
       }),

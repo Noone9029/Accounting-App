@@ -1,4 +1,4 @@
-import { IsDecimal, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsDecimal, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
 
 export class JournalLineDto {
   @IsString()
@@ -11,6 +11,14 @@ export class JournalLineDto {
   credit!: string;
 
   @IsOptional()
+  @IsDecimal({ decimal_digits: "0,4" })
+  transactionDebit?: string;
+
+  @IsOptional()
+  @IsDecimal({ decimal_digits: "0,4" })
+  transactionCredit?: string;
+
+  @IsOptional()
   @IsString()
   description?: string;
 
@@ -20,6 +28,16 @@ export class JournalLineDto {
   @IsOptional()
   @IsDecimal({ decimal_digits: "0,8" })
   exchangeRate?: string;
+
+  @IsOptional()
+  @IsUUID()
+  rateSnapshotId?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  fxRoundingComponentCount?: number;
 
   @IsOptional()
   @IsString()

@@ -14,7 +14,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
-import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
+import { documentFxPostingIsReady, documentFxRateEvidence, INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE, isForeignCurrencyDocument, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import {
   formatInventoryQuantity,
   hasRemainingInventoryQuantity,
@@ -60,7 +60,9 @@ export default function PurchaseBillDetailPage() {
   const [success, setSuccess] = useState("");
   const canUpdateBill = can(PERMISSIONS.purchaseBills.update);
   const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
-  const foreignPostingBlocked = bill ? foreignDocumentPostingIsBlocked(bill) : false;
+  const foreignCurrencyDocument = bill ? isForeignCurrencyDocument(bill) : false;
+  const fxPostingReady = bill ? documentFxPostingIsReady(bill) : false;
+  const fxRateEvidence = bill ? documentFxRateEvidence(bill) : null;
   const billDisplayTotals = bill ? transactionDocumentDisplayTotals(bill) : null;
   const canVoidBill = can(PERMISSIONS.purchaseBills.void);
   const canCreateDebitNote = can(PERMISSIONS.purchaseDebitNotes.create);
@@ -123,8 +125,8 @@ export default function PurchaseBillDetailPage() {
       return;
     }
 
-    if (action === "finalize" && foreignDocumentPostingIsBlocked(bill)) {
-      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
+    if (action === "finalize" && !documentFxPostingIsReady(bill)) {
+      setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
       return;
     }
 
@@ -239,7 +241,7 @@ export default function PurchaseBillDetailPage() {
             <button
               type="button"
               onClick={() => void runAction("finalize")}
-              disabled={actionLoading || foreignPostingBlocked || (accountingPreview !== null && !accountingPreview.canFinalize)}
+              disabled={actionLoading || !fxPostingReady || (accountingPreview !== null && !accountingPreview.canFinalize)}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize")}
@@ -295,7 +297,9 @@ export default function PurchaseBillDetailPage() {
               />
               <Summary label="Total" value={formatAppMoney(billDisplayTotals?.total ?? bill.total, bill.currency, locale)} />
               <Summary label="Balance due" value={formatAppMoney(bill.status === "DRAFT" ? (billDisplayTotals?.total ?? bill.total) : bill.balanceDue, bill.currency, locale)} />
-              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(bill.total, bill.baseCurrency ?? bill.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(bill.total, bill.baseCurrency ?? bill.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={bill.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
               <Summary label="Inventory posting mode" value={tc(purchaseBillInventoryPostingModeLabel(bill.inventoryPostingMode))} />
               <Summary label="Journal entry" value={bill.journalEntry ? `${bill.journalEntry.entryNumber} (${bill.journalEntry.id})` : "-"} bidi />
               <Summary label="Reversal journal" value={bill.reversalJournalEntry ? `${bill.reversalJournalEntry.entryNumber} (${bill.reversalJournalEntry.id})` : "-"} bidi />
@@ -521,13 +525,14 @@ export function PurchaseBillWorkflowGuidance({
   onDownloadPdf: () => void;
 }) {
   const { locale, tc } = useAppLocale();
-  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(bill);
   const displayTotals = transactionDocumentDisplayTotals(bill);
   const paymentState = purchaseBillPaymentState(bill);
   const supplierName = bill.supplier?.displayName ?? bill.supplier?.name ?? tc("this supplier");
   const hasBalanceDue = paymentState !== "Paid";
   const paidUnits = Math.max(0, parseDecimalToUnits(bill.total) - parseDecimalToUnits(bill.balanceDue));
   const billDetailHref = purchaseBillDetailHref(bill.id, returnTo);
+  const fxPostingReady = documentFxPostingIsReady(bill);
+  const fxRateEvidence = documentFxRateEvidence(bill);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -563,15 +568,16 @@ export function PurchaseBillWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading || foreignPostingBlocked}
+              disabled={actionLoading || !fxPostingReady}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize bill")}
             </button>
           ) : null}
-          {bill.status === "DRAFT" && foreignPostingBlocked ? (
-            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
+          {bill.status === "DRAFT" && !fxPostingReady ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE)}</p>
           ) : null}
+          {fxRateEvidence ? <p className="text-xs leading-5 text-steel"><bdi dir="ltr">{fxRateEvidence}</bdi> · {tc(bill.status === "DRAFT" ? "Freezes on finalization" : "Frozen; reverse to correct")}</p> : null}
           {bill.status === "FINALIZED" && hasBalanceDue && bill.supplierId && canCreateSupplierPayment ? (
             <Link
               href={`/purchases/supplier-payments/new?supplierId=${encodeURIComponent(bill.supplierId)}&billId=${encodeURIComponent(bill.id)}&returnTo=${encodeURIComponent(billDetailHref)}`}

@@ -1,4 +1,4 @@
-import { assertBalancedJournal, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
+import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
 import {
   AccountType,
   ContactType,
@@ -47,6 +47,32 @@ describe("purchase bill rules", () => {
       expect.objectContaining({ accountId: "ap", debit: "0.0000", credit: "115.0000" }),
     ]);
     expect(() => assertBalancedJournal(lines)).not.toThrow();
+  });
+
+  it("builds a SAR-base USD bill journal with transaction evidence", () => {
+    const lines = buildPurchaseBillJournalLines({
+      accountsPayableAccountId: "ap",
+      vatReceivableAccountId: "vat-receivable",
+      billNumber: "BILL-USD-1",
+      supplierName: "Supplier",
+      currency: "USD",
+      baseCurrency: "SAR",
+      exchangeRate: "3.75000000",
+      rateSnapshotId: null,
+      total: "431.2500",
+      transactionTotal: "115.0000",
+      taxTotal: "56.2500",
+      transactionTaxTotal: "15.0000",
+      lines: [{ accountId: "expense", description: "Services", taxableAmount: "375.0000", transactionTaxableAmount: "100.0000" }],
+    });
+
+    expect(lines).toEqual([
+      expect.objectContaining({ accountId: "expense", debit: "375.0000", transactionDebit: "100.0000", currency: "USD" }),
+      expect.objectContaining({ accountId: "vat-receivable", debit: "56.2500", transactionDebit: "15.0000" }),
+      expect.objectContaining({ accountId: "ap", credit: "431.2500", transactionCredit: "115.0000", exchangeRate: "3.75000000" }),
+    ]);
+    expect(() => assertBalancedJournal(lines)).not.toThrow();
+    expect(() => assertJournalFxContext(lines, "SAR")).not.toThrow();
   });
 
   it("does not post again when finalizing an already finalized purchase bill", async () => {
@@ -599,6 +625,7 @@ function makeFinalizeTransactionMock(
       taxableAmount: "100.0000",
       taxAmount: "15.0000",
       lineTotal: "115.0000",
+      transactionTaxableAmount: "100.0000",
       item: trackedLine ? { id: "item-1", inventoryTracking: true } : null,
       account: { id: "expense" },
     },
@@ -616,6 +643,7 @@ function makeFinalizeTransactionMock(
             taxableAmount: "50.0000",
             taxAmount: "7.5000",
             lineTotal: "57.5000",
+            transactionTaxableAmount: "50.0000",
             item: null,
             account: { id: "expense" },
           },
@@ -645,11 +673,18 @@ function makeFinalizeTransactionMock(
     inventoryPostingMode,
     billDate: new Date("2026-05-12T00:00:00.000Z"),
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: new Date("2026-05-12T00:00:00.000Z"),
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     subtotal: totals.subtotal,
     discountTotal: "0.0000",
     taxableTotal: totals.taxableTotal,
     taxTotal: totals.taxTotal,
     total: totals.total,
+    transactionTaxTotal: totals.taxTotal,
+    transactionTotal: totals.total,
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
     lines: billLines,
@@ -686,11 +721,18 @@ function makeNoTaxFinalizeTransactionMock() {
     inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
     billDate: new Date("2026-05-12T00:00:00.000Z"),
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: new Date("2026-05-12T00:00:00.000Z"),
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     subtotal: "100.0000",
     discountTotal: "0.0000",
     taxableTotal: "100.0000",
     taxTotal: "0.0000",
     total: "100.0000",
+    transactionTaxTotal: "0.0000",
+    transactionTotal: "100.0000",
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
     lines: [
@@ -706,6 +748,7 @@ function makeNoTaxFinalizeTransactionMock() {
         taxableAmount: "100.0000",
         taxAmount: "0.0000",
         lineTotal: "100.0000",
+        transactionTaxableAmount: "100.0000",
         item: null,
         account: { id: "expense" },
       },

@@ -54,7 +54,16 @@ export class BaseCurrencyPostingGuardService {
   async assertJournalPostingAllowed(
     organizationId: string,
     currency: string,
-    lines: ReadonlyArray<{ currency: string; exchangeRate: unknown }>,
+    lines: ReadonlyArray<{
+      accountId: string;
+      debit: unknown;
+      credit: unknown;
+      transactionDebit?: unknown;
+      transactionCredit?: unknown;
+      currency: string;
+      exchangeRate: unknown;
+      rateSnapshotId?: string | null;
+    }>,
     executor: OrganizationExecutor = this.prisma,
   ): Promise<void> {
     const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, executor);
@@ -79,4 +88,5 @@ export class BaseCurrencyPostingGuardService {
       return false;
     }
   }
+
 }

@@ -42,10 +42,29 @@ describe("purchase debit note workflow guidance", () => {
     expect(screen.getByRole("button", { name: "Finalize debit note" })).toBeInTheDocument();
   });
 
-  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+  it("allows a complete foreign-currency draft to finalize into the FX-aware journal", () => {
     render(
       <PurchaseDebitNoteWorkflowGuidance
-        debitNote={debitNoteFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" })}
+        debitNote={debitNoteFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000", rateDate: "2026-07-11", rateSource: "MANUAL" })}
+        appliedAmount="0.0000"
+        actionLoading={false}
+        canFinalizeDebitNote
+        canApplyDebitNote={false}
+        canDownloadGeneratedDocuments
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize debit note" })).toBeEnabled();
+    expect(screen.getByText(/1 USD = 3.75000000 SAR/)).toBeInTheDocument();
+    expect(screen.queryByText(/foreign-currency posting is not enabled yet/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps an incomplete foreign debit note fail-closed", () => {
+    render(
+      <PurchaseDebitNoteWorkflowGuidance
+        debitNote={debitNoteFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: null, rateDate: null, rateSource: null })}
         appliedAmount="0.0000"
         actionLoading={false}
         canFinalizeDebitNote
@@ -57,7 +76,7 @@ describe("purchase debit note workflow guidance", () => {
     );
 
     expect(screen.getByRole("button", { name: "Finalize debit note" })).toBeDisabled();
-    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the exchange rate/i)).toBeInTheDocument();
   });
 
   it("shows bill, supplier ledger, AP report, and safe ZATCA guidance after finalization", () => {
@@ -142,6 +161,11 @@ function debitNoteFixture(overrides: Partial<PurchaseDebitNote> = {}): PurchaseD
     branchId: null,
     issueDate: "2026-05-21T00:00:00.000Z",
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: "2026-05-21",
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     status: "DRAFT",
     subtotal: "100.0000",
     discountTotal: "0.0000",

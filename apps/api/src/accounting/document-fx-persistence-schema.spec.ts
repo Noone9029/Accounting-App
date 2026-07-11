@@ -75,7 +75,9 @@ describe("document FX persistence schema", () => {
   });
 
   it.each(lineDocuments)("adds %s baseCurrency before relying on its compatibility default", (document) => {
-    expect(migration).toContain(`ALTER TABLE "${document}"\n  ADD COLUMN "baseCurrency" TEXT DEFAULT 'SAR'`);
+    expect(migration).toMatch(
+      new RegExp(`ALTER TABLE "${document}"\\s+ADD COLUMN "baseCurrency" TEXT DEFAULT 'SAR'`),
+    );
     expect(migration).not.toContain(`ALTER TABLE "${document}"\n  ALTER COLUMN "baseCurrency" SET DEFAULT 'SAR'`);
   });
 

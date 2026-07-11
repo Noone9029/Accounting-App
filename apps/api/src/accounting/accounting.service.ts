@@ -55,7 +55,12 @@ export class AccountingService {
             accountId: true,
             debit: true,
             credit: true,
+            transactionDebit: true,
+            transactionCredit: true,
             currency: true,
+            exchangeRate: true,
+            rateSnapshotId: true,
+            fxRoundingComponentCount: true,
             costCenterId: true,
             projectId: true,
           },
@@ -394,8 +399,14 @@ export class AccountingService {
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
     }));
   }
 
@@ -408,6 +419,10 @@ export class AccountingService {
         description: string | null;
         currency: string;
         exchangeRate: unknown;
+        transactionDebit?: unknown;
+        transactionCredit?: unknown;
+        rateSnapshotId?: string | null;
+        fxRoundingComponentCount?: number;
         taxRateId: string | null;
         costCenterId: string | null;
         projectId: string | null;
@@ -418,9 +433,13 @@ export class AccountingService {
       accountId: line.accountId,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       description: line.description ?? undefined,
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      rateSnapshotId: line.rateSnapshotId ?? null,
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
       taxRateId: line.taxRateId ?? null,
       costCenterId: line.costCenterId ?? null,
       projectId: line.projectId ?? null,

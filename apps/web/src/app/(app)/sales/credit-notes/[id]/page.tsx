@@ -23,7 +23,7 @@ import {
   validateCreditNoteAllocation,
 } from "@/lib/credit-notes";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
-import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
+import { documentFxPostingIsReady, documentFxRateEvidence, INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE, isForeignCurrencyDocument, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { partyDetailHref } from "@/lib/parties";
 import { creditNotePdfPath, downloadPdf } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -113,8 +113,8 @@ export default function CreditNoteDetailPage() {
       return;
     }
 
-    if (action === "finalize" && foreignDocumentPostingIsBlocked(creditNote)) {
-      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
+    if (action === "finalize" && !documentFxPostingIsReady(creditNote)) {
+      setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
       return;
     }
 
@@ -275,7 +275,9 @@ export default function CreditNoteDetailPage() {
   const selectedInvoice = openInvoices.find((invoice) => invoice.id === selectedInvoiceId);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
   const canFinalizeCreditNote = can(PERMISSIONS.creditNotes.finalize);
-  const foreignPostingBlocked = creditNote ? foreignDocumentPostingIsBlocked(creditNote) : false;
+  const foreignCurrencyDocument = creditNote ? isForeignCurrencyDocument(creditNote) : false;
+  const fxPostingReady = creditNote ? documentFxPostingIsReady(creditNote) : false;
+  const fxRateEvidence = creditNote ? documentFxRateEvidence(creditNote) : null;
   const creditDisplayTotals = creditNote ? transactionDocumentDisplayTotals(creditNote) : null;
   const creditDisplayUnapplied = creditNote?.status === "DRAFT" ? (creditDisplayTotals?.total ?? creditNote.total) : (creditNote?.unappliedAmount ?? "0");
   const canVoidCreditNote = can(PERMISSIONS.creditNotes.void);
@@ -319,7 +321,7 @@ export default function CreditNoteDetailPage() {
             </button>
           ) : null}
           {creditNote?.status === "DRAFT" && canFinalizeCreditNote ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || !fxPostingReady} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -336,15 +338,13 @@ export default function CreditNoteDetailPage() {
         </div>
       </div>
 
-      {creditNote?.status === "DRAFT" && foreignPostingBlocked ? (
-        <p className="mb-4 text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
-      ) : null}
 
       <div className="space-y-3">
         {!organizationId ? <StatusMessage type="info">{tc("Log in and select an organization to load credit notes.")}</StatusMessage> : null}
         {loading ? <StatusMessage type="loading">{tc("Loading credit note...")}</StatusMessage> : null}
         {error ? <StatusMessage type="error">{error}</StatusMessage> : null}
         {success ? <StatusMessage type="success">{success}</StatusMessage> : null}
+        {creditNote?.status === "DRAFT" && !fxPostingReady ? <StatusMessage type="info">{tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE)}</StatusMessage> : null}
       </div>
 
       {creditNote ? (
@@ -362,7 +362,9 @@ export default function CreditNoteDetailPage() {
               <Summary label={tc("Total credit")} value={formatAppMoney(creditDisplayTotals?.total ?? creditNote.total, creditNote.currency, locale)} />
               <Summary label={tc("Applied amount")} value={formatAppMoney(appliedAmount, creditNote.currency, locale)} />
               <Summary label={tc("Unapplied amount")} value={formatAppMoney(creditDisplayUnapplied, creditNote.currency, locale)} />
-              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(creditNote.total, creditNote.baseCurrency ?? creditNote.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(creditNote.total, creditNote.baseCurrency ?? creditNote.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={creditNote.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
               <Summary label={tc("Journal entry")} value={creditNote.journalEntry ? <bdi dir="ltr">{`${creditNote.journalEntry.entryNumber} (${creditNote.journalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Reversal journal")} value={creditNote.reversalJournalEntry ? <bdi dir="ltr">{`${creditNote.reversalJournalEntry.entryNumber} (${creditNote.reversalJournalEntry.id})`}</bdi> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(creditNote.finalizedAt, locale, "-")} />

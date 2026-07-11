@@ -71,10 +71,29 @@ describe("purchase bill workflow guidance", () => {
     expect(screen.queryByRole("link", { name: "Record supplier payment" })).not.toBeInTheDocument();
   });
 
-  it("keeps foreign-currency drafts visibly fail-closed until FX journal posting is available", () => {
+  it("allows a complete foreign-currency draft to finalize into the FX-aware journal", () => {
     render(
       <PurchaseBillWorkflowGuidance
-        bill={billFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" })}
+        bill={billFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000", rateDate: "2026-07-11", rateSource: "IMPORT" })}
+        actionLoading={false}
+        canFinalizeBill
+        canCreateSupplierPayment
+        canCreateDebitNote
+        canDownloadGeneratedDocuments
+        onFinalize={jest.fn()}
+        onDownloadPdf={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finalize bill" })).toBeEnabled();
+    expect(screen.getByText(/1 USD = 3.75000000 SAR/)).toBeInTheDocument();
+    expect(screen.queryByText(/foreign-currency posting is not enabled yet/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps an incomplete foreign bill fail-closed", () => {
+    render(
+      <PurchaseBillWorkflowGuidance
+        bill={billFixture({ status: "DRAFT", currency: "USD", baseCurrency: "SAR", exchangeRate: null, rateDate: null, rateSource: null })}
         actionLoading={false}
         canFinalizeBill
         canCreateSupplierPayment
@@ -86,7 +105,7 @@ describe("purchase bill workflow guidance", () => {
     );
 
     expect(screen.getByRole("button", { name: "Finalize bill" })).toBeDisabled();
-    expect(screen.getByText(/foreign-currency posting is not enabled yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the exchange rate/i)).toBeInTheDocument();
   });
 
   it("shows supplier payment, debit note, ledger, and AP report actions after posting", () => {
@@ -237,6 +256,11 @@ function billFixture(overrides: Partial<PurchaseBill> = {}): PurchaseBill {
     billDate: "2026-05-21T00:00:00.000Z",
     dueDate: null,
     currency: "SAR",
+    baseCurrency: "SAR",
+    exchangeRate: "1.00000000",
+    rateDate: "2026-05-21",
+    rateSource: "SYSTEM_RATE_1",
+    rateSnapshotId: null,
     status: "DRAFT",
     inventoryPostingMode: "DIRECT_EXPENSE_OR_ASSET",
     subtotal: "100.0000",

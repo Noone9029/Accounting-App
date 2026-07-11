@@ -16,7 +16,7 @@ import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStat
 import { getSalesInvoiceComplianceReadiness, prepareSalesInvoiceCompliance, validateComplianceDocument } from "@/lib/compliance";
 import { creditNoteAllocationStatusBadgeClass, creditNoteAllocationStatusLabel, creditNoteStatusBadgeClass, creditNoteStatusLabel } from "@/lib/credit-notes";
 import { customerPaymentUnappliedAllocationStatusBadgeClass, customerPaymentUnappliedAllocationStatusLabel } from "@/lib/customer-payments";
-import { FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE, foreignDocumentPostingIsBlocked, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
+import { documentFxPostingIsReady, documentFxRateEvidence, INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE, isForeignCurrencyDocument, transactionDocumentDisplayTotals, transactionLineDisplayAmounts } from "@/lib/document-fx";
 import { deriveInvoicePaymentState } from "@/lib/invoice-display";
 import { getLedgerByteEdition } from "@/lib/edition";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryProgressStatusBadgeClass, inventoryProgressStatusLabel } from "@/lib/inventory";
@@ -221,8 +221,8 @@ export default function SalesInvoiceDetailPage() {
       return;
     }
 
-    if (action === "finalize" && foreignDocumentPostingIsBlocked(invoice)) {
-      setError(tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE));
+    if (action === "finalize" && !documentFxPostingIsReady(invoice)) {
+      setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
       return;
     }
 
@@ -575,7 +575,9 @@ export default function SalesInvoiceDetailPage() {
   const latestZatcaSubmission = zatca?.submissionLogs?.[0];
   const canUpdateInvoice = can(PERMISSIONS.salesInvoices.update);
   const canFinalizeInvoice = can(PERMISSIONS.salesInvoices.finalize);
-  const foreignPostingBlocked = invoice ? foreignDocumentPostingIsBlocked(invoice) : false;
+  const foreignCurrencyDocument = invoice ? isForeignCurrencyDocument(invoice) : false;
+  const fxPostingReady = invoice ? documentFxPostingIsReady(invoice) : false;
+  const fxRateEvidence = invoice ? documentFxRateEvidence(invoice) : null;
   const invoiceDisplayTotals = invoice ? transactionDocumentDisplayTotals(invoice) : null;
   const canVoidInvoice = can(PERMISSIONS.salesInvoices.void);
   const canCreateCollectionCase = can(PERMISSIONS.salesInvoices.create);
@@ -644,7 +646,7 @@ export default function SalesInvoiceDetailPage() {
             </Link>
           ) : null}
           {invoice?.status === "DRAFT" && canFinalizeInvoice ? (
-            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || foreignPostingBlocked} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <button type="button" onClick={() => void runAction("finalize")} disabled={actionLoading || !fxPostingReady} className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
               {tc("Finalize")}
             </button>
           ) : null}
@@ -703,7 +705,9 @@ export default function SalesInvoiceDetailPage() {
               <Summary label={tc("Payment state")} value={tc(deriveInvoicePaymentState(invoice.total, invoice.balanceDue))} />
               <Summary label={tc("Total")} value={formatAppMoney(invoiceDisplayTotals?.total ?? invoice.total, invoice.currency, locale)} />
               <Summary label={tc("Balance due")} value={formatAppMoney(invoice.status === "DRAFT" ? (invoiceDisplayTotals?.total ?? invoice.total) : invoice.balanceDue, invoice.currency, locale)} />
-              {foreignPostingBlocked ? <Summary label={tc("Base equivalent")} value={formatAppMoney(invoice.total, invoice.baseCurrency ?? invoice.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Base equivalent")} value={formatAppMoney(invoice.total, invoice.baseCurrency ?? invoice.currency, locale)} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("Captured FX rate")} value={fxRateEvidence ?? tc("Incomplete FX context")} /> : null}
+              {foreignCurrencyDocument ? <Summary label={tc("FX rate status")} value={invoice.status === "DRAFT" ? tc("Freezes on finalization") : tc("Frozen; reverse to correct")} /> : null}
               <Summary label={tc("Journal entry")} value={invoice.journalEntry ? <><bdi dir="ltr">{invoice.journalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.journalEntry.id}</bdi>)</> : "-"} />
               <Summary label={tc("Reversal journal")} value={invoice.reversalJournalEntry ? <><bdi dir="ltr">{invoice.reversalJournalEntry.entryNumber}</bdi> (<bdi dir="ltr">{invoice.reversalJournalEntry.id}</bdi>)</> : "-"} />
               <Summary label={tc("Finalized")} value={formatAppDateTime(invoice.finalizedAt, locale, "-")} />
@@ -1405,8 +1409,9 @@ export function InvoiceWorkflowGuidance({
   const customerName = invoice.customer?.displayName ?? invoice.customer?.name ?? tc("this customer");
   const hasBalanceDue = paymentState !== "Paid";
   const statusLabel = tc(salesInvoiceStatusLabel(invoice.status));
-  const foreignPostingBlocked = foreignDocumentPostingIsBlocked(invoice);
   const displayTotals = transactionDocumentDisplayTotals(invoice);
+  const fxPostingReady = documentFxPostingIsReady(invoice);
+  const fxRateEvidence = documentFxRateEvidence(invoice);
   const invoiceDetailHref = salesInvoiceDetailHref(invoice.id, returnTo);
 
   return (
@@ -1443,15 +1448,16 @@ export function InvoiceWorkflowGuidance({
             <button
               type="button"
               onClick={onFinalize}
-              disabled={actionLoading || foreignPostingBlocked}
+              disabled={actionLoading || !fxPostingReady}
               className="rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {tc("Finalize invoice")}
             </button>
           ) : null}
-          {invoice.status === "DRAFT" && foreignPostingBlocked ? (
-            <p className="text-xs leading-5 text-amber-700">{tc(FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE)}</p>
+          {invoice.status === "DRAFT" && !fxPostingReady ? (
+            <p className="text-xs leading-5 text-amber-700">{tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE)}</p>
           ) : null}
+          {fxRateEvidence ? <p className="text-xs leading-5 text-steel"><bdi dir="ltr">{fxRateEvidence}</bdi> · {tc(invoice.status === "DRAFT" ? "Freezes on finalization" : "Frozen; reverse to correct")}</p> : null}
           {invoice.status === "FINALIZED" && hasBalanceDue && invoice.customerId && canCreateCustomerPayment ? (
             <Link
               href={`/sales/customer-payments/new?customerId=${encodeURIComponent(invoice.customerId)}&invoiceId=${encodeURIComponent(invoice.id)}&returnTo=${encodeURIComponent(invoiceDetailHref)}`}

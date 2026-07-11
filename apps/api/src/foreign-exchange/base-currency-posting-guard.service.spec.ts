@@ -53,39 +53,60 @@ describe("BaseCurrencyPostingGuardService", () => {
     expect(prisma.organization.findUnique).not.toHaveBeenCalled();
   });
 
-  it("requires every forward journal line to use base currency at rate one", async () => {
+  it("keeps unsupported manual journal posting base-only even with complete foreign evidence", async () => {
     const { service } = makeService("AED");
 
     await expect(
       service.assertJournalPostingAllowed("org-1", "AED", [
-        { currency: "AED", exchangeRate: "1.00000000" },
-        { currency: " aed ", exchangeRate: "1" },
+        { accountId: "cash", debit: "100", credit: "0", currency: "AED", exchangeRate: "1.00000000" },
+        { accountId: "sales", debit: "0", credit: "100", currency: " aed ", exchangeRate: "1" },
       ]),
     ).resolves.toBeUndefined();
     await expect(
-      service.assertJournalPostingAllowed("org-1", "AED", [{ currency: "USD", exchangeRate: "1" }]),
+      service.assertJournalPostingAllowed("org-1", "AED", [
+        { accountId: "ar", debit: "367.25", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+        { accountId: "sales", debit: "0", credit: "367.25", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+      ]),
     ).rejects.toEqual(new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE));
     await expect(
-      service.assertJournalPostingAllowed("org-1", "AED", [{ currency: "AED", exchangeRate: "1.1" }]),
+      service.assertJournalPostingAllowed("org-1", "USD", [
+        { accountId: "ar", debit: "367.25", credit: "0", transactionDebit: "100", transactionCredit: "0", currency: "USD", exchangeRate: "3.6725" },
+        { accountId: "sales", debit: "0", credit: "367.25", transactionDebit: "0", transactionCredit: "100", currency: "USD", exchangeRate: "3.6725" },
+      ]),
     ).rejects.toEqual(new BadRequestException(FOREIGN_CURRENCY_POSTING_DISABLED_MESSAGE));
+    await expect(
+      service.assertJournalPostingAllowed("org-1", "AED", [
+        { accountId: "cash", debit: "100", credit: "0", currency: "AED", exchangeRate: "1.1" },
+        { accountId: "sales", debit: "0", credit: "100", currency: "AED", exchangeRate: "1.1" },
+      ]),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 
 describe("base-currency posting guard coverage", () => {
   it.each([
-    "sales-invoices/sales-invoice.service.ts",
-    "purchase-bills/purchase-bill.service.ts",
-    "credit-notes/credit-note.service.ts",
-    "purchase-debit-notes/purchase-debit-note.service.ts",
     "customer-payments/customer-payment.service.ts",
     "supplier-payments/supplier-payment.service.ts",
     "customer-refunds/customer-refund.service.ts",
     "supplier-refunds/supplier-refund.service.ts",
-    "cash-expenses/cash-expense.service.ts",
     "accounting/accounting.service.ts",
   ])("wires the application guard into %s", (relativePath) => {
     const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
     expect(source).toContain("baseCurrencyPostingGuardService?.assert");
+  });
+
+  it.each([
+    "sales-invoices/sales-invoice.service.ts",
+    "purchase-bills/purchase-bill.service.ts",
+    "credit-notes/credit-note.service.ts",
+    "purchase-debit-notes/purchase-debit-note.service.ts",
+    "cash-expenses/cash-expense.service.ts",
+  ])("enables only supported document journal posting in %s", (relativePath) => {
+    const source = readFileSync(resolve(__dirname, "..", relativePath), "utf8");
+    expect(source).not.toContain("baseCurrencyPostingGuardService?.assertPostingAllowed");
+    expect(source).toContain("transactionDebit");
+    expect(source).toContain("transactionCredit");
+    expect(source).toContain("rateSnapshot");
   });
 
   it.each([

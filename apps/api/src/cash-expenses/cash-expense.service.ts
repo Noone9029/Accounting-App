@@ -144,7 +144,6 @@ export class CashExpenseService {
         currency: dto.currency, documentDate: dto.expenseDate, exchangeRate: dto.exchangeRate,
         rateDate: dto.rateDate, rateSource: dto.rateSource, rateSnapshotId: dto.rateSnapshotId,
       }, tx);
-      const currency = await this.baseCurrencyPostingGuardService?.assertPostingAllowed(organizationId, fx.currency, tx) ?? fx.currency;
       const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
       const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
       const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
@@ -153,13 +152,19 @@ export class CashExpenseService {
         paidThroughAccountId: paidThroughAccount.id,
         vatReceivableAccountId: vatReceivableAccount.id,
         expenseNumber,
-        currency,
+        currency: fx.currency,
+        baseCurrency: fx.baseCurrency,
+        exchangeRate: String(fx.exchangeRate),
+        rateSnapshotId: fx.rateSnapshotId,
         total: converted.totals.total,
+        transactionTotal: prepared.total,
         taxTotal: converted.totals.taxTotal,
+        transactionTaxTotal: prepared.taxTotal,
         lines: prepared.lines.map((line, index) => ({
           accountId: line.accountId,
           description: line.description,
           taxableAmount: converted.lines[index]?.taxableAmount ?? "0.0000",
+          transactionTaxableAmount: line.taxableAmount,
         })),
       });
       const totals = getJournalTotals(journalLines);
@@ -171,7 +176,7 @@ export class CashExpenseService {
           entryDate: expenseDate,
           description: `Cash expense ${expenseNumber}`,
           reference: expenseNumber,
-          currency,
+          currency: fx.baseCurrency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt: new Date(),
@@ -188,7 +193,7 @@ export class CashExpenseService {
           contactId: this.cleanOptional(dto.contactId ?? undefined) ?? null,
           branchId: this.cleanOptional(dto.branchId ?? undefined) ?? null,
           expenseDate,
-          currency,
+          currency: fx.currency,
           baseCurrency: fx.baseCurrency,
           exchangeRate: fx.exchangeRate,
           rateDate: fx.rateDate,
@@ -639,10 +644,16 @@ export class CashExpenseService {
           accountId: string;
           debit: Prisma.Decimal;
           credit: Prisma.Decimal;
+          transactionDebit: Prisma.Decimal | null;
+          transactionCredit: Prisma.Decimal | null;
           description: string | null;
           currency: string;
           exchangeRate: Prisma.Decimal;
+          rateSnapshotId: string | null;
+          fxRoundingComponentCount: number;
           taxRateId: string | null;
+          costCenterId: string | null;
+          projectId: string | null;
         }>;
       };
     },
@@ -653,10 +664,16 @@ export class CashExpenseService {
         accountId: line.accountId,
         debit: String(line.debit),
         credit: String(line.credit),
+        transactionDebit: line.transactionDebit == null ? undefined : String(line.transactionDebit),
+        transactionCredit: line.transactionCredit == null ? undefined : String(line.transactionCredit),
         description: `Reversal: ${line.description ?? expense.journalEntry.description ?? ""}`.trim(),
         currency: line.currency,
         exchangeRate: String(line.exchangeRate),
+        rateSnapshotId: line.rateSnapshotId,
+        fxRoundingComponentCount: line.fxRoundingComponentCount,
         taxRateId: line.taxRateId,
+        costCenterId: line.costCenterId,
+        projectId: line.projectId,
       })),
     );
     const totals = getJournalTotals(reversalLines);
@@ -670,7 +687,7 @@ export class CashExpenseService {
           entryDate: expense.reversalDate,
           description: `Reversal of cash expense ${expense.expenseNumber}`,
           reference: expense.journalEntry.reference,
-          currency: expense.currency,
+          currency: expense.journalEntry.currency,
           totalDebit: totals.debit,
           totalCredit: totals.credit,
           postedAt: expense.reversalDate,
@@ -721,12 +738,21 @@ export class CashExpenseService {
     return lines.map((line, index) => ({
       organization: { connect: { id: organizationId } },
       account: { connect: { id: line.accountId } },
+      taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
       lineNumber: index + 1,
       description: line.description,
       debit: String(line.debit),
       credit: String(line.credit),
+      transactionDebit: line.transactionDebit === undefined ? undefined : String(line.transactionDebit),
+      transactionCredit: line.transactionCredit === undefined ? undefined : String(line.transactionCredit),
       currency: line.currency,
       exchangeRate: line.exchangeRate === undefined ? "1" : String(line.exchangeRate),
+      fxRoundingComponentCount: line.fxRoundingComponentCount ?? 1,
+      rateSnapshot: line.rateSnapshotId
+        ? { connect: { organizationId_id: { organizationId, id: line.rateSnapshotId } } }
+        : undefined,
+      costCenter: line.costCenterId ? { connect: { id: line.costCenterId } } : undefined,
+      project: line.projectId ? { connect: { id: line.projectId } } : undefined,
     }));
   }
 

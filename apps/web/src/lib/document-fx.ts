@@ -6,12 +6,41 @@ export interface DocumentFxFormValue {
   rateSnapshotId: string | null;
 }
 
-export const FOREIGN_DOCUMENT_POSTING_BLOCKED_MESSAGE =
-  "Foreign-currency posting is not enabled yet. Keep this document as a draft until FX journal posting is available.";
+export interface StoredDocumentFxContext {
+  currency: string;
+  baseCurrency?: string | null;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: "MANUAL" | "IMPORT" | "SYSTEM_RATE_1" | "FUTURE_PROVIDER_DISABLED" | null;
+  rateSnapshotId?: string | null;
+}
 
-export function foreignDocumentPostingIsBlocked(document: { currency: string; baseCurrency?: string | null }): boolean {
+export const INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE =
+  "Complete the exchange rate, rate date, and rate source before finalizing this document.";
+
+export function isForeignCurrencyDocument(document: { currency: string; baseCurrency?: string | null }): boolean {
   const baseCurrency = document.baseCurrency?.trim().toUpperCase();
   return Boolean(baseCurrency && document.currency.trim().toUpperCase() !== baseCurrency);
+}
+
+export function documentFxPostingIsReady(document: StoredDocumentFxContext): boolean {
+  const currency = document.currency.trim().toUpperCase();
+  const baseCurrency = document.baseCurrency?.trim().toUpperCase();
+  if (!currency || !baseCurrency || !document.exchangeRate || !document.rateSource) return false;
+  if (currency === baseCurrency) {
+    return isRateOne(document.exchangeRate) && document.rateSource === "SYSTEM_RATE_1" && !document.rateSnapshotId;
+  }
+  return (
+    isPositiveRate(document.exchangeRate) &&
+    Boolean(document.rateDate && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(document.rateDate)) &&
+    (document.rateSource === "MANUAL" || document.rateSource === "IMPORT")
+  );
+}
+
+export function documentFxRateEvidence(document: StoredDocumentFxContext): string | null {
+  if (!isForeignCurrencyDocument(document) || !documentFxPostingIsReady(document)) return null;
+  const source = document.rateSource === "MANUAL" ? "Manual" : "Import";
+  return `1 ${document.currency.trim().toUpperCase()} = ${document.exchangeRate} ${document.baseCurrency?.trim().toUpperCase()} · ${document.rateDate?.slice(0, 10)} · ${source}`;
 }
 
 export function selectableDocumentRateSnapshots<T extends { source: string }>(rates: T[]): T[] {
@@ -61,8 +90,18 @@ export function transactionLineDisplayAmounts(line: {
 }
 
 export function documentFxIsComplete(value: DocumentFxFormValue, baseCurrency: string): boolean {
-  if (value.currency === baseCurrency) return value.exchangeRate === "1";
-  return /^\d{1,10}(?:\.\d{1,8})?$/.test(value.exchangeRate) && !/^0(?:\.0+)?$/.test(value.exchangeRate) && /^\d{4}-\d{2}-\d{2}$/.test(value.rateDate);
+  if (value.currency === baseCurrency) {
+    return isRateOne(value.exchangeRate) && value.rateSource === "SYSTEM_RATE_1" && !value.rateSnapshotId;
+  }
+  return isPositiveRate(value.exchangeRate) && /^\d{4}-\d{2}-\d{2}$/.test(value.rateDate) && (value.rateSource === "MANUAL" || value.rateSource === "IMPORT");
+}
+
+function isPositiveRate(value: string): boolean {
+  return /^\d{1,10}(?:\.\d{1,8})?$/.test(value) && !/^0+(?:\.0+)?$/.test(value);
+}
+
+function isRateOne(value: string): boolean {
+  return /^0*1(?:\.0+)?$/.test(value.trim());
 }
 
 export function convertTransactionToBasePreview(amount: string, rate: string): string | null {
