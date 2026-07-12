@@ -89,19 +89,27 @@ export class AccountingService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateJournalEntryDto) {
+    return this.prisma.$transaction((tx) => this.createDraftInTransaction(organizationId, actorUserId, dto, tx));
+  }
+
+  async createDraftInTransaction(
+    organizationId: string,
+    actorUserId: string | null,
+    dto: CreateJournalEntryDto,
+    tx: Prisma.TransactionClient,
+  ) {
     this.assertBalanced(dto.lines);
-    await this.validateLineReferences(organizationId, dto.lines);
+    await this.validateLineReferences(organizationId, dto.lines, tx);
     const totals = getJournalTotals(dto.lines);
 
-    const entry = await this.prisma.$transaction(async (tx) => {
-      await this.lockActiveLineDimensions(tx, organizationId, dto.lines);
-      const currency =
-        dto.currency === undefined
-          ? await resolveOrganizationBaseCurrency(organizationId, tx)
-          : dto.currency;
-      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+    await this.lockActiveLineDimensions(tx, organizationId, dto.lines);
+    const currency =
+      dto.currency === undefined
+        ? await resolveOrganizationBaseCurrency(organizationId, tx)
+        : dto.currency;
+    const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
 
-      return tx.journalEntry.create({
+    const entry = await tx.journalEntry.create({
         data: {
           organizationId,
           entryNumber,
@@ -117,10 +125,8 @@ export class AccountingService {
           },
         },
         include: journalInclude,
-      });
     });
-
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "JournalEntry", entityId: entry.id, after: entry });
+    await this.auditLogService.log({ organizationId, actorUserId: actorUserId ?? undefined, action: "CREATE", entityType: "JournalEntry", entityId: entry.id, after: entry }, tx);
     return entry;
   }
 
@@ -311,9 +317,13 @@ export class AccountingService {
     throw error;
   }
 
-  private async validateLineReferences(organizationId: string, lines: JournalLineInput[]): Promise<void> {
+  private async validateLineReferences(
+    organizationId: string,
+    lines: JournalLineInput[],
+    executor: PrismaService | Prisma.TransactionClient = this.prisma,
+  ): Promise<void> {
     const accountIds = [...new Set(lines.map((line) => line.accountId))];
-    const accounts = await this.prisma.account.findMany({
+    const accounts = await executor.account.findMany({
       where: {
         organizationId,
         id: { in: accountIds },
@@ -329,7 +339,7 @@ export class AccountingService {
 
     const taxRateIds = [...new Set(lines.map((line) => line.taxRateId).filter((value): value is string => Boolean(value)))];
     if (taxRateIds.length > 0) {
-      const taxRates = await this.prisma.taxRate.findMany({
+      const taxRates = await executor.taxRate.findMany({
         where: {
           organizationId,
           id: { in: taxRateIds },

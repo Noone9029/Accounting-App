@@ -99,7 +99,15 @@ describe("purchase bill rules", () => {
       account: { findMany: jest.fn().mockResolvedValue([{ id: "expense" }]) },
       taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "vat-15", rate: "15.0000" }]) },
       contact: { findFirst: jest.fn().mockResolvedValue({ id: "supplier-1", type: ContactType.SUPPLIER }) },
-      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        Object.assign(tx, {
+          account: prisma.account,
+          taxRate: prisma.taxRate,
+          contact: prisma.contact,
+          item: { findMany: jest.fn().mockResolvedValue([]) },
+        });
+        return callback(tx);
+      }),
     };
     const auditLog = { log: jest.fn() };
     const service = new PurchaseBillService(
@@ -203,6 +211,7 @@ describe("purchase bill rules", () => {
     );
     expect(auditLog.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CREATE", entityType: "PurchaseBill", entityId: "bill-1" }),
+      tx,
     );
     expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
     expect((tx as { journalEntry?: unknown }).journalEntry).toBeUndefined();

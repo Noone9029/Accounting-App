@@ -770,6 +770,7 @@ describe("sales invoice rules", () => {
       taxRate: { findMany: jest.fn() },
       $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma));
     const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
 
     prisma.contact.findFirst.mockResolvedValueOnce(null);
@@ -808,7 +809,15 @@ describe("sales invoice rules", () => {
       item: { findMany: jest.fn().mockResolvedValue([]) },
       account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
       taxRate: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        Object.assign(tx, {
+          contact: prisma.contact,
+          item: prisma.item,
+          account: prisma.account,
+          taxRate: prisma.taxRate,
+        });
+        return callback(tx);
+      }),
     };
     const service = new SalesInvoiceService(
       prisma as never,
@@ -852,7 +861,15 @@ describe("sales invoice rules", () => {
       item: { findMany: jest.fn().mockResolvedValue([]) },
       account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
       taxRate: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        Object.assign(tx, {
+          contact: prisma.contact,
+          item: prisma.item,
+          account: prisma.account,
+          taxRate: prisma.taxRate,
+        });
+        return callback(tx);
+      }),
     };
     const service = new SalesInvoiceService(
       prisma as never,

@@ -53,6 +53,7 @@ import { PurchaseOrderModule } from "./purchase-orders/purchase-order.module";
 import { PurchaseReceiptModule } from "./purchase-receipts/purchase-receipt.module";
 import { PurchaseReturnModule } from "./purchase-returns/purchase-return.module";
 import { RecurringInvoiceModule } from "./recurring-invoices/recurring-invoice.module";
+import { RecurringTransactionModule } from "./recurring-transactions/recurring-transaction.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoleModule } from "./roles/role.module";
 import { SalesInvoiceModule } from "./sales-invoices/sales-invoice.module";
@@ -133,6 +134,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     PurchaseReceiptModule,
     PurchaseReturnModule,
     RecurringInvoiceModule,
+    RecurringTransactionModule,
     PurchaseDebitNoteModule,
     SalesStockIssueModule,
     ReportsModule,

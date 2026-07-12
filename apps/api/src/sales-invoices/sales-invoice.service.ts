@@ -452,27 +452,35 @@ export class SalesInvoiceService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInvoiceDto) {
-    await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined);
-    const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
-    const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode);
-    const invoice = await this.prisma.$transaction(async (tx) => {
-      await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
-      const fx = await this.documentFxContext().resolve(
-        organizationId,
-        {
-          currency: dto.currency,
-          documentDate: dto.issueDate,
-          exchangeRate: dto.exchangeRate,
-          rateDate: dto.rateDate,
-          rateSource: dto.rateSource,
-          rateSnapshotId: dto.rateSnapshotId,
-        },
-        tx,
-      );
-      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
-      const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
+    return this.prisma.$transaction((tx) => this.createDraftInTransaction(organizationId, actorUserId, dto, tx));
+  }
 
-      return tx.salesInvoice.create({
+  async createDraftInTransaction(
+    organizationId: string,
+    actorUserId: string | null,
+    dto: CreateSalesInvoiceDto,
+    tx: Prisma.TransactionClient,
+  ) {
+    await this.validateHeaderReferences(organizationId, dto.customerId, dto.branchId ?? undefined, tx);
+    const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
+    const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode, tx);
+    await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
+    const fx = await this.documentFxContext().resolve(
+      organizationId,
+      {
+        currency: dto.currency,
+        documentDate: dto.issueDate,
+        exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate,
+        rateSource: dto.rateSource,
+        rateSnapshotId: dto.rateSnapshotId,
+      },
+      tx,
+    );
+    const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
+    const invoiceNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.INVOICE, tx);
+
+    const invoice = await tx.salesInvoice.create({
         data: {
           organizationId,
           invoiceNumber,
@@ -505,10 +513,8 @@ export class SalesInvoiceService {
           lines: { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) },
         },
         include: salesInvoiceInclude,
-      });
     });
-
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "SalesInvoice", entityId: invoice.id, after: invoice });
+    await this.auditLogService.log({ organizationId, actorUserId: actorUserId ?? undefined, action: "CREATE", entityType: "SalesInvoice", entityId: invoice.id, after: invoice }, tx);
     return invoice;
   }
 
@@ -1002,8 +1008,8 @@ export class SalesInvoiceService {
     return { deleted: true };
   }
 
-  private async validateHeaderReferences(organizationId: string, customerId: string, branchId?: string): Promise<void> {
-    const customer = await this.prisma.contact.findFirst({
+  private async validateHeaderReferences(organizationId: string, customerId: string, branchId?: string, executor: Prisma.TransactionClient | PrismaService = this.prisma): Promise<void> {
+    const customer = await executor.contact.findFirst({
       where: {
         id: customerId,
         organizationId,
@@ -1021,7 +1027,7 @@ export class SalesInvoiceService {
       return;
     }
 
-    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+    const branch = await executor.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
     if (!branch) {
       throw new BadRequestException("Branch does not exist in this organization.");
     }
@@ -1031,9 +1037,10 @@ export class SalesInvoiceService {
     organizationId: string,
     lines: SalesInvoiceLineDto[],
     taxMode: SalesInvoiceTaxMode = SalesInvoiceTaxMode.TAX_EXCLUSIVE,
+    executor: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<PreparedInvoice> {
     const itemIds = [...new Set(lines.map((line) => line.itemId).filter((value): value is string => Boolean(value)))];
-    const items = await this.prisma.item.findMany({
+    const items = await executor.item.findMany({
       where: { organizationId, id: { in: itemIds }, status: ItemStatus.ACTIVE },
       select: { id: true, name: true, description: true, revenueAccountId: true, salesTaxRateId: true },
     });
@@ -1072,10 +1079,11 @@ export class SalesInvoiceService {
       };
     });
 
-    await this.validateLineAccounts(organizationId, baseLines.map((line) => line.accountId));
+    await this.validateLineAccounts(organizationId, baseLines.map((line) => line.accountId), executor);
     const taxRatesById = await this.getTaxRatesById(
       organizationId,
       baseLines.map((line) => line.taxRateId).filter((value): value is string => Boolean(value)),
+      executor,
     );
 
     const totals = this.calculateTotals(
@@ -1140,9 +1148,9 @@ export class SalesInvoiceService {
     }
   }
 
-  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
+  private async validateLineAccounts(organizationId: string, accountIds: string[], executor: Prisma.TransactionClient | PrismaService = this.prisma): Promise<void> {
     const uniqueAccountIds = [...new Set(accountIds)];
-    const accounts = await this.prisma.account.findMany({
+    const accounts = await executor.account.findMany({
       where: {
         organizationId,
         id: { in: uniqueAccountIds },
@@ -1158,13 +1166,13 @@ export class SalesInvoiceService {
     }
   }
 
-  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
+  private async getTaxRatesById(organizationId: string, taxRateIds: string[], executor: Prisma.TransactionClient | PrismaService = this.prisma) {
     const uniqueTaxRateIds = [...new Set(taxRateIds)];
     if (uniqueTaxRateIds.length === 0) {
       return new Map<string, { id: string; rate: Prisma.Decimal }>();
     }
 
-    const taxRates = await this.prisma.taxRate.findMany({
+    const taxRates = await executor.taxRate.findMany({
       where: {
         organizationId,
         id: { in: uniqueTaxRateIds },
