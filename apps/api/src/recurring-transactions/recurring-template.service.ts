@@ -266,6 +266,21 @@ export class RecurringTemplateService {
       const existing = await tx.recurringTransactionTemplate.findFirst({ where: { id, organizationId }, include: templateInclude });
       if (!existing) throw new NotFoundException("Recurring transaction template not found.");
       if (!allowed.includes(existing.status)) throw new BadRequestException(`Recurring template cannot ${action.toLowerCase()} from ${existing.status}.`);
+      if (status === RecurringTransactionStatus.ACTIVE) {
+        const organization = await tx.organization.findUnique({
+          where: { id: organizationId },
+          select: { id: true, timezone: true, baseCurrency: true },
+        });
+        if (!organization) throw new NotFoundException("Organization not found.");
+        const normalized = this.normalizeInput(
+          this.mergeExisting(existing, { expectedVersion: existing.templateVersion }),
+          organization.timezone,
+          organization.baseCurrency,
+        );
+        await this.prepareLines(tx, organizationId, normalized);
+        await this.validateHeaderReferences(tx, organizationId, normalized);
+        await this.validateFxPolicy(tx, organizationId, organization.baseCurrency, normalized);
+      }
       const updated = await tx.recurringTransactionTemplate.update({
         where: { id },
         data: { status, archivedAt: status === RecurringTransactionStatus.ARCHIVED ? new Date() : undefined, updatedByUserId: actorUserId },

@@ -292,6 +292,40 @@ describe("RecurringTemplateService", () => {
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "SCHEDULE_CHANGE" }), tx);
   });
 
+  it.each([
+    ["activate", RecurringTransactionStatus.DRAFT],
+    ["resume", RecurringTransactionStatus.PAUSED],
+  ] as const)("revalidates all references before %s", async (action, status) => {
+    const { service, tx, created } = makeHarness();
+    tx.recurringTransactionTemplate.findFirst.mockResolvedValue({
+      ...created,
+      status,
+      currencyCode: "AED",
+      exchangeRatePolicy: RecurringExchangeRatePolicy.BASE_CURRENCY_ONLY,
+      fixedExchangeRate: null,
+      rateSnapshotId: null,
+      partyId: "customer-1",
+      branchId: null,
+      paidThroughAccountId: null,
+      paymentTermsDays: 30,
+      reference: null,
+      notes: null,
+      terms: null,
+      taxMode: SalesInvoiceTaxMode.TAX_EXCLUSIVE,
+      inventoryPostingMode: null,
+      catchUpPolicy: RecurringCatchUpPolicy.SKIP_MISSED,
+      dayOfWeek: null,
+      dayOfMonth: 31,
+      monthOfYear: null,
+      description: null,
+      lines: [{ ...created.lines[0], costCenterId: "archived-cost" }],
+    });
+    tx.costCenter.findMany.mockResolvedValue([]);
+
+    await expect(service[action]("org-1", "user-1", "template-1")).rejects.toThrow("cost center");
+    expect(tx.recurringTransactionTemplate.update).not.toHaveBeenCalled();
+  });
+
   it("archives historically visible templates and blocks missing tenant IDs", async () => {
     const { service, tx, auditLog, created } = makeHarness();
     tx.recurringTransactionTemplate.findFirst.mockResolvedValueOnce({ ...created, status: RecurringTransactionStatus.PAUSED });
