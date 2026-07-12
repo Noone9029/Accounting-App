@@ -68,6 +68,12 @@ export function canonicalOccurrence(localDate: string, timeZone: string): Recurr
   return { localDate, scheduledFor: canonical };
 }
 
+export function localDateForInstant(value: Date, timeZone: string): string {
+  if (Number.isNaN(value.getTime())) throw new Error("Schedule instant is invalid.");
+  assertValidTimeZone(timeZone);
+  return localDateAtInstant(value, timeZone);
+}
+
 export function nextOccurrence(schedule: RecurringSchedule, currentLocalDate: string): RecurringOccurrence | null {
   validateSchedule(schedule);
   const current = parseLocalDate(currentLocalDate);
