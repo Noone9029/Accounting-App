@@ -270,9 +270,10 @@ describe("sales invoice rules", () => {
   it("creates ZATCA invoice metadata when finalizing an invoice", async () => {
     const tx = makeFinalizeTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const service = new SalesInvoiceService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn().mockResolvedValue("JE-000001") } as never,
       { reverse: jest.fn() } as never,
     );
@@ -285,6 +286,7 @@ describe("sales invoice rules", () => {
         create: expect.objectContaining({ organizationId: "org-1", invoiceId: "invoice-1", zatcaInvoiceType: "STANDARD_TAX_INVOICE" }),
       }),
     );
+    expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "FREEZE_FX_RATE" }), expect.anything());
   });
 
   it("does not generate or archive invoice PDFs when finalizing an invoice", async () => {
@@ -332,12 +334,13 @@ describe("sales invoice rules", () => {
   it("finalizes a foreign-currency invoice into a base-balanced journal with transaction evidence", async () => {
     const tx = makeFinalizeTransactionMock({ foreign: true });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const postingGuard = {
       assertPostingAllowed: jest.fn().mockRejectedValue(new Error("must not run for supported document posting")),
     };
     const service = new SalesInvoiceService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn() } as never,
       { reverse: jest.fn() } as never,
       undefined,
@@ -364,6 +367,13 @@ describe("sales invoice rules", () => {
         ] },
       }),
     }));
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE", entityType: "SalesInvoice", entityId: "invoice-1",
+        after: expect.objectContaining({ currency: "USD", baseCurrency: "AED", exchangeRate: "3.67250000" }),
+      }),
+      tx,
+    );
   });
 
   it("does not link a journal when finalization journal creation fails", async () => {

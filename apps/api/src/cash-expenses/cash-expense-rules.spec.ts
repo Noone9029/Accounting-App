@@ -1,5 +1,5 @@
 import { assertBalancedJournal, assertJournalFxContext, calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
-import { CashExpenseStatus, ContactType, JournalEntryStatus } from "@prisma/client";
+import { CashExpenseStatus, ContactType, CurrencyRateSource, JournalEntryStatus, Prisma } from "@prisma/client";
 import { buildSupplierLedgerRows } from "../contacts/contact-ledger.service";
 import { buildCashExpenseJournalLines } from "./cash-expense-accounting";
 import { CashExpenseService } from "./cash-expense.service";
@@ -72,9 +72,10 @@ describe("cash expense rules", () => {
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const archivePdf = jest.fn().mockResolvedValue({ id: "doc-1" });
+    const auditLog = { log: jest.fn() };
     const service = new CashExpenseService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn().mockResolvedValueOnce("EXP-000001").mockResolvedValueOnce("JE-000001") } as never,
       { receiptRenderSettings: jest.fn().mockResolvedValue({ title: "Cash Expense" }) } as never,
       { archivePdf } as never,
@@ -115,6 +116,46 @@ describe("cash expense rules", () => {
           },
         }),
       }),
+    );
+    expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "FREEZE_FX_RATE" }), expect.anything());
+  });
+
+  it("freezes foreign cash-expense rate evidence through the posted create transaction", async () => {
+    const tx = makeCreateTransactionMock();
+    const prisma = {
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: {
+        findMany: jest.fn().mockResolvedValue([{ id: "expense" }]),
+        findFirst: jest.fn(({ where }: { where: { id?: string; code?: string } }) => Promise.resolve({ id: where.id === "bank" ? "bank" : "vat-receivable" })),
+      },
+      taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "tax-1", rate: "15.0000" }]) },
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "supplier-1" }) },
+      branch: { findFirst: jest.fn() },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const auditLog = { log: jest.fn() };
+    const fxContext = { resolve: jest.fn().mockResolvedValue({
+      currency: "USD", baseCurrency: "SAR", exchangeRate: new Prisma.Decimal("3.75000000"),
+      rateDate: new Date("2026-07-11T00:00:00.000Z"), rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "rate-1",
+    }) };
+    const service = new CashExpenseService(
+      prisma as never, auditLog as never,
+      { next: jest.fn().mockResolvedValueOnce("EXP-000001").mockResolvedValueOnce("JE-000001") } as never,
+      undefined, undefined, undefined, undefined, fxContext as never,
+    );
+
+    await service.create("org-1", "user-1", {
+      expenseDate: "2026-07-11", currency: "USD", exchangeRate: "3.75000000", rateDate: "2026-07-11",
+      rateSource: CurrencyRateSource.MANUAL, rateSnapshotId: "rate-1", paidThroughAccountId: "bank",
+      lines: [{ description: "Services", accountId: "expense", quantity: "1", unitPrice: "100", taxRateId: "tax-1" }],
+    });
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE", entityType: "CashExpense", entityId: "expense-1",
+        after: expect.objectContaining({ currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" }),
+      }),
+      tx,
     );
   });
 

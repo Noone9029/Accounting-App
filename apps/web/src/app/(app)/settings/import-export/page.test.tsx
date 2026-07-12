@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import ImportExportSettingsPage from "./page";
 
 const apiRequest = jest.fn();
@@ -61,6 +61,230 @@ describe("ImportExportSettingsPage", () => {
     fireEvent.click(screen.getByLabelText(/I reviewed the preview rows/i));
     expect(screen.getByRole("button", { name: "Commit reviewed local import" })).toBeDisabled();
   });
+
+  it("shows transaction, rate, and base-equivalent evidence for foreign and legacy catalog rows", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            id: "row-foreign",
+            rowNumber: 2,
+            normalizedJson: {
+              name: "Cloud hosting",
+              sellingPrice: "367.2500",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "367.2500",
+              currency: "USD",
+              baseCurrency: "AED",
+              exchangeRate: "3.67250000",
+              rateDate: "2026-07-10",
+              rateSource: "MANUAL",
+              rateSnapshotId: "rate-usd-1",
+            },
+          }),
+          makeProductImportRow({
+            id: "row-legacy",
+            rowNumber: 3,
+            normalizedJson: {
+              name: "Local support",
+              sellingPrice: "50.0000",
+              transactionSellingPrice: "50.0000",
+              baseSellingPrice: "50.0000",
+              currency: "AED",
+              baseCurrency: "AED",
+              exchangeRate: "1",
+              rateDate: null,
+              rateSource: "SYSTEM_RATE_1",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const table = await screen.findByRole("table", { name: "Normalized product and service import rows" });
+    expect(table).toBeInTheDocument();
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(8);
+    within(table).getAllByRole("columnheader").forEach((header) => expect(header).toHaveAttribute("scope", "col"));
+    const foreignRow = screen.getByText("Cloud hosting").closest("tr");
+    expect(foreignRow).not.toBeNull();
+    expect(within(foreignRow!).getByRole("rowheader", { name: "Cloud hosting" })).toHaveAttribute("scope", "row");
+    expect(within(foreignRow!).getByText("100.0000 USD")).toBeInTheDocument();
+    expect(within(foreignRow!).getByText("3.67250000")).toBeInTheDocument();
+    expect(within(foreignRow!).getByText("2026-07-10")).toBeInTheDocument();
+    expect(within(foreignRow!).getByText("MANUAL")).toBeInTheDocument();
+    expect(within(foreignRow!).getByText("Snapshot rate-usd-1")).toBeInTheDocument();
+    expect(within(foreignRow!).getByText("367.2500 AED")).toBeInTheDocument();
+
+    const legacyRow = screen.getByText("Local support").closest("tr");
+    expect(legacyRow).not.toBeNull();
+    expect(within(legacyRow!).getAllByText("50.0000 AED")).toHaveLength(2);
+    expect(within(legacyRow!).getByText("1")).toBeInTheDocument();
+    expect(within(legacyRow!).getByText("Not required")).toBeInTheDocument();
+    expect(within(legacyRow!).getByText("SYSTEM RATE 1")).toBeInTheDocument();
+  });
+
+  it("keeps product row errors beside the normalized evidence", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            id: "row-invalid",
+            rowNumber: 4,
+            status: "INVALID",
+            normalizedJson: {
+              name: "Broken service",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "100.0000",
+              currency: "USD",
+              baseCurrency: "AED",
+              exchangeRate: "0",
+              rateDate: "2026-07-10",
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+        validationIssues: [
+          {
+            id: "issue-rate",
+            rowNumber: 4,
+            field: "exchangeRate",
+            code: "INVALID_EXCHANGE_RATE",
+            message: "Exchange rate must be positive.",
+            severity: "ERROR",
+          },
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const invalidRow = (await screen.findByText("Broken service")).closest("tr");
+    expect(invalidRow).not.toBeNull();
+    expect(within(invalidRow!).getByText("INVALID")).toBeInTheDocument();
+    expect(within(invalidRow!).getByText("Exchange rate must be positive.")).toBeInTheDocument();
+  });
+
+  it("shows a missing rate date for a foreign parity-rate row", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            normalizedJson: {
+              name: "Parity-priced service",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "100.0000",
+              currency: "USD",
+              baseCurrency: "AED",
+              exchangeRate: "1",
+              rateDate: null,
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const parityRow = (await screen.findByText("Parity-priced service")).closest("tr");
+    expect(parityRow).not.toBeNull();
+    expect(within(parityRow!).getByText("Not provided")).toBeInTheDocument();
+    expect(within(parityRow!).queryByText("Not required")).not.toBeInTheDocument();
+  });
+
+  it("does not infer a same-currency rate date when both currency fields are missing", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            normalizedJson: {
+              name: "Incomplete currency evidence",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "100.0000",
+              currency: null,
+              baseCurrency: null,
+              exchangeRate: "1",
+              rateDate: null,
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const incompleteRow = (await screen.findByText("Incomplete currency evidence")).closest("tr");
+    expect(incompleteRow).not.toBeNull();
+    expect(within(incompleteRow!).getAllByText("Not provided").length).toBeGreaterThanOrEqual(1);
+    expect(within(incompleteRow!).queryByText("Not required")).not.toBeInTheDocument();
+  });
+
+  it("requires an explicit reviewed action before a base-equivalent catalog commit", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        rows: [
+          makeProductImportRow({
+            normalizedJson: {
+              name: "Cloud hosting",
+              transactionSellingPrice: "100.0000",
+              baseSellingPrice: "367.2500",
+              currency: "USD",
+              baseCurrency: "AED",
+              exchangeRate: "3.67250000",
+              rateDate: "2026-07-10",
+              rateSource: "IMPORT",
+              rateSnapshotId: null,
+            },
+          }),
+        ],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const commitButton = await screen.findByRole("button", { name: "Commit reviewed local import" });
+    expect(screen.getByText(/base amount that will be committed after approval/i)).toBeInTheDocument();
+    expect(commitButton).toBeDisabled();
+
+    fireEvent.click(screen.getByLabelText(/I reviewed the preview rows/i));
+
+    expect(commitButton).toBeEnabled();
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("binds review approval to the currently selected preview job", async () => {
+    mockInitialLoad([
+      makeProductImportJob({
+        id: "job-a",
+        filename: "products-a.csv",
+        requestId: "req-a",
+        rows: [makeProductImportRow({ id: "row-a" })],
+      }),
+      makeProductImportJob({
+        id: "job-b",
+        filename: "products-b.csv",
+        requestId: "req-b",
+        rows: [makeProductImportRow({ id: "row-b" })],
+      }),
+    ]);
+    render(<ImportExportSettingsPage />);
+
+    const commitButton = await screen.findByRole("button", { name: "Commit reviewed local import" });
+    const reviewCheckbox = screen.getByLabelText(/I reviewed the preview rows/i);
+    expect(screen.getByText("req-a")).toBeInTheDocument();
+    fireEvent.click(reviewCheckbox);
+    expect(reviewCheckbox).toBeChecked();
+    expect(commitButton).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /products-b\.csv/i }));
+
+    expect(screen.getByText("req-b")).toBeInTheDocument();
+    expect(reviewCheckbox).not.toBeChecked();
+    expect(commitButton).toBeDisabled();
+    expect(apiRequest).toHaveBeenCalledTimes(2);
+  });
 });
 
 function mockInitialLoad(jobs: unknown[] = []) {
@@ -79,4 +303,34 @@ function mockInitialLoad(jobs: unknown[] = []) {
       limitations: ["No external provider upload."],
     })
     .mockResolvedValueOnce(jobs);
+}
+
+function makeProductImportJob(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "job-products",
+    entityType: "PRODUCTS_SERVICES",
+    status: "READY_FOR_REVIEW",
+    filename: "products-preview.csv",
+    previewOnly: true,
+    summaryJson: { rowCount: 1, errorCount: 0 },
+    requestId: "req-products-1",
+    createdAt: "2026-07-11T00:00:00.000Z",
+    committedAt: null,
+    rows: [],
+    validationIssues: [],
+    ...overrides,
+  };
+}
+
+function makeProductImportRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "row-product",
+    rowNumber: 2,
+    status: "VALID",
+    duplicate: false,
+    rawJson: {},
+    normalizedJson: {},
+    createdRecordId: null,
+    ...overrides,
+  };
 }

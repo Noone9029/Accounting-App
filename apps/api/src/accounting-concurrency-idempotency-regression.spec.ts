@@ -21,7 +21,12 @@ import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
 interface CustomerPaymentCreateArgs {
   data: {
     allocations: {
-      create: Array<{ invoice: { connect: { id: string } } }>;
+      create: Array<{
+        invoice: { connect: { organizationId_id: { id: string } } };
+        realizedGainAmount: string;
+        realizedLossAmount: string;
+        realizedFxJournalEntryId: string | null;
+      }>;
     };
   };
 }
@@ -246,14 +251,16 @@ function makeCustomerPaymentAllocationHarness() {
       create: jest.fn(async ({ data }: CustomerPaymentCreateArgs) => {
         const payment = { id: `payment-${state.customerPayments.length + 1}` };
         state.customerPayments.push(payment);
-        state.customerPaymentAllocations.push(
-          ...data.allocations.create.map((allocation: { invoice: { connect: { id: string } } }, index: number) => ({
-            id: `allocation-${state.customerPaymentAllocations.length + index + 1}`,
-            paymentId: payment.id,
-            invoiceId: allocation.invoice.connect.id,
-          })),
-        );
-        return payment;
+        const allocations = data.allocations.create.map((allocation, index) => ({
+          id: `allocation-${state.customerPaymentAllocations.length + index + 1}`,
+          paymentId: payment.id,
+          invoiceId: allocation.invoice.connect.organizationId_id.id,
+          realizedGainAmount: allocation.realizedGainAmount,
+          realizedLossAmount: allocation.realizedLossAmount,
+          realizedFxJournalEntryId: allocation.realizedFxJournalEntryId,
+        }));
+        state.customerPaymentAllocations.push(...allocations);
+        return { ...payment, allocations };
       }),
     },
   };

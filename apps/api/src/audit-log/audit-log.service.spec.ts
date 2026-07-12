@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { AUDIT_EVENTS } from "./audit-events";
+import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS, standardizeAuditAction } from "./audit-events";
 import { sanitizeAuditMetadata } from "./audit-sanitize";
 import { AuditLogService } from "./audit-log.service";
 
@@ -26,6 +26,48 @@ describe("audit log redaction", () => {
       },
       rows: [{ privateKeyPem: "[REDACTED]" }],
     });
+  });
+});
+
+describe("FX audit event catalogue", () => {
+  it.each([
+    ["SalesInvoice", "CHANGE_FX_CONTEXT", "DOCUMENT_FX_CONTEXT_CHANGED"],
+    ["SalesInvoice", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["CreditNote", "CHANGE_FX_CONTEXT", "DOCUMENT_FX_CONTEXT_CHANGED"],
+    ["CreditNote", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["PurchaseBill", "CHANGE_FX_CONTEXT", "DOCUMENT_FX_CONTEXT_CHANGED"],
+    ["PurchaseBill", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["PurchaseDebitNote", "CHANGE_FX_CONTEXT", "DOCUMENT_FX_CONTEXT_CHANGED"],
+    ["PurchaseDebitNote", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["CashExpense", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["CustomerPayment", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["SupplierPayment", "FREEZE_FX_RATE", "DOCUMENT_FX_RATE_FROZEN"],
+    ["RealizedFxSettlement", "POST", "REALIZED_FX_POSTED"],
+    ["RealizedFxSettlement", "REVERSE", "REALIZED_FX_REVERSED"],
+    ["FxRevaluationRun", "CREATE", "FX_REVALUATION_PREVIEWED"],
+    ["FxRevaluationRun", "REVIEW", "FX_REVALUATION_REVIEWED"],
+    ["FxRevaluationRun", "POST", "FX_REVALUATION_POSTED"],
+    ["FxRevaluationRun", "REVERSE", "FX_REVALUATION_REVERSED"],
+    ["FxRevaluationRun", "SUPERSEDE", "FX_REVALUATION_SUPERSEDED"],
+  ])("maps %s:%s to %s", (entityType, action, expected) => {
+    expect(standardizeAuditAction(action, entityType)).toBe(expected);
+  });
+
+  it("publishes the focused FX entity types without changing existing entity constants", () => {
+    expect(AUDIT_ENTITY_TYPES).toMatchObject({
+      SALES_INVOICE: "SalesInvoice",
+      CUSTOMER_PAYMENT: "CustomerPayment",
+      FX_REVALUATION_RUN: "FxRevaluationRun",
+      REALIZED_FX_SETTLEMENT: "RealizedFxSettlement",
+    });
+  });
+
+  it("keeps existing action mappings stable", () => {
+    expect(standardizeAuditAction("FINALIZE", "SalesInvoice")).toBe(AUDIT_EVENTS.SALES_INVOICE_FINALIZED);
+    expect(standardizeAuditAction("CREATE", "CurrencyRateSnapshot")).toBe(AUDIT_EVENTS.CURRENCY_RATE_SNAPSHOT_CREATED);
+    expect(standardizeAuditAction(AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED, "CustomerPayment")).toBe(
+      AUDIT_EVENTS.CUSTOMER_PAYMENT_UNAPPLIED_APPLIED,
+    );
   });
 });
 

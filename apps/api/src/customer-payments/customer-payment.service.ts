@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
   allocateForeignSettlement,
@@ -21,7 +21,12 @@ import {
   Prisma,
   SalesInvoiceStatus,
 } from "@prisma/client";
-import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
+import {
+  AUDIT_ENTITY_TYPES,
+  AUDIT_EVENTS,
+  documentFxAuditEvidence,
+  isForeignDocumentFxContext,
+} from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -390,7 +395,7 @@ export class CustomerPaymentService {
         adjustmentDate,
       }, tx);
 
-      await tx.customerPaymentUnappliedAllocation.create({
+      const createdAllocation = await tx.customerPaymentUnappliedAllocation.create({
         data: {
           organization: { connect: { id: organizationId } },
           payment: { connect: { organizationId_id: { organizationId, id } } },
@@ -417,6 +422,22 @@ export class CustomerPaymentService {
           idempotencyKey,
         },
       });
+      if (realizedFxJournalEntryId) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "POST",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: createdAllocation.id,
+          after: {
+            paymentId: id,
+            documentId: dto.invoiceId,
+            realizedGainAmount: calculated.realizedGainAmount,
+            realizedLossAmount: calculated.realizedLossAmount,
+            journalEntryId: realizedFxJournalEntryId,
+          },
+        }, tx);
+      }
 
       return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
     });
@@ -590,6 +611,19 @@ export class CustomerPaymentService {
             },
           },
         });
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "REVERSE",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocationId,
+          after: {
+            paymentId: id,
+            documentId: allocation.invoiceId,
+            journalEntryId: realizedFxReversalJournalEntryId,
+            reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+          },
+        }, tx);
       }
       return tx.customerPayment.findUniqueOrThrow({ where: { id }, include: customerPaymentInclude });
     });
@@ -1053,6 +1087,42 @@ export class CustomerPaymentService {
         include: customerPaymentInclude,
       });
 
+      if (!Array.isArray(created.allocations) || created.allocations.length !== allocationPlans.length) {
+        throw new InternalServerErrorException("Created customer payment is missing allocation evidence required for FX audit.");
+      }
+      if (isForeignDocumentFxContext(fx)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: AUDIT_ENTITY_TYPES.CUSTOMER_PAYMENT,
+          entityId: created.id,
+          after: {
+            ...documentFxAuditEvidence(fx),
+            journalEntryId: journalEntry.id,
+            paymentNumber,
+          },
+        }, tx);
+      }
+      for (const allocation of created.allocations) {
+        const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
+        if (!hasRealizedFx || !allocation.realizedFxJournalEntryId) continue;
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "POST",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocation.id,
+          after: {
+            paymentId: created.id,
+            documentId: allocation.invoiceId,
+            realizedGainAmount: moneyString(allocation.realizedGainAmount),
+            realizedLossAmount: moneyString(allocation.realizedLossAmount),
+            journalEntryId: allocation.realizedFxJournalEntryId,
+          },
+        }, tx);
+      }
+
       return created;
     });
 
@@ -1184,6 +1254,24 @@ export class CustomerPaymentService {
           carryingBaseAmount: String(allocation.documentBaseAmountApplied ?? allocation.amountApplied),
           sourceBaseAmount,
         }, tx);
+        const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
+        if (hasRealizedFx && allocation.realizedFxJournalEntryId) {
+          await this.auditLogService.log({
+            organizationId,
+            actorUserId,
+            action: "REVERSE",
+            entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+            entityId: allocation.id,
+            after: {
+              paymentId: id,
+              documentId: allocation.invoiceId,
+              journalEntryId: reversalJournalEntryId,
+              reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+              realizedGainAmount: moneyString(allocation.realizedGainAmount),
+              realizedLossAmount: moneyString(allocation.realizedLossAmount),
+            },
+          }, tx);
+        }
       }
 
       return tx.customerPayment.update({

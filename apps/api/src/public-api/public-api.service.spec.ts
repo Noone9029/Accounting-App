@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
+import { CurrencyRateSource, Prisma } from "@prisma/client";
 import { PublicApiService } from "./public-api.service";
 
 describe("PublicApiService", () => {
@@ -48,6 +49,112 @@ describe("PublicApiService", () => {
         hasNextPage: false,
         hasPreviousPage: true,
       },
+    });
+  });
+
+  it("maps the supported currency catalog explicitly and marks the tenant base currency", async () => {
+    const { service, foreignExchange } = makeService();
+    foreignExchange.currencies.mockResolvedValue({
+      baseCurrency: "AED",
+      supportedCurrencies: [
+        { code: "AED", name: "UAE Dirham" },
+        { code: "KWD", name: "Kuwaiti Dinar" },
+      ],
+      manualRateEntryEnabled: true,
+      liveRateProviderEnabled: false,
+      providerState: "DISABLED",
+    });
+
+    await expect(service.currencies("org-a")).resolves.toEqual({
+      baseCurrency: "AED",
+      items: [
+        { code: "AED", name: "UAE Dirham", decimals: 2, isBaseCurrency: true },
+        { code: "KWD", name: "Kuwaiti Dinar", decimals: 3, isBaseCurrency: false },
+      ],
+      liveRateProviderEnabled: false,
+    });
+    expect(foreignExchange.currencies).toHaveBeenCalledWith("org-a");
+  });
+
+  it("forwards tenant, pagination, and optional filters and maps rates to safe string-only contracts", async () => {
+    const { service, foreignExchange } = makeService();
+    foreignExchange.listRates.mockResolvedValue({
+      data: [
+        {
+          id: "rate-a",
+          organizationId: "org-a",
+          transactionCurrency: "USD",
+          baseCurrency: "AED",
+          rate: new Prisma.Decimal("3.67250000"),
+          rateDate: new Date("2026-07-10T00:00:00.000Z"),
+          source: CurrencyRateSource.MANUAL,
+          sourceReference: "Treasury sheet",
+          createdAt: new Date("2026-07-10T08:09:10.000Z"),
+          createdByUserId: "user-a",
+          requestHash: "forbidden-request-hash",
+          idempotencyKey: "forbidden-idempotency-key",
+        },
+      ],
+      pagination: { page: 2, limit: 2, hasMore: false, totalItems: 3 },
+    });
+
+    const response = await service.fxRates("org-a", {
+      page: 2,
+      pageSize: 2,
+      transactionCurrency: "USD",
+      rateDate: "2026-07-10",
+    });
+
+    expect(foreignExchange.listRates).toHaveBeenCalledWith("org-a", {
+      page: 2,
+      limit: 2,
+      transactionCurrency: "USD",
+      rateDate: "2026-07-10",
+    });
+    expect(response).toEqual({
+      items: [
+        {
+          id: "rate-a",
+          transactionCurrency: "USD",
+          baseCurrency: "AED",
+          rate: "3.67250000",
+          rateDate: "2026-07-10",
+          source: "MANUAL",
+          sourceReference: "Treasury sheet",
+          capturedAt: "2026-07-10T08:09:10.000Z",
+        },
+      ],
+      meta: {
+        page: 2,
+        pageSize: 2,
+        totalItems: 3,
+        totalPages: 2,
+        hasNextPage: false,
+        hasPreviousPage: true,
+      },
+    });
+    const serialized = JSON.stringify(response);
+    for (const forbidden of ["organizationId", "createdByUserId", "requestHash", "idempotencyKey"]) {
+      expect(serialized).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps optional filters absent and caps the delegated page size at 100", async () => {
+    const { service, foreignExchange } = makeService();
+    foreignExchange.listRates.mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 100, hasMore: false, totalItems: 0 },
+    });
+
+    await expect(service.fxRates("org-b", { pageSize: 500 })).resolves.toMatchObject({
+      items: [],
+      meta: { page: 1, pageSize: 100, totalItems: 0, totalPages: 1 },
+    });
+    expect(foreignExchange.listRates).toHaveBeenCalledWith("org-b", {
+      page: 1,
+      limit: 100,
+      transactionCurrency: undefined,
+      rateDate: undefined,
     });
   });
 
@@ -136,11 +243,16 @@ function makeService(requestIdOrEnv: string | Record<string, string | undefined>
   const observability = {
     getRequestId: jest.fn(() => requestId),
   };
+  const foreignExchange = {
+    currencies: jest.fn(),
+    listRates: jest.fn(),
+  };
 
   return {
-    service: new PublicApiService(prisma as never, config as never, observability as never),
+    service: new PublicApiService(prisma as never, config as never, observability as never, foreignExchange as never),
     prisma,
     config,
     observability,
+    foreignExchange,
   };
 }

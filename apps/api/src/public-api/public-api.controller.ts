@@ -5,6 +5,7 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { PublicFxRateQueryDto } from "./dto/public-fx-read.dto";
 import { PublicApiService } from "./public-api.service";
 
 @Controller("public-api/v1")
@@ -16,6 +17,18 @@ export class PublicApiController {
   @RequirePermissions(PERMISSIONS.auditLogs.manageRetention)
   readiness() {
     return this.publicApiService.readiness();
+  }
+
+  @Get("currencies")
+  @RequirePermissions(PERMISSIONS.currencies.read)
+  currencies(@CurrentOrganizationId() organizationId: string) {
+    return this.publicApiService.currencies(organizationId);
+  }
+
+  @Get("fx-rates")
+  @RequirePermissions(PERMISSIONS.fxRates.read)
+  fxRates(@CurrentOrganizationId() organizationId: string, @Query() query: PublicFxRateQueryDto) {
+    return this.publicApiService.fxRates(organizationId, query);
   }
 
   @Get("pagination-proof")

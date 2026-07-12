@@ -205,9 +205,10 @@ describe("purchase bill rules", () => {
   it("finalization creates a balanced posted AP journal", async () => {
     const tx = makeFinalizeTransactionMock();
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
     const service = new PurchaseBillService(
       prisma as never,
-      { log: jest.fn() } as never,
+      auditLog as never,
       { next: jest.fn().mockResolvedValue("JE-000001") } as never,
     );
     jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
@@ -234,6 +235,25 @@ describe("purchase bill rules", () => {
           },
         }),
       }),
+    );
+    expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "FREEZE_FX_RATE" }), expect.anything());
+  });
+
+  it("freezes foreign purchase-bill rate evidence through the finalization transaction", async () => {
+    const tx = makeFinalizeTransactionMock({ foreign: true });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const auditLog = { log: jest.fn() };
+    const service = new PurchaseBillService(prisma as never, auditLog as never, { next: jest.fn().mockResolvedValue("JE-000001") } as never);
+    jest.spyOn(service, "get").mockResolvedValue({ id: "bill-1", status: PurchaseBillStatus.DRAFT, journalEntryId: null } as never);
+
+    await service.finalize("org-1", "user-1", "bill-1");
+
+    expect(auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "FREEZE_FX_RATE", entityType: "PurchaseBill", entityId: "bill-1",
+        after: expect.objectContaining({ currency: "USD", baseCurrency: "SAR", exchangeRate: "3.75000000" }),
+      }),
+      tx,
     );
   });
 
@@ -607,6 +627,7 @@ interface FinalizeTransactionMockOptions {
   trackedLine?: boolean;
   inventorySettings?: Record<string, unknown> | null;
   clearingAccount?: ReturnType<typeof account>;
+  foreign?: boolean;
 }
 
 function makeFinalizeTransactionMock(
@@ -617,6 +638,7 @@ function makeFinalizeTransactionMock(
       ? { inventoryPostingMode: options }
       : { inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET, trackedLine: true, ...options };
   const inventoryPostingMode = resolved.inventoryPostingMode ?? PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET;
+  const foreign = resolved.foreign ?? false;
   const trackedLine = resolved.trackedLine ?? true;
   const clearingAccount = resolved.clearingAccount ?? account("clearing", "240", "Inventory Clearing", AccountType.LIABILITY);
   const billLines = [
@@ -627,11 +649,11 @@ function makeFinalizeTransactionMock(
       quantity: "1.0000",
       unitPrice: "100.0000",
       discountRate: "0.0000",
-      lineGrossAmount: "100.0000",
+      lineGrossAmount: foreign ? "375.0000" : "100.0000",
       discountAmount: "0.0000",
-      taxableAmount: "100.0000",
-      taxAmount: "15.0000",
-      lineTotal: "115.0000",
+      taxableAmount: foreign ? "375.0000" : "100.0000",
+      taxAmount: foreign ? "56.2500" : "15.0000",
+      lineTotal: foreign ? "431.2500" : "115.0000",
       transactionTaxableAmount: "100.0000",
       item: trackedLine ? { id: "item-1", inventoryTracking: true } : null,
       account: { id: "expense" },
@@ -659,7 +681,9 @@ function makeFinalizeTransactionMock(
   ];
   const totals = resolved.includeServiceLine
     ? { subtotal: "150.0000", taxableTotal: "150.0000", taxTotal: "22.5000", total: "172.5000" }
-    : { subtotal: "100.0000", taxableTotal: "100.0000", taxTotal: "15.0000", total: "115.0000" };
+    : foreign
+      ? { subtotal: "375.0000", taxableTotal: "375.0000", taxTotal: "56.2500", total: "431.2500" }
+      : { subtotal: "100.0000", taxableTotal: "100.0000", taxTotal: "15.0000", total: "115.0000" };
   const inventorySettings =
     resolved.inventorySettings === undefined
       ? {
@@ -679,19 +703,19 @@ function makeFinalizeTransactionMock(
     status: PurchaseBillStatus.DRAFT,
     inventoryPostingMode,
     billDate: new Date("2026-05-12T00:00:00.000Z"),
-    currency: "SAR",
+    currency: foreign ? "USD" : "SAR",
     baseCurrency: "SAR",
-    exchangeRate: "1.00000000",
+    exchangeRate: foreign ? "3.75000000" : "1.00000000",
     rateDate: new Date("2026-05-12T00:00:00.000Z"),
-    rateSource: "SYSTEM_RATE_1",
-    rateSnapshotId: null,
+    rateSource: foreign ? "MANUAL" : "SYSTEM_RATE_1",
+    rateSnapshotId: foreign ? "rate-1" : null,
     subtotal: totals.subtotal,
     discountTotal: "0.0000",
     taxableTotal: totals.taxableTotal,
     taxTotal: totals.taxTotal,
     total: totals.total,
-    transactionTaxTotal: totals.taxTotal,
-    transactionTotal: totals.total,
+    transactionTaxTotal: foreign ? "15.0000" : totals.taxTotal,
+    transactionTotal: foreign ? "115.0000" : totals.total,
     journalEntryId: null,
     supplier: { id: "supplier-1", name: "Supplier", displayName: "Supplier" },
     lines: billLines,

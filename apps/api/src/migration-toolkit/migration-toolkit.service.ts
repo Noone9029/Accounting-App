@@ -1,14 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   AccountType,
   ContactType,
+  CurrencyRateSource,
   ImportEntityType,
   ImportJobRowStatus,
   ImportJobStatus,
   ImportValidationIssueSeverity,
   ItemStatus,
   ItemType,
+  Prisma,
 } from "@prisma/client";
+import { convertTransactionToBaseAmount } from "@ledgerbyte/accounting-core";
+import { normalizeSupportedCurrencyCode } from "@ledgerbyte/shared";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -67,10 +71,10 @@ const IMPORT_TEMPLATES: ImportTemplateDefinition[] = [
   {
     entityType: ImportEntityType.PRODUCTS_SERVICES,
     label: "Products and services",
-    headers: ["name", "sku", "type", "sellingPrice", "revenueAccountCode", "status"],
+    headers: ["name", "sku", "type", "sellingPrice", "revenueAccountCode", "status", "currency", "exchangeRate", "rateDate", "rateSource", "rateSnapshotId"],
     requiredHeaders: ["name", "type", "sellingPrice", "revenueAccountCode"],
     notes: ["Creates local item catalog records only after explicit reviewed commit.", "Revenue account code must already exist in the selected tenant."],
-    sample: { name: "Consulting", sku: "CONSULT", type: "SERVICE", sellingPrice: "100.0000", revenueAccountCode: "400", status: "ACTIVE" },
+    sample: { name: "Consulting", sku: "CONSULT", type: "SERVICE", sellingPrice: "100.0000", revenueAccountCode: "400", status: "ACTIVE", currency: "", exchangeRate: "", rateDate: "", rateSource: "", rateSnapshotId: "" },
   },
   {
     entityType: ImportEntityType.CHART_OF_ACCOUNTS,
@@ -122,7 +126,7 @@ export class MigrationToolkitService {
     const template = this.requireTemplate(dto.entityType);
     const parsedRows = parseCsv(dto.csvContent);
     assertHeaders(parsedRows.headers, template);
-    const validationContext = await this.validationContext(organizationId, dto.entityType);
+    const validationContext = await this.validationContext(organizationId, dto.entityType, parsedRows.rows);
     const normalizedRows = parsedRows.rows.map((row) => this.normalizeRow(dto.entityType, row, validationContext));
     const issues = normalizedRows.flatMap((row) => row.issues);
     const errorCount = issues.filter((issue) => issue.severity === ImportValidationIssueSeverity.ERROR).length;
@@ -138,57 +142,74 @@ export class MigrationToolkitService {
       accountingRecordsMutated: false,
     };
 
-    const job = await this.prisma.importJob.create({
-      data: {
-        organizationId,
-        entityType: dto.entityType,
-        status: ImportJobStatus.READY_FOR_REVIEW,
-        filename: cleanFilename(dto.filename),
-        previewOnly: dto.previewOnly ?? true,
-        summaryJson: summary,
-        requestId: this.requestId(),
-        createdById: actorUserId,
-        rows: {
-          create: normalizedRows.map((row) => ({
-            organizationId,
-            rowNumber: row.rowNumber,
-            status: row.status,
-            rawJson: row.raw,
-            normalizedJson: row.normalized,
-            fingerprint: row.fingerprint,
-            duplicate: row.duplicate,
-          })),
-        },
-      },
-      include: { rows: true, validationIssues: true },
-    });
-
-    if (issues.length > 0) {
-      const rowByNumber = new Map(job.rows.map((row) => [row.rowNumber, row.id]));
-      await this.prisma.importValidationIssue.createMany({
-        data: issues.map((issue) => ({
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.importJob.create({
+        data: {
           organizationId,
-          importJobId: job.id,
-          importJobRowId: issue.rowNumber ? rowByNumber.get(issue.rowNumber) : undefined,
-          rowNumber: issue.rowNumber,
-          field: issue.field,
-          code: issue.code,
-          message: issue.message,
-          severity: issue.severity,
-        })),
+          entityType: dto.entityType,
+          status: ImportJobStatus.VALIDATING,
+          filename: cleanFilename(dto.filename),
+          previewOnly: dto.previewOnly ?? true,
+          summaryJson: summary,
+          requestId: this.requestId(),
+          createdById: actorUserId,
+          rows: {
+            create: normalizedRows.map((row) => ({
+              organizationId,
+              rowNumber: row.rowNumber,
+              status: row.status,
+              rawJson: row.raw,
+              normalizedJson: row.normalized,
+              fingerprint: row.fingerprint,
+              duplicate: row.duplicate,
+            })),
+          },
+        },
+        include: { rows: true, validationIssues: true },
       });
-    }
 
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "UPLOAD",
-      entityType: "ImportJob",
-      entityId: job.id,
-      after: summary,
-    });
+      if (issues.length > 0) {
+        const rowByNumber = new Map(job.rows.map((row) => [row.rowNumber, row.id]));
+        await tx.importValidationIssue.createMany({
+          data: issues.map((issue) => ({
+            organizationId,
+            importJobId: job.id,
+            importJobRowId: issue.rowNumber ? rowByNumber.get(issue.rowNumber) : undefined,
+            rowNumber: issue.rowNumber,
+            field: issue.field,
+            code: issue.code,
+            message: issue.message,
+            severity: issue.severity,
+          })),
+        });
+      }
 
-    return this.getImportJob(organizationId, job.id);
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "UPLOAD",
+        entityType: "ImportJob",
+        entityId: job.id,
+        after: summary,
+      }, tx);
+
+      const published = await tx.importJob.updateMany({
+        where: { id: job.id, organizationId, status: ImportJobStatus.VALIDATING },
+        data: { status: ImportJobStatus.READY_FOR_REVIEW },
+      });
+      if (published.count !== 1) {
+        throw new ConflictException("Import preview could not be published for review.");
+      }
+
+      const preview = await tx.importJob.findFirst({
+        where: { id: job.id, organizationId },
+        include: { rows: { orderBy: { rowNumber: "asc" } }, validationIssues: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!preview) {
+        throw new ConflictException("Import preview could not be loaded after validation.");
+      }
+      return preview;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async listImportJobs(organizationId: string) {
@@ -217,7 +238,7 @@ export class MigrationToolkitService {
     }
     const job = await this.getImportJob(organizationId, id);
     if (job.status !== ImportJobStatus.READY_FOR_REVIEW) {
-      throw new BadRequestException("Only jobs ready for review can be committed.");
+      throw new ConflictException("Import job is already being committed or is no longer ready for review.");
     }
     const errors = job.validationIssues.filter((issue) => issue.severity === ImportValidationIssueSeverity.ERROR);
     if (errors.length > 0) {
@@ -228,40 +249,114 @@ export class MigrationToolkitService {
       throw new BadRequestException("Import commit is blocked until validation errors and duplicates are resolved.");
     }
 
-    const createdIds: string[] = [];
-    for (const row of job.rows) {
-      const normalized = row.normalizedJson as Record<string, string | boolean | null>;
-      const created = await this.createRecord(organizationId, actorUserId, job.entityType, normalized);
-      createdIds.push(created.id);
-      await this.prisma.importJobRow.update({
-        where: { id: row.id },
-        data: { status: ImportJobRowStatus.COMMITTED, createdRecordId: created.id },
+    await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.importJob.updateMany({
+        where: { id, organizationId, status: ImportJobStatus.READY_FOR_REVIEW },
+        data: { status: ImportJobStatus.VALIDATING },
       });
-    }
+      if (claim.count !== 1) {
+        throw new ConflictException("Import job is already being committed or is no longer ready for review.");
+      }
 
-    await this.prisma.importJob.update({
-      where: { id },
-      data: {
-        status: ImportJobStatus.COMMITTED_LOCAL,
-        previewOnly: false,
-        committedAt: new Date(),
-        committedById: actorUserId,
-        summaryJson: {
-          ...(job.summaryJson as Record<string, unknown>),
-          committedRecordCount: createdIds.length,
-          accountingRecordsMutated: false,
-          committedLocallyOnly: true,
+      const claimedJob = await tx.importJob.findFirst({
+        where: { id, organizationId },
+        include: { rows: { orderBy: { rowNumber: "asc" } }, validationIssues: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!claimedJob) {
+        throw new ConflictException("Import job claim could not be loaded.");
+      }
+
+      const authoritativeErrors = claimedJob.validationIssues.filter(
+        (issue) => issue.severity === ImportValidationIssueSeverity.ERROR,
+      );
+      if (authoritativeErrors.length > 0) {
+        throw new BadRequestException("Import commit is blocked until validation errors and duplicates are resolved.");
+      }
+      if (claimedJob.rows.some((row) => row.status !== ImportJobRowStatus.VALID)) {
+        throw new BadRequestException("Import commit requires all rows to remain valid and committable. Create a new preview.");
+      }
+
+      const currentRows = claimedJob.rows.map((row) => ({
+        rowNumber: row.rowNumber,
+        raw: importRawJson(row.rawJson),
+      }));
+      const currentContext = await this.validationContext(
+        organizationId,
+        claimedJob.entityType,
+        currentRows,
+        tx,
+      );
+      if (claimedJob.entityType === ImportEntityType.PRODUCTS_SERVICES) {
+        const currentBaseCurrency = currentContext.baseCurrency;
+        const previewMatchesCurrentBase = Boolean(currentBaseCurrency) && claimedJob.rows.every((row) => {
+          const normalized = row.normalizedJson as Record<string, string | boolean | null>;
+          return normalizeSupportedCurrencyCode(optionalString(normalized.baseCurrency)) === currentBaseCurrency;
+        });
+        if (!previewMatchesCurrentBase) {
+          throw new ConflictException("Organization base currency changed since this preview. Create a new import preview before committing.");
+        }
+      }
+
+      const authoritativeRows = currentRows.map((row) => this.normalizeRow(claimedJob.entityType, row, currentContext));
+      const currentValidationFailed = authoritativeRows.some((row) =>
+        row.duplicate ||
+        row.status !== ImportJobRowStatus.VALID ||
+        row.issues.some((issue) => issue.severity === ImportValidationIssueSeverity.ERROR),
+      );
+      const normalizedEvidenceChanged = authoritativeRows.some((row, index) =>
+        !matchesStoredNormalizedEvidence(claimedJob.rows[index]?.normalizedJson, row.normalized),
+      );
+      if (currentValidationFailed || normalizedEvidenceChanged) {
+        throw new ConflictException("Import data or tenant references changed after review. Create a new preview before committing.");
+      }
+
+      const createdIds: string[] = [];
+      for (const [index, row] of claimedJob.rows.entries()) {
+        const authoritativeRow = authoritativeRows[index];
+        if (!authoritativeRow) {
+          throw new ConflictException("Import validation evidence changed after review. Create a new preview before committing.");
+        }
+        const normalized = authoritativeRow.normalized;
+        const created = await this.createRecord(organizationId, actorUserId, claimedJob.entityType, normalized, tx);
+        createdIds.push(created.id);
+        const updatedRow = await tx.importJobRow.updateMany({
+          where: { id: row.id, organizationId, importJobId: id },
+          data: { status: ImportJobRowStatus.COMMITTED, createdRecordId: created.id },
+        });
+        if (updatedRow.count !== 1) {
+          throw new ConflictException("Import job row changed while the commit was in progress.");
+        }
+      }
+
+      await tx.importJob.updateMany({
+        where: { id, organizationId },
+        data: {
+          status: ImportJobStatus.COMMITTED_LOCAL,
+          previewOnly: false,
+          committedAt: new Date(),
+          committedById: actorUserId,
+          summaryJson: {
+            ...(claimedJob.summaryJson as Record<string, unknown>),
+            committedRecordCount: createdIds.length,
+            accountingRecordsMutated: false,
+            committedLocallyOnly: true,
+          },
         },
-      },
-    });
+      });
 
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "COMMIT_LOCAL",
-      entityType: "ImportJob",
-      entityId: id,
-      after: { entityType: job.entityType, committedRecordCount: createdIds.length, hostedMutation: false },
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "COMMIT_LOCAL",
+        entityType: "ImportJob",
+        entityId: id,
+        after: { entityType: claimedJob.entityType, committedRecordCount: createdIds.length, hostedMutation: false },
+      }, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+        throw new ConflictException("Import job is already being committed or is no longer ready for review.");
+      }
+      throw error;
     });
 
     return this.getImportJob(organizationId, id);
@@ -313,28 +408,56 @@ export class MigrationToolkitService {
     return normalizeAccountRow(row, context);
   }
 
-  private async validationContext(organizationId: string, entityType: ImportEntityType): Promise<ValidationContext> {
-    const [contacts, items, accounts] = await Promise.all([
+  private async validationContext(
+    organizationId: string,
+    entityType: ImportEntityType,
+    rows: ParsedImportRow[],
+    executor: ValidationExecutor = this.prisma,
+  ): Promise<ValidationContext> {
+    const rateSnapshotIds = entityType === ImportEntityType.PRODUCTS_SERVICES
+      ? [...new Set(rows.map((row) => normalizeUuid(row.raw.rateSnapshotId)).filter((id): id is string => Boolean(id)))]
+      : [];
+    const [contacts, items, accounts, organization, rateSnapshots] = await Promise.all([
       entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS
-        ? this.prisma.contact.findMany({ where: { organizationId }, select: { name: true, type: true } })
+        ? executor.contact.findMany({ where: { organizationId }, select: { name: true, type: true } })
         : Promise.resolve([]),
       entityType === ImportEntityType.PRODUCTS_SERVICES
-        ? this.prisma.item.findMany({ where: { organizationId }, select: { sku: true, name: true } })
+        ? executor.item.findMany({ where: { organizationId }, select: { sku: true, name: true } })
         : Promise.resolve([]),
-      this.prisma.account.findMany({ where: { organizationId }, select: { id: true, code: true, type: true, isActive: true, allowPosting: true } }),
+      executor.account.findMany({ where: { organizationId }, select: { id: true, code: true, type: true, isActive: true, allowPosting: true } }),
+      entityType === ImportEntityType.PRODUCTS_SERVICES
+        ? executor.organization.findUnique({ where: { id: organizationId }, select: { baseCurrency: true } })
+        : Promise.resolve(null),
+      rateSnapshotIds.length > 0
+        ? executor.currencyRateSnapshot.findMany({ where: { organizationId, id: { in: rateSnapshotIds } } })
+        : Promise.resolve([]),
     ]);
+    const baseCurrency = entityType === ImportEntityType.PRODUCTS_SERVICES
+      ? normalizeSupportedCurrencyCode(organization?.baseCurrency)
+      : null;
+    if (entityType === ImportEntityType.PRODUCTS_SERVICES && !baseCurrency) {
+      throw new BadRequestException(organization ? "Organization base currency is unsupported." : "Organization not found.");
+    }
     return {
       seenFingerprints: new Set<string>(),
       contactFingerprints: new Set(contacts.map((contact) => contactFingerprint(contact.type, contact.name))),
       itemSkus: new Set(items.map((item) => normalizeKey(item.sku)).filter(Boolean)),
       itemNames: new Set(items.map((item) => normalizeKey(item.name))),
       accountsByCode: new Map(accounts.map((account) => [normalizeKey(account.code), account])),
+      baseCurrency,
+      rateSnapshotsById: new Map(rateSnapshots.map((snapshot) => [normalizeUuid(snapshot.id) ?? snapshot.id, snapshot])),
     };
   }
 
-  private async createRecord(organizationId: string, actorUserId: string, entityType: ImportEntityType, row: Record<string, string | boolean | null>) {
+  private async createRecord(
+    organizationId: string,
+    actorUserId: string,
+    entityType: ImportEntityType,
+    row: Record<string, string | boolean | null>,
+    executor: Pick<Prisma.TransactionClient, "contact" | "item" | "account"> = this.prisma,
+  ) {
     if (entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS) {
-      return this.prisma.contact.create({
+      return executor.contact.create({
         data: {
           organizationId,
           type: entityType === ImportEntityType.CUSTOMERS ? ContactType.CUSTOMER : ContactType.SUPPLIER,
@@ -349,14 +472,14 @@ export class MigrationToolkitService {
       });
     }
     if (entityType === ImportEntityType.PRODUCTS_SERVICES) {
-      const revenueAccount = await this.prisma.account.findFirst({
+      const revenueAccount = await executor.account.findFirst({
         where: { organizationId, code: requireString(row.revenueAccountCode), type: AccountType.REVENUE, isActive: true, allowPosting: true },
         select: { id: true },
       });
       if (!revenueAccount) {
         throw new BadRequestException("Revenue account code must exist before committing products and services.");
       }
-      return this.prisma.item.create({
+      return executor.item.create({
         data: {
           organizationId,
           name: requireString(row.name),
@@ -371,9 +494,9 @@ export class MigrationToolkitService {
 
     const parentCode = optionalString(row.parentCode);
     const parent = parentCode
-      ? await this.prisma.account.findFirst({ where: { organizationId, code: parentCode }, select: { id: true } })
+      ? await executor.account.findFirst({ where: { organizationId, code: parentCode }, select: { id: true } })
       : null;
-    return this.prisma.account.create({
+    return executor.account.create({
       data: {
         organizationId,
         code: requireString(row.code),
@@ -406,7 +529,21 @@ interface ValidationContext {
   itemSkus: Set<string>;
   itemNames: Set<string>;
   accountsByCode: Map<string, { id: string; code: string; type: AccountType; isActive: boolean; allowPosting: boolean }>;
+  baseCurrency: string | null;
+  rateSnapshotsById: Map<string, {
+    id: string;
+    transactionCurrency: string;
+    baseCurrency: string;
+    rate: Prisma.Decimal;
+    rateDate: Date;
+    source: CurrencyRateSource;
+  }>;
 }
+
+type ValidationExecutor = Pick<
+  Prisma.TransactionClient,
+  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot"
+>;
 
 function normalizeContactRow(entityType: ImportEntityType, row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
   const type = entityType === ImportEntityType.CUSTOMERS ? ContactType.CUSTOMER : ContactType.SUPPLIER;
@@ -461,14 +598,137 @@ function normalizeItemRow(row: ParsedImportRow, context: ValidationContext): Nor
     issues.push(error(row.rowNumber, sku ? "sku" : "name", "DUPLICATE", "Product/service already exists or is duplicated in this import."));
   }
   context.seenFingerprints.add(fingerprint);
+  const monetary = normalizeItemMonetaryFields(row, context, issues);
   return normalized(row, {
     name,
     sku,
     type,
-    sellingPrice: cleanCell(row.raw.sellingPrice),
+    ...monetary,
     revenueAccountCode,
     status: cleanOptionalCell(row.raw.status)?.toUpperCase() ?? ItemStatus.ACTIVE,
   }, fingerprint, duplicate, issues);
+}
+
+function normalizeItemMonetaryFields(
+  row: ParsedImportRow,
+  context: ValidationContext,
+  issues: ImportValidationIssueInput[],
+): Record<string, string | null> {
+  const transactionSellingPrice = cleanCell(row.raw.sellingPrice);
+  const baseCurrency = context.baseCurrency!;
+  const rawCurrency = cleanCell(row.raw.currency);
+  const rawExchangeRate = cleanCell(row.raw.exchangeRate);
+  const rawRateDate = cleanCell(row.raw.rateDate);
+  const rawRateSource = cleanCell(row.raw.rateSource).toUpperCase();
+  const rawRateSnapshotId = cleanOptionalCell(row.raw.rateSnapshotId);
+  const rateSnapshotId = rawRateSnapshotId ? normalizeUuid(rawRateSnapshotId) ?? rawRateSnapshotId : null;
+  const hasFxContext = Boolean(rawCurrency || rawExchangeRate || rawRateDate || rawRateSource || rateSnapshotId);
+
+  if (!hasFxContext) {
+    return {
+      sellingPrice: transactionSellingPrice,
+      transactionSellingPrice,
+      baseSellingPrice: transactionSellingPrice,
+      currency: baseCurrency,
+      baseCurrency,
+      exchangeRate: "1",
+      rateDate: null,
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+      rateSnapshotId: null,
+    };
+  }
+
+  const currency = normalizeSupportedCurrencyCode(rawCurrency);
+  if (!currency) {
+    issues.push(error(row.rowNumber, "currency", rawCurrency ? "UNSUPPORTED_CURRENCY" : "INCOMPLETE_FX_CONTEXT", rawCurrency ? "Currency is unsupported." : "Currency is required when FX fields are provided."));
+  }
+  if (!rawExchangeRate) {
+    issues.push(error(row.rowNumber, "exchangeRate", "INCOMPLETE_FX_CONTEXT", "Exchange rate is required when FX fields are provided."));
+  } else if (!isPositiveExchangeRate(rawExchangeRate)) {
+    issues.push(error(row.rowNumber, "exchangeRate", "INVALID_EXCHANGE_RATE", "Exchange rate must be a positive plain decimal with at most eight decimal places."));
+  }
+
+  if (currency === baseCurrency) {
+    if (rawExchangeRate && isPositiveExchangeRate(rawExchangeRate) && !new Prisma.Decimal(rawExchangeRate).eq(1)) {
+      issues.push(error(row.rowNumber, "exchangeRate", "INVALID_FX_CONTEXT", "Same-currency product prices must use exchange rate 1."));
+    }
+    if (rateSnapshotId) {
+      issues.push(error(row.rowNumber, "rateSnapshotId", "INVALID_RATE_SNAPSHOT", "Same-currency product prices cannot reference an FX rate snapshot."));
+    }
+    if (rawRateDate && !isValidDateOnly(rawRateDate)) {
+      issues.push(error(row.rowNumber, "rateDate", "INVALID_RATE_DATE", "Rate date must be a valid YYYY-MM-DD calendar date."));
+    }
+    if (rawRateSource && rawRateSource !== CurrencyRateSource.SYSTEM_RATE_1) {
+      issues.push(error(row.rowNumber, "rateSource", "INVALID_RATE_SOURCE", "Same-currency product prices use SYSTEM_RATE_1."));
+    }
+    return {
+      sellingPrice: transactionSellingPrice,
+      transactionSellingPrice,
+      baseSellingPrice: transactionSellingPrice,
+      currency: currency ?? rawCurrency,
+      baseCurrency,
+      exchangeRate: rawExchangeRate || "1",
+      rateDate: rawRateDate || null,
+      rateSource: CurrencyRateSource.SYSTEM_RATE_1,
+      rateSnapshotId,
+    };
+  }
+
+  if (!rawRateDate) {
+    issues.push(error(row.rowNumber, "rateDate", "INCOMPLETE_FX_CONTEXT", "Rate date is required for a foreign-currency price."));
+  } else if (!isValidDateOnly(rawRateDate)) {
+    issues.push(error(row.rowNumber, "rateDate", "INVALID_RATE_DATE", "Rate date must be a valid YYYY-MM-DD calendar date."));
+  }
+
+  let rateSource: CurrencyRateSource = CurrencyRateSource.IMPORT;
+  if (rateSnapshotId) {
+    const snapshot = isUuid(rateSnapshotId) ? context.rateSnapshotsById.get(rateSnapshotId) : undefined;
+    const matches = Boolean(
+      snapshot &&
+      currency &&
+      snapshot.transactionCurrency === currency &&
+      snapshot.baseCurrency === baseCurrency &&
+      rawExchangeRate &&
+      isPositiveExchangeRate(rawExchangeRate) &&
+      new Prisma.Decimal(rawExchangeRate).eq(snapshot.rate) &&
+      rawRateDate &&
+      isValidDateOnly(rawRateDate) &&
+      snapshot.rateDate.toISOString().slice(0, 10) === rawRateDate,
+    );
+    if (!matches) {
+      issues.push(error(
+        row.rowNumber,
+        "rateSnapshotId",
+        "INVALID_RATE_SNAPSHOT",
+        isUuid(rateSnapshotId)
+          ? "Rate snapshot must belong to this tenant and exactly match the imported FX tuple."
+          : "Rate snapshot ID must be a valid UUID.",
+      ));
+    } else {
+      rateSource = snapshot!.source;
+      if (rawRateSource && rawRateSource !== snapshot!.source) {
+        issues.push(error(row.rowNumber, "rateSource", "INVALID_RATE_SOURCE", "Rate source must match the referenced snapshot."));
+      }
+    }
+  } else if (rawRateSource && rawRateSource !== CurrencyRateSource.IMPORT) {
+    issues.push(error(row.rowNumber, "rateSource", "INVALID_RATE_SOURCE", "Inline imported foreign rates use IMPORT."));
+  }
+
+  let baseSellingPrice = transactionSellingPrice;
+  if (transactionSellingPrice && isNonNegativeDecimal(transactionSellingPrice) && rawExchangeRate && isPositiveExchangeRate(rawExchangeRate)) {
+    baseSellingPrice = convertTransactionToBaseAmount(transactionSellingPrice, rawExchangeRate);
+  }
+  return {
+    sellingPrice: baseSellingPrice,
+    transactionSellingPrice,
+    baseSellingPrice,
+    currency: currency ?? rawCurrency,
+    baseCurrency,
+    exchangeRate: rawExchangeRate,
+    rateDate: rawRateDate || null,
+    rateSource,
+    rateSnapshotId,
+  };
 }
 
 function normalizeAccountRow(row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
@@ -625,6 +885,59 @@ function parseBoolean(value: unknown, fallback: boolean): boolean {
 
 function isNonNegativeDecimal(value: unknown): boolean {
   return /^\d+(\.\d{1,4})?$/.test(cleanCell(value));
+}
+
+function isPositiveExchangeRate(value: unknown): boolean {
+  const normalized = cleanCell(value);
+  if (!/^\d{1,10}(?:\.\d{1,8})?$/.test(normalized)) {
+    return false;
+  }
+  try {
+    convertTransactionToBaseAmount("0", normalized);
+    return new Prisma.Decimal(normalized).gt(0);
+  } catch {
+    return false;
+  }
+}
+
+function isValidDateOnly(value: unknown): boolean {
+  const normalized = cleanCell(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return false;
+  }
+  const date = new Date(`${normalized}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === normalized;
+}
+
+function normalizeUuid(value: unknown): string | null {
+  const normalized = cleanCell(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized.toLowerCase()
+    : null;
+}
+
+function isUuid(value: unknown): boolean {
+  return normalizeUuid(value) !== null;
+}
+
+function importRawJson(value: Prisma.JsonValue): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ConflictException("Stored import row data is invalid. Create a new preview before committing.");
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, cell]) => [key, cleanCell(cell)]));
+}
+
+function matchesStoredNormalizedEvidence(
+  stored: Prisma.JsonValue | undefined,
+  current: Record<string, string | boolean | null>,
+): boolean {
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+    return false;
+  }
+  const storedEntries = Object.entries(stored);
+  const currentEntries = Object.entries(current);
+  return storedEntries.length === currentEntries.length
+    && currentEntries.every(([key, value]) => Object.prototype.hasOwnProperty.call(stored, key) && stored[key] === value);
 }
 
 function cleanFilename(value: string): string {

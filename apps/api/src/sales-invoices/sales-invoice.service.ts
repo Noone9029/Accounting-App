@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   AccountingRuleError,
   assertDraftInvoiceEditable,
@@ -28,6 +28,7 @@ import {
 } from "@prisma/client";
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetadataInput } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import {
@@ -547,12 +548,24 @@ export class SalesInvoiceService {
         },
         tx,
       );
+      const updateClaim = await tx.salesInvoice.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: SalesInvoiceStatus.DRAFT,
+          updatedAt: existing.updatedAt,
+        },
+        data: { updatedAt: existing.updatedAt },
+      });
+      if (updateClaim.count !== 1) {
+        throw new ConflictException("Sales invoice changed while updating. Reload and retry.");
+      }
       const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
         await tx.salesInvoiceLine.deleteMany({ where: { organizationId, invoiceId: id } });
       }
 
-      return tx.salesInvoice.update({
+      const updatedInvoice = await tx.salesInvoice.update({
         where: { id },
         data: {
           customerId: dto.customerId,
@@ -584,6 +597,18 @@ export class SalesInvoiceService {
         },
         include: salesInvoiceInclude,
       });
+      if (shouldAuditDocumentFxContextChange(existing, updatedInvoice)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "CHANGE_FX_CONTEXT",
+          entityType: "SalesInvoice",
+          entityId: id,
+          before: documentFxAuditEvidence(existing),
+          after: documentFxAuditEvidence(updatedInvoice),
+        }, tx);
+      }
+      return updatedInvoice;
     });
 
     await this.auditLogService.log({
@@ -740,6 +765,17 @@ export class SalesInvoiceService {
           zatcaInvoiceType: ZatcaInvoiceType.STANDARD_TAX_INVOICE,
         },
       });
+
+      if (isForeignDocumentFxContext(invoice)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: "SalesInvoice",
+          entityId: id,
+          after: documentFxAuditEvidence(invoice),
+        }, tx);
+      }
 
       return finalizedInvoice;
     });

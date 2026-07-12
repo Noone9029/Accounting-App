@@ -21,6 +21,11 @@ import {
   SupplierPaymentStatus,
   SupplierRefundStatus,
 } from "@prisma/client";
+import {
+  AUDIT_ENTITY_TYPES,
+  documentFxAuditEvidence,
+  isForeignDocumentFxContext,
+} from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
@@ -673,7 +678,7 @@ export class SupplierPaymentService {
           sourceBaseAmount: plan.calculated.sourceBaseAmount!,
         }, tx);
 
-        await tx.supplierPaymentAllocation.create({
+        const createdAllocation = await tx.supplierPaymentAllocation.create({
           data: {
             organization: { connect: { id: organizationId } },
             payment: { connect: { organizationId_id: { organizationId, id: created.id } } },
@@ -700,6 +705,38 @@ export class SupplierPaymentService {
                 : undefined,
           },
         });
+        const hasRealizedFx = toMoney(plan.calculated.realizedGainAmount).gt(0) || toMoney(plan.calculated.realizedLossAmount).gt(0);
+        if (hasRealizedFx) {
+          await this.auditLogService.log({
+            organizationId,
+            actorUserId,
+            action: "POST",
+            entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+            entityId: createdAllocation.id,
+            after: {
+              paymentId: created.id,
+              documentId: plan.allocation.billId,
+              realizedGainAmount: plan.calculated.realizedGainAmount,
+              realizedLossAmount: plan.calculated.realizedLossAmount,
+              journalEntryId: journalEntry.id,
+            },
+          }, tx);
+        }
+      }
+
+      if (isForeignDocumentFxContext(fx)) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "FREEZE_FX_RATE",
+          entityType: AUDIT_ENTITY_TYPES.SUPPLIER_PAYMENT,
+          entityId: created.id,
+          after: {
+            ...documentFxAuditEvidence(fx),
+            journalEntryId: journalEntry.id,
+            paymentNumber,
+          },
+        }, tx);
       }
 
       return tx.supplierPayment.findUniqueOrThrow({ where: { id: created.id }, include: supplierPaymentInclude });
@@ -848,7 +885,7 @@ export class SupplierPaymentService {
         realizedLossAmount: calculated.realizedLossAmount,
         adjustmentDate,
       }, tx);
-      await tx.supplierPaymentUnappliedAllocation.create({
+      const createdAllocation = await tx.supplierPaymentUnappliedAllocation.create({
         data: {
           organization: { connect: { id: organizationId } },
           payment: { connect: { organizationId_id: { organizationId, id } } },
@@ -875,6 +912,22 @@ export class SupplierPaymentService {
           idempotencyKey,
         },
       });
+      if (realizedFxJournalEntryId) {
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "POST",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: createdAllocation.id,
+          after: {
+            paymentId: id,
+            documentId: dto.billId,
+            realizedGainAmount: calculated.realizedGainAmount,
+            realizedLossAmount: calculated.realizedLossAmount,
+            journalEntryId: realizedFxJournalEntryId,
+          },
+        }, tx);
+      }
       return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
     });
 
@@ -1017,6 +1070,19 @@ export class SupplierPaymentService {
             },
           },
         });
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "REVERSE",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocationId,
+          after: {
+            paymentId: id,
+            documentId: allocation.billId,
+            journalEntryId: realizedFxReversalJournalEntryId,
+            reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+          },
+        }, tx);
       }
       return tx.supplierPayment.findUniqueOrThrow({ where: { id }, include: supplierPaymentInclude });
     });
@@ -1122,6 +1188,25 @@ export class SupplierPaymentService {
       }
 
       const reversalJournalEntryId = await this.createOrReuseReversalJournal(organizationId, actorUserId, payment.journalEntryId, reversalDate, tx);
+      for (const allocation of payment.allocations) {
+        const hasRealizedFx = toMoney(allocation.realizedGainAmount).gt(0) || toMoney(allocation.realizedLossAmount).gt(0);
+        if (!hasRealizedFx || !allocation.realizedFxJournalEntryId) continue;
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "REVERSE",
+          entityType: AUDIT_ENTITY_TYPES.REALIZED_FX_SETTLEMENT,
+          entityId: allocation.id,
+          after: {
+            paymentId: id,
+            documentId: allocation.billId,
+            journalEntryId: reversalJournalEntryId,
+            reversedJournalEntryId: allocation.realizedFxJournalEntryId,
+            realizedGainAmount: moneyString(allocation.realizedGainAmount),
+            realizedLossAmount: moneyString(allocation.realizedLossAmount),
+          },
+        }, tx);
+      }
       return tx.supplierPayment.update({
         where: { id },
         data: { voidReversalJournalEntryId: reversalJournalEntryId },
