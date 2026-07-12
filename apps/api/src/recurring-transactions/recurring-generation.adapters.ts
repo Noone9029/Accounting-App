@@ -179,17 +179,25 @@ export class RecurringExpenseProposalAdapter implements RecurringGenerationAdapt
     const fx = await proposalFx(context.organizationId, template, date, tx);
     const proposal = await tx.recurringExpenseProposal.create({
       data: {
-        organizationId: context.organizationId,
+        organization: { connect: { id: context.organizationId } },
         proposedDate: context.scheduledLocalDate,
-        contactId: template.partyId,
-        branchId: template.branchId,
-        paidThroughAccountId: template.paidThroughAccountId,
+        contact: template.partyId
+          ? { connect: { organizationId_id: { organizationId: context.organizationId, id: template.partyId } } }
+          : undefined,
+        branch: template.branchId
+          ? { connect: { organizationId_id: { organizationId: context.organizationId, id: template.branchId } } }
+          : undefined,
+        paidThroughAccount: {
+          connect: { organizationId_id: { organizationId: context.organizationId, id: template.paidThroughAccountId } },
+        },
         currency: template.currencyCode,
         baseCurrency: fx.baseCurrency,
         exchangeRate: fx.exchangeRate,
         rateDate: fx.rateDate,
         rateSource: fx.rateSource,
-        rateSnapshotId: fx.rateSnapshotId,
+        rateSnapshot: fx.rateSnapshotId
+          ? { connect: { organizationId_id: { organizationId: context.organizationId, id: fx.rateSnapshotId } } }
+          : undefined,
         subtotal: String(template.subtotal),
         discountTotal: String(template.discountTotal),
         taxableTotal: String(template.taxableTotal),
@@ -199,7 +207,6 @@ export class RecurringExpenseProposalAdapter implements RecurringGenerationAdapt
         notes: template.notes,
         lines: {
           create: template.lines.map((line) => ({
-            organizationId: context.organizationId,
             itemId: line.itemId ?? null,
             accountId: line.accountId,
             taxRateId: line.taxRateId ?? null,
