@@ -1077,10 +1077,10 @@ export class CustomerPaymentService {
               settlementRate: String(fx.exchangeRate),
               realizedGainAmount: plan.calculated.realizedGainAmount,
               realizedLossAmount: plan.calculated.realizedLossAmount,
-              realizedFxJournalEntryId:
+              realizedFxJournalEntry:
                 toMoney(plan.calculated.realizedGainAmount).gt(0) || toMoney(plan.calculated.realizedLossAmount).gt(0)
-                  ? journalEntry.id
-                  : null,
+                  ? { connect: { organizationId_id: { organizationId, id: journalEntry.id } } }
+                  : undefined,
             })),
           },
         },

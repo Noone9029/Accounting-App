@@ -98,10 +98,11 @@ describe("customer payment rules", () => {
           documentBaseAmountApplied: "365.0000", settlementBaseAmountApplied: "375.0000",
           recognitionRate: "3.65000000", settlementRate: "3.75000000",
           realizedGainAmount: "10.0000", realizedLossAmount: "0.0000",
-          realizedFxJournalEntryId: "journal-1",
+          realizedFxJournalEntry: { connect: { organizationId_id: { organizationId: "org-1", id: "journal-1" } } },
         })] },
       }),
     }));
+    expect(tx.customerPayment.create.mock.calls[0]![0].data.allocations.create[0]).not.toHaveProperty("realizedFxJournalEntryId");
     expect(auditLog.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "POST", entityType: "RealizedFxSettlement", entityId: "allocation-1",
@@ -1815,7 +1816,7 @@ function makeForeignCreateTransactionMock() {
           invoiceId: allocation.invoice.connect.organizationId_id.id,
           realizedGainAmount: allocation.realizedGainAmount,
           realizedLossAmount: allocation.realizedLossAmount,
-          realizedFxJournalEntryId: allocation.realizedFxJournalEntryId,
+          realizedFxJournalEntryId: allocation.realizedFxJournalEntry?.connect.organizationId_id.id ?? null,
         })),
       })),
     },
