@@ -161,7 +161,10 @@ describe("RecurringTemplateService", () => {
     expect(numberSequence.next).toHaveBeenCalledWith("org-1", expect.anything(), tx);
     expect(tx.recurringTransactionTemplate.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        organizationId: "org-1",
+        organization: { connect: { id: "org-1" } },
+        party: { connect: { organizationId_id: { organizationId: "org-1", id: "customer-1" } } },
+        createdBy: { connect: { id: "user-1" } },
+        updatedBy: { connect: { id: "user-1" } },
         transactionType: RecurringTransactionType.SALES_INVOICE,
         templateCode: "REC-000001",
         status: RecurringTransactionStatus.DRAFT,
@@ -174,7 +177,6 @@ describe("RecurringTemplateService", () => {
         lines: {
           create: [
             expect.objectContaining({
-              organizationId: "org-1",
               accountId: "revenue-1",
               description: "Support retainer",
               sortOrder: 0,
@@ -184,6 +186,12 @@ describe("RecurringTemplateService", () => {
       }),
       include: expect.any(Object),
     });
+    const createData = tx.recurringTransactionTemplate.create.mock.calls[0]?.[0]?.data;
+    expect(createData).not.toHaveProperty("organizationId");
+    expect(createData).not.toHaveProperty("partyId");
+    expect(createData).not.toHaveProperty("createdByUserId");
+    expect(createData).not.toHaveProperty("updatedByUserId");
+    expect(createData.lines.create[0]).not.toHaveProperty("organizationId");
     expect(auditLog.log).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: "org-1",
