@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AccountingModule } from "../accounting/accounting.module";
 import { AuditLogModule } from "../audit-log/audit-log.module";
+import { CashExpenseModule } from "../cash-expenses/cash-expense.module";
 import { FiscalPeriodModule } from "../fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -17,7 +18,10 @@ import {
   RecurringGenerationDispatcher,
 } from "./recurring-generation.dispatcher";
 import { RecurringRunService } from "./recurring-run.service";
+import { RecurringExpenseProposalService } from "./recurring-expense-proposal.service";
 import { RecurringTemplateService } from "./recurring-template.service";
+import { RecurringReadinessService } from "./recurring-readiness.service";
+import { RecurringTransactionController } from "./recurring-transaction.controller";
 
 @Module({
   imports: [
@@ -28,10 +32,13 @@ import { RecurringTemplateService } from "./recurring-template.service";
     SalesInvoiceModule,
     PurchaseBillModule,
     AccountingModule,
+    CashExpenseModule,
   ],
   providers: [
     RecurringTemplateService,
     RecurringRunService,
+    RecurringExpenseProposalService,
+    RecurringReadinessService,
     RecurringSalesInvoiceAdapter,
     RecurringPurchaseBillAdapter,
     RecurringExpenseProposalAdapter,
@@ -53,6 +60,7 @@ import { RecurringTemplateService } from "./recurring-template.service";
     },
     RecurringGenerationDispatcher,
   ],
-  exports: [RecurringTemplateService, RecurringRunService],
+  controllers: [RecurringTransactionController],
+  exports: [RecurringTemplateService, RecurringRunService, RecurringExpenseProposalService, RecurringReadinessService],
 })
 export class RecurringTransactionModule {}

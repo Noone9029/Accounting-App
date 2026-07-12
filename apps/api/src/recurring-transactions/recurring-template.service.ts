@@ -9,6 +9,7 @@ import {
   RecurringCatchUpPolicy,
   RecurringExchangeRatePolicy,
   RecurringGenerationMode,
+  RecurringRunStatus,
   RecurringTransactionStatus,
   RecurringTransactionType,
   SalesInvoiceTaxMode,
@@ -70,6 +71,18 @@ interface PreparedTemplate {
   total: string;
 }
 
+export interface RecurringTemplateListQuery {
+  transactionType?: RecurringTransactionType;
+  status?: RecurringTransactionStatus;
+  nextRunFrom?: string;
+  nextRunTo?: string;
+  partyId?: string;
+  currency?: string;
+  hasFailedOrBlockedRun?: boolean;
+  page?: number;
+  limit?: number;
+}
+
 @Injectable()
 export class RecurringTemplateService {
   constructor(
@@ -77,6 +90,43 @@ export class RecurringTemplateService {
     private readonly auditLog: AuditLogService,
     private readonly numberSequence: NumberSequenceService,
   ) {}
+
+  async list(organizationId: string, query: RecurringTemplateListQuery = {}) {
+    const page = this.page(query.page);
+    const limit = this.limit(query.limit);
+    const where: Prisma.RecurringTransactionTemplateWhereInput = {
+      organizationId,
+      transactionType: query.transactionType,
+      status: query.status,
+      partyId: query.partyId,
+      currencyCode: query.currency?.trim().toUpperCase() || undefined,
+      nextRunAt: query.nextRunFrom || query.nextRunTo ? {
+        gte: query.nextRunFrom ? new Date(query.nextRunFrom) : undefined,
+        lte: query.nextRunTo ? new Date(query.nextRunTo) : undefined,
+      } : undefined,
+      runs: query.hasFailedOrBlockedRun ? { some: { status: { in: [RecurringRunStatus.BLOCKED, RecurringRunStatus.FAILED] } } } : undefined,
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.recurringTransactionTemplate.findMany({
+        where,
+        include: templateInclude,
+        orderBy: [{ nextRunAt: "asc" }, { createdAt: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.recurringTransactionTemplate.count({ where }),
+    ]);
+    return { items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) };
+  }
+
+  async get(organizationId: string, id: string) {
+    const template = await this.prisma.recurringTransactionTemplate.findFirst({
+      where: { id, organizationId },
+      include: templateInclude,
+    });
+    if (!template) throw new NotFoundException("Recurring transaction template not found.");
+    return template;
+  }
 
   async create(organizationId: string, actorUserId: string, dto: CreateRecurringTransactionDto) {
     return this.prisma.$transaction(async (tx) => {
@@ -477,4 +527,6 @@ export class RecurringTemplateService {
   private required(value: string | null | undefined, message: string): string { const cleaned = this.clean(value); if (!cleaned) throw new BadRequestException(message); return cleaned; }
   private dateOnly(value: string): Date { return new Date(`${value.slice(0, 10)}T00:00:00.000Z`); }
   private toDateString(value: Date | string): string { return (value instanceof Date ? value.toISOString() : String(value)).slice(0, 10); }
+  private page(value?: number): number { return Number.isInteger(value) && value! > 0 ? value! : 1; }
+  private limit(value?: number): number { return Number.isInteger(value) ? Math.min(100, Math.max(1, value!)) : 25; }
 }

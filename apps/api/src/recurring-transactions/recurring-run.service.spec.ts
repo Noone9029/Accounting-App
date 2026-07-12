@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { RecurringRunStatus, RecurringTransactionStatus, RecurringTransactionType } from "@prisma/client";
 import { RecurringRunService } from "./recurring-run.service";
 
@@ -53,7 +53,7 @@ function makeHarness() {
     $queryRaw: jest.fn().mockResolvedValue([]),
   };
   const prisma = {
-    recurringTransactionRun: { findFirst: jest.fn() },
+    recurringTransactionRun: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(async (callback: (executor: typeof tx) => unknown) => callback(tx)),
   };
   const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
@@ -66,6 +66,24 @@ function makeHarness() {
 }
 
 describe("RecurringRunService", () => {
+  it("returns bounded tenant-scoped run history and hides cross-tenant run IDs", async () => {
+    const { service, prisma, pendingRun } = makeHarness();
+    prisma.recurringTransactionRun.findMany.mockResolvedValue([pendingRun]);
+    prisma.recurringTransactionRun.count.mockResolvedValue(1);
+    prisma.recurringTransactionRun.findFirst
+      .mockResolvedValueOnce(pendingRun)
+      .mockResolvedValueOnce(null);
+
+    await expect(service.listForTemplate("org-1", "template-1", { page: 1, limit: 20 })).resolves.toEqual({
+      items: [pendingRun], page: 1, limit: 20, total: 1, totalPages: 1,
+    });
+    expect(prisma.recurringTransactionRun.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { organizationId: "org-1", templateId: "template-1" }, take: 20,
+    }));
+    await expect(service.get("org-1", "run-1")).resolves.toBe(pendingRun);
+    await expect(service.get("org-other", "run-1")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-07-12T08:00:00.000Z"));
   });

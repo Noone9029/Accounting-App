@@ -44,6 +44,29 @@ export class RecurringRunService {
     private readonly fiscalPeriodGuard: FiscalPeriodGuardService,
   ) {}
 
+  async listForTemplate(organizationId: string, templateId: string, query: { page?: number; limit?: number } = {}) {
+    const page = this.page(query.page);
+    const limit = this.limit(query.limit ?? 25);
+    const where = { organizationId, templateId };
+    const [items, total] = await Promise.all([
+      this.prisma.recurringTransactionRun.findMany({
+        where,
+        include: runInclude,
+        orderBy: { scheduledFor: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.recurringTransactionRun.count({ where }),
+    ]);
+    return { items, page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) };
+  }
+
+  async get(organizationId: string, runId: string) {
+    const run = await this.prisma.recurringTransactionRun.findFirst({ where: { id: runId, organizationId }, include: runInclude });
+    if (!run) throw new NotFoundException("Recurring transaction run not found.");
+    return run;
+  }
+
   async runNow(organizationId: string, actorUserId: string, templateId: string, idempotencyKey: string, requestId?: string) {
     const key = this.idempotencyKey(idempotencyKey);
     const existing = await this.prisma.recurringTransactionRun.findFirst({ where: { organizationId, idempotencyKey: key }, include: runInclude });
@@ -188,6 +211,7 @@ export class RecurringRunService {
   private runAudit(run: any) { return { id: run.id, templateId: run.templateId, templateVersion: run.templateVersion, scheduledFor: run.scheduledFor, scheduledLocalDate: run.scheduledLocalDate, trigger: run.trigger, status: run.status, attemptCount: run.attemptCount, failureCode: run.failureCode, failureMessageSafe: run.failureMessageSafe, failureRetriable: run.failureRetriable }; }
   private idempotencyKey(value: string): string { const key = value?.trim(); if (!key || key.length > 200) throw new BadRequestException("Idempotency key is required and must be 200 characters or fewer."); return key; }
   private limit(value: number): number { if (!Number.isInteger(value) || value < 1 || value > 100) throw new BadRequestException("Recurring worker limit must be between 1 and 100."); return value; }
+  private page(value?: number): number { return Number.isInteger(value) && value! > 0 ? value! : 1; }
   private scheduledKey(templateId: string, scheduledFor: Date) { return `scheduled:${templateId}:${scheduledFor.toISOString()}`; }
   private dateOnly(localDate: string) { return new Date(`${localDate}T00:00:00.000Z`); }
   private isSerializationConflict(error: unknown): boolean { return typeof error === "object" && error !== null && "code" in error && error.code === "P2034"; }

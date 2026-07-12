@@ -120,6 +120,39 @@ function makeHarness() {
 }
 
 describe("RecurringTemplateService", () => {
+  it("returns a bounded tenant-scoped template page with filters", async () => {
+    const { service, prisma, created } = makeHarness();
+    prisma.recurringTransactionTemplate.findMany.mockResolvedValue([created]);
+    prisma.recurringTransactionTemplate.count.mockResolvedValue(1);
+
+    await expect(service.list("org-1", {
+      transactionType: RecurringTransactionType.SALES_INVOICE,
+      status: RecurringTransactionStatus.ACTIVE,
+      currency: "aed",
+      page: 2,
+      limit: 25,
+      hasFailedOrBlockedRun: true,
+    })).resolves.toEqual({ items: [created], page: 2, limit: 25, total: 1, totalPages: 1 });
+    expect(prisma.recurringTransactionTemplate.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        organizationId: "org-1",
+        transactionType: RecurringTransactionType.SALES_INVOICE,
+        status: RecurringTransactionStatus.ACTIVE,
+        currencyCode: "AED",
+        runs: { some: { status: { in: ["BLOCKED", "FAILED"] } } },
+      }),
+      skip: 25,
+      take: 25,
+    }));
+  });
+
+  it("gets templates only inside the active tenant", async () => {
+    const { service, prisma, created } = makeHarness();
+    prisma.recurringTransactionTemplate.findFirst.mockResolvedValueOnce(created).mockResolvedValueOnce(null);
+    await expect(service.get("org-1", "template-1")).resolves.toBe(created);
+    await expect(service.get("org-other", "template-1")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it("creates a tenant-scoped draft using the organization timezone and audits inside the transaction", async () => {
     const { service, tx, auditLog, numberSequence, created } = makeHarness();
 
