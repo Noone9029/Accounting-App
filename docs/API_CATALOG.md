@@ -66,6 +66,26 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/migration-toolkit/import-jobs/:id/commit` | Commit reviewed local master-data import | Yes | Yes | Groundwork | Requires `migrationToolkit.commit`; requires explicit reviewed confirmation and blocks jobs with validation errors. No hosted/prod migration proof. |
 | GET | `/migration-toolkit/exports/:entityType.csv` | Export safe CSV master data | Yes | Yes | Groundwork | Requires `migrationToolkit.export`; tenant-scoped exports for customers, suppliers, products/services, and chart of accounts with CSV formula-injection protection and safe audit metadata. |
 
+Recurring template import types are `RECURRING_SALES_INVOICE_TEMPLATES`, `RECURRING_PURCHASE_BILL_TEMPLATES`, `RECURRING_EXPENSE_TEMPLATES`, and `RECURRING_JOURNAL_TEMPLATES`. `RECURRING_TRANSACTION_RUNS` is export-only. Reviewed commits create inactive drafts through the normal service; exports are CSV-injection protected and capped at 10,000 rows.
+
+## Recurring Transactions
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/recurring-transactions` | Filtered template list | Yes | Yes | Implemented | Requires `recurringTransactions.read`; bounded pagination and tenant scope. |
+| POST | `/recurring-transactions` | Create draft template | Yes | Yes | Implemented | Requires `recurringTransactions.manage`; never activates or posts implicitly. |
+| GET | `/recurring-transactions/:id` | Template detail | Yes | Yes | Implemented | Includes normalized lines and latest run only. |
+| PATCH | `/recurring-transactions/:id` | Edit future template version | Yes | Yes | Implemented | Optimistic `expectedVersion`; prior runs and targets unchanged. |
+| POST | `/recurring-transactions/:id/activate` | Activate validated schedule | Yes | Yes | Implemented | Revalidates references and FX policy. |
+| POST | `/recurring-transactions/:id/pause` | Pause schedule | Yes | Yes | Implemented | Preserves history. |
+| POST | `/recurring-transactions/:id/resume` | Resume schedule | Yes | Yes | Implemented | Revalidates before activation. |
+| POST | `/recurring-transactions/:id/archive` | Archive schedule | Yes | Yes | Implemented | Prevents future runs; preserves history. |
+| POST | `/recurring-transactions/:id/run` | Idempotent manual draft generation | Yes | Yes | Implemented | Requires `recurringTransactions.run` and `Idempotency-Key`; no posting. |
+| GET | `/recurring-transactions/:id/runs` | Bounded run history | Yes | Yes | Implemented | Requires read permission; safe blocker and draft-target evidence. |
+| GET | `/recurring-transactions/runs/:runId` | One run | Yes | Yes | Implemented | Tenant scoped. |
+| GET | `/recurring-transactions/readiness` | Recurring attention counts | Yes | Yes | Implemented | Advisory; `blocksFiscalClose=false`. |
+| POST | `/recurring-transactions/expense-proposals/:proposalId/review` | Explicit expense proposal review | Yes | Yes | Implemented | Requires review permission and idempotency; normal expense workflow, no provider or money movement. |
+
 ## Dashboard
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

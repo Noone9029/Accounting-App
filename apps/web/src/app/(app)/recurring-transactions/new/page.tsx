@@ -50,7 +50,7 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
   const [startDate, setStartDate] = useState(initialTemplate?.startDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(initialTemplate?.endDate?.slice(0, 10) ?? "");
   const [timezone, setTimezone] = useState(initialTemplate?.timezone ?? organization?.timezone ?? "Asia/Dubai");
-  const [catchUpPolicy, setCatchUpPolicy] = useState<RecurringTemplateInput["catchUpPolicy"]>(initialTemplate?.catchUpPolicy ?? "RUN_LATEST_ONLY");
+  const [catchUpPolicy, setCatchUpPolicy] = useState<RecurringTemplateInput["catchUpPolicy"]>(initialTemplate?.catchUpPolicy ?? "SKIP_MISSED");
   const [currencyCode, setCurrencyCode] = useState(initialTemplate?.currencyCode ?? organization?.baseCurrency ?? "AED");
   const [exchangeRatePolicy, setExchangeRatePolicy] = useState<RecurringTemplateInput["exchangeRatePolicy"]>(initialTemplate?.exchangeRatePolicy ?? "BASE_CURRENCY_ONLY");
   const [fixedExchangeRate, setFixedExchangeRate] = useState(initialTemplate?.fixedExchangeRate ?? "");
@@ -140,7 +140,7 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
           <Field label="Timezone"><LedgerInput aria-label="Timezone" dir="ltr" value={timezone} onChange={(event) => setTimezone(event.target.value)} /></Field>
           <Field label="Catch-up policy"><LedgerSelect aria-label="Catch-up policy" value={catchUpPolicy} onChange={(event) => setCatchUpPolicy(event.target.value as RecurringTemplateInput["catchUpPolicy"])}><option value="SKIP_MISSED">Skip missed</option><option value="RUN_LATEST_ONLY">Run latest only</option><option value="RUN_BOUNDED">Run bounded</option></LedgerSelect></Field>
           <Field label="Payment terms days"><LedgerInput aria-label="Payment terms days" type="number" min="0" value={paymentTermsDays} onChange={(event) => setPaymentTermsDays(event.target.value)} /></Field>
-        </div></LedgerPanel>
+        </div><SchedulePreview startDate={startDate} endDate={endDate} frequency={frequency} interval={Number(interval)} timezone={timezone} /></LedgerPanel>
         <LedgerPanel><h2 className="text-base font-semibold text-ink">Currency and rate evidence</h2><div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Currency"><LedgerInput aria-label="Currency" dir="ltr" maxLength={3} value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value)} /></Field>
           <Field label="Exchange-rate policy"><LedgerSelect aria-label="Exchange-rate policy" value={exchangeRatePolicy} onChange={(event) => setExchangeRatePolicy(event.target.value as RecurringTemplateInput["exchangeRatePolicy"])}><option value="BASE_CURRENCY_ONLY">Base currency only</option><option value="FIXED_TEMPLATE_RATE">Fixed template rate</option><option value="REQUIRE_RATE_AT_RUN">Require rate at run</option><option value="RATE_SNAPSHOT">Approved rate snapshot</option></LedgerSelect></Field>
@@ -164,3 +164,26 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <LedgerFieldLabel><LedgerFieldText>{label}</LedgerFieldText><div className={fieldClass}>{children}</div></LedgerFieldLabel>; }
 function option(row: Catalog) { return <option key={row.id} value={row.id}>{row.code ? `${row.code} · ` : ""}{row.displayName || row.name}</option>; }
+
+function SchedulePreview({ startDate, endDate, frequency, interval, timezone }: { startDate: string; endDate: string; frequency: RecurringTemplateInput["frequency"]; interval: number; timezone: string }) {
+  const dates = previewLocalDates(startDate, endDate, frequency, interval);
+  return <div className="mt-4 rounded-md border border-line bg-slate-50 p-3"><h3 className="text-sm font-semibold text-ink">Next occurrence preview</h3><p className="mt-1 text-xs text-steel">Local calendar dates in <bdi dir="ltr">{timezone}</bdi>. The API remains authoritative for the canonical scheduled timestamp.</p><div className="mt-2 flex flex-wrap gap-2">{dates.length ? dates.map((date) => <bdi key={date} dir="ltr" className="rounded-md border border-line bg-white px-2 py-1 font-mono text-xs text-ink">{date}</bdi>) : <span className="text-xs text-steel">Enter a valid start date and interval.</span>}</div></div>;
+}
+
+function previewLocalDates(startDate: string, endDate: string, frequency: RecurringTemplateInput["frequency"], interval: number): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !Number.isInteger(interval) || interval < 1) return [];
+  const [year, month, day] = startDate.split("-").map(Number) as [number, number, number];
+  const anchor = day; const results: string[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    let date: Date;
+    if (frequency === "DAILY" || frequency === "WEEKLY") date = new Date(Date.UTC(year, month - 1, day + index * interval * (frequency === "WEEKLY" ? 7 : 1)));
+    else {
+      const months = index * interval * (frequency === "QUARTERLY" ? 3 : frequency === "YEARLY" ? 12 : 1);
+      const targetMonth = month - 1 + months; const targetYear = year + Math.floor(targetMonth / 12); const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+      const lastDay = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+      date = new Date(Date.UTC(targetYear, normalizedMonth, Math.min(anchor, lastDay)));
+    }
+    const value = date.toISOString().slice(0, 10); if (endDate && value > endDate) break; results.push(value);
+  }
+  return results;
+}

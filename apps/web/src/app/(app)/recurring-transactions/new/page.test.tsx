@@ -29,6 +29,8 @@ describe("NewRecurringTransactionPage", () => {
   it("creates a dimension-aware draft template and redirects to review", async () => {
     render(<NewRecurringTransactionPage />);
     expect(await screen.findByRole("heading", { name: "New recurring template" })).toBeInTheDocument();
+    expect(screen.getByText("Next occurrence preview")).toBeInTheDocument();
+    expect(screen.getByLabelText("Catch-up policy")).toHaveValue("SKIP_MISSED");
     await screen.findByRole("option", { name: "Beta Customer" });
     fireEvent.change(screen.getByLabelText("Template name"), { target: { value: "Monthly support" } });
     fireEvent.change(screen.getByLabelText("Party"), { target: { value: "customer-1" } });

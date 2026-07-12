@@ -2415,3 +2415,8 @@ Recommended next step:
 - Added `docs/security/CROSS_TENANT_TEST_FIXTURE_PLAN.md`, `docs/security/SUPABASE_RLS_POLICY_READINESS_MATRIX.md`, and `docs/security/RUNTIME_DB_ROLE_READINESS_EVIDENCE.md`.
 - Current diagnostic results: relationship graph `RELATIONSHIP_GRAPH_READY` for 112 models; tenant index review `TENANT_INDEX_REVIEW_ITEMS` with 784 constraints and 370 review items; API query scope audit `QUERY_SCOPE_REVIEW_REQUIRED` with 72 query files and 740 Prisma query calls inventoried.
 - No database was mutated, no RLS was enabled, no DB role changed, no migration ran, no Prisma schema changed, no hosted mutation occurred, and no provider/storage/email/payment/compliance behavior changed.
+# Generalized recurring transactions — 2026-07-12
+
+Implemented locally: additive generalized schema and legacy compatibility, deterministic IANA scheduling, durable idempotent/concurrency-safe runs, draft adapters for invoices/bills/journals, expense review proposals, dedicated permissions/audits/API/readiness, accountant web workspace, reviewed CSV imports, and safe template/run exports.
+
+This status adds no provider, compliance, or money-movement behavior. Hosted burner migration, deployment, authenticated smoke, merged rollout evidence, and cleanup remain required before the arc is complete. The next recommended arc after that evidence is the accountant month-end close workspace; it is not part of this implementation.

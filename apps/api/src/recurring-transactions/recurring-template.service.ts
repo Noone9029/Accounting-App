@@ -129,7 +129,13 @@ export class RecurringTemplateService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateRecurringTransactionDto) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(
+      (tx) => this.createInTransaction(tx, organizationId, actorUserId, dto),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
+  async createInTransaction(tx: Prisma.TransactionClient, organizationId: string, actorUserId: string, dto: CreateRecurringTransactionDto) {
       const organization = await tx.organization.findUnique({
         where: { id: organizationId },
         select: { id: true, timezone: true, baseCurrency: true },
@@ -202,7 +208,6 @@ export class RecurringTemplateService {
         tx,
       );
       return template;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async update(organizationId: string, actorUserId: string, id: string, dto: UpdateRecurringTransactionDto) {
