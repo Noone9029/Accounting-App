@@ -98,6 +98,8 @@ export interface RecurringReadiness {
 
 export interface RecurringPage<T> { items: T[]; page: number; limit: number; total: number; totalPages: number }
 
+export type RecurringTemplateInput = Omit<RecurringTemplate, "id" | "templateCode" | "status" | "nextRunAt" | "lastRunAt" | "templateVersion" | "total" | "party" | "branch" | "runs">;
+
 export function listRecurringTemplates(filters: Record<string, string | number | boolean | undefined>) {
   const query = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => { if (value !== undefined && value !== "") query.set(key, String(value)); });
@@ -105,6 +107,8 @@ export function listRecurringTemplates(filters: Record<string, string | number |
 }
 
 export function getRecurringReadiness() { return apiRequest<RecurringReadiness>("/recurring-transactions/readiness"); }
+export function createRecurringTemplate(input: RecurringTemplateInput) { return apiRequest<RecurringTemplate>("/recurring-transactions", { method: "POST", body: input }); }
+export function updateRecurringTemplate(id: string, input: RecurringTemplateInput, expectedVersion: number) { return apiRequest<RecurringTemplate>(`/recurring-transactions/${encodeURIComponent(id)}`, { method: "PATCH", body: { ...input, expectedVersion } }); }
 export function getRecurringTemplate(id: string) { return apiRequest<RecurringTemplate>(`/recurring-transactions/${encodeURIComponent(id)}`); }
 export function listRecurringRuns(id: string, page = 1) { return apiRequest<RecurringPage<RecurringRun>>(`/recurring-transactions/${encodeURIComponent(id)}/runs?page=${page}&limit=25`); }
 export function runRecurringTemplate(id: string, idempotencyKey: string) {

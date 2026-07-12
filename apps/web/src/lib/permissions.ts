@@ -145,6 +145,9 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
   if (pathname === "/recurring-transactions/new") {
     return [PERMISSIONS.recurringTransactions.manage];
   }
+  if (pathname.startsWith("/recurring-transactions/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.recurringTransactions.manage];
+  }
   if (pathname.startsWith("/recurring-transactions")) {
     return [PERMISSIONS.recurringTransactions.read];
   }

@@ -31,6 +31,7 @@ describe("RecurringTransactionDetailPage", () => {
     expect(screen.getByText("FISCAL_PERIOD_BLOCKED")).toBeInTheDocument();
     expect(screen.getByText(/generated records remain drafts/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /INV-000041/ })).toHaveAttribute("href", "/sales/invoices/invoice-41");
+    expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/recurring-transactions/template-1/edit");
   });
 
   it("runs with an idempotency key and supports an explicit pause", async () => {
