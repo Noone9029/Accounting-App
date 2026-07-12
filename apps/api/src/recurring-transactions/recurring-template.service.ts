@@ -263,6 +263,9 @@ export class RecurringTemplateService {
       if (claim.count !== 1) throw new ConflictException("Recurring template changed while editing. Reload and retry.");
       if (dto.lines) {
         await tx.recurringTransactionTemplateLine.deleteMany({ where: { organizationId, templateId: id } });
+        await tx.recurringTransactionTemplateLine.createMany({
+          data: prepared.lines.map((line) => ({ organizationId, templateId: id, ...line })),
+        });
       }
 
       const scheduleChanged = this.scheduleChanged(existing, normalized);
@@ -283,18 +286,10 @@ export class RecurringTemplateService {
         currencyCode: normalized.currencyCode,
         exchangeRatePolicy: normalized.exchangeRatePolicy,
         fixedExchangeRate: normalized.fixedExchangeRate,
-        rateSnapshot: normalized.rateSnapshotId
-          ? { connect: { organizationId_id: { organizationId, id: normalized.rateSnapshotId } } }
-          : { disconnect: true },
-        party: normalized.partyId
-          ? { connect: { organizationId_id: { organizationId, id: normalized.partyId } } }
-          : { disconnect: true },
-        branch: normalized.branchId
-          ? { connect: { organizationId_id: { organizationId, id: normalized.branchId } } }
-          : { disconnect: true },
-        paidThroughAccount: normalized.paidThroughAccountId
-          ? { connect: { organizationId_id: { organizationId, id: normalized.paidThroughAccountId } } }
-          : { disconnect: true },
+        rateSnapshotId: normalized.rateSnapshotId,
+        partyId: normalized.partyId,
+        branchId: normalized.branchId,
+        paidThroughAccountId: normalized.paidThroughAccountId,
         paymentTermsDays: normalized.paymentTermsDays,
         reference: normalized.reference,
         notes: normalized.notes,
@@ -306,8 +301,7 @@ export class RecurringTemplateService {
         taxableTotal: prepared.taxableTotal,
         taxTotal: prepared.taxTotal,
         total: prepared.total,
-        updatedBy: { connect: { id: actorUserId } },
-        lines: dto.lines ? { create: prepared.lines } : undefined,
+        updatedByUserId: actorUserId,
       };
       if (scheduleChanged) {
         updateData.nextRunAt = this.firstOccurrenceNotBefore(this.toSchedule(normalized), existing.nextRunAt).scheduledFor;

@@ -104,7 +104,10 @@ function makeHarness() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       update: jest.fn(),
     },
-    recurringTransactionTemplateLine: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    recurringTransactionTemplateLine: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      createMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
   };
   const prisma = {
     $transaction: jest.fn(async (callback: (executor: typeof tx) => unknown) => callback(tx)),
@@ -304,21 +307,24 @@ describe("RecurringTemplateService", () => {
           name: "Future name",
           templateVersion: { increment: 1 },
           nextRunAt: undefined,
-          party: { connect: { organizationId_id: { organizationId: "org-1", id: "customer-1" } } },
-          branch: { disconnect: true },
-          paidThroughAccount: { disconnect: true },
-          rateSnapshot: { disconnect: true },
-          updatedBy: { connect: { id: "user-1" } },
-          lines: { create: [expect.not.objectContaining({ organizationId: expect.anything() })] },
+          partyId: "customer-1",
+          branchId: null,
+          paidThroughAccountId: null,
+          rateSnapshotId: null,
+          updatedByUserId: "user-1",
         }),
       }),
     );
     const data = tx.recurringTransactionTemplate.update.mock.calls[0]?.[0]?.data;
-    expect(data).not.toHaveProperty("partyId");
-    expect(data).not.toHaveProperty("branchId");
-    expect(data).not.toHaveProperty("paidThroughAccountId");
-    expect(data).not.toHaveProperty("rateSnapshotId");
-    expect(data).not.toHaveProperty("updatedByUserId");
+    expect(data).not.toHaveProperty("party");
+    expect(data).not.toHaveProperty("branch");
+    expect(data).not.toHaveProperty("paidThroughAccount");
+    expect(data).not.toHaveProperty("rateSnapshot");
+    expect(data).not.toHaveProperty("updatedBy");
+    expect(data).not.toHaveProperty("lines");
+    expect(tx.recurringTransactionTemplateLine.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ organizationId: "org-1", templateId: "template-1" })],
+    });
     expect(tx).not.toHaveProperty("recurringTransactionRun.updateMany");
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "UPDATE" }), tx);
     expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "SCHEDULE_CHANGE" }), tx);
