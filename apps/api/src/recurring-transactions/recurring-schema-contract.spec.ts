@@ -7,6 +7,8 @@ const migrationPath = resolve(
   "../../prisma/migrations/20260712110000_generalize_recurring_transactions/migration.sql",
 );
 const migration = existsSync(migrationPath) ? readFileSync(migrationPath, "utf8") : "";
+const workerMigrationPath = resolve(__dirname, "../../prisma/migrations/20260712140000_add_recurring_worker_indexes/migration.sql");
+const workerMigration = existsSync(workerMigrationPath) ? readFileSync(workerMigrationPath, "utf8") : "";
 
 function modelBlock(source: string, name: string): string {
   return source.match(new RegExp(`model ${name} \\{[\\s\\S]*?\\n\\}`))?.[0] ?? "";
@@ -75,7 +77,7 @@ describe("generalized recurring transaction schema", () => {
 
   it("preserves durable run history with occurrence and manual-idempotency barriers", () => {
     const block = modelBlock(schema, "RecurringTransactionRun");
-    for (const field of ["templateVersion", "scheduledFor", "scheduledLocalDate", "startedAt", "completedAt", "status", "attemptCount", "idempotencyKey", "workerClaimId", "failureCode", "failureMessageSafe", "requestId", "sourceSnapshot"]) {
+    for (const field of ["templateVersion", "scheduledFor", "scheduledLocalDate", "startedAt", "completedAt", "status", "attemptCount", "nextAttemptAt", "idempotencyKey", "workerClaimId", "failureCode", "failureMessageSafe", "requestId", "sourceSnapshot"]) {
       expect(block).toMatch(new RegExp(`\\b${field}\\b`));
     }
     expect(block).toContain("@@unique([organizationId, templateId, scheduledFor])");
@@ -85,6 +87,14 @@ describe("generalized recurring transaction schema", () => {
     expect(block).toMatch(/generatedPurchaseBillId\s+String\?\s+@unique/);
     expect(block).toMatch(/generatedJournalEntryId\s+String\?\s+@unique/);
     expect(block).toMatch(/generatedExpenseProposalId\s+String\?\s+@unique/);
+    expect(block).toContain("@@index([status, nextAttemptAt])");
+    expect(modelBlock(schema, "RecurringTransactionTemplate")).toContain("@@index([status, nextRunAt])");
+  });
+
+  it("keeps worker retry and global queue indexes in schema and additive migration", () => {
+    expect(workerMigration).toContain('ADD COLUMN "nextAttemptAt" TIMESTAMPTZ(3)');
+    expect(workerMigration).toContain('"RecurringTransactionTemplate_status_nextRunAt_idx"');
+    expect(workerMigration).toContain('"RecurringTransactionRun_status_nextAttemptAt_idx"');
   });
 
   it("models recurring expenses as review proposals with normalized lines", () => {

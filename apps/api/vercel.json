@@ -13,6 +13,12 @@
       "memory": 1024
     }
   },
+  "crons": [
+    {
+      "path": "/internal/recurring-worker",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",

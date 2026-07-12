@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { FilePlus2, Plus, Trash2 } from "lucide-react";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
@@ -42,6 +42,10 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
   const [projects, setProjects] = useState<Catalog[]>([]);
   const [transactionType, setTransactionType] = useState<RecurringTransactionType>(initialTemplate?.transactionType ?? "SALES_INVOICE");
   const [name, setName] = useState(initialTemplate?.name ?? "");
+  const [templateDescription, setTemplateDescription] = useState(initialTemplate?.description ?? "");
+  const [terms, setTerms] = useState(initialTemplate?.terms ?? "");
+  const [taxMode, setTaxMode] = useState(initialTemplate?.taxMode ?? "TAX_EXCLUSIVE");
+  const [inventoryPostingMode, setInventoryPostingMode] = useState(initialTemplate?.inventoryPostingMode ?? "DIRECT_EXPENSE_OR_ASSET");
   const [partyId, setPartyId] = useState(initialTemplate?.partyId ?? "");
   const [branchId, setBranchId] = useState(initialTemplate?.branchId ?? "");
   const [paidThroughAccountId, setPaidThroughAccountId] = useState(initialTemplate?.paidThroughAccountId ?? "");
@@ -62,6 +66,19 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const previousOrganizationId = useRef(organization?.id ?? null);
+
+  useEffect(() => {
+    const previous = previousOrganizationId.current;
+    if (previous !== (organization?.id ?? null) && !initialTemplate) {
+      setContacts([]); setAccounts([]); setItems([]); setTaxRates([]); setBranches([]); setCostCenters([]); setProjects([]);
+      setTransactionType("SALES_INVOICE"); setName(""); setTemplateDescription(""); setTerms(""); setTaxMode("TAX_EXCLUSIVE"); setInventoryPostingMode("DIRECT_EXPENSE_OR_ASSET");
+      setPartyId(""); setBranchId(""); setPaidThroughAccountId(""); setFrequency("MONTHLY"); setInterval("1"); setStartDate(new Date().toISOString().slice(0, 10)); setEndDate("");
+      setTimezone(organization?.timezone ?? "Asia/Dubai"); setCatchUpPolicy("SKIP_MISSED"); setCurrencyCode(organization?.baseCurrency ?? "AED"); setExchangeRatePolicy("BASE_CURRENCY_ONLY");
+      setFixedExchangeRate(""); setRateSnapshotId(""); setPaymentTermsDays("0"); setReference(""); setNotes(""); setLines([newLine()]); setError("");
+    }
+    previousOrganizationId.current = organization?.id ?? null;
+  }, [initialTemplate, organization?.id]);
 
   useEffect(() => {
     if (!initialTemplate && organization?.timezone) setTimezone(organization.timezone);
@@ -72,10 +89,7 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
     if (!organization?.id || !canManage) return;
     let cancelled = false;
     setLoading(true); setError("");
-    Promise.all([
-      apiRequest<Catalog[]>("/contacts"), apiRequest<Catalog[]>("/accounts"), apiRequest<Catalog[]>("/items"),
-      apiRequest<Catalog[]>("/tax-rates"), apiRequest<Catalog[]>("/branches"), apiRequest<Catalog[]>("/cost-centers"), apiRequest<Catalog[]>("/projects"),
-    ]).then(([contactRows, accountRows, itemRows, taxRows, branchRows, costCenterRows, projectRows]) => {
+    apiRequest<{ contacts: Catalog[]; accounts: Catalog[]; items: Catalog[]; taxRates: Catalog[]; branches: Catalog[]; costCenters: Catalog[]; projects: Catalog[] }>("/recurring-transactions/catalogs").then(({ contacts: contactRows, accounts: accountRows, items: itemRows, taxRates: taxRows, branches: branchRows, costCenters: costCenterRows, projects: projectRows }) => {
       if (cancelled) return;
       setContacts(contactRows.filter((row) => row.isActive !== false));
       setAccounts(accountRows.filter((row) => row.isActive !== false && row.allowPosting !== false));
@@ -100,14 +114,14 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
       if (debit <= 0 || Math.abs(debit - credit) > 0.0001) return setError("Manual journal debits must equal credits and be greater than zero.");
     }
     const input: RecurringTemplateInput = {
-      transactionType, name: name.trim(), description: null, timezone, frequency, interval: Number(interval), startDate,
+      transactionType, name: name.trim(), description: templateDescription || null, timezone, frequency, interval: Number(interval), startDate,
       endDate: endDate || null, catchUpPolicy, currencyCode: currencyCode.toUpperCase(), exchangeRatePolicy,
       fixedExchangeRate: exchangeRatePolicy === "FIXED_TEMPLATE_RATE" ? fixedExchangeRate : null,
       rateSnapshotId: exchangeRatePolicy === "RATE_SNAPSHOT" ? rateSnapshotId : null,
       partyId: transactionType === "MANUAL_JOURNAL" ? null : partyId || null, branchId: branchId || null,
       paidThroughAccountId: transactionType === "EXPENSE" ? paidThroughAccountId || null : null,
-      paymentTermsDays: Number(paymentTermsDays), reference: reference || null, notes: notes || null, terms: null,
-      taxMode: transactionType === "SALES_INVOICE" ? "TAX_EXCLUSIVE" : null, inventoryPostingMode: transactionType === "PURCHASE_BILL" ? "NON_INVENTORY_ONLY" : null,
+      paymentTermsDays: Number(paymentTermsDays), reference: reference || null, notes: notes || null, terms: terms || null,
+      taxMode: transactionType === "SALES_INVOICE" ? taxMode : null, inventoryPostingMode: transactionType === "PURCHASE_BILL" ? inventoryPostingMode : null,
       lines: lines.map((line, sortOrder) => ({ itemId: line.itemId || null, accountId: line.accountId, taxRateId: line.taxRateId || null, costCenterId: line.costCenterId || null, projectId: line.projectId || null, description: line.description.trim(), quantity: line.quantity, unitPrice: line.unitPrice, discountRate: line.discountRate, debit: line.debit, credit: line.credit, sortOrder })),
     };
     setSubmitting(true);
@@ -127,18 +141,22 @@ export function RecurringTemplateEditor({ initialTemplate }: { initialTemplate?:
         <LedgerPanel><h2 className="text-base font-semibold text-ink">Template identity</h2><div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Field label="Transaction type"><LedgerSelect aria-label="Transaction type" value={transactionType} onChange={(event) => { setTransactionType(event.target.value as RecurringTransactionType); setPartyId(""); }}><option value="SALES_INVOICE">Sales invoice</option><option value="PURCHASE_BILL">Purchase bill</option><option value="EXPENSE">Expense proposal</option><option value="MANUAL_JOURNAL">Manual journal</option></LedgerSelect></Field>
           <Field label="Template name"><LedgerInput aria-label="Template name" value={name} onChange={(event) => setName(event.target.value)} /></Field>
+          <Field label="Document description"><LedgerInput aria-label="Document description" value={templateDescription} onChange={(event) => setTemplateDescription(event.target.value)} /></Field>
           {transactionType !== "MANUAL_JOURNAL" ? <Field label="Party"><LedgerSelect aria-label="Party" value={partyId} onChange={(event) => setPartyId(event.target.value)}><option value="">Select party</option>{contacts.filter((contact) => transactionType === "SALES_INVOICE" ? contact.type === "CUSTOMER" || contact.type === "BOTH" : transactionType === "PURCHASE_BILL" ? contact.type === "SUPPLIER" || contact.type === "BOTH" : true).map((contact) => <option key={contact.id} value={contact.id}>{contact.displayName || contact.name}</option>)}</LedgerSelect></Field> : null}
           <Field label="Branch"><LedgerSelect aria-label="Branch" value={branchId} onChange={(event) => setBranchId(event.target.value)}><option value="">Default branch</option>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.displayName || branch.name}</option>)}</LedgerSelect></Field>
           {transactionType === "EXPENSE" ? <Field label="Expected paid-through account"><LedgerSelect aria-label="Expected paid-through account" value={paidThroughAccountId} onChange={(event) => setPaidThroughAccountId(event.target.value)}><option value="">Select account</option>{accounts.map(option)}</LedgerSelect></Field> : null}
           <Field label="Reference"><LedgerInput aria-label="Reference" value={reference} onChange={(event) => setReference(event.target.value)} /></Field>
           <Field label="Notes"><LedgerInput aria-label="Notes" value={notes} onChange={(event) => setNotes(event.target.value)} /></Field>
+          <Field label="Terms"><LedgerInput aria-label="Terms" value={terms} onChange={(event) => setTerms(event.target.value)} /></Field>
+          {transactionType === "SALES_INVOICE" ? <Field label="Tax mode"><LedgerSelect aria-label="Tax mode" value={taxMode ?? "TAX_EXCLUSIVE"} onChange={(event) => setTaxMode(event.target.value)}><option value="TAX_EXCLUSIVE">Tax exclusive</option><option value="TAX_INCLUSIVE">Tax inclusive</option><option value="NO_TAX">No tax</option></LedgerSelect></Field> : null}
+          {transactionType === "PURCHASE_BILL" ? <Field label="Inventory posting"><LedgerSelect aria-label="Inventory posting" value={inventoryPostingMode ?? "DIRECT_EXPENSE_OR_ASSET"} onChange={(event) => setInventoryPostingMode(event.target.value)}><option value="DIRECT_EXPENSE_OR_ASSET">Direct expense or asset</option><option value="INVENTORY_CLEARING">Inventory clearing</option></LedgerSelect></Field> : null}
         </div></LedgerPanel>
         <LedgerPanel><h2 className="text-base font-semibold text-ink">Schedule</h2><div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Frequency"><LedgerSelect aria-label="Frequency" value={frequency} onChange={(event) => setFrequency(event.target.value as RecurringTemplateInput["frequency"])}><option value="DAILY">Daily</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option><option value="QUARTERLY">Quarterly</option><option value="YEARLY">Yearly</option></LedgerSelect></Field>
           <Field label="Every"><LedgerInput aria-label="Schedule interval" type="number" min="1" max="24" value={interval} onChange={(event) => setInterval(event.target.value)} /></Field>
           <Field label="Start date"><LedgerInput aria-label="Start date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></Field><Field label="End date"><LedgerInput aria-label="End date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></Field>
           <Field label="Timezone"><LedgerInput aria-label="Timezone" dir="ltr" value={timezone} onChange={(event) => setTimezone(event.target.value)} /></Field>
-          <Field label="Catch-up policy"><LedgerSelect aria-label="Catch-up policy" value={catchUpPolicy} onChange={(event) => setCatchUpPolicy(event.target.value as RecurringTemplateInput["catchUpPolicy"])}><option value="SKIP_MISSED">Skip missed</option><option value="RUN_LATEST_ONLY">Run latest only</option><option value="RUN_BOUNDED">Run bounded</option></LedgerSelect></Field>
+          <Field label="Catch-up policy"><LedgerSelect aria-label="Catch-up policy" value={catchUpPolicy} onChange={(event) => setCatchUpPolicy(event.target.value as RecurringTemplateInput["catchUpPolicy"])}><option value="SKIP_MISSED">Skip missed</option><option value="GENERATE_LATEST_ONLY">Generate latest only</option><option value="GENERATE_ALL">Generate all (bounded)</option></LedgerSelect></Field>
           <Field label="Payment terms days"><LedgerInput aria-label="Payment terms days" type="number" min="0" value={paymentTermsDays} onChange={(event) => setPaymentTermsDays(event.target.value)} /></Field>
         </div><SchedulePreview startDate={startDate} endDate={endDate} frequency={frequency} interval={Number(interval)} timezone={timezone} /></LedgerPanel>
         <LedgerPanel><h2 className="text-base font-semibold text-ink">Currency and rate evidence</h2><div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">

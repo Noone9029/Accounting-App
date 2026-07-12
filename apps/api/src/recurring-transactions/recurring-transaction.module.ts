@@ -22,6 +22,7 @@ import { RecurringExpenseProposalService } from "./recurring-expense-proposal.se
 import { RecurringTemplateService } from "./recurring-template.service";
 import { RecurringReadinessService } from "./recurring-readiness.service";
 import { RecurringTransactionController } from "./recurring-transaction.controller";
+import { RecurringWorkerController } from "./recurring-worker.controller";
 
 @Module({
   imports: [
@@ -60,7 +61,7 @@ import { RecurringTransactionController } from "./recurring-transaction.controll
     },
     RecurringGenerationDispatcher,
   ],
-  controllers: [RecurringTransactionController],
+  controllers: [RecurringTransactionController, RecurringWorkerController],
   exports: [RecurringTemplateService, RecurringRunService, RecurringExpenseProposalService, RecurringReadinessService],
 })
 export class RecurringTransactionModule {}

@@ -6,6 +6,7 @@ import {
   RecurringInvoiceDateMode,
   RecurringInvoiceFrequency,
   RecurringInvoiceTemplateStatus,
+  RecurringRunStatus,
   RecurringTransactionStatus,
   RecurringTransactionType,
   SalesInvoiceTaxMode,
@@ -54,7 +55,7 @@ export class RecurringInvoiceCompatibilityService {
   }
 
   async get(organizationId: string, id: string) {
-    return this.legacyTemplate(await this.templates.get(organizationId, id));
+    return this.legacyTemplate(await this.salesTemplate(organizationId, id));
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateRecurringInvoiceDto) {
@@ -64,6 +65,7 @@ export class RecurringInvoiceCompatibilityService {
     if (currencyCode !== organization.baseCurrency.toUpperCase()) {
       throw new BadRequestException("Legacy recurring invoice routes support base-currency templates only. Use recurring transactions for explicit FX policies.");
     }
+    const lines = await this.resolveLegacyLines(organizationId, dto.lines);
     const created = await this.templates.create(organizationId, actorUserId, {
       transactionType: RecurringTransactionType.SALES_INVOICE,
       name: dto.name,
@@ -85,22 +87,13 @@ export class RecurringInvoiceCompatibilityService {
       notes: dto.notes,
       terms: dto.terms,
       taxMode: dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE,
-      lines: dto.lines.map((line) => ({
-        itemId: line.itemId,
-        accountId: line.accountId!,
-        taxRateId: line.taxRateId,
-        description: line.description ?? "Recurring invoice line",
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountRate: line.discountRate,
-        sortOrder: line.sortOrder,
-      })),
+      lines,
     });
     return this.legacyTemplate(created);
   }
 
   async update(organizationId: string, actorUserId: string, id: string, dto: UpdateRecurringInvoiceDto) {
-    const current = await this.templates.get(organizationId, id);
+    const current = await this.salesTemplate(organizationId, id);
     if (dto.currency && dto.currency.toUpperCase() !== current.currencyCode) {
       throw new BadRequestException("Legacy recurring invoice routes cannot change FX policy. Use recurring transactions.");
     }
@@ -121,48 +114,41 @@ export class RecurringInvoiceCompatibilityService {
       notes: dto.notes,
       terms: dto.terms,
       taxMode: dto.taxMode,
-      lines: dto.lines?.map((line) => ({
-        itemId: line.itemId,
-        accountId: line.accountId!,
-        taxRateId: line.taxRateId,
-        description: line.description ?? "Recurring invoice line",
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountRate: line.discountRate,
-        sortOrder: line.sortOrder,
-      })),
+      lines: dto.lines ? await this.resolveLegacyLines(organizationId, dto.lines) : undefined,
     });
     return this.legacyTemplate(updated);
   }
 
   async activate(organizationId: string, actorUserId: string, id: string) {
-    const current = await this.templates.get(organizationId, id);
+    const current = await this.salesTemplate(organizationId, id);
     if (current.status === RecurringTransactionStatus.ACTIVE) return this.legacyTemplate(current);
     return this.legacyTemplate(await this.templates.activate(organizationId, actorUserId, id));
   }
 
   async pause(organizationId: string, actorUserId: string, id: string) {
-    const current = await this.templates.get(organizationId, id);
+    const current = await this.salesTemplate(organizationId, id);
     if (current.status === RecurringTransactionStatus.PAUSED) return this.legacyTemplate(current);
     return this.legacyTemplate(await this.templates.pause(organizationId, actorUserId, id));
   }
 
   async resume(organizationId: string, actorUserId: string, id: string) {
-    const current = await this.templates.get(organizationId, id);
+    const current = await this.salesTemplate(organizationId, id);
     if (current.status === RecurringTransactionStatus.ACTIVE) return this.legacyTemplate(current);
     return this.legacyTemplate(await this.templates.resume(organizationId, actorUserId, id));
   }
 
   async end(organizationId: string, actorUserId: string, id: string) {
+    await this.salesTemplate(organizationId, id);
     return this.legacyTemplate(await this.templates.archive(organizationId, actorUserId, id), RecurringInvoiceTemplateStatus.ENDED);
   }
 
   async cancel(organizationId: string, actorUserId: string, id: string) {
+    await this.salesTemplate(organizationId, id);
     return this.legacyTemplate(await this.templates.archive(organizationId, actorUserId, id));
   }
 
   async preview(organizationId: string, id: string) {
-    const template = await this.templates.get(organizationId, id);
+    const template = await this.salesTemplate(organizationId, id);
     const legacy = this.legacyTemplate(template);
     return {
       templateId: template.id,
@@ -185,16 +171,38 @@ export class RecurringInvoiceCompatibilityService {
   }
 
   async generateNow(organizationId: string, actorUserId: string, id: string) {
-    const template = await this.templates.get(organizationId, id);
+    const template = await this.salesTemplate(organizationId, id);
     const key = `legacy:${id}:${template.nextRunAt.toISOString()}`;
-    const run = await this.runs.runNow(organizationId, actorUserId, id, key);
+    const run = await this.runs.runNow(organizationId, actorUserId, id, key, undefined, template.nextRunAt);
+    const advanced = run.status === RecurringRunStatus.GENERATED
+      ? await this.templates.advanceAfterLegacyRun(organizationId, actorUserId, id, template.nextRunAt)
+      : template;
     return {
-      template: this.legacyTemplate(run.template ?? template),
+      template: this.legacyTemplate(advanced),
       invoice: run.generatedSalesInvoice ?? null,
       run: this.legacyRun(run),
       previousNextRunDate: template.nextRunAt,
-      newNextRunDate: template.nextRunAt,
+      newNextRunDate: advanced.nextRunAt,
     };
+  }
+
+  private async salesTemplate(organizationId: string, id: string) {
+    const template = await this.templates.get(organizationId, id);
+    if (template.transactionType !== RecurringTransactionType.SALES_INVOICE) throw new BadRequestException("Legacy recurring invoice routes accept sales invoice templates only.");
+    return template;
+  }
+
+  private async resolveLegacyLines(organizationId: string, lines: CreateRecurringInvoiceDto["lines"]) {
+    const itemIds = [...new Set(lines.map((line) => line.itemId).filter((value): value is string => Boolean(value)))];
+    const items = itemIds.length ? await this.prisma.item.findMany({ where: { organizationId, id: { in: itemIds } }, select: { id: true, name: true, description: true, revenueAccountId: true, salesTaxRateId: true } }) : [];
+    const byId = new Map(items.map((item) => [item.id, item]));
+    return lines.map((line) => {
+      const item = line.itemId ? byId.get(line.itemId) : undefined;
+      const accountId = line.accountId ?? item?.revenueAccountId;
+      if (!accountId) throw new BadRequestException("Recurring invoice line requires an account or a tenant item with a revenue account.");
+      if (line.itemId && !item) throw new BadRequestException("Recurring invoice item is missing or belongs to another organization.");
+      return { itemId: line.itemId, accountId, taxRateId: line.taxRateId === undefined ? item?.salesTaxRateId : line.taxRateId, description: line.description ?? item?.description ?? item?.name ?? "Recurring invoice line", quantity: line.quantity, unitPrice: line.unitPrice, discountRate: line.discountRate, sortOrder: line.sortOrder };
+    });
   }
 
   private legacyTemplate(template: any, statusOverride?: RecurringInvoiceTemplateStatus) {

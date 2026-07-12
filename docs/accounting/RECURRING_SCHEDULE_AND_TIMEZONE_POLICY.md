@@ -9,9 +9,11 @@ DST forward and backward transitions are resolved in the template timezone. A ca
 The explicit missed-run policies are:
 
 - `SKIP_MISSED` (default): retain skipped evidence and advance without generating old drafts.
-- `RUN_LATEST_ONLY`: generate only the latest due occurrence.
-- `RUN_BOUNDED`: generate a safely bounded number of occurrences.
+- `GENERATE_LATEST_ONLY`: generate only the latest due occurrence after recording older occurrences as skipped.
+- `GENERATE_ALL`: generate every due occurrence in safely bounded batches.
 
-The engine never creates an unlimited backlog. Pause prevents new claims; resume revalidates references and schedule policy; archive permanently prevents future generation while preserving history. End dates complete a schedule after its final occurrence.
+The engine never creates an unlimited backlog. Generated and skipped run evidence is capped by the worker batch limit; a large backlog advances across later worker invocations. Pause prevents new claims; resume revalidates references and schedule policy; archive permanently prevents future generation while preserving history. End dates complete a schedule after its final occurrence.
+
+Template schedule edits affect only future occurrences. Recalculation finds the first occurrence on or after the template's current `nextRunAt`; it never rewinds to the historical start date. A change with no valid future occurrence is rejected instead of silently rewriting history.
 
 Occurrences inside a locked period become explicit blockers. The scheduler does not silently move the accounting date.

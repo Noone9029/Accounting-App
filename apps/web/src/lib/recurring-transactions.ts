@@ -2,7 +2,27 @@ import { apiRequest } from "./api";
 
 export type RecurringTransactionType = "SALES_INVOICE" | "PURCHASE_BILL" | "EXPENSE" | "MANUAL_JOURNAL";
 export type RecurringTransactionStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
-export type RecurringRunStatus = "PENDING" | "CLAIMED" | "GENERATED" | "BLOCKED" | "FAILED" | "SKIPPED";
+export type RecurringRunStatus = "PENDING" | "CLAIMED" | "GENERATED" | "BLOCKED" | "FAILED" | "SKIPPED" | "CANCELLED";
+
+export interface RecurringExpenseProposalEvidence {
+  id: string;
+  status: string;
+  proposedDate: string;
+  currency: string;
+  baseCurrency: string;
+  exchangeRate?: string | null;
+  rateDate?: string | null;
+  rateSource?: string | null;
+  rateSnapshotId?: string | null;
+  subtotal: string;
+  discountTotal: string;
+  taxableTotal: string;
+  taxTotal: string;
+  total: string;
+  paidThroughAccount: { id: string; code: string; name: string };
+  reviewedCashExpense?: { id: string; expenseNumber: string; status: string } | null;
+  lines: Array<{ id: string; description: string; quantity: string; unitPrice: string; discountRate: string; lineGrossAmount: string; discountAmount: string; taxableAmount: string; taxAmount: string; lineTotal: string; sortOrder: number; account: { id: string; code: string; name: string }; costCenter?: { id: string; code: string; name: string } | null; project?: { id: string; code: string; name: string } | null }>;
+}
 
 export interface RecurringTemplateLine {
   id?: string;
@@ -31,7 +51,7 @@ export interface RecurringRun {
   templateVersion: number;
   scheduledFor: string;
   scheduledLocalDate: string;
-  trigger: "MANUAL" | "SCHEDULED";
+  trigger: "MANUAL" | "SCHEDULED" | "RETRY";
   status: RecurringRunStatus;
   attemptCount: number;
   failureCode?: string | null;
@@ -39,7 +59,7 @@ export interface RecurringRun {
   generatedSalesInvoice?: { id: string; invoiceNumber: string; status: string } | null;
   generatedPurchaseBill?: { id: string; billNumber: string; status: string } | null;
   generatedJournalEntry?: { id: string; entryNumber: string; status: string } | null;
-  generatedExpenseProposal?: { id: string; status: string } | null;
+  generatedExpenseProposal?: RecurringExpenseProposalEvidence | null;
 }
 
 export interface RecurringTemplate {
@@ -59,7 +79,7 @@ export interface RecurringTemplate {
   endDate?: string | null;
   nextRunAt: string;
   lastRunAt?: string | null;
-  catchUpPolicy: "SKIP_MISSED" | "RUN_LATEST_ONLY" | "RUN_BOUNDED";
+  catchUpPolicy: "SKIP_MISSED" | "GENERATE_LATEST_ONLY" | "GENERATE_ALL";
   templateVersion: number;
   currencyCode: string;
   exchangeRatePolicy: "BASE_CURRENCY_ONLY" | "FIXED_TEMPLATE_RATE" | "REQUIRE_RATE_AT_RUN" | "RATE_SNAPSHOT";
@@ -116,4 +136,7 @@ export function runRecurringTemplate(id: string, idempotencyKey: string) {
 }
 export function transitionRecurringTemplate(id: string, action: "activate" | "pause" | "resume" | "archive") {
   return apiRequest<RecurringTemplate>(`/recurring-transactions/${encodeURIComponent(id)}/${action}`, { method: "POST", body: {} });
+}
+export function reviewRecurringExpenseProposal(id: string, idempotencyKey: string) {
+  return apiRequest<RecurringExpenseProposalEvidence>(`/recurring-transactions/expense-proposals/${encodeURIComponent(id)}/review`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: {} });
 }

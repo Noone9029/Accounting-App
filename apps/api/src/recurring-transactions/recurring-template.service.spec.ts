@@ -280,12 +280,12 @@ describe("RecurringTemplateService", () => {
     tx.recurringTransactionTemplate.findFirst.mockResolvedValue(existing);
     tx.recurringTransactionTemplate.update.mockResolvedValue({ ...existing, name: "Future name", templateVersion: 4 });
 
-    const updated = await service.update("org-1", "user-1", "template-1", { name: "Future name", expectedVersion: 3 });
+    const updated = await service.update("org-1", "user-1", "template-1", { name: "Future name", startDate: "2026-01-31", timezone: "Asia/Dubai", expectedVersion: 3 });
 
     expect(updated.templateVersion).toBe(4);
     expect(tx.recurringTransactionTemplate.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ name: "Future name", templateVersion: { increment: 1 } }),
+        data: expect.objectContaining({ name: "Future name", templateVersion: { increment: 1 }, nextRunAt: undefined }),
       }),
     );
     expect(tx).not.toHaveProperty("recurringTransactionRun.updateMany");
@@ -295,8 +295,9 @@ describe("RecurringTemplateService", () => {
 
   it("records schedule changes separately without changing prior run evidence", async () => {
     const { service, tx, auditLog, created } = makeHarness();
-    tx.recurringTransactionTemplate.findFirst.mockResolvedValue({
+    const existing = {
       ...created,
+      nextRunAt: new Date("2026-07-30T20:00:00.000Z"),
       status: RecurringTransactionStatus.ACTIVE,
       templateVersion: 1,
       currencyCode: "AED",
@@ -317,11 +318,15 @@ describe("RecurringTemplateService", () => {
       terms: null,
       fixedExchangeRate: null,
       rateSnapshotId: null,
-    });
+    };
+    tx.recurringTransactionTemplate.findFirst.mockResolvedValue(existing);
     tx.recurringTransactionTemplate.update.mockResolvedValue({ ...created, interval: 2, templateVersion: 2 });
 
     await service.update("org-1", "user-1", "template-1", { interval: 2, expectedVersion: 1 });
 
+    expect(tx.recurringTransactionTemplate.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ nextRunAt: new Date("2026-07-30T20:00:00.000Z") }),
+    }));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "SCHEDULE_CHANGE" }), tx);
   });
 

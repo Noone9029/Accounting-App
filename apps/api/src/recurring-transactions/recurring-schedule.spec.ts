@@ -102,6 +102,12 @@ describe("recurring schedule", () => {
     expect(canonicalOccurrence("2026-11-02", "America/New_York").scheduledFor.toISOString()).toBe("2026-11-02T05:00:00.000Z");
   });
 
+  it("uses the earliest valid local instant when DST skips midnight", () => {
+    const occurrence = canonicalOccurrence("2026-09-06", "America/Santiago");
+    expect(occurrence.localDate).toBe("2026-09-06");
+    expect(occurrence.scheduledFor.toISOString()).toBe("2026-09-06T04:00:00.000Z");
+  });
+
   it("produces different canonical instants for the same business date in different timezones", () => {
     expect(canonicalOccurrence("2026-07-12", "Asia/Dubai").scheduledFor.toISOString()).toBe("2026-07-11T20:00:00.000Z");
     expect(canonicalOccurrence("2026-07-12", "Asia/Riyadh").scheduledFor.toISOString()).toBe("2026-07-11T21:00:00.000Z");
@@ -166,6 +172,24 @@ describe("recurring schedule", () => {
     expect(result.hasMoreDue).toBe(true);
     expect(result.nextLocalDate).toBe("2026-01-04");
   });
+
+  it.each(["SKIP_MISSED", "GENERATE_LATEST_ONLY"] as const)(
+    "bounds %s catch-up evidence and advances the backlog in chunks",
+    (catchUpPolicy) => {
+      const result = resolveDueOccurrences({
+        schedule: { ...monthly31, frequency: "DAILY", anchorDate: "2026-01-01", dayOfMonth: null },
+        nextLocalDate: "2026-01-01",
+        now: new Date("2026-12-31T12:00:00.000Z"),
+        catchUpPolicy,
+        limit: 3,
+      });
+
+      expect(result.occurrences).toEqual([]);
+      expect(result.skippedLocalDates).toEqual(["2026-01-01", "2026-01-02", "2026-01-03"]);
+      expect(result.hasMoreDue).toBe(true);
+      expect(result.nextLocalDate).toBe("2026-01-04");
+    },
+  );
 
   it("rejects unbounded or invalid catch-up limits", () => {
     expect(() =>

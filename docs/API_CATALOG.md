@@ -64,7 +64,7 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | POST | `/migration-toolkit/import-jobs` | Create local import preview job | Yes | Yes | Groundwork | Requires `migrationToolkit.import`; parses CSV, stores tenant-scoped row previews and validation issues, detects duplicates, and does not mutate accounting records or call providers. |
 | GET | `/migration-toolkit/import-jobs/:id` | Import preview detail | Yes | Yes | Groundwork | Requires `migrationToolkit.view`; tenant scoped. |
 | POST | `/migration-toolkit/import-jobs/:id/commit` | Commit reviewed local master-data import | Yes | Yes | Groundwork | Requires `migrationToolkit.commit`; requires explicit reviewed confirmation and blocks jobs with validation errors. No hosted/prod migration proof. |
-| GET | `/migration-toolkit/exports/:entityType.csv` | Export safe CSV master data | Yes | Yes | Groundwork | Requires `migrationToolkit.export`; tenant-scoped exports for customers, suppliers, products/services, and chart of accounts with CSV formula-injection protection and safe audit metadata. |
+| GET | `/migration-toolkit/exports/:entityType.csv` | Export safe CSV data | Yes | Yes | Groundwork | Requires `migrationToolkit.export`; tenant-scoped exports for master data, recurring templates, and recurring run history with CSV formula-injection protection and a 10,000-row cap. |
 
 Recurring template import types are `RECURRING_SALES_INVOICE_TEMPLATES`, `RECURRING_PURCHASE_BILL_TEMPLATES`, `RECURRING_EXPENSE_TEMPLATES`, and `RECURRING_JOURNAL_TEMPLATES`. `RECURRING_TRANSACTION_RUNS` is export-only. Reviewed commits create inactive drafts through the normal service; exports are CSV-injection protected and capped at 10,000 rows.
 
@@ -74,6 +74,7 @@ Recurring template import types are `RECURRING_SALES_INVOICE_TEMPLATES`, `RECURR
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/recurring-transactions` | Filtered template list | Yes | Yes | Implemented | Requires `recurringTransactions.read`; bounded pagination and tenant scope. |
 | POST | `/recurring-transactions` | Create draft template | Yes | Yes | Implemented | Requires `recurringTransactions.manage`; never activates or posts implicitly. |
+| GET | `/recurring-transactions/catalogs` | Tenant-safe editor reference catalogs | Yes | Yes | Implemented | Requires `recurringTransactions.manage`; returns only active contacts/accounts/items/taxes/branches/dimensions needed by the recurring editor. |
 | GET | `/recurring-transactions/:id` | Template detail | Yes | Yes | Implemented | Includes normalized lines and latest run only. |
 | PATCH | `/recurring-transactions/:id` | Edit future template version | Yes | Yes | Implemented | Optimistic `expectedVersion`; prior runs and targets unchanged. |
 | POST | `/recurring-transactions/:id/activate` | Activate validated schedule | Yes | Yes | Implemented | Revalidates references and FX policy. |
@@ -84,7 +85,10 @@ Recurring template import types are `RECURRING_SALES_INVOICE_TEMPLATES`, `RECURR
 | GET | `/recurring-transactions/:id/runs` | Bounded run history | Yes | Yes | Implemented | Requires read permission; safe blocker and draft-target evidence. |
 | GET | `/recurring-transactions/runs/:runId` | One run | Yes | Yes | Implemented | Tenant scoped. |
 | GET | `/recurring-transactions/readiness` | Recurring attention counts | Yes | Yes | Implemented | Advisory; `blocksFiscalClose=false`. |
-| POST | `/recurring-transactions/expense-proposals/:proposalId/review` | Explicit expense proposal review | Yes | Yes | Implemented | Requires review permission and idempotency; normal expense workflow, no provider or money movement. |
+| POST | `/recurring-transactions/expense-proposals/:proposalId/review` | Explicit expense proposal review and posting | Yes | Yes | Implemented | Requires review permission and idempotency; web UI shows immutable proposal/FX/line evidence and confirms posting; normal expense workflow, no provider or money movement. |
+| GET | `/internal/recurring-worker` | Bounded scheduled run processor | `CRON_SECRET` | No | User-testing | Vercel cron target; fails closed without a constant-time Bearer secret match, processes at most 25 recoverable/due runs, and creates drafts/proposals only. Five-minute cadence requires a plan supporting sub-daily cron. |
+
+Legacy `/recurring-invoices` endpoints retain their historical sales-invoice permission contract, but the compatibility service accepts only generalized `SALES_INVOICE` templates. It cannot read or mutate purchase, expense, or journal templates through legacy IDs.
 
 ## Dashboard
 

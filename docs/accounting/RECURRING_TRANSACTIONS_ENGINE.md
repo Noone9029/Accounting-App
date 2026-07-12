@@ -16,7 +16,11 @@ Every run stores the template version and a safe source snapshot. Template edits
 
 One template occurrence can produce at most one successful target. A database uniqueness constraint protects `templateId + scheduledFor`; manual runs additionally require an idempotency key. Due work is claimed with row locking, serializable transactions, bounded serialization retries, and the uniqueness constraint as the final duplicate barrier.
 
-Runs expose `PENDING`, `CLAIMED`, `GENERATED`, `BLOCKED`, `SKIPPED`, or `FAILED`, attempt count, safe failure code/message, trigger, and generated target. Known database concurrency errors are retried or returned as safe conflicts, not raw Prisma errors.
+Runs expose `PENDING`, `CLAIMED`, `GENERATED`, `BLOCKED`, `SKIPPED`, or `FAILED`, attempt count, safe failure code/message, trigger, and generated target. Known database concurrency errors are retried or returned as safe conflicts, not raw Prisma errors. Retriable failures use exponential backoff and stop automatically after five attempts as terminal `GENERATION_RETRY_EXHAUSTED` evidence; they cannot starve new due work forever.
+
+The hosted worker is a bounded `GET /internal/recurring-worker` Vercel cron target. It fails closed unless the request carries the configured `CRON_SECRET`, processes at most 25 runs per invocation, and never posts the generated target. Worker recovery claims durable `PENDING` runs, retriable `FAILED` runs, and stale `CLAIMED` runs before preparing new occurrences. A timeout can therefore delay work, but it cannot authorize silent posting or erase run evidence. The five-minute schedule requires a Vercel plan that supports sub-daily cron; deployment preflight must verify that plan and the secret without printing the value.
+
+Legacy `/recurring-invoices` routes intentionally retain their existing sales-invoice permissions for compatibility. The adapter rejects every generalized template type except `SALES_INVOICE`; new generalized lifecycle and run routes use the dedicated recurring permission family. Legacy Generate Now uses the template occurrence date, preserves the item revenue account and default sales tax, and advances the schedule only after successful draft generation. An explicitly retried blocked occurrence keeps the same occurrence identity.
 
 ## Dimensions and foreign currency
 

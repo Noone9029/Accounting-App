@@ -57,6 +57,24 @@ describe("RecurringTransactionsPage", () => {
     expect(screen.getByText(/select an organization/i)).toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalled();
   });
+
+  it("loads bounded template pages", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/recurring-transactions/readiness") return Promise.resolve({
+        status: "READY", templateCount: 26, activeTemplates: 26, dueTemplates: 0, failedRuns: 0, blockedRuns: 0,
+        generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0,
+        runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-12T10:00:00.000Z",
+      });
+      if (path.includes("page=1")) return Promise.resolve({ items: [templateFixture()], page: 1, limit: 25, total: 26, totalPages: 2 });
+      if (path.includes("page=2")) return Promise.resolve({ items: [{ ...templateFixture(), id: "template-26", templateCode: "REC-000026", name: "Second page template" }], page: 2, limit: 25, total: 26, totalPages: 2 });
+      return Promise.reject(new Error(`Unexpected ${path}`));
+    });
+    render(<RecurringTransactionsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Second page template")).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
 });
 
 function templateFixture() {

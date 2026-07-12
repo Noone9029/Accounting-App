@@ -21,8 +21,12 @@ export default function RecurringTransactionsPage() {
   const [readiness, setReadiness] = useState<RecurringReadiness | null>(null);
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => { setPage(1); }, [organizationId]);
 
   useEffect(() => {
     setTemplates([]); setReadiness(null); setError("");
@@ -31,14 +35,14 @@ export default function RecurringTransactionsPage() {
     setLoading(true);
     Promise.all([
       getRecurringReadiness(),
-      listRecurringTemplates({ transactionType: type || undefined, status: status || undefined, page: 1, limit: 25 }),
-    ]).then(([readinessResult, page]) => {
-      if (!cancelled) { setReadiness(readinessResult); setTemplates(page.items); }
+      listRecurringTemplates({ transactionType: type || undefined, status: status || undefined, page, limit: 25 }),
+    ]).then(([readinessResult, pageResult]) => {
+      if (!cancelled) { setReadiness(readinessResult); setTemplates(pageResult.items); setTotalPages(pageResult.totalPages); }
     }).catch((loadError: unknown) => {
       if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to load recurring transactions.");
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [canRead, organizationId, status, type]);
+  }, [canRead, organizationId, page, status, type]);
 
   return (
     <LedgerPage>
@@ -62,12 +66,12 @@ export default function RecurringTransactionsPage() {
           <LedgerToolbar title="Templates" description="Filter the work queue, then open a template for schedule, run, and exception evidence.">
             <LedgerFilterBar>
               <LedgerFieldLabel className="min-w-52"><LedgerFieldText>Transaction type</LedgerFieldText>
-                <LedgerSelect aria-label="Transaction type" value={type} onChange={(event) => setType(event.target.value)}>
+                <LedgerSelect aria-label="Transaction type" value={type} onChange={(event) => { setType(event.target.value); setPage(1); }}>
                   <option value="">All types</option><option value="SALES_INVOICE">Sales invoices</option><option value="PURCHASE_BILL">Purchase bills</option><option value="EXPENSE">Expense proposals</option><option value="MANUAL_JOURNAL">Manual journals</option>
                 </LedgerSelect>
               </LedgerFieldLabel>
               <LedgerFieldLabel className="min-w-44"><LedgerFieldText>Template status</LedgerFieldText>
-                <LedgerSelect aria-label="Template status" value={status} onChange={(event) => setStatus(event.target.value)}>
+                <LedgerSelect aria-label="Template status" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
                   <option value="">All statuses</option><option value="DRAFT">Draft</option><option value="ACTIVE">Active</option><option value="PAUSED">Paused</option><option value="COMPLETED">Completed</option><option value="ARCHIVED">Archived</option>
                 </LedgerSelect>
               </LedgerFieldLabel>
@@ -75,6 +79,7 @@ export default function RecurringTransactionsPage() {
           </LedgerToolbar>
         ) : null}
         {organizationId && canRead && !loading ? <TemplateTable templates={templates} canManage={canManage} /> : null}
+        {organizationId && canRead && totalPages > 1 ? <div className="flex items-center justify-end gap-2"><LedgerButton size="sm" disabled={page <= 1 || loading} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</LedgerButton><span className="text-xs text-steel">Page {page} of {totalPages}</span><LedgerButton size="sm" disabled={page >= totalPages || loading} onClick={() => setPage((current) => current + 1)}>Next</LedgerButton></div> : null}
       </LedgerPageBody>
     </LedgerPage>
   );

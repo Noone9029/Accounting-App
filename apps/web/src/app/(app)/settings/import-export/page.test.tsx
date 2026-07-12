@@ -3,19 +3,24 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import ImportExportSettingsPage from "./page";
 
 const apiRequest = jest.fn();
+const downloadAuthenticatedFile = jest.fn();
 
 jest.mock("@/hooks/use-active-organization", () => ({
   useActiveOrganizationId: () => "org-1",
 }));
 
 jest.mock("@/lib/api", () => ({
-  apiBaseUrl: "http://localhost:4000",
   apiRequest: (...args: unknown[]) => apiRequest(...args),
+}));
+
+jest.mock("@/lib/pdf-download", () => ({
+  downloadAuthenticatedFile: (...args: unknown[]) => downloadAuthenticatedFile(...args),
 }));
 
 describe("ImportExportSettingsPage", () => {
   beforeEach(() => {
     apiRequest.mockReset();
+    downloadAuthenticatedFile.mockReset().mockResolvedValue(undefined);
   });
 
   it("renders safe local import/export controls without production migration claims", async () => {
@@ -28,10 +33,30 @@ describe("ImportExportSettingsPage", () => {
     expect(screen.getByText("Unproven")).toBeInTheDocument();
 
     await waitFor(() => expect(screen.getByText(/Creates local customer contacts/i)).toBeInTheDocument());
-    expect(screen.getByRole("link", { name: "Download template" })).toHaveAttribute("href", "http://localhost:4000/migration-toolkit/templates/CUSTOMERS.csv");
-    expect(screen.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "http://localhost:4000/migration-toolkit/exports/CUSTOMERS.csv");
+    fireEvent.click(screen.getByRole("button", { name: "Download template" }));
+    await waitFor(() => expect(downloadAuthenticatedFile).toHaveBeenCalledWith("/migration-toolkit/templates/CUSTOMERS.csv", "customers-template.csv"));
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    await waitFor(() => expect(downloadAuthenticatedFile).toHaveBeenCalledWith("/migration-toolkit/exports/CUSTOMERS.csv", "customers-export.csv"));
     expect(await screen.findByText("Opening balances")).toBeInTheDocument();
     expect(screen.getByText("Bank credentials")).toBeInTheDocument();
+  });
+
+  it("exposes recurring template imports and run-history export in the accountant toolkit", async () => {
+    mockInitialLoad();
+    render(<ImportExportSettingsPage />);
+
+    const select = await screen.findByLabelText("Import type");
+    expect(within(select).getByRole("option", { name: "Recurring sales invoice templates" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Recurring purchase bill templates" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Recurring expense proposal templates" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Recurring manual journal templates" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export recurring run history" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Export recurring run history" }));
+    await waitFor(() => expect(downloadAuthenticatedFile).toHaveBeenCalledWith(
+      "/migration-toolkit/exports/RECURRING_TRANSACTION_RUNS.csv",
+      "recurring-transaction-runs-export.csv",
+    ));
   });
 
   it("shows preview validation errors and keeps commit disabled until clean reviewed state", async () => {

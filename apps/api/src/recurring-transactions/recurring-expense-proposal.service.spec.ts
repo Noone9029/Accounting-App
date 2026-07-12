@@ -19,6 +19,7 @@ function makeHarness() {
     rateSnapshotId: null,
     description: "Monthly expense",
     notes: "Review first",
+    subtotal: "100.0000", discountTotal: "0.0000", taxableTotal: "100.0000", taxTotal: "5.0000", total: "105.0000",
     reviewIdempotencyKey: null,
     reviewedCashExpenseId: null,
     reviewedCashExpense: null,
@@ -50,14 +51,18 @@ function makeHarness() {
     },
   };
   const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-  const cashExpenses = { createPostedInTransaction: jest.fn().mockResolvedValue({ id: "expense-1", status: "POSTED" }) };
+  const cashExpenses = { createPostedInTransaction: jest.fn().mockResolvedValue({
+    id: "expense-1", status: "POSTED",
+    subtotal: "367.2500", discountTotal: "0.0000", taxableTotal: "367.2500", taxTotal: "18.3625", total: "385.6125",
+    transactionSubtotal: "100.0000", transactionDiscountTotal: "0.0000", transactionTaxableTotal: "100.0000", transactionTaxTotal: "5.0000", transactionTotal: "105.0000",
+  }) };
   const auditLog = { log: jest.fn() };
   const service = new RecurringExpenseProposalService(prisma as never, cashExpenses as never, auditLog as never);
   return { service, prisma, tx, cashExpenses, auditLog, proposal, reviewed };
 }
 
 describe("RecurringExpenseProposalService", () => {
-  it("reviews a proposal idempotently through the normal posted expense workflow", async () => {
+  it("reviews a foreign-currency proposal against immutable transaction totals", async () => {
     const { service, tx, cashExpenses, auditLog, reviewed } = makeHarness();
 
     await expect(service.review("org-1", "user-1", "proposal-1", "review-key")).resolves.toBe(reviewed);
@@ -104,5 +109,16 @@ describe("RecurringExpenseProposalService", () => {
 
     tx.$queryRaw.mockResolvedValueOnce([]);
     await expect(service.review("org-other", "user-1", "proposal-1", "review-key")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rolls back review when live tax calculation no longer matches proposal totals", async () => {
+    const { service, cashExpenses, tx } = makeHarness();
+    cashExpenses.createPostedInTransaction.mockResolvedValue({
+      id: "expense-1", status: "POSTED",
+      subtotal: "367.2500", discountTotal: "0.0000", taxableTotal: "367.2500", taxTotal: "36.7250", total: "403.9750",
+      transactionSubtotal: "100.0000", transactionDiscountTotal: "0.0000", transactionTaxableTotal: "100.0000", transactionTaxTotal: "10.0000", transactionTotal: "110.0000",
+    });
+    await expect(service.review("org-1", "user-1", "proposal-1", "review-key")).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.recurringExpenseProposal.update).not.toHaveBeenCalled();
   });
 });

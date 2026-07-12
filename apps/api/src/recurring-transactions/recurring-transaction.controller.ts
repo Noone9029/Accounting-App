@@ -39,6 +39,12 @@ export class RecurringTransactionController {
     return this.readinessService.get(organizationId);
   }
 
+  @Get("catalogs")
+  @RequirePermissions(PERMISSIONS.recurringTransactions.manage)
+  catalogs(@CurrentOrganizationId() organizationId: string) {
+    return this.templates.catalogs(organizationId);
+  }
+
   @Get("runs/:runId")
   @RequirePermissions(PERMISSIONS.recurringTransactions.read)
   getRun(@CurrentOrganizationId() organizationId: string, @Param("runId") runId: string) {

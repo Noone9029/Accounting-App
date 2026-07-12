@@ -2417,6 +2417,6 @@ Recommended next step:
 - No database was mutated, no RLS was enabled, no DB role changed, no migration ran, no Prisma schema changed, no hosted mutation occurred, and no provider/storage/email/payment/compliance behavior changed.
 # Generalized recurring transactions — 2026-07-12
 
-Implemented locally: additive generalized schema and legacy compatibility, deterministic IANA scheduling, durable idempotent/concurrency-safe runs, draft adapters for invoices/bills/journals, expense review proposals, dedicated permissions/audits/API/readiness, accountant web workspace, reviewed CSV imports, and safe template/run exports.
+Implemented locally: additive generalized schema and sales-only legacy compatibility, deterministic IANA scheduling, bounded Vercel cron processing with durable run recovery, idempotent/concurrency-safe runs, draft adapters for invoices/bills/journals, expense review proposals, dedicated permissions/audits/API/readiness, accountant web workspace, reviewed CSV imports, and authenticated tenant-scoped template/run exports.
 
 This status adds no provider, compliance, or money-movement behavior. Hosted burner migration, deployment, authenticated smoke, merged rollout evidence, and cleanup remain required before the arc is complete. The next recommended arc after that evidence is the accountant month-end close workspace; it is not part of this implementation.

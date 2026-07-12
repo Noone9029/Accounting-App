@@ -4534,6 +4534,7 @@ model RecurringTransactionTemplate {
   @@unique([organizationId, id])
   @@unique([organizationId, templateCode])
   @@index([organizationId, status, nextRunAt])
+  @@index([status, nextRunAt])
   @@index([organizationId, transactionType, status])
   @@index([organizationId, partyId])
   @@index([organizationId, branchId])
@@ -4595,6 +4596,7 @@ model RecurringTransactionRun {
   trigger                    RecurringRunTrigger
   status                     RecurringRunStatus           @default(PENDING)
   attemptCount               Int                          @default(0)
+  nextAttemptAt              DateTime?                    @db.Timestamptz(3)
   idempotencyKey             String
   workerClaimId              String?
   startedAt                  DateTime?                    @db.Timestamptz(3)
@@ -4626,6 +4628,8 @@ model RecurringTransactionRun {
   @@unique([organizationId, generatedExpenseProposalId])
   @@index([organizationId, status, scheduledFor])
   @@index([organizationId, templateId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([status, createdAt])
   @@index([workerClaimId])
   @@index([requestId])
 }

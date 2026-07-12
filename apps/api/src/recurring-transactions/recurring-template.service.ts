@@ -22,7 +22,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateRecurringTransactionDto } from "./dto/create-recurring-transaction.dto";
 import { RecurringTransactionLineDto } from "./dto/recurring-transaction-line.dto";
 import { UpdateRecurringTransactionDto } from "./dto/update-recurring-transaction.dto";
-import { firstOccurrence, type RecurringSchedule } from "./recurring-schedule";
+import { firstOccurrence, localDateForInstant, nextOccurrence, type RecurringSchedule } from "./recurring-schedule";
 
 const templateInclude = {
   party: { select: { id: true, name: true, displayName: true, type: true, isActive: true } },
@@ -126,6 +126,19 @@ export class RecurringTemplateService {
     });
     if (!template) throw new NotFoundException("Recurring transaction template not found.");
     return template;
+  }
+
+  async catalogs(organizationId: string) {
+    const [contacts, accounts, items, taxRates, branches, costCenters, projects] = await Promise.all([
+      this.prisma.contact.findMany({ where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, displayName: true, type: true, isActive: true } }),
+      this.prisma.account.findMany({ where: { organizationId, isActive: true, allowPosting: true }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true, type: true, isActive: true, allowPosting: true } }),
+      this.prisma.item.findMany({ where: { organizationId, status: ItemStatus.ACTIVE }, orderBy: { name: "asc" }, select: { id: true, sku: true, name: true, status: true } }),
+      this.prisma.taxRate.findMany({ where: { organizationId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, rate: true, scope: true, isActive: true } }),
+      this.prisma.branch.findMany({ where: { organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, displayName: true } }),
+      this.prisma.costCenter.findMany({ where: { organizationId, status: DimensionStatus.ACTIVE }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true, status: true } }),
+      this.prisma.project.findMany({ where: { organizationId, status: DimensionStatus.ACTIVE }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true, status: true } }),
+    ]);
+    return { contacts, accounts, items, taxRates, branches, costCenters, projects };
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateRecurringTransactionDto) {
@@ -244,7 +257,7 @@ export class RecurringTemplateService {
         await tx.recurringTransactionTemplateLine.deleteMany({ where: { organizationId, templateId: id } });
       }
 
-      const scheduleChanged = this.scheduleChanged(dto);
+      const scheduleChanged = this.scheduleChanged(existing, normalized);
       const updateData = {
         name: normalized.name,
         description: normalized.description,
@@ -280,8 +293,8 @@ export class RecurringTemplateService {
         updatedByUserId: actorUserId,
         lines: dto.lines ? { create: prepared.lines.map((line) => ({ organizationId, ...line })) } : undefined,
       };
-      if (dto.startDate !== undefined || dto.timezone !== undefined) {
-        updateData.nextRunAt = firstOccurrence(this.toSchedule(normalized)).scheduledFor;
+      if (scheduleChanged) {
+        updateData.nextRunAt = this.firstOccurrenceNotBefore(this.toSchedule(normalized), existing.nextRunAt).scheduledFor;
       }
       const updated = await tx.recurringTransactionTemplate.update({ where: { id }, data: updateData, include: templateInclude });
 
@@ -303,6 +316,18 @@ export class RecurringTemplateService {
 
   resume(organizationId: string, actorUserId: string, id: string) {
     return this.transition(organizationId, actorUserId, id, [RecurringTransactionStatus.PAUSED], RecurringTransactionStatus.ACTIVE, "RESUME");
+  }
+
+  async advanceAfterLegacyRun(organizationId: string, actorUserId: string, id: string, occurrence: Date) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.recurringTransactionTemplate.findFirst({ where: { id, organizationId, transactionType: RecurringTransactionType.SALES_INVOICE }, include: templateInclude });
+      if (!existing) throw new NotFoundException("Recurring sales invoice template not found.");
+      if (existing.nextRunAt.getTime() !== occurrence.getTime()) return existing;
+      const next = nextOccurrence(this.toSchedule(this.mergeExisting(existing, { expectedVersion: existing.templateVersion })), localDateForInstant(occurrence, existing.timezone));
+      const updated = await tx.recurringTransactionTemplate.update({ where: { id }, data: { lastRunAt: occurrence, nextRunAt: next?.scheduledFor ?? existing.nextRunAt, status: next ? undefined : RecurringTransactionStatus.COMPLETED }, include: templateInclude });
+      await this.auditLog.log({ organizationId, actorUserId, action: "LEGACY_SCHEDULE_ADVANCE", entityType: AUDIT_ENTITY_TYPES.RECURRING_TRANSACTION_TEMPLATE, entityId: id, before: this.scheduleSnapshot(existing), after: this.scheduleSnapshot(updated) }, tx);
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   archive(organizationId: string, actorUserId: string, id: string) {
@@ -522,8 +547,23 @@ export class RecurringTemplateService {
     return { timeZone: dto.timezone!, frequency: dto.frequency, interval: dto.interval, anchorDate: dto.startDate, endDate: dto.endDate ?? null, dayOfMonth: dto.dayOfMonth ?? null, dayOfWeek: dto.dayOfWeek ?? null, monthOfYear: dto.monthOfYear ?? null };
   }
 
-  private scheduleChanged(dto: UpdateRecurringTransactionDto): boolean {
-    return ["timezone", "frequency", "interval", "startDate", "endDate", "dayOfMonth", "dayOfWeek", "monthOfYear", "catchUpPolicy"].some((key) => dto[key as keyof UpdateRecurringTransactionDto] !== undefined);
+  private scheduleChanged(existing: any, normalized: CreateRecurringTransactionDto): boolean {
+    const date = (value: unknown) => value instanceof Date ? value.toISOString().slice(0, 10) : value == null ? null : String(value).slice(0, 10);
+    return existing.timezone !== normalized.timezone || existing.frequency !== normalized.frequency || existing.interval !== normalized.interval
+      || date(existing.startDate) !== date(normalized.startDate) || date(existing.endDate) !== date(normalized.endDate)
+      || existing.dayOfMonth !== (normalized.dayOfMonth ?? null) || existing.dayOfWeek !== (normalized.dayOfWeek ?? null)
+      || existing.monthOfYear !== (normalized.monthOfYear ?? null) || existing.catchUpPolicy !== normalized.catchUpPolicy;
+  }
+
+  private firstOccurrenceNotBefore(schedule: RecurringSchedule, notBefore: Date) {
+    let occurrence = firstOccurrence(schedule);
+    for (let scanned = 0; occurrence.scheduledFor.getTime() < notBefore.getTime(); scanned += 1) {
+      if (scanned >= 10_000) throw new BadRequestException("Recurring schedule change exceeds the safe occurrence scan limit.");
+      const next = nextOccurrence(schedule, occurrence.localDate);
+      if (!next) throw new BadRequestException("Recurring schedule change must retain an occurrence on or after the current next run.");
+      occurrence = next;
+    }
+    return occurrence;
   }
 
   private auditSnapshot(template: any) { return { id: template.id, templateCode: template.templateCode, transactionType: template.transactionType, name: template.name, status: template.status, timezone: template.timezone, frequency: template.frequency, interval: template.interval, nextRunAt: template.nextRunAt, templateVersion: template.templateVersion, currencyCode: template.currencyCode, exchangeRatePolicy: template.exchangeRatePolicy, lineCount: Array.isArray(template.lines) ? template.lines.length : 0 }; }

@@ -20,6 +20,7 @@ describe("RecurringTransactionController permissions", () => {
     ["archive", PERMISSIONS.recurringTransactions.manage],
     ["reviewExpenseProposal", PERMISSIONS.recurringTransactions.review],
     ["readiness", PERMISSIONS.recurringTransactions.read],
+    ["catalogs", PERMISSIONS.recurringTransactions.manage],
   ] as const)("protects %s with its dedicated permission", (method, permission) => {
     expect(permissions(method)).toEqual([permission]);
   });

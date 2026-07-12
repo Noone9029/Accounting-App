@@ -59,10 +59,19 @@ export function canonicalOccurrence(localDate: string, timeZone: string): Recurr
     candidate = corrected;
   }
 
-  const canonical = new Date(candidate);
-  const observed = wallClockParts(canonical, timeZone);
+  let canonical = new Date(candidate);
+  let observed = wallClockParts(canonical, timeZone);
   if (observed.year !== parts.year || observed.month !== parts.month || observed.day !== parts.day || observed.hour !== 0 || observed.minute !== 0) {
-    throw new Error(`Local schedule date ${localDate} does not resolve to a deterministic midnight in ${timeZone}.`);
+    const scanStart = requestedWallClock - 18 * 60 * 60 * 1000;
+    const scanEnd = requestedWallClock + 30 * 60 * 60 * 1000;
+    let earliest: Date | null = null;
+    for (let instant = scanStart; instant <= scanEnd; instant += 60 * 1000) {
+      const scan = wallClockParts(new Date(instant), timeZone);
+      if (scan.year === parts.year && scan.month === parts.month && scan.day === parts.day) { earliest = new Date(instant); break; }
+    }
+    if (!earliest) throw new Error(`Local schedule date ${localDate} does not resolve in ${timeZone}.`);
+    canonical = earliest;
+    observed = wallClockParts(canonical, timeZone);
   }
 
   return { localDate, scheduledFor: canonical };
@@ -148,13 +157,17 @@ export function resolveDueOccurrences(input: ResolveDueOccurrencesInput): DueOcc
       throw new Error("Recurring catch-up exceeds the safe occurrence scan limit.");
     }
     const next = nextOccurrence(input.schedule, cursor.localDate);
-    if (input.catchUpPolicy === "GENERATE_ALL" && due.length >= input.limit) {
-      return {
-        occurrences: due,
-        skippedLocalDates: [],
-        nextLocalDate: next?.localDate ?? null,
-        hasMoreDue: Boolean(next && next.scheduledFor.getTime() <= input.now.getTime()),
-      };
+    if (due.length >= input.limit) {
+      const hasMoreDue = Boolean(next && next.scheduledFor.getTime() <= input.now.getTime());
+      if (hasMoreDue) {
+        const generateAll = input.catchUpPolicy === "GENERATE_ALL";
+        return {
+          occurrences: generateAll ? due : [],
+          skippedLocalDates: generateAll ? [] : due.map((occurrence) => occurrence.localDate),
+          nextLocalDate: next?.localDate ?? null,
+          hasMoreDue: true,
+        };
+      }
     }
     cursor = next;
   }

@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/ledger-system";
 import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
-import { apiBaseUrl, apiRequest } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
+import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import type { ImportEntityType, ImportJob, MigrationToolkitTemplatesResponse } from "@/lib/types";
 
 const ENTITY_OPTIONS: Array<{ value: ImportEntityType; label: string }> = [
@@ -25,6 +26,10 @@ const ENTITY_OPTIONS: Array<{ value: ImportEntityType; label: string }> = [
   { value: "SUPPLIERS", label: "Suppliers" },
   { value: "PRODUCTS_SERVICES", label: "Products and services" },
   { value: "CHART_OF_ACCOUNTS", label: "Chart of accounts" },
+  { value: "RECURRING_SALES_INVOICE_TEMPLATES", label: "Recurring sales invoice templates" },
+  { value: "RECURRING_PURCHASE_BILL_TEMPLATES", label: "Recurring purchase bill templates" },
+  { value: "RECURRING_EXPENSE_TEMPLATES", label: "Recurring expense proposal templates" },
+  { value: "RECURRING_JOURNAL_TEMPLATES", label: "Recurring manual journal templates" },
 ];
 
 export default function ImportExportSettingsPage() {
@@ -36,6 +41,7 @@ export default function ImportExportSettingsPage() {
   const [preview, setPreview] = useState<ImportJob | null>(null);
   const [reviewedJobId, setReviewedJobId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState<"template" | "export" | "runs" | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -111,6 +117,24 @@ export default function ImportExportSettingsPage() {
     }
   }
 
+  async function downloadCsv(kind: "template" | "export" | "runs") {
+    const entityType = kind === "runs" ? "RECURRING_TRANSACTION_RUNS" : selectedEntity;
+    const path = kind === "template"
+      ? `/migration-toolkit/templates/${entityType}.csv`
+      : `/migration-toolkit/exports/${entityType}.csv`;
+    const slug = entityType.toLowerCase().replace(/_/g, "-");
+    const filename = kind === "template" ? `${slug}-template.csv` : `${slug}-export.csv`;
+    setDownloading(kind);
+    setError("");
+    try {
+      await downloadAuthenticatedFile(path, filename);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Unable to download CSV.");
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   return (
     <LedgerPage>
       <LedgerPageHeader
@@ -157,8 +181,15 @@ export default function ImportExportSettingsPage() {
 
             <div className="mt-4 flex flex-wrap gap-3">
               <LedgerButton icon={Upload} onClick={() => void createPreview()} disabled={loading || !organizationId}>Preview CSV</LedgerButton>
-              <LedgerButton icon={Download} variant="secondary" href={`${apiBaseUrl}/migration-toolkit/templates/${selectedEntity}.csv`}>Download template</LedgerButton>
-              <LedgerButton icon={Download} variant="secondary" href={`${apiBaseUrl}/migration-toolkit/exports/${selectedEntity}.csv`}>Export CSV</LedgerButton>
+              <LedgerButton icon={Download} variant="secondary" onClick={() => void downloadCsv("template")} disabled={!organizationId || downloading !== null}>
+                {downloading === "template" ? "Downloading template..." : "Download template"}
+              </LedgerButton>
+              <LedgerButton icon={Download} variant="secondary" onClick={() => void downloadCsv("export")} disabled={!organizationId || downloading !== null}>
+                {downloading === "export" ? "Exporting CSV..." : "Export CSV"}
+              </LedgerButton>
+              <LedgerButton icon={Download} variant="secondary" onClick={() => void downloadCsv("runs")} disabled={!organizationId || downloading !== null}>
+                {downloading === "runs" ? "Exporting run history..." : "Export recurring run history"}
+              </LedgerButton>
             </div>
 
             {selectedTemplate ? (
