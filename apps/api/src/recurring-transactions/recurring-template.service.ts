@@ -283,10 +283,18 @@ export class RecurringTemplateService {
         currencyCode: normalized.currencyCode,
         exchangeRatePolicy: normalized.exchangeRatePolicy,
         fixedExchangeRate: normalized.fixedExchangeRate,
-        rateSnapshotId: normalized.rateSnapshotId,
-        partyId: normalized.partyId,
-        branchId: normalized.branchId,
-        paidThroughAccountId: normalized.paidThroughAccountId,
+        rateSnapshot: normalized.rateSnapshotId
+          ? { connect: { organizationId_id: { organizationId, id: normalized.rateSnapshotId } } }
+          : { disconnect: true },
+        party: normalized.partyId
+          ? { connect: { organizationId_id: { organizationId, id: normalized.partyId } } }
+          : { disconnect: true },
+        branch: normalized.branchId
+          ? { connect: { organizationId_id: { organizationId, id: normalized.branchId } } }
+          : { disconnect: true },
+        paidThroughAccount: normalized.paidThroughAccountId
+          ? { connect: { organizationId_id: { organizationId, id: normalized.paidThroughAccountId } } }
+          : { disconnect: true },
         paymentTermsDays: normalized.paymentTermsDays,
         reference: normalized.reference,
         notes: normalized.notes,
@@ -298,8 +306,8 @@ export class RecurringTemplateService {
         taxableTotal: prepared.taxableTotal,
         taxTotal: prepared.taxTotal,
         total: prepared.total,
-        updatedByUserId: actorUserId,
-        lines: dto.lines ? { create: prepared.lines.map((line) => ({ organizationId, ...line })) } : undefined,
+        updatedBy: { connect: { id: actorUserId } },
+        lines: dto.lines ? { create: prepared.lines } : undefined,
       };
       if (scheduleChanged) {
         updateData.nextRunAt = this.firstOccurrenceNotBefore(this.toSchedule(normalized), existing.nextRunAt).scheduledFor;
