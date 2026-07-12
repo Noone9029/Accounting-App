@@ -87,6 +87,15 @@ export const APP_ROUTES = [
     [PERMISSIONS.salesInvoices.view],
     { sidebarGroup: "Supporting workflows" },
   ),
+  route(
+    "accounting.recurringTransactions",
+    "Recurring transactions",
+    "/recurring-transactions",
+    "accounting",
+    "Unified recurring invoices, bills, expense proposals, and journals.",
+    [PERMISSIONS.recurringTransactions.read],
+    { shellVisible: true, sidebarGroup: "Automation" },
+  ),
   route("sales.deliveryNote.list", "Delivery notes", "/sales/delivery-notes", "sales", "Sales fulfillment delivery note list.", [PERMISSIONS.salesInvoices.view], {
     sidebarGroup: "Supporting workflows",
   }),
