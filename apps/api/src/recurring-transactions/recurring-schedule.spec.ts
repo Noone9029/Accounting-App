@@ -63,6 +63,18 @@ describe("recurring schedule", () => {
     ).toBe("2026-07-13");
   });
 
+  it("preserves the legacy Sunday-zero weekday contract", () => {
+    expect(
+      firstOccurrence({
+        ...monthly31,
+        frequency: "WEEKLY",
+        anchorDate: "2026-07-13",
+        dayOfMonth: null,
+        dayOfWeek: 0,
+      }).localDate,
+    ).toBe("2026-07-19");
+  });
+
   it("finds a clamped first month-end occurrence", () => {
     expect(firstOccurrence({ ...monthly31, anchorDate: "2026-02-01" }).localDate).toBe("2026-02-28");
   });

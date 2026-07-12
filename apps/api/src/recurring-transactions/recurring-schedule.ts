@@ -96,8 +96,8 @@ export function firstOccurrence(schedule: RecurringSchedule): RecurringOccurrenc
   let first = anchor;
 
   if (schedule.frequency === "WEEKLY" && schedule.dayOfWeek !== null) {
-    const anchorIsoDay = isoDayOfWeek(anchor);
-    const daysForward = (schedule.dayOfWeek - anchorIsoDay + 7) % 7;
+    const anchorDay = legacyDayOfWeek(anchor);
+    const daysForward = (schedule.dayOfWeek - anchorDay + 7) % 7;
     first = addCalendarDays(anchor, daysForward);
   } else if (schedule.frequency === "MONTHLY" || schedule.frequency === "QUARTERLY") {
     const desiredDay = schedule.dayOfMonth ?? anchor.day;
@@ -209,8 +209,8 @@ function validateSchedule(schedule: RecurringSchedule): void {
   if (schedule.dayOfMonth !== null && (!Number.isInteger(schedule.dayOfMonth) || schedule.dayOfMonth < 1 || schedule.dayOfMonth > 31)) {
     throw new Error("Recurring schedule day of month must be between 1 and 31.");
   }
-  if (schedule.dayOfWeek !== null && (!Number.isInteger(schedule.dayOfWeek) || schedule.dayOfWeek < 1 || schedule.dayOfWeek > 7)) {
-    throw new Error("Recurring schedule day of week must be between 1 and 7.");
+  if (schedule.dayOfWeek !== null && (!Number.isInteger(schedule.dayOfWeek) || schedule.dayOfWeek < 0 || schedule.dayOfWeek > 6)) {
+    throw new Error("Recurring schedule day of week must be between 0 and 6.");
   }
   if (schedule.monthOfYear !== null && (!Number.isInteger(schedule.monthOfYear) || schedule.monthOfYear < 1 || schedule.monthOfYear > 12)) {
     throw new Error("Recurring schedule month of year must be between 1 and 12.");
@@ -260,9 +260,8 @@ function dateInMonth(year: number, month: number, desiredDay: number): LocalDate
   return { year, month, day: Math.min(desiredDay, lastDay) };
 }
 
-function isoDayOfWeek(value: LocalDateParts): number {
-  const utcDay = new Date(Date.UTC(value.year, value.month - 1, value.day)).getUTCDay();
-  return utcDay === 0 ? 7 : utcDay;
+function legacyDayOfWeek(value: LocalDateParts): number {
+  return new Date(Date.UTC(value.year, value.month - 1, value.day)).getUTCDay();
 }
 
 function localDateAtInstant(value: Date, timeZone: string): string {
